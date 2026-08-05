@@ -13,15 +13,67 @@
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<div class="wrap">
 
-  <header class="hero">
-    <div class="halo" aria-hidden="true"></div>
+<!-- 背景の装飾。すべて自作の図形（公式素材ではない） -->
+<div class="bg-deco" aria-hidden="true">
+  <svg class="deco deco-a" viewBox="0 0 200 200"><polygon points="100,0 200,100 100,200 0,100"/></svg>
+  <svg class="deco deco-b" viewBox="0 0 200 200"><circle cx="100" cy="100" r="96" fill="none" stroke-width="8"/></svg>
+  <svg class="deco deco-c" viewBox="0 0 200 200"><polygon points="100,0 200,100 100,200 0,100"/></svg>
+</div>
+
+<header class="hero">
+  <div class="hero-inner">
+
+    <!-- シッテムの箱をイメージした図案（幾何形状のみで構成） -->
+    <svg class="tablet" viewBox="0 0 240 200" aria-hidden="true">
+      <defs>
+        <linearGradient id="halo" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0"   stop-color="#a8e9ff"/>
+          <stop offset=".55" stop-color="#4dc3f0"/>
+          <stop offset="1"   stop-color="#1a8fd0"/>
+        </linearGradient>
+        <linearGradient id="screen" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#e8f7ff"/>
+          <stop offset="1" stop-color="#b6e5fb"/>
+        </linearGradient>
+        <filter id="glow" x="-60%" y="-60%" width="220%" height="220%">
+          <feGaussianBlur stdDeviation="5" result="b"/>
+          <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+        </filter>
+      </defs>
+
+      <!-- ヘイロー -->
+      <g class="halo-g" filter="url(#glow)">
+        <ellipse cx="120" cy="34" rx="52" ry="15" fill="none" stroke="url(#halo)" stroke-width="7"/>
+        <ellipse cx="120" cy="34" rx="52" ry="15" fill="none" stroke="#dff5ff" stroke-width="2" opacity=".9"/>
+      </g>
+
+      <!-- 箱本体（角を斜めに落とした板） -->
+      <g class="tablet-body">
+        <path d="M52 74 h136 l24 24 v78 a10 10 0 0 1-10 10 H62 a10 10 0 0 1-10-10 V74 z"
+              fill="url(#screen)" stroke="#1a8fd0" stroke-width="3" stroke-linejoin="round"/>
+        <path d="M188 74 l24 24 h-24 z" fill="#1a8fd0" opacity=".35"/>
+        <!-- 画面の中の線（情報が並んでいる感じ） -->
+        <rect x="70" y="96"  width="86" height="7" rx="3.5" fill="#1a8fd0" opacity=".55"/>
+        <rect x="70" y="112" width="120" height="7" rx="3.5" fill="#1a8fd0" opacity=".33"/>
+        <rect x="70" y="128" width="64"  height="7" rx="3.5" fill="#1a8fd0" opacity=".33"/>
+        <rect x="70" y="150" width="44"  height="14" rx="7" fill="#4dc3f0"/>
+        <rect x="122" y="150" width="30" height="14" rx="7" fill="#ffd233"/>
+      </g>
+    </svg>
+
     <h1>アロナの使い方</h1>
-    <p>ブルーアーカイブのお手伝いをする Discord ボットです</p>
-  </header>
+    <p class="lead">ブルーアーカイブのお手伝いをする Discord ボットです</p>
+  </div>
+  <div class="hero-cut" aria-hidden="true"></div>
+</header>
 
-  <h2><span>コマンド</span></h2>
+<main class="wrap">
+
+  <h2 class="sec">
+    <svg class="sec-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12 L9 7 L9 10 L20 10 L20 14 L9 14 L9 17 Z"/></svg>
+    <span>コマンド</span>
+  </h2>
 
   <div class="card">
     <div class="cmd">/g</div>
@@ -42,7 +94,10 @@
     <div class="desc">使えるコマンドの一覧を出します。迷ったらこれです。</div>
   </div>
 
-  <h2><span>メッセージから呼ぶもの</span></h2>
+  <h2 class="sec">
+    <svg class="sec-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4 h14 v12 H10 l-5 5 z"/></svg>
+    <span>メッセージから呼ぶもの</span>
+  </h2>
 
   <div class="card is-context">
     <div class="cmd">リマインダー設定</div>
@@ -54,13 +109,14 @@
     </div>
   </div>
 
-  <div class="note">
-    予約したあとに出る「リマインダー解除」ボタンで取り消せます。
-  </div>
+  <div class="note">予約したあとに出る「リマインダー解除」ボタンで取り消せます。</div>
 
-  <h2><span>お知らせ</span></h2>
+  <h2 class="sec">
+    <svg class="sec-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 a6 6 0 0 1 6 6 v4 l2 4 H4 l2-4 V9 a6 6 0 0 1 6-6 z M9 19 h6 a3 3 0 0 1-6 0 z"/></svg>
+    <span>お知らせ</span>
+  </h2>
 
-  <p>次の 3 つを、チャンネルを選んで受け取れます。</p>
+  <p class="para">次の 3 つを、チャンネルを選んで受け取れます。</p>
 
   <ul class="list">
     <li><strong>4 時のまとめ</strong> — 毎朝 4 時。その日から始まるイベントやメンテナンスに触れます</li>
@@ -82,7 +138,10 @@
     招待しただけでは何も投稿しません。<strong>既定はすべてオフ</strong>です。
   </div>
 
-  <h2><span>知っておくと困らないこと</span></h2>
+  <h2 class="sec">
+    <svg class="sec-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 a10 10 0 1 0 0 20 a10 10 0 0 0 0-20 z M11 7 h2 v2 h-2 z M11 11 h2 v6 h-2 z"/></svg>
+    <span>知っておくと困らないこと</span>
+  </h2>
 
   <ul class="list">
     <li><strong>返事が見える範囲</strong> — <code>/settings</code> と <code>/h</code> は自分にだけ見えます。ガチャや攻略情報はチャンネル全体に出ます</li>
@@ -92,14 +151,21 @@
   </ul>
 
   <footer>
-    不具合・要望は <strong>@0r.not</strong> まで
+    <svg class="emblem" viewBox="0 0 64 64" aria-hidden="true">
+      <path d="M32 4 L58 14 v20 c0 14-11 22-26 26 C17 56 6 48 6 34 V14 z"
+            fill="none" stroke-width="3"/>
+      <ellipse cx="32" cy="26" rx="16" ry="5" fill="none" stroke-width="3"/>
+      <path d="M22 38 h20 l-4 8 H26 z" />
+    </svg>
+    <p>不具合・要望は <strong>@0r.not</strong> まで</p>
   </footer>
 
   <p class="disclaimer">
-    このページはファンによる非公式のものです。<br>
+    このページはファンによる非公式のものです。掲載している図案はすべて独自に制作したもので、
+    公式素材のコピー・トレースは使用していません。<br>
     「ブルーアーカイブ」は Nexon Games / Yostar の作品で、当ページとは関係ありません。
   </p>
 
-</div>
+</main>
 </body>
 </html>

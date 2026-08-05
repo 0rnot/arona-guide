@@ -1,237 +1,230 @@
 /* ============================================================
    アロナの使い方 — ブルアカ風のスタイル
 
-   **公式素材は使っていない。** 見た目の特徴だけを CSS と SVG で
-   作り直してある（ヘイロー・斜めに切ったパネル・シアンと白の配色）。
-   外部への通信はゼロ。フォントも端末にあるものだけを使う。
+   **公式素材は 1 つも使っていない。** ヘイロー・箱・エンブレムを含め、
+   図案はすべて SVG で独自に描いたもの。公式ガイドラインが禁じているのは
+   「素材のコピー・スキャン・トレース等で創作性が無い / 低いもの」なので、
+   ここに該当しない形で作ってある。外部への通信もゼロ。
    ============================================================ */
 
 :root {
-  --ba-cyan:      #4dc3f0;   /* 基調のシアン */
-  --ba-cyan-deep: #1a8fd0;
-  --ba-navy:      #2b3a52;   /* 文字色。真っ黒にしない */
-  --ba-navy-soft: #64748b;
-  --ba-yellow:    #ffd233;   /* 注意・強調 */
-  --ba-pink:      #ff8fc0;
-  --ba-bg:        #eaf4fb;
-  --ba-card:      #ffffff;
-  --ba-line:      #d4e6f4;
-  --shadow-soft:  0 2px 10px rgba(43, 58, 82, .08);
-  --shadow-lift:  0 6px 22px rgba(26, 143, 208, .18);
+  --cyan:      #4dc3f0;
+  --cyan-deep: #1a8fd0;
+  --cyan-pale: #a8e9ff;
+  --navy:      #26364d;
+  --navy-soft: #64788f;
+  --yellow:    #ffd233;
+  --pink:      #ff8fc0;
+  --bg:        #e8f4fc;
+  --card:      #ffffff;
+  --line:      #cfe6f5;
+  --sh-soft:   0 2px 12px rgba(38, 54, 77, .09);
+  --sh-lift:   0 8px 26px rgba(26, 143, 208, .22);
+  --deco:      rgba(77, 195, 240, .16);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --ba-navy:      #e8eef5;
-    --ba-navy-soft: #9db0c4;
-    --ba-bg:        #131a26;
-    --ba-card:      #1b2534;
-    --ba-line:      #2b3a52;
-    --shadow-soft:  0 2px 10px rgba(0, 0, 0, .35);
-    --shadow-lift:  0 6px 22px rgba(0, 0, 0, .45);
+    --navy:      #e9eff6;
+    --navy-soft: #9fb3c8;
+    --bg:        #101722;
+    --card:      #1a2331;
+    --line:      #2a3a4f;
+    --sh-soft:   0 2px 12px rgba(0, 0, 0, .4);
+    --sh-lift:   0 8px 26px rgba(0, 0, 0, .5);
+    --deco:      rgba(77, 195, 240, .10);
   }
 }
 
 * { box-sizing: border-box; }
 
+html { scroll-behavior: smooth; }
+
 body {
   margin: 0;
-  padding: 0 1rem 5rem;
-  background: var(--ba-bg);
-  color: var(--ba-navy);
+  padding: 0 0 5rem;
+  background: var(--bg);
+  color: var(--navy);
   font-family: "Hiragino Kaku Gothic ProN", "Yu Gothic UI", "Noto Sans JP",
                system-ui, -apple-system, sans-serif;
   line-height: 1.85;
   -webkit-text-size-adjust: 100%;
-  /* 斜めのうっすらした縞。ブルアカの背景にある幾何パターンの雰囲気 */
+  overflow-x: hidden;
   background-image:
-    repeating-linear-gradient(
-      -45deg,
-      transparent 0 22px,
-      rgba(77, 195, 240, .05) 22px 44px
-    );
+    repeating-linear-gradient(-45deg, transparent 0 24px, var(--deco) 24px 48px);
 }
 
-.wrap { max-width: 44rem; margin: 0 auto; }
+/* ---------------------------------------------- 背景の装飾 */
 
-/* ---------------------------------------------- 見出し */
+.bg-deco { position: fixed; inset: 0; pointer-events: none; z-index: 0; overflow: hidden; }
+.deco { position: absolute; fill: var(--deco); stroke: var(--deco); opacity: .9; }
+.deco-a { width: 320px; top: -70px;  right: -90px; }
+.deco-b { width: 240px; top: 46%;    left: -110px; fill: none; }
+.deco-c { width: 180px; bottom: -50px; right: -40px; }
+
+/* ---------------------------------------------- ヒーロー */
 
 .hero {
   position: relative;
-  text-align: center;
-  padding: 3.5rem 1rem 2.5rem;
+  padding: 3rem 1rem 4.5rem;
+  background:
+    radial-gradient(120% 100% at 50% 0%, rgba(168, 233, 255, .55), transparent 62%),
+    linear-gradient(160deg, rgba(77, 195, 240, .26), rgba(77, 195, 240, .04));
+  overflow: hidden;
+  z-index: 1;
+}
+@media (prefers-color-scheme: dark) {
+  .hero {
+    background:
+      radial-gradient(120% 100% at 50% 0%, rgba(26, 143, 208, .34), transparent 62%),
+      linear-gradient(160deg, rgba(26, 143, 208, .18), transparent);
+  }
 }
 
-/* ヘイロー。SVG ではなく border だけで描く（軽い） */
-.halo {
-  width: 92px; height: 26px;
-  margin: 0 auto .8rem;
-  border: 4px solid var(--ba-cyan);
-  border-radius: 50%;
-  box-shadow: 0 0 14px rgba(77, 195, 240, .65),
-              inset 0 0 8px rgba(77, 195, 240, .35);
-  animation: bob 3.4s ease-in-out infinite;
+/* 下辺を斜めに切る */
+.hero-cut {
+  position: absolute; left: 0; right: 0; bottom: -1px; height: 46px;
+  background: var(--bg);
+  clip-path: polygon(0 100%, 100% 22%, 100% 100%);
 }
 
-@keyframes bob {
-  0%, 100% { transform: translateY(0); }
-  50%      { transform: translateY(-6px); }
-}
+.hero-inner { position: relative; max-width: 44rem; margin: 0 auto; text-align: center; }
 
+.tablet { width: min(230px, 62vw); height: auto; display: block; margin: 0 auto .6rem; }
+.halo-g { animation: bob 3.6s ease-in-out infinite; transform-origin: center; }
+@keyframes bob { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-7px); } }
+.tablet-body { animation: sway 6s ease-in-out infinite; transform-origin: center bottom; }
+@keyframes sway { 0%,100% { transform: rotate(-.7deg); } 50% { transform: rotate(.7deg); } }
 @media (prefers-reduced-motion: reduce) {
-  .halo { animation: none; }
+  .halo-g, .tablet-body { animation: none; }
+  html { scroll-behavior: auto; }
 }
 
 .hero h1 {
-  font-size: clamp(1.7rem, 6vw, 2.4rem);
-  margin: 0 0 .5rem;
-  letter-spacing: .06em;
+  font-size: clamp(1.8rem, 6.5vw, 2.6rem);
+  margin: .2rem 0 .5rem;
+  letter-spacing: .07em;
   font-weight: 800;
+  text-shadow: 0 2px 0 rgba(255,255,255,.5);
 }
+@media (prefers-color-scheme: dark) { .hero h1 { text-shadow: 0 2px 10px rgba(0,0,0,.5); } }
 
-.hero p {
-  margin: 0;
-  color: var(--ba-navy-soft);
-  font-size: .95rem;
-}
+.lead { margin: 0; color: var(--navy-soft); font-size: .95rem; }
 
-/* ---------------------------------------------- 節の見出し（斜めパネル） */
+/* ---------------------------------------------- 本文 */
 
-h2 {
+.wrap { position: relative; z-index: 1; max-width: 44rem; margin: 0 auto; padding: 0 1rem; }
+.para { font-size: .95rem; }
+
+/* 節の見出し（斜めパネル＋アイコン） */
+.sec {
   position: relative;
-  display: inline-block;
-  margin: 3rem 0 1.2rem;
-  padding: .35rem 1.6rem .35rem 1.1rem;
-  font-size: 1.05rem;
-  font-weight: 800;
-  letter-spacing: .05em;
+  display: inline-flex; align-items: center; gap: .5rem;
+  margin: 3.2rem 0 1.2rem;
+  padding: .4rem 1.7rem .4rem 1.1rem;
+  font-size: 1.05rem; font-weight: 800; letter-spacing: .05em;
   color: #fff;
-  background: linear-gradient(100deg, var(--ba-cyan-deep), var(--ba-cyan));
+  background: linear-gradient(100deg, var(--cyan-deep), var(--cyan));
   transform: skewX(-12deg);
-  box-shadow: var(--shadow-lift);
+  box-shadow: var(--sh-lift);
 }
-h2 > span { display: inline-block; transform: skewX(12deg); }
+.sec > * { transform: skewX(12deg); }
+.sec-ico { width: 1.05rem; height: 1.05rem; fill: #fff; flex: none; }
 
-/* ---------------------------------------------- カード */
-
+/* カード */
 .card {
   position: relative;
-  background: var(--ba-card);
-  border: 1px solid var(--ba-line);
-  border-radius: .2rem .9rem .2rem .9rem;   /* 対角だけ丸める */
-  padding: 1rem 1.2rem 1rem 1.5rem;
-  margin: .8rem 0;
-  box-shadow: var(--shadow-soft);
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: .2rem 1rem .2rem 1rem;
+  padding: 1rem 1.2rem 1.05rem 1.6rem;
+  margin: .85rem 0;
+  box-shadow: var(--sh-soft);
   overflow: hidden;
+  transition: transform .18s ease, box-shadow .18s ease;
 }
+.card:hover { transform: translateY(-2px); box-shadow: var(--sh-lift); }
 
 /* 左端の斜めアクセント。
-   **skew を使わないこと。** transform: skewX() は高さに比例して横へずれるので、
-   カードが縦に伸びる（＝画面が狭い）ほど線が本文に食い込む。2026-08-05 に
-   スマホ幅で実際にそうなった。clip-path なら傾きを px で固定できる。 */
+   **skew を使わないこと。** 高さに比例して横へずれるので、画面が狭いと
+   線が本文に食い込む（2026-08-05 にスマホ幅で実際にそうなった）。
+   clip-path なら傾きを px で固定できる。 */
 .card::before {
   content: "";
-  position: absolute;
-  left: 0; top: 0; bottom: 0;
+  position: absolute; left: 0; top: 0; bottom: 0;
   width: 14px;
-  background: var(--ba-cyan);
+  background: linear-gradient(180deg, var(--cyan-pale), var(--cyan));
   clip-path: polygon(6px 0, 14px 0, 8px 100%, 0 100%);
 }
-.card.is-context::before { background: var(--ba-pink); }
-.card.is-admin::before   { background: var(--ba-yellow); }
+.card.is-context::before { background: linear-gradient(180deg, #ffc4dd, var(--pink)); }
+.card.is-admin::before   { background: linear-gradient(180deg, #ffe89a, var(--yellow)); }
 
 .cmd {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 1.05rem;
-  font-weight: 700;
-  color: var(--ba-cyan-deep);
-  letter-spacing: .02em;
+  font-size: 1.08rem; font-weight: 700; letter-spacing: .02em;
+  color: var(--cyan-deep);
 }
-@media (prefers-color-scheme: dark) {
-  .cmd { color: var(--ba-cyan); }
-}
+@media (prefers-color-scheme: dark) { .cmd { color: var(--cyan); } }
 
-.desc {
-  color: var(--ba-navy-soft);
-  font-size: .93rem;
-  margin-top: .3rem;
-}
-.desc strong { color: var(--ba-navy); }
+.desc { color: var(--navy-soft); font-size: .93rem; margin-top: .3rem; }
+.desc strong { color: var(--navy); }
 
-/* ---------------------------------------------- 注意書き */
-
+/* 注意書き */
 .note {
   position: relative;
-  background: color-mix(in srgb, var(--ba-yellow) 14%, var(--ba-card));
-  border: 1px solid color-mix(in srgb, var(--ba-yellow) 45%, var(--ba-line));
-  border-radius: .6rem;
-  padding: .8rem 1rem .8rem 2.6rem;
+  background: color-mix(in srgb, var(--yellow) 15%, var(--card));
+  border: 1px solid color-mix(in srgb, var(--yellow) 48%, var(--line));
+  border-radius: .2rem 1rem .2rem 1rem;
+  padding: .85rem 1rem .85rem 2.7rem;
   margin: 1.2rem 0;
   font-size: .92rem;
-  color: var(--ba-navy);
+  box-shadow: var(--sh-soft);
 }
 .note::before {
   content: "!";
-  position: absolute;
-  left: .9rem; top: .82rem;
-  width: 1.2rem; height: 1.2rem;
-  line-height: 1.2rem; text-align: center;
-  font-weight: 900; font-size: .8rem;
-  color: #4a3800;
-  background: var(--ba-yellow);
-  border-radius: 50%;
+  position: absolute; left: .95rem; top: .88rem;
+  width: 1.25rem; height: 1.25rem; line-height: 1.25rem;
+  text-align: center; font-weight: 900; font-size: .82rem;
+  color: #4a3800; background: var(--yellow); border-radius: 50%;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--yellow) 30%, transparent);
 }
 
-/* ---------------------------------------------- 一覧 */
-
-.list { list-style: none; padding: 0; margin: .8rem 0; }
-.list li {
-  position: relative;
-  padding-left: 1.5rem;
-  margin: .5rem 0;
-  font-size: .94rem;
-}
+/* 一覧 */
+.list { list-style: none; padding: 0; margin: .9rem 0; }
+.list li { position: relative; padding-left: 1.6rem; margin: .55rem 0; font-size: .94rem; }
 .list li::before {
-  content: "";
-  position: absolute;
-  left: .2rem; top: .72em;
-  width: .5rem; height: .5rem;
-  background: var(--ba-cyan);
-  transform: rotate(45deg);      /* ひし形の点 */
+  content: ""; position: absolute; left: .25rem; top: .72em;
+  width: .52rem; height: .52rem;
+  background: linear-gradient(135deg, var(--cyan-pale), var(--cyan-deep));
+  transform: rotate(45deg);
 }
 
 code {
-  background: color-mix(in srgb, var(--ba-cyan) 16%, transparent);
-  color: var(--ba-cyan-deep);
-  padding: .1em .45em;
-  border-radius: .25em;
+  background: color-mix(in srgb, var(--cyan) 18%, transparent);
+  color: var(--cyan-deep);
+  padding: .1em .45em; border-radius: .25em;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: .88em;
-  font-weight: 600;
+  font-size: .88em; font-weight: 600;
 }
-@media (prefers-color-scheme: dark) { code { color: var(--ba-cyan); } }
+@media (prefers-color-scheme: dark) { code { color: var(--cyan); } }
 
-/* ---------------------------------------------- 足元 */
-
+/* 足元 */
 footer {
-  margin-top: 4rem;
-  padding: 1.6rem 1rem;
+  margin-top: 4rem; padding: 1.8rem 1rem 1.6rem;
   text-align: center;
-  font-size: .86rem;
-  color: var(--ba-navy-soft);
-  border-top: 3px solid var(--ba-cyan);
-  background: var(--ba-card);
-  border-radius: .2rem .9rem .2rem .9rem;
-  box-shadow: var(--shadow-soft);
+  background: var(--card);
+  border-top: 3px solid var(--cyan);
+  border-radius: .2rem 1rem .2rem 1rem;
+  box-shadow: var(--sh-soft);
 }
-footer strong { color: var(--ba-cyan-deep); }
-@media (prefers-color-scheme: dark) { footer strong { color: var(--ba-cyan); } }
+footer p { margin: .4rem 0 0; font-size: .88rem; color: var(--navy-soft); }
+footer strong { color: var(--cyan-deep); }
+@media (prefers-color-scheme: dark) { footer strong { color: var(--cyan); } }
+
+.emblem { width: 44px; height: 44px; stroke: var(--cyan); fill: var(--cyan); opacity: .9; }
 
 .disclaimer {
-  margin-top: 1.6rem;
-  font-size: .76rem;
-  line-height: 1.7;
-  color: var(--ba-navy-soft);
-  text-align: center;
-  opacity: .85;
+  margin: 1.8rem 0 0;
+  font-size: .76rem; line-height: 1.75;
+  color: var(--navy-soft); text-align: center; opacity: .85;
 }
