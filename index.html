@@ -4,67 +4,24 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>アロナの使い方</title>
-<style>
-  :root {
-    --bg: #f7f8fa; --fg: #1c1e21; --muted: #5b6470;
-    --card: #ffffff; --line: #e3e6ea; --accent: #3b7ddd; --code-bg: #eef1f5;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --bg: #16181c; --fg: #e6e8eb; --muted: #9aa4b2;
-      --card: #1e2126; --line: #2c3138; --accent: #6ea8fe; --code-bg: #24282e;
-    }
-  }
-  * { box-sizing: border-box; }
-  body {
-    margin: 0; padding: 2rem 1rem 4rem;
-    background: var(--bg); color: var(--fg);
-    font-family: system-ui, -apple-system, "Hiragino Kaku Gothic ProN", "Noto Sans JP", sans-serif;
-    line-height: 1.8; -webkit-text-size-adjust: 100%;
-  }
-  .wrap { max-width: 46rem; margin: 0 auto; }
-  header { text-align: center; margin-bottom: 3rem; }
-  h1 { font-size: 1.9rem; margin: 0 0 .4rem; letter-spacing: .02em; }
-  .lead { color: var(--muted); margin: 0; font-size: .95rem; }
-  h2 {
-    font-size: 1.15rem; margin: 2.6rem 0 1rem; padding-bottom: .5rem;
-    border-bottom: 2px solid var(--line);
-  }
-  .card {
-    background: var(--card); border: 1px solid var(--line); border-radius: .7rem;
-    padding: 1rem 1.2rem; margin: .7rem 0;
-  }
-  .cmd {
-    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-    font-weight: 600; color: var(--accent); font-size: 1rem;
-  }
-  .desc { color: var(--muted); font-size: .92rem; margin-top: .25rem; }
-  code {
-    background: var(--code-bg); padding: .12em .4em; border-radius: .3em;
-    font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .9em;
-  }
-  .note {
-    border-left: 3px solid var(--accent); padding: .1rem 0 .1rem 1rem;
-    margin: 1rem 0; color: var(--muted); font-size: .92rem;
-  }
-  ul { padding-left: 1.3rem; }
-  li { margin: .35rem 0; }
-  footer {
-    margin-top: 3.5rem; padding-top: 1.2rem; border-top: 1px solid var(--line);
-    color: var(--muted); font-size: .85rem; text-align: center;
-  }
-  a { color: var(--accent); }
-</style>
+<meta name="description" content="ブルーアーカイブのお手伝いをする Discord ボット「アロナ」の使い方。コマンド一覧と通知の設定方法。">
+<meta name="theme-color" content="#4dc3f0">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<meta property="og:title" content="アロナの使い方">
+<meta property="og:description" content="コマンド一覧と、お知らせの設定方法">
+<meta property="og:type" content="website">
+<link rel="stylesheet" href="style.css">
 </head>
 <body>
 <div class="wrap">
 
-  <header>
+  <header class="hero">
+    <div class="halo" aria-hidden="true"></div>
     <h1>アロナの使い方</h1>
-    <p class="lead">ブルーアーカイブのお手伝いをする Discord ボットです</p>
+    <p>ブルーアーカイブのお手伝いをする Discord ボットです</p>
   </header>
 
-  <h2>コマンド</h2>
+  <h2><span>コマンド</span></h2>
 
   <div class="card">
     <div class="cmd">/g</div>
@@ -85,9 +42,9 @@
     <div class="desc">使えるコマンドの一覧を出します。迷ったらこれです。</div>
   </div>
 
-  <h2>メッセージから呼ぶもの</h2>
+  <h2><span>メッセージから呼ぶもの</span></h2>
 
-  <div class="card">
+  <div class="card is-context">
     <div class="cmd">リマインダー設定</div>
     <div class="desc">
       <strong>これはスラッシュコマンドではありません。</strong>
@@ -101,17 +58,17 @@
     予約したあとに出る「リマインダー解除」ボタンで取り消せます。
   </div>
 
-  <h2>お知らせ（サーバーごとに設定）</h2>
+  <h2><span>お知らせ</span></h2>
 
   <p>次の 3 つを、チャンネルを選んで受け取れます。</p>
 
-  <ul>
+  <ul class="list">
     <li><strong>4 時のまとめ</strong> — 毎朝 4 時。その日から始まるイベントやメンテナンスに触れます</li>
     <li><strong>公式 X の更新通知</strong> — 公式アカウントの投稿を拾って流します</li>
     <li><strong>総力戦・大決戦のリマインド</strong> — 開催の開始と、終了の前日</li>
   </ul>
 
-  <div class="card">
+  <div class="card is-admin">
     <div class="cmd">/settings</div>
     <div class="desc">
       項目ごとに投稿先チャンネルと ON / OFF を決められます。
@@ -121,13 +78,13 @@
   </div>
 
   <div class="note">
-    使えるのは<strong>「サーバー管理」の権限を持つ人</strong>だけです。<br>
+    使えるのは<strong>「サーバー管理」の権限を持つ人</strong>だけです。
     招待しただけでは何も投稿しません。<strong>既定はすべてオフ</strong>です。
   </div>
 
-  <h2>知っておくと困らないこと</h2>
+  <h2><span>知っておくと困らないこと</span></h2>
 
-  <ul>
+  <ul class="list">
     <li><strong>返事が見える範囲</strong> — <code>/settings</code> と <code>/h</code> は自分にだけ見えます。ガチャや攻略情報はチャンネル全体に出ます</li>
     <li><strong>攻略情報は少し時間がかかります</strong> — 最新の情報を検索してからまとめるためです</li>
     <li><strong>ボーダーは開催中だけ動きます</strong> — 期間外は前回の最終結果を表示します</li>
@@ -137,6 +94,11 @@
   <footer>
     不具合・要望は <strong>@0r.not</strong> まで
   </footer>
+
+  <p class="disclaimer">
+    このページはファンによる非公式のものです。<br>
+    「ブルーアーカイブ」は Nexon Games / Yostar の作品で、当ページとは関係ありません。
+  </p>
 
 </div>
 </body>

@@ -1,0 +1,235 @@
+/* ============================================================
+   アロナの使い方 — ブルアカ風のスタイル
+
+   **公式素材は使っていない。** 見た目の特徴だけを CSS と SVG で
+   作り直してある（ヘイロー・斜めに切ったパネル・シアンと白の配色）。
+   外部への通信はゼロ。フォントも端末にあるものだけを使う。
+   ============================================================ */
+
+:root {
+  --ba-cyan:      #4dc3f0;   /* 基調のシアン */
+  --ba-cyan-deep: #1a8fd0;
+  --ba-navy:      #2b3a52;   /* 文字色。真っ黒にしない */
+  --ba-navy-soft: #64748b;
+  --ba-yellow:    #ffd233;   /* 注意・強調 */
+  --ba-pink:      #ff8fc0;
+  --ba-bg:        #eaf4fb;
+  --ba-card:      #ffffff;
+  --ba-line:      #d4e6f4;
+  --shadow-soft:  0 2px 10px rgba(43, 58, 82, .08);
+  --shadow-lift:  0 6px 22px rgba(26, 143, 208, .18);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ba-navy:      #e8eef5;
+    --ba-navy-soft: #9db0c4;
+    --ba-bg:        #131a26;
+    --ba-card:      #1b2534;
+    --ba-line:      #2b3a52;
+    --shadow-soft:  0 2px 10px rgba(0, 0, 0, .35);
+    --shadow-lift:  0 6px 22px rgba(0, 0, 0, .45);
+  }
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  padding: 0 1rem 5rem;
+  background: var(--ba-bg);
+  color: var(--ba-navy);
+  font-family: "Hiragino Kaku Gothic ProN", "Yu Gothic UI", "Noto Sans JP",
+               system-ui, -apple-system, sans-serif;
+  line-height: 1.85;
+  -webkit-text-size-adjust: 100%;
+  /* 斜めのうっすらした縞。ブルアカの背景にある幾何パターンの雰囲気 */
+  background-image:
+    repeating-linear-gradient(
+      -45deg,
+      transparent 0 22px,
+      rgba(77, 195, 240, .05) 22px 44px
+    );
+}
+
+.wrap { max-width: 44rem; margin: 0 auto; }
+
+/* ---------------------------------------------- 見出し */
+
+.hero {
+  position: relative;
+  text-align: center;
+  padding: 3.5rem 1rem 2.5rem;
+}
+
+/* ヘイロー。SVG ではなく border だけで描く（軽い） */
+.halo {
+  width: 92px; height: 26px;
+  margin: 0 auto .8rem;
+  border: 4px solid var(--ba-cyan);
+  border-radius: 50%;
+  box-shadow: 0 0 14px rgba(77, 195, 240, .65),
+              inset 0 0 8px rgba(77, 195, 240, .35);
+  animation: bob 3.4s ease-in-out infinite;
+}
+
+@keyframes bob {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-6px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .halo { animation: none; }
+}
+
+.hero h1 {
+  font-size: clamp(1.7rem, 6vw, 2.4rem);
+  margin: 0 0 .5rem;
+  letter-spacing: .06em;
+  font-weight: 800;
+}
+
+.hero p {
+  margin: 0;
+  color: var(--ba-navy-soft);
+  font-size: .95rem;
+}
+
+/* ---------------------------------------------- 節の見出し（斜めパネル） */
+
+h2 {
+  position: relative;
+  display: inline-block;
+  margin: 3rem 0 1.2rem;
+  padding: .35rem 1.6rem .35rem 1.1rem;
+  font-size: 1.05rem;
+  font-weight: 800;
+  letter-spacing: .05em;
+  color: #fff;
+  background: linear-gradient(100deg, var(--ba-cyan-deep), var(--ba-cyan));
+  transform: skewX(-12deg);
+  box-shadow: var(--shadow-lift);
+}
+h2 > span { display: inline-block; transform: skewX(12deg); }
+
+/* ---------------------------------------------- カード */
+
+.card {
+  position: relative;
+  background: var(--ba-card);
+  border: 1px solid var(--ba-line);
+  border-radius: .2rem .9rem .2rem .9rem;   /* 対角だけ丸める */
+  padding: 1rem 1.2rem 1rem 1.5rem;
+  margin: .8rem 0;
+  box-shadow: var(--shadow-soft);
+  overflow: hidden;
+}
+
+/* 左端の斜めアクセント */
+.card::before {
+  content: "";
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 7px;
+  background: var(--ba-cyan);
+  transform: skewX(-10deg);
+  transform-origin: bottom left;
+}
+.card.is-context::before { background: var(--ba-pink); }
+.card.is-admin::before   { background: var(--ba-yellow); }
+
+.cmd {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--ba-cyan-deep);
+  letter-spacing: .02em;
+}
+@media (prefers-color-scheme: dark) {
+  .cmd { color: var(--ba-cyan); }
+}
+
+.desc {
+  color: var(--ba-navy-soft);
+  font-size: .93rem;
+  margin-top: .3rem;
+}
+.desc strong { color: var(--ba-navy); }
+
+/* ---------------------------------------------- 注意書き */
+
+.note {
+  position: relative;
+  background: color-mix(in srgb, var(--ba-yellow) 14%, var(--ba-card));
+  border: 1px solid color-mix(in srgb, var(--ba-yellow) 45%, var(--ba-line));
+  border-radius: .6rem;
+  padding: .8rem 1rem .8rem 2.6rem;
+  margin: 1.2rem 0;
+  font-size: .92rem;
+  color: var(--ba-navy);
+}
+.note::before {
+  content: "!";
+  position: absolute;
+  left: .9rem; top: .82rem;
+  width: 1.2rem; height: 1.2rem;
+  line-height: 1.2rem; text-align: center;
+  font-weight: 900; font-size: .8rem;
+  color: #4a3800;
+  background: var(--ba-yellow);
+  border-radius: 50%;
+}
+
+/* ---------------------------------------------- 一覧 */
+
+.list { list-style: none; padding: 0; margin: .8rem 0; }
+.list li {
+  position: relative;
+  padding-left: 1.5rem;
+  margin: .5rem 0;
+  font-size: .94rem;
+}
+.list li::before {
+  content: "";
+  position: absolute;
+  left: .2rem; top: .72em;
+  width: .5rem; height: .5rem;
+  background: var(--ba-cyan);
+  transform: rotate(45deg);      /* ひし形の点 */
+}
+
+code {
+  background: color-mix(in srgb, var(--ba-cyan) 16%, transparent);
+  color: var(--ba-cyan-deep);
+  padding: .1em .45em;
+  border-radius: .25em;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: .88em;
+  font-weight: 600;
+}
+@media (prefers-color-scheme: dark) { code { color: var(--ba-cyan); } }
+
+/* ---------------------------------------------- 足元 */
+
+footer {
+  margin-top: 4rem;
+  padding: 1.6rem 1rem;
+  text-align: center;
+  font-size: .86rem;
+  color: var(--ba-navy-soft);
+  border-top: 3px solid var(--ba-cyan);
+  background: var(--ba-card);
+  border-radius: .2rem .9rem .2rem .9rem;
+  box-shadow: var(--shadow-soft);
+}
+footer strong { color: var(--ba-cyan-deep); }
+@media (prefers-color-scheme: dark) { footer strong { color: var(--ba-cyan); } }
+
+.disclaimer {
+  margin-top: 1.6rem;
+  font-size: .76rem;
+  line-height: 1.7;
+  color: var(--ba-navy-soft);
+  text-align: center;
+  opacity: .85;
+}
