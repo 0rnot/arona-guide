@@ -125,15 +125,17 @@ h2 > span { display: inline-block; transform: skewX(12deg); }
   overflow: hidden;
 }
 
-/* 左端の斜めアクセント */
+/* 左端の斜めアクセント。
+   **skew を使わないこと。** transform: skewX() は高さに比例して横へずれるので、
+   カードが縦に伸びる（＝画面が狭い）ほど線が本文に食い込む。2026-08-05 に
+   スマホ幅で実際にそうなった。clip-path なら傾きを px で固定できる。 */
 .card::before {
   content: "";
   position: absolute;
   left: 0; top: 0; bottom: 0;
-  width: 7px;
+  width: 14px;
   background: var(--ba-cyan);
-  transform: skewX(-10deg);
-  transform-origin: bottom left;
+  clip-path: polygon(6px 0, 14px 0, 8px 100%, 0 100%);
 }
 .card.is-context::before { background: var(--ba-pink); }
 .card.is-admin::before   { background: var(--ba-yellow); }
