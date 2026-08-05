@@ -50,8 +50,6 @@ body {
   line-height: 1.85;
   -webkit-text-size-adjust: 100%;
   overflow-x: hidden;
-  background-image:
-    repeating-linear-gradient(-45deg, transparent 0 24px, var(--deco) 24px 48px);
 }
 
 /* ---------------------------------------------- 背景の装飾 */
@@ -99,7 +97,7 @@ body {
   opacity: .55;
 }
 
-.hero-inner { position: relative; max-width: 44rem; margin: 0 auto; text-align: center; }
+.hero-inner { position: relative; max-width: 52rem; margin: 0 auto; text-align: center; }
 
 .tablet { width: min(230px, 62vw); height: auto; display: block; margin: 0 auto .6rem; }
 .halo-g { animation: bob 3.6s ease-in-out infinite; transform-origin: center; }
@@ -124,7 +122,7 @@ body {
 
 /* ---------------------------------------------- 本文 */
 
-.wrap { position: relative; z-index: 1; max-width: 44rem; margin: 0 auto; padding: 0 1rem; }
+.wrap { position: relative; z-index: 1; max-width: 60rem; margin: 0 auto; padding: 0 1.2rem; }
 .para { font-size: .95rem; }
 
 /* 節の見出し（斜めパネル＋アイコン） */
@@ -371,3 +369,35 @@ footer strong { color: var(--cyan-deep); }
 }
 .invite-lead { margin: 0; font-weight: 800; font-size: 1.05rem; }
 .invite-sub { margin: .9rem 0 0; font-size: .8rem; color: var(--navy-soft); }
+
+
+/* ============================================================
+   広い画面では横を使う。**44rem のままだと PC で左右が余りすぎる**
+   （2026-08-05 に先生の指摘）。
+   ============================================================ */
+
+@media (min-width: 56rem) {
+  /* コマンド・Q&A・手順を 2 列に流す */
+  .grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: .9rem;
+    align-items: start;
+  }
+  .grid-2 > * { margin: 0; }
+
+  .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: .8rem; }
+  .steps li { margin: 0; }
+
+  .hero { padding: 3.5rem 1rem 5rem; }
+  .hero h1 { font-size: 2.9rem; }
+  .lead { font-size: 1.02rem; }
+
+  .note { font-size: .95rem; }
+  .list li { font-size: .97rem; }
+  .para { font-size: 1rem; }
+}
+
+/* 背景の装飾は残す（縞は消したので、これが唯一の飾りになる） */
+.deco-a { width: 380px; }
+.deco-b { width: 280px; }

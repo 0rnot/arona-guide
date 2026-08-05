@@ -10,22 +10,22 @@
 <meta property="og:title" content="アロナの使い方">
 <meta property="og:description" content="コマンド一覧と、お知らせの設定方法">
 <meta property="og:type" content="website">
-<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="style.css?v=3">
 </head>
 <body>
 
 <!-- 背景の装飾。すべて自作の図形（公式素材ではない） -->
 <div class="bg-deco" aria-hidden="true">
-  <svg class="deco deco-a" viewBox="0 0 200 200"><polygon points="100,0 200,100 100,200 0,100"/></svg>
-  <svg class="deco deco-b" viewBox="0 0 200 200"><circle cx="100" cy="100" r="96" fill="none" stroke-width="8"/></svg>
-  <svg class="deco deco-c" viewBox="0 0 200 200"><polygon points="100,0 200,100 100,200 0,100"/></svg>
+  <svg class="deco deco-a" viewBox="0 0 200 200" width="17" height="17"><polygon points="100,0 200,100 100,200 0,100"/></svg>
+  <svg class="deco deco-b" viewBox="0 0 200 200" width="17" height="17"><circle cx="100" cy="100" r="96" fill="none" stroke-width="8"/></svg>
+  <svg class="deco deco-c" viewBox="0 0 200 200" width="17" height="17"><polygon points="100,0 200,100 100,200 0,100"/></svg>
 </div>
 
 <header class="hero">
   <div class="hero-inner">
 
     <!-- シッテムの箱をイメージした図案（幾何形状のみで構成） -->
-    <svg class="tablet" viewBox="0 0 240 200" aria-hidden="true">
+    <svg class="tablet" viewBox="0 0 240 200" aria-hidden="true" width="230" height="230">
       <defs>
         <linearGradient id="halo" x1="0" y1="0" x2="1" y2="1">
           <stop offset="0"   stop-color="#a8e9ff"/>
@@ -66,7 +66,7 @@
     <p class="lead">ブルーアーカイブのお手伝いをする Discord ボットです</p>
 
     <a class="cta" href="https://discord.com/oauth2/authorize?client_id=1534362868072321094&permissions=17875654003712&scope=bot+applications.commands" target="_blank" rel="noopener">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4 v7 H5 v2 h7 v7 h2 v-7 h7 v-2 h-7 V4 z"/></svg>
+      <svg viewBox="0 0 24 24" aria-hidden="true" width="17" height="17"><path d="M12 4 v7 H5 v2 h7 v7 h2 v-7 h7 v-2 h-7 V4 z"/></svg>
       自分のサーバーに招待する
     </a>
 
@@ -84,10 +84,11 @@
 <main class="wrap">
 
   <h2 class="sec" id="commands">
-    <svg class="sec-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12 L15 7 L15 10 L4 10 L4 14 L15 14 L15 17 Z"/></svg>
+    <svg class="sec-ico" viewBox="0 0 24 24" aria-hidden="true" width="17" height="17"><path d="M20 12 L15 7 L15 10 L4 10 L4 14 L15 14 L15 17 Z"/></svg>
     <span>コマンド</span>
   </h2>
 
+  <div class="grid-2">
   <div class="card">
     <div class="cmd">/g</div>
     <div class="desc">10 連ガチャを引きます。提供割合どおりの確率です。</div>
@@ -106,27 +107,10 @@
     <div class="cmd">/h</div>
     <div class="desc">使えるコマンドの一覧を出します。迷ったらこれです。</div>
   </div>
-
-  <div class="mock">
-    <div class="mock-head">
-      <span class="mock-avatar" aria-hidden="true"></span>
-      <span class="mock-name">Arona</span><span class="mock-tag">アプリ</span>
-    </div>
-    <div class="mock-embed">
-      <div class="mock-title">【総力戦】ビナー｜シーズン12・屋内</div>
-      <div class="mock-body">
-        <b>開催期間</b>　9/2 〜 9/8（開催中）<br>
-        <b>プラチナ</b>　28,451,220pt（+412,900）<br>
-        　Torment 01:12.4<br>
-        <b>ゴールド</b>　24,880,010pt（+298,140）
-      </div>
-      <div class="mock-foot">データ: そうりきボーダー</div>
-    </div>
-    <p class="mock-note">↑ <code>/st</code> のボーダー表示のイメージです</p>
   </div>
 
   <h2 class="sec" id="context">
-    <svg class="sec-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4 h14 v12 H10 l-5 5 z"/></svg>
+    <svg class="sec-ico" viewBox="0 0 24 24" aria-hidden="true" width="17" height="17"><path d="M5 4 h14 v12 H10 l-5 5 z"/></svg>
     <span>メッセージから呼ぶもの</span>
   </h2>
 
@@ -143,7 +127,7 @@
   <div class="note">予約したあとに出る「リマインダー解除」ボタンで取り消せます。</div>
 
   <h2 class="sec" id="notice">
-    <svg class="sec-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 a6 6 0 0 1 6 6 v4 l2 4 H4 l2-4 V9 a6 6 0 0 1 6-6 z M9 19 h6 a3 3 0 0 1-6 0 z"/></svg>
+    <svg class="sec-ico" viewBox="0 0 24 24" aria-hidden="true" width="17" height="17"><path d="M12 3 a6 6 0 0 1 6 6 v4 l2 4 H4 l2-4 V9 a6 6 0 0 1 6-6 z M9 19 h6 a3 3 0 0 1-6 0 z"/></svg>
     <span>お知らせ</span>
   </h2>
 
@@ -176,7 +160,7 @@
   </div>
 
   <h2 class="sec" id="bosses">
-    <svg class="sec-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 l3 6 6 1-4.5 4.3 1 6.2-5.5-3-5.5 3 1-6.2L3 9l6-1 z"/></svg>
+    <svg class="sec-ico" viewBox="0 0 24 24" aria-hidden="true" width="17" height="17"><path d="M12 2 l3 6 6 1-4.5 4.3 1 6.2-5.5-3-5.5 3 1-6.2L3 9l6-1 z"/></svg>
     <span>調べられるボス</span>
   </h2>
 
@@ -189,10 +173,11 @@
   <div class="chips"><span class="chip chip-alt">KAITEN FX Mk.0</span><span class="chip chip-alt">クロカゲ</span><span class="chip chip-alt">グレゴリオ</span><span class="chip chip-alt">ケセド</span><span class="chip chip-alt">ゴズ</span><span class="chip chip-alt">シロクロ</span><span class="chip chip-alt">ヒエロニムス</span><span class="chip chip-alt">ビナー</span><span class="chip chip-alt">ペロロジラ</span><span class="chip chip-alt">ホド</span><span class="chip chip-alt">ホバークラフト</span></div>
 
   <h2 class="sec" id="faq">
-    <svg class="sec-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 a10 10 0 1 0 0 20 a10 10 0 0 0 0-20 z M11 16 h2 v2 h-2 z M12 6 a3.4 3.4 0 0 0-3.4 3.4 h2 A1.4 1.4 0 1 1 12 10.8 c-.6 0-1 .4-1 1 V14 h2 v-1.4 A3.4 3.4 0 0 0 12 6 z"/></svg>
+    <svg class="sec-ico" viewBox="0 0 24 24" aria-hidden="true" width="17" height="17"><path d="M12 2 a10 10 0 1 0 0 20 a10 10 0 0 0 0-20 z M11 16 h2 v2 h-2 z M12 6 a3.4 3.4 0 0 0-3.4 3.4 h2 A1.4 1.4 0 1 1 12 10.8 c-.6 0-1 .4-1 1 V14 h2 v-1.4 A3.4 3.4 0 0 0 12 6 z"/></svg>
     <span>よくある質問</span>
   </h2>
 
+  <div class="grid-2">
   <details class="qa"><summary>招待したのに何も投稿されません</summary>
     <p><b>それで正常です。</b>既定はすべてオフになっています。<code>/settings</code> で投稿先を選ぶと動き出します。</p></details>
 
@@ -207,9 +192,10 @@
 
   <details class="qa"><summary>攻略情報が出るまで待たされます</summary>
     <p>その場で最新の情報を検索してからまとめているためです。<b>同じボスの 2 回目は速くなります。</b></p></details>
+  </div>
 
   <h2 class="sec" id="tips">
-    <svg class="sec-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 a10 10 0 1 0 0 20 a10 10 0 0 0 0-20 z M11 7 h2 v2 h-2 z M11 11 h2 v6 h-2 z"/></svg>
+    <svg class="sec-ico" viewBox="0 0 24 24" aria-hidden="true" width="17" height="17"><path d="M12 2 a10 10 0 1 0 0 20 a10 10 0 0 0 0-20 z M11 7 h2 v2 h-2 z M11 11 h2 v6 h-2 z"/></svg>
     <span>知っておくと困らないこと</span>
   </h2>
 
@@ -223,14 +209,14 @@
   <div class="invite-box">
     <p class="invite-lead">アロナをあなたのサーバーにも</p>
     <a class="cta cta-lg" href="https://discord.com/oauth2/authorize?client_id=1534362868072321094&permissions=17875654003712&scope=bot+applications.commands" target="_blank" rel="noopener">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4 v7 H5 v2 h7 v7 h2 v-7 h7 v-2 h-7 V4 z"/></svg>
+      <svg viewBox="0 0 24 24" aria-hidden="true" width="17" height="17"><path d="M12 4 v7 H5 v2 h7 v7 h2 v-7 h7 v-2 h-7 V4 z"/></svg>
       サーバーに招待する
     </a>
     <p class="invite-sub">追加しただけでは何も投稿しません。設定はあとから <code>/settings</code> で。</p>
   </div>
 
   <footer>
-    <svg class="emblem" viewBox="0 0 64 64" aria-hidden="true">
+    <svg class="emblem" viewBox="0 0 64 64" aria-hidden="true" width="44" height="44">
       <path d="M32 4 L58 14 v20 c0 14-11 22-26 26 C17 56 6 48 6 34 V14 z"
             fill="none" stroke-width="3"/>
       <ellipse cx="32" cy="26" rx="16" ry="5" fill="none" stroke-width="3"/>
