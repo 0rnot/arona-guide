@@ -64,13 +64,26 @@
 
     <h1>アロナの使い方</h1>
     <p class="lead">ブルーアーカイブのお手伝いをする Discord ボットです</p>
+
+    <a class="cta" href="https://discord.com/oauth2/authorize?client_id=1534362868072321094&permissions=17875654003712&scope=bot+applications.commands" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4 v7 H5 v2 h7 v7 h2 v-7 h7 v-2 h-7 V4 z"/></svg>
+      自分のサーバーに招待する
+    </a>
+
+    <nav class="toc">
+      <a href="#commands">コマンド</a>
+      <a href="#context">メッセージから</a>
+      <a href="#notice">お知らせ</a>
+      <a href="#bosses">調べられるボス</a>
+      <a href="#faq">よくある質問</a>
+    </nav>
   </div>
   <div class="hero-cut" aria-hidden="true"></div>
 </header>
 
 <main class="wrap">
 
-  <h2 class="sec">
+  <h2 class="sec" id="commands">
     <svg class="sec-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12 L15 7 L15 10 L4 10 L4 14 L15 14 L15 17 Z"/></svg>
     <span>コマンド</span>
   </h2>
@@ -94,7 +107,25 @@
     <div class="desc">使えるコマンドの一覧を出します。迷ったらこれです。</div>
   </div>
 
-  <h2 class="sec">
+  <div class="mock">
+    <div class="mock-head">
+      <span class="mock-avatar" aria-hidden="true"></span>
+      <span class="mock-name">Arona</span><span class="mock-tag">アプリ</span>
+    </div>
+    <div class="mock-embed">
+      <div class="mock-title">【総力戦】ビナー｜シーズン12・屋内</div>
+      <div class="mock-body">
+        <b>開催期間</b>　9/2 〜 9/8（開催中）<br>
+        <b>プラチナ</b>　28,451,220pt（+412,900）<br>
+        　Torment 01:12.4<br>
+        <b>ゴールド</b>　24,880,010pt（+298,140）
+      </div>
+      <div class="mock-foot">データ: そうりきボーダー</div>
+    </div>
+    <p class="mock-note">↑ <code>/st</code> のボーダー表示のイメージです</p>
+  </div>
+
+  <h2 class="sec" id="context">
     <svg class="sec-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4 h14 v12 H10 l-5 5 z"/></svg>
     <span>メッセージから呼ぶもの</span>
   </h2>
@@ -111,7 +142,7 @@
 
   <div class="note">予約したあとに出る「リマインダー解除」ボタンで取り消せます。</div>
 
-  <h2 class="sec">
+  <h2 class="sec" id="notice">
     <svg class="sec-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 a6 6 0 0 1 6 6 v4 l2 4 H4 l2-4 V9 a6 6 0 0 1 6-6 z M9 19 h6 a3 3 0 0 1-6 0 z"/></svg>
     <span>お知らせ</span>
   </h2>
@@ -133,12 +164,51 @@
     </div>
   </div>
 
+  <ol class="steps">
+    <li><span class="step-n">1</span><div><b><code>/settings</code> を叩く</b><br>項目ごとのカードが出ます</div></li>
+    <li><span class="step-n">2</span><div><b>投稿先を選ぶ</b><br>メニューからチャンネルを選びます</div></li>
+    <li><span class="step-n">3</span><div><b>それで完了</b><br>選んだ時点で自動オン。表示が🟢に変わります</div></li>
+  </ol>
+
   <div class="note">
     使えるのは<strong>「サーバー管理」の権限を持つ人</strong>だけです。
     招待しただけでは何も投稿しません。<strong>既定はすべてオフ</strong>です。
   </div>
 
-  <h2 class="sec">
+  <h2 class="sec" id="bosses">
+    <svg class="sec-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 l3 6 6 1-4.5 4.3 1 6.2-5.5-3-5.5 3 1-6.2L3 9l6-1 z"/></svg>
+    <span>調べられるボス</span>
+  </h2>
+
+  <p class="para"><code>/st</code> で選べるボスです。<b>一覧は毎日ひとりでに更新されます。</b></p>
+
+  <h3 class="sub">総力戦</h3>
+  <div class="chips"><span class="chip">KAITEN FX Mk.0</span><span class="chip">イェソド</span><span class="chip">クロカゲ</span><span class="chip">グレゴリオ</span><span class="chip">ケセド</span><span class="chip">ゲブラ</span><span class="chip">ゴズ</span><span class="chip">シロクロ</span><span class="chip">ドラム缶ガニ</span><span class="chip">ヒエロニムス</span><span class="chip">ビナー</span><span class="chip">ペロロジラ</span><span class="chip">ホド</span><span class="chip">ホバークラフト</span></div>
+
+  <h3 class="sub">大決戦</h3>
+  <div class="chips"><span class="chip chip-alt">KAITEN FX Mk.0</span><span class="chip chip-alt">クロカゲ</span><span class="chip chip-alt">グレゴリオ</span><span class="chip chip-alt">ケセド</span><span class="chip chip-alt">ゴズ</span><span class="chip chip-alt">シロクロ</span><span class="chip chip-alt">ヒエロニムス</span><span class="chip chip-alt">ビナー</span><span class="chip chip-alt">ペロロジラ</span><span class="chip chip-alt">ホド</span><span class="chip chip-alt">ホバークラフト</span></div>
+
+  <h2 class="sec" id="faq">
+    <svg class="sec-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 a10 10 0 1 0 0 20 a10 10 0 0 0 0-20 z M11 16 h2 v2 h-2 z M12 6 a3.4 3.4 0 0 0-3.4 3.4 h2 A1.4 1.4 0 1 1 12 10.8 c-.6 0-1 .4-1 1 V14 h2 v-1.4 A3.4 3.4 0 0 0 12 6 z"/></svg>
+    <span>よくある質問</span>
+  </h2>
+
+  <details class="qa"><summary>招待したのに何も投稿されません</summary>
+    <p><b>それで正常です。</b>既定はすべてオフになっています。<code>/settings</code> で投稿先を選ぶと動き出します。</p></details>
+
+  <details class="qa"><summary><code>/settings</code> が見当たりません</summary>
+    <p>「サーバー管理」の権限を持っていない場合、コマンド自体が出ません。サーバーの管理者に頼んでください。</p></details>
+
+  <details class="qa"><summary>リマインダーのコマンドが出てきません</summary>
+    <p><b>スラッシュコマンドではありません。</b>対象のメッセージを長押し（スマホ）／右クリック（PC）して、「アプリ」の中から選びます。</p></details>
+
+  <details class="qa"><summary>ボーダーの数字が変わりません</summary>
+    <p>開催期間外は<b>前回の最終結果</b>を出します。開催中なら 10 分ほどで新しい数字に入れ替わります。</p></details>
+
+  <details class="qa"><summary>攻略情報が出るまで待たされます</summary>
+    <p>その場で最新の情報を検索してからまとめているためです。<b>同じボスの 2 回目は速くなります。</b></p></details>
+
+  <h2 class="sec" id="tips">
     <svg class="sec-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 a10 10 0 1 0 0 20 a10 10 0 0 0 0-20 z M11 7 h2 v2 h-2 z M11 11 h2 v6 h-2 z"/></svg>
     <span>知っておくと困らないこと</span>
   </h2>
@@ -149,6 +219,15 @@
     <li><strong>ボーダーは開催中だけ動きます</strong> — 期間外は前回の最終結果を表示します</li>
     <li><strong>スレッドも投稿先に選べます</strong> — ただしアーカイブされると届かなくなります</li>
   </ul>
+
+  <div class="invite-box">
+    <p class="invite-lead">アロナをあなたのサーバーにも</p>
+    <a class="cta cta-lg" href="https://discord.com/oauth2/authorize?client_id=1534362868072321094&permissions=17875654003712&scope=bot+applications.commands" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4 v7 H5 v2 h7 v7 h2 v-7 h7 v-2 h-7 V4 z"/></svg>
+      サーバーに招待する
+    </a>
+    <p class="invite-sub">追加しただけでは何も投稿しません。設定はあとから <code>/settings</code> で。</p>
+  </div>
 
   <footer>
     <svg class="emblem" viewBox="0 0 64 64" aria-hidden="true">

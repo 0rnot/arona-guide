@@ -239,3 +239,135 @@ footer strong { color: var(--cyan-deep); }
   font-size: .76rem; line-height: 1.75;
   color: var(--navy-soft); text-align: center; opacity: .85;
 }
+
+/* ============================================================
+   追加分（招待ボタン・目次・実行例・手順・ボス・Q&A）
+   ============================================================ */
+
+/* 招待ボタン */
+.cta {
+  display: inline-flex; align-items: center; gap: .5rem;
+  margin-top: 1.4rem; padding: .7rem 1.6rem;
+  font-size: .97rem; font-weight: 800; letter-spacing: .04em;
+  color: #fff; text-decoration: none;
+  background: linear-gradient(100deg, var(--cyan-deep), var(--cyan));
+  border-radius: 2rem;
+  box-shadow: var(--sh-lift);
+  transition: transform .16s ease, box-shadow .16s ease, filter .16s ease;
+}
+.cta:hover { transform: translateY(-2px); filter: brightness(1.07); }
+.cta:active { transform: translateY(0); }
+.cta svg { width: 1.05rem; height: 1.05rem; fill: currentColor; }
+.cta-lg { font-size: 1.05rem; padding: .85rem 2rem; margin-top: .9rem; }
+
+/* 目次 */
+.toc { display: flex; flex-wrap: wrap; justify-content: center; gap: .45rem; margin-top: 1.6rem; }
+.toc a {
+  font-size: .82rem; font-weight: 700; text-decoration: none;
+  color: var(--cyan-deep); background: rgba(255,255,255,.72);
+  border: 1px solid var(--line); border-radius: 1.2rem;
+  padding: .22rem .8rem;
+  transition: background .15s ease, color .15s ease;
+}
+.toc a:hover { background: var(--cyan-deep); color: #fff; border-color: transparent; }
+@media (prefers-color-scheme: dark) {
+  .toc a { color: var(--cyan); background: rgba(255,255,255,.07); }
+  .toc a:hover { background: var(--cyan); color: #0f1722; }
+}
+
+/* Discord 風の実行例（自作の再現。スクリーンショットではない） */
+.mock {
+  background: var(--card); border: 1px solid var(--line);
+  border-radius: .2rem 1rem .2rem 1rem;
+  padding: 1rem 1.1rem; margin: 1rem 0; box-shadow: var(--sh-soft);
+}
+.mock-head { display: flex; align-items: center; gap: .5rem; margin-bottom: .6rem; }
+.mock-avatar {
+  width: 1.7rem; height: 1.7rem; border-radius: 50%; flex: none;
+  background: linear-gradient(140deg, var(--cyan-pale), var(--cyan-deep));
+}
+.mock-name { font-weight: 800; font-size: .92rem; }
+.mock-tag {
+  font-size: .66rem; font-weight: 700; color: #fff;
+  background: #5865f2; border-radius: .22rem; padding: .05rem .32rem;
+}
+.mock-embed {
+  border-left: 4px solid var(--cyan);
+  background: color-mix(in srgb, var(--cyan) 7%, transparent);
+  border-radius: 0 .35rem .35rem 0;
+  padding: .7rem .9rem;
+}
+.mock-title { color: var(--cyan-deep); font-weight: 800; font-size: .92rem; margin-bottom: .35rem; }
+@media (prefers-color-scheme: dark) { .mock-title { color: var(--cyan); } }
+.mock-body { font-size: .87rem; line-height: 1.75; }
+.mock-foot { margin-top: .5rem; font-size: .72rem; color: var(--navy-soft); }
+.mock-note { margin: .6rem 0 0; font-size: .8rem; color: var(--navy-soft); text-align: center; }
+
+/* 手順 */
+.steps { list-style: none; counter-reset: s; padding: 0; margin: 1rem 0; }
+.steps li {
+  display: flex; gap: .8rem; align-items: flex-start;
+  background: var(--card); border: 1px solid var(--line);
+  border-radius: .2rem .8rem .2rem .8rem;
+  padding: .75rem 1rem; margin: .5rem 0; font-size: .9rem;
+  box-shadow: var(--sh-soft);
+}
+.step-n {
+  flex: none; width: 1.7rem; height: 1.7rem; border-radius: 50%;
+  display: grid; place-items: center;
+  font-weight: 900; font-size: .85rem; color: #fff;
+  background: linear-gradient(140deg, var(--cyan), var(--cyan-deep));
+}
+
+/* ボスの札 */
+.sub {
+  font-size: .92rem; font-weight: 800; margin: 1.4rem 0 .6rem;
+  padding-left: .6rem; border-left: 4px solid var(--cyan);
+}
+.chips { display: flex; flex-wrap: wrap; gap: .4rem; }
+.chip {
+  font-size: .82rem; font-weight: 700;
+  background: color-mix(in srgb, var(--cyan) 16%, var(--card));
+  border: 1px solid color-mix(in srgb, var(--cyan) 40%, var(--line));
+  border-radius: .3rem .7rem .3rem .7rem;
+  padding: .18rem .7rem;
+}
+.chip-alt {
+  background: color-mix(in srgb, var(--pink) 16%, var(--card));
+  border-color: color-mix(in srgb, var(--pink) 40%, var(--line));
+}
+
+/* よくある質問 */
+.qa {
+  background: var(--card); border: 1px solid var(--line);
+  border-radius: .2rem .8rem .2rem .8rem;
+  margin: .5rem 0; box-shadow: var(--sh-soft); overflow: hidden;
+}
+.qa summary {
+  cursor: pointer; list-style: none;
+  padding: .75rem 1rem .75rem 2.2rem; position: relative;
+  font-weight: 700; font-size: .92rem;
+}
+.qa summary::-webkit-details-marker { display: none; }
+.qa summary::before {
+  content: "＋"; position: absolute; left: .85rem; top: .75rem;
+  color: var(--cyan-deep); font-weight: 900;
+}
+.qa[open] summary::before { content: "－"; }
+@media (prefers-color-scheme: dark) { .qa summary::before { color: var(--cyan); } }
+.qa p { margin: 0; padding: 0 1rem 1rem 2.2rem; font-size: .89rem; color: var(--navy-soft); }
+.qa p b { color: var(--navy); }
+
+/* 足元の招待 */
+.invite-box {
+  margin-top: 3.5rem; padding: 2rem 1.2rem;
+  text-align: center;
+  background:
+    radial-gradient(120% 130% at 50% 0%, color-mix(in srgb, var(--cyan) 22%, transparent), transparent 70%),
+    var(--card);
+  border: 1px solid var(--line);
+  border-radius: .3rem 1.4rem .3rem 1.4rem;
+  box-shadow: var(--sh-soft);
+}
+.invite-lead { margin: 0; font-weight: 800; font-size: 1.05rem; }
+.invite-sub { margin: .9rem 0 0; font-size: .8rem; color: var(--navy-soft); }
