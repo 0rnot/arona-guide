@@ -119,8 +119,60 @@ code {
 .topbar-nav a { color: var(--fg-mute); text-decoration: none; white-space: nowrap; }
 .topbar-nav a:hover { color: var(--accent); }
 
-/* 狭い画面では節のリンクを畳む。名前だけ残す */
+/* 狭い画面では節のリンクを畳む。名前だけ残す。
+   **共有ボタンは畳まない** —— 人に渡してもらうための入口なので、
+   スマホでこそ見えていてほしい。 */
 @media (max-width: 560px) { .topbar-nav { display: none; } }
+
+/* ------------------------------------------------------------ 共有ボタン */
+
+.share {
+  display: inline-flex;
+  align-items: center;
+  gap: .45em;
+  flex: none;
+  padding: .4em .95em;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--fg-mute);
+  text-decoration: none;
+  font-size: .84rem;
+  font-weight: 700;
+  white-space: nowrap;
+  background: var(--card);
+  transition: color .15s ease, border-color .15s ease, transform .15s ease;
+}
+.share:hover { color: var(--accent-tx); border-color: var(--accent); }
+.share:active { transform: scale(.96); }
+.share-icon { width: 1em; height: 1em; fill: currentColor; flex: none; }
+
+/* よほど狭いときだけ丸いアイコンだけにする。
+   **400 前後のスマホでは「共有」の字を残す** —— 矢印だけだと何のボタンか伝わらない */
+@media (max-width: 340px) {
+  .share { padding: .45em; }
+  .share-label { display: none; }
+}
+
+/* ------------------------------------------------------------ 小さな帯 */
+
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  transform: translate(-50%, 12px);
+  z-index: 50;
+  padding: .7em 1.4em;
+  border-radius: 999px;
+  background: var(--fg);
+  color: var(--bg);
+  font-size: .88rem;
+  font-weight: 700;
+  box-shadow: var(--shadow);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .2s ease, transform .2s ease;
+}
+.toast.shown { opacity: 1; transform: translate(-50%, 0); }
 
 /* ------------------------------------------------------------ ヒーロー */
 

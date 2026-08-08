@@ -12,7 +12,7 @@
 <meta property="og:type" content="website">
 <meta property="og:image" content="https://0rnot.github.io/arona-guide/images/hero-day.jpg">
 <meta name="twitter:card" content="summary_large_image">
-<link rel="stylesheet" href="style.css?v=5">
+<link rel="stylesheet" href="style.css?v=6">
 </head>
 <body>
 
@@ -25,8 +25,20 @@
       <a href="#message">メッセージから</a>
       <a href="#faq">よくある質問</a>
     </nav>
+    <!-- 共有ボタン。**JS が動かない環境では X の共有ページへ飛ぶ <a> のまま**なので、
+         押しても何も起きないということにはならない。 -->
+    <a class="share" id="share" target="_blank" rel="noopener" aria-label="このページを共有する"
+       href="https://x.com/intent/post?text=%E3%83%96%E3%83%AB%E3%82%A2%E3%82%AB%E3%81%AE%E9%96%8B%E5%82%AC%E4%BA%88%E5%AE%9A%E3%82%92%20Discord%20%E3%81%AE%E3%82%A4%E3%83%99%E3%83%B3%E3%83%88%E3%81%AB%E8%87%AA%E5%8B%95%E3%81%A7%E5%85%A5%E3%82%8C%E3%81%A6%E3%81%8F%E3%82%8C%E3%82%8B%20Bot&url=https%3A%2F%2F0rnot.github.io%2Farona-guide%2F">
+      <svg class="share-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <path d="M14 9V5l7 7-7 7v-4.1c-5 0-8.5 1.6-11 5.1 1-5 4-10 11-11z"/>
+      </svg>
+      <span class="share-label">共有</span>
+    </a>
   </div>
 </div>
+
+<!-- コピーしたことを伝える小さな帯。**押した手応えが無いと 2 回押される。** -->
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <header class="hero" id="top">
   <div class="hero-media" aria-hidden="true">
@@ -380,6 +392,48 @@
   setTimeout(function () {
     targets.forEach(function (el) { el.classList.add('shown'); });
   }, 3000);
+})();
+
+// 共有ボタン。**押した先は環境で変える。**
+// 1. スマホ（navigator.share）→ OS の共有シートを出す。LINE でも Discord でも渡せる
+// 2. PC（クリップボード）→ URL をコピーして、コピーしたことを帯で伝える
+// 3. どちらも無い → 何もせず <a href> の X 共有ページへ飛ばす（既定の動き）
+(function () {
+  var btn = document.getElementById('share');
+  var toast = document.getElementById('toast');
+  if (!btn) return;
+
+  var timer = null;
+  function say(text) {
+    if (!toast) return;
+    toast.textContent = text;
+    toast.classList.add('shown');
+    clearTimeout(timer);
+    timer = setTimeout(function () { toast.classList.remove('shown'); }, 2000);
+  }
+
+  var url = location.href.split('#')[0];
+  var title = document.title;
+  var text = 'ブルアカの開催予定を Discord のイベントに自動で入れてくれる Bot';
+
+  btn.addEventListener('click', function (e) {
+    if (navigator.share) {
+      e.preventDefault();
+      navigator.share({ title: title, text: text, url: url })
+        // **取り消しはエラーではない。** 何も出さずに黙る
+        .catch(function () {});
+      return;
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      e.preventDefault();
+      navigator.clipboard.writeText(url).then(function () {
+        say('リンクをコピーしました');
+      }, function () {
+        // コピーも失敗したら、X の共有ページを開く（既定の動きへ戻す）
+        window.open(btn.href, '_blank', 'noopener');
+      });
+    }
+  });
 })();
 </script>
 </body>
