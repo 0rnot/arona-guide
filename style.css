@@ -17,7 +17,8 @@
   --fg:        #1a1614;
   --fg-mute:   #6b625a;
   --line:      #e2dbcf;
-  --accent:    #b8791f;   /* 琥珀。見出しの番号・リンク・強調 */
+  --accent:    #b8791f;   /* 琥珀。ボタンや帯など、面で使う側 */
+  --accent-tx: #96621a;   /* 文字に使う側。**面と同じ濃さだと本文リンクが薄すぎる** */
   --accent-in: #ffffff;
   --gold:      #e2c061;
   --blue:      #2c6fa6;
@@ -35,6 +36,7 @@
     --fg-mute:   #9aa8b8;
     --line:      #24303f;
     --accent:    #e2c061;
+    --accent-tx: #e2c061;   /* 暗い地の上では、面と同じ明るさで十分読める */
     --accent-in: #241a06;
     --gold:      #e2c061;
     --blue:      #6fb4e6;
@@ -45,7 +47,7 @@
 
 * { box-sizing: border-box; }
 
-html { scroll-behavior: smooth; }
+@media (prefers-reduced-motion: no-preference) { html { scroll-behavior: smooth; } }
 
 body {
   margin: 0;
@@ -55,12 +57,13 @@ body {
                "Yu Gothic", Meiryo, sans-serif;
   line-height: 1.9;
   -webkit-font-smoothing: antialiased;
+  -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
 }
 
 img { max-width: 100%; height: auto; display: block; }
 
-a { color: var(--accent); text-underline-offset: .25em; }
+a { color: var(--accent-tx); text-underline-offset: .25em; }
 
 code {
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
@@ -80,6 +83,9 @@ code {
   position: sticky;
   top: 0;
   z-index: 10;
+  /* **先に不透明の地を敷く。** color-mix に対応しないと完全な透明になり、
+     固定バーの文字が本文に重なって読めなくなる */
+  background: var(--bg);
   background: color-mix(in srgb, var(--bg) 88%, transparent);
   backdrop-filter: blur(10px);
   border-bottom: 1px solid var(--line);
@@ -122,12 +128,8 @@ code {
 
 .hero-img { width: 100%; height: 100%; object-fit: cover; }
 
-/* 昼と夜を OS の設定で入れ替える。**表示していないほうは読み込ませない** */
-.hero-night { display: none; }
-@media (prefers-color-scheme: dark) {
-  .hero-day   { display: none; }
-  .hero-night { display: block; }
-}
+/* 昼と夜の入れ替えは <picture> の media でやる。**CSS で隠しても
+   <img> は必ず落ちてくる**ので、それだと両方ダウンロードされる。 */
 
 /* 画像の下端を地の色へ溶かす。境目に線を引かない */
 .hero-media::after {
@@ -160,11 +162,24 @@ h1 {
   font-weight: 800;
 }
 
+/* **1 行目は大きく。** 何をするボットかがここで決まる */
 .hero-lead {
+  margin: 0 0 .5em;
+  color: var(--fg);
+  font-size: clamp(1.05rem, 3.2vw, 1.42rem);
+  font-weight: 600;
+  line-height: 1.6;
+}
+.hero-lead b { color: var(--accent-tx); }
+
+.hero-sub {
   margin: 0 0 2em;
   color: var(--fg-mute);
-  font-size: clamp(.95rem, 2.4vw, 1.08rem);
+  font-size: clamp(.9rem, 2.2vw, 1rem);
 }
+
+.br-sp { display: none; }
+@media (max-width: 560px) { .br-sp { display: inline; } }
 
 .cta {
   display: inline-block;
@@ -265,7 +280,7 @@ h1 {
   font-weight: 700;
   color: var(--accent);
 }
-.main-feat h4 {
+.main-feat h3 {
   margin: 0 0 .5em;
   font-size: clamp(1.2rem, 3.4vw, 1.5rem);
   font-weight: 800;
@@ -344,7 +359,7 @@ h1 {
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-weight: 700;
   font-size: 1.02rem;
-  color: var(--accent);
+  color: var(--accent-tx);
   letter-spacing: .02em;
 }
 
@@ -421,7 +436,8 @@ figcaption {
 
 .qa-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
+  /* **1 枚を広くとる。** 狭いと質問文が途中で折り返して読みにくい（先生の指摘） */
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr));
   gap: clamp(10px, 2vw, 16px);
   margin-bottom: clamp(28px, 4vw, 44px);
 }
@@ -434,7 +450,13 @@ figcaption {
 }
 .qa summary {
   cursor: pointer;
-  padding: .9em 0;
+  /* 日本語を語のまとまりで折る。対応しない環境では素直に折れるだけ */
+  word-break: auto-phrase;
+  text-wrap: pretty;
+  /* **折り返した 2 行目を ＋ の下に潜らせない。** 記号を外に出して字下げで揃える。
+     flex にはしないこと —— <code> を含む質問文が別々の item に割れて隙間が空く */
+  position: relative;
+  padding: .9em 0 .9em 1.6em;
   font-weight: 700;
   font-size: .98rem;
   list-style: none;
@@ -442,9 +464,10 @@ figcaption {
 .qa summary::-webkit-details-marker { display: none; }
 .qa summary::before {
   content: "＋";
+  position: absolute;
+  left: 0;
   color: var(--accent);
   font-weight: 700;
-  margin-right: .6em;
 }
 .qa[open] summary::before { content: "－"; }
 .qa p { margin: 0 0 1.1em; color: var(--fg-mute); font-size: .94rem; }
@@ -520,7 +543,7 @@ footer {
   .cta { display: block; text-align: center; padding: 1em 1.4em; }
   .toc { gap: .6em 1.2em; }
   .toc a { padding: .2em 0; }
-  .qa summary { padding: 1.05em 0; }
+  .qa summary { padding: 1.05em 0 1.05em 1.6em; }
 
   /* 章の見出し。アイコンと文字を横に並べたままだと文字が細くなる */
   .chapter-head { gap: 12px; }
@@ -632,10 +655,17 @@ a.zoom::after {
   opacity: 0;
   transform: translateY(14px);
 }
+/* **transform を transition に含めない。** 含めると、出たあとの hover の浮きまで
+   この 0.55s と遅延に引きずられて、触ってから動き出すまで間が空く。
+   出るときの動きは animation 側で作る。 */
 .anim .rise.shown {
   opacity: 1;
   transform: none;
-  transition: opacity .55s ease var(--d, 0ms), transform .55s cubic-bezier(.22,.61,.36,1) var(--d, 0ms);
+  animation: riseIn .55s cubic-bezier(.22,.61,.36,1) var(--d, 0ms) both;
+}
+@keyframes riseIn {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: none; }
 }
 
 /* ヒーローは読み込んだ時点で見えている。**待たせない** */
@@ -660,7 +690,8 @@ a.zoom::after {
 }
 
 /* カードは触ると少し浮く */
-.main-feat, .glance li, .qa { transition: transform .2s ease, border-color .2s ease; }
+.main-feat, .glance li { transition: transform .2s ease, border-color .2s ease; }
+.qa { transition: border-color .2s ease; }
 @media (hover: hover) {
   .main-feat:hover, .glance li:hover { transform: translateY(-3px); border-color: var(--accent); }
 }
