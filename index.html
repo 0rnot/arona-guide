@@ -312,5 +312,41 @@
   dlg.addEventListener('close', function () { img.src = ''; });
 })();
 </script>
+
+<script>
+// 動きを足す。**JS が動かないときは何も隠れない**ように、
+// 隠すクラスはスクリプトが自分で付ける。
+(function () {
+  var reduce = window.matchMedia('(prefers-reduced-motion: reduce)');
+  if (reduce.matches || !('IntersectionObserver' in window)) return;
+
+  document.documentElement.classList.add('anim');
+
+  var targets = document.querySelectorAll(
+    '.main-feat, .glance li, .feature, .pair > *, .notice-list li, .steps li, .qa, .invite, .lead-h, .chapter-head'
+  );
+  targets.forEach(function (el) { el.classList.add('rise'); });
+
+  var io = new IntersectionObserver(function (entries) {
+    entries.forEach(function (e) {
+      if (!e.isIntersecting) return;
+      e.target.classList.add('shown');
+      io.unobserve(e.target);
+    });
+  }, { rootMargin: '0px 0px -8% 0px', threshold: .08 });
+
+  targets.forEach(function (el, i) {
+    // 並んでいるものは少しずつ遅らせる。**全部同時に出ると機械っぽい**
+    el.style.setProperty('--d', (i % 4) * 60 + 'ms');
+    io.observe(el);
+  });
+
+  // **保険。** 監視が何かの理由で発火しないと、中身が見えないまま残る。
+  // 見えないページより、動きが無いページのほうがましなので、3 秒で全部出す。
+  setTimeout(function () {
+    targets.forEach(function (el) { el.classList.add('shown'); });
+  }, 3000);
+})();
+</script>
 </body>
 </html>
