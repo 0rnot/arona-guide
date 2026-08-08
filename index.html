@@ -10,6 +10,8 @@
 <meta property="og:title" content="AronaBotの使い方">
 <meta property="og:description" content="ブルーアーカイブの公式 X を見張って、開催の予定を Discord のイベントに自動で登録します。">
 <meta property="og:type" content="website">
+<!-- **ドメインを変えたらここも直すこと。** OGP の画像は絶対 URL でしか指定できず、
+     クローラは JS を動かさないので、自動で追随させる手段が無い。 -->
 <meta property="og:image" content="https://0rnot.github.io/arona-guide/images/hero-day.jpg">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="stylesheet" href="style.css?v=6">
@@ -415,6 +417,12 @@
   var url = location.href.split('#')[0];
   var title = document.title;
   var text = 'ブルアカの開催予定を Discord のイベントに自動で入れてくれる Bot';
+
+  // **飛び先を今いる場所から組み直す。** href に書いてある URL は
+  // 「JS が動かないとき」の保険でしかない。ドメインを変えても、
+  // ここが効いているかぎり共有される URL は勝手に追随する。
+  btn.href = 'https://x.com/intent/post?text=' + encodeURIComponent(text)
+           + '&url=' + encodeURIComponent(url);
 
   btn.addEventListener('click', function (e) {
     if (navigator.share) {
