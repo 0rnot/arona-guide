@@ -19,7 +19,12 @@
 <div class="topbar">
   <div class="topbar-inner">
     <a class="topbar-name" href="#top">AronaBotの使い方</a>
-    <a class="topbar-cta" href="https://discord.com/oauth2/authorize?client_id=1534362868072321094&permissions=17875654003712&integration_type=0&scope=bot" target="_blank" rel="noopener">サーバーに招待する</a>
+    <nav class="topbar-nav">
+      <a href="#can">機能</a>
+      <a href="#start">つかいはじめる</a>
+      <a href="#message">メッセージから</a>
+      <a href="#faq">よくある質問</a>
+    </nav>
   </div>
 </div>
 
@@ -31,11 +36,11 @@
   <div class="hero-body">
     <p class="hero-en">ARONA</p>
     <h1>AronaBotの使い方</h1>
-    <p class="hero-lead">ブルーアーカイブのお手伝いをする Discord ボットです。<br>
-      総力戦の調べもの、開催の知らせ、予定の登録をまとめて引き受けます。</p>
+    <p class="hero-lead">ブルーアーカイブの公式 X を見張って、<b>開催の予定を Discord のイベントに自動で登録</b>します。<br>
+      更新の通知、総力戦の調べもの、リマインダーもできます。</p>
     <a class="cta" href="https://discord.com/oauth2/authorize?client_id=1534362868072321094&permissions=17875654003712&integration_type=0&scope=bot" target="_blank" rel="noopener">サーバーに招待する</a>
     <nav class="toc">
-      <a href="#can">できること</a>
+      <a href="#can">機能</a>
       <a href="#start">つかいはじめる</a>
       <a href="#message">メッセージから</a>
       <a href="#faq">よくある質問</a>
@@ -51,10 +56,36 @@
       <img class="chapter-icon" src="images/icon-01.png" alt="" width="350" height="350">
       <div>
         <p class="chapter-n">01</p>
-        <h2>できること</h2>
+        <h2>このAronaBotの機能</h2>
         <p class="chapter-sub">招待してすぐ使えるものと、設定してから届くものがあります。</p>
       </div>
     </div>
+
+    <!-- 開いてすぐ「何ができるボットか」が分かるように、先に一覧を出す -->
+    <div class="main-feats">
+      <div class="main-feat">
+        <p class="tag">主な機能</p>
+        <h4>イベントの自動登録</h4>
+        <p>公式の告知を拾って、<b>Discord のイベントに予定を登録します。</b>
+          総力戦・合同火力演習・キャンペーン・ピックアップ募集。
+          期間と告知画像つきで並ぶので、<b>いつ始まっていつ終わるかが一目で分かります。</b></p>
+      </div>
+      <div class="main-feat">
+        <p class="tag">主な機能</p>
+        <h4>公式 X の通知</h4>
+        <p>公式アカウントの投稿を拾って、<b>選んだチャンネルへ流します。</b>
+          開催の知らせやメンテナンスの開始・延長・終了も、
+          告知を読み取って<b>そのつどお伝えします。</b></p>
+      </div>
+    </div>
+
+    <p class="para para-sub">そのほかにできること</p>
+    <ul class="glance">
+      <li><b>総力戦・大決戦を調べる</b><span>攻略情報とボーダーを、選択式で。<code>/st</code></span></li>
+      <li><b>リマインダー</b><span>忘れたくないメッセージを、時間が来たら引用して</span></li>
+      <li><b>4 時のまとめ</b><span>その日から始まるものを、毎朝お知らせ</span></li>
+      <li><b>10 連ガチャ</b><span>提供割合どおりの確率で。<code>/g</code></span></li>
+    </ul>
 
     <h3 class="lead-h">すぐ使えるもの</h3>
     <p class="para">スラッシュコマンドを打つだけです。設定は要りません。</p>
@@ -68,9 +99,9 @@
           開催中は定期的に数字を取り直します。</p>
       </div>
       <div class="shots shots-2">
-        <figure><img src="images/st-menu.webp" alt="/st で選択肢が 3 つ出ている画面" loading="lazy" width="528" height="442">
+        <figure><a class="zoom" href="images/st-menu.webp" aria-label="画像を拡大"><img src="images/st-menu.webp" alt="/st で選択肢が 3 つ出ている画面" loading="lazy" width="528" height="442"></a>
           <figcaption>選ぶだけで進みます</figcaption></figure>
-        <figure><img src="images/st-border.webp" alt="ボーダー情報が表示された画面" loading="lazy" width="576" height="350">
+        <figure><a class="zoom" href="images/st-border.webp" aria-label="画像を拡大"><img src="images/st-border.webp" alt="ボーダー情報が表示された画面" loading="lazy" width="576" height="350"></a>
           <figcaption>ボーダーはこの形で出ます</figcaption></figure>
       </div>
     </div>
@@ -106,9 +137,9 @@
           期間と告知画像つきで登録されます。開催通知に貼られるリンクからも飛べます。</p>
       </div>
       <div class="shots shots-2">
-        <figure><img src="images/event-list.webp" alt="サーバーのイベント一覧にアロナが登録した予定が 3 件並んでいる画面" loading="lazy" width="598" height="794">
+        <figure><a class="zoom" href="images/event-list.webp" aria-label="画像を拡大"><img src="images/event-list.webp" alt="サーバーのイベント一覧にアロナが登録した予定が 3 件並んでいる画面" loading="lazy" width="598" height="794"></a>
           <figcaption>一覧に並んだところ</figcaption></figure>
-        <figure><img src="images/event-detail.webp" alt="登録されたイベントの詳細画面。告知画像・期間・場所が表示されている" loading="lazy" width="668" height="710">
+        <figure><a class="zoom" href="images/event-detail.webp" aria-label="画像を拡大"><img src="images/event-detail.webp" alt="登録されたイベントの詳細画面。告知画像・期間・場所が表示されている" loading="lazy" width="668" height="710"></a>
           <figcaption>開くと期間と場所が出ます</figcaption></figure>
       </div>
     </div>
@@ -139,7 +170,7 @@
               表示が🟢に変われば完了です。</p></div></li>
       </ol>
       <div class="shots">
-        <figure><img src="images/settings.webp" alt="/settings の設定画面。5 つの項目それぞれにオン・オフのボタンとチャンネル選択が並んでいる" loading="lazy" width="562" height="860">
+        <figure><a class="zoom" href="images/settings.webp" aria-label="画像を拡大"><img src="images/settings.webp" alt="/settings の設定画面。5 つの項目それぞれにオン・オフのボタンとチャンネル選択が並んでいる" loading="lazy" width="562" height="860"></a>
           <figcaption><code>/settings</code> の画面</figcaption></figure>
       </div>
     </div>
@@ -169,9 +200,9 @@
           予約したあとに出る「リマインダー解除」ボタンで取り消せます。</p>
       </div>
       <div class="shots shots-2">
-        <figure><img src="images/reminder-menu.jpg" alt="メッセージを右クリックし、アプリから AronaBot のリマインダー設定を選ぶ画面" loading="lazy" width="718" height="634">
+        <figure><a class="zoom" href="images/reminder-menu.jpg" aria-label="画像を拡大"><img src="images/reminder-menu.jpg" alt="メッセージを右クリックし、アプリから AronaBot のリマインダー設定を選ぶ画面" loading="lazy" width="718" height="634"></a>
           <figcaption>この順に進みます</figcaption></figure>
-        <figure><img src="images/reminder-message.webp" alt="リマインダーを設定したあとに届くメッセージ" loading="lazy" width="564" height="142">
+        <figure><a class="zoom" href="images/reminder-message.webp" aria-label="画像を拡大"><img src="images/reminder-message.webp" alt="リマインダーを設定したあとに届くメッセージ" loading="lazy" width="564" height="142"></a>
           <figcaption>設定するとこう返ります</figcaption></figure>
       </div>
     </div>
@@ -250,5 +281,36 @@
   </div>
 </footer>
 
+
+<dialog class="lightbox" id="lightbox">
+  <img id="lightbox-img" src="" alt="">
+  <button class="lightbox-close" type="button" aria-label="閉じる">×</button>
+</dialog>
+
+<script>
+// 画像を押したら大きく出す。**ホバーだけにしないこと** —— スマホには hover が無い。
+// JS が動かないときは <a href> がそのまま効いて、画像単体が開く。
+(function () {
+  var dlg = document.getElementById('lightbox');
+  var img = document.getElementById('lightbox-img');
+  if (!dlg || typeof dlg.showModal !== 'function') return;
+
+  document.querySelectorAll('a.zoom').forEach(function (a) {
+    a.addEventListener('click', function (e) {
+      e.preventDefault();
+      var inner = a.querySelector('img');
+      img.src = a.getAttribute('href');
+      img.alt = inner ? inner.alt : '';
+      dlg.showModal();
+    });
+  });
+
+  // 余白を押しても閉じる。画像そのものを押したときは閉じない
+  dlg.addEventListener('click', function (e) {
+    if (e.target !== img) dlg.close();
+  });
+  dlg.addEventListener('close', function () { img.src = ''; });
+})();
+</script>
 </body>
 </html>

@@ -102,24 +102,23 @@ code {
   font-size: .98rem;
 }
 
-.topbar-cta {
-  background: var(--accent);
-  color: var(--accent-in);
-  text-decoration: none;
-  font-weight: 700;
+.topbar-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .2em 1.4em;
   font-size: .86rem;
-  padding: .55em 1.3em;
-  border-radius: 999px;
-  white-space: nowrap;
-  transition: filter .15s ease;
 }
-.topbar-cta:hover { filter: brightness(1.06); }
+.topbar-nav a { color: var(--fg-mute); text-decoration: none; white-space: nowrap; }
+.topbar-nav a:hover { color: var(--accent); }
+
+/* 狭い画面では節のリンクを畳む。名前だけ残す */
+@media (max-width: 560px) { .topbar-nav { display: none; } }
 
 /* ------------------------------------------------------------ ヒーロー */
 
 .hero { position: relative; }
 
-.hero-media { position: relative; height: clamp(200px, 34vw, 380px); overflow: hidden; }
+.hero-media { position: relative; height: clamp(170px, 26vw, 300px); overflow: hidden; }
 
 .hero-img { width: 100%; height: 100%; object-fit: cover; }
 
@@ -238,6 +237,73 @@ h1 {
 }
 
 .para { margin: 0 0 1.6em; color: var(--fg-mute); }
+
+/* ------------------------------------------------------------ 主な機能
+
+   **推したい 2 つを大きく出す。** 全部を同じ大きさで並べると、
+   何のためのボットなのかが埋もれる（2026-08-09 に先生の指摘）。 */
+
+.main-feats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
+  gap: clamp(14px, 2.5vw, 22px);
+  margin-bottom: clamp(28px, 4vw, 44px);
+}
+
+.main-feat {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-top: 4px solid var(--accent);
+  border-radius: var(--radius);
+  padding: clamp(20px, 3vw, 30px);
+  box-shadow: var(--shadow);
+}
+.main-feat .tag {
+  margin: 0 0 .5em;
+  font-size: .72rem;
+  letter-spacing: .22em;
+  font-weight: 700;
+  color: var(--accent);
+}
+.main-feat h4 {
+  margin: 0 0 .5em;
+  font-size: clamp(1.2rem, 3.4vw, 1.5rem);
+  font-weight: 800;
+  line-height: 1.4;
+}
+.main-feat p { margin: 0; color: var(--fg-mute); font-size: .95rem; }
+
+.para-sub {
+  margin-bottom: .8em;
+  font-size: .82rem;
+  letter-spacing: .16em;
+  font-weight: 700;
+  color: var(--fg-mute);
+}
+
+/* ------------------------------------------------------------ 機能の一覧
+
+   **開いてすぐ「何ができるボットか」が分かるように、章の頭に置く。**
+   細かい説明は下に続けるので、ここは 1 行ずつに留める。 */
+
+.glance {
+  list-style: none;
+  margin: 0 0 clamp(24px, 4vw, 40px);
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+  gap: clamp(10px, 2vw, 16px);
+}
+
+.glance li {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--gold);
+  border-radius: var(--radius);
+  padding: 1em 1.2em;
+}
+.glance b { display: block; margin-bottom: .15em; font-size: 1rem; }
+.glance span { color: var(--fg-mute); font-size: .88rem; line-height: 1.7; display: block; }
 
 /* ------------------------------------------------------------ 機能のブロック */
 
@@ -430,4 +496,129 @@ footer {
   .feature, .feature-wide { grid-template-columns: 1fr; }
   .notice-list li { grid-template-columns: 1fr; }
   .chapter-head { align-items: flex-start; }
+  /* 1 列になったら中央寄せは不要。上から順に読む */
+  .feature { align-items: start; }
+}
+
+/* ------------------------------------------------------------ スマホ
+
+   **Discord の利用者はスマホが多い。** ここが読めないと意味がない。
+   横幅は 360〜430px を想定する。 */
+
+@media (max-width: 560px) {
+  body { line-height: 1.85; }
+
+  /* 端の余白を詰めて、本文の幅を稼ぐ */
+  .hero-body, .chapter, .topbar-inner, .foot-inner, .invite { padding-left: 18px; padding-right: 18px; }
+  .chapter { padding-top: clamp(40px, 12vw, 64px); }
+
+  /* ヒーローの画像に文字が食い込まないよう、重なりを浅くする */
+  .hero-body { margin-top: -28px; }
+  .hero-lead { margin-bottom: 1.6em; }
+
+  /* 押しやすさ。**指で押す前提の大きさにする** */
+  .cta { display: block; text-align: center; padding: 1em 1.4em; }
+  .toc { gap: .6em 1.2em; }
+  .toc a { padding: .2em 0; }
+  .qa summary { padding: 1.05em 0; }
+
+  /* 章の見出し。アイコンと文字を横に並べたままだと文字が細くなる */
+  .chapter-head { gap: 12px; }
+  .chapter-icon { width: 48px; }
+
+  /* 画像は縦に積む。**横に 2 枚並べると読めない大きさになる** */
+  .shots-2 { grid-template-columns: 1fr; }
+  .glance { gap: 10px; }
+  .glance li { padding: .9em 1em; }
+
+  /* 手順の番号を少し小さく */
+  .step-n { width: 1.8em; height: 1.8em; font-size: .86rem; }
+
+  .invite { border-radius: 0; margin-left: -18px; margin-right: -18px; }
+}
+
+/* 指で押したときの青い箱を消す（枠は :focus-visible が出す） */
+a, button, summary { -webkit-tap-highlight-color: transparent; }
+a:focus-visible, button:focus-visible, summary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+/* 拡大表示は画面いっぱいに。**スマホでは余白より中身を優先する** */
+@media (max-width: 560px) {
+  .lightbox, .lightbox img { max-width: 100vw; max-height: 88vh; }
+  .lightbox img { border-radius: 0; }
+  .lightbox-close { top: 10px; right: 10px; }
+}
+
+
+/* ------------------------------------------------------------ 画像の拡大
+
+   **ホバーだけにしない。** スマホには hover が無く、Discord の利用者は
+   スマホが多い。押して開く形にして、ホバーは「押せる」合図だけに使う。
+   JS が動かないときは <a href> がそのまま効き、画像単体が開く。 */
+
+a.zoom {
+  display: block;
+  position: relative;
+  cursor: zoom-in;
+  border-radius: var(--radius);
+}
+
+a.zoom img { transition: transform .18s ease, box-shadow .18s ease; }
+
+/* 虫めがね。**押せることが分かるように出す** */
+a.zoom::after {
+  content: "⌕";
+  position: absolute;
+  right: .5em; bottom: .5em;
+  width: 1.9em; height: 1.9em;
+  display: grid; place-items: center;
+  font-size: 1.05rem;
+  line-height: 1;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--bg) 78%, transparent);
+  color: var(--fg);
+  border: 1px solid var(--line);
+  backdrop-filter: blur(6px);
+  opacity: .75;
+  transition: opacity .18s ease;
+}
+
+@media (hover: hover) {
+  a.zoom:hover img { transform: translateY(-3px) scale(1.012); box-shadow: 0 12px 34px rgba(0,0,0,.22); }
+  a.zoom:hover::after { opacity: 1; }
+}
+
+.lightbox {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  max-width: 96vw;
+  max-height: 94vh;
+  overflow: visible;
+}
+.lightbox::backdrop { background: rgba(8,10,14,.86); backdrop-filter: blur(3px); }
+
+.lightbox img {
+  max-width: 96vw;
+  max-height: 94vh;
+  width: auto; height: auto;
+  border-radius: 10px;
+  box-shadow: 0 24px 70px rgba(0,0,0,.5);
+  cursor: zoom-out;
+}
+
+.lightbox-close {
+  position: fixed;
+  top: 14px; right: 16px;
+  width: 2.2em; height: 2.2em;
+  font-size: 1.2rem;
+  line-height: 1;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,.28);
+  background: rgba(20,24,32,.7);
+  color: #fff;
+  cursor: pointer;
 }
