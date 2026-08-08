@@ -17,6 +17,7 @@
   --fg:        #1a1614;
   --fg-mute:   #6b625a;
   --line:      #e2dbcf;
+  --fig-line:  #e2dbcf;   /* 図版の枠。ライトは地の線と同じでよい */
   --accent:    #b8791f;   /* 琥珀。ボタンや帯など、面で使う側 */
   --accent-tx: #96621a;   /* 文字に使う側。**面と同じ濃さだと本文リンクが薄すぎる** */
   --accent-in: #ffffff;
@@ -35,6 +36,7 @@
     --fg:        #e8eef5;
     --fg-mute:   #9aa8b8;
     --line:      #24303f;
+    --fig-line:  rgba(255, 255, 255, .16);   /* **暗い地に暗いスクショ。** 枠を明るくしないと輪郭が消える */
     --accent:    #e2c061;
     --accent-tx: #e2c061;   /* 暗い地の上では、面と同じ明るさで十分読める */
     --accent-in: #241a06;
@@ -141,7 +143,7 @@ code {
 .hero-body {
   max-width: var(--wrap);
   margin: 0 auto;
-  padding: clamp(28px, 5vw, 56px) 24px clamp(40px, 7vw, 88px);
+  padding: clamp(28px, 5vw, 56px) 24px clamp(40px, 5vw, 56px);
   margin-top: clamp(-90px, -9vw, -40px);
   position: relative;
 }
@@ -306,9 +308,13 @@ h1 {
   margin: 0 0 clamp(24px, 4vw, 40px);
   padding: 0;
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+  /* **列の数を決め打つ。** auto-fit に任せると 1280 で 3+1 に割れ、
+     4 つ目だけが行の 2/3 を空けて取り残される */
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: clamp(10px, 2vw, 16px);
 }
+@media (min-width: 900px) { .glance { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+@media (max-width: 480px) { .glance { grid-template-columns: 1fr; } }
 
 .glance li {
   background: var(--card);
@@ -333,9 +339,15 @@ h1 {
 }
 
 /* 手順や箇条書きは上端を揃えたい。中央寄せだと番号 1 が下がって見える */
-.feature:has(> .steps) { align-items: start; }
+.feature:has(> .steps), .feature:has(> .steps-col) { align-items: start; }
 
 .feature-wide { grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr); }
+
+/* 背の高い 1 枚もの（/settings の画面）を、列いっぱいに引き伸ばさない。
+   **手順 3 つより画像が 2 倍近く高く、左下に大きな空きができる。**
+   画像を少し絞り、その空きへ注記を差し込んで埋める。 */
+.shots-narrow { max-width: 460px; align-self: start; }
+.note-in { margin: clamp(24px, 3vw, 36px) 0 0; }
 
 /* 画像を持たない小さな項目を 2 つ並べる。
    **1 つだけで .feature を使うと右半分が空いて、文章が不自然に細くなる。** */
@@ -373,7 +385,7 @@ figure { margin: 0; }
 figure img {
   width: 100%;
   border-radius: var(--radius);
-  border: 1px solid var(--line);
+  border: 1px solid var(--fig-line);
   box-shadow: var(--shadow);
   background: var(--card);
 }
@@ -517,6 +529,9 @@ footer {
 
 @media (max-width: 720px) {
   .feature, .feature-wide { grid-template-columns: 1fr; }
+  /* 1 列に畳んだら行またぎの指定は邪魔になる。素直に上から順に積む */
+  .shots-narrow { max-width: none; }
+  .note-in { margin-top: clamp(20px, 3vw, 32px); }
   .notice-list li { grid-template-columns: 1fr; }
   .chapter-head { align-items: flex-start; }
   /* 1 列になったら中央寄せは不要。上から順に読む */
