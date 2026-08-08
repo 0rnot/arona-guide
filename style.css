@@ -245,9 +245,14 @@ h1 {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr);
   gap: clamp(20px, 4vw, 48px);
-  align-items: start;
+  /* **start ではなく center。** 文章より画像の列が背が高いと、
+     start だと左下に大きな空きができる（2026-08-09 に先生の指摘）。 */
+  align-items: center;
   margin-bottom: clamp(32px, 5vw, 56px);
 }
+
+/* 手順や箇条書きは上端を揃えたい。中央寄せだと番号 1 が下がって見える */
+.feature:has(> .steps) { align-items: start; }
 
 .feature-wide { grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr); }
 
