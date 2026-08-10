@@ -4,17 +4,19 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>AronaBotの使い方</title>
-<meta name="description" content="ブルーアーカイブの公式 X を見張って、開催の予定を Discord のイベントに自動で登録します。更新の通知、総力戦の調べもの、リマインダーもできます。">
+<meta name="description" content="あなたのサーバーを、シッテムの箱に。ブルーアーカイブの公式 X を見張って、開催の予定を Discord のイベントに自動で登録します。更新の通知、総力戦の調べもの、リマインダーもできます。">
 <meta name="theme-color" content="#c8892e">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
-<meta property="og:title" content="AronaBotの使い方">
-<meta property="og:description" content="ブルーアーカイブの公式 X を見張って、開催の予定を Discord のイベントに自動で登録します。">
+<!-- **埋め込みカードの 1 行目にキャッチコピーが出るようにする。**
+     Discord も X も og:description の頭から表示するので、説明より前に置く。 -->
+<meta property="og:title" content="AronaBotの使い方｜あなたのサーバーを、シッテムの箱に。">
+<meta property="og:description" content="あなたのサーバーを、シッテムの箱に。ブルーアーカイブの公式 X を見張って、開催の予定を Discord のイベントに自動で登録します。">
 <meta property="og:type" content="website">
 <!-- **ドメインを変えたらここも直すこと。** OGP の画像は絶対 URL でしか指定できず、
      クローラは JS を動かさないので、自動で追随させる手段が無い。 -->
 <meta property="og:image" content="https://0rnot.github.io/arona-guide/images/hero-day.jpg">
 <meta name="twitter:card" content="summary_large_image">
-<link rel="stylesheet" href="style.css?v=7">
+<link rel="stylesheet" href="style.css?v=8">
 </head>
 <body>
 
@@ -27,6 +29,10 @@
       <a href="#message">メッセージから</a>
       <a href="#faq">よくある質問</a>
     </nav>
+    <!-- 共有を促す一言。**広い画面でだけ出す。**
+         狭い画面では節のリンクを畳んで名前と共有ボタンだけにしてあるので、
+         ここに字を足すと窮屈になる。ボタン単体でも意味は伝わる。 -->
+    <span class="share-nudge" aria-hidden="true">先生のサーバーにも、ぜひ</span>
     <!-- 共有ボタン。**JS が動かない環境では X の共有ページへ飛ぶ <a> のまま**なので、
          押しても何も起きないということにはならない。 -->
     <a class="share" id="share" target="_blank" rel="noopener" aria-label="このページを共有する"
@@ -52,6 +58,10 @@
   <div class="hero-body">
     <p class="hero-en">ARONA</p>
     <h1>AronaBotの使い方</h1>
+    <!-- キャッチコピー。**説明より前に、目に入る大きさで。**
+         「シッテムの箱」はアロナが住んでいるところなので、
+         「アロナを招く ＝ サーバーがシッテムの箱になる」という言い方にしてある。 -->
+    <p class="hero-catch">あなたのサーバーを、シッテムの箱に。</p>
     <p class="hero-lead">ブルーアーカイブの公式 X を見張って、<br class="br-sp">
       <b>開催の予定を Discord のイベントに自動で登録</b>します。</p>
     <p class="hero-sub">更新の通知、総力戦の調べもの、リマインダーもできます。</p>
@@ -84,8 +94,13 @@
         <p class="tag">主な機能</p>
         <h3>イベントの自動登録</h3>
         <p>公式の告知を拾って、<b>Discord のイベントに予定を登録します。</b>
-          総力戦・合同火力演習・キャンペーン・ピックアップ募集・イベント（復刻も）。
+          総力戦・合同火力演習・キャンペーン・ピックアップ募集。
           期間と告知画像つきで並ぶので、<b>いつ始まっていつ終わるかが一目で分かります。</b></p>
+        <figure class="main-feat-shot">
+          <a class="zoom" href="images/event-list.webp"><img src="images/event-list.webp"
+            alt="サーバーのイベント一覧にアロナが登録した予定が 3 件並んでいる画面"
+            loading="lazy" width="598" height="794"></a>
+        </figure>
       </div>
       <div class="main-feat">
         <p class="tag">主な機能</p>
@@ -93,6 +108,11 @@
         <p>公式アカウントの投稿を拾って、<b>選んだチャンネルへ流します。</b>
           開催の知らせやメンテナンスの開始・延長・終了も、
           告知を読み取って<b>そのつどお伝えします。</b></p>
+        <figure class="main-feat-shot">
+          <a class="zoom" href="images/notice-x.webp"><img src="images/notice-x.webp"
+            alt="公式 X の投稿がアロナ経由でチャンネルに流れている画面。本文と告知画像とリンクが並んでいる"
+            loading="lazy" width="502" height="632"></a>
+        </figure>
       </div>
     </div>
 
@@ -148,7 +168,7 @@
     <ul class="notice-list">
       <li><b>4 時のまとめ</b><span>毎朝 4 時。その日から始まるイベントやメンテナンスに触れます</span></li>
       <li><b>公式 X の更新通知</b><span>公式アカウントの投稿を拾って流します</span></li>
-      <li><b>総力戦・イベントの開催通知</b><span>総力戦・大決戦のほか、合同火力演習・キャンペーン・ピックアップ募集・イベント（復刻も）も、始まったときにお知らせします。総力戦だけは終了の前日にもう一度出て、そのときはボーダーの数字を添えます</span></li>
+      <li><b>総力戦・イベントの開催通知</b><span>総力戦・大決戦のほか、合同火力演習・キャンペーン・ピックアップ募集も、始まったときにお知らせします。総力戦だけは終了の前日にもう一度出て、そのときはボーダーの数字を添えます</span></li>
       <li><b>開催予定のイベント登録</b><span>告知を拾って、Discord のイベントに予定を登録します</span></li>
       <li><b>メンテナンスの知らせ</b><span>定期メンテナンスの開始・延長・終了。延長のときは新しい終了予定の時刻を出します</span></li>
     </ul>
