@@ -7,10 +7,13 @@
 <meta name="description" content="あなたのサーバーを、シッテムの箱に。ブルーアーカイブの公式 X を見張って、開催の予定を Discord のイベントに自動で登録します。更新の通知、総力戦の調べもの、リマインダーもできます。">
 <meta name="theme-color" content="#c8892e">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
-<!-- **埋め込みカードの 1 行目にキャッチコピーが出るようにする。**
-     Discord も X も og:description の頭から表示するので、説明より前に置く。 -->
-<meta property="og:title" content="AronaBotの使い方｜あなたのサーバーを、シッテムの箱に。">
-<meta property="og:description" content="あなたのサーバーを、シッテムの箱に。ブルーアーカイブの公式 X を見張って、開催の予定を Discord のイベントに自動で登録します。">
+<!-- **埋め込みカードのタイトルはキャッチコピーだけにする。**
+     `AronaBotの使い方｜あなたのサーバーを、シッテムの箱に。` は長すぎて、
+     Discord が `…あなたのサーバーをシッテム` あたりで切った（2026-08-11 に先生が発見）。
+     **1 行目に収まる長さで、いちばん言いたいものを置く。**
+     ボット名は説明文の頭へ回した。説明文のほうが表示できる字数が多い。 -->
+<meta property="og:title" content="あなたのサーバーを、シッテムの箱に。">
+<meta property="og:description" content="AronaBot — ブルーアーカイブの公式 X を見張って、開催の予定を Discord のイベントに自動で登録します。">
 <meta property="og:type" content="website">
 <!-- **ドメインを変えたらここも直すこと。** OGP の画像は絶対 URL でしか指定できず、
      クローラは JS を動かさないので、自動で追随させる手段が無い。 -->
