@@ -472,6 +472,9 @@ h1 {
 
 .shots { display: grid; gap: clamp(14px, 2.5vw, 22px); }
 .shots-2 { grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); align-items: start; }
+/* 3 枚並べる用。**最小幅を 2 枚のときより小さくする** —— 240px のままだと
+   1080px の本文幅に 3 枚入らず、2 枚 + 1 枚の座りの悪い形で折り返す。 */
+.shots-3 { grid-template-columns: repeat(auto-fit, minmax(min(100%, 190px), 1fr)); align-items: start; }
 
 figure { margin: 0; }
 
@@ -615,6 +618,12 @@ footer {
 .foot-name { margin: 0 0 .6em; font-weight: 800; }
 .foot-links { margin: 0 0 1.6em; font-size: .92rem; color: var(--fg-mute); }
 .foot-links .sep { margin: 0 .8em; opacity: .5; }
+/* データの出どころ。**免責より前に、少しだけ強く。** 借りているものなので、
+   小さく畳んで見えなくしない。 */
+.credits { margin: 0 0 1.2em; font-size: .84rem; color: var(--fg-mute); line-height: 1.9; }
+.credits a { color: var(--accent-tx); }
+.credits .sep { margin: 0 .6em; opacity: .5; }
+
 .disclaimer { margin: 0; font-size: .82rem; color: var(--fg-mute); line-height: 1.8; }
 .disclaimer small { display: block; margin-top: .5em; opacity: .85; }
 
@@ -658,7 +667,7 @@ footer {
   .chapter-icon { width: 48px; }
 
   /* 画像は縦に積む。**横に 2 枚並べると読めない大きさになる** */
-  .shots-2 { grid-template-columns: 1fr; }
+  .shots-2, .shots-3 { grid-template-columns: 1fr; }
   .glance { gap: 10px; }
   .glance li { padding: .9em 1em; }
 

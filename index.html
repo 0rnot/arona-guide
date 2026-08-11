@@ -20,7 +20,7 @@
      クローラは JS を動かさないので、自動で追随させる手段が無い。 -->
 <meta property="og:image" content="https://arona-bot.com/images/hero-day.jpg">
 <meta name="twitter:card" content="summary_large_image">
-<link rel="stylesheet" href="style.css?v=8">
+<link rel="stylesheet" href="style.css?v=9">
 </head>
 <body>
 
@@ -139,9 +139,13 @@
           <b>ボーダー情報</b>（プラチナ / ゴールド / シルバー）を出します。
           開催中は定期的に数字を取り直します。</p>
       </div>
-      <div class="shots shots-2">
-        <figure><a class="zoom" href="images/st-menu.webp"><img src="images/st-menu.webp" alt="/st で選択肢が 3 つ出ている画面" loading="lazy" width="530" height="232"></a>
-          <figcaption>選ぶだけで進みます</figcaption></figure>
+      <!-- **3 枚で 1 本の流れを見せる。** コンテンツを選ぶ → ボスを選ぶ → 結果。
+           途中を飛ばすと「選ぶだけ」がどれくらい手軽なのか伝わらない。 -->
+      <div class="shots shots-3">
+        <figure><a class="zoom" href="images/st-menu.webp"><img src="images/st-menu.webp" alt="/st で総力戦か大決戦かを選ぶ画面" loading="lazy" width="530" height="232"></a>
+          <figcaption>まずコンテンツを選びます</figcaption></figure>
+        <figure><a class="zoom" href="images/st-boss.webp"><img src="images/st-boss.webp" alt="ボスの一覧が開いて、ヒエロニムスやグレゴリオなどが並んでいる画面" loading="lazy" width="500" height="285"></a>
+          <figcaption>次にボスを選びます</figcaption></figure>
         <figure><a class="zoom" href="images/st-border.webp"><img src="images/st-border.webp" alt="ボーダー情報が表示された画面" loading="lazy" width="492" height="364"></a>
           <figcaption>ボーダーはこの形で出ます</figcaption></figure>
       </div>
@@ -353,6 +357,14 @@
       <a href="https://x.com/PE6K4C" target="_blank" rel="noopener">制作者の X（@PE6K4C）</a>
       <span class="sep">/</span>
       <span>不具合・要望は <b>@0r.not</b> まで</span>
+    </p>
+    <!-- **借りているものは名前を出す。** どちらも無ければこのボットは成り立たない。
+         ボーダーは そうりきボーダー の数字、開催予定は公式 X の告知が出どころ。 -->
+    <p class="credits">
+      データの出どころ
+      <a href="https://souriki-border.com/" target="_blank" rel="noopener">そうりきボーダー</a>（総力戦・大決戦のボーダー）
+      <span class="sep">/</span>
+      <a href="https://x.com/Blue_ArchiveJP" target="_blank" rel="noopener">ブルーアーカイブ公式 X（@Blue_ArchiveJP）</a>（開催の告知）
     </p>
     <p class="disclaimer">
       このページはファンによる非公式のものです。
