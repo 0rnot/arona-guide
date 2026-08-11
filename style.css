@@ -440,6 +440,10 @@ h1 {
    **手順 3 つより画像が 2 倍近く高く、左下に大きな空きができる。**
    画像を少し絞り、その空きへ注記を差し込んで埋める。 */
 .shots-narrow { max-width: 460px; align-self: start; }
+
+/* 画像を持たない節。**行が長くなりすぎないよう幅を絞る。**
+   本文幅いっぱいだと 1 行が 60 字を超えて読みにくい。 */
+.feature-solo { max-width: 720px; margin-top: clamp(28px, 4vw, 44px); }
 .note-in { margin: clamp(24px, 3vw, 36px) 0 0; }
 
 /* 画像を持たない小さな項目を 2 つ並べる。

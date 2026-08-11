@@ -20,7 +20,7 @@
      クローラは JS を動かさないので、自動で追随させる手段が無い。 -->
 <meta property="og:image" content="https://arona-bot.com/images/hero-day.jpg">
 <meta name="twitter:card" content="summary_large_image">
-<link rel="stylesheet" href="style.css?v=9">
+<link rel="stylesheet" href="style.css?v=10">
 </head>
 <body>
 
@@ -115,7 +115,7 @@
         <figure class="main-feat-shot">
           <a class="zoom" href="images/notice-x.webp"><img src="images/notice-x.webp"
             alt="公式 X の投稿がアロナ経由でチャンネルに流れている画面。本文と告知画像とリンクが並んでいる"
-            loading="lazy" width="1165" height="470"></a>
+            loading="lazy" width="1290" height="600"></a>
         </figure>
       </div>
     </div>
@@ -188,20 +188,21 @@
           元の投稿へのリンクも付くので、<b>X を開かなくても中身が読めます。</b></p>
       </div>
       <div class="shots shots-narrow">
-        <figure><a class="zoom" href="images/notice-x.webp"><img src="images/notice-x.webp" alt="公式 X の投稿がアロナ経由でチャンネルに流れている画面。本文と告知画像とリンクが並んでいる" loading="lazy" width="1165" height="470"></a>
+        <figure><a class="zoom" href="images/notice-x.webp"><img src="images/notice-x.webp" alt="公式 X の投稿がアロナ経由でチャンネルに流れている画面。本文と告知画像とリンクが並んでいる" loading="lazy" width="1290" height="600"></a>
           <figcaption>公式 X の更新通知</figcaption></figure>
       </div>
     </div>
 
     <div class="feature feature-wide">
       <div class="feature-text">
-        <h4>始まったときは、こう届きます</h4>
+        <h4>始まるときも、終わる前にも届きます</h4>
         <p>告知を読み取って<b>「何が始まったか」を一言で伝えます。</b>
+          <b>総力戦は終了の前日にもう一度出て、そのときはボーダーの数字を添えます。</b>
           下に付くカードは登録された予定そのもので、<b>押すと期間と場所が開きます。</b></p>
       </div>
       <div class="shots">
-        <figure><a class="zoom" href="images/notice-event.webp"><img src="images/notice-event.webp" alt="開催通知のメッセージと、その下に登録された予定のカードが並んでいる画面" loading="lazy" width="610" height="432"></a>
-          <figcaption>開催通知と、登録された予定</figcaption></figure>
+        <figure><a class="zoom" href="images/notice-event.webp"><img src="images/notice-event.webp" alt="終了前日のお知らせと、その下に登録された予定のカードが並んでいる画面" loading="lazy" width="610" height="432"></a>
+          <figcaption>終了前日のお知らせと、登録された予定</figcaption></figure>
       </div>
     </div>
 
@@ -266,21 +267,16 @@
       </div>
     </div>
 
-    <div class="feature feature-wide">
-      <div class="feature-text">
-        <h4>リマインダー設定</h4>
-        <p><b>スラッシュコマンドではありません。</b>忘れたくないメッセージを
-          <b>長押し（スマホ）／右クリック（PC）</b>して、
-          <b>「アプリ」→ AronaBot → リマインダー設定</b>と進みます。</p>
-        <p>時間が来ると、そのメッセージを引用してお知らせします。
-          予約したあとに出る「リマインダー解除」ボタンで取り消せます。</p>
-      </div>
-      <div class="shots">
-        <figure><a class="zoom" href="images/reminder-menu.webp"><img src="images/reminder-menu.webp" alt="メッセージを右クリックし、アプリから AronaBot のリマインダー設定を選ぶ画面" loading="lazy" width="640" height="790"></a>
-          <figcaption>この順に進みます</figcaption></figure>
-        <figure><a class="zoom" href="images/reminder-message.webp"><img src="images/reminder-message.webp" alt="リマインダーを設定したあとに届くメッセージ" loading="lazy" width="564" height="142"></a>
-          <figcaption>設定するとこう返ります</figcaption></figure>
-      </div>
+    <!-- **ここだけ画像を置かない。** リマインダーは補助の機能で、
+         手順が 1 行で書ける（先生の判断、2026-08-11）。
+         2 列の .feature のままだと右半分が空くので、1 列で持つ。 -->
+    <div class="feature-text feature-solo">
+      <h4>リマインダー設定</h4>
+      <p><b>スラッシュコマンドではありません。</b>忘れたくないメッセージを
+        <b>長押し（スマホ）／右クリック（PC）</b>して、
+        <b>「アプリ」→ AronaBot → リマインダー設定</b>と進みます。</p>
+      <p>時間が来ると、そのメッセージを引用してお知らせします。
+        予約したあとに出る「リマインダー解除」ボタンで取り消せます。</p>
     </div>
   </section>
 
