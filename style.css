@@ -216,7 +216,7 @@ code {
   font-size: .82rem;
   letter-spacing: .38em;
   font-weight: 700;
-  color: var(--accent);
+  color: var(--accent-tx);
 }
 
 h1 {
@@ -308,7 +308,7 @@ h1 {
   font-size: .8rem;
   letter-spacing: .3em;
   font-weight: 700;
-  color: var(--accent);
+  color: var(--accent-tx);
 }
 
 .chapter h2 {
@@ -358,7 +358,7 @@ h1 {
   font-size: .72rem;
   letter-spacing: .22em;
   font-weight: 700;
-  color: var(--accent);
+  color: var(--accent-tx);
 }
 .main-feat h3 {
   margin: 0 0 .5em;
@@ -369,7 +369,7 @@ h1 {
 .main-feat p { margin: 0; color: var(--fg-mute); font-size: .95rem; }
 
 /* 主な機能に添える 1 枚。**説明だけだと何が起きるのか伝わらない。**
-   元画像は縦長（598x794 と 502x632）なので、**上端を残して高さで切る。**
+   元画像は縦長（595x715 と 480x675）なので、**上端を残して高さで切る。**
    一覧の頭とメッセージの頭にいちばん中身があるため。
    拡大は既存の a.zoom に任せてあるので、全体は押せば見られる。 */
 .main-feat-shot { margin: 1.1em 0 0; }
@@ -464,6 +464,10 @@ h1 {
   margin-bottom: clamp(32px, 5vw, 56px);
 }
 
+/* **h3 も同じ見た目にする。** 画像を持たない節（.feature-solo）だけは
+   h2 の直下に来るので、階層を飛ばさないよう h3 で書いてある。
+   見出しの大きさは同じでよく、違うのは文書構造だけ。 */
+.feature-text h3,
 .feature-text h4 {
   margin: .1em 0 .5em;
   font-size: 1.18rem;
@@ -644,8 +648,15 @@ footer {
 
 @media (max-width: 720px) {
   .feature, .feature-wide { grid-template-columns: 1fr; }
+  /* **3 枚並べは 720px で畳む。** 560px まで粘ると 1 枚 165px まで細り、
+     中の文字が読めなくなる（スクリーンショットなので拡大も効かない） */
+  .shots-3 { grid-template-columns: 1fr; }
   /* **畳んだら入れ替えを解く。** 文章より先に画像が来ると、
-     何の話か分からないまま絵だけ目に入る */
+     何の話か分からないまま絵だけ目に入る。
+     **詳細度を .feature.is-flipped (0,2,0) と揃えること。**
+     メディアクエリは詳細度を上げないので、`.feature { 1fr }` だけでは
+     2 列指定に負け続ける（2026-08-11 に実際に負けていた）。 */
+  .feature.is-flipped, .feature-wide.is-flipped { grid-template-columns: 1fr; }
   .feature.is-flipped .shots, .feature.is-flipped .feature-text { order: 0; }
   /* 1 列に畳んだら行またぎの指定は邪魔になる。素直に上から順に積む */
   .shots-narrow { max-width: none; }
@@ -683,7 +694,7 @@ footer {
   .chapter-icon { width: 48px; }
 
   /* 画像は縦に積む。**横に 2 枚並べると読めない大きさになる** */
-  .shots-2, .shots-3 { grid-template-columns: 1fr; }
+  .shots-2 { grid-template-columns: 1fr; }
   .glance { gap: 10px; }
   .glance li { padding: .9em 1em; }
 
