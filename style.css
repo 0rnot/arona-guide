@@ -383,6 +383,7 @@ h1 {
   display: block;
 }
 
+
 .para-sub {
   margin-bottom: .8em;
   font-size: .82rem;
@@ -435,6 +436,14 @@ h1 {
 .feature:has(> .steps), .feature:has(> .steps-col) { align-items: start; }
 
 .feature-wide { grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr); }
+
+/* **画像と文章を 1 つおきに入れ替える。** 全部同じ側に画像が並ぶと、
+   反対側の列がただの余白に見える（2026-08-11 の先生の指摘）。
+   列の比率も入れ替える —— そうしないと画像側が狭いほうに入る。 */
+.feature.is-flipped { grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); }
+.feature-wide.is-flipped { grid-template-columns: minmax(0, 1.1fr) minmax(0, .9fr); }
+.feature.is-flipped .shots { order: 1; }
+.feature.is-flipped .feature-text { order: 2; }
 
 /* 背の高い 1 枚もの（/settings の画面）を、列いっぱいに引き伸ばさない。
    **手順 3 つより画像が 2 倍近く高く、左下に大きな空きができる。**
@@ -635,6 +644,9 @@ footer {
 
 @media (max-width: 720px) {
   .feature, .feature-wide { grid-template-columns: 1fr; }
+  /* **畳んだら入れ替えを解く。** 文章より先に画像が来ると、
+     何の話か分からないまま絵だけ目に入る */
+  .feature.is-flipped .shots, .feature.is-flipped .feature-text { order: 0; }
   /* 1 列に畳んだら行またぎの指定は邪魔になる。素直に上から順に積む */
   .shots-narrow { max-width: none; }
   .note-in { margin-top: clamp(20px, 3vw, 32px); }
