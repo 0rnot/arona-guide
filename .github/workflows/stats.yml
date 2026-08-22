@@ -1,0 +1,45 @@
+name: stats
+
+# 汎用Arona の参加サーバー数と合計人数を Discord から数えて stats.json に書く。
+# ページ側（index.html）が同一オリジンの /stats.json を fetch して表示する。
+#
+# **数が変わったときだけ commit する。** 毎回 commit すると履歴が数字だけで埋まる。
+# cron は GitHub 側の混み具合で数十分ずれることがある（数字 1 つなので気にしない）。
+#
+# 要る Secret: DISCORD_TOKEN（汎用Arona の Bot トークン）
+#   gh secret set DISCORD_TOKEN -R 0rnot/arona-guide
+
+on:
+  schedule:
+    - cron: "17 */6 * * *"   # 6 時間おき（00 分は混むので 17 分にずらす）
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: stats
+  cancel-in-progress: false
+
+jobs:
+  stats:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Discord から数える
+        env:
+          DISCORD_TOKEN: ${{ secrets.DISCORD_TOKEN }}
+        run: python3 scripts/update_stats.py
+
+      - name: 変わっていれば commit
+        run: |
+          if git diff --quiet -- stats.json; then
+            echo "変化なし"
+            exit 0
+          fi
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add stats.json
+          git commit -m "stats: $(python3 -c 'import json;d=json.load(open("stats.json"));print(f"{d[\"guildCount\"]} サーバー / {d[\"memberTotal\"]} 人")')"
+          git push

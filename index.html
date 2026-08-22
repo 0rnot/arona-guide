@@ -69,6 +69,11 @@
     <p class="hero-lead">ブルーアーカイブの公式 X を見張って、<br class="br-sp">
       <b>開催の予定を Discord のイベントに自動で登録</b>します。</p>
     <p class="hero-sub">更新の通知、総力戦の調べもの、リマインダーもできます。</p>
+    <!-- 参加サーバー数。stats.json（Actions が 6 時間おきに更新）を読んで埋める。
+         **読めなかったら出さない。** 古い数字を出すより、無いほうがまし。 -->
+    <p class="hero-stat" id="hero-stat" hidden>
+      <b data-stat="guildCount">—</b> サーバー・<b data-stat="memberTotal">—</b> 人が使っています
+    </p>
     <a class="cta" href="https://discord.com/oauth2/authorize?client_id=1534362868072321094&permissions=17875654003712&integration_type=0&scope=bot" target="_blank" rel="noopener">サーバーに招待する</a>
     <nav class="toc">
       <a href="#can">機能</a>
@@ -375,6 +380,26 @@
   <img id="lightbox-img" src="" alt="">
   <button class="lightbox-close" type="button" aria-label="閉じる">×</button>
 </dialog>
+
+<script>
+// 参加サーバー数を stats.json から埋める。同一オリジンなので CORS は要らない。
+// **失敗したら hidden のまま。** 数字が無い行を見せない。
+(function () {
+  var el = document.getElementById('hero-stat');
+  if (!el || !window.fetch) return;
+  fetch('stats.json', { cache: 'no-cache' })
+    .then(function (r) { return r.ok ? r.json() : null; })
+    .then(function (d) {
+      if (!d || !(d.guildCount > 0)) return;
+      el.querySelectorAll('[data-stat]').forEach(function (b) {
+        var v = d[b.getAttribute('data-stat')];
+        b.textContent = typeof v === 'number' ? v.toLocaleString('ja-JP') : '—';
+      });
+      el.hidden = false;
+    })
+    .catch(function () {});
+})();
+</script>
 
 <script>
 // 画像を押したら大きく出す。**ホバーだけにしないこと** —— スマホには hover が無い。

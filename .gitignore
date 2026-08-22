@@ -1,3 +1,4 @@
 # 元の素材（ファイル名に日本語と括弧が入っている）。
 # 公開に使うのは ASCII 名に揃えた images/ のほう。
 Aronahtml_image/
+__pycache__/
