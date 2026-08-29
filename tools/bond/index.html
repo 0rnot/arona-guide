@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>絆ランク計算機｜AronaBot</title>
+<meta name="description" content="生徒を選ぶと、その子に効く贈り物と絆経験値が分かります。目標の絆ランクまで、贈り物が何個・カフェタッチが何回・何日かかるかを出します。">
+<meta name="theme-color" content="#c8892e">
+<link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<meta property="og:title" content="絆ランク計算機">
+<meta property="og:description" content="その生徒に効く贈り物が一目で分かります。目標の絆ランクまで何個・何日かかるかも。">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://arona-bot.com/tools/bond/">
+<meta property="og:image" content="https://arona-bot.com/images/hero-night.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="stylesheet" href="../../style.css?v=15">
+<link rel="stylesheet" href="../tool.css?v=6">
+<style>
+  .gift { display: grid; grid-template-columns: 40px 1fr 66px 96px; gap: .7em; align-items: center;
+          padding: .5em 0; border-bottom: 1px solid var(--line); }
+  .gift:last-of-type { border-bottom: 0; }
+  .gift img { width: 40px; height: 40px; border-radius: 8px; background: var(--bg-sub); }
+  .gift .nm { font-size: .86rem; line-height: 1.45; }
+  .gift .nm small { display: block; color: var(--fg-mute); font-size: .74rem; }
+  .gift .ex { text-align: right; font-variant-numeric: tabular-nums; font-weight: 800; font-size: .95rem; }
+  .gift .ex small { font-weight: 400; color: var(--fg-mute); font-size: .72rem; display: block; }
+  .gift input { text-align: right; padding: .38em .55em; font-size: .9rem; }
+  .gift.m4 { background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 10%, transparent), transparent 60%); }
+  .gift.m4 .ex { color: var(--accent-tx); }
+  @media (max-width: 520px) {
+    .gift { grid-template-columns: 34px 1fr 56px 74px; gap: .5em; }
+    .gift img { width: 34px; height: 34px; }
+  }
+  .mtag { display: inline-block; font-size: .66rem; font-weight: 700; padding: .1em .5em;
+          border-radius: 999px; background: var(--bg-sub); border: 1px solid var(--line); margin-left: .4em; }
+  .mtag.on { background: var(--accent); color: var(--accent-in); border-color: transparent; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-inner">
+    <a class="topbar-name" href="../../">AronaBotの使い方</a>
+    <a class="topbar-tools" href="../">
+      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <path d="M21.7 18.3l-6-6a5.5 5.5 0 0 0-7-7l3.1 3.1-2.1 2.1L6.6 7.3a5.5 5.5 0 0 0 7 7l6 6a1 1 0 0 0 1.4 0l.7-.7a1 1 0 0 0 0-1.3z"/>
+      </svg>
+      ツール
+    </a>
+    <nav class="topbar-nav">
+      <a href="../../#can">機能</a>
+      <a href="../../#start">つかいはじめる</a>
+      <a href="../../#message">メッセージから</a>
+      <a href="../../#faq">よくある質問</a>
+    </nav>
+  </div>
+</div>
+
+<header class="thero">
+  <div class="thero-media" aria-hidden="true">
+    <picture>
+      <source srcset="../../images/hero-day.jpg" media="(prefers-color-scheme: dark)">
+      <img src="../../images/hero-night.jpg" alt="" width="1600" height="400" fetchpriority="high">
+    </picture>
+  </div>
+  <div class="thero-body">
+    <p class="thero-en">BOND</p>
+    <h1>絆ランク計算機</h1>
+    <p class="thero-lead">生徒を選ぶと、<b>その子に効く贈り物</b>と絆経験値がその場で分かります。目標のランクまで、贈り物が何個・カフェタッチが何回・何日かかるかも出します。</p>
+  </div>
+</header>
+
+<div class="twrap">
+  <p class="tcrumb"><a href="../../">AronaBotの使い方</a><span class="sl">/</span><a href="../">ツール</a><span class="sl">/</span>絆ランク計算機</p>
+
+  <div class="tcols lean" style="margin-top:20px">
+
+    <div class="tcol">
+      <div class="panel">
+        <div class="panel-h"><span class="n">01</span><h2>だれの絆を上げますか</h2></div>
+        <div class="fields c3">
+          <div class="field">
+            <label for="i-student">生徒</label>
+            <input id="i-student" type="search" list="students" placeholder="名前で探す" autocomplete="off">
+            <datalist id="students"></datalist>
+          </div>
+          <div class="field" id="f-from">
+            <label for="i-from">今の絆ランク<span class="hint">1 〜 100</span></label>
+            <input id="i-from" type="number" inputmode="numeric" min="1" max="100" step="1" value="1">
+          </div>
+          <div class="field" id="f-to">
+            <label for="i-to">目標の絆ランク<span class="hint">1 〜 100</span></label>
+            <input id="i-to" type="number" inputmode="numeric" min="2" max="100" step="1" value="20">
+          </div>
+        </div>
+        <div class="btnrow" style="margin-top:14px">
+          <div class="seg" id="quick" role="group" aria-label="よく使う目標">
+            <button type="button" data-t="10">10</button>
+            <button type="button" data-t="20" aria-pressed="true">20</button>
+            <button type="button" data-t="50">50</button>
+            <button type="button" data-t="100">100</button>
+          </div>
+        </div>
+        <p class="err" id="err" hidden></p>
+      </div>
+
+      <div class="panel">
+        <div class="panel-h"><span class="n">02</span><h2 id="gift-h">この子に効く贈り物</h2></div>
+        <p class="lead"><b>贈り物の絆経験値は「基本の値 ×（一致したタグの数 ＋ 1）」です。</b>いちばん右の欄に持っている個数を入れると、下の内訳に反映されます。</p>
+        <div class="btnrow" style="margin-bottom:14px">
+          <div class="seg" id="filter" role="group" aria-label="表示する贈り物">
+            <button type="button" data-f="good" aria-pressed="true">効くものだけ</button>
+            <button type="button" data-f="all">ぜんぶ</button>
+          </div>
+          <span id="filter-n" style="font-size:.78rem;color:var(--fg-mute)"></span>
+        </div>
+        <div id="gifts"></div>
+      </div>
+    </div>
+
+    <div class="tcol">
+      <div class="stats c3">
+        <div class="stat hero">
+          <div class="k">必要な絆経験値</div>
+          <div class="v" id="o-need">—</div>
+          <div class="sub" id="o-need-sub"></div>
+        </div>
+        <div class="stat">
+          <div class="k">いちばん効く贈り物だけなら</div>
+          <div class="v" id="o-best">—</div>
+          <div class="sub" id="o-best-sub"></div>
+        </div>
+        <div class="stat">
+          <div class="k">カフェタッチだけなら</div>
+          <div class="v" id="o-touch">—</div>
+          <div class="sub">1 回 15 の絆経験値</div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-h"><span class="n">03</span><h2><img class="ico" src="../img/item_icon_favor_lv2_package.webp" alt="" width="24" height="24"> 手持ちで足りますか</h2></div>
+        <div class="ledger">
+          <div class="row"><span>必要な絆経験値</span><span id="l-need">—</span></div>
+          <div class="row minus"><span>手持ちの贈り物ぶん</span><span id="l-have">—</span></div>
+          <div class="row"><span>カフェタッチ<span class="subnote">1 日の回数を入れてください</span></span>
+            <span><input id="i-touch" type="number" inputmode="numeric" min="0" max="40" step="1" value="12" style="width:78px;text-align:right;padding:.3em .5em"></span></div>
+          <div class="row"><span>スケジュール・その他<span class="subnote">1 日にもらえる絆経験値</span></span>
+            <span><input id="i-etc" type="number" inputmode="numeric" min="0" step="10" value="0" style="width:78px;text-align:right;padding:.3em .5em"></span></div>
+          <div class="row total"><span id="l-days-k">残りをカフェタッチで埋めると</span><span id="l-days">—</span></div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-h"><span class="n">04</span><h2>絆ランクごとの必要量</h2></div>
+        <div class="tscroll">
+          <table class="dt">
+            <thead><tr><th>絆ランク</th><th>次まで</th><th>Lv1 からの累計</th><th>いちばん効く贈り物で</th></tr></thead>
+            <tbody id="tb"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="tfull">
+      <details class="src">
+        <summary>数字の出どころ</summary>
+        <p><b>贈り物の絆経験値は、ゲームのデータから毎回その場で計算しています。</b>生徒ごとの表を持っているわけではありません。</p>
+        <ul>
+          <li>生徒には <code>FavorItemTags</code>（好み）と <code>FavorItemUniqueTags</code>（とくに好き）が付いています</li>
+          <li>贈り物には <code>Tags</code> と <code>ExpValue</code>（基本の絆経験値。紫は 20、橙は 60）が付いています</li>
+          <li>さらに<b>誰にでも効く共通タグ</b>があります（<code>CommonFavorItemTags</code>: <code id="gen">—</code>）</li>
+          <li>絆経験値 ＝ <b><code>ExpValue ×（一致したタグの数 ＋ 1）</code></b></li>
+        </ul>
+        <p><b>検算しています。</b>この式で計算すると「美しい花束」は<b>194 人ぜんぶに対して ×4</b>になり、
+          ゲーム内で誰に渡しても最大効果になるのと一致します。
+          また、どの生徒にも ×4 の贈り物が最低 1 つあることも確かめました。</p>
+        <p><b>絆ランクの必要経験値は <code>Excel/FavorLevelExcelTable.json</code> そのままです。</b>
+          Lv1 から Lv100 までの合計は <b>240,225</b>、Lv1 から Lv20 までは <b>1,845</b>、Lv1 から Lv50 までは <b>29,175</b> です。</p>
+        <p><b>カフェタッチは 1 回 15 の絆経験値。</b>これはデータではなく攻略サイトの記載です
+          （「カフェでのタッチは1回15経験値で、4回タッチすれば上級効果大の贈り物を1個渡したのと同義」——
+          橙の贈り物の基本値 60 とちょうど合います）。
+          タッチできる回数は 3 時間ごとに回復し、カフェの訪問者は毎日 4 時と 16 時にリセットされます。
+          <b>1 日に何回タッチできるかは環境で変わる</b>ので、入力にしてあります。</p>
+        <p><b>スケジュールの絆経験値は入れていません。</b>場所と生徒の組み合わせで変わり、
+          このツールの手持ちのデータからは決められないためです。分かるぶんは「その他」に入れてください。</p>
+        <p>出典 —
+          <a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a>（式そのもの。
+          <code>ExpValue * (matchingTags + 1)</code> と共通タグ）、
+          <a href="https://github.com/electricgoat/ba-data" target="_blank" rel="noopener">electricgoat/ba-data</a>（絆ランクの必要経験値）、
+          <a href="https://game8.jp/blue-archive/639224" target="_blank" rel="noopener">ゲームエイト「絆ランク（好感度）の上げ方とメリット」</a>（カフェタッチ 15、リセット時刻）。
+          取得は <span id="ver">—</span>。</p>
+      </details>
+    </div>
+
+  </div>
+</div>
+
+<footer>
+  <div class="foot-inner">
+    <p class="foot-name">AronaBotの使い方</p>
+    <p class="foot-links">
+      <a href="../../">AronaBot のページ</a>
+      <span class="sep">/</span>
+      <a href="../">ツール一覧</a>
+      <span class="sep">/</span>
+      <a href="https://x.com/pe6cak" target="_blank" rel="noopener">制作者の X（@pe6cak）</a>
+      <span class="sep">/</span>
+      <span>不具合・要望は <b>@0r.not</b> まで</span>
+    </p>
+    <p class="disclaimer">
+      <b>このサイトはファンが作った非公式のものです。</b>運営とは関係ありません。
+      <small>掲載しているゲーム内の画像・アイコン・名称・数値は、Nexon Games / Yostar の
+      「ブルーアーカイブ」から引用したもので、著作権はすべて権利者に帰属します。
+      ツールの計算に使うデータは <a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a> と
+      <a href="https://github.com/electricgoat/ba-data" target="_blank" rel="noopener">ba-data</a> から取得しています。
+      権利者の方でご指摘があれば <b>@0r.not</b> までご連絡ください。</small>
+    </p>
+  </div>
+</footer>
+
+<script src="data.js"></script>
+<script>
+(function () {
+  'use strict';
+  var B = window.BOND;
+  var el = function (id) { return document.getElementById(id); };
+  var TOUCH = 15;                       // カフェタッチ 1 回
+  var GEN = B.gen;                      // 誰にでも効く共通タグ
+  var have = {};                        // have[giftId] = 個数
+  var student = B.students[0];
+  // **既定は「効くものだけ」。** 贈り物は 51 種あって、ぜんぶ出すと
+  // 左の柱が縦に伸びきってしまう。×1 のものは実質どれも同じなので畳む
+  var filter = 'good';
+
+  // 絆ランク L から L+1 へ上がるのに要る量。need[L-1]
+  function needAt(L) { return (L >= 1 && L <= B.need.length) ? B.need[L - 1] : 0; }
+  var cum = [0];
+  for (var i = 0; i < B.need.length; i++) cum.push(cum[i] + B.need[i]);
+  function cumAt(L) { return cum[L - 1]; }
+
+  function fmt(n) { return Math.round(n).toLocaleString('ja-JP'); }
+
+  /** その生徒に対する贈り物の絆経験値。**ExpValue ×（一致したタグの数 ＋ 1）** */
+  function expOf(g, s) {
+    var all = s.t.concat(GEN);
+    var m = 0;
+    g.t.forEach(function (t) { if (all.indexOf(t) >= 0) m++; });
+    return { exp: g.e * (m + 1), mult: m + 1 };
+  }
+
+  (function buildStudents() {
+    el('students').innerHTML = B.students.map(function (s) {
+      return '<option value="' + s.n.replace(/"/g, '&quot;') + '">';
+    }).join('');
+    el('i-student').value = student.n;
+  })();
+
+  function giftList() {
+    return B.gifts.map(function (g) {
+      var r = expOf(g, student);
+      return { g: g, exp: r.exp, mult: r.mult };
+    }).sort(function (a, b) { return b.exp - a.exp || a.g.id - b.g.id; });
+  }
+
+  function drawGifts(list) {
+    el('gift-h').textContent = student.n + ' に効く贈り物';
+    var shown = filter === 'all' ? list : list.filter(function (x) { return x.mult >= 2; });
+    if (!shown.length) shown = list.slice(0, 6);
+    el('filter-n').textContent = shown.length + ' / ' + list.length + ' 種類';
+    el('gifts').innerHTML = shown.map(function (x) {
+      return '<div class="gift' + (x.mult >= 4 ? ' m4' : '') + '">' +
+        '<img src="../img/' + x.g.i + '.webp" alt="" width="40" height="40" loading="lazy">' +
+        '<span class="nm">' + x.g.n +
+          '<small>基本 ' + x.g.e + '<span class="mtag' + (x.mult >= 3 ? ' on' : '') + '">×' + x.mult + '</span></small></span>' +
+        '<span class="ex">' + x.exp + '<small>絆経験値</small></span>' +
+        '<input type="number" inputmode="numeric" min="0" step="1" value="' + (have[x.g.id] || 0) + '" data-g="' + x.g.id + '" aria-label="' + x.g.n + 'の個数">' +
+        '</div>';
+    }).join('');
+  }
+  el('gifts').addEventListener('input', function (e) {
+    var t = e.target; if (!t.dataset.g) return;
+    have[t.dataset.g] = Math.max(0, parseInt(t.value, 10) || 0);
+    calc(true);
+  });
+
+  function calc(skipGifts) {
+    var name = el('i-student').value.trim();
+    var found = null;
+    for (var i = 0; i < B.students.length; i++) if (B.students[i].n === name) { found = B.students[i]; break; }
+    if (found) student = found;
+
+    var from = parseInt(el('i-from').value, 10);
+    var to = parseInt(el('i-to').value, 10);
+    var list = giftList();
+    if (!skipGifts) drawGifts(list);
+
+    var e = el('err');
+    if (!(from >= 1 && from <= 100)) { e.textContent = '今の絆ランクは 1 〜 100 で入れてください。'; e.hidden = false; return; }
+    if (!(to >= 1 && to <= 100)) { e.textContent = '目標の絆ランクは 1 〜 100 で入れてください。'; e.hidden = false; return; }
+    if (to <= from) { e.textContent = '目標は今のランクより上にしてください。'; e.hidden = false; return; }
+    e.hidden = true;
+
+    var need = cumAt(to) - cumAt(from);
+    el('o-need').innerHTML = fmt(need) + '<small></small>';
+    el('o-need-sub').textContent = '絆 ' + from + ' → ' + to;
+
+    var best = list[0];
+    el('o-best').innerHTML = fmt(Math.ceil(need / best.exp)) + '<small>個</small>';
+    el('o-best-sub').textContent = best.g.n + '（1 個 ' + best.exp + '）';
+
+    el('o-touch').innerHTML = fmt(Math.ceil(need / TOUCH)) + '<small>回</small>';
+
+    var haveExp = 0;
+    list.forEach(function (x) { haveExp += (have[x.g.id] || 0) * x.exp; });
+    el('l-need').textContent = fmt(need);
+    el('l-have').textContent = '− ' + fmt(haveExp);
+
+    var rest = Math.max(0, need - haveExp);
+    var touches = Math.max(0, parseInt(el('i-touch').value, 10) || 0);
+    var etc = Math.max(0, parseInt(el('i-etc').value, 10) || 0);
+    var perDay = touches * TOUCH + etc;
+    if (rest === 0) {
+      el('l-days-k').textContent = '手持ちだけで届きます';
+      el('l-days').textContent = '余り ' + fmt(haveExp - need);
+    } else if (perDay > 0) {
+      el('l-days-k').textContent = '残り ' + fmt(rest) + ' を 1 日 ' + fmt(perDay) + ' で埋めると';
+      el('l-days').textContent = Math.ceil(rest / perDay).toLocaleString('ja-JP') + ' 日';
+    } else {
+      el('l-days-k').textContent = '残り';
+      el('l-days').textContent = fmt(rest);
+    }
+
+    var rows = '', a = Math.max(1, from - 1), b = Math.min(100, Math.max(to, from + 8));
+    for (var L = a; L <= b && L - a < 14; L++) {
+      rows += '<tr' + (L === from ? ' class="here"' : '') + '><td>絆 ' + L + '</td>' +
+        '<td>' + (L >= 100 ? '—' : fmt(needAt(L))) + '</td>' +
+        '<td>' + fmt(cumAt(L)) + '</td>' +
+        '<td>' + (L >= 100 ? '—' : Math.ceil(needAt(L) / best.exp) + ' 個') + '</td></tr>';
+    }
+    el('tb').innerHTML = rows;
+  }
+
+  el('filter').addEventListener('click', function (ev) {
+    var b = ev.target.closest('button'); if (!b) return;
+    filter = b.dataset.f;
+    [].forEach.call(el('filter').querySelectorAll('button'), function (x) {
+      x.setAttribute('aria-pressed', String(x.dataset.f === filter));
+    });
+    calc();
+  });
+
+  el('quick').addEventListener('click', function (ev) {
+    var b = ev.target.closest('button'); if (!b) return;
+    el('i-to').value = b.dataset.t;
+    [].forEach.call(el('quick').querySelectorAll('button'), function (x) {
+      x.setAttribute('aria-pressed', String(x.dataset.t === b.dataset.t));
+    });
+    calc();
+  });
+  ['i-student', 'i-from', 'i-to', 'i-touch', 'i-etc'].forEach(function (id) {
+    el(id).addEventListener('input', function () { calc(id === 'i-touch' || id === 'i-etc'); });
+    el(id).addEventListener('change', function () { calc(); });
+  });
+  el('gen').textContent = GEN.join(' / ');
+  el('ver').textContent = B.version;
+  calc();
+})();
+</script>
+</body>
+</html>
