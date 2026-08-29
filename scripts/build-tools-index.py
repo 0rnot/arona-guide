@@ -13,6 +13,7 @@ import html, json, pathlib, re, sys
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 IDX = ROOT / "tools" / "index.html"
+TOP = ROOT / "index.html"
 SRC = ROOT / "tools" / "tools.json"
 
 ARROW = ('<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">'
@@ -37,6 +38,14 @@ def soon(s):
       <p>{esc(s['desc'])}</p>
     </div>'''
 
+def band(t):
+    """本編に置く帯のカード。**一覧のカードとは別の形。**"""
+    return f'''        <a class="toolband-card" href="tools/{esc(t['slug'])}/">
+          <div class="cat">{esc(' · '.join(t['cat']))}</div>
+          <h3>{esc(t['name'])}</h3>
+          <p>{esc(t['desc'])}</p>
+        </a>'''
+
 def main():
     data = json.loads(SRC.read_text(encoding="utf-8"))
     blocks = [card(t) for t in data.get("tools", [])]
@@ -52,7 +61,21 @@ def main():
         IDX.write_text(new, encoding="utf-8")
         print(f"tools/index.html を更新（ツール {len(data.get('tools', []))} 本）")
     else:
-        print("そのまま")
+        print("tools/index.html はそのまま")
+
+    # 本編の帯。**新しい順に 3 本だけ**出す（多すぎると本編の流れを止める）
+    picks = list(reversed(data.get("tools", [])))[:3]
+    body2 = "<!-- BAND:START -->\n" + "\n\n".join(band(t) for t in picks) + "\n<!-- BAND:END -->"
+    t = TOP.read_text(encoding="utf-8")
+    new2, n2 = re.subn(r"<!-- BAND:START -->.*?<!-- BAND:END -->", lambda m: body2, t, count=1, flags=re.S)
+    if n2 == 0:
+        print("!! index.html の BAND:START / BAND:END が見つからない", file=sys.stderr)
+        return 1
+    if new2 != t:
+        TOP.write_text(new2, encoding="utf-8")
+        print(f"index.html の帯を更新（{len(picks)} 枚）")
+    else:
+        print("index.html の帯はそのまま")
     return 0
 
 if __name__ == "__main__":

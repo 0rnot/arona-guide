@@ -20,7 +20,7 @@
      クローラは JS を動かさないので、自動で追随させる手段が無い。 -->
 <meta property="og:image" content="https://arona-bot.com/images/hero-day.jpg">
 <meta name="twitter:card" content="summary_large_image">
-<link rel="stylesheet" href="style.css?v=14">
+<link rel="stylesheet" href="style.css?v=15">
 </head>
 <body>
 
@@ -86,6 +86,7 @@
     <a class="cta" href="https://discord.com/oauth2/authorize?client_id=1534362868072321094&permissions=17875654003712&integration_type=0&scope=bot" target="_blank" rel="noopener">サーバーに招待する</a>
     <nav class="toc">
       <a href="#can">機能</a>
+      <a href="#tools">ツール</a>
       <a href="#start">つかいはじめる</a>
       <a href="#message">メッセージから</a>
       <a href="#faq">よくある質問</a>
@@ -232,6 +233,44 @@
         <figure><a class="zoom" href="images/event-detail.webp"><img src="images/event-detail.webp" alt="登録されたイベントの詳細画面。告知画像・期間・場所が表示されている" loading="lazy" width="675" height="716"></a>
           <figcaption>開くと期間と場所が出ます</figcaption></figure>
       </div>
+    </div>
+  </section>
+
+  <!-- ============================================ ツールへの導線
+       中身は tools/tools.json から scripts/build-tools-index.py が書き込む。
+       **手で書き足さない。** -->
+  <section class="toolband" id="tools">
+    <div class="toolband-inner">
+      <div class="toolband-head">
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <path d="M21.7 18.3l-6-6a5.5 5.5 0 0 0-7-7l3.1 3.1-2.1 2.1L6.6 7.3a5.5 5.5 0 0 0 7 7l6 6a1 1 0 0 0 1.4 0l.7-.7a1 1 0 0 0 0-1.3z"/>
+        </svg>
+        <h2>ブルアカの計算を、ブラウザだけで。</h2>
+      </div>
+      <p class="lead">ボットとは別に、<b>計算まわりのツール</b>を置いています。先生レベル、募集の天井、装備の設計図、戦術対抗戦。
+        <b>数字はゲームのデータをそのまま使っていて、推測した値は入れていません。</b>Discord に招待していなくても使えます。</p>
+      <div class="toolband-grid">
+<!-- BAND:START -->
+        <a class="toolband-card" href="tools/equipment/">
+          <div class="cat">装備</div>
+          <h3>装備設計図の周回計算機</h3>
+          <p>目標の Tier まで要る設計図とクレジットを出して、足りないぶんを埋めるのにいちばん効率のいい任務を AP あたりで並べます。</p>
+        </a>
+
+        <a class="toolband-card" href="tools/report-credit/">
+          <div class="cat">育成・計画</div>
+          <h3>特別依頼の行き先</h3>
+          <p>手持ちのレポート・強化珠・クレジットがそれぞれ何人ぶんかを数えて、今日はどちらを回るべきかを決めます。</p>
+        </a>
+
+        <a class="toolband-card" href="tools/pvp-coin/">
+          <div class="cat">戦術対抗戦</div>
+          <h3>戦術対抗戦コインの収支</h3>
+          <p>順位帯と買うものから、コインが 1 日でどれだけ増減するかを出します。防衛勝利のぶんも数えます。</p>
+        </a>
+<!-- BAND:END -->
+      </div>
+      <p class="toolband-more"><a class="cta" href="tools/">ツールを見る</a></p>
     </div>
   </section>
 

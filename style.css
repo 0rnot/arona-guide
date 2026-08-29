@@ -882,6 +882,11 @@ a.zoom::after {
   align-items: center;
   gap: .35em;
   margin-left: .9em;
+  /* **名前のすぐ隣から動かさない。** .topbar-inner が space-between なので、
+     ページによって並ぶ要素の数が変わると位置が動く（本編には共有ボタンがあり、
+     ツールのページには無い）。右側を全部押し出して、位置を揃える。
+     2026-08-30 の先生の指摘。 */
+  margin-right: auto;
   padding: .3em .85em;
   border-radius: 999px;
   text-decoration: none;
@@ -901,3 +906,46 @@ a.zoom::after {
   color: var(--accent);
   box-shadow: inset 0 0 0 1px var(--accent);
 }
+
+
+/* ------------------------------------------------------------ ツールへの帯
+   **ツールは AronaBot と並ぶもう 1 本の柱。** 上部バーのボタンだけだと
+   導線が細すぎる、と先生から指摘があった（2026-08-30）。
+   本編の途中に、別のものであることが分かる帯として置く。 */
+.toolband {
+  margin: clamp(40px, 6vw, 72px) 0;
+  padding: clamp(28px, 4vw, 44px) 0;
+  background:
+    radial-gradient(120% 140% at 15% 0%, color-mix(in srgb, var(--accent) 13%, transparent) 0%, transparent 62%),
+    var(--bg-sub);
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+.toolband-inner { max-width: var(--wrap); margin: 0 auto; padding: 0 24px; }
+.toolband-head { display: flex; align-items: center; gap: .6em; flex-wrap: wrap; margin-bottom: .3em; }
+.toolband-head svg { width: 1.3em; height: 1.3em; fill: var(--accent-tx); }
+.toolband h2 { font-size: clamp(1.35rem, 3.6vw, 1.9rem); margin: 0; font-weight: 800; }
+.toolband .lead {
+  margin: .3em 0 0; color: var(--fg-mute); max-width: 60ch; line-height: 1.9;
+  font-size: clamp(.92rem, 2.2vw, 1rem); word-break: auto-phrase;
+}
+.toolband .lead b { color: var(--fg); }
+
+.toolband-grid { display: grid; gap: 12px; margin: clamp(20px, 3vw, 28px) 0 0; }
+@media (min-width: 620px) { .toolband-grid { grid-template-columns: 1fr 1fr; } }
+@media (min-width: 940px) { .toolband-grid { grid-template-columns: repeat(3, 1fr); } }
+
+a.toolband-card {
+  display: block; text-decoration: none; color: inherit;
+  background: var(--card); border: 1px solid var(--line);
+  border-radius: 12px; padding: 15px 17px;
+  transition: border-color .16s ease, transform .16s ease, box-shadow .16s ease;
+}
+a.toolband-card:hover { border-color: var(--accent); transform: translateY(-2px); box-shadow: var(--shadow); }
+a.toolband-card:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.toolband-card .cat { font-size: .68rem; letter-spacing: .1em; color: var(--accent-tx); font-weight: 700; }
+.toolband-card h3 { font-size: .98rem; margin: .3em 0 .3em; font-weight: 800; }
+.toolband-card p { font-size: .82rem; color: var(--fg-mute); margin: 0; line-height: 1.75; word-break: auto-phrase; }
+
+.toolband-more { margin: clamp(20px, 3vw, 26px) 0 0; }
+.toolband-more .cta { font-size: .95rem; }
