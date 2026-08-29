@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>先生レベル計算機｜AronaBot</title>
+<meta name="description" content="今の先生レベルと経験値から、目標レベルまでに必要な AP と日数を計算します。消費した AP がそのまま先生経験値になるので、AP がそのまま残り時間になります。">
+<meta name="theme-color" content="#c8892e">
+<link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<meta property="og:title" content="先生レベル計算機">
+<meta property="og:description" content="目標の先生レベルまで、あと何 AP・何日か。ゲーム内データから計算します。">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://arona-bot.com/tools/teacher-level/">
+<link rel="stylesheet" href="../../style.css?v=12">
+<style>
+  /* このツールだけの見た目。色と字は ../../style.css の変数をそのまま借りる。 */
+  .tool-wrap { max-width: 760px; margin: 0 auto; padding: 0 20px 80px; }
+  .crumb { font-size: 13px; color: var(--fg-mute); padding: 28px 0 0; }
+  .crumb a { color: var(--fg-mute); }
+  .tool-head { padding: 10px 0 6px; }
+  .tool-head h1 { font-size: clamp(26px, 5vw, 34px); line-height: 1.3; margin: 0 0 10px; }
+  .tool-head p { color: var(--fg-mute); margin: 0; }
+
+  .panel {
+    background: var(--card, #fff); border: 1px solid var(--line);
+    border-radius: 14px; padding: 22px 24px; margin: 26px 0;
+  }
+  .fields { display: grid; gap: 16px; }
+  @media (min-width: 620px) { .fields { grid-template-columns: 1fr 1fr; } }
+  .field label { display: block; font-size: 13.5px; font-weight: 700; margin-bottom: 6px; }
+  .field .hint { display: block; font-weight: 400; color: var(--fg-mute); font-size: 12.5px; margin-top: 2px; }
+  .field input {
+    width: 100%; box-sizing: border-box; font: inherit; font-size: 16px;
+    padding: 10px 12px; border: 1px solid var(--line); border-radius: 9px;
+    background: var(--bg); color: var(--fg);
+  }
+  .field input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .field.bad input { border-color: #c0392b; }
+  .err { color: #c0392b; font-size: 13px; margin: 12px 0 0; }
+
+  .out { display: grid; gap: 14px; margin-top: 4px; }
+  @media (min-width: 620px) { .out { grid-template-columns: repeat(3, 1fr); } }
+  .stat { border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; }
+  .stat .k { font-size: 12.5px; color: var(--fg-mute); }
+  .stat .v { font-size: 27px; font-weight: 700; line-height: 1.25; margin-top: 4px;
+             font-variant-numeric: tabular-nums; }
+  .stat .v small { font-size: 14px; font-weight: 400; color: var(--fg-mute); margin-left: 3px; }
+  .stat .sub { font-size: 12.5px; color: var(--fg-mute); margin-top: 4px; }
+  .stat.done .v { color: var(--accent); }
+
+  .bar { height: 8px; border-radius: 99px; background: var(--bg-sub); overflow: hidden; margin: 18px 0 6px; }
+  .bar i { display: block; height: 100%; background: var(--accent); border-radius: 99px; }
+  .bar-label { display: flex; justify-content: space-between; font-size: 12.5px; color: var(--fg-mute); }
+
+  .table-scroll { overflow-x: auto; margin-top: 8px; }
+  table.lv { border-collapse: collapse; width: 100%; font-size: 13.5px; }
+  table.lv th, table.lv td { padding: 7px 10px; border-bottom: 1px solid var(--line); text-align: right;
+                             font-variant-numeric: tabular-nums; white-space: nowrap; }
+  table.lv th { color: var(--fg-mute); font-weight: 500; text-align: right; }
+  table.lv th:first-child, table.lv td:first-child { text-align: left; }
+  table.lv tr.here td { background: var(--bg-sub); font-weight: 700; }
+
+  details.src { margin-top: 26px; }
+  details.src summary { cursor: pointer; font-size: 14px; color: var(--fg-mute); }
+  details.src p, details.src li { font-size: 13.5px; color: var(--fg-mute); }
+  details.src code { font-size: 12.5px; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-inner">
+    <a class="topbar-name" href="../../">AronaBotの使い方</a>
+    <nav class="topbar-nav">
+      <a href="../">ツール</a>
+      <a href="../../#can">機能</a>
+      <a href="../../#start">つかいはじめる</a>
+      <a href="../../#faq">よくある質問</a>
+    </nav>
+  </div>
+</div>
+
+<div class="tool-wrap">
+  <p class="crumb"><a href="../../">AronaBotの使い方</a> ／ <a href="../">ツール</a> ／ 先生レベル計算機</p>
+
+  <div class="tool-head">
+    <h1>先生レベル計算機</h1>
+    <p>目標のレベルまで、あと何 AP かかるかを出します。<b>消費した AP がそのまま先生経験値になる</b>ので、残り経験値がそのまま残り AP です。</p>
+  </div>
+
+  <div class="panel">
+    <div class="fields">
+      <div class="field" id="f-level">
+        <label for="i-level">今の先生レベル
+          <span class="hint">1 〜 90</span>
+        </label>
+        <input id="i-level" type="number" inputmode="numeric" min="1" max="90" step="1" value="80">
+      </div>
+      <div class="field" id="f-exp">
+        <label for="i-exp">今の経験値
+          <span class="hint">レベルの中での溜まりぶん。分からなければ 0 のままで</span>
+        </label>
+        <input id="i-exp" type="number" inputmode="numeric" min="0" step="1" value="0">
+      </div>
+      <div class="field" id="f-target">
+        <label for="i-target">目標のレベル
+          <span class="hint">上限は 90</span>
+        </label>
+        <input id="i-target" type="number" inputmode="numeric" min="2" max="90" step="1" value="90">
+      </div>
+      <div class="field" id="f-ap">
+        <label for="i-ap">1 日に使える AP
+          <span class="hint">自然回復だけなら 240 くらい。課金や配布ぶんを足すなら増やす</span>
+        </label>
+        <input id="i-ap" type="number" inputmode="numeric" min="1" step="1" value="240">
+      </div>
+    </div>
+    <p class="err" id="err" hidden></p>
+  </div>
+
+  <div class="out">
+    <div class="stat">
+      <div class="k">次のレベルまで</div>
+      <div class="v" id="o-next">—</div>
+      <div class="sub" id="o-next-sub"></div>
+    </div>
+    <div class="stat" id="s-total">
+      <div class="k">目標まで</div>
+      <div class="v" id="o-total">—</div>
+      <div class="sub" id="o-total-sub"></div>
+    </div>
+    <div class="stat">
+      <div class="k">かかる日数</div>
+      <div class="v" id="o-days">—</div>
+      <div class="sub" id="o-days-sub"></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="bar-label"><span id="b-from">—</span><span id="b-to">—</span></div>
+    <div class="bar"><i id="b-fill" style="width:0%"></i></div>
+    <p class="bar-label"><span id="b-note"></span></p>
+  </div>
+
+  <div class="panel">
+    <p style="margin:0 0 10px;font-weight:700;font-size:15px;">レベルごとの内訳</p>
+    <p style="margin:0 0 6px;color:var(--fg-mute);font-size:13.5px;">
+      今のレベルの前後だけを出します。AP 上限はそのレベルになったときの値です。</p>
+    <div class="table-scroll">
+      <table class="lv">
+        <thead>
+          <tr><th>レベル</th><th>次まで</th><th>ここまでの累計</th><th>AP 上限</th></tr>
+        </thead>
+        <tbody id="tb"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <details class="src">
+    <summary>数字の出どころ</summary>
+    <p>ゲームのクライアントから取り出したデータを、そのまま使っています。推測した値はありません。</p>
+    <ul>
+      <li><code>Excel/AccountLevelExcelTable.json</code> — レベルごとの必要経験値（<code>Exp</code>）と AP 上限（<code>APAutoChargeMax</code>）</li>
+      <li><code>Excel/ConstCommonExcelTable.json</code> — <code>AccountMaxLevel: 90</code> と <code>AccountExpRatio: 1</code></li>
+    </ul>
+    <p><b><code>AccountExpRatio</code> が 1 なので、消費した AP と得られる先生経験値は 1 対 1 です。</b>
+      このツールが「必要経験値＝必要 AP」として扱っているのはそのためです。</p>
+    <p>取得元は <a href="https://github.com/electricgoat/ba-data" target="_blank" rel="noopener">electricgoat/ba-data</a> の
+      <code>jp</code> ブランチ、バージョン <code id="ver">—</code> 時点のものです。
+      Lv1 から Lv90 までの合計は <b>294,782</b> 経験値でした。</p>
+  </details>
+</div>
+
+<footer>
+  <div class="foot-inner">
+    <p class="foot-name">AronaBotの使い方</p>
+    <p class="foot-links">
+      <a href="https://x.com/pe6cak" target="_blank" rel="noopener">制作者の X（@pe6cak）</a>
+      <span class="sep">/</span>
+      <span>不具合・要望は <b>@0r.not</b> まで</span>
+    </p>
+    <p class="disclaimer">
+      このページはファンによる非公式のものです。
+      <small>「ブルーアーカイブ」は Nexon Games / Yostar の作品で、当ページとは関係ありません。</small>
+    </p>
+  </div>
+</footer>
+
+<script src="data.js"></script>
+<script>
+(function () {
+  'use strict';
+  var D = window.TEACHER_LEVEL;
+  var MAX = D.maxLevel;                 // 90
+  var NEED = D.expToNext;               // NEED[i] = Lv(i+1) から Lv(i+2) へ上がるのに要る量
+  var CAP = D.apCap;                    // CAP[i] = Lv(i+1) のときの AP 上限
+
+  // NEED[level-1] = そのレベルから次へ上がるのに要る量。Lv90 は無い。
+  function needAt(level) { return level >= MAX ? 0 : NEED[level - 1]; }
+
+  // Lv1 からそのレベルに到達するまでの累計。
+  var cum = [0];
+  for (var i = 0; i < NEED.length; i++) cum.push(cum[i] + NEED[i]);
+  function cumAt(level) { return cum[level - 1]; }
+
+  var el = function (id) { return document.getElementById(id); };
+  var iLevel = el('i-level'), iExp = el('i-exp'), iTarget = el('i-target'), iAp = el('i-ap');
+
+  function fmt(n) { return n.toLocaleString('ja-JP'); }
+
+  function fail(msg, whichField) {
+    ['f-level', 'f-exp', 'f-target', 'f-ap'].forEach(function (f) {
+      el(f).classList.toggle('bad', f === whichField);
+    });
+    var e = el('err');
+    e.textContent = msg;
+    e.hidden = false;
+    ['o-next', 'o-total', 'o-days'].forEach(function (o) { el(o).textContent = '—'; });
+    ['o-next-sub', 'o-total-sub', 'o-days-sub', 'b-note'].forEach(function (o) { el(o).textContent = ''; });
+    el('b-fill').style.width = '0%';
+    el('b-from').textContent = '—';
+    el('b-to').textContent = '—';
+    el('tb').innerHTML = '';
+  }
+
+  function ok() {
+    ['f-level', 'f-exp', 'f-target', 'f-ap'].forEach(function (f) { el(f).classList.remove('bad'); });
+    el('err').hidden = true;
+  }
+
+  function calc() {
+    var level = parseInt(iLevel.value, 10);
+    var exp = parseInt(iExp.value, 10);
+    var target = parseInt(iTarget.value, 10);
+    var ap = parseInt(iAp.value, 10);
+
+    if (!(level >= 1 && level <= MAX)) return fail('先生レベルは 1 〜 ' + MAX + ' で入れてください。', 'f-level');
+    if (!(exp >= 0)) return fail('経験値は 0 以上で入れてください。', 'f-exp');
+    if (!(target >= 1 && target <= MAX)) return fail('目標のレベルは 1 〜 ' + MAX + ' で入れてください。', 'f-target');
+    if (!(ap >= 1)) return fail('1 日に使える AP は 1 以上で入れてください。', 'f-ap');
+
+    var need = needAt(level);
+    if (level < MAX && exp >= need) {
+      return fail('Lv' + level + ' の必要経験値は ' + fmt(need) + ' です。それ以上溜まっているなら、レベルが 1 つ上のはずです。', 'f-exp');
+    }
+    if (target <= level) {
+      return fail('目標のレベルは、今のレベルより上にしてください。', 'f-target');
+    }
+    ok();
+
+    // 次のレベルまで
+    if (level >= MAX) {
+      el('o-next').textContent = '上限';
+      el('o-next-sub').textContent = 'Lv' + MAX + ' が上限です';
+    } else {
+      var toNext = need - exp;
+      el('o-next').innerHTML = fmt(toNext) + '<small>AP</small>';
+      el('o-next-sub').textContent = 'Lv' + level + ' → Lv' + (level + 1) + '（必要 ' + fmt(need) + '）';
+    }
+
+    // 目標まで
+    var total = (cumAt(target) - cumAt(level)) - exp;
+    el('o-total').innerHTML = fmt(total) + '<small>AP</small>';
+    el('o-total-sub').textContent = 'Lv' + level + ' → Lv' + target;
+    el('s-total').classList.toggle('done', total <= 0);
+
+    // 日数
+    var days = Math.ceil(total / ap);
+    el('o-days').innerHTML = fmt(days) + '<small>日</small>';
+    var d = new Date();
+    d.setDate(d.getDate() + days);
+    el('o-days-sub').textContent = '1 日 ' + fmt(ap) + ' AP なら ' +
+      (d.getMonth() + 1) + ' 月 ' + d.getDate() + ' 日ごろ';
+
+    // 帯
+    var span = cumAt(target) - cumAt(level);
+    var pct = span > 0 ? Math.min(100, Math.max(0, (exp / span) * 100)) : 100;
+    el('b-fill').style.width = pct.toFixed(2) + '%';
+    el('b-from').textContent = 'Lv' + level + '（+' + fmt(exp) + '）';
+    el('b-to').textContent = 'Lv' + target;
+    el('b-note').textContent = '目標までの ' + fmt(span) + ' のうち ' + fmt(exp) + ' が済んでいます。';
+
+    // 内訳（前後 5 レベル）
+    var from = Math.max(1, level - 2), to = Math.min(MAX, level + 6);
+    var html = '';
+    for (var L = from; L <= to; L++) {
+      html += '<tr' + (L === level ? ' class="here"' : '') + '>' +
+        '<td>Lv' + L + '</td>' +
+        '<td>' + (L >= MAX ? '—' : fmt(needAt(L))) + '</td>' +
+        '<td>' + fmt(cumAt(L)) + '</td>' +
+        '<td>' + fmt(CAP[L - 1]) + '</td>' +
+        '</tr>';
+    }
+    el('tb').innerHTML = html;
+  }
+
+  [iLevel, iExp, iTarget, iAp].forEach(function (n) {
+    n.addEventListener('input', calc);
+  });
+  el('ver').textContent = D.version;
+  calc();
+})();
+</script>
+</body>
+</html>
