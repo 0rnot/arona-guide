@@ -27,8 +27,9 @@
   .tcols { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
   .tcols.lean { grid-template-columns: minmax(0, 5fr) minmax(0, 4fr); }
   .tcols.wideleft { grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); }
-  /* 右の柱は付いてくる。**入力を動かしながら結果を見る**のがこの道具の使い方 */
-  .tcols > .sticky { position: sticky; top: 76px; }
+  /* **右の柱は貼り付けない。** 一度 position:sticky にしていたが、
+     スクロールしても右だけ動かないのが気持ち悪いと先生から指摘があった
+     （2026-08-30）。左右とも普通に流す。 */
 }
 .tcol { min-width: 0; display: flex; flex-direction: column; gap: clamp(14px, 1.8vw, 22px); }
 .tcol > .panel, .tcol > .stats, .tcol > .note-box { margin: 0; }
@@ -314,8 +315,9 @@ table.dt th, table.dt td {
   padding: .55em .75em; border-bottom: 1px solid var(--line);
   text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap;
 }
-table.dt th { color: var(--fg-mute); font-weight: 500; font-size: .78rem;
-              position: sticky; top: 0; background: var(--card); }
+/* **見出しも貼り付けない。** 横スクロールの器は縦には動かないので、
+   position:sticky を付けるとページを縦に送ったときに見出しだけ浮いて残る。 */
+table.dt th { color: var(--fg-mute); font-weight: 500; font-size: .78rem; background: var(--card); }
 table.dt th:first-child, table.dt td:first-child { text-align: left; }
 table.dt tr.here td { background: var(--bg-sub); font-weight: 800; }
 table.dt tbody tr:hover td { background: color-mix(in srgb, var(--accent) 7%, transparent); }
