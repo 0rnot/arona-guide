@@ -7,43 +7,34 @@
 <meta name="description" content="ブルーアーカイブの計算まわりを、ブラウザだけで済ませるツール集。ゲームのデータをそのまま使っていて、入力した内容はどこにも送りません。">
 <meta name="theme-color" content="#c8892e">
 <link rel="icon" href="../favicon.svg" type="image/svg+xml">
-<meta property="og:title" content="AronaBot のツール">
-<meta property="og:description" content="ブルーアーカイブの計算まわりを、ブラウザだけで済ませるツール集。">
+<meta property="og:title" content="ブルアカの計算を、ブラウザだけで。">
+<meta property="og:description" content="AronaBot のツール — 先生レベル、装備素材、募集の確率。ゲームのデータをそのまま使って計算します。">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://arona-bot.com/tools/">
-<link rel="stylesheet" href="../style.css?v=13">
+<meta property="og:image" content="https://arona-bot.com/images/hero-night.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="stylesheet" href="../style.css?v=14">
+<link rel="stylesheet" href="tool.css?v=1">
 <style>
-  .tool-wrap { max-width: 860px; margin: 0 auto; padding: 0 20px 80px; }
-  .tool-head { padding: 44px 0 4px; }
-  .tool-head h1 { font-size: clamp(28px, 5.4vw, 38px); line-height: 1.3; margin: 0 0 12px; }
-  .tool-head p { color: var(--fg-mute); margin: 0; max-width: 60ch; }
-
-  .grid { display: grid; gap: 16px; margin: 30px 0 0; }
-  @media (min-width: 660px) { .grid { grid-template-columns: 1fr 1fr; } }
-
-  a.tcard {
-    display: block; text-decoration: none; color: inherit;
-    background: var(--card, #fff); border: 1px solid var(--line);
-    border-radius: 14px; padding: 22px 24px;
-    transition: border-color .15s ease, transform .15s ease;
+  /* 一覧だけの見た目 */
+  .filters {
+    display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+    margin: 30px 0 0; padding-bottom: 4px;
   }
-  a.tcard:hover { border-color: var(--accent); transform: translateY(-1px); }
-  a.tcard:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-  .tcard .cat { font-size: 11.5px; letter-spacing: .06em; color: var(--accent-tx, var(--accent)); }
-  .tcard h2 { font-size: 18px; margin: 6px 0 6px; }
-  .tcard p { font-size: 14px; color: var(--fg-mute); margin: 0; line-height: 1.75; }
-
-  .soon { border: 1px dashed var(--line); border-radius: 14px; padding: 22px 24px; }
-  .soon .cat { font-size: 11.5px; letter-spacing: .06em; color: var(--fg-mute); }
-  .soon h2 { font-size: 18px; margin: 6px 0 6px; color: var(--fg-mute); }
-  .soon p { font-size: 14px; color: var(--fg-mute); margin: 0; line-height: 1.75; }
-
-  .lead-note {
-    background: var(--bg-sub); border: 1px solid var(--line);
-    border-radius: 12px; padding: 16px 20px; margin: 28px 0 0;
-    font-size: 14px; color: var(--fg-mute); line-height: 1.8;
+  .filters .lb { font-size: .78rem; color: var(--fg-mute); margin-right: .3em; }
+  .filters button {
+    font: inherit; font-size: .82rem; font-weight: 700; cursor: pointer;
+    padding: .36em .95em; border-radius: 999px;
+    border: 1px solid var(--line); background: var(--bg-sub); color: var(--fg-mute);
+    transition: border-color .14s ease, color .14s ease, background .14s ease;
   }
-  .lead-note b { color: var(--fg); }
+  .filters button:hover { border-color: var(--accent); color: var(--fg); }
+  .filters button[aria-pressed="true"] {
+    background: var(--accent); color: var(--accent-in); border-color: transparent;
+  }
+  .filters button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .tcard[hidden] { display: none; }
+  .count { font-size: .78rem; color: var(--fg-mute); margin: 18px 0 0; }
 </style>
 </head>
 <body>
@@ -60,42 +51,73 @@
     <nav class="topbar-nav">
       <a href="../#can">機能</a>
       <a href="../#start">つかいはじめる</a>
+      <a href="../#message">メッセージから</a>
       <a href="../#faq">よくある質問</a>
     </nav>
   </div>
 </div>
 
-<div class="tool-wrap">
-  <div class="tool-head">
-    <h1>ツール</h1>
-    <p>ブルーアーカイブの計算まわりを、ブラウザだけで済ませるものを置いています。<b>数字はゲームのデータをそのまま使っていて、推測した値は入れていません。</b>入力した内容がどこかへ送られることもありません。</p>
+<header class="thero">
+  <!-- **本編のヘッダー画像と昼夜を入れ替えてある。**
+       本編は昼＝hero-day / 夜＝hero-night。ここはその逆で、
+       ライトのとき夜の部屋、ダークのとき昼の部屋が出る。
+       同じ部屋の別の時間帯なので世界観は繋がったまま、タブが変わったことが分かる
+       （2026-08-30 の先生の指示）。 -->
+  <div class="thero-media" aria-hidden="true">
+    <picture>
+      <source srcset="../images/hero-day.jpg" media="(prefers-color-scheme: dark)">
+      <img src="../images/hero-night.jpg" alt="" width="1600" height="400" fetchpriority="high">
+    </picture>
+  </div>
+  <div class="thero-body wide">
+    <p class="thero-en">TOOLS</p>
+    <h1>ブルアカの計算を、ブラウザだけで。</h1>
+    <p class="thero-lead"><b>数字はゲームのデータをそのまま使っています。</b>推測した値は入れていません。<br class="br-pc">
+      入力した内容が外へ送られることもなく、ぜんぶこのページの中だけで動きます。</p>
+  </div>
+</header>
+
+<div class="twrap wide">
+
+  <div class="filters" id="filters" role="group" aria-label="種類でしぼりこむ">
+    <span class="lb">種類</span>
+    <button type="button" data-cat="" aria-pressed="true">すべて</button>
   </div>
 
-  <div class="grid">
-    <a class="tcard" href="teacher-level/">
+  <div class="tgrid c3" id="grid">
+<!-- TOOLS:START -->
+    <a class="tcard" href="teacher-level/" data-cat="育成・計画">
       <div class="cat">育成・計画</div>
       <h2>先生レベル計算機</h2>
-      <p>目標のレベルまで、あと何 AP・何日かかるかを出します。消費した AP がそのまま先生経験値になるので、残り経験値がそのまま残り AP です。</p>
+      <p>目標のレベルまで、あと何 AP・何日かかるかを出します。レベルアップのたびに AP が全回復するぶんも差し引いています。</p>
+      <span class="go">つかう <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M13.5 5.5 12.1 6.9l4.1 4.1H4v2h12.2l-4.1 4.1 1.4 1.4 6.5-6.5z"/></svg></span>
     </a>
 
-    <div class="soon">
+    <div class="tcard soon" data-cat="つくっている途中">
       <div class="cat">つくっている途中</div>
       <h2>もう何本か</h2>
-      <p>装備の強化、戦術対抗戦のコイン、総力戦のスコアあたりを考えています。<b>ほしいものがあれば、下の連絡先から教えてください。</b></p>
+      <p>装備の素材、募集の確率、編成の組み立て、イベントの交換所あたりを順に作っています。ほしいものがあれば @0r.not まで。</p>
     </div>
+<!-- TOOLS:END -->
   </div>
 
-  <p class="lead-note">
-    <b>ここに置いているものは、ぜんぶブラウザの中だけで動きます。</b>
-    サーバーに計算をさせていないので、入力した数字が外に出ることはありません。
-    数字の出どころは各ツールの下に書いてあります。
-  </p>
+  <p class="count" id="count"></p>
+
+  <div class="note-box">
+    <p><b>ぜんぶブラウザの中だけで動きます。</b>サーバーに計算をさせていないので、入力した数字が外に出ることはありません。</p>
+    <p><b>数字の出どころは各ツールの下に書いてあります。</b>ゲームのデータから取った値か、攻略サイトの記載か、目安として置いた値かを分けて書いています。おかしいところがあれば <b>@0r.not</b> まで教えてください。</p>
+  </div>
+
 </div>
 
 <footer>
   <div class="foot-inner">
     <p class="foot-name">AronaBotの使い方</p>
     <p class="foot-links">
+      <a href="../">AronaBot のページ</a>
+      <span class="sep">/</span>
+      <a href="./">ツール一覧</a>
+      <span class="sep">/</span>
       <a href="https://x.com/pe6cak" target="_blank" rel="noopener">制作者の X（@pe6cak）</a>
       <span class="sep">/</span>
       <span>不具合・要望は <b>@0r.not</b> まで</span>
@@ -107,5 +129,52 @@
   </div>
 </footer>
 
+<script>
+(function () {
+  'use strict';
+  var grid = document.getElementById('grid');
+  var bar = document.getElementById('filters');
+  var countEl = document.getElementById('count');
+  var cards = [].slice.call(grid.querySelectorAll('[data-cat]'));
+
+  // 種類のボタンは、実際に載っているカードから作る。**手で並べない。**
+  // **「つくっている途中」は種類ではない**ので、そのカードからは拾わない。
+  var seen = [];
+  cards.forEach(function (c) {
+    if (c.classList.contains('soon')) return;
+    c.dataset.cat.split('|').forEach(function (k) {
+      if (k && seen.indexOf(k) < 0) seen.push(k);
+    });
+  });
+  seen.forEach(function (k) {
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.dataset.cat = k;
+    b.textContent = k;
+    b.setAttribute('aria-pressed', 'false');
+    bar.appendChild(b);
+  });
+
+  function apply(cat) {
+    var n = 0;
+    cards.forEach(function (c) {
+      var hit = !cat || (!c.classList.contains('soon') &&
+                         c.dataset.cat.split('|').indexOf(cat) >= 0);
+      c.hidden = !hit;
+      if (hit && !c.classList.contains('soon')) n++;
+    });
+    countEl.textContent = cat ? ('「' + cat + '」 ' + n + ' 本') : (n + ' 本のツールがあります');
+    [].forEach.call(bar.querySelectorAll('button'), function (b) {
+      b.setAttribute('aria-pressed', String(b.dataset.cat === cat));
+    });
+  }
+
+  bar.addEventListener('click', function (e) {
+    var b = e.target.closest('button');
+    if (b) apply(b.dataset.cat);
+  });
+  apply('');
+})();
+</script>
 </body>
 </html>
