@@ -12,9 +12,29 @@
 
 /* ------------------------------------------------------------ 骨格 */
 
-.twrap { max-width: 900px; margin: 0 auto; padding: 0 24px 96px; }
-.twrap.narrow { max-width: 780px; }
-.twrap.wide   { max-width: 1080px; }
+.twrap { max-width: 1180px; margin: 0 auto; padding: 0 clamp(16px, 3vw, 32px) 96px; }
+.twrap.narrow { max-width: 860px; }
+.twrap.wide   { max-width: 1320px; }
+
+/* ------------------------------------------------------------ 2 段組み
+   **道具は読み物ではない。** 1 本の細い柱に流すと、広い画面で左右が丸ごと余る
+   （2026-08-30 の先生の指摘）。入力を左、結果を右に置いて、
+   **結果は画面に貼り付けたまま**入力をいじれるようにする。
+
+   畳む幅は 900px。それより狭いと 2 列にした瞬間どちらも窮屈になる。 */
+.tcols { display: grid; gap: clamp(18px, 2.2vw, 30px); align-items: start; }
+@media (min-width: 900px) {
+  .tcols { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .tcols.lean { grid-template-columns: minmax(0, 5fr) minmax(0, 4fr); }
+  .tcols.wideleft { grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); }
+  /* 右の柱は付いてくる。**入力を動かしながら結果を見る**のがこの道具の使い方 */
+  .tcols > .sticky { position: sticky; top: 76px; }
+}
+.tcol { min-width: 0; display: flex; flex-direction: column; gap: clamp(14px, 1.8vw, 22px); }
+.tcol > .panel, .tcol > .stats, .tcol > .note-box { margin: 0; }
+
+/* 全幅で置きたいもの（表・グラフ） */
+.tfull { grid-column: 1 / -1; min-width: 0; }
 
 .tcrumb { font-size: .82rem; color: var(--fg-mute); padding: 22px 0 0; }
 /* ヒーローのすぐ下に来るときは、ヒーロー側が余白を持っているので詰める */
@@ -46,14 +66,14 @@
 }
 
 .thero-body {
-  max-width: 900px;
+  max-width: 1180px;
   margin: 0 auto;
   margin-top: clamp(-80px, -8vw, -36px);
-  padding: 0 24px 8px;
+  padding: 0 clamp(16px, 3vw, 32px) 8px;
   position: relative;
 }
-.thero-body.wide   { max-width: 1080px; }
-.thero-body.narrow { max-width: 780px; }
+.thero-body.wide   { max-width: 1320px; }
+.thero-body.narrow { max-width: 860px; }
 
 .thero-en {
   margin: 0 0 .25em;
@@ -94,7 +114,7 @@
   background: var(--card);
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  padding: 24px 26px;
+  padding: clamp(18px, 2vw, 24px) clamp(18px, 2.2vw, 26px);
   margin: 26px 0;
   box-shadow: var(--shadow);
 }
@@ -119,10 +139,14 @@
 .fields { display: grid; gap: 18px; }
 .fields.c2 { grid-template-columns: 1fr; }
 .fields.c3 { grid-template-columns: 1fr; }
-@media (min-width: 620px) {
+@media (min-width: 560px) {
   .fields.c2 { grid-template-columns: 1fr 1fr; }
-  .fields.c3 { grid-template-columns: repeat(3, 1fr); }
+  .fields.c3 { grid-template-columns: 1fr 1fr; }
 }
+@media (min-width: 760px) { .fields.c3 { grid-template-columns: repeat(3, 1fr); } }
+/* 2 段組みの柱の中では 1〜2 列 */
+.tcol .fields.c3 { grid-template-columns: 1fr 1fr; }
+@media (max-width: 520px) { .tcol .fields.c2, .tcol .fields.c3 { grid-template-columns: 1fr; } }
 
 .field label, .field > .lb { display: block; font-size: .84rem; font-weight: 700; margin-bottom: .45em; }
 .field .hint { display: block; font-weight: 400; color: var(--fg-mute); font-size: .78rem; margin-top: .15em; }
@@ -243,9 +267,14 @@ input[type="range"]::-moz-range-thumb {
 /* ------------------------------------------------------------ 出力 */
 
 .stats { display: grid; gap: 14px; margin: 26px 0; }
-@media (min-width: 620px) { .stats.c3 { grid-template-columns: repeat(3, 1fr); }
-                            .stats.c2 { grid-template-columns: 1fr 1fr; }
+@media (min-width: 560px) { .stats.c2 { grid-template-columns: 1fr 1fr; }
+                            .stats.c3 { grid-template-columns: 1fr 1fr; }
+                            .stats.c4 { grid-template-columns: 1fr 1fr; } }
+@media (min-width: 760px) { .stats.c3 { grid-template-columns: repeat(3, 1fr); }
                             .stats.c4 { grid-template-columns: repeat(4, 1fr); } }
+/* 2 段組みの中に入ったら、狭いので必ず 1〜2 列に落とす */
+.tcol .stats.c3, .tcol .stats.c4 { grid-template-columns: 1fr 1fr; }
+@media (max-width: 480px) { .tcol .stats.c3, .tcol .stats.c4 { grid-template-columns: 1fr; } }
 .stat {
   border: 1px solid var(--line); border-radius: 12px; padding: 17px 19px;
   background: var(--card);
@@ -276,7 +305,7 @@ input[type="range"]::-moz-range-thumb {
 .ledger .row > span:last-child { font-variant-numeric: tabular-nums; white-space: nowrap; }
 .ledger .row.minus > span:last-child { color: var(--accent-tx); }
 .ledger .row.total { border-bottom: 0; font-weight: 800; border-top: 2px solid var(--line); margin-top: 4px; }
-.ledger .row .note { display: block; color: var(--fg-mute); font-size: .78rem; }
+.ledger .row .subnote { display: block; color: var(--fg-mute); font-size: .78rem; }
 
 /* 表 */
 .tscroll { overflow-x: auto; margin-top: 10px; -webkit-overflow-scrolling: touch; }
@@ -329,6 +358,7 @@ details.src ul { padding-left: 1.3em; }
 .tgrid { display: grid; gap: 16px; margin: 26px 0 0; }
 @media (min-width: 640px) { .tgrid { grid-template-columns: 1fr 1fr; } }
 @media (min-width: 980px) { .tgrid.c3 { grid-template-columns: repeat(3, 1fr); } }
+@media (min-width: 1280px) { .tgrid.c3 { grid-template-columns: repeat(4, 1fr); } }
 
 a.tcard, .tcard {
   display: flex; flex-direction: column;

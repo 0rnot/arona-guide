@@ -51,8 +51,12 @@ def footer(up: str, tools_href: str) -> str:
       <span>不具合・要望は <b>@0r.not</b> まで</span>
     </p>
     <p class="disclaimer">
-      このページはファンによる非公式のものです。
-      <small>「ブルーアーカイブ」は Nexon Games / Yostar の作品で、当ページとは関係ありません。</small>
+      <b>このサイトはファンが作った非公式のものです。</b>運営とは関係ありません。
+      <small>掲載しているゲーム内の画像・アイコン・名称・数値は、Nexon Games / Yostar の
+      「ブルーアーカイブ」から引用したもので、著作権はすべて権利者に帰属します。
+      ツールの計算に使うデータは <a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a> と
+      <a href="https://github.com/electricgoat/ba-data" target="_blank" rel="noopener">ba-data</a> から取得しています。
+      権利者の方でご指摘があれば <b>@0r.not</b> までご連絡ください。</small>
     </p>
   </div>
 </footer>'''

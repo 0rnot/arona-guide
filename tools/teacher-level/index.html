@@ -50,126 +50,172 @@
   </div>
 </header>
 
-<div class="twrap narrow">
+<div class="twrap">
   <p class="tcrumb"><a href="../../">AronaBotの使い方</a><span class="sl">/</span><a href="../">ツール</a><span class="sl">/</span>先生レベル計算機</p>
 
-  <div class="panel">
-    <div class="panel-h"><span class="n">01</span><h2>今の状況</h2></div>
-    <p class="lead">経験値が分からなければ 0 のままで大丈夫です。多少ずれても日数はほとんど変わりません。</p>
-    <div class="fields c3">
-      <div class="field" id="f-level">
-        <label for="i-level">今の先生レベル<span class="hint">1 〜 90</span></label>
-        <input id="i-level" type="number" inputmode="numeric" min="1" max="90" step="1" value="80">
+  <div class="tcols lean" style="margin-top:20px">
+
+    <div class="tcol">
+      <div class="panel">
+        <div class="panel-h"><span class="n">01</span><h2>今の状況</h2></div>
+        <p class="lead">経験値が分からなければ 0 のままで大丈夫です。多少ずれても日数はほとんど変わりません。</p>
+        <div class="fields c3">
+          <div class="field" id="f-level">
+            <label for="i-level">今の先生レベル<span class="hint">1 〜 90</span></label>
+            <input id="i-level" type="number" inputmode="numeric" min="1" max="90" step="1" value="80">
+          </div>
+          <div class="field" id="f-exp">
+            <label for="i-exp">今の経験値<span class="hint">レベルの中での溜まりぶん</span></label>
+            <input id="i-exp" type="number" inputmode="numeric" min="0" step="1" value="0">
+          </div>
+          <div class="field" id="f-target">
+            <label for="i-target">目標のレベル<span class="hint">上限は 90</span></label>
+            <input id="i-target" type="number" inputmode="numeric" min="2" max="90" step="1" value="90">
+          </div>
+        </div>
+        <p class="err" id="err" hidden></p>
       </div>
-      <div class="field" id="f-exp">
-        <label for="i-exp">今の経験値<span class="hint">レベルの中での溜まりぶん</span></label>
-        <input id="i-exp" type="number" inputmode="numeric" min="0" step="1" value="0">
+
+      <div class="panel">
+        <div class="panel-h"><span class="n">02</span><h2>1 日に手に入る AP</h2></div>
+        <p class="lead"><b>自分の遊び方に合わせてください。</b>初期値は無課金・石割なしで、カフェはランク 10 のときの値です。</p>
+
+        <div class="btnrow" style="margin-bottom:18px">
+          <div class="seg" id="preset" role="group" aria-label="遊び方のめやす">
+            <button type="button" data-p="light">ゆるめ</button>
+            <button type="button" data-p="normal" aria-pressed="true">無課金</button>
+            <button type="button" data-p="heavy">やりこみ</button>
+          </div>
+        </div>
+
+        <div class="numrow">
+          <div class="nm">自然回復<small>6 分に 1。1 日で 240</small></div>
+          <div class="val">240</div>
+        </div>
+
+        <div class="numrow">
+          <div class="nm">カフェ<small id="cafe-note">ランクごとの生産量</small></div>
+          <select id="a-cafe-rank" aria-label="カフェランク"></select>
+        </div>
+
+        <div class="numrow">
+          <div class="nm">デイリーミッション<small>ログイン 100 ＋ スケジュール 2 回 50</small></div>
+          <div class="checks"><label><input type="checkbox" id="a-daily" checked> 150</label></div>
+        </div>
+
+        <div class="numrow">
+          <div class="nm">サークル参加<small>1 日 10</small></div>
+          <div class="checks"><label><input type="checkbox" id="a-clan" checked> 10</label></div>
+        </div>
+
+        <div class="numrow">
+          <div class="nm">AP ドリンク<small>戦術対抗戦コインと交換。初級 AP30 ／ 中級 AP60</small></div>
+          <select id="a-drink" aria-label="AP ドリンク">
+            <option value="0">買わない</option>
+            <option value="30">初級だけ（30）</option>
+            <option value="60">中級だけ（60）</option>
+            <option value="90" selected>両方（90）</option>
+          </select>
+        </div>
+
+        <div class="numrow">
+          <div class="nm">青輝石で回復<small id="gem-note">1 回 120 AP。値段は回数で上がる</small></div>
+          <select id="a-gem" aria-label="青輝石での回復回数"></select>
+        </div>
+
+        <div class="numrow">
+          <div class="nm">月間パッケージ<small>スタミナパック 1 日 150</small></div>
+          <div class="checks"><label><input type="checkbox" id="a-pack"> 150</label></div>
+        </div>
+
+        <div class="numrow">
+          <div class="nm">その他<small>イベントの報酬、任務の初回クリアなど</small></div>
+          <input id="a-etc" type="number" inputmode="numeric" min="0" step="10" value="0">
+        </div>
+
+        <div class="numrow sum"><div>1 日の合計</div><div class="v" id="a-sum">—</div></div>
       </div>
-      <div class="field" id="f-target">
-        <label for="i-target">目標のレベル<span class="hint">上限は 90</span></label>
-        <input id="i-target" type="number" inputmode="numeric" min="2" max="90" step="1" value="90">
+    </div>
+
+    <div class="tcol sticky">
+      <div class="stats c3">
+        <div class="stat hero">
+          <div class="k">かかる日数</div>
+          <div class="v" id="o-days">—</div>
+          <div class="sub" id="o-days-sub"></div>
+        </div>
+        <div class="stat">
+          <div class="k">用意する AP</div>
+          <div class="v" id="o-total">—</div>
+          <div class="sub" id="o-total-sub"></div>
+        </div>
+        <div class="stat">
+          <div class="k">次のレベルまで</div>
+          <div class="v" id="o-next">—</div>
+          <div class="sub" id="o-next-sub"></div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-h"><span class="n">03</span><h2>内訳</h2></div>
+        <p class="lead"><b>レベルが上がると AP は上限まで回復します。</b>その回復ぶんは自分で用意しなくていいので、必要量から引いています。AP を使い切ってから上がるものとして数えているので、満タンのまま上がったぶんは受け取れません。</p>
+        <div class="ledger">
+          <div class="row"><span id="l-span-k">必要な経験値</span><span id="l-span">—</span></div>
+          <div class="row minus"><span>今の経験値ぶん</span><span id="l-exp">—</span></div>
+          <div class="row minus"><span id="l-refill-k">レベルアップの全回復ぶん</span><span id="l-refill">—</span></div>
+          <div class="row total"><span>用意する AP</span><span id="l-net">—</span></div>
+        </div>
+      </div>
+
+      <div class="note-box" id="gem-cost" hidden></div>
+
+      <div class="panel" id="mastery-panel">
+        <div class="panel-h"><span class="n">04</span><h2>Lv90 のあと</h2></div>
+        <p class="lead" style="margin:0"><b>Lv90 で経験値も上限に達すると、そのあと使った AP は「熟達証書」に変わります。</b>AP 1 につき 1 枚で、<b>週の上限は 12,000 枚</b>（月間パッケージを買っていると 15,000 枚）。今の 1 日 <b id="m-daily">—</b> AP なら、週に <b id="m-week">—</b> 枚で、<span id="m-cap"></span></p>
       </div>
     </div>
-    <p class="err" id="err" hidden></p>
-  </div>
 
-  <div class="panel">
-    <div class="panel-h"><span class="n">02</span><h2>1 日に手に入る AP</h2></div>
-    <p class="lead">課金と青輝石を使わず、普通に遊んだ場合の目安を入れてあります。<b>自分の遊び方に合わせて書き換えてください。</b>カフェは招待とランクで大きく変わるところです。</p>
-
-    <div class="btnrow" style="margin-bottom:16px">
-      <div class="seg" id="preset" role="group" aria-label="遊び方のめやす">
-        <button type="button" data-p="light">ゆるめ</button>
-        <button type="button" data-p="normal" aria-pressed="true">ふつう</button>
-        <button type="button" data-p="heavy">やりこみ</button>
+    <div class="tfull">
+      <div class="panel">
+        <div class="panel-h"><span class="n">05</span><h2>レベルごとの内訳</h2></div>
+        <p class="lead">今のレベルの前後を出します。AP 上限は、そのレベルになったときの値です。<b>低いレベルでは上限が小さい</b>ので、こまめに使わないと自然回復ぶんが溢れます。</p>
+        <div class="tscroll">
+          <table class="dt">
+            <thead><tr><th>レベル</th><th>次まで</th><th>ここまでの累計</th><th>AP 上限</th><th>上限まで貯まる時間</th></tr></thead>
+            <tbody id="tb"></tbody>
+          </table>
+        </div>
       </div>
+
+      <details class="src">
+        <summary>数字の出どころ</summary>
+        <p>レベルの表はゲームのクライアントから取り出したデータをそのまま使っています。推測した値はありません。</p>
+        <ul>
+          <li><code>Excel/AccountLevelExcelTable.json</code> — レベルごとの必要経験値（<code>Exp</code>）と AP 上限（<code>APAutoChargeMax</code>）</li>
+          <li><code>Excel/ConstCommonExcelTable.json</code> — <code>AccountMaxLevel: 90</code> と <code>AccountExpRatio: 1</code></li>
+          <li><code>Excel/ClanRewardExcelTable.json</code> — サークルの出席報酬が 10（<code>ClanRewardType: Attendance</code>）</li>
+        </ul>
+        <p><b><code>AccountExpRatio</code> が 1 なので、消費した AP と得られる先生経験値は 1 対 1 です。</b>
+          このツールが「必要経験値＝必要 AP」として扱っているのはそのためです。
+          取得元は <a href="https://github.com/electricgoat/ba-data" target="_blank" rel="noopener">electricgoat/ba-data</a> の
+          <code>jp</code> ブランチ、バージョン <code id="ver">—</code> 時点のもので、Lv1 から Lv90 までの合計は <b>294,782</b> でした。</p>
+        <p><b>1 日の AP の内訳は攻略サイトの記載によります。</b>
+          自然回復は 6 分に 1 で 1 日 240、デイリーミッションは<b>ログイン 100 ＋ スケジュール 2 回 50 の合計 150</b>、サークルは 10。
+          青輝石での回復は <b>1 回 120 AP</b> で、値段は 1〜3 回目 30 個、4〜6 回目 60 個、7〜9 回目 100 個、10〜12 回目 150 個、13〜15 回目 200 個、16〜20 回目 300 個。
+          カフェはランク 1 から 10 まで 90 / 150 / 220 / 300 / 390 / 460 / 530 / 600 / 670 / 740。
+          <b>レベルアップで AP が全回復すること</b>もここの記載です。</p>
+        <p><b>気をつけていること。</b>AP の上限は先生レベルに連動していて、Lv1 では 24、Lv90 で 240 です。
+          <b>「1 日 240 の自然回復」を取り切れるのは、上限に届く前に使っているとき</b>で、
+          放っておくと上限で止まります。上の表の「上限まで貯まる時間」がその目安です。</p>
+        <p>出典 —
+          <a href="https://game8.jp/blue-archive/641881" target="_blank" rel="noopener">ゲームエイト「APの回復方法一覧と1日の自然回復量」</a>（自然回復 240、デイリー 150、サークル 10、青輝石の値段表）、
+          <a href="https://kamigame.jp/bluearchive/page/142941771335236352.html" target="_blank" rel="noopener">神ゲー攻略「APの効率的な使い方と回復方法」</a>（青輝石 1 回 120 回復）、
+          <a href="https://kamigame.jp/bluearchive/page/142932339821927927.html" target="_blank" rel="noopener">神ゲー攻略「先生レベル」</a>（レベルアップで AP が全回復）、
+          <a href="https://game8.jp/blue-archive/666060" target="_blank" rel="noopener">ゲームエイト「熟達証書」</a>（Lv90 到達後の変換と週の上限）。</p>
+      </details>
     </div>
 
-    <div class="numrow">
-      <div class="nm">自然回復<small>6 分に 1。1 日で 240</small></div>
-      <div class="val">240</div>
-    </div>
-    <div class="numrow">
-      <div class="nm">カフェの報酬<small>30 〜 740。招待とカフェランクで変わる</small></div>
-      <input id="a-cafe" type="number" inputmode="numeric" min="0" step="10" value="385">
-    </div>
-    <div class="numrow">
-      <div class="nm">戦術対抗戦のコイン交換<small>90 〜 360。順位で変わる</small></div>
-      <input id="a-pvp" type="number" inputmode="numeric" min="0" step="10" value="225">
-    </div>
-    <div class="numrow">
-      <div class="nm">サークル参加<small>1 日 10</small></div>
-      <input id="a-clan" type="number" inputmode="numeric" min="0" step="1" value="10">
-    </div>
-    <div class="numrow">
-      <div class="nm">毎日無料パッケージ<small>1 日 10</small></div>
-      <input id="a-pack" type="number" inputmode="numeric" min="0" step="1" value="10">
-    </div>
-    <div class="numrow">
-      <div class="nm">その他<small>青輝石での回復、課金ぶん、ミッションやイベントの報酬</small></div>
-      <input id="a-etc" type="number" inputmode="numeric" min="0" step="10" value="0">
-    </div>
-    <div class="numrow sum"><div>1 日の合計</div><div class="v" id="a-sum">—</div></div>
   </div>
-
-  <div class="stats c3">
-    <div class="stat">
-      <div class="k">次のレベルまで</div>
-      <div class="v" id="o-next">—</div>
-      <div class="sub" id="o-next-sub"></div>
-    </div>
-    <div class="stat">
-      <div class="k">用意する AP</div>
-      <div class="v" id="o-total">—</div>
-      <div class="sub" id="o-total-sub"></div>
-    </div>
-    <div class="stat hero">
-      <div class="k">かかる日数</div>
-      <div class="v" id="o-days">—</div>
-      <div class="sub" id="o-days-sub"></div>
-    </div>
-  </div>
-
-  <div class="panel">
-    <div class="panel-h"><span class="n">03</span><h2>内訳</h2></div>
-    <p class="lead"><b>レベルが上がると AP は上限まで回復します。</b>その回復ぶんは自分で用意しなくていいので、必要量から引いています。AP を使い切ってから上がるものとして数えているので、満タンのまま上がったぶんは受け取れません。</p>
-    <div class="ledger">
-      <div class="row"><span id="l-span-k">必要な経験値</span><span id="l-span">—</span></div>
-      <div class="row minus"><span>今の経験値ぶん</span><span id="l-exp">—</span></div>
-      <div class="row minus"><span id="l-refill-k">レベルアップの全回復ぶん</span><span id="l-refill">—</span></div>
-      <div class="row total"><span>用意する AP</span><span id="l-net">—</span></div>
-    </div>
-  </div>
-
-  <div class="panel">
-    <div class="panel-h"><span class="n">04</span><h2>レベルごとの内訳</h2></div>
-    <p class="lead">今のレベルの前後だけを出します。AP 上限は、そのレベルになったときの値です。</p>
-    <div class="tscroll">
-      <table class="dt">
-        <thead><tr><th>レベル</th><th>次まで</th><th>ここまでの累計</th><th>AP 上限</th></tr></thead>
-        <tbody id="tb"></tbody>
-      </table>
-    </div>
-  </div>
-
-  <details class="src">
-    <summary>数字の出どころ</summary>
-    <p>レベルの表はゲームのクライアントから取り出したデータをそのまま使っています。推測した値はありません。</p>
-    <ul>
-      <li><code>Excel/AccountLevelExcelTable.json</code> — レベルごとの必要経験値（<code>Exp</code>）と AP 上限（<code>APAutoChargeMax</code>）</li>
-      <li><code>Excel/ConstCommonExcelTable.json</code> — <code>AccountMaxLevel: 90</code> と <code>AccountExpRatio: 1</code></li>
-      <li><code>Excel/ClanRewardExcelTable.json</code> — サークルの出席報酬が 10（<code>ClanRewardType: Attendance</code>）</li>
-    </ul>
-    <p><b><code>AccountExpRatio</code> が 1 なので、消費した AP と得られる先生経験値は 1 対 1 です。</b>
-      このツールが「必要経験値＝必要 AP」として扱っているのはそのためです。
-      取得元は <a href="https://github.com/electricgoat/ba-data" target="_blank" rel="noopener">electricgoat/ba-data</a> の
-      <code>jp</code> ブランチ、バージョン <code id="ver">—</code> 時点のもので、Lv1 から Lv90 までの合計は <b>294,782</b> でした。</p>
-    <p><b>1 日の AP の目安と、レベルアップで AP が全回復することは、データではなく攻略サイトの記載によります。</b>
-      「先生レベルが上がると AP 最大値が 2 増加し、即座に AP が最大値分回復する」と
-      <a href="https://kamigame.jp/bluearchive/page/142932339821927927.html" target="_blank" rel="noopener">神ゲー攻略</a>
-      にあり、カフェ 30〜740・サークル 10・対抗戦コイン交換 90〜360・毎日無料パッケージ 10 という内訳も同じ記事のものです。
-      初期値には、課金と青輝石を除いたうえで、幅のあるものはその真ん中を入れてあります。</p>
-  </details>
 </div>
 
 <footer>
@@ -185,8 +231,12 @@
       <span>不具合・要望は <b>@0r.not</b> まで</span>
     </p>
     <p class="disclaimer">
-      このページはファンによる非公式のものです。
-      <small>「ブルーアーカイブ」は Nexon Games / Yostar の作品で、当ページとは関係ありません。</small>
+      <b>このサイトはファンが作った非公式のものです。</b>運営とは関係ありません。
+      <small>掲載しているゲーム内の画像・アイコン・名称・数値は、Nexon Games / Yostar の
+      「ブルーアーカイブ」から引用したもので、著作権はすべて権利者に帰属します。
+      ツールの計算に使うデータは <a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a> と
+      <a href="https://github.com/electricgoat/ba-data" target="_blank" rel="noopener">ba-data</a> から取得しています。
+      権利者の方でご指摘があれば <b>@0r.not</b> までご連絡ください。</small>
     </p>
   </div>
 </footer>
@@ -199,13 +249,23 @@
   var MAX = D.maxLevel;                 // 90
   var NEED = D.expToNext;               // NEED[L-1] = Lv L から Lv L+1 へ上がるのに要る量（89 個）
   var CAP = D.apCap;                    // CAP[L-1] = Lv L のときの AP 上限（90 個）
-  var NATURAL = 240;                    // 自然回復。6 分に 1
 
-  // 遊び方のめやす。**自然回復は含めない**（固定なので足し込むのは計算のとき）
+  var NATURAL = 240;                    // 自然回復。6 分に 1、1 日で 240
+  var DAILY_MISSION = 150;              // ログイン 100 ＋ スケジュール 2 回 50
+  var CLAN = 10;                        // サークル参加
+  var PACK = 150;                       // 月間パッケージのスタミナパック
+  var GEM_HEAL = 120;                   // 青輝石 1 回で回復する AP
+  // 青輝石の値段。**回数で上がる。** [その回数まで, 1 回の値段]
+  var GEM_PRICE = [[3, 30], [6, 60], [9, 100], [12, 150], [15, 200], [20, 300]];
+  var GEM_MAX = 20;
+  // カフェランク 1〜10 の 1 日あたり AP
+  var CAFE = [90, 150, 220, 300, 390, 460, 530, 600, 670, 740];
+
+  // 遊び方のめやす
   var PRESETS = {
-    light:  { cafe: 120, pvp:  90, clan: 10, pack: 10, etc: 0 },
-    normal: { cafe: 385, pvp: 225, clan: 10, pack: 10, etc: 0 },
-    heavy:  { cafe: 740, pvp: 360, clan: 10, pack: 10, etc: 0 }
+    light:  { cafe: 5,  drink: 0,  gem: 0, daily: true,  clan: true,  pack: false, etc: 0 },
+    normal: { cafe: 10, drink: 90, gem: 0, daily: true,  clan: true,  pack: false, etc: 0 },
+    heavy:  { cafe: 10, drink: 90, gem: 3, daily: true,  clan: true,  pack: true,  etc: 0 }
   };
 
   function needAt(L) { return L >= MAX ? 0 : NEED[L - 1]; }
@@ -223,45 +283,71 @@
     return s;
   }
 
+  /** n 回ぶん青輝石で回復したときの、1 日の石の消費数。 */
+  function gemCost(n) {
+    var total = 0, done = 0;
+    for (var i = 0; i < GEM_PRICE.length && done < n; i++) {
+      var upTo = GEM_PRICE[i][0], price = GEM_PRICE[i][1];
+      var take = Math.min(n, upTo) - done;
+      if (take > 0) { total += take * price; done += take; }
+    }
+    return total;
+  }
+
   var el = function (id) { return document.getElementById(id); };
   var iLevel = el('i-level'), iExp = el('i-exp'), iTarget = el('i-target');
-  var AP = { cafe: el('a-cafe'), pvp: el('a-pvp'), clan: el('a-clan'), pack: el('a-pack'), etc: el('a-etc') };
-  var apInputs = Object.keys(AP).map(function (k) { return AP[k]; });
+  var cafeSel = el('a-cafe-rank'), drinkSel = el('a-drink'), gemSel = el('a-gem');
+  var cDaily = el('a-daily'), cClan = el('a-clan'), cPack = el('a-pack'), iEtc = el('a-etc');
 
-  function fmt(n) { return n.toLocaleString('ja-JP'); }
+  // 選択肢を組み立てる
+  (function build() {
+    var h = '';
+    for (var r = 1; r <= 10; r++) h += '<option value="' + r + '"' + (r === 10 ? ' selected' : '') + '>ランク ' + r + '（' + CAFE[r - 1] + '）</option>';
+    cafeSel.innerHTML = h;
+    h = '<option value="0" selected>使わない</option>';
+    for (var n = 1; n <= GEM_MAX; n++) h += '<option value="' + n + '">' + n + ' 回（' + (n * GEM_HEAL) + ' AP／石 ' + gemCost(n).toLocaleString('ja-JP') + '）</option>';
+    gemSel.innerHTML = h;
+  })();
+
+  function fmt(n) { return Math.round(n).toLocaleString('ja-JP'); }
 
   function clearOut() {
     ['o-next', 'o-total', 'o-days'].forEach(function (o) { el(o).textContent = '—'; });
     ['o-next-sub', 'o-total-sub', 'o-days-sub'].forEach(function (o) { el(o).textContent = ''; });
     ['l-span', 'l-exp', 'l-refill', 'l-net'].forEach(function (o) { el(o).textContent = '—'; });
-    el('tb').innerHTML = '';
   }
 
   function fail(msg, whichField) {
     ['f-level', 'f-exp', 'f-target'].forEach(function (f) {
       el(f).classList.toggle('bad', f === whichField);
     });
-    var e = el('err');
-    e.textContent = msg;
-    e.hidden = false;
+    var e = el('err'); e.textContent = msg; e.hidden = false;
     clearOut();
   }
 
   function dailyAp() {
     var sum = NATURAL;
-    apInputs.forEach(function (n) {
-      var v = parseInt(n.value, 10);
-      if (v > 0) sum += v;
-    });
+    sum += CAFE[parseInt(cafeSel.value, 10) - 1];
+    sum += parseInt(drinkSel.value, 10) || 0;
+    sum += (parseInt(gemSel.value, 10) || 0) * GEM_HEAL;
+    if (cDaily.checked) sum += DAILY_MISSION;
+    if (cClan.checked) sum += CLAN;
+    if (cPack.checked) sum += PACK;
+    var etc = parseInt(iEtc.value, 10);
+    if (etc > 0) sum += etc;
     return sum;
   }
 
-  // 入力がどのめやすと一致しているかを見て、ボタンの押され具合を合わせる
   function syncPreset() {
+    var cur = {
+      cafe: parseInt(cafeSel.value, 10), drink: parseInt(drinkSel.value, 10),
+      gem: parseInt(gemSel.value, 10), daily: cDaily.checked, clan: cClan.checked,
+      pack: cPack.checked, etc: parseInt(iEtc.value, 10) || 0
+    };
     var hit = null;
     Object.keys(PRESETS).forEach(function (k) {
       var p = PRESETS[k], ok = true;
-      Object.keys(p).forEach(function (f) { if (parseInt(AP[f].value, 10) !== p[f]) ok = false; });
+      Object.keys(p).forEach(function (f) { if (cur[f] !== p[f]) ok = false; });
       if (ok) hit = k;
     });
     [].forEach.call(el('preset').querySelectorAll('button'), function (b) {
@@ -274,9 +360,31 @@
     el('a-sum').textContent = fmt(daily);
     syncPreset();
 
+    var gems = parseInt(gemSel.value, 10) || 0;
+    var gc = el('gem-cost');
+    if (gems > 0) {
+      gc.hidden = false;
+      gc.innerHTML = '<p><b>青輝石を 1 日 ' + gems + ' 回ぶん使う想定です。</b>1 日 ' +
+        fmt(gemCost(gems)) + ' 個、30 日で <b>' + fmt(gemCost(gems) * 30) + ' 個</b>。' +
+        '天井 1 回ぶん（19,200 個）に届くのは ' + Math.ceil(19200 / gemCost(gems)) + ' 日目です。</p>';
+    } else { gc.hidden = true; }
+
+    // 熟達証書
+    el('m-daily').textContent = fmt(daily);
+    var week = daily * 7;
+    el('m-week').textContent = fmt(week);
+    el('m-cap').textContent = week > 15000
+      ? '月間パッケージを買っていても上限の 15,000 枚を超えます。'
+      : week > 12000
+        ? '通常の上限 12,000 枚は超えます（月間パッケージがあれば 15,000 枚まで受け取れます）。'
+        : '上限には届きません。';
+
     var level = parseInt(iLevel.value, 10);
     var exp = parseInt(iExp.value, 10);
     var target = parseInt(iTarget.value, 10);
+
+    // レベルごとの表は、入力が壊れていても出す
+    drawTable(isFinite(level) ? Math.min(Math.max(level, 1), MAX) : 1);
 
     if (!(level >= 1 && level <= MAX)) return fail('先生レベルは 1 〜 ' + MAX + ' で入れてください。', 'f-level');
     if (!(exp >= 0)) return fail('経験値は 0 以上で入れてください。', 'f-exp');
@@ -320,15 +428,20 @@
     el('l-refill-k').textContent = 'レベルアップの全回復ぶん（' + (target - level) + ' 回）';
     el('l-refill').textContent = '− ' + fmt(refill);
     el('l-net').textContent = fmt(net);
+  }
 
-    var from = Math.max(1, level - 2), to = Math.min(MAX, level + 6);
+  function drawTable(level) {
+    var from = Math.max(1, level - 2), to = Math.min(MAX, level + 7);
     var html = '';
     for (var L = from; L <= to; L++) {
+      var cap = CAP[L - 1];
+      var hours = cap * 6 / 60;   // 6 分で 1
       html += '<tr' + (L === level ? ' class="here"' : '') + '>' +
         '<td>Lv' + L + '</td>' +
         '<td>' + (L >= MAX ? '—' : fmt(needAt(L))) + '</td>' +
         '<td>' + fmt(cumAt(L)) + '</td>' +
-        '<td>' + fmt(CAP[L - 1]) + '</td>' +
+        '<td>' + fmt(cap) + '</td>' +
+        '<td>' + (hours >= 1 ? hours.toFixed(1) + ' 時間' : Math.round(hours * 60) + ' 分') + '</td>' +
         '</tr>';
     }
     el('tb').innerHTML = html;
@@ -338,13 +451,14 @@
     var b = e.target.closest('button');
     if (!b) return;
     var p = PRESETS[b.dataset.p];
-    Object.keys(p).forEach(function (f) { AP[f].value = p[f]; });
+    cafeSel.value = p.cafe; drinkSel.value = p.drink; gemSel.value = p.gem;
+    cDaily.checked = p.daily; cClan.checked = p.clan; cPack.checked = p.pack;
+    iEtc.value = p.etc;
     calc();
   });
 
-  [iLevel, iExp, iTarget].concat(apInputs).forEach(function (n) {
-    n.addEventListener('input', calc);
-  });
+  [iLevel, iExp, iTarget, cafeSel, drinkSel, gemSel, cDaily, cClan, cPack, iEtc]
+    .forEach(function (n) { n.addEventListener('input', calc); n.addEventListener('change', calc); });
   el('ver').textContent = D.version;
   calc();
 })();
