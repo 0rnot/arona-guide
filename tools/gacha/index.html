@@ -14,7 +14,7 @@
 <meta property="og:image" content="https://arona-bot.com/images/hero-night.jpg">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="stylesheet" href="../../style.css?v=14">
-<link rel="stylesheet" href="../tool.css?v=3">
+<link rel="stylesheet" href="../tool.css?v=5">
 <style>
   .chartbox { margin-top: 8px; }
   .chartbox svg { width: 100%; height: auto; display: block; overflow: visible; }
@@ -59,7 +59,7 @@
   <div class="thero-body narrow">
     <p class="thero-en">RECRUITMENT</p>
     <h1>募集の天井計算機</h1>
-    <p class="thero-lead">ピックアップの生徒をお迎えできる確率と、そこまでに要る青輝石を出します。<br class="br-pc"><b>呼び出しチャージの 100 / 200 カウントを織り込んだ確率</b>なので、単純な「0.7% を N 回」より高く出ます。</p>
+    <p class="thero-lead">ピックアップの生徒をお迎えできる確率と、そこまでに要る青輝石を出します。<b>呼び出しチャージの 100 / 200 カウントを織り込んだ確率</b>なので、単純な「0.7% を N 回」より高く出ます。</p>
   </div>
 </header>
 
@@ -74,7 +74,7 @@
         <p class="lead"><b>呼び出しチャージは、募集を引いた回数だけ貯まります。</b>単発で 1、10 連で 10。ピックアップをお迎えした時点で 0 に戻り、それ以外では募集をまたいでも消えません。</p>
         <div class="fields c3">
           <div class="field" id="f-gem">
-            <label for="i-gem">持っている青輝石<span class="hint">1 連 120 個</span></label>
+            <label for="i-gem"><img class="ico" src="../img/currency_icon_gem.webp" alt="" width="24" height="24" loading="lazy"> 持っている青輝石<span class="hint">1 連 120 個</span></label>
             <input id="i-gem" type="number" inputmode="numeric" min="0" step="1200" value="24000">
           </div>
           <div class="field" id="f-charge">
@@ -111,11 +111,16 @@
     </div>
 
     <div class="tcol sticky">
-      <div class="stats c3">
+      <div class="stats c4">
         <div class="stat hero">
           <div class="k">今の石でお迎えできる確率</div>
           <div class="v" id="o-prob">—</div>
           <div class="sub" id="o-prob-sub"></div>
+        </div>
+        <div class="stat">
+          <div class="k">出る★3 の人数</div>
+          <div class="v" id="o-star3">—</div>
+          <div class="sub" id="o-star3-sub"></div>
         </div>
         <div class="stat">
           <div class="k">天井まで</div>
@@ -126,6 +131,17 @@
           <div class="k">平均で引く回数</div>
           <div class="v" id="o-exp">—</div>
           <div class="sub" id="o-exp-sub"></div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-h"><span class="n">04</span><h2>★3 の内訳</h2></div>
+        <p class="lead" id="b-lead"></p>
+        <div class="tscroll">
+          <table class="dt">
+            <thead><tr><th>内訳</th><th>提供割合</th><th id="th-n">今の石で出る人数</th></tr></thead>
+            <tbody id="tb-b"></tbody>
+          </table>
         </div>
       </div>
 
@@ -270,12 +286,30 @@
     el('l-charge').textContent = endCharge >= 200
       ? '200 に到達（お迎え確定）'
       : fmt(endCharge) + ' / 200';
-    var rate3 = bannerKind === 'fes' ? G.RATE_STAR3_UP : G.RATE_STAR3;
+    var B = G.BANNERS[bannerKind];
+    var rate3 = B.star3;
     var e3 = pulls * rate3;
-    // 100 カウント目は★3 が確定するので、そのぶんを足し戻す
-    if (charge < 100 && charge + pulls >= 100) e3 += (1 - rate3);
+    // **100 カウント目は★3 が確定する。**その 1 回ぶんを、通常確率との差だけ足し戻す
+    var hit100 = (charge < 100 && charge + pulls >= 100);
+    if (hit100) e3 += (1 - rate3);
+    el('o-star3').innerHTML = e3.toFixed(1) + '<small>人</small>';
+    el('o-star3-sub').textContent = '★3 は合計 ' + (rate3 * 100).toFixed(1) + ' %' +
+      (hit100 ? '。100 カウント目の確定ぶんを含む' : '');
     el('l-star3-k').textContent = '出る★3 の平均人数（' + (rate3 * 100).toFixed(1) + ' %）';
     el('l-star3').textContent = e3.toFixed(1) + ' 人';
+
+    // ★3 の内訳
+    el('th-n').textContent = pulls + ' 連で出る人数';
+    el('tb-b').innerHTML = B.parts.map(function (row) {
+      var n = pulls * row[1];
+      // 100 カウント目の確定★3 は、内訳の比率どおりに割り振る
+      if (hit100) n += (1 - rate3) * (row[1] / rate3);
+      return '<tr><td>' + row[0] + '</td><td>' + (row[1] * 100).toFixed(1) + ' %</td><td>' + n.toFixed(2) + ' 人</td></tr>';
+    }).join('') +
+      '<tr class="here"><td>★3 の合計</td><td>' + (rate3 * 100).toFixed(1) + ' %</td><td>' + e3.toFixed(2) + ' 人</td></tr>';
+    el('b-lead').innerHTML = bannerKind === 'fes'
+      ? '<b>★3 の合計が 2 倍の 6.0% になりますが、ピックアップの 0.7% は動きません。</b>増えるのはすり抜けの側で、周年・限定の生徒が 0.9%、通常の★3 が 4.4% です。<b>お迎えできる確率は変わらず、手に入る★3 の人数だけが増えます。</b>'
+      : '<b>★3 の 3.0% のうち、ピックアップは 0.7%。</b>残りの 2.3% は通常の★3 へのすり抜けです。';
     var need = Math.max(0, ceilGem - gem);
     el('l-need-k').textContent = need > 0 ? '天井まで足りない青輝石' : '天井ぶんの石は足りています';
     el('l-need').textContent = need > 0 ? fmt(need) + ' 個' : '足りています';
@@ -344,13 +378,13 @@
       x.setAttribute('aria-pressed', String(x.dataset.b === bannerKind));
     });
     el('banner-note').textContent = bannerKind === 'fes'
-      ? '★3 の合計が 6.0% になりますが、ピックアップの 0.7% は変わりません。お迎えできる確率も同じで、★3 の人数だけが増えます。'
-      : '★3 が 3.0%、そのうちピックアップが 0.7%。';
+      ? '★3 の合計が 6.0%（ピックアップ 0.7% ／ 周年・限定のすり抜け 0.9% ／ 通常★3 4.4%）。お迎えできる確率は変わらず、★3 の人数だけが増えます。'
+      : '★3 が 3.0%（ピックアップ 0.7% ／ すり抜け 2.3%）。';
     calc();
   });
 
   [iGem, iCharge, iCopies].forEach(function (n) { n.addEventListener('input', calc); });
-  el('banner-note').textContent = '★3 が 3.0%、そのうちピックアップが 0.7%。';
+  el('banner-note').textContent = '★3 が 3.0%（ピックアップ 0.7% ／ すり抜け 2.3%）。';
   calc();
 })();
 </script>

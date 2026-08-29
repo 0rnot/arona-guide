@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>装備設計図の周回計算機｜AronaBot</title>
+<meta name="description" content="装備を目標の Tier まで上げるのに要る設計図とクレジットを出して、足りないぶんを埋めるのにいちばん効率のいい任務ステージを AP あたりで並べます。">
+<meta name="theme-color" content="#c8892e">
+<link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<meta property="og:title" content="装備設計図の周回計算機">
+<meta property="og:description" content="目標の Tier まで要る設計図とクレジット、そして足りないぶんを埋める周回先を AP あたりで並べます。">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://arona-bot.com/tools/equipment/">
+<meta property="og:image" content="https://arona-bot.com/images/hero-night.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="stylesheet" href="../../style.css?v=14">
+<link rel="stylesheet" href="../tool.css?v=5">
+<style>
+  /* 目標の行。アイコン・名前・今の Tier・目標 Tier・個数 */
+  .goalrow {
+    display: grid; grid-template-columns: 32px 1fr 76px 76px 66px; gap: .6em; align-items: center;
+    padding: .5em 0; border-bottom: 1px solid var(--line);
+  }
+  .goalrow:last-of-type { border-bottom: 0; }
+  .goalrow img { width: 32px; height: 32px; border-radius: 6px; background: var(--bg-sub); }
+  .goalrow .nm { font-size: .86rem; }
+  .goalrow select, .goalrow input { padding: .34em .4em; font-size: .88rem; text-align: center; }
+  .goalrow select { background-position: calc(100% - 12px) calc(50% + 1px), calc(100% - 8px) calc(50% + 1px); padding-right: 1.6em; }
+  .goalhead {
+    display: grid; grid-template-columns: 32px 1fr 76px 76px 66px; gap: .6em;
+    font-size: .72rem; color: var(--fg-mute); padding-bottom: .4em;
+  }
+  .goalhead span { text-align: center; }
+  .goalhead span:nth-child(2) { text-align: left; }
+  @media (max-width: 560px) {
+    .goalrow, .goalhead { grid-template-columns: 28px 1fr 64px 64px 56px; gap: .4em; font-size: .8rem; }
+    .goalrow img { width: 28px; height: 28px; }
+  }
+
+  /* 必要な設計図のマス目 */
+  .bpgrid { display: grid; gap: 6px; grid-template-columns: repeat(auto-fill, minmax(88px, 1fr)); }
+  .bp {
+    border: 1px solid var(--line); border-radius: 10px; padding: 8px; text-align: center;
+    background: var(--card);
+  }
+  .bp img { width: 34px; height: 34px; margin: 0 auto 3px; }
+  .bp .t { font-size: .68rem; color: var(--fg-mute); }
+  .bp .v { font-size: .95rem; font-weight: 800; font-variant-numeric: tabular-nums; }
+  .bp .have { font-size: .68rem; color: var(--fg-mute); }
+  .bp input { width: 100%; padding: .2em .3em; font-size: .8rem; text-align: center; margin-top: 4px; }
+  .bp.short { border-color: var(--accent); }
+  .bp.short .v { color: var(--accent-tx); }
+  .bp.done { opacity: .45; }
+
+  .stagerow { display: grid; grid-template-columns: 2em 1fr auto; gap: .7em; align-items: baseline;
+              padding: .6em 0; border-bottom: 1px solid var(--line); font-size: .88rem; }
+  .stagerow:last-child { border-bottom: 0; }
+  .stagerow .n { color: var(--fg-mute); font-size: .74rem; font-variant-numeric: tabular-nums; }
+  .stagerow .dt2 { display: block; color: var(--fg-mute); font-size: .74rem; margin-top: .15em; }
+  .stagerow .sc { font-variant-numeric: tabular-nums; font-weight: 800; color: var(--accent-tx); white-space: nowrap; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-inner">
+    <a class="topbar-name" href="../../">AronaBotの使い方</a>
+    <a class="topbar-tools" href="../">
+      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <path d="M21.7 18.3l-6-6a5.5 5.5 0 0 0-7-7l3.1 3.1-2.1 2.1L6.6 7.3a5.5 5.5 0 0 0 7 7l6 6a1 1 0 0 0 1.4 0l.7-.7a1 1 0 0 0 0-1.3z"/>
+      </svg>
+      ツール
+    </a>
+    <nav class="topbar-nav">
+      <a href="../../#can">機能</a>
+      <a href="../../#start">つかいはじめる</a>
+      <a href="../../#message">メッセージから</a>
+      <a href="../../#faq">よくある質問</a>
+    </nav>
+  </div>
+</div>
+
+<header class="thero">
+  <div class="thero-media" aria-hidden="true">
+    <picture>
+      <source srcset="../../images/hero-day.jpg" media="(prefers-color-scheme: dark)">
+      <img src="../../images/hero-night.jpg" alt="" width="1600" height="400" fetchpriority="high">
+    </picture>
+  </div>
+  <div class="thero-body">
+    <p class="thero-en">EQUIPMENT</p>
+    <h1>装備設計図の周回計算機</h1>
+    <p class="thero-lead">目標の Tier まで上げるのに要る<b>設計図とクレジット</b>を出して、足りないぶんを埋めるのに<b>いちばん効率のいい任務</b>を AP あたりで並べます。</p>
+  </div>
+</header>
+
+<div class="twrap wide">
+  <p class="tcrumb"><a href="../../">AronaBotの使い方</a><span class="sl">/</span><a href="../">ツール</a><span class="sl">/</span>装備設計図の周回計算機</p>
+
+  <div class="tcols lean" style="margin-top:20px">
+
+    <div class="tcol">
+      <div class="panel">
+        <div class="panel-h"><span class="n">01</span><h2>目標</h2></div>
+        <p class="lead">部位ごとに、<b>今の Tier から目標の Tier まで、何個ぶん</b>上げたいかを入れます。<b>お守り・腕時計・ネックレスは T9 が上限</b>です。</p>
+        <div class="goalhead"><span></span><span>部位</span><span>今</span><span>目標</span><span>個数</span></div>
+        <div id="goals"></div>
+        <div class="btnrow" style="margin-top:16px">
+          <button type="button" class="btn" id="b-clear">ぜんぶ 0 に</button>
+          <button type="button" class="btn" id="b-t9">みんな T9 まで 1 個</button>
+          <button type="button" class="btn pri" id="b-t10">上げられるだけ 1 個</button>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-h"><span class="n">02</span><h2>持っている設計図</h2></div>
+        <p class="lead">分かるぶんだけ入れてください。<b>入れた数は必要量から引かれます。</b></p>
+        <div class="seg" id="bpcat" role="group" aria-label="部位" style="margin-bottom:14px"></div>
+        <div class="bpgrid" id="bpgrid"></div>
+      </div>
+    </div>
+
+    <div class="tcol">
+      <div class="stats c3">
+        <div class="stat hero">
+          <div class="k">足りない設計図</div>
+          <div class="v" id="o-short">—</div>
+          <div class="sub" id="o-short-sub"></div>
+        </div>
+        <div class="stat">
+          <div class="k">要るクレジット</div>
+          <div class="v" id="o-credit">—</div>
+          <div class="sub">ティアアップの手数料</div>
+        </div>
+        <div class="stat">
+          <div class="k">見込みの周回</div>
+          <div class="v" id="o-runs">—</div>
+          <div class="sub" id="o-runs-sub"></div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-h"><span class="n">03</span><h2>いま回るならここ</h2></div>
+        <p class="lead"><b>足りない設計図が 1 AP あたり何個手に入るか</b>で並べています。足りている部位のドロップは数えていません。</p>
+        <div class="btnrow" style="margin-bottom:12px">
+          <div class="seg" id="diff" role="group" aria-label="難易度">
+            <button type="button" data-d="all" aria-pressed="true">両方</button>
+            <button type="button" data-d="n">Normal</button>
+            <button type="button" data-d="h">Hard</button>
+          </div>
+        </div>
+        <div id="stages"></div>
+      </div>
+    </div>
+
+    <div class="tfull">
+      <div class="panel">
+        <div class="panel-h"><span class="n">04</span><h2>必要な設計図</h2></div>
+        <p class="lead">目標に届くまでに要る枚数です。<b>橙色は足りていないもの</b>で、薄いのは足りているものです。</p>
+        <div class="tscroll">
+          <table class="dt">
+            <thead><tr id="need-head"></tr></thead>
+            <tbody id="need-body"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <details class="src">
+        <summary>数字の出どころ</summary>
+        <p><b>ティアアップの材料とクレジットは、ゲームのデータそのままです。</b>
+          <code>Excel/EquipmentExcelTable.json</code> の <code>RecipeId</code> から
+          <code>Excel/RecipeIngredientExcelTable.json</code> を引いています。</p>
+        <p><b>検算しています。</b>帽子を T1 から T10 まで上げると、設計図が
+          T2 40 ／ T3 45 ／ T4 50 ／ T5 55 ／ T6 65 ／ T7 65 ／ T8 60 ／ T9 50 ／ T10 60、
+          クレジットが 711,500。これはブルアカ攻略 Wiki の「装備一覧」に載っている合計と一致します。
+          9 部位すべてで同じ表になることも確かめました。</p>
+        <p><b>お守り・腕時計・ネックレスは T9 が上限です。</b>データ上、この 3 部位には T10 の装備もレシピも存在しません
+          （帽子・手袋・靴・カバン・バッジ・ヘアピンは T10 まであります）。
+          そのぶん T1 から上げ切るのに要るクレジットも 536,500 で、T10 まである部位の 711,500 より少なくなります。</p>
+        <p><b>ドロップは <code>Excel/CampaignStageRewardExcelTable.json</code> の <code>Default</code> 行から、
+          <code>StageRewardProb ÷ 10000 × StageRewardAmount</code> を足して期待値にしています。</b>
+          たとえば Area 4-1 の帽子 T2 設計図は「確定 1 個」＋「20% でもう 1 個」なので 1.2 個です。
+          Hard は Normal のちょうど 2 倍落ちますが、AP も 2 倍（10 → 20）なので、<b>AP あたりの効率は同じ</b>です。
+          違うのは<b>組み合わさる部位</b>なので、狙いによってどちらが良いかが変わります。</p>
+        <p><b>「2 つの Tier のどちらか」が出る枠があります。</b>
+          データ上は箱（<code>GachaGroup</code>）で、中身の比率は公開されていません。
+          このツールは<b>半分ずつとして数えています</b>。表では「T7〜T8」のように書いてあります。</p>
+        <p><b>Area 28 まで入っています。</b>SchaleDB のステージ表は Area 26 までなので、
+          そこだけ見ていると T10 の設計図が落ちる場所を丸ごと見落とします。
+          このツールは ba-data の <code>CampaignStageExcelTable</code> から作っているので、Area 28 も入っています
+          （Area 28 のステージ名だけ日本語が取れていないので「Area 28-1」と出ます）。</p>
+        <p>出典 — <a href="https://github.com/electricgoat/ba-data" target="_blank" rel="noopener">electricgoat/ba-data</a>（jp、
+          <span id="ver">—</span>）、<a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a>（ステージ名とアイコン）、
+          <a href="https://bluearchive.wikiru.jp/?%E8%A3%85%E5%82%99%E4%B8%80%E8%A6%A7" target="_blank" rel="noopener">ブルアカ攻略 Wiki「装備一覧」</a>（合計の検算）。</p>
+      </details>
+    </div>
+
+  </div>
+</div>
+
+<footer>
+  <div class="foot-inner">
+    <p class="foot-name">AronaBotの使い方</p>
+    <p class="foot-links">
+      <a href="../../">AronaBot のページ</a>
+      <span class="sep">/</span>
+      <a href="../">ツール一覧</a>
+      <span class="sep">/</span>
+      <a href="https://x.com/pe6cak" target="_blank" rel="noopener">制作者の X（@pe6cak）</a>
+      <span class="sep">/</span>
+      <span>不具合・要望は <b>@0r.not</b> まで</span>
+    </p>
+    <p class="disclaimer">
+      <b>このサイトはファンが作った非公式のものです。</b>運営とは関係ありません。
+      <small>掲載しているゲーム内の画像・アイコン・名称・数値は、Nexon Games / Yostar の
+      「ブルーアーカイブ」から引用したもので、著作権はすべて権利者に帰属します。
+      ツールの計算に使うデータは <a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a> と
+      <a href="https://github.com/electricgoat/ba-data" target="_blank" rel="noopener">ba-data</a> から取得しています。
+      権利者の方でご指摘があれば <b>@0r.not</b> までご連絡ください。</small>
+    </p>
+  </div>
+</footer>
+
+<script src="data.js"></script>
+<script src="equip.js"></script>
+</body>
+</html>

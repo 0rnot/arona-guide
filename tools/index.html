@@ -14,7 +14,7 @@
 <meta property="og:image" content="https://arona-bot.com/images/hero-night.jpg">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="stylesheet" href="../style.css?v=14">
-<link rel="stylesheet" href="tool.css?v=3">
+<link rel="stylesheet" href="tool.css?v=5">
 <style>
   /* 一覧だけの見た目 */
   .filters {
@@ -72,8 +72,8 @@
   <div class="thero-body wide">
     <p class="thero-en">TOOLS</p>
     <h1>ブルアカの計算を、ブラウザだけで。</h1>
-    <p class="thero-lead"><b>数字はゲームのデータをそのまま使っています。</b>推測した値は入れていません。<br class="br-pc">
-      入力した内容が外へ送られることもなく、ぜんぶこのページの中だけで動きます。</p>
+    <p class="thero-lead"><b>数字はゲームのデータをそのまま使っています。</b>推測した値は入れていません。
+      出どころはツールごとに書いてあるので、疑わしければそこから辿れます。</p>
   </div>
 </header>
 
@@ -121,6 +121,13 @@
       <span class="go">つかう <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M13.5 5.5 12.1 6.9l4.1 4.1H4v2h12.2l-4.1 4.1 1.4 1.4 6.5-6.5z"/></svg></span>
     </a>
 
+    <a class="tcard" href="equipment/" data-cat="装備">
+      <div class="cat">装備</div>
+      <h2>装備設計図の周回計算機</h2>
+      <p>目標の Tier まで要る設計図とクレジットを出して、足りないぶんを埋めるのにいちばん効率のいい任務を AP あたりで並べます。</p>
+      <span class="go">つかう <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M13.5 5.5 12.1 6.9l4.1 4.1H4v2h12.2l-4.1 4.1 1.4 1.4 6.5-6.5z"/></svg></span>
+    </a>
+
     <div class="tcard soon" data-cat="つくっている途中">
       <div class="cat">つくっている途中</div>
       <h2>まだ増えます</h2>
@@ -132,7 +139,9 @@
   <p class="count" id="count"></p>
 
   <div class="note-box">
-    <p><b>ぜんぶブラウザの中だけで動きます。</b>サーバーに計算をさせていないので、入力した数字が外に出ることはありません。</p>
+    <p><b>計算はできるかぎりブラウザの中だけでやっています。</b>入力した数字が外に出ることはありません。
+      ただ、<b>ブラウザだけでは作れないもの——他の先生の記録を集めるもの、重い探索、外から取り続けないと成り立たないもの——は、そのぶんだけ裏で用意します。</b>
+      どちらで動いているかは各ツールに書いてあります。</p>
     <p><b>数字の出どころは各ツールの下に書いてあります。</b>ゲームのデータから取った値か、攻略サイトの記載か、目安として置いた値かを分けて書いています。おかしいところがあれば <b>@0r.not</b> まで教えてください。</p>
   </div>
 

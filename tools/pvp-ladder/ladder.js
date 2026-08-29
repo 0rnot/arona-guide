@@ -32,7 +32,7 @@
   /**
    * 経路を作る。
    * @param start 開始順位（2 〜 15001）
-   * @param goal  1 か 2
+   * @param goal  目指す順位（報酬が切り替わる境目のどれでもよい）
    * @param mode  'top'（届く範囲でいちばん上）/ 'many'（いちばん下＝対戦回数を稼ぐ）
    */
   function path(start, goal, mode) {
@@ -46,12 +46,13 @@
       if (hi < lo) break;                // 届く相手が居ない
       var next;
       if (mode === 'many') {
-        // 対戦回数を稼ぐ。**ただし目標を飛び越さない範囲で下を選ぶ**
+        // 対戦回数を稼ぐ。**目標より下で止まる範囲で、いちばん下を選ぶ**
         next = Math.max(hi, goal);
         if (next >= r) next = r - 1;
       } else {
+        // **届く範囲でいちばん上へ。** 目標より上に行き過ぎても構わない
+        // （順位は良いほど報酬も良いので、手数は変わらず損もしない）
         next = lo;
-        if (goal === 2 && next < 2) next = 2;
       }
       if (next >= r) break;
       steps.push({ from: r, to: next, lo: lo, hi: hi });
@@ -81,8 +82,12 @@
     return { gem: 0, coin: 0 };
   }
 
+  /** 報酬が切り替わる境目の順位。**ここを跨ぐと 1 段良くなる。** */
+  var BORDERS = [1, 2, 3, 11, 101, 201, 501, 1001, 2001, 4001, 8001];
+
   window.PVP_LADDER = {
     MAX_RANK: MAX_RANK,
+    BORDERS: BORDERS,
     range: range,
     path: path,
     REWARD: REWARD,

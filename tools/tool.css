@@ -97,6 +97,12 @@
   color: var(--fg);
   font-size: clamp(.98rem, 2.4vw, 1.12rem);
   line-height: 1.85;
+  /* **手で改行を入れない。** <br> を挟むと、幅が変わったときに
+     文の途中で切れる（2026-08-30 の先生の指摘）。
+     代わりに、日本語を文節で折り返してもらう。効かないブラウザでは
+     今までどおりの折り返しになるだけで、崩れはしない。 */
+  word-break: auto-phrase;
+  text-wrap: pretty;
 }
 .thero-lead b { color: var(--accent-tx); }
 
@@ -131,7 +137,8 @@
   font-size: .68rem; letter-spacing: .18em; font-weight: 700;
   color: var(--accent-tx); font-variant-numeric: tabular-nums;
 }
-.panel > .lead { font-size: .87rem; color: var(--fg-mute); margin: 0 0 18px; line-height: 1.8; }
+.panel > .lead { font-size: .87rem; color: var(--fg-mute); margin: 0 0 18px; line-height: 1.8;
+                 word-break: auto-phrase; text-wrap: pretty; }
 .panel > .lead b { color: var(--fg); }
 .panel > .lead:last-child { margin-bottom: 0; }
 
@@ -338,6 +345,7 @@ table.dt tbody tr:hover td { background: color-mix(in srgb, var(--accent) 7%, tr
   font-size: .85rem; color: var(--fg-mute); line-height: 1.85;
 }
 .note-box b { color: var(--fg); }
+.note-box, .note-box p { word-break: auto-phrase; }
 .note-box p { margin: 0 0 .6em; }
 .note-box p:last-child { margin-bottom: 0; }
 
@@ -396,6 +404,13 @@ a.tcard:hover .go svg { transform: translateX(3px); }
 .tcard.soon .cat { color: var(--fg-mute); }
 .tcard.soon h2, .tcard.soon h3 { color: var(--fg-mute); }
 
-/* 広い画面でだけ効く改行。**狭い画面では自然な折り返しに任せる。** */
-.br-pc { display: none; }
-@media (min-width: 720px) { .br-pc { display: inline; } }
+/* .br-pc は廃止（2026-08-30）。手で入れた改行は幅が変わると文の途中で切れる。
+   折り返しは word-break: auto-phrase に任せる。 */
+
+/* ------------------------------------------------------------ ゲーム内のアイコン
+   **1 ツールにつき最低 1 か所は実物のアイコンを出す**（2026-08-30 の先生の指示）。
+   出どころは SchaleDB。画像の権利は Nexon Games / Yostar にある——footer に明記した。 */
+.ico { width: 1.35em; height: 1.35em; vertical-align: -.35em; border-radius: 4px; }
+.ico.sm { width: 1.1em; height: 1.1em; vertical-align: -.22em; }
+.stat .k .ico { width: 1.5em; height: 1.5em; vertical-align: -.45em; margin-right: .25em; }
+.panel-h .ico { width: 1.5em; height: 1.5em; vertical-align: -.4em; margin-right: .1em; }

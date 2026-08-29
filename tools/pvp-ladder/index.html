@@ -14,7 +14,7 @@
 <meta property="og:image" content="https://arona-bot.com/images/hero-night.jpg">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="stylesheet" href="../../style.css?v=14">
-<link rel="stylesheet" href="../tool.css?v=3">
+<link rel="stylesheet" href="../tool.css?v=5">
 <style>
   /* 階段。**1 行 1 戦。**上から順に読めるようにする */
   .ladder { display: flex; flex-direction: column; gap: 0; margin-top: 6px; }
@@ -70,7 +70,7 @@
   <div class="thero-body">
     <p class="thero-en">TACTICAL CHALLENGE</p>
     <h1>戦術対抗戦の順位経路</h1>
-    <p class="thero-lead">今の順位から 1 位まで、<b>あと何回勝てばいいか</b>を出します。<br class="br-pc">挑戦できる相手の順位範囲をそのまま辿るので、<b>「11 位から 10 位へは挑めない」</b>ような段差も込みです。</p>
+    <p class="thero-lead">今の順位から目指す順位まで、<b>あと何回勝てばいいか</b>を出します。目標は<b>報酬が切り替わる境目ぜんぶ</b>から選べます。挑戦できる相手の範囲をそのまま辿るので、<b>「11 位から 10 位へは挑めない」</b>段差も込みです。</p>
   </div>
 </header>
 
@@ -89,11 +89,8 @@
             <input id="i-rank" type="number" inputmode="numeric" min="2" max="15001" step="1" value="15001">
           </div>
           <div class="field">
-            <span class="lb">目指すところ</span>
-            <div class="seg" id="goal" role="group" aria-label="目標">
-              <button type="button" data-g="1" aria-pressed="true">1 位</button>
-              <button type="button" data-g="2">2 位</button>
-            </div>
+            <label for="i-goal">目指すところ<span class="hint">報酬が切り替わる境目</span></label>
+            <select id="i-goal" aria-label="目標の順位"></select>
           </div>
         </div>
         <div style="margin-top:16px">
@@ -134,7 +131,7 @@
       </div>
 
       <div class="panel">
-        <div class="panel-h"><span class="n">03</span><h2>1 日にもらえるもの</h2></div>
+        <div class="panel-h"><span class="n">03</span><h2><img class="ico" src="../img/currency_icon_gem.webp" alt="" width="24" height="24" loading="lazy"><img class="ico" src="../img/item_icon_arenacoin.webp" alt="" width="24" height="24" loading="lazy"> 1 日にもらえるもの</h2></div>
         <p class="lead">日別報酬は<b>毎日 14 時にリセット</b>されます。そのときの順位で決まります。</p>
         <div class="ledger">
           <div class="row"><span id="l-now-k">今の順位（—）</span><span id="l-now">—</span></div>
@@ -154,7 +151,7 @@
         <div class="panel-h"><span class="n">04</span><h2>順位ごとの日別報酬</h2></div>
         <div class="tscroll">
           <table class="dt">
-            <thead><tr><th>順位</th><th>青輝石</th><th>戦術対抗戦コイン</th><th>1 か月（30 日）の青輝石</th></tr></thead>
+            <thead><tr><th>順位</th><th><img class="ico sm" src="../img/currency_icon_gem.webp" alt="" width="18" height="18"> 青輝石</th><th><img class="ico sm" src="../img/item_icon_arenacoin.webp" alt="" width="18" height="18"> 戦術対抗戦コイン</th><th>1 か月（30 日）の青輝石</th></tr></thead>
             <tbody id="tb-rw"></tbody>
           </table>
         </div>
@@ -215,8 +212,23 @@
   'use strict';
   var P = window.PVP_LADDER;
   var el = function (id) { return document.getElementById(id); };
-  var iRank = el('i-rank');
+  var iRank = el('i-rank'), iGoal = el('i-goal');
   var goal = 1, mode = 'top';
+
+  // **目標は報酬の境目ぜんぶから選べる。** 1 位まで登り切らなくても、
+  // 1 段上の帯に入るだけで日別報酬は変わる（2026-08-30 の先生の指示）。
+  (function buildGoals() {
+    var h = '';
+    P.BORDERS.forEach(function (b) {
+      var rw = P.rewardAt(b);
+      var upper = P.REWARD.filter(function (x) { return x[0] >= b; });
+      var top = upper.length ? upper[0][0] : b;
+      var label = (b === top) ? (b + ' 位') : (b + ' 〜 ' + top.toLocaleString('ja-JP') + ' 位');
+      h += '<option value="' + b + '"' + (b === 1 ? ' selected' : '') + '>' +
+           label + '（青輝石 ' + rw.gem + ' ／ コイン ' + rw.coin + '）</option>';
+    });
+    iGoal.innerHTML = h;
+  })();
 
   function fmt(n) { return Math.round(n).toLocaleString('ja-JP'); }
 
@@ -235,10 +247,10 @@
 
     if (rank <= goal) {
       el('o-steps').innerHTML = '0<small>回</small>';
-      el('o-steps-sub').textContent = 'もう ' + goal + ' 位以内です';
+      el('o-steps-sub').textContent = 'もう ' + fmt(goal) + ' 位以内です';
       el('o-days').textContent = '—';
       el('o-gem').textContent = '—';
-      el('ladder').innerHTML = '<p style="color:var(--fg-mute);font-size:.88rem;margin:0">もう ' + goal + ' 位以内なので、登る必要はありません。</p>';
+      el('ladder').innerHTML = '<p style="color:var(--fg-mute);font-size:.88rem;margin:0">もう ' + fmt(goal) + ' 位以内なので、登る必要はありません。</p>';
       drawRewards(rank);
       return;
     }
@@ -247,7 +259,7 @@
     var n = r.steps.length;
 
     el('o-steps').innerHTML = fmt(n) + '<small>回</small>';
-    el('o-steps-sub').textContent = fmt(rank) + ' 位 → ' + goal + ' 位' + (r.ok ? '' : '（届きませんでした）');
+    el('o-steps-sub').textContent = fmt(rank) + ' 位 → ' + fmt(goal) + ' 位' + (r.ok ? '' : '（届きませんでした）');
 
     var days = Math.ceil(n / P.TICKET_FREE);
     el('o-days').innerHTML = fmt(days) + '<small>日</small>';
@@ -275,7 +287,7 @@
     var a = P.rewardAt(rank), b = P.rewardAt(goal);
     el('l-now-k').textContent = '今の順位（' + fmt(rank) + ' 位）';
     el('l-now').textContent = a.gem > 0 ? ('青輝石 ' + a.gem + ' ／ コイン ' + a.coin) : '報酬なし';
-    el('l-goal-k').textContent = '目標の順位（' + goal + ' 位）';
+    el('l-goal-k').textContent = '目標の順位（' + fmt(goal) + ' 位）';
     el('l-goal').textContent = '青輝石 ' + b.gem + ' ／ コイン ' + b.coin;
     el('l-diff').textContent = '青輝石 +' + (b.gem - a.gem) + ' ／ コイン +' + (b.coin - a.coin);
 
@@ -290,12 +302,8 @@
     el('tb-rw').innerHTML = rows;
   }
 
-  el('goal').addEventListener('click', function (e) {
-    var b = e.target.closest('button'); if (!b) return;
-    goal = parseInt(b.dataset.g, 10);
-    [].forEach.call(el('goal').querySelectorAll('button'), function (x) {
-      x.setAttribute('aria-pressed', String(parseInt(x.dataset.g, 10) === goal));
-    });
+  el('i-goal').addEventListener('change', function () {
+    goal = parseInt(el('i-goal').value, 10);
     calc();
   });
   el('mode').addEventListener('click', function (e) {
