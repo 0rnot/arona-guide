@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>戦術対抗戦の順位経路｜AronaBot</title>
+<meta name="description" content="今の順位から 1 位まで、あと何回勝てばいいかを出します。挑戦できる相手の順位範囲（0.7〜0.95 倍、11 位以下は固定）をそのまま辿るので、手数も経路も正確です。">
+<meta name="theme-color" content="#c8892e">
+<link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<meta property="og:title" content="戦術対抗戦の順位経路">
+<meta property="og:description" content="今の順位から 1 位まで、あと何回勝てばいいか。挑戦できる相手の範囲をそのまま辿って出します。">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://arona-bot.com/tools/pvp-ladder/">
+<meta property="og:image" content="https://arona-bot.com/images/hero-night.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="stylesheet" href="../../style.css?v=14">
+<link rel="stylesheet" href="../tool.css?v=2">
+<style>
+  /* 階段。**1 行 1 戦。**上から順に読めるようにする */
+  .ladder { display: flex; flex-direction: column; gap: 0; margin-top: 6px; }
+  .lad {
+    display: grid; grid-template-columns: 2.2em 1fr auto; gap: .8em; align-items: baseline;
+    padding: .55em 0; border-bottom: 1px solid var(--line); font-size: .9rem;
+  }
+  .lad:last-child { border-bottom: 0; }
+  .lad .n { color: var(--fg-mute); font-size: .76rem; font-variant-numeric: tabular-nums; }
+  .lad .mv { font-variant-numeric: tabular-nums; }
+  .lad .mv b { font-weight: 800; }
+  .lad .mv .ar { color: var(--accent-tx); margin: 0 .4em; }
+  .lad .rg { color: var(--fg-mute); font-size: .76rem; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .lad.goal { font-weight: 800; }
+  .lad.goal .mv { color: var(--accent-tx); }
+  /* 帯の変わり目に印。**11 位で挑戦範囲の規則が変わる。** */
+  .lad.brk { border-top: 2px solid var(--accent); }
+  .lad.brk .n::after { content: " ▸"; color: var(--accent); }
+  /* 狭い画面では範囲を下の行へ落とす。3 列のままだと矢印が折り返す */
+  @media (max-width: 520px) {
+    .lad { grid-template-columns: 2.2em 1fr; }
+    .lad .rg { grid-column: 2; white-space: normal; }
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-inner">
+    <a class="topbar-name" href="../../">AronaBotの使い方</a>
+    <a class="topbar-tools" href="../">
+      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <path d="M21.7 18.3l-6-6a5.5 5.5 0 0 0-7-7l3.1 3.1-2.1 2.1L6.6 7.3a5.5 5.5 0 0 0 7 7l6 6a1 1 0 0 0 1.4 0l.7-.7a1 1 0 0 0 0-1.3z"/>
+      </svg>
+      ツール
+    </a>
+    <nav class="topbar-nav">
+      <a href="../../#can">機能</a>
+      <a href="../../#start">つかいはじめる</a>
+      <a href="../../#message">メッセージから</a>
+      <a href="../../#faq">よくある質問</a>
+    </nav>
+  </div>
+</div>
+
+<header class="thero">
+  <div class="thero-media" aria-hidden="true">
+    <picture>
+      <source srcset="../../images/hero-day.jpg" media="(prefers-color-scheme: dark)">
+      <img src="../../images/hero-night.jpg" alt="" width="1600" height="400" fetchpriority="high">
+    </picture>
+  </div>
+  <div class="thero-body">
+    <p class="thero-en">TACTICAL CHALLENGE</p>
+    <h1>戦術対抗戦の順位経路</h1>
+    <p class="thero-lead">今の順位から 1 位まで、<b>あと何回勝てばいいか</b>を出します。<br class="br-pc">挑戦できる相手の順位範囲をそのまま辿るので、<b>「11 位から 10 位へは挑めない」</b>ような段差も込みです。</p>
+  </div>
+</header>
+
+<div class="twrap">
+  <p class="tcrumb"><a href="../../">AronaBotの使い方</a><span class="sl">/</span><a href="../">ツール</a><span class="sl">/</span>戦術対抗戦の順位経路</p>
+
+  <div class="tcols wideleft" style="margin-top:20px">
+
+    <div class="tcol">
+      <div class="panel">
+        <div class="panel-h"><span class="n">01</span><h2>今の順位</h2></div>
+        <p class="lead">シーズンの開始時は全員 15001 位からです。</p>
+        <div class="fields c2">
+          <div class="field" id="f-rank">
+            <label for="i-rank">今の順位<span class="hint">2 〜 15001</span></label>
+            <input id="i-rank" type="number" inputmode="numeric" min="2" max="15001" step="1" value="15001">
+          </div>
+          <div class="field">
+            <span class="lb">目指すところ</span>
+            <div class="seg" id="goal" role="group" aria-label="目標">
+              <button type="button" data-g="1" aria-pressed="true">1 位</button>
+              <button type="button" data-g="2">2 位</button>
+            </div>
+          </div>
+        </div>
+        <div style="margin-top:16px">
+          <span class="lb" style="display:block;font-size:.84rem;font-weight:700;margin-bottom:.5em">選び方</span>
+          <div class="seg" id="mode" role="group" aria-label="経路の選び方">
+            <button type="button" data-m="top" aria-pressed="true">最短で登る</button>
+            <button type="button" data-m="many">対戦回数を稼ぐ</button>
+          </div>
+          <p id="mode-note" style="color:var(--fg-mute);font-size:.78rem;margin:.7em 0 0;line-height:1.7"></p>
+        </div>
+        <p class="err" id="err" hidden></p>
+      </div>
+
+      <div class="panel">
+        <div class="panel-h"><span class="n">02</span><h2>登り方</h2></div>
+        <p class="lead">上から順に、この順位の相手に勝っていきます。<b>かっこの中は、そのとき挑戦できる相手の順位の範囲</b>です。</p>
+        <div class="ladder" id="ladder"></div>
+      </div>
+    </div>
+
+    <div class="tcol sticky">
+      <div class="stats c3">
+        <div class="stat hero">
+          <div class="k">勝つ回数</div>
+          <div class="v" id="o-steps">—</div>
+          <div class="sub" id="o-steps-sub"></div>
+        </div>
+        <div class="stat">
+          <div class="k">無料チケットだけなら</div>
+          <div class="v" id="o-days">—</div>
+          <div class="sub">1 日 5 枚</div>
+        </div>
+        <div class="stat">
+          <div class="k">今日中に登るなら</div>
+          <div class="v" id="o-gem">—</div>
+          <div class="sub">青輝石 60 個で 5 枚</div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-h"><span class="n">03</span><h2>1 日にもらえるもの</h2></div>
+        <p class="lead">日別報酬は<b>毎日 14 時にリセット</b>されます。そのときの順位で決まります。</p>
+        <div class="ledger">
+          <div class="row"><span id="l-now-k">今の順位（—）</span><span id="l-now">—</span></div>
+          <div class="row"><span id="l-goal-k">目標の順位</span><span id="l-goal">—</span></div>
+          <div class="row total"><span>1 日あたりの差</span><span id="l-diff">—</span></div>
+        </div>
+      </div>
+
+      <div class="note-box">
+        <p><b>これは理論値です。</b>実際に表示される相手は範囲の中からランダムなので、<b>いちばん上の順位がいつも並ぶとはかぎりません</b>。表示が渋いときは、その日のうちに登り切れないこともあります。</p>
+        <p><b>負けると順位はおよそ 1.4 倍まで落ちます。</b>この経路は勝ち続けたときの回数です。</p>
+      </div>
+    </div>
+
+    <div class="tfull">
+      <div class="panel">
+        <div class="panel-h"><span class="n">04</span><h2>順位ごとの日別報酬</h2></div>
+        <div class="tscroll">
+          <table class="dt">
+            <thead><tr><th>順位</th><th>青輝石</th><th>戦術対抗戦コイン</th><th>1 か月（30 日）の青輝石</th></tr></thead>
+            <tbody id="tb-rw"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <details class="src">
+        <summary>数字の出どころ</summary>
+        <p><b>挑戦できる相手の範囲。</b>ブルアカ攻略 Wiki の記述をそのまま使っています。
+          「自分の順位×0.7〜0.8(上段)、0.8〜0.9(中段)、0.9〜0.95(下段)となっており、同じ相手は同時には表示されない」
+          「13位からは範囲が縮小されてしまうためか対戦相手の順位は固定化され、11位～13位は自分の順位から2～4、10～4位は自分の順位から1～3の範囲となる」
+          「例えば11位から10位へは絶対に挑めない。」「※12位以降は対戦相手の順位が固定化されるため、4位から1位に挑戦が可能」。</p>
+        <p><b>検算しています。</b>同じ Wiki が「15001位から…最低23回対戦する必要がある」として 24 個の順位を並べています。
+          このツールが 15001 位から出す経路は、その 24 個と<b>1 つ残らず一致</b>します
+          （15001 → 10500 → 7350 → 5145 → 3601 → 2520 → 1764 → 1234 → 863 → 604 → 422 → 295 → 206 → 144 → 100 → 70 → 49 → 34 → 23 → 16 → 11 → 7 → 4 → 1）。</p>
+        <p><b>日別報酬。</b>戦術対抗戦コインの枚数は
+          <a href="https://game8.jp/blue-archive/654824" target="_blank" rel="noopener">ゲームエイト「戦術コインのおすすめ交換先と入手方法」</a>の表と一致します。
+          リセットが毎日 14 時、防衛で勝つと 1 勝 3 枚・1 日 10 回まで（最大 30 枚）というのも同じ記事です。
+          <b>青輝石の枚数は、1 位の 45 個だけ攻略サイトで確認できました。</b>
+          それ以外の帯（2 位 40 ／ 3〜10 位 35 ／ 11〜100 位 30 ／ 101〜200 位 25 ／ 201〜500 位 20 ／
+          501〜1000 位 18 ／ 1001〜2000 位 16 ／ 2001〜4000 位 14 ／ 4001〜8000 位 12 ／ 8001〜15000 位 10）は、
+          有志ツール「戦術対抗戦石割収支集計ツール」の実装に載っていた値です。<b>裏が 1 本しかないので、ずれていたら教えてください。</b></p>
+        <p>出典 —
+          <a href="https://bluearchive.wikiru.jp/?%E6%88%A6%E8%A1%93%E5%AF%BE%E6%8A%97%E6%88%A6" target="_blank" rel="noopener">ブルアカ攻略 Wiki「戦術対抗戦」</a>、
+          <a href="https://game8.jp/blue-archive/654824" target="_blank" rel="noopener">ゲームエイト「戦術コインのおすすめ交換先と入手方法」</a>、
+          <a href="https://github.com/kur-3dcg/Tactical-Battle-Stone-Accounting" target="_blank" rel="noopener">kur-3dcg/Tactical-Battle-Stone-Accounting</a>。</p>
+      </details>
+    </div>
+
+  </div>
+</div>
+
+<footer>
+  <div class="foot-inner">
+    <p class="foot-name">AronaBotの使い方</p>
+    <p class="foot-links">
+      <a href="../../">AronaBot のページ</a>
+      <span class="sep">/</span>
+      <a href="../">ツール一覧</a>
+      <span class="sep">/</span>
+      <a href="https://x.com/pe6cak" target="_blank" rel="noopener">制作者の X（@pe6cak）</a>
+      <span class="sep">/</span>
+      <span>不具合・要望は <b>@0r.not</b> まで</span>
+    </p>
+    <p class="disclaimer">
+      <b>このサイトはファンが作った非公式のものです。</b>運営とは関係ありません。
+      <small>掲載しているゲーム内の画像・アイコン・名称・数値は、Nexon Games / Yostar の
+      「ブルーアーカイブ」から引用したもので、著作権はすべて権利者に帰属します。
+      ツールの計算に使うデータは <a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a> と
+      <a href="https://github.com/electricgoat/ba-data" target="_blank" rel="noopener">ba-data</a> から取得しています。
+      権利者の方でご指摘があれば <b>@0r.not</b> までご連絡ください。</small>
+    </p>
+  </div>
+</footer>
+
+<script src="ladder.js"></script>
+<script>
+(function () {
+  'use strict';
+  var P = window.PVP_LADDER;
+  var el = function (id) { return document.getElementById(id); };
+  var iRank = el('i-rank');
+  var goal = 1, mode = 'top';
+
+  function fmt(n) { return Math.round(n).toLocaleString('ja-JP'); }
+
+  function calc() {
+    var rank = parseInt(iRank.value, 10);
+    if (!(rank >= 2 && rank <= P.MAX_RANK)) {
+      el('f-rank').classList.add('bad');
+      el('err').textContent = '順位は 2 〜 ' + fmt(P.MAX_RANK) + ' で入れてください。シーズンの開始時は 15001 位です。';
+      el('err').hidden = false;
+      el('ladder').innerHTML = '';
+      ['o-steps', 'o-days', 'o-gem'].forEach(function (o) { el(o).textContent = '—'; });
+      return;
+    }
+    el('f-rank').classList.remove('bad');
+    el('err').hidden = true;
+
+    if (rank <= goal) {
+      el('o-steps').innerHTML = '0<small>回</small>';
+      el('o-steps-sub').textContent = 'もう ' + goal + ' 位以内です';
+      el('o-days').textContent = '—';
+      el('o-gem').textContent = '—';
+      el('ladder').innerHTML = '<p style="color:var(--fg-mute);font-size:.88rem;margin:0">もう ' + goal + ' 位以内なので、登る必要はありません。</p>';
+      drawRewards(rank);
+      return;
+    }
+
+    var r = P.path(rank, goal, mode);
+    var n = r.steps.length;
+
+    el('o-steps').innerHTML = fmt(n) + '<small>回</small>';
+    el('o-steps-sub').textContent = fmt(rank) + ' 位 → ' + goal + ' 位' + (r.ok ? '' : '（届きませんでした）');
+
+    var days = Math.ceil(n / P.TICKET_FREE);
+    el('o-days').innerHTML = fmt(days) + '<small>日</small>';
+
+    var extra = Math.max(0, n - P.TICKET_FREE);
+    var buys = Math.ceil(extra / P.TICKET_BUY_N);
+    el('o-gem').innerHTML = fmt(buys * P.TICKET_BUY_GEM) + '<small>個</small>';
+
+    // 階段
+    var h = '';
+    r.steps.forEach(function (s, i) {
+      var brk = (s.from > 13 && s.to <= 13) || (s.from > 10 && s.to <= 10) || (s.from > 4 && s.to <= 4);
+      h += '<div class="lad' + (s.to <= goal ? ' goal' : '') + (brk ? ' brk' : '') + '">' +
+        '<span class="n">' + (i + 1) + '</span>' +
+        '<span class="mv">' + fmt(s.from) + ' 位<span class="ar">→</span><b>' + fmt(s.to) + ' 位</b></span>' +
+        '<span class="rg">挑戦できる範囲 ' + fmt(s.lo) + '〜' + fmt(s.hi) + ' 位</span>' +
+        '</div>';
+    });
+    el('ladder').innerHTML = h;
+
+    drawRewards(rank);
+  }
+
+  function drawRewards(rank) {
+    var a = P.rewardAt(rank), b = P.rewardAt(goal);
+    el('l-now-k').textContent = '今の順位（' + fmt(rank) + ' 位）';
+    el('l-now').textContent = a.gem > 0 ? ('青輝石 ' + a.gem + ' ／ コイン ' + a.coin) : '報酬なし';
+    el('l-goal-k').textContent = '目標の順位（' + goal + ' 位）';
+    el('l-goal').textContent = '青輝石 ' + b.gem + ' ／ コイン ' + b.coin;
+    el('l-diff').textContent = '青輝石 +' + (b.gem - a.gem) + ' ／ コイン +' + (b.coin - a.coin);
+
+    var rows = '', prev = 0;
+    P.REWARD.forEach(function (row) {
+      var lo = prev + 1, hi = row[0];
+      var label = lo === hi ? (hi + ' 位') : (fmt(lo) + ' 〜 ' + fmt(hi) + ' 位');
+      var here = rank >= lo && rank <= hi;
+      rows += '<tr' + (here ? ' class="here"' : '') + '><td>' + label + '</td><td>' + row[1] + '</td><td>' + row[2] + '</td><td>' + fmt(row[1] * 30) + '</td></tr>';
+      prev = hi;
+    });
+    el('tb-rw').innerHTML = rows;
+  }
+
+  el('goal').addEventListener('click', function (e) {
+    var b = e.target.closest('button'); if (!b) return;
+    goal = parseInt(b.dataset.g, 10);
+    [].forEach.call(el('goal').querySelectorAll('button'), function (x) {
+      x.setAttribute('aria-pressed', String(parseInt(x.dataset.g, 10) === goal));
+    });
+    calc();
+  });
+  el('mode').addEventListener('click', function (e) {
+    var b = e.target.closest('button'); if (!b) return;
+    mode = b.dataset.m;
+    [].forEach.call(el('mode').querySelectorAll('button'), function (x) {
+      x.setAttribute('aria-pressed', String(x.dataset.m === mode));
+    });
+    el('mode-note').textContent = mode === 'many'
+      ? '届く範囲でいちばん下の相手を選びます。1 回ずつしか上がらないので回数は増えますが、対戦のミッションを消化したいときはこちら。'
+      : '届く範囲でいちばん上の相手を選びます。これが最短です。';
+    calc();
+  });
+  iRank.addEventListener('input', calc);
+  el('mode-note').textContent = '届く範囲でいちばん上の相手を選びます。これが最短です。';
+  calc();
+})();
+</script>
+</body>
+</html>

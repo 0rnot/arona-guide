@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>特別依頼の行き先｜AronaBot</title>
+<meta name="description" content="手持ちのレポート・強化珠・クレジットが何人ぶんかを出して、特別依頼でレポートとクレジットのどちらを回るべきかを決めます。経験値はゲームのデータそのままです。">
+<meta name="theme-color" content="#c8892e">
+<link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<meta property="og:title" content="特別依頼の行き先">
+<meta property="og:description" content="レポートとクレジット、今日はどっちを回るか。手持ちが何人ぶんかを数えて決めます。">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://arona-bot.com/tools/report-credit/">
+<meta property="og:image" content="https://arona-bot.com/images/hero-night.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="stylesheet" href="../../style.css?v=14">
+<link rel="stylesheet" href="../tool.css?v=2">
+<style>
+  /* 素材の行。**アイコンを左に置いて、名前と入力を並べる。** */
+  .mat { display: grid; grid-template-columns: 34px 1fr 110px; gap: .8em; align-items: center;
+         padding: .55em 0; border-bottom: 1px solid var(--line); }
+  .mat:last-of-type { border-bottom: 0; }
+  .mat img { width: 34px; height: 34px; border-radius: 7px; background: var(--bg-sub); }
+  .mat .nm { font-size: .88rem; line-height: 1.4; }
+  .mat .nm small { display: block; color: var(--fg-mute); font-size: .74rem; }
+  .mat input { text-align: right; padding: .42em .6em; font-size: .95rem; }
+  .verdict {
+    border-radius: 12px; padding: 18px 20px; margin: 0;
+    background: linear-gradient(160deg, color-mix(in srgb, var(--accent) 12%, var(--card)) 0%, var(--card) 70%);
+    border: 1px solid var(--accent);
+  }
+  .verdict .hd { font-size: 1.05rem; font-weight: 800; margin: 0 0 .4em; color: var(--accent-tx); }
+  .verdict p { margin: 0; font-size: .88rem; line-height: 1.85; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-inner">
+    <a class="topbar-name" href="../../">AronaBotの使い方</a>
+    <a class="topbar-tools" href="../">
+      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <path d="M21.7 18.3l-6-6a5.5 5.5 0 0 0-7-7l3.1 3.1-2.1 2.1L6.6 7.3a5.5 5.5 0 0 0 7 7l6 6a1 1 0 0 0 1.4 0l.7-.7a1 1 0 0 0 0-1.3z"/>
+      </svg>
+      ツール
+    </a>
+    <nav class="topbar-nav">
+      <a href="../../#can">機能</a>
+      <a href="../../#start">つかいはじめる</a>
+      <a href="../../#message">メッセージから</a>
+      <a href="../../#faq">よくある質問</a>
+    </nav>
+  </div>
+</div>
+
+<header class="thero">
+  <div class="thero-media" aria-hidden="true">
+    <picture>
+      <source srcset="../../images/hero-day.jpg" media="(prefers-color-scheme: dark)">
+      <img src="../../images/hero-night.jpg" alt="" width="1600" height="400" fetchpriority="high">
+    </picture>
+  </div>
+  <div class="thero-body">
+    <p class="thero-en">SPECIAL REQUEST</p>
+    <h1>特別依頼の行き先</h1>
+    <p class="thero-lead">手持ちのレポート・強化珠・クレジットが<b>それぞれ何人ぶんか</b>を数えて、<br class="br-pc">今日はどちらを回るべきかを決めます。経験値はゲームのデータそのままです。</p>
+  </div>
+</header>
+
+<div class="twrap">
+  <p class="tcrumb"><a href="../../">AronaBotの使い方</a><span class="sl">/</span><a href="../">ツール</a><span class="sl">/</span>特別依頼の行き先</p>
+
+  <div class="tcols lean" style="margin-top:20px">
+
+    <div class="tcol">
+      <div class="panel">
+        <div class="panel-h"><span class="n">01</span><h2>持っているレポート</h2></div>
+        <p class="lead">生徒を Lv1 から Lv90 まで上げるのに <b>1,249,185</b> の経験値が要ります。</p>
+        <div id="reports"></div>
+        <div class="numrow sum"><div>経験値にすると</div><div class="v" id="o-repexp">—</div></div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-h"><span class="n">02</span><h2>持っている強化珠</h2></div>
+        <p class="lead">装備 1 個を Tier1 Lv1 から Tier10 Lv70 まで上げるのに <b>246,680</b> の経験値が要ります。</p>
+        <div id="stones"></div>
+        <div class="numrow sum"><div>経験値にすると</div><div class="v" id="o-stoneexp">—</div></div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-h"><span class="n">03</span><h2>持っているクレジット</h2></div>
+        <div class="fields c2">
+          <div class="field">
+            <label for="i-credit">クレジット</label>
+            <input id="i-credit" type="number" inputmode="numeric" min="0" step="1000000" value="50000000">
+          </div>
+          <div class="field">
+            <label for="i-per">1 人を仕上げるクレジット<span class="hint">レベル・スキル・装備ぜんぶ</span></label>
+            <input id="i-per" type="number" inputmode="numeric" min="1000000" step="1000000" value="55000000">
+          </div>
+        </div>
+        <p class="lead" style="margin:14px 0 0"><b>右の数字だけは、ゲームのデータで裏が取れていません。</b>有志ツールが使っている見積もりをそのまま初期値にしています。星上げ（神名文字）のぶんは入っていません。</p>
+      </div>
+    </div>
+
+    <div class="tcol sticky">
+      <div class="verdict" id="verdict">
+        <p class="hd" id="v-hd">—</p>
+        <p id="v-body"></p>
+      </div>
+
+      <div class="stats c3">
+        <div class="stat hero">
+          <div class="k">レポート</div>
+          <div class="v" id="o-rep">—</div>
+          <div class="sub">人ぶんの経験値</div>
+        </div>
+        <div class="stat">
+          <div class="k">クレジット</div>
+          <div class="v" id="o-cre">—</div>
+          <div class="sub">人ぶん</div>
+        </div>
+        <div class="stat">
+          <div class="k">強化珠</div>
+          <div class="v" id="o-sto">—</div>
+          <div class="sub">装備ぶん</div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-h"><span class="n">04</span><h2>内訳</h2></div>
+        <div class="ledger">
+          <div class="row"><span>レポートの経験値<span class="subnote">50 / 500 / 2,000 / 10,000</span></span><span id="l-rep">—</span></div>
+          <div class="row"><span>強化珠の経験値<span class="subnote">90 / 360 / 1,440 / 5,760</span></span><span id="l-sto">—</span></div>
+          <div class="row"><span>強化珠は何人ぶん<span class="subnote">1 人あたり装備 3 個として</span></span><span id="l-sto3">—</span></div>
+          <div class="row total"><span>レポートとクレジットの差</span><span id="l-gap">—</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="tfull">
+      <details class="src">
+        <summary>数字の出どころ</summary>
+        <p><b>レポートの経験値と、生徒の必要経験値は、ゲームのデータそのままです。</b>推測はありません。</p>
+        <ul>
+          <li><code>Excel/ItemExcelTable.json</code>（SchaleDB の <code>items</code>）— 初級レポート <code>ExpValue: 50</code>／中級 <code>500</code>／上級 <code>2000</code>／最上級 <code>10000</code></li>
+          <li><code>Excel/CharacterLevelExcelTable.json</code> — Lv90 の <code>TotalExp: 1249185</code></li>
+          <li><code>Excel/EquipmentLevelExcelTable.json</code> — Lv70 の <code>TotalExp</code> が Tier1 から順に
+            <code>381 / 1841 / 5456 / 12326 / 17326 / 23551 / 31141 / 40231 / 50961 / 63466</code>。
+            <b>足すとちょうど 246,680</b> で、これが装備 1 個を Tier1 Lv1 から Tier10 Lv70 まで上げるのに要る経験値です</li>
+        </ul>
+        <p><b>強化珠の経験値（90 / 360 / 1,440 / 5,760）だけは、ゲームのデータの中に見つけられませんでした。</b>
+          有志ツールが使っている値をそのまま置いています。ただし裏付けはあって、
+          246,680 ÷ 5,760 = 42.8 で「最上級強化珠 43 個ぶん」になり、これは攻略サイトの記載と一致します。
+          同じく 1,249,185 ÷ 10,000 = 124.9 で「最上級レポート 125 個ぶん」も一致します。</p>
+        <p><b>1 人を仕上げるクレジット（55,000,000）は目安です。</b>
+          ゲームのデータからは出せませんでした。レベル上げ・スキル 4 種・装備 3 個をぜんぶ最大にした場合のおおよその額で、
+          <b>星上げ（神名文字）は入っていません。</b>自分の育て方に合わせて書き換えてください。</p>
+        <p>出典 —
+          <a href="https://github.com/electricgoat/ba-data" target="_blank" rel="noopener">electricgoat/ba-data</a>（jp ブランチ）、
+          <a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a>、
+          <a href="https://game8.jp/blue-archive/639839" target="_blank" rel="noopener">ゲームエイト「生徒レベルの上げ方」</a>（Lv90 の累計経験値 1,249,185）。</p>
+      </details>
+    </div>
+
+  </div>
+</div>
+
+<footer>
+  <div class="foot-inner">
+    <p class="foot-name">AronaBotの使い方</p>
+    <p class="foot-links">
+      <a href="../../">AronaBot のページ</a>
+      <span class="sep">/</span>
+      <a href="../">ツール一覧</a>
+      <span class="sep">/</span>
+      <a href="https://x.com/pe6cak" target="_blank" rel="noopener">制作者の X（@pe6cak）</a>
+      <span class="sep">/</span>
+      <span>不具合・要望は <b>@0r.not</b> まで</span>
+    </p>
+    <p class="disclaimer">
+      <b>このサイトはファンが作った非公式のものです。</b>運営とは関係ありません。
+      <small>掲載しているゲーム内の画像・アイコン・名称・数値は、Nexon Games / Yostar の
+      「ブルーアーカイブ」から引用したもので、著作権はすべて権利者に帰属します。
+      ツールの計算に使うデータは <a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a> と
+      <a href="https://github.com/electricgoat/ba-data" target="_blank" rel="noopener">ba-data</a> から取得しています。
+      権利者の方でご指摘があれば <b>@0r.not</b> までご連絡ください。</small>
+    </p>
+  </div>
+</footer>
+
+<script>
+(function () {
+  'use strict';
+  var el = function (id) { return document.getElementById(id); };
+  var STUDENT_EXP = 1249185;   // Lv1 → Lv90
+  var EQUIP_EXP = 246680;      // Tier1 Lv1 → Tier10 Lv70
+
+  var REPORTS = [
+    { id: 'r1', name: '初級レポート',   exp: 50,    icon: 'item_icon_expitem_0', def: 500 },
+    { id: 'r2', name: '中級レポート',   exp: 500,   icon: 'item_icon_expitem_1', def: 300 },
+    { id: 'r3', name: '上級レポート',   exp: 2000,  icon: 'item_icon_expitem_2', def: 200 },
+    { id: 'r4', name: '最上級レポート', exp: 10000, icon: 'item_icon_expitem_3', def: 100 }
+  ];
+  var STONES = [
+    { id: 's1', name: '初級強化珠',   exp: 90,   icon: 'equipment_icon_exp_0', def: 300 },
+    { id: 's2', name: '中級強化珠',   exp: 360,  icon: 'equipment_icon_exp_1', def: 200 },
+    { id: 's3', name: '上級強化珠',   exp: 1440, icon: 'equipment_icon_exp_2', def: 100 },
+    { id: 's4', name: '最上級強化珠', exp: 5760, icon: 'equipment_icon_exp_3', def: 40 }
+  ];
+
+  function rows(list, into, base) {
+    into.innerHTML = list.map(function (m) {
+      return '<div class="mat">' +
+        '<img src="../img/' + m.icon + '.webp" alt="" width="34" height="34" loading="lazy">' +
+        '<span class="nm">' + m.name + '<small>1 個 ' + m.exp.toLocaleString('ja-JP') + '</small></span>' +
+        '<input id="i-' + m.id + '" type="number" inputmode="numeric" min="0" step="1" value="' + (m.def || 0) + '" aria-label="' + m.name + 'の個数">' +
+        '</div>';
+    }).join('');
+  }
+  rows(REPORTS, el('reports'));
+  rows(STONES, el('stones'));
+
+  function fmt(n) { return Math.round(n).toLocaleString('ja-JP'); }
+  function f1(n) { return (Math.round(n * 10) / 10).toLocaleString('ja-JP'); }
+
+  function sumOf(list) {
+    var t = 0;
+    list.forEach(function (m) {
+      var v = parseInt(el('i-' + m.id).value, 10);
+      if (v > 0) t += v * m.exp;
+    });
+    return t;
+  }
+
+  function calc() {
+    var repExp = sumOf(REPORTS);
+    var stoExp = sumOf(STONES);
+    var credit = Math.max(0, parseInt(el('i-credit').value, 10) || 0);
+    var per = Math.max(1, parseInt(el('i-per').value, 10) || 1);
+
+    var rep = repExp / STUDENT_EXP;       // 何人ぶん
+    var cre = credit / per;               // 何人ぶん
+    var sto = stoExp / EQUIP_EXP;         // 何装備ぶん
+
+    el('o-repexp').textContent = fmt(repExp);
+    el('o-stoneexp').textContent = fmt(stoExp);
+    el('o-rep').innerHTML = f1(rep) + '<small>人</small>';
+    el('o-cre').innerHTML = f1(cre) + '<small>人</small>';
+    el('o-sto').innerHTML = f1(sto) + '<small>個</small>';
+
+    el('l-rep').textContent = fmt(repExp);
+    el('l-sto').textContent = fmt(stoExp);
+    el('l-sto3').textContent = f1(sto / 3) + ' 人';
+    var gap = rep - cre;
+    el('l-gap').textContent = (gap >= 0 ? '+' : '−') + f1(Math.abs(gap)) + ' 人ぶん';
+
+    // 判定。**しきい値は「4 人ぶん」。**
+    // 1 人ぶんも無いうちは差を見ても意味がないので、まず量そのものを見る。
+    var hd, body;
+    if (rep < 4 && cre < 4) {
+      hd = 'どちらも足りていません';
+      body = 'レポートもクレジットも 4 人ぶんに届いていません。' +
+        (rep <= cre ? 'より少ないのはレポートなので、<b>レポートを回る</b>ところから。' : 'より少ないのはクレジットなので、<b>クレジットを回る</b>ところから。');
+    } else if (rep < 4) {
+      hd = 'レポートを回りましょう';
+      body = 'クレジットは <b>' + f1(cre) + ' 人ぶん</b>あるのに、レポートは <b>' + f1(rep) + ' 人ぶん</b>しかありません。育てたくても経験値が足りない状態です。';
+    } else if (gap > 4) {
+      hd = 'クレジットを回りましょう';
+      body = 'レポートは <b>' + f1(rep) + ' 人ぶん</b>あるのに、クレジットは <b>' + f1(cre) + ' 人ぶん</b>。' +
+        'レポートが余っていて、クレジットが追いついていません。<b>強化珠を買うのも控えめに。</b>';
+    } else if (gap < -4) {
+      hd = 'レポートを回りましょう';
+      body = 'クレジットは <b>' + f1(cre) + ' 人ぶん</b>あって余裕があります。レポートの <b>' + f1(rep) + ' 人ぶん</b>が先に尽きます。';
+    } else {
+      hd = 'どちらでも大丈夫です';
+      body = 'レポート <b>' + f1(rep) + ' 人ぶん</b>、クレジット <b>' + f1(cre) + ' 人ぶん</b>。釣り合っているので、' +
+        '今すぐ育てたい生徒がいるほうを回るか、素材のほうを優先していいところです。';
+    }
+    el('v-hd').textContent = hd;
+    el('v-body').innerHTML = body;
+  }
+
+  [].forEach.call(document.querySelectorAll('input'), function (n) { n.addEventListener('input', calc); });
+  calc();
+})();
+</script>
+</body>
+</html>
