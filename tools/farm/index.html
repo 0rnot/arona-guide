@@ -7,14 +7,22 @@
 <meta name="description" content="足りない素材を選ぶと、それが出る任務と指名手配が期待値の高い順に並びます。AP 10 あたり何個か、指名手配券 1 枚あたり何個かを分けて出すので、今日どこを回るかがすぐ決まります。">
 <meta name="theme-color" content="#c8892e">
 <link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="AronaBot">
+<meta property="og:locale" content="ja_JP">
+<meta property="og:url" content="https://arona-bot.com/tools/farm/">
 <meta property="og:title" content="素材の掘り場">
 <meta property="og:description" content="足りない素材を選ぶと、それが出る任務と指名手配が期待値の高い順に並びます。AP 10 あたり何個か、指名手配券 1 枚あたり何個かを分けて出すので、今日どこを回るかがすぐ決まります。">
-<meta property="og:type" content="website">
-<meta property="og:url" content="https://arona-bot.com/tools/farm/">
-<meta property="og:image" content="https://arona-bot.com/images/hero-night.jpg">
+<meta property="og:image" content="https://arona-bot.com/images/og/farm.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="素材の掘り場 — AronaBot のツール">
 <meta name="twitter:card" content="summary_large_image">
-<link rel="stylesheet" href="../../style.css?v=15">
-<link rel="stylesheet" href="../tool.css?v=10">
+<meta name="twitter:title" content="素材の掘り場">
+<meta name="twitter:description" content="足りない素材を選ぶと、それが出る任務と指名手配が期待値の高い順に並びます。AP 10 あたり何個か、指名手配券 1 枚あたり何個かを分けて出すので、今日どこを回るかがすぐ決まります。">
+<meta name="twitter:image" content="https://arona-bot.com/images/og/farm.jpg">
+<link rel="stylesheet" href="../../style.css?v=16">
+<link rel="stylesheet" href="../tool.css?v=11">
 <style>
   /* 選んでいる素材。**選ぶ前は破線。** */
   .matcard { display: grid; grid-template-columns: 62px 1fr; gap: 14px; align-items: center;
@@ -44,7 +52,6 @@
 
   /* 一番の場所を入場料ごとに */
   .topline b { display: block; font-size: .95rem; }
-  .nowrap { white-space: nowrap; }
 
   /* ステージの表。**いちばん見たい「1 あたり」を細い画面でも切らさない。** */
   table.dt.farm { font-size: .82rem; }
@@ -140,7 +147,7 @@
   </div>
   <div class="thero-body">
     <h1>素材の掘り場</h1>
-    <p class="thero-lead">足りない素材を選ぶと、それが出る任務と指名手配が期待値の高い順に並びます。AP 10 あたり何個か、指名手配券 1 枚あたり何個かを分けて出すので、今日どこを回るかがすぐ決まります。</p>
+    <p class="thero-lead">足りない素材を選ぶと、それが出る任務と指名手配が期待値の高い順に並びます。</p>
   </div>
 </header>
 
@@ -188,7 +195,7 @@
             <button type="button" data-m="3" aria-pressed="false">3 倍</button>
           </div>
         </div>
-        <p class="lead" style="margin:16px 0 0"><b>数字は 1 周あたりの期待個数です。</b>確率つきの報酬は「個数 × 確率」で、箱は中身の確率で割って足しています。<b>初回クリアと 3 つ星の報酬は数えていません</b>（周回では出ないため）。</p>
+        <p class="lead" style="margin:16px 0 0"><b>数字は 1 周あたりの期待個数です。</b><button type="button" class="qm" data-hint="確率つきの報酬は「個数×確率」で、箱は中身の確率で割って足しています。初回クリアと3つ星の報酬は数えていません(周回では出ないため)。"></button></p>
       </div>
     </div>
 
@@ -213,7 +220,7 @@
 
       <div class="panel">
         <div class="panel-h"><h2>入場料ごとの一番</h2></div>
-        <p class="lead"><b>AP と券は混ぜません。</b>指名手配券と学園交流会チケットは 1 日にもらえる枚数が決まっていて、AP と同じ物差しでは比べられないからです。</p>
+        <p class="lead"><b>AP と券は混ぜません。</b><button type="button" class="qm" data-hint="指名手配券と学園交流会チケットは1日にもらえる枚数が決まっていて、APと同じ物差しでは比べられないからです。"></button></p>
         <div class="ledger" id="tops"></div>
       </div>
 
@@ -289,7 +296,8 @@
 <script>window.TOUR = {"key": "farm", "steps": [{"sel": "#matcard", "t": "まず素材を選びます", "d": "オーパーツ・技術ノート・戦術教育BD・レポート・武器パーツ・神名文字。名前の一部でも探せます。"}, {"sel": "#matbox", "t": "種類ごとに並んでいます", "d": "上のタブで群を切り替えるか、さがす欄に打ち込んでください。押すとその場で結果が入れ替わります。"}, {"sel": "#o-best", "t": "いちばん効率のいい場所が出ます", "d": "目標の個数と手持ちを入れると、あと何周・何 AP かかるかも出ます。"}, {"sel": "#tops", "t": "AP と券は混ぜません", "d": "指名手配券と学園交流会チケットは 1 日にもらえる枚数が決まっているので、AP と同じ物差しでは比べられません。"}, {"sel": "#tables .panel:first-child", "t": "下に全部のステージが並びます", "d": "入場料 1 あたりの多い順です。ドロップ 2 倍・3 倍のあいだは倍率を切り替えてください。"}, {"sel": "#sharebar", "t": "結果はそのまま渡せます", "d": "選んでいる素材と個数ごと URL になるので、リンクを送れば相手の画面にも同じ結果が出ます。"}]};</script>
 <script src="../tour.js?v=2"></script>
 
-<script src="../share.js?v=1"></script>
+<script src="../share.js?v=2"></script>
+<script src="../hint.js?v=1"></script>
 
 <footer>
   <div class="foot-inner">
@@ -456,6 +464,19 @@
     el('tops').innerHTML = h;
   }
 
+  /** 見出しに出す 1 本。**AP と券は混ぜない。**
+      `costOf` は券のステージだと常に 1 なので、全部まとめて効率順に並べると
+      指名手配・交流会のステージが必ず上に来て、AP で回りたい人にいちばん要る
+      答えが隠れる。下の「入場料ごとの一番」と同じ物差しで、AP → 指名手配券 →
+      交流会チケットの順に、あるものを選ぶ（2026-08-31） */
+  function headline(rs) {
+    for (var i = 0; i < UNITS.length; i++) {
+      var t = tied(rs, UNITS[i].id);
+      if (t.length) return t[0];
+    }
+    return rs[0];
+  }
+
   function drawStats(rs) {
     var need = left();
     if (!rs.length) {
@@ -465,7 +486,7 @@
       el('o-runs-sub').textContent = ''; el('o-cost-sub').textContent = '';
       return;
     }
-    var b = rs[0], u = UNITS.filter(function (x) { return x.id === unitOf(b.s); })[0];
+    var b = headline(rs), u = UNITS.filter(function (x) { return x.id === unitOf(b.s); })[0];
     /* **同じ効率が並ぶことがある。**神名文字はたいてい 2 本以上のハードに
        同じ確率で入っていて、1 本だけ出すと他が無いように見える */
     var ts = tied(rs, unitOf(b.s));
@@ -608,7 +629,7 @@
   el('src-stage').textContent = F.stages.length;
   el('src-pair').textContent = Object.keys(F.drops).reduce(function (a, k) { return a + F.drops[k].length; }, 0);
   el('src-istage').textContent = F.itemStages;
-  el('ver').textContent = F.version;
+  el('ver').textContent = F.fetched;
 
   draw();
 })();

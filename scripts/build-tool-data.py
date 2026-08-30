@@ -17,7 +17,7 @@
 落としたあと 122×122 に切り直してから置く（中身の一番外側は x 14〜134 / y 4〜116 に
 収まっているのを実測して決めた枠）。切り直しには Pillow を使う。
 """
-import io, json, pathlib, re, sys, urllib.request
+import datetime, io, json, pathlib, re, sys, urllib.request
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 IMG = ROOT / "tools" / "img"
@@ -345,11 +345,21 @@ def _square(raw, out):
     canvas.save(out, "WEBP", quality=88, method=6)
 
 
+# 取得日。**ページの「取得は …」がこれを出す。**
+# `version` は出典の説明文で日付ではなく、すぐ上の「出典 —」と同じことを
+# 二度言う形になっていた（2026-08-31 に分けた）
+TODAY = datetime.date.today().isoformat()
+_FETCHED_RE = re.compile(r'"fetched":"\d{4}-\d\d-\d\d",?')
+
+
 def write_js(path, var, obj, header=""):
     p = ROOT / path
+    if isinstance(obj, dict) and "fetched" not in obj:
+        obj = dict(obj, fetched=TODAY)
     body = header + f"window.{var} = " + json.dumps(obj, ensure_ascii=False, separators=(",", ":")) + ";\n"
     old = p.read_text(encoding="utf-8") if p.exists() else ""
-    if old == body:
+    # **日付だけの差では書き換えない。**毎日走らせても、中身が同じなら触らない
+    if _FETCHED_RE.sub("", old) == _FETCHED_RE.sub("", body):
         print(f"  {path} はそのまま")
         return False
     p.write_text(body, encoding="utf-8")
@@ -1308,6 +1318,72 @@ def build_cost_timeline():
     # （`CC_Stunned` = 気絶状態、`CC_Fear` = 恐怖状態 …）
     buffja = loc.get("BuffName") or {}
 
+    # **スキル文の差し込み記号を、SchaleDB 自身と同じ規則で人が読める形に直す。**
+    # 本番サイトのフロントエンド（`SkillText` コンポーネント。`schaledb.com` の
+    # ビルド `index-993c7caa.js` が呼ぶ `TypeHelper-*.js`。2026-08-31 に実物を読んで
+    # 確かめた）が `<b:X>` `<d:X>` `<c:X>` `<s:X>` を `BuffName` の
+    # `Buff_X` / `Debuff_X` / `CC_X` / `Special_X` で引き、`<?N>` を
+    # `Parameters[N-1]` のそのレベルの値に差し替えている。`='ラベル'` が付いていれば
+    # 辞書を引かずそちらを使う（`r=/^<([bdcs]):(\w+)(?:='([^']*)')?>$/` がそれ）。
+    TAG_PREFIX = {"b": "Buff", "d": "Debuff", "c": "CC", "s": "Special"}
+    DESC_TAG = re.compile(r"<([bdcs]):(\w+)(?:='([^']*)')?>")
+    DESC_PARAM = re.compile(r"<\?([0-9]+)>")
+    # 装飾用の生 HTML（`<b class='...'>強調</b>` `<up>…</up>`）は中身だけ残す。
+    # **`<b:X>` とはコロンの有無で見分けがつくので、先に剥がしても衝突しない**
+    DESC_HTML = re.compile(r"</?b(?: [^>]*)?>|</?up>")
+    # 引けなかったキー・レベルが決められなかった `<?N>`。**黙って隠さず、報告用に集める**
+    unresolved = set()
+
+    def desc_lines(text):
+        """改行の端にある生の `/` を畳む。**行末のことも行頭のこともある**
+        （ツクヨの Public は「攻撃力の…ダメージ\\n/その敵が中型の場合」と行頭に付く）。
+        **行の途中の `/` は触らない**（ワカモ（水着）の「9.6%/19.2%/28.9%」はただの区切り）。"""
+        lines = text.split("\n")
+        for i, ln in enumerate(lines):
+            ln = ln.strip()
+            if i > 0 and ln.startswith("/"):
+                ln = ln[1:].lstrip()
+            if i < len(lines) - 1 and ln.endswith("/"):
+                ln = ln[:-1].rstrip()
+            lines[i] = ln
+        return [ln for ln in lines if ln]
+
+    def desc_flat(text):
+        """行を 1 つの「／」でつないだ、引き金の正規表現に掛けるための 1 行。
+        **`<b:X>` 等のタグはまだ残っている**（切り出す範囲を決めるのはこちらが先）。"""
+        return "／".join(desc_lines(text))
+
+    def resolve_desc(text, params, lvl):
+        """1 本のスキル文を、画面にそのまま出せる日本語にする。
+
+        **`params`/`lvl` が無い、または辞書に無いキーが来たら、元のタグをそのまま残す**
+        （引けなかったことを黙って隠さない。`unresolved` に集めて後で報告する）。"""
+        if not text:
+            return ""
+        flat = DESC_HTML.sub("", desc_flat(text))
+
+        def sub_tag(m):
+            letter, key, label = m.groups()
+            if label:
+                return label
+            name = TAG_PREFIX[letter] + "_" + key
+            val = buffja.get(name)
+            if val is None:
+                unresolved.add(name)
+                return m.group(0)
+            return val
+        flat = DESC_TAG.sub(sub_tag, flat)
+
+        def sub_param(m):
+            n = int(m.group(1))
+            if params and lvl is not None and 1 <= n <= len(params):
+                row = params[n - 1]
+                if isinstance(row, list) and 0 <= lvl < len(row):
+                    return str(row[lvl])
+            unresolved.add(f"<?{n}>（レベルが決められない: {text[:24]}…）")
+            return m.group(0)
+        return DESC_PARAM.sub(sub_param, flat)
+
     def eff_name(e):
         """効果の見出し。**`Stat` があるものはそこから引ける。**
            `Regen` / `Shield` / `DamageDebuff` の 3 つだけ `Stat` を持たないので、
@@ -1480,15 +1556,21 @@ def build_cost_timeline():
         if not sk or not sk.get("Name"):
             return None
         de = str(sk.get("Desc") or "")
+        # **ノーマル・パッシブ・サブは Lv10 が前提。**`emptySlot()` の既定値
+        # （`ex: 5, sk: 10`。tl.js）と揃えている
+        params = sk.get("Parameters")
         out = {"n": sk.get("Name", ""), "ei": sk.get("Icon", "")}
-        m = NS_IV.search(de)
-        flat = de.replace("\n", "")
+        # **改行の端の `/` を先に畳んでから引き金を探す。**そのまま `\n` を消すだけだと
+        # （旧実装）、行の境目にあった `/` が地の文にくっついたまま残って出てしまう
+        # （ミネ Public の「発動/発動時」、ツクヨ Public の「／/その敵が」）
+        flat = desc_flat(de)
+        m = NS_IV.search(flat)
         if m:
             out["iv"] = float(m.group(1))
             pre = NS_PRE_COND.search(flat[:m.start()])
             if pre and not NS_AT0.search(flat):
                 # 引き金が先にある。初回の時刻は置けない
-                out["cond"] = pre.group(1)
+                out["cond"] = resolve_desc(pre.group(1), params, 9)
             else:
                 # `st` = 戦闘開始から初めて発動するまでの秒数
                 out["st"] = 0.0 if NS_AT0.search(flat) else out["iv"]
@@ -1499,10 +1581,12 @@ def build_cost_timeline():
             out["cond"] = "戦闘開始時"
         else:
             out["iv"] = 0
-            c = NS_COND.match(de.replace("\n", ""))
+            c = NS_COND.match(flat)
             # 条件が読めないものもある。**読めなかったことを黙って隠さない。**
             # 途中で切らない——画面にそのまま出す文なので、切ると意味が変わる
-            out["cond"] = c.group(1) if c else de.split("\n")[0]
+            # （**2 行目より先を丸ごと落としていたのを直した。**カノエの
+            # ExtraPassive「前世の加護」は 1 行目が効果、条件は 2 行目にある）
+            out["cond"] = resolve_desc(c.group(1) if c else de, params, 9)
         if NS_ONCE.search(flat):
             out["once"] = 1
         out.update(skill_extras(sk))
@@ -1529,15 +1613,17 @@ def build_cost_timeline():
         """スキル文から、手札とコストに効く特別な書きぶりを拾う。
 
         **見つけた行を原文のまま `txt` に残す。**推測でフラグだけ立てない。"""
+        # **EX は Lv5 が前提。**ExtraSkills も同じ 5 段（`emptySlot()` の `ex: 5`）
         lines = []
         for sk in [ex] + list(ex.get("ExtraSkills") or []):
+            params = sk.get("Parameters")
             for ln in (sk.get("Desc") or "").split("\n"):
                 ln = ln.strip().rstrip("/").strip()
                 if ln:
-                    lines.append(ln)
+                    lines.append((ln, params))
         out = {}
         for key, pat in SP_PATS:
-            for ln in lines:
+            for ln, params in lines:
                 m = pat.search(ln)
                 if not m:
                     continue
@@ -1556,8 +1642,10 @@ def build_cost_timeline():
                 else:
                     out[key] = True
                 out.setdefault("txt", [])
-                if ln not in out["txt"]:
-                    out["txt"].append(ln)
+                # **画面に出す原文は差し込み記号を解決したもの。**マッチ判定だけ生の文でやる
+                resolved = resolve_desc(ln, params, 4)
+                if resolved not in out["txt"]:
+                    out["txt"].append(resolved)
                 break
         return out
 
@@ -1697,6 +1785,12 @@ def build_cost_timeline():
         raise SystemExit(f"EX が変わる子が {len(forms)} 人しか取れていない。ExtraSkills の形が変わった疑い")
     if len(draws) < 6:
         raise SystemExit(f"カードを引く子が {len(draws)} 人しか取れていない。スキル文の書きぶりが変わった疑い")
+    # **`<b:X>` / `<?N>` の解決漏れ。**黙って隠さず、ここで数えて出す
+    if unresolved:
+        print(f"  引けなかった差し込み記号 {len(unresolved)} 件: {sorted(unresolved)}",
+              file=sys.stderr)
+    else:
+        print("  差し込み記号は全部引けた（生マークアップ 0 件）")
 
     # **戦闘時間はボスごとに違う。**3 分・4 分だけではなく、イェソドと
     # ドラム缶ガニとセトの憤怒が 270 秒、コクマーとティファレトが 300 秒

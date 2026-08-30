@@ -7,14 +7,22 @@
 <meta name="description" content="総力戦・大決戦・制約解除決戦のボスを絵から選ぶと、その相手の TL 保管庫・有効な攻撃属性・連れて行く生徒がまとめて出ます。TL は自分の端末に貯めて、ボスや使った生徒で引き直せます。">
 <meta name="theme-color" content="#c8892e">
 <link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="AronaBot">
+<meta property="og:locale" content="ja_JP">
+<meta property="og:url" content="https://arona-bot.com/tools/raid/">
 <meta property="og:title" content="総力戦・大決戦の TL 検索">
 <meta property="og:description" content="ボスを絵から選ぶと、その相手の TL・有効な攻撃属性・連れて行く生徒が出ます。">
-<meta property="og:type" content="website">
-<meta property="og:url" content="https://arona-bot.com/tools/raid/">
-<meta property="og:image" content="https://arona-bot.com/images/hero-night.jpg">
+<meta property="og:image" content="https://arona-bot.com/images/og/raid.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="総力戦・大決戦の TL 検索 — AronaBot のツール">
 <meta name="twitter:card" content="summary_large_image">
-<link rel="stylesheet" href="../../style.css?v=15">
-<link rel="stylesheet" href="../tool.css?v=10">
+<meta name="twitter:title" content="総力戦・大決戦の TL 検索">
+<meta name="twitter:description" content="ボスを絵から選ぶと、その相手の TL・有効な攻撃属性・連れて行く生徒が出ます。">
+<meta name="twitter:image" content="https://arona-bot.com/images/og/raid.jpg">
+<link rel="stylesheet" href="../../style.css?v=16">
+<link rel="stylesheet" href="../tool.css?v=11">
 <style>
   /* ===== ① ボスを絵から選ぶ。**ページの導入で、ここが全体の相手を決める。**
      2026-08-30 に、畳んであった相性チェッカーの中から先頭へ引き上げた
@@ -299,7 +307,7 @@
   </div>
   <div class="thero-body wide">
     <h1>総力戦・大決戦の TL 検索</h1>
-    <p class="thero-lead">まず相手を絵から選びます。選ぶと、その相手のために貯めた TL、有効な攻撃属性、連れて行く生徒がまとめて出ます。<b>TL はこの端末に貯まります。</b>他の人の TL はこのサイトには入っていないので、そちらはいちばん下から外部のサイトへ渡します。</p>
+    <p class="thero-lead">まず相手を絵から選びます。TL・有効な攻撃属性・連れて行く生徒がまとめて出ます。<button type="button" class="qm" data-hint="TL はこの端末だけに貯まります。他の人の TL はこのサイトには入っていないので、いちばん下から外部サイトへ渡します。"></button></p>
   </div>
 </header>
 
@@ -311,7 +319,7 @@
        ぜんぶに効く（2026-08-30 の作り直し） ===== -->
   <div class="panel" id="pick" style="margin-top:20px">
     <div class="panel-h"><h2>まず、相手を選びます</h2></div>
-    <p class="lead">絵を押すとその相手に切り替わります。<b>ここで選んだ相手が、下のぜんぶに効きます。</b></p>
+    <p class="lead">絵を押すと相手が切り替わり、<b>下のぜんぶに反映されます。</b></p>
     <div class="seg" id="mode" role="group" aria-label="種類" style="margin-bottom:14px">
       <button type="button" data-m="raid" aria-pressed="true">総力戦</button>
       <button type="button" data-m="elim" aria-pressed="false">大決戦</button>
@@ -363,9 +371,9 @@
             <div class="stat"><div class="k"><i class="gi gi-type-attack"></i> ボスの攻撃属性</div><div class="v" id="o-bt">—</div><div class="sub" id="o-bt-sub">&nbsp;</div></div>
             <div class="stat"><div class="k"><i class="gi" id="o-tr-ico"></i> 地形</div><div class="v" id="o-tr">—</div><div class="sub">適性が高い子ほど当たる</div></div>
           </div>
-          <p class="lead" style="margin:0 0 8px"><b>こちらの攻撃がどれだけ通るか。</b>数字はゲームのデータの倍率そのままです。</p>
+          <p class="lead" style="margin:0 0 8px"><b>こちらの攻撃がどれだけ通るか。</b></p>
           <div class="chart" id="atk"></div>
-          <p class="lead" style="margin:14px 0 8px"><b>ボスの攻撃がどれだけ痛いか。</b>装甲別に見た倍率です。</p>
+          <p class="lead" style="margin:14px 0 8px"><b>ボスの攻撃がどれだけ痛いか。</b>装甲別の倍率です。</p>
           <div class="chart" id="def"></div>
           <p class="lead" style="margin:14px 0 8px"><b>この難易度のボスのステータス。</b><span id="bs-note"></span></p>
           <div class="bstats" id="bstats"></div>
@@ -393,8 +401,8 @@
     <div class="subbody">
 
   <div class="panel">
-    <div class="panel-h"><h2>連れて行く生徒</h2></div>
-    <p class="lead"><b>攻撃が通る順、次にその地形での当たりやすさの順</b>で並べています。左の数字が与ダメージの倍率、右がボスの攻撃を受けたときの倍率です。<b>実際の火力は育成度と編成で変わるので、ここで順位は付けていません。</b></p>
+    <div class="panel-h"><h2>連れて行く生徒<button type="button" class="qm" data-hint="左の数字が与ダメージの倍率、右がボスの攻撃を受けたときの倍率です。並びは地形適性も含め、専用武器を持たせた前提です。上のチェックを外すと素の適性で並べ直します。実際の火力は育成度と編成で変わるので、順位は付けていません。"></button></h2></div>
+    <p class="lead"><b>攻撃が通る順、次に地形の当たりやすさの順</b>で並べています。</p>
     <div class="fbar">
       <input type="search" id="q" placeholder="名前で探す" aria-label="名前で探す" autocomplete="off">
       <select id="f-ro" aria-label="役割"><option value="">役割：ぜんぶ</option></select>
@@ -408,10 +416,6 @@
     <div class="gwrap"><div class="grid" id="list"></div></div>
   </div>
 
-  <div class="note-box">
-    <p><b>並び順には地形適性も入れています。</b>適性は専用武器で上がるので、武器を持たせた前提の順番です。上のチェックを外すと、武器なしの素の適性で並べ直します。</p>
-    <p><b>大決戦の装甲は開催ごとに変わります。</b>3 つの装甲が同時に立ち、Torment だけ別の装甲になります。ここでは自分で選んでください。直近 3 回にどの組み合わせが来たかは、いちばん上のボス選択に出しています。</p>
-  </div>
 
     </div>
   </details>
@@ -453,6 +457,7 @@
       <code>BulletTypeInsane</code> という別の攻撃属性が入っているので、Insane 以上ではそちらに切り替えています。大決戦の装甲の組み合わせは <code>RaidSeasons[].EliminateSeasons</code> の実績から拾っています。</p>
     <p><b>生徒の地形適性は 0〜5 の数値です（ゲーム内の D / C / B / A / S / SS）。</b>専用武器の <code>AdaptationType</code> と <code>AdaptationValue</code> を足したものが、武器ありの値で、並び順にはこちらを使っています。</p>
     <p><b>順位は付けていません。</b>実際の火力はレベル・装備・スキル・編成で変わるもので、ここが出せるのは「属性が通るか」「その地形で当たるか」までです。</p>
+    <p>出典 — <a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a>。取得は <span id="tls-ver">—</span>。</p>
   </details>
 </div>
 
@@ -460,7 +465,8 @@
 <script src="../panes.js?v=1"></script>
 <script src="../tour.js?v=2"></script>
 
-<script src="../share.js?v=1"></script>
+<script src="../share.js?v=2"></script>
+<script src="../hint.js?v=1"></script>
 
 <footer>
   <div class="foot-inner">
@@ -902,7 +908,7 @@
     md.textContent = R.multi[0].secs.map(function (x) { return x.lo + '-' + x.hi; }).join('・');
   }
   var ver = document.getElementById('tls-ver');
-  if (ver) ver.textContent = R.version;
+  if (ver) ver.textContent = R.fetched;
 })();
 </script>
 </body>

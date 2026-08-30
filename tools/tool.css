@@ -63,7 +63,11 @@
   position: absolute; inset: 0;
   background:
     linear-gradient(to bottom, color-mix(in srgb, var(--bg) 55%, transparent) 0%,
-                    transparent 28%, transparent 42%, var(--bg) 100%);
+                    transparent 28%, transparent 38%,
+                    /* **見出しが乗る帯は地の色に寄せ切る。**ツールの絵は本編と
+                       逆の時間帯を出しているので、ライトのとき「暗い絵に暗い字」
+                       になる。94% で溶かし切ってから字を置く（2026-08-31） */
+                    var(--bg) 94%);
 }
 
 .thero-body {
@@ -125,7 +129,6 @@
   box-shadow: var(--shadow);
 }
 .panel.flat { box-shadow: none; background: var(--bg-sub); }
-.panel.tight { padding: 18px 20px; }
 
 .panel-h {
   display: flex; align-items: baseline; gap: .7em; flex-wrap: wrap;

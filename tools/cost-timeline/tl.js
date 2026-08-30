@@ -661,9 +661,7 @@
   /* ---------- 画面 */
 
   function drawParty() {
-    el('party-lead').innerHTML = mode === 10
-      ? 'ストライカー 6 人とスペシャル 4 人。<b>コスト回復力は 10 人の合計で決まります</b>ので、EX を撃たない子も入れてください。同じ子は 1 人までです。'
-      : 'ストライカー 4 人とスペシャル 2 人。<b>コスト回復力は 6 人の合計で決まります</b>ので、EX を撃たない子も入れてください。同じ子は 1 人までです。';
+    el('party-lead').innerHTML = '<b>EX を撃たない子もコスト回復力に入ります</b>（重複不可）。';
     [['party-main', 0, LAYOUT[mode].main, 'dl-main'],
      ['party-sup', MAIN_MAX, MAIN_MAX + LAYOUT[mode].sup, 'dl-sup']].forEach(function (g) {
       var box = el(g[0]), html = '';
@@ -1215,7 +1213,7 @@
 
     if (!p.ms.length || !order.length) {
       el('timeline').innerHTML = ''; el('out').value = ''; el('chart').innerHTML = '';
-      el('chart-lead').textContent = 'EX を並べると、コストが貯まって減っていく様子が出ます。';
+      el('chart-lead').textContent = 'EX を並べるとコストの増減が出ます。';
       el('tl-lead').textContent = order.length ? '生徒を入れてください。' : 'まだ何も並んでいません。';
       lastSim = null;
       /* **EX を並べていなくても、ノーマル・パッシブの帯は出せる。**
@@ -1492,7 +1490,7 @@
       box.innerHTML = '';
       lead.textContent = members().length
         ? '持続する効果を持った子が編成にいません。上のチェックで種別を戻すと出ることがあります。'
-        : '編成を決めると、持続する効果がここに帯で出ます。';
+        : '編成を決めると持続する効果が帯で出ます。';
       return;
     }
     var ROW = 22, T = 6, B = 22, H = T + ROW * bars.length + B;
@@ -1693,7 +1691,7 @@
     if (!model) {
       box.innerHTML = '';
       lead.textContent = !members().length
-        ? '編成を決めると、攻撃力が何倍になっているかがここに出ます。'
+        ? '編成を決めると攻撃力の倍率が出ます。'
         : (hasTl ? '掛け算の攻撃力バフ（AttackPower_Coefficient）が、この編成には効いていません。'
                  : 'いまはノーマル・パッシブぶんだけを見ています。EX を並べると、EX の攻撃力バフもここに入ります。');
     } else {
@@ -1786,7 +1784,7 @@
         '引き金はゲームの書きぶりのまま出しています（<?1> や <b:Shield> はゲーム側の差し込み記号で、' +
         '意味が変わらないよう直していません）。時間軸には乗せていないので、手で補ってください。'
       : (ms.length ? '条件で発動するスキルを持った子は、この編成にはいません。'
-                   : '編成を決めると、時刻を置けないスキルがここに出ます。');
+                   : '編成を決めると条件発動のスキルが出ます。');
   }
 
   function drawRefList() {
@@ -2333,7 +2331,7 @@
     }
   });
 
-  el('ver').textContent = D.version;
+  el('ver').textContent = D.fetched;
   // **選択肢を先に作る。**空の `<select>` に値を入れても付かない
   drawDurOpts();
   // **URL が先、保存はそのあと。**人からもらったリンクを開いたときに上書きされない

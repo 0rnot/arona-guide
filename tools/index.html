@@ -7,14 +7,22 @@
 <meta name="description" content="ブルーアーカイブの計算まわりを、ブラウザだけで済ませるツール集。ゲームのデータをそのまま使っていて、入力した内容はどこにも送りません。">
 <meta name="theme-color" content="#c8892e">
 <link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="AronaBot">
+<meta property="og:locale" content="ja_JP">
+<meta property="og:url" content="https://arona-bot.com/tools/">
 <meta property="og:title" content="ブルアカの計算を、ブラウザだけで。">
 <meta property="og:description" content="AronaBot のツール — 先生レベル、装備素材、募集の確率。ゲームのデータをそのまま使って計算します。">
-<meta property="og:type" content="website">
-<meta property="og:url" content="https://arona-bot.com/tools/">
-<meta property="og:image" content="https://arona-bot.com/images/hero-night.jpg">
+<meta property="og:image" content="https://arona-bot.com/images/og/index.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="ブルアカの計算を、ブラウザだけで。 — AronaBot のツール">
 <meta name="twitter:card" content="summary_large_image">
-<link rel="stylesheet" href="../style.css?v=15">
-<link rel="stylesheet" href="tool.css?v=10">
+<meta name="twitter:title" content="ブルアカの計算を、ブラウザだけで。">
+<meta name="twitter:description" content="AronaBot のツール — 先生レベル、装備素材、募集の確率。ゲームのデータをそのまま使って計算します。">
+<meta name="twitter:image" content="https://arona-bot.com/images/og/index.jpg">
+<link rel="stylesheet" href="../style.css?v=16">
+<link rel="stylesheet" href="tool.css?v=11">
 <style>
   /* 一覧だけの見た目 */
   .filters {
@@ -34,7 +42,10 @@
   }
   .filters button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   .tcard[hidden] { display: none; }
-  .count { font-size: .78rem; color: var(--fg-mute); margin: 18px 0 0; }
+  /* **数は絞り込みのボタンのあと。**種類のボタンは JS があとから足すので、
+     DOM の順ではなく order で末尾へ回す（2026-08-31） */
+  .count { order: 9; font-size: .78rem; color: var(--fg-mute);
+           margin: 0 0 0 .7em; white-space: nowrap; }
   /* β テスト中の告知。**帯にして、要望の投げ口をその場に置く**
      （2026-08-30 の先生の指示——「一覧にβテスト中であることと、
      ツール毎のIssueについて依頼しといて」） */
@@ -145,144 +156,57 @@
 
   <p class="beta">
     <span class="tag">β</span><b>まだテスト中です。</b>
-    数字が合わない、表示が崩れる、使いにくい、こういう機能がほしい —— 見つけたら教えてください。
-    各ツールのページのいちばん下に「このツールへの要望・不具合」があります。
-    <a href="https://github.com/0rnot/arona-guide/issues" target="_blank" rel="noopener">これまでに届いたもの</a>も見られます。
-    GitHub のアカウントが無ければ、Discord の <b>@0r.not</b> へどうぞ。
+    おかしなところ・ほしい機能は、各ツールの下の「このツールへの要望・不具合」から。
+    <a href="https://github.com/0rnot/arona-guide/issues" target="_blank" rel="noopener">これまでに届いたもの</a>も見られます。<button type="button" class="qm" data-hint="GitHub のアカウントが無ければ、Discord の @0r.not へどうぞ。数字が合わない・表示が崩れる・使いにくい、どれでも構いません。"></button>
   </p>
 
   <div class="filters" id="filters" role="group" aria-label="種類でしぼりこむ">
     <span class="lb">種類</span>
     <button type="button" data-cat="" aria-pressed="true">すべて</button>
+    <!-- **数は絞り込みの隣に置く。**下に置いていた頃は、ボタンを押しても
+         何本に減ったかが画面の外だった（2026-08-31） -->
+    <p class="count" id="count"></p>
   </div>
 
   <div class="tgrid c3" id="grid">
 <!-- TOOLS:START -->
-    <a class="tcard" href="teacher-level/" data-cat="育成・計画" data-group="育てる">
+    <a class="tcard" href="teacher-level/" data-cat="育成" data-group="育てる">
       <img class="ticon" src="img/currency_icon_ap.webp" alt="" width="66" height="66" loading="lazy">
-      <div class="cat">育成・計画</div>
+      <div class="cat">育成</div>
       <h2>先生レベル計算機</h2>
-      <p>目標のレベルまで、あと何 AP・何日かかるかを出します。経験値 2 倍の期間や、Lv90 のあとにもらえる熟達証書の週上限にも対応。</p>
+      <p>目標のレベルまで、あと何 AP・何日か。経験値 2 倍の期間にも対応。</p>
       <span class="go">つかう <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M13.5 5.5 12.1 6.9l4.1 4.1H4v2h12.2l-4.1 4.1 1.4 1.4 6.5-6.5z"/></svg></span>
     </a>
 
-    <a class="tcard" href="report-credit/" data-cat="育成・計画" data-group="育てる">
+    <a class="tcard" href="report-credit/" data-cat="育成" data-group="育てる">
       <img class="ticon" src="img/item_icon_expitem_3.webp" alt="" width="66" height="66" loading="lazy">
-      <div class="cat">育成・計画</div>
+      <div class="cat">育成</div>
       <h2>特別依頼の行き先</h2>
-      <p>手持ちのレポート・強化珠・クレジットがそれぞれ何人ぶんかを数えて、今日はどちらを回るべきかを決めます。</p>
+      <p>レポートと強化珠、今日はどちらを回る日か。手持ちが何人ぶんかを数えます。</p>
       <span class="go">つかう <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M13.5 5.5 12.1 6.9l4.1 4.1H4v2h12.2l-4.1 4.1 1.4 1.4 6.5-6.5z"/></svg></span>
     </a>
 
-    <a class="tcard" href="student-cost/" data-cat="育成・計画" data-group="育てる">
+    <a class="tcard" href="student-cost/" data-cat="育成" data-group="育てる">
       <img class="ticon" src="img/currency_icon_gold.webp" alt="" width="66" height="66" loading="lazy">
-      <div class="cat">育成・計画</div>
+      <div class="cat">育成</div>
       <h2>生徒 1 人の育成費用</h2>
-      <p>生徒を選んで今と目標を入れると、レベル・スキル・星・固有武器・愛用品にかかるクレジットと素材が出ます。レポートの枚数も種類ごとに。</p>
+      <p>1 人を今から目標まで育てるのに要るクレジットと素材。</p>
       <span class="go">つかう <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M13.5 5.5 12.1 6.9l4.1 4.1H4v2h12.2l-4.1 4.1 1.4 1.4 6.5-6.5z"/></svg></span>
     </a>
 
-    <a class="tcard" href="oopart/" data-cat="育成・計画" data-group="育てる">
+    <a class="tcard" href="oopart/" data-cat="育成" data-group="育てる">
       <img class="ticon" src="img/item_icon_material_rohonc_3.webp" alt="" width="66" height="66" loading="lazy">
-      <div class="cat">育成・計画</div>
+      <div class="cat">育成</div>
       <h2>オーパーツ逆引き</h2>
-      <p>このオーパーツは誰が使うのか。素材を選ぶと、それを必要とする生徒が並びます。スキルを最大まで上げたときに何個要るかも段ごとに。技術ノートと戦術教育 BD にも対応しています。</p>
+      <p>このオーパーツは誰が使うのか。素材から生徒を引きます。</p>
       <span class="go">つかう <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M13.5 5.5 12.1 6.9l4.1 4.1H4v2h12.2l-4.1 4.1 1.4 1.4 6.5-6.5z"/></svg></span>
     </a>
 
-    <a class="tcard" href="equipment/" data-cat="装備" data-group="育てる">
-      <img class="ticon" src="img/equipment_icon_hat_tier10_piece.webp" alt="" width="66" height="66" loading="lazy">
-      <div class="cat">装備</div>
-      <h2>装備設計図の周回計算機</h2>
-      <p>いま持っている設計図の枚数を入れると、何がどれだけ足りないかと、そこを埋めるのにいちばん効率のいい任務ステージが出ます。9 部位すべて T10 まで。万能設計図・ドロップ 2 倍と 3 倍・ハードにも対応します。</p>
-      <span class="go">つかう <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M13.5 5.5 12.1 6.9l4.1 4.1H4v2h12.2l-4.1 4.1 1.4 1.4 6.5-6.5z"/></svg></span>
-    </a>
-
-    <a class="tcard" href="gear-stats/" data-cat="装備" data-group="育てる">
-      <img class="ticon" src="img/equipment_icon_hat_tier9.webp" alt="" width="66" height="66" loading="lazy">
-      <div class="cat">装備</div>
-      <h2>装備の効果早見</h2>
-      <p>部位ごとに T1 から T10 まで何が上がるか、1 段上げるとどれだけ伸びるか。愛用品 66 人ぶんと、固有武器の地形適性も引けます。</p>
-      <span class="go">つかう <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M13.5 5.5 12.1 6.9l4.1 4.1H4v2h12.2l-4.1 4.1 1.4 1.4 6.5-6.5z"/></svg></span>
-    </a>
-
-    <a class="tcard" href="bond/" data-cat="育成・計画" data-group="育てる">
+    <a class="tcard" href="bond/" data-cat="育成" data-group="育てる">
       <img class="ticon" src="img/item_icon_favor_0.webp" alt="" width="66" height="66" loading="lazy">
-      <div class="cat">育成・計画</div>
+      <div class="cat">育成</div>
       <h2>絆ランク計算機</h2>
-      <p>生徒を選ぶと顔と一緒に、その子に効く贈り物と絆経験値が出ます。目標のランクまで何個・何日かかるかも。</p>
-      <span class="go">つかう <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M13.5 5.5 12.1 6.9l4.1 4.1H4v2h12.2l-4.1 4.1 1.4 1.4 6.5-6.5z"/></svg></span>
-    </a>
-
-    <a class="tcard" href="pvp-ladder/" data-cat="戦術対抗戦" data-group="戦う">
-      <img class="ticon" src="img/item_icon_arenacoin.webp" alt="" width="66" height="66" loading="lazy">
-      <div class="cat">戦術対抗戦</div>
-      <h2>戦術対抗戦の順位経路</h2>
-      <p>今の順位から 1 位まで、あと何回勝てばいいか。挑戦できる相手の範囲をそのまま辿るので、11 位から 10 位へ挑めない段差も込みです。</p>
-      <span class="go">つかう <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M13.5 5.5 12.1 6.9l4.1 4.1H4v2h12.2l-4.1 4.1 1.4 1.4 6.5-6.5z"/></svg></span>
-    </a>
-
-    <a class="tcard" href="pvp-coin/" data-cat="戦術対抗戦" data-group="戦う">
-      <img class="ticon" src="img/item_icon_arenacoin.webp" alt="" width="66" height="66" loading="lazy">
-      <div class="cat">戦術対抗戦</div>
-      <h2>戦術対抗戦コインの収支</h2>
-      <p>順位帯と買うものから、コインが 1 日でどれだけ増減するかを出します。防衛勝利のぶんも数えます。</p>
-      <span class="go">つかう <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M13.5 5.5 12.1 6.9l4.1 4.1H4v2h12.2l-4.1 4.1 1.4 1.4 6.5-6.5z"/></svg></span>
-    </a>
-
-    <a class="tcard" href="raid/" data-cat="総力戦" data-group="戦う">
-      <img class="ticon" src="img/item_icon_raidcoin.webp" alt="" width="66" height="66" loading="lazy">
-      <div class="cat">総力戦</div>
-      <h2>総力戦・大決戦の TL 検索</h2>
-      <p>作った TL をこの端末に貯めて、ボス・難易度・地形・使った生徒で引き直せます。押せばコスト計算機に編成と撃つ順番がそのまま復元。よその TL 検索サイトへのリンクも条件から組み立てます。おまけで、ボスの装甲から有効な攻撃属性と生徒を出す相性チェッカーも付いています。</p>
-      <span class="go">つかう <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M13.5 5.5 12.1 6.9l4.1 4.1H4v2h12.2l-4.1 4.1 1.4 1.4 6.5-6.5z"/></svg></span>
-    </a>
-
-    <a class="tcard" href="cost-timeline/" data-cat="総力戦" data-group="戦う">
-      <img class="ticon" src="img/skill_regencost.webp" alt="" width="66" height="66" loading="lazy">
-      <div class="cat">総力戦</div>
-      <h2>TL のコスト計算機</h2>
-      <p>編成した 6 人（制約解除決戦なら 10 人）からコスト回復力を出して、EX を撃つ順番を並べると、それぞれが何秒目に撃てるかとコストの動きが出ます。テキストと URL で持ち出せます。</p>
-      <span class="go">つかう <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M13.5 5.5 12.1 6.9l4.1 4.1H4v2h12.2l-4.1 4.1 1.4 1.4 6.5-6.5z"/></svg></span>
-    </a>
-
-    <a class="tcard" href="raid-calendar/" data-cat="総力戦" data-group="戦う">
-      <img class="ticon" src="img/bossicon_binah.webp" alt="" width="66" height="66" loading="lazy">
-      <div class="cat">総力戦</div>
-      <h2>総力戦の開催カレンダー</h2>
-      <p>総力戦 93 回と大決戦 38 回の全記録。いつ・どのボスで・どの地形だったかを並べ、ボスごとの登場回数と前回、開催の間隔も出します。</p>
-      <span class="go">つかう <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M13.5 5.5 12.1 6.9l4.1 4.1H4v2h12.2l-4.1 4.1 1.4 1.4 6.5-6.5z"/></svg></span>
-    </a>
-
-    <a class="tcard" href="gacha/" data-cat="募集" data-group="集める・つくる">
-      <img class="ticon" src="img/currency_icon_gem.webp" alt="" width="66" height="66" loading="lazy">
-      <div class="cat">募集</div>
-      <h2>募集の天井計算機</h2>
-      <p>今の青輝石でピックアップをお迎えできる確率と、天井までに要る石を出します。呼び出しチャージの 100 / 200 カウントと募集回数特典を織り込んだ値です。</p>
-      <span class="go">つかう <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M13.5 5.5 12.1 6.9l4.1 4.1H4v2h12.2l-4.1 4.1 1.4 1.4 6.5-6.5z"/></svg></span>
-    </a>
-
-    <a class="tcard" href="treasure/" data-cat="イベント" data-group="集める・つくる">
-      <img class="ticon" src="img/item_icon_event_token_3_s29.webp" alt="" width="66" height="66" loading="lazy">
-      <div class="cat">イベント</div>
-      <h2>宝探しの確率計算機</h2>
-      <p>開けた結果を入れると、残りのマスに何がある確率かが出ます。サンプリングでも近似でもなく、条件に合う置き方を全部数え上げた値です。その回の備品の名前・大きさ・当てるともらえるものも入っています。</p>
-      <span class="go">つかう <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M13.5 5.5 12.1 6.9l4.1 4.1H4v2h12.2l-4.1 4.1 1.4 1.4 6.5-6.5z"/></svg></span>
-    </a>
-
-    <a class="tcard" href="tier/" data-cat="つくる" data-group="集める・つくる">
-      <img class="ticon" src="img/ui_common_icon_formation_star_r1.webp" alt="" width="66" height="66" loading="lazy">
-      <div class="cat">つくる</div>
-      <h2>Tier表メーカー</h2>
-      <p>生徒を並べて自分の Tier 表を作れます。顔の大きさを 3 段階で変えられて、画像として保存でき、URL をそのまま渡せば相手にも同じ並びが出ます。</p>
-      <span class="go">つかう <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M13.5 5.5 12.1 6.9l4.1 4.1H4v2h12.2l-4.1 4.1 1.4 1.4 6.5-6.5z"/></svg></span>
-    </a>
-
-    <a class="tcard" href="raid-score/" data-cat="総力戦" data-group="戦う">
-      <img class="ticon" src="img/ui_common_icon_time.webp" alt="" width="66" height="66" loading="lazy">
-      <div class="cat">総力戦</div>
-      <h2>総力戦のスコア計算機</h2>
-      <p>クリアタイムを入れるとスコアが出ます。逆に、目標スコアに届くには何分何秒で倒せばいいかも。総力戦・大決戦の全ボス・全難易度に対応していて、内訳（倒したぶん・HP ぶん・時間ぶん）も分けて出します。</p>
+      <p>その生徒に効く贈り物と、目標のランクまでの個数・日数。</p>
       <span class="go">つかう <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M13.5 5.5 12.1 6.9l4.1 4.1H4v2h12.2l-4.1 4.1 1.4 1.4 6.5-6.5z"/></svg></span>
     </a>
 
@@ -290,7 +214,7 @@
       <img class="ticon" src="img/ui_common_icon_formation_star_r3.webp" alt="" width="66" height="66" loading="lazy">
       <div class="cat">育成</div>
       <h2>星上げの計算機</h2>
-      <p>生徒を選んで今の星と目標を押すと、要る神名文字とクレジットが出ます。星ごとに攻撃力・最大 HP・回復力がどれだけ伸びるか、絆ランクの上限がどこまで開くかも一緒に。手持ちを入れれば、あと何週間かかるかも出します。</p>
+      <p>今の星から目標まで、要る神名文字とクレジット。伸び幅も一緒に。</p>
       <span class="go">つかう <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M13.5 5.5 12.1 6.9l4.1 4.1H4v2h12.2l-4.1 4.1 1.4 1.4 6.5-6.5z"/></svg></span>
     </a>
 
@@ -298,15 +222,7 @@
       <img class="ticon" src="img/item_icon_favor_lv2_package.webp" alt="" width="66" height="66" loading="lazy">
       <div class="cat">育成</div>
       <h2>贈り物の逆引き</h2>
-      <p>贈り物を選ぶと、それが ×4 で効く生徒が顔つきで並びます。持て余している贈り物を誰に配ればいいかが一目で分かります。学校で絞り込めて、×3・×2 の生徒も出します。</p>
-      <span class="go">つかう <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M13.5 5.5 12.1 6.9l4.1 4.1H4v2h12.2l-4.1 4.1 1.4 1.4 6.5-6.5z"/></svg></span>
-    </a>
-
-    <a class="tcard" href="matchup/" data-cat="戦闘" data-group="戦う">
-      <img class="ticon" src="img/ui_type_attack.webp" alt="" width="66" height="66" loading="lazy">
-      <div class="cat">戦闘</div>
-      <h2>属性と地形の早見</h2>
-      <p>攻撃属性と装甲の倍率、地形適性の 6 段をそのまま並べます。相手の装甲と地形を選ぶと、有効な属性の生徒が地形適性つきで並びます。分解と複合装甲にも対応しています。</p>
+      <p>贈り物を選ぶと、×4 で効く生徒が顔つきで並びます。</p>
       <span class="go">つかう <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M13.5 5.5 12.1 6.9l4.1 4.1H4v2h12.2l-4.1 4.1 1.4 1.4 6.5-6.5z"/></svg></span>
     </a>
 
@@ -314,31 +230,7 @@
       <img class="ticon" src="img/item_icon_workbook_potentialattack.webp" alt="" width="66" height="66" loading="lazy">
       <div class="cat">育成</div>
       <h2>潜在能力解放の計算機</h2>
-      <p>生徒と、最大 HP・攻撃力・治癒力の 3 枠それぞれの今と目標を入れると、要るオーパーツの欠片・壊れたオーパーツ・応用ワークブック・クレジットが出ます。オーパーツから「誰に使うか」も引けます。</p>
-      <span class="go">つかう <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M13.5 5.5 12.1 6.9l4.1 4.1H4v2h12.2l-4.1 4.1 1.4 1.4 6.5-6.5z"/></svg></span>
-    </a>
-
-    <a class="tcard" href="weapon/" data-cat="育成" data-group="育てる">
-      <img class="ticon" src="img/equipment_icon_weaponexpgrowthz_3.webp" alt="" width="66" height="66" loading="lazy">
-      <div class="cat">育成</div>
-      <h2>固有武器の強化計算機</h2>
-      <p>固有武器の今の★とレベルから目標までに要る経験値と、★上げの神名文字・クレジットを出します。武器パーツ 16 種それぞれで賄ったときの個数も並べます。</p>
-      <span class="go">つかう <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M13.5 5.5 12.1 6.9l4.1 4.1H4v2h12.2l-4.1 4.1 1.4 1.4 6.5-6.5z"/></svg></span>
-    </a>
-
-    <a class="tcard" href="farm/" data-cat="育成・計画" data-group="育てる">
-      <img class="ticon" src="img/item_icon_skillbook_gehenna_2.webp" alt="" width="66" height="66" loading="lazy">
-      <div class="cat">育成・計画</div>
-      <h2>素材の掘り場</h2>
-      <p>足りない素材を選ぶと、それが出る任務と指名手配が期待値の高い順に並びます。AP 10 あたり何個か、指名手配券 1 枚あたり何個かを分けて出すので、今日どこを回るかがすぐ決まります。</p>
-      <span class="go">つかう <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M13.5 5.5 12.1 6.9l4.1 4.1H4v2h12.2l-4.1 4.1 1.4 1.4 6.5-6.5z"/></svg></span>
-    </a>
-
-    <a class="tcard" href="equip-level/" data-cat="装備" data-group="育てる">
-      <img class="ticon" src="img/equipment_icon_exp_3.webp" alt="" width="66" height="66" loading="lazy">
-      <div class="cat">装備</div>
-      <h2>装備の強化珠計算機</h2>
-      <p>T1 から T10 まで、装備を目標のレベルまで上げるのに強化珠が何個要るかを出します。手持ちを入れれば足りない数と、ショップで買ったときのクレジットも一緒に出ます。</p>
+      <p>潜在能力を目標まで上げるのに要るオーパーツとクレジット。</p>
       <span class="go">つかう <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M13.5 5.5 12.1 6.9l4.1 4.1H4v2h12.2l-4.1 4.1 1.4 1.4 6.5-6.5z"/></svg></span>
     </a>
 
@@ -346,39 +238,157 @@
       <img class="ticon" src="img/ui_school_icon_schedule_favor.webp" alt="" width="66" height="66" loading="lazy">
       <div class="cat">育成</div>
       <h2>スケジュールの期待値</h2>
-      <p>どの場所にスケジュールを送ると絆経験値と神名文字がいちばん多いかを、確率込みの期待値で出します。ランクを上げるのに何回要るか、チケットが 1 枚増えるのはどこかも。</p>
+      <p>どこにスケジュールを送ると絆経験値と神名文字がいちばん多いか。</p>
       <span class="go">つかう <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M13.5 5.5 12.1 6.9l4.1 4.1H4v2h12.2l-4.1 4.1 1.4 1.4 6.5-6.5z"/></svg></span>
     </a>
 
-    <a class="tcard" href="cafe/" data-cat="育成・計画" data-group="育てる">
+    <a class="tcard" href="equipment/" data-cat="装備" data-group="育てる">
+      <img class="ticon" src="img/equipment_icon_hat_tier10_piece.webp" alt="" width="66" height="66" loading="lazy">
+      <div class="cat">装備</div>
+      <h2>装備設計図の周回計算機</h2>
+      <p>設計図の枚数を入れると、次に回る任務ステージが 1 本に絞られます。</p>
+      <span class="go">つかう <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M13.5 5.5 12.1 6.9l4.1 4.1H4v2h12.2l-4.1 4.1 1.4 1.4 6.5-6.5z"/></svg></span>
+    </a>
+
+    <a class="tcard" href="gear-stats/" data-cat="装備" data-group="育てる">
+      <img class="ticon" src="img/equipment_icon_hat_tier9.webp" alt="" width="66" height="66" loading="lazy">
+      <div class="cat">装備</div>
+      <h2>装備の効果早見</h2>
+      <p>部位ごとに T1〜T10 で何がどれだけ伸びるか。愛用品と固有武器も。</p>
+      <span class="go">つかう <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M13.5 5.5 12.1 6.9l4.1 4.1H4v2h12.2l-4.1 4.1 1.4 1.4 6.5-6.5z"/></svg></span>
+    </a>
+
+    <a class="tcard" href="weapon/" data-cat="装備" data-group="育てる">
+      <img class="ticon" src="img/equipment_icon_weaponexpgrowthz_3.webp" alt="" width="66" height="66" loading="lazy">
+      <div class="cat">装備</div>
+      <h2>固有武器の強化計算機</h2>
+      <p>固有武器を目標まで上げるのに要る経験値・神名文字・クレジット。</p>
+      <span class="go">つかう <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M13.5 5.5 12.1 6.9l4.1 4.1H4v2h12.2l-4.1 4.1 1.4 1.4 6.5-6.5z"/></svg></span>
+    </a>
+
+    <a class="tcard" href="equip-level/" data-cat="装備" data-group="育てる">
+      <img class="ticon" src="img/equipment_icon_exp_3.webp" alt="" width="66" height="66" loading="lazy">
+      <div class="cat">装備</div>
+      <h2>装備の強化珠計算機</h2>
+      <p>装備を目標のレベルまで上げるのに、強化珠が何個要るか。</p>
+      <span class="go">つかう <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M13.5 5.5 12.1 6.9l4.1 4.1H4v2h12.2l-4.1 4.1 1.4 1.4 6.5-6.5z"/></svg></span>
+    </a>
+
+    <a class="tcard" href="cafe/" data-cat="カフェ" data-group="育てる">
       <img class="ticon" src="img/ui_cafe_icon_comfort.webp" alt="" width="66" height="66" loading="lazy">
-      <div class="cat">育成・計画</div>
+      <div class="cat">カフェ</div>
       <h2>カフェの収入計算機</h2>
-      <p>快適度を入れると 1 時間あたりのクレジットと AP、倉庫が満杯になるまでの時間が出ます。ランクごとの快適度上限と招待人数、ランクアップに要るクレジットも一緒に。</p>
+      <p>快適度から、1 時間あたりのクレジットと AP、倉庫が満杯になる時間。</p>
       <span class="go">つかう <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M13.5 5.5 12.1 6.9l4.1 4.1H4v2h12.2l-4.1 4.1 1.4 1.4 6.5-6.5z"/></svg></span>
     </a>
 
-    <a class="tcard" href="cafe-layout/" data-cat="育成・計画" data-group="育てる">
+    <a class="tcard" href="cafe-layout/" data-cat="カフェ" data-group="育てる">
       <img class="ticon" src="img/furniture_icon_sofaset.webp" alt="" width="66" height="66" loading="lazy">
-      <div class="cat">育成・計画</div>
+      <div class="cat">カフェ</div>
       <h2>カフェの家具配置</h2>
-      <p>カフェの床と壁に家具を並べて、置ける・置けないと快適度の合計を確かめます。公式の家具テンプレート 20 個をそのまま読み込めます。床 20×20・壁 20×7 はゲームのデータから裏取りしています。</p>
+      <p>カフェの床と壁に家具を並べて、置けるかと快適度の合計を確かめます。</p>
+      <span class="go">つかう <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M13.5 5.5 12.1 6.9l4.1 4.1H4v2h12.2l-4.1 4.1 1.4 1.4 6.5-6.5z"/></svg></span>
+    </a>
+
+    <a class="tcard" href="raid/" data-cat="総力戦" data-group="戦う">
+      <img class="ticon" src="img/item_icon_raidcoin.webp" alt="" width="66" height="66" loading="lazy">
+      <div class="cat">総力戦</div>
+      <h2>総力戦・大決戦の TL 検索</h2>
+      <p>ボスを絵から選ぶと、その相手の TL・有効な属性・連れて行く生徒が出ます。</p>
+      <span class="go">つかう <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M13.5 5.5 12.1 6.9l4.1 4.1H4v2h12.2l-4.1 4.1 1.4 1.4 6.5-6.5z"/></svg></span>
+    </a>
+
+    <a class="tcard" href="cost-timeline/" data-cat="総力戦" data-group="戦う">
+      <img class="ticon" src="img/skill_regencost.webp" alt="" width="66" height="66" loading="lazy">
+      <div class="cat">総力戦</div>
+      <h2>TL のコスト計算機</h2>
+      <p>この編成なら、その EX は何秒目に撃てるのか。</p>
+      <span class="go">つかう <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M13.5 5.5 12.1 6.9l4.1 4.1H4v2h12.2l-4.1 4.1 1.4 1.4 6.5-6.5z"/></svg></span>
+    </a>
+
+    <a class="tcard" href="raid-calendar/" data-cat="総力戦" data-group="戦う">
+      <img class="ticon" src="img/bossicon_binah.webp" alt="" width="66" height="66" loading="lazy">
+      <div class="cat">総力戦</div>
+      <h2>総力戦の開催カレンダー</h2>
+      <p>総力戦 93 回と大決戦 38 回の全記録。次はいつごろか。</p>
+      <span class="go">つかう <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M13.5 5.5 12.1 6.9l4.1 4.1H4v2h12.2l-4.1 4.1 1.4 1.4 6.5-6.5z"/></svg></span>
+    </a>
+
+    <a class="tcard" href="raid-score/" data-cat="総力戦" data-group="戦う">
+      <img class="ticon" src="img/ui_common_icon_time.webp" alt="" width="66" height="66" loading="lazy">
+      <div class="cat">総力戦</div>
+      <h2>総力戦のスコア計算機</h2>
+      <p>クリアタイムからスコアを出す。目標スコアからの逆算も。</p>
+      <span class="go">つかう <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M13.5 5.5 12.1 6.9l4.1 4.1H4v2h12.2l-4.1 4.1 1.4 1.4 6.5-6.5z"/></svg></span>
+    </a>
+
+    <a class="tcard" href="pvp-ladder/" data-cat="戦術対抗戦" data-group="戦う">
+      <img class="ticon" src="img/item_icon_arenacoin.webp" alt="" width="66" height="66" loading="lazy">
+      <div class="cat">戦術対抗戦</div>
+      <h2>戦術対抗戦の順位経路</h2>
+      <p>今の順位から 1 位まで、あと何回勝てばいいか。</p>
+      <span class="go">つかう <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M13.5 5.5 12.1 6.9l4.1 4.1H4v2h12.2l-4.1 4.1 1.4 1.4 6.5-6.5z"/></svg></span>
+    </a>
+
+    <a class="tcard" href="pvp-coin/" data-cat="戦術対抗戦" data-group="戦う">
+      <img class="ticon" src="img/item_icon_arenacoin.webp" alt="" width="66" height="66" loading="lazy">
+      <div class="cat">戦術対抗戦</div>
+      <h2>戦術対抗戦コインの収支</h2>
+      <p>順位帯と買うもので、コインが 1 日にどれだけ増減するか。</p>
+      <span class="go">つかう <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M13.5 5.5 12.1 6.9l4.1 4.1H4v2h12.2l-4.1 4.1 1.4 1.4 6.5-6.5z"/></svg></span>
+    </a>
+
+    <a class="tcard" href="matchup/" data-cat="戦闘" data-group="戦う">
+      <img class="ticon" src="img/ui_type_attack.webp" alt="" width="66" height="66" loading="lazy">
+      <div class="cat">戦闘</div>
+      <h2>属性と地形の早見</h2>
+      <p>相手の装甲と地形から、有効な属性と生徒を引きます。</p>
+      <span class="go">つかう <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M13.5 5.5 12.1 6.9l4.1 4.1H4v2h12.2l-4.1 4.1 1.4 1.4 6.5-6.5z"/></svg></span>
+    </a>
+
+    <a class="tcard" href="gacha/" data-cat="募集" data-group="集める・つくる">
+      <img class="ticon" src="img/currency_icon_gem.webp" alt="" width="66" height="66" loading="lazy">
+      <div class="cat">募集</div>
+      <h2>募集の天井計算機</h2>
+      <p>今の石でピックアップを引ける確率と、天井までに要る石。</p>
+      <span class="go">つかう <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M13.5 5.5 12.1 6.9l4.1 4.1H4v2h12.2l-4.1 4.1 1.4 1.4 6.5-6.5z"/></svg></span>
+    </a>
+
+    <a class="tcard" href="treasure/" data-cat="イベント" data-group="集める・つくる">
+      <img class="ticon" src="img/item_icon_event_token_3_s29.webp" alt="" width="66" height="66" loading="lazy">
+      <div class="cat">イベント</div>
+      <h2>宝探しの確率計算機</h2>
+      <p>開けた結果から、残りのマスに何がある確率かを全部数え上げます。</p>
+      <span class="go">つかう <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M13.5 5.5 12.1 6.9l4.1 4.1H4v2h12.2l-4.1 4.1 1.4 1.4 6.5-6.5z"/></svg></span>
+    </a>
+
+    <a class="tcard" href="farm/" data-cat="素材集め" data-group="集める・つくる">
+      <img class="ticon" src="img/item_icon_skillbook_gehenna_2.webp" alt="" width="66" height="66" loading="lazy">
+      <div class="cat">素材集め</div>
+      <h2>素材の掘り場</h2>
+      <p>足りない素材を選ぶと、効率のいい周回先が順に並びます。</p>
+      <span class="go">つかう <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M13.5 5.5 12.1 6.9l4.1 4.1H4v2h12.2l-4.1 4.1 1.4 1.4 6.5-6.5z"/></svg></span>
+    </a>
+
+    <a class="tcard" href="tier/" data-cat="つくる" data-group="集める・つくる">
+      <img class="ticon" src="img/ui_common_icon_formation_star_r1.webp" alt="" width="66" height="66" loading="lazy">
+      <div class="cat">つくる</div>
+      <h2>Tier表メーカー</h2>
+      <p>生徒を並べて自分の Tier 表を作る。画像でも URL でも渡せます。</p>
       <span class="go">つかう <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M13.5 5.5 12.1 6.9l4.1 4.1H4v2h12.2l-4.1 4.1 1.4 1.4 6.5-6.5z"/></svg></span>
     </a>
 
     <div class="tcard soon" data-cat="つくっている途中" data-group="">
       <div class="cat">つくっている途中</div>
       <h2>まだ増えます</h2>
-      <p>総力戦・大決戦のボーダーあたりを作っています。ほしいものがあれば、各ツールの下の「このツールへの要望・不具合」からどうぞ。</p>
+      <p>総力戦・大決戦のボーダーを作っています。ほしいものは各ツールの下の「要望・不具合」から。</p>
     </div>
 <!-- TOOLS:END -->
   </div>
 
-  <p class="count" id="count"></p>
-
   <div class="note-box">
     <p>計算はブラウザの中だけでやっています。入力した数字が外に出ることはありません。</p>
-    <p>数字の出どころは各ツールの下に書いてあります。ゲームのデータから取った値か、攻略サイトの記載か、目安として置いた値かを分けて書いているので、おかしいところがあれば @0r.not まで教えてください。</p>
+    <p>数字の出どころは各ツールの下に書いてあります。<button type="button" class="qm" data-hint="ゲームのデータから取った値か、攻略サイトの記載か、目安として置いた値かを分けて書いています。おかしいところがあれば @0r.not まで教えてください。"></button></p>
   </div>
 
 </div>
@@ -453,5 +463,6 @@
   apply('');
 })();
 </script>
+<script src="hint.js?v=1"></script>
 </body>
 </html>

@@ -7,14 +7,22 @@
 <meta name="description" content="攻撃属性と装甲の倍率、地形適性の 6 段をそのまま並べます。相手の装甲と地形を選ぶと、有効な属性の生徒が適性つきで並びます。">
 <meta name="theme-color" content="#c8892e">
 <link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="AronaBot">
+<meta property="og:locale" content="ja_JP">
+<meta property="og:url" content="https://arona-bot.com/tools/matchup/">
 <meta property="og:title" content="属性と地形の早見">
 <meta property="og:description" content="攻撃属性と装甲の倍率、地形適性の 6 段をそのまま並べます。相手の装甲と地形を選ぶと、有効な属性の生徒が適性つきで並びます。">
-<meta property="og:type" content="website">
-<meta property="og:url" content="https://arona-bot.com/tools/matchup/">
-<meta property="og:image" content="https://arona-bot.com/images/hero-night.jpg">
+<meta property="og:image" content="https://arona-bot.com/images/og/matchup.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="属性と地形の早見 — AronaBot のツール">
 <meta name="twitter:card" content="summary_large_image">
-<link rel="stylesheet" href="../../style.css?v=15">
-<link rel="stylesheet" href="../tool.css?v=10">
+<meta name="twitter:title" content="属性と地形の早見">
+<meta name="twitter:description" content="攻撃属性と装甲の倍率、地形適性の 6 段をそのまま並べます。相手の装甲と地形を選ぶと、有効な属性の生徒が適性つきで並びます。">
+<meta name="twitter:image" content="https://arona-bot.com/images/og/matchup.jpg">
+<link rel="stylesheet" href="../../style.css?v=16">
+<link rel="stylesheet" href="../tool.css?v=11">
 <style>
   /* 倍率の表。**升に色を付けて、強い・弱いが一目で分かるように。** */
   .mx { width: 100%; border-collapse: collapse; font-size: .82rem; min-width: 520px; }
@@ -152,7 +160,7 @@
   </div>
   <div class="thero-body">
     <h1>属性と地形の早見</h1>
-    <p class="thero-lead">攻撃属性と装甲の倍率、地形適性の 6 段をそのまま並べます。相手の装甲と地形を選ぶと、有効な属性の生徒が適性つきで並びます。</p>
+    <p class="thero-lead">相手の装甲と地形を選ぶと、有効な属性の生徒が適性つきで並びます。</p>
   </div>
 </header>
 
@@ -164,7 +172,7 @@
     <div class="tcol">
       <div class="panel">
         <div class="panel-h"><h2>相手の条件</h2></div>
-        <p class="lead" style="margin:0 0 12px">相手の装甲と、戦う地形を選んでください。<b>この 2 つで、連れて行きたい生徒が決まります。</b></p>
+        <p class="lead" style="margin:0 0 12px">相手の装甲と、戦う地形を選んでください。</p>
         <div class="fields c2">
           <div class="field">
             <label for="i-armor">相手の装甲</label>
@@ -229,7 +237,7 @@
 
       <div class="panel">
         <div class="panel-h"><h2>地形適性の 6 段</h2></div>
-        <p class="lead" style="margin:0 0 12px"><b>3 つの地形（市街地・屋外・屋内）で値は同じです。</b>変わるのは段だけです。</p>
+        <p class="lead" style="margin:0 0 12px"><b>3 つの地形で値は同じです。</b>変わるのは段だけです。</p>
         <div class="tscroll">
           <table class="dt">
             <thead><tr><th>適性</th><th>攻撃力</th><th>ShotFactor</th><th>BlockFactor</th></tr></thead>
@@ -250,7 +258,7 @@
           <div>
             <p class="nm" id="stu-name">まだ誰も選んでいません</p>
             <div class="tags" id="stu-tags"></div>
-            <p class="ad" id="stu-ad">名前を入れると、その子の攻撃属性・装甲・3 つの地形の適性が出ます。</p>
+            <p class="ad" id="stu-ad">名前を入れると、攻撃属性・装甲・地形適性が出ます。</p>
           </div>
         </div>
       </div>
@@ -308,7 +316,8 @@
 ]};</script>
 <script src="../tour.js?v=2"></script>
 
-<script src="../share.js?v=1"></script>
+<script src="../share.js?v=2"></script>
+<script src="../hint.js?v=1"></script>
 
 <footer>
   <div class="foot-inner">
@@ -419,7 +428,7 @@
       el('stu-img').outerHTML = '<div class="ph" id="stu-img">none</div>';
       el('stu-name').textContent = 'まだ誰も選んでいません';
       el('stu-tags').innerHTML = '';
-      el('stu-ad').textContent = '名前を入れると、その子の攻撃属性・装甲・3 つの地形の適性が出ます。';
+      el('stu-ad').textContent = '名前を入れると、攻撃属性・装甲・地形適性が出ます。';
       return;
     }
     card.classList.remove('none');
@@ -494,8 +503,7 @@
     el('o-n').textContent = n + ' 人';
     el('o-n-sub').textContent = M.stu.length + ' 人のうち';
     el('list-lead').innerHTML = esc(M.aJa[armor] || armor) + 'を' + esc(M.trJa[terr] || terr) +
-      'で相手にするときです。<b>顔の下の SS / S / A が、その地形での適性</b>です。' +
-      '倍率の高い順に並べて、同じ倍率の中では適性の高い順にしています。';
+      'で相手にするときです。<b>顔の下の SS / S / A が、その地形での適性</b>です。';
     drawStudent();
     location.replace('#' + toHash());
   }
@@ -542,7 +550,7 @@
 
   el('src-n').textContent = M.checked;
   el('src-stu').textContent = M.stu.length;
-  el('ver').textContent = M.version;
+  el('ver').textContent = M.fetched;
   draw();
 })();
 </script>

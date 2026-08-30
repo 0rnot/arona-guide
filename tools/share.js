@@ -1,4 +1,4 @@
-/* 結果の共有。**15 個のツールで同じものを使う。**
+/* 結果の共有。**26 本のツールで同じものを使う。**
 
    各ツールに書き足すのは `<div class="sharebar" id="sharebar"></div>` の
    1 行だけ。**中身はこのファイルが画面から読む。**`.stat` の作り
@@ -22,11 +22,19 @@
 
   function toolName() { return (document.title || '').split('｜')[0].trim(); }
 
+  /** **今この目で見えているか。**タブを入れたツールでは、開いていない面の
+      `.stat` も DOM に残っている。そこを拾うと、見ている面と違う数字が
+      共有されてしまう（2026-08-31 にタブを入れて気づいた） */
+  function shown(el) {
+    return !!(el.offsetWidth || el.offsetHeight || el.getClientRects().length);
+  }
+
   /** 画面に出ている結果を、上から数行ぶん。**「—」や空はまだ計算前なので飛ばす。** */
   function lines() {
     var out = [];
     var stats = document.querySelectorAll('.stat');
     for (var i = 0; i < stats.length && out.length < MAX_LINES; i++) {
+      if (!shown(stats[i])) continue;
       var k = stats[i].querySelector('.k'), v = stats[i].querySelector('.v');
       if (!k || !v) continue;
       var kt = (k.textContent || '').replace(/\s+/g, ' ').trim();
@@ -37,9 +45,17 @@
     return out;
   }
 
+  /** まだ何も入れていないときに添える一言。**og:description をそのまま使う。**
+      ツール名だけが飛んでいくと、受け取った側に何のことか分からない */
+  function intro() {
+    var m = document.querySelector('meta[property="og:description"]');
+    return m ? (m.getAttribute('content') || '') : '';
+  }
+
   function text() {
     var ls = lines();
-    return toolName() + (ls.length ? '\n' + ls.join('\n') : '') + '\n\n#ブルアカ';
+    var body = ls.length ? ls.join('\n') : intro();
+    return toolName() + (body ? '\n' + body : '') + '\n\n#ブルアカ';
   }
   /** 配る URL。**状態をハッシュに入れているツールは、押された時点で組み直す。**
       TL は「URL をコピー」を押すまで `location.hash` を書き換えないので、

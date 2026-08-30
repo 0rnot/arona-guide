@@ -7,14 +7,22 @@
 <meta name="description" content="クリアタイムからスコアを出します。逆に、目標スコアに届くのに何分何秒で倒せばいいかも出せます。総力戦と大決戦の全ボス・全難易度に対応。">
 <meta name="theme-color" content="#c8892e">
 <link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="AronaBot">
+<meta property="og:locale" content="ja_JP">
+<meta property="og:url" content="https://arona-bot.com/tools/raid-score/">
 <meta property="og:title" content="総力戦のスコア計算機">
 <meta property="og:description" content="クリアタイムからスコアを出します。逆に、目標スコアに届くのに何分何秒で倒せばいいかも出せます。総力戦と大決戦の全ボス・全難易度に対応。">
-<meta property="og:type" content="website">
-<meta property="og:url" content="https://arona-bot.com/tools/raid-score/">
-<meta property="og:image" content="https://arona-bot.com/images/hero-night.jpg">
+<meta property="og:image" content="https://arona-bot.com/images/og/raid-score.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="総力戦のスコア計算機 — AronaBot のツール">
 <meta name="twitter:card" content="summary_large_image">
-<link rel="stylesheet" href="../../style.css?v=15">
-<link rel="stylesheet" href="../tool.css?v=10">
+<meta name="twitter:title" content="総力戦のスコア計算機">
+<meta name="twitter:description" content="クリアタイムからスコアを出します。逆に、目標スコアに届くのに何分何秒で倒せばいいかも出せます。総力戦と大決戦の全ボス・全難易度に対応。">
+<meta name="twitter:image" content="https://arona-bot.com/images/og/raid-score.jpg">
+<link rel="stylesheet" href="../../style.css?v=16">
+<link rel="stylesheet" href="../tool.css?v=11">
 <style>
   /* 相手を選ぶ */
   .bosses { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 8px; }
@@ -120,9 +128,7 @@
     }
   });
 })();
-</script>` <div class="topbar">
-</div>
-<div class="toast" id="toast-page" role="status" aria-live="polite"></div>
+</script>
 
 <header class="thero">
   <div class="thero-media" aria-hidden="true">
@@ -133,7 +139,7 @@
   </div>
   <div class="thero-body">
     <h1>総力戦のスコア計算機</h1>
-    <p class="thero-lead">クリアタイムからスコアを出します。逆に、目標スコアに届くのに何分何秒で倒せばいいかも出せます。総力戦と大決戦の全ボス・全難易度に対応。</p>
+    <p class="thero-lead">クリアタイムからスコアを出します。逆に、目標スコアから要るタイムも出せます。</p>
   </div>
 </header>
 
@@ -159,7 +165,7 @@
 
       <div class="panel">
         <div class="panel-h"><h2>クリアタイム</h2></div>
-        <p class="lead" style="margin:0 0 12px"><b>時間ぶんは、部隊をまたいだ合計の戦闘時間で決まります。</b>2 凸なら 1 回目にかかった時間も足されます。倒せなかった回はふつう時間切れなので、制限時間そのものを入れてあります。</p>
+        <p class="lead" style="margin:0 0 12px"><b>時間ぶんは、部隊をまたいだ合計の戦闘時間で決まります。</b><button type="button" class="qm" data-hint="2 凸なら 1 回目にかかった時間も足されます。倒せなかった回はふつう時間切れなので、制限時間そのものを入れてあります。"></button></p>
         <div class="btnrow" style="margin-bottom:12px">
           <div class="seg" id="turns" role="group" aria-label="凸数">
             <button type="button" data-n="1" aria-pressed="true">1 凸</button>
@@ -184,7 +190,7 @@
 
       <div class="panel">
         <div class="panel-h"><h2>目標スコアから逆に引く</h2></div>
-        <p class="lead" style="margin:0 0 12px">狙いたいスコアを入れると、<b>何分何秒で倒せば届くか</b>が出ます。</p>
+        <p class="lead" style="margin:0 0 12px">狙いたいスコアを入れると、<b>要るタイム</b>が出ます。</p>
         <div class="numrow wide">
           <div class="nm">目標のスコア<small id="goal-note">&nbsp;</small></div>
           <input id="i-goal" type="number" inputmode="numeric" min="0" step="1000" value="0">
@@ -271,7 +277,8 @@
 <script>window.TOUR = {"key": "raid-score", "steps": [{"sel": "#bosses", "t": "ボスを選びます", "d": "総力戦と大決戦を切り替えられます。地形と装甲はスコアに関係しないので、選ぶ必要はありません。"}, {"sel": "#times", "t": "クリアタイムを入れます", "d": "倒すまでにかかった合計の時間です。部隊をまたいだぶんも足してください。"}, {"sel": "#o-score", "t": "スコアが出ます", "d": "内訳と、いちばん高いときとの差も出します。倒しきれなかったときは、削れた HP の割合を入れてください。"}, {"sel": "#i-goal", "t": "逆にも引けます", "d": "狙いたいスコアを入れると、何分何秒で倒せば届くかが出ます。"}]};</script>
 <script src="../tour.js?v=2"></script>
 
-<script src="../share.js?v=1"></script>
+<script src="../share.js?v=2"></script>
+<script src="../hint.js?v=1"></script>
 
 <footer>
   <div class="foot-inner">
@@ -452,7 +459,8 @@
     el('goal-note').textContent = fmt(lo) + ' 〜 ' + fmt(hi) + ' 点のあいだで入れてください';
     drawGoal(r, lo, hi);
     el('pick-lead').innerHTML = esc(r.n) + '（' + esc(R.diffJa[r.d] || r.d) + '）は<b>1 戦 ' +
-      r.du + ' 秒</b>。<b>地形と装甲はスコアに関係しません。</b>';
+      r.du + ' 秒</b>。' +
+      '<button type="button" class="qm" data-hint="地形と装甲はスコアに関係しません。"></button>';
   }
 
   /* 目盛り。**現実に届く範囲の中で、どこに居るか。**
@@ -493,9 +501,7 @@
     var near = rows.reduce(function (a, b) {
       return Math.abs(b - sec) < Math.abs(a - sec) ? b : a;
     }, rows[0]);
-    el('tb-lead').innerHTML = '倒しきったときのスコアです。<b>1 秒あたり ' + fmt(r.ps) +
-      ' 点</b>ずつ減ります（合計 ' + (R.span / 60) + ' 分で時間ぶんが 0）。' +
-      '横は<b>部隊をまたいだ合計</b>の戦闘時間で、' + turns + ' 凸ぶんの ' + clock(r.du * turns) + ' まで並べています。';
+    el('tb-lead').innerHTML = '倒しきったときのスコアです。横は<b>部隊をまたいだ合計</b>の戦闘時間で、' + turns + ' 凸ぶんの ' + clock(r.du * turns) + ' まで並べています。';
     el('tb').innerHTML = rows.map(function (t) {
       var s2 = r.cl + r.hp + Math.max(0, r.mx - t * r.ps);
       var on = t === near;
@@ -586,7 +592,7 @@
     });
   });
 
-  el('ver').textContent = R.version;
+  el('ver').textContent = R.fetched;
   drawBosses();
   drawTimes();
   draw();

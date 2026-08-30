@@ -39,16 +39,18 @@
   var cat = 'Hat';
   function drawCats() {
     el('cat').innerHTML = Object.keys(G.catJa).map(function (c) {
+      // **アイコンは既存の gi-icon-inven-* を流用。**部位名と 1:1 で対応する
       return '<button type="button" data-c="' + c + '" aria-pressed="' + (c === cat) + '">' +
+        '<span class="gi gi-icon-inven-' + c.toLowerCase() + '" aria-hidden="true"></span>' +
         esc(G.catJa[c]) + '</button>';
     }).join('');
   }
   function drawTiers() {
     var list = (G.eq[cat] || []).slice().sort(function (a, b) { return b.t - a.t; });
     var by = {}; list.forEach(function (e) { by[e.t] = e; });
-    el('eq-lead').innerHTML = esc(G.catJa[cat]) + 'は T1 から T' +
-      Math.max.apply(null, list.map(function (e) { return e.t; })) +
-      ' まであります。<b>右の数字は、1 つ下の段を上げきった状態からの伸びです。</b>';
+    el('eq-lead').innerHTML = esc(G.catJa[cat]) + 'は T1〜T' +
+      Math.max.apply(null, list.map(function (e) { return e.t; })) + '。' +
+      '<button type="button" class="qm" data-hint="右の数字は、1つ下の段を上げきった状態からの伸びです。"></button>';
     el('tiers').innerHTML = list.map(function (e) {
       var prev = by[e.t - 1];
       var up = '';
@@ -140,6 +142,12 @@
   /** **`wstar` は絞り込みそのもの。**0 は「すべて」で、1〜4 はその段だけを出す。
       並べ替えに使う数字は段が要るので、すべてのときは日本の上限（固有4）で代用する。 */
   var wsort = 'name', wstar = 0;
+  /** **絞り込みが無いと 274 人ぶん一気に描く。**スマホだと 1 ページが
+      140 画面ぶんになる（2026-08-31 に実測）。名前・地形・固有の段のどれかで
+      絞ったときだけ全部出し、それ以外は先頭 24 枚＋「もっと見る」にする。
+      押して広げた状態は、絞り込みを変えるまで保つ。 */
+  var WPAGE = 24;
+  var wexpand = false;
   function sortStar() { return wstar || WSTAR; }
   var WSORTS = [
     ['name', '名前', function (a, b) { return a.n.localeCompare(b.n, 'ja'); }],
@@ -161,15 +169,26 @@
     var cmp = WSORTS.filter(function (x) { return x[0] === wsort; })[0];
     rows.sort(cmp ? cmp[2] : WSORTS[0][2]);
 
+    // **絞り込みが無いときだけページを切る。**名前・地形・固有の段のどれかを
+    // 選んだら、その結果は数が少ないので全部出す
+    var filtered = !!(q || adapt || wstar);
+    var shown = rows;
+    var hidden = 0;
+    if (!filtered && !wexpand && rows.length > WPAGE) {
+      shown = rows.slice(0, WPAGE);
+      hidden = rows.length - WPAGE;
+    }
+
     var cnt = {};
     G.weapon.forEach(function (w) { cnt[w.ad] = (cnt[w.ad] || 0) + 1; });
     var av = {};
     G.weapon.forEach(function (w) { av[w.av] = (av[w.av] || 0) + 1; });
-    el('wp-lead').textContent = '全 ' + G.weapon.length + ' 人ぶん。日本で開いているのは固有' + WSTAR +
-      '（Lv' + WLV[WSTAR - 1] + '）までです。固有武器で上がる地形は' +
+    el('wp-lead').innerHTML = '全 ' + G.weapon.length + ' 人ぶん。地形は' +
       Object.keys(TERRAIN).map(function (t) { return TERRAIN[t] + ' ' + (cnt[t] || 0) + ' 人'; }).join('、') +
-      '。上がり幅は ' + Object.keys(av).sort().map(function (k) { return '＋' + k + ' が ' + av[k] + ' 人'; }).join('、') +
-      'です。' + (q || adapt ? 'いまは ' + rows.length + ' 人。' : '');
+      '、上がり幅は ' + Object.keys(av).sort().map(function (k) { return '＋' + k + ' が ' + av[k] + ' 人'; }).join('、') +
+      'です。' + (q || adapt ? 'いまは ' + rows.length + ' 人。' : '') +
+      '<button type="button" class="qm" data-hint="日本で開いているのは固有' + WSTAR +
+      '（Lv' + WLV[WSTAR - 1] + '）までです。"></button>';
 
     // 並べ替えの押しボタン
     el('wsort').innerHTML = WSORTS.map(function (x) {
@@ -184,14 +203,15 @@
           '固有' + (i + 1) + '</button>';
       }).join('');
     var byNum = wsort === 'atk' || wsort === 'hp' || wsort === 'heal';
-    el('wstar-note').textContent = (wstar
-      ? '固有' + wstar + '（Lv' + WLV[wstar - 1] + '）だけを出しています。効果は固有' + wstar +
-        ' までに手に入るものです。'
-      : '固有1 から固有' + WSTAR + ' まで並べています。段を選ぶと、その段だけに絞れます。') +
+    el('wstar-note').innerHTML = (wstar
+      ? '固有' + wstar + '（Lv' + WLV[wstar - 1] + '）だけを表示中。'
+      : '固有1〜固有' + WSTAR + ' をすべて表示中。') +
+      '<button type="button" class="qm" data-hint="' +
       (byNum ? '並べ替えは固有' + sortStar() + '（Lv' + WLV[sortStar() - 1] + '）の数字です。'
-             : '並べ替えを攻撃力・最大 HP・治癒力にすると、その段の数字で並びます。');
+             : '並べ替えを攻撃力・最大HP・治癒力にすると、その段の数字で並びます。') +
+      '"></button>';
 
-    el('weapons').innerHTML = rows.map(function (w) {
+    el('weapons').innerHTML = shown.map(function (w) {
       // **武器の絵は横長。**衣装違いは元の子の絵を使い回すので `wi` を見る
       var wimg = w.wi ? '<img class="wpic" src="../img/' + w.wi + '.webp" alt="" width="130" height="34" loading="lazy">' : '';
       var kinds = [['攻撃力', 'a'], ['最大HP', 'h'], ['治癒力', 'p']]
@@ -229,6 +249,11 @@
         esc((w.eq || []).map(function (c) { return G.catJa[c] || c; }).join('・')) +
         '</div></div></div>';
     }).join('') || '<p class="lead">見つかりませんでした。</p>';
+
+    // **もっと見るボタン。**押すと絞り込みを変えるまで全部出したままにする
+    el('wp-more-wrap').innerHTML = hidden
+      ? '<button type="button" id="wp-more" class="btn">あと ' + hidden + ' 人ぶんを見る</button>'
+      : '';
   }
 
   /* ---------- タブ */
@@ -250,24 +275,29 @@
   });
   el('adapt').addEventListener('click', function (ev) {
     var b = ev.target.closest('button'); if (!b) return;
-    adapt = b.dataset.a;
+    adapt = b.dataset.a; wexpand = false;
     [].forEach.call(el('adapt').querySelectorAll('button'), function (x) {
       x.setAttribute('aria-pressed', String(x.dataset.a === adapt));
     });
     drawWeapons();
   });
   el('q-gear').addEventListener('input', drawGear);
-  el('q-wp').addEventListener('input', drawWeapons);
+  el('q-wp').addEventListener('input', function () { wexpand = false; drawWeapons(); });
   el('wsort').addEventListener('click', function (e) {
     var b = e.target.closest('button'); if (!b) return;
     wsort = b.dataset.s; drawWeapons();
   });
   el('wstar').addEventListener('click', function (e) {
     var b = e.target.closest('button'); if (!b) return;
-    wstar = +b.dataset.n; drawWeapons();
+    wstar = +b.dataset.n; wexpand = false; drawWeapons();
+  });
+  // **もっと見るボタン。**描き直すたびに作り直すので、親を委任で拾う
+  el('wp-more-wrap').addEventListener('click', function (e) {
+    var b = e.target.closest('button'); if (!b) return;
+    wexpand = true; drawWeapons();
   });
 
-  el('ver').textContent = G.version;
+  el('ver').textContent = G.fetched;
   el('src-gear').textContent = G.gear.length;
   drawCats(); drawTiers(); drawGear(); drawWeapons(); drawTab();
 })();

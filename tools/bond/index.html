@@ -7,14 +7,22 @@
 <meta name="description" content="生徒を選ぶと、その子に効く贈り物と絆経験値が分かります。目標の絆ランクまで、贈り物が何個・カフェタッチが何回・何日かかるかを出します。">
 <meta name="theme-color" content="#c8892e">
 <link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="AronaBot">
+<meta property="og:locale" content="ja_JP">
+<meta property="og:url" content="https://arona-bot.com/tools/bond/">
 <meta property="og:title" content="絆ランク計算機">
 <meta property="og:description" content="その生徒に効く贈り物が一目で分かります。目標の絆ランクまで何個・何日かかるかも。">
-<meta property="og:type" content="website">
-<meta property="og:url" content="https://arona-bot.com/tools/bond/">
-<meta property="og:image" content="https://arona-bot.com/images/hero-night.jpg">
+<meta property="og:image" content="https://arona-bot.com/images/og/bond.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="絆ランク計算機 — AronaBot のツール">
 <meta name="twitter:card" content="summary_large_image">
-<link rel="stylesheet" href="../../style.css?v=15">
-<link rel="stylesheet" href="../tool.css?v=10">
+<meta name="twitter:title" content="絆ランク計算機">
+<meta name="twitter:description" content="その生徒に効く贈り物が一目で分かります。目標の絆ランクまで何個・何日かかるかも。">
+<meta name="twitter:image" content="https://arona-bot.com/images/og/bond.jpg">
+<link rel="stylesheet" href="../../style.css?v=16">
+<link rel="stylesheet" href="../tool.css?v=11">
 <style>
   .gift { display: grid; grid-template-columns: 50px 1fr 66px 96px; gap: .7em; align-items: center;
           padding: .5em 0; border-bottom: 1px solid var(--line); }
@@ -138,7 +146,7 @@
   </div>
   <div class="thero-body">
     <h1>絆ランク計算機</h1>
-    <p class="thero-lead">生徒を選ぶと、その子に効く贈り物と絆経験値がその場で分かります。目標のランクまで、贈り物が何個・カフェタッチが何回・何日かかるかも出します。</p>
+    <p class="thero-lead">生徒を選ぶと、効く贈り物と目標ランクまでの日数が分かります。</p>
   </div>
 </header>
 
@@ -155,7 +163,7 @@
           <div>
             <p class="stuname" id="stu-name">まだ誰も選んでいません</p>
             <div class="stutags" id="stu-tags"></div>
-            <p class="stunote" id="stu-note">名前を入れると、その子の好みに合わせて贈り物を並べ替えます。</p>
+            <p class="stunote" id="stu-note">名前を入れると、好みに合わせて並べ替えます。</p>
           </div>
         </div>
         <div class="fields c3">
@@ -186,7 +194,7 @@
 
       <div class="panel">
         <div class="panel-h"><h2 id="gift-h">この子に効く贈り物</h2></div>
-        <p class="lead"><b>贈り物の絆経験値は「基本の値 ×（一致したタグの数 ＋ 1）」です。</b>いちばん右の欄に持っている個数を入れると、下の内訳に反映されます。</p>
+        <p class="lead">持っている個数を入れると、下の内訳に反映されます。<button type="button" class="qm" data-hint="絆経験値は「基本の値 ×（一致したタグの数 ＋ 1）」で計算しています。"></button></p>
         <div class="btnrow" style="margin-bottom:14px">
           <div class="seg" id="filter" role="group" aria-label="表示する贈り物">
             <button type="button" data-f="good" aria-pressed="true">効くものだけ</button>
@@ -227,6 +235,9 @@
           <div class="row"><span>スケジュール・その他<span class="subnote">1 日にもらえる絆経験値</span></span>
             <span><input id="i-etc" type="number" inputmode="numeric" min="0" step="10" value="0" style="width:78px;text-align:right;padding:.3em .5em"></span></div>
           <div class="row total"><span id="l-days-k">残りをカフェタッチで埋めると</span><span id="l-days">—</span></div>
+          <div class="row"><span>目標日<span class="subnote">空欄なら判定しません</span></span>
+            <span><input id="i-target" type="date" style="padding:.3em .5em"></span></div>
+          <div class="row total" id="row-target" hidden><span id="l-target-k">—</span><span id="l-target">—</span></div>
         </div>
       </div>
 
@@ -271,10 +282,11 @@
   </div>
 </div>
 
-<script>window.TOUR = {"key": "bond", "steps": [{"sel": "#stucard", "t": "まず生徒を選びます", "d": "名前を入れると、その子の好みに合わせて贈り物が並び替わります。誰も選ばなくても、誰にでも効くぶんの数字は出ます。"}, {"sel": "#gifts", "t": "効く贈り物から順に並びます", "d": "×4 がいちばん効きます。好みが一致したタグの数で倍率が決まっていて、上限は ×4 です。"}, {"sel": "#l-need", "t": "手持ちを入れると残りが出ます", "d": "贈り物の個数とカフェタッチの回数を入れると、目標のランクまで何日かかるかが出ます。"}, {"sel": "#sharebar", "t": "結果はそのまま渡せます", "d": "開いている状態ごと URL になるので、リンクを送れば相手の画面にも同じ結果が出ます。"}]};</script>
+<script>window.TOUR = {"key": "bond", "steps": [{"sel": "#stucard", "t": "まず生徒を選びます", "d": "名前を入れると、好みに合わせて贈り物が並び替わります。"}, {"sel": "#gifts", "t": "効く贈り物から順に並びます", "d": "一致したタグの数で倍率が決まり、×4 が上限です。"}, {"sel": "#l-need", "t": "手持ちを入れると残りが出ます", "d": "個数と回数を入れると、目標までの日数が出ます。"}, {"sel": "#sharebar", "t": "結果はそのまま渡せます", "d": "リンクを送ると、相手の画面にも同じ結果が出ます。"}]};</script>
 <script src="../tour.js?v=2"></script>
 
-<script src="../share.js?v=1"></script>
+<script src="../share.js?v=2"></script>
+<script src="../hint.js?v=1"></script>
 
 <footer>
   <div class="foot-inner">
@@ -359,8 +371,7 @@
       el('stu-img').innerHTML = '<span class="ph">none</span>';
       el('stu-name').textContent = 'まだ誰も選んでいません';
       el('stu-tags').innerHTML = '';
-      el('stu-note').textContent = '名前を入れると、その子の好みに合わせて贈り物を並べ替えます。'
-        + '今は誰にでも効くぶんだけで並べています。';
+      el('stu-note').textContent = '名前を入れると、好みに合わせて並べ替えます。';
       return;
     }
     card.classList.remove('none');
@@ -380,9 +391,9 @@
     if (by[3]) chips.push('<span class="tag">×3 が ' + by[3] + ' 種類</span>');
     if (by[2]) chips.push('<span class="tag">×2 が ' + by[2] + ' 種類</span>');
     el('stu-tags').innerHTML = chips.join('');
-    el('stu-note').textContent = '好みのタグ ' + (student.t || []).length + ' 個と' +
-      'とくに好きなタグ ' + (student.u || []).length + ' 個に、' +
-      '誰にでも効く ' + GEN.length + ' 個を足して数えます。一致は 3 つまでで、倍率は ×4 が上限です。';
+    el('stu-note').innerHTML = 'タグの一致数で倍率が決まります（上限 ×4）。' +
+      '<button type="button" class="qm" data-hint="好みのタグ ' + (student.t || []).length + ' 個ととくに好きなタグ ' +
+      (student.u || []).length + ' 個に、誰にでも効く ' + GEN.length + ' 個を足して数えます。一致は 3 つまでです。"></button>';
   }
 
   function giftList() {
@@ -466,6 +477,29 @@
       el('l-days').textContent = fmt(rest);
     }
 
+    /* **目標日は「何日かかるか」の式をそのまま使う。**新しい計算式は作らない
+       ——rest（残りの絆経験値）と perDay（1 日の獲得量）は上ですでに出ている */
+    var tval = el('i-target').value;
+    var rowTarget = el('row-target');
+    if (!tval) {
+      rowTarget.hidden = true;
+    } else {
+      rowTarget.hidden = false;
+      var todayMid = new Date(); todayMid.setHours(0, 0, 0, 0);
+      var targetMid = new Date(tval + 'T00:00:00');
+      var daysUntil = Math.round((targetMid - todayMid) / 86400000);
+      var daysNeeded = rest === 0 ? 0 : (perDay > 0 ? Math.ceil(rest / perDay) : null);
+      el('l-target-k').textContent = '目標日までに間に合うか';
+      if (daysNeeded === null) {
+        el('l-target').textContent = '1 日の獲得量が 0 では届きません';
+      } else {
+        var diff = daysUntil - daysNeeded;
+        el('l-target').textContent = diff >= 0
+          ? '間に合います（あと ' + fmt(diff) + ' 日余ります）'
+          : 'あと ' + fmt(-diff) + ' 日足りません';
+      }
+    }
+
     var rows = '', a = Math.max(1, from - 1), b = Math.min(100, Math.max(to, from + 8));
     for (var L = a; L <= b && L - a < 14; L++) {
       rows += '<tr' + (L === from ? ' class="here"' : '') + '><td>絆 ' + L + '</td>' +
@@ -493,12 +527,13 @@
     });
     calc();
   });
-  ['i-student', 'i-from', 'i-to', 'i-touch', 'i-etc'].forEach(function (id) {
-    el(id).addEventListener('input', function () { calc(id === 'i-touch' || id === 'i-etc'); });
+  ['i-student', 'i-from', 'i-to', 'i-touch', 'i-etc', 'i-target'].forEach(function (id) {
+    var skip = id === 'i-touch' || id === 'i-etc' || id === 'i-target';
+    el(id).addEventListener('input', function () { calc(skip); });
     el(id).addEventListener('change', function () { calc(); });
   });
   el('gen').textContent = GEN.join(' / ');
-  el('ver').textContent = B.version;
+  el('ver').textContent = B.fetched;
   el('src-n').textContent = B.students.length;   // **人数は増える。**出どころの文章にも埋め込む
   calc();
 })();

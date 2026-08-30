@@ -7,14 +7,22 @@
 <meta name="description" content="カフェの床と壁に家具を並べて、置ける・置けないと快適度の合計を確かめます。公式の家具テンプレート 20 個をそのまま読み込めます。">
 <meta name="theme-color" content="#c8892e">
 <link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="AronaBot">
+<meta property="og:locale" content="ja_JP">
+<meta property="og:url" content="https://arona-bot.com/tools/cafe-layout/">
 <meta property="og:title" content="カフェの家具配置">
 <meta property="og:description" content="カフェの床と壁に家具を並べて、置ける・置けないと快適度の合計を確かめます。公式の家具テンプレート 20 個をそのまま読み込めます。">
-<meta property="og:type" content="website">
-<meta property="og:url" content="https://arona-bot.com/tools/cafe-layout/">
-<meta property="og:image" content="https://arona-bot.com/images/hero-night.jpg">
+<meta property="og:image" content="https://arona-bot.com/images/og/cafe-layout.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="カフェの家具配置 — AronaBot のツール">
 <meta name="twitter:card" content="summary_large_image">
-<link rel="stylesheet" href="../../style.css?v=15">
-<link rel="stylesheet" href="../tool.css?v=10">
+<meta name="twitter:title" content="カフェの家具配置">
+<meta name="twitter:description" content="カフェの床と壁に家具を並べて、置ける・置けないと快適度の合計を確かめます。公式の家具テンプレート 20 個をそのまま読み込めます。">
+<meta name="twitter:image" content="https://arona-bot.com/images/og/cafe-layout.jpg">
+<link rel="stylesheet" href="../../style.css?v=16">
+<link rel="stylesheet" href="../tool.css?v=11">
 <style>
   /* ------------------------------------------------------------ 盤
 
@@ -57,7 +65,6 @@
     background: var(--bg-sub); color: var(--fg-mute);
     border: 1px dashed var(--accent); z-index: 0;
   }
-  .fu.hit { outline: 2px solid var(--fg); outline-offset: -2px; }
   .bd-in.small .fu { font-size: 0; padding: 0; }
   /* **2 マス以下の家具は名前を出さない。**1×1 に「モンステラの白い植木鉢」を
      入れると「のス」のような切れ端になって、かえって読み違える。
@@ -78,7 +85,6 @@
   .bdbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 12px 0 0; }
   .bdnote { font-size: .78rem; color: var(--fg-mute); margin: .7em 0 0; line-height: 1.75; }
   .bdnote b { color: var(--fg); }
-  .bdnote.bad b { text-decoration: underline; text-decoration-style: wavy; }
 
   /* 選んでいる家具の札 */
   .cur { display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
@@ -213,7 +219,7 @@
   </div>
   <div class="thero-body">
     <h1>カフェの家具配置</h1>
-    <p class="thero-lead">カフェの床と壁に家具を並べて、置ける・置けないと快適度の合計を確かめます。公式の家具テンプレート 20 個をそのまま読み込めます。</p>
+    <p class="thero-lead">カフェの床と壁に家具を並べて、快適度の合計を確かめます。</p>
   </div>
 </header>
 
@@ -225,7 +231,7 @@
     <div class="tcol">
       <div class="panel" id="p-board">
         <div class="panel-h"><h2>床と壁に並べる</h2></div>
-        <p class="lead">右で家具を選んで、マス目を押すと置けます。<b>カーソルのマスが家具の左上</b>になります。すでに家具があるところには置けません。<b>床の装飾（カーペット）だけは、家具の下に敷けます。</b></p>
+        <p class="lead">右で家具を選んで、マス目を押すと置けます。<button type="button" class="qm" data-hint="カーソルのマスが家具の左上になります。すでに家具があるところには置けません。床の装飾（カーペット）だけは家具の下に敷けます。"></button></p>
         <div class="seg" id="segplane" role="group" aria-label="どの面に置くか">
           <button type="button" data-p="0" aria-pressed="true">床 20×20</button>
           <button type="button" data-p="1" aria-pressed="false">左の壁 20×7</button>
@@ -248,7 +254,7 @@
 
       <div class="panel" id="p-pick">
         <div class="panel-h"><h2>家具を選ぶ</h2></div>
-        <p class="lead">いま選んでいる面（<b id="planenm">床</b>）に置ける家具だけを出しています。</p>
+        <p class="lead">いま選んでいる面（<b id="planenm">床</b>）に置ける家具だけです。</p>
         <div class="cur" id="cur">家具を選んでください。</div>
         <div class="fields c2" style="margin-top:14px">
           <div class="field">
@@ -279,7 +285,7 @@
 
       <div class="panel" id="p-room">
         <div class="panel-h"><h2>部屋そのものの化粧</h2></div>
-        <p class="lead">床材・壁紙・背景は<b>それぞれ 1 つだけ</b>で、マス目は使いません。公式のテンプレート 20 個すべてが 1 つずつ持っていたので、この形にしています。</p>
+        <p class="lead">床材・壁紙・背景は<b>それぞれ 1 つだけ</b>です。<button type="button" class="qm" data-hint="マス目は使いません。公式のテンプレート20個すべてが1つずつ持っていたので、この形にしています。"></button></p>
         <div class="fields c3">
           <div class="field">
             <label for="r-fm">床材</label>
@@ -323,7 +329,7 @@
 
       <div class="panel" id="p-cafe">
         <div class="panel-h"><h2>どのカフェの、どのランクか</h2></div>
-        <p class="lead">快適度の<b>上限だけ</b>がランクで変わります。<b>床と壁の広さは 1 号店と 2 号店で同じ前提</b>です（データに店ごとの広さがありません。下の「出どころ」を読んでください）。</p>
+        <p class="lead">快適度の<b>上限だけ</b>がランクで変わります。<button type="button" class="qm" data-hint="床と壁の広さは1号店と2号店で同じ前提です（データに店ごとの広さがありません。詳しくは下の「出どころ」欄）。"></button></p>
         <div class="seg" id="segcafe" role="group" aria-label="カフェを選ぶ">
           <button type="button" data-c="1" aria-pressed="true">1 号店</button>
           <button type="button" data-c="2" aria-pressed="false">2 号店</button>
@@ -344,7 +350,7 @@
 
       <div class="panel" id="p-sets">
         <div class="panel-h"><h2>効いているセット</h2></div>
-        <p class="lead">同じセットの家具をそろえると、家具そのものの快適度とは<b>別に</b>ボーナスが乗ります。<b>上から <span id="n-setmax">3</span> セットぶんだけ</b>数えています。</p>
+        <p class="lead">同じセットをそろえると、家具の快適度とは<b>別に</b>ボーナスが乗ります。</p>
         <div class="tscroll">
           <table class="dt">
             <thead><tr><th>セット</th><th>置いた数</th><th>種類</th><th>ボーナス</th></tr></thead>
@@ -358,7 +364,7 @@
     <div class="tfull">
       <div class="panel" id="p-tpl">
         <div class="panel-h"><h2>公式のテンプレートを読み込む</h2></div>
-        <p class="lead">ゲームが持っている<b>家具テンプレート <span id="n-tpl">20</span> 個</b>です。押すと、いま並べているものを<b>すべて置き換えて</b>そのまま盤に載せます。<b>この 20 個は 1 マスもはみ出さず、重なりもありません。</b>それが、床 20×20・壁 20×7 という広さの裏取りになっています。</p>
+        <p class="lead">ゲームが持っている<b>家具テンプレート <span id="n-tpl">20</span> 個</b>です。押すと、<b>今の並びをすべて置き換えて</b>盤に載せます。<button type="button" class="qm" data-hint="この20個は1マスもはみ出さず、重なりもありません。それが床20×20・壁20×7という広さの裏取りになっています。"></button></p>
         <div class="tpls" id="tpls"></div>
       </div>
 
@@ -485,17 +491,18 @@
           セットボーナスの積み上げの裏取りに
           <a href="https://kamigame.jp/bluearchive/page/143084388039553700.html" target="_blank" rel="noopener">神ゲー攻略</a>と
           <a href="https://game8.jp/blue-archive/645032" target="_blank" rel="noopener">ゲームエイト</a>。
-          データは <span id="ver">—</span>。</p>
+          取得は <span id="ver">—</span>。</p>
       </details>
     </div>
 
   </div>
 </div>
 
-<script>window.TOUR = {"key": "cafe-layout", "steps": [{"sel": "#p-board", "t": "床と壁に並べます", "d": "上のボタンで面を選び、マス目を押すと家具が置けます。カーソルのマスが家具の左上になります。回すのは「回転」ボタンか R キーです。"}, {"sel": "#p-pick", "t": "置く家具はここで選びます", "d": "いま選んでいる面に置けるものだけを出しています。「マス」は快適度をマスの数で割った値で、狭いカフェではこれが高い家具ほど効きます。"}, {"sel": "#p-tpl", "t": "公式のテンプレートを丸ごと読めます", "d": "ゲームが持っている 20 個の並びです。押すと盤に載ります。この 20 個が 1 マスもはみ出さないことが、床 20×20 という広さの裏取りになっています。"}, {"sel": "#o-total", "t": "合計快適度とランクの上限", "d": "家具そのものの快適度とセットボーナスを足したものです。右の「ランクの上限まで」で、あといくつ足りないかが分かります。"}, {"sel": "#sharebar", "t": "並べた状態ごと渡せます", "d": "置いた家具は URL に入るので、リンクを送れば相手の画面にも同じ並びが出ます。閉じても残ります。"}]};</script>
+<script>window.TOUR = {"key": "cafe-layout", "steps": [{"sel": "#p-board", "t": "床と壁に並べます", "d": "面を選び、マス目を押すと置けます。回すのは「回転」ボタンか R キーです。"}, {"sel": "#p-pick", "t": "置く家具はここで選びます", "d": "いま選んでいる面に置けるものだけです。「マス」は快適度を面積で割った値です。"}, {"sel": "#p-tpl", "t": "公式のテンプレートを丸ごと読めます", "d": "ゲームが持っている 20 個の並びです。押すと盤に載ります。"}, {"sel": "#o-total", "t": "合計快適度とランクの上限", "d": "家具の快適度とセットボーナスの合計です。"}, {"sel": "#sharebar", "t": "並べた状態ごと渡せます", "d": "リンクを送ると、相手の画面にも同じ並びが出ます。"}]};</script>
 <script src="../tour.js?v=2"></script>
 
-<script src="../share.js?v=1"></script>
+<script src="../share.js?v=2"></script>
+<script src="../hint.js?v=1"></script>
 
 <footer>
   <div class="foot-inner">
@@ -656,7 +663,6 @@
         }).join('');
     });
 
-    el('n-setmax').textContent = String(C.setMax);
     el('n-tpl').textContent = String(C.tpl.length);
     el('src-setmax').textContent = String(C.setMax);
     el('src-cells').textContent = num(C.cells);
@@ -669,7 +675,7 @@
       C.wholeFloor.map(function (id) { return fby[id] ? fby[id].nm : id; }).join('・') +
       '、20×7 の 2 個は ' +
       C.wholeWall.map(function (id) { return fby[id] ? fby[id].nm : id; }).join('・') + ' です。';
-    el('ver').textContent = C.version;
+    el('ver').textContent = C.fetched;
 
     var tro = C.furn.filter(function (f) { return f.sc === 'Trophy'; });
     var etcf = C.furn.filter(function (f) { return f.sc === 'FurnitureEtc'; });
@@ -678,13 +684,10 @@
     el('outlead').innerHTML = '<b>' + (tro.length + etcf.length) + ' 個</b>あります。' +
       'トロフィー <b>' + tro.length + ' 個</b>と、その他 <b>' + etcf.length + ' 個</b>' +
       '（リコレクト・メモリーの家具）です。';
-    el('outwarn').innerHTML = '<b>この 2 種類は、公式の家具テンプレート ' + C.tpl.length +
-      ' 個に 1 度も出てきません。</b>床に置くのか壁に掛けるのかがデータから確かめられないので、' +
-      '<b>盤にも合計快適度にも入れていません。</b>' +
-      'トロフィーは ' + tro.length + ' 個中 ' +
-      tro.filter(function (f) { return f.c === 50; }).length + ' 個が快適度 50、' +
-      'その他の 8 個はすべて 1×2 で快適度 350 です。' +
-      '実際のカフェに置いているぶんは、この画面の合計に手で足してください。';
+    el('outwarn').innerHTML = '<b>盤にも合計快適度にも入れていません。</b>実際に置いているぶんは、手で足してください。' +
+      '<button type="button" class="qm" data-hint="公式の家具テンプレート' + C.tpl.length +
+      '個に1度も出てこないため、床か壁かが確かめられません。トロフィーは' + tro.length + '個中' +
+      tro.filter(function (f) { return f.c === 50; }).length + '個が快適度50、その他の8個はすべて1×2で快適度350です。"></button>';
 
     el('tpls').innerHTML = C.tpl.map(function (t) {
       var c = comfort(t.it.map(function (a) { return { f: a[0], p: a[1], x: a[2], y: a[3], r: a[4] }; }),
@@ -920,8 +923,8 @@
     }
     el('listn').innerHTML = '床 <b>' + used[0] + '</b> / ' + (PL[0].w * PL[0].h) +
       ' マス、左の壁 <b>' + used[1] + '</b> / ' + (PL[1].w * PL[1].h) +
-      ' マス、右の壁 <b>' + used[2] + '</b> / ' + (PL[2].w * PL[2].h) +
-      ' マス。<b>カーペットは家具の下に敷けるので、合計がマスの数を超えることがあります。</b>';
+      ' マス、右の壁 <b>' + used[2] + '</b> / ' + (PL[2].w * PL[2].h) + ' マス。' +
+      '<button type="button" class="qm" data-hint="カーペットは家具の下に敷けるので、合計がマスの数を超えることがあります。"></button>';
     return used;
   }
 
@@ -975,11 +978,10 @@
         '</td></tr>';
     }).join('') || '<tr><td colspan="4">セットに属する家具をまだ置いていません。</td></tr>';
     el('setnote').innerHTML = (c.rows.length
-        ? '段は <b>2 個 ＋100・3 個 ＋200・5 個 ＋450・7 個 ＋750</b> で、<b>足し上がります</b>' +
-          '（7 個そろえると計 ＋1,500）。'
-        : '同じセットの家具を 2 個そろえると ＋100 から始まります。') +
-      (dup ? '<br><b>同じ家具を 2 個以上置いています。</b>「置いた数」で数えていますが、' +
-             'ゲーム側が「種類」で数えている可能性があります（出どころ欄を読んでください）。' : '');
+        ? '<b>段は足し上がります</b>（7 個そろえると計 ＋1,500）。'
+        : '2 個そろえると ＋100 から始まります。') +
+      (dup ? '<br><b>同じ家具を 2 個以上置いています。</b>「置いた数」で数えています' +
+             '<button type="button" class="qm" data-hint="ゲーム側は「種類」で数えている可能性があります。詳しくは出どころ欄を読んでください。"></button>' : '');
 
     // 盤の状態
     el('bdnote').innerHTML = (msg ? '<b>' + esc(msg) + '</b> ' : '') +

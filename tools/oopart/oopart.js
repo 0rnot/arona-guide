@@ -171,7 +171,7 @@
     draw();
   });
 
-  el('ver').textContent = C.version;
+  el('ver').textContent = C.fetched;
   drawMats();
   draw();
 })();

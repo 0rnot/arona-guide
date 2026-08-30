@@ -277,12 +277,9 @@
           '<span class="tls-count" id="tls-count">—</span></div>' +
 
         '<div class="note-box tls-honest">' +
-          '<p><b>TL そのものは、まだこのサイトに集めていません。</b>ここに出るのは、' +
-            '<b>あなたがこの端末に保存した TL だけ</b>です。' +
-            'このサイトは GitHub Pages の静的配信で、サーバーもデータベースもありません。' +
-            '他人の投稿を受け取る仕組みが作れないので、<b>中身の分からない TL を並べることはしません。</b></p>' +
-          '<p>他の人の TL を見たいときは、いちばん下の<b>「よそのサイトでも探す」</b>を開いてください。' +
-            '上で選んでいる相手を、そのまま先方の検索条件に組み立てて渡します。</p>' +
+          '<p><b>TL はまだ集めていません。</b>出るのは<b>あなたがこの端末に保存した分だけ</b>です。' +
+            '投稿を受け取る仕組みが無いので、<b>中身の分からない TL は並べません。</b></p>' +
+          '<p>他の人の TL は、下の<b>「よそのサイトでも探す」</b>から探せます。</p>' +
         '</div>' +
 
         '<label class="tls-scope" id="tls-scope">' +
@@ -312,18 +309,15 @@
 
       /* ============ ② 保管庫に貯める ============ */
       '<div class="panel" id="tls-add">' +
-        '<div class="panel-h"><h2>この相手の TL を保管庫に入れる</h2></div>' +
-        '<p class="lead"><b>コスト計算機で組んだ TL の URL を貼ってください。</b>' +
-          '<a href="../cost-timeline/">TL のコスト計算機</a>は編成と撃つ順番をぜんぶ URL に入れるので、' +
-          'この 1 本さえ控えておけば、あとから同じ盤面を開き直せます。' +
+        '<div class="panel-h"><h2>この相手の TL を保管庫に入れる' +
+          '<button type="button" class="qm" data-hint="TL のコスト計算機は編成と撃つ順番をぜんぶ URL に入れるので、この1本を控えておけば、あとから同じ盤面を開き直せます。"></button></h2></div>' +
+        '<p class="lead"><b><a href="../cost-timeline/">コスト計算機</a>で組んだ TL の URL を貼ってください。</b>' +
           '<b>保存先の相手は、上で選んでいるものになります。</b></p>' +
         '<div class="tls-tgt" id="tls-tgt"></div>' +
         '<div class="btnrow" style="margin-bottom:12px">' +
           '<button type="button" class="btn" id="tls-pull">いまコスト計算機で開いている TL を取り込む</button>' +
+          '<button type="button" class="qm" data-hint="同じブラウザに残っている盤面から組み直します。取りこぼしなく写したいときは URL を貼ってください。コスト計算機に新しい項目が増えた直後は、その項目が落ちることがあります。"></button>' +
         '</div>' +
-        '<p class="lead" style="margin-top:-4px"><b>取りこぼしなく写したいときは URL を貼ってください。</b>' +
-          'このボタンは同じブラウザに残っている盤面から組み直しているので、' +
-          'コスト計算機に新しい項目が増えた直後は、その項目が落ちることがあります。</p>' +
         '<div class="field">' +
           '<label for="tls-hash">コスト計算機の URL、または <code>#</code> のあとの部分</label>' +
           '<textarea class="tls-paste" id="tls-hash" spellcheck="false" ' +
@@ -362,7 +356,6 @@
         '</summary>' +
         '<div class="tls-more-b" id="tls-ext">' +
           '<p class="tls-empty" style="margin-bottom:12px"><b>ここから先は外部のサイトです。</b>' +
-            '中身の正しさや掲載の可否は、それぞれの運営者に帰属します。' +
             '<b>当サイトが他人の TL を持っているわけではありません。</b></p>' +
           '<div class="tls-exts" id="tls-exts"></div>' +
         '</div>' +
@@ -401,8 +394,8 @@
         box.className = 'tls-prev bad';
         box.innerHTML = '<p class="ph">' +
           (q('tls-hash').value.trim()
-            ? '<b>読めませんでした。</b>コスト計算機の URL を、<code>#</code> のあとまで含めて貼ってください。'
-            : 'ここに、貼った TL の編成と EX の本数が出ます。<b>読めたものだけ保管庫に入ります。</b>') +
+            ? '<b>読めませんでした。</b><code>#</code> のあとまで含めて貼ってください。'
+            : 'ここに編成と EX の本数が出ます。<b>読めたものだけ保管庫に入ります。</b>') +
           '</p>';
         return null;
       }
@@ -572,11 +565,10 @@
         ? rows.map(cardHtml).join('')
         : '<p class="tls-empty">' + (
             !items.length
-              ? 'まだ 1 本も入っていません。<b>下の欄にコスト計算機の URL を貼る</b>ところから始めてください。'
+              ? 'まだ 1 本もありません。<b>下の欄に URL を貼って</b>始めてください。'
               : narrowed
-              ? '<b>' + esc(tgtName()) + '</b>の TL はまだ入っていません。' +
-                'ほかの相手のぶんも見るときは、上のチェックを外すか<b>「絞り込みを外す」</b>を押してください。'
-              : 'その条件に当てはまる TL はありません。<b>「絞り込みを外す」</b>で戻せます。'
+              ? '<b>' + esc(tgtName()) + '</b>の TL はまだありません。ほかも見るには<b>「絞り込みを外す」</b>。'
+              : '条件に合う TL がありません。<b>「絞り込みを外す」</b>で戻せます。'
           ) + '</p>';
 
       // 下の 3 つ

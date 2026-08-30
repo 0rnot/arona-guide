@@ -7,14 +7,22 @@
 <meta name="description" content="装備の部位ごとに T1 から T10 まで何が上がるか、1 段上げるとどれだけ伸びるか。愛用品と固有武器の効果も生徒ごとに引けます。">
 <meta name="theme-color" content="#c8892e">
 <link rel="icon" href="../../favicon.svg" type="image/svg+xml">
-<meta property="og:title" content="装備の効果早見">
-<meta property="og:description" content="T8 と T9 で、どれだけ違うのか。">
 <meta property="og:type" content="website">
+<meta property="og:site_name" content="AronaBot">
+<meta property="og:locale" content="ja_JP">
 <meta property="og:url" content="https://arona-bot.com/tools/gear-stats/">
-<meta property="og:image" content="https://arona-bot.com/images/hero-night.jpg">
+<meta property="og:title" content="装備の効果早見">
+<meta property="og:description" content="部位ごとに T1 から T10 まで何がどれだけ伸びるかを並べます。愛用品 66 人ぶんと、固有武器の効果・地形適性も引けます。">
+<meta property="og:image" content="https://arona-bot.com/images/og/gear-stats.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="装備の効果早見 — AronaBot のツール">
 <meta name="twitter:card" content="summary_large_image">
-<link rel="stylesheet" href="../../style.css?v=15">
-<link rel="stylesheet" href="../tool.css?v=10">
+<meta name="twitter:title" content="装備の効果早見">
+<meta name="twitter:description" content="部位ごとに T1 から T10 まで何がどれだけ伸びるかを並べます。愛用品 66 人ぶんと、固有武器の効果・地形適性も引けます。">
+<meta name="twitter:image" content="https://arona-bot.com/images/og/gear-stats.jpg">
+<link rel="stylesheet" href="../../style.css?v=16">
+<link rel="stylesheet" href="../tool.css?v=11">
 <style>
   /* 段の一覧 */
   .tier {
@@ -168,7 +176,7 @@
   </div>
   <div class="thero-body">
     <h1>装備の効果早見</h1>
-    <p class="thero-lead">部位ごとに T1 から T10 まで何が上がるか、1 段上げるとどれだけ伸びるか。愛用品と固有武器の効果も生徒ごとに引けます。</p>
+    <p class="thero-lead">部位ごとの伸び、愛用品、固有武器の効果を生徒ごとに引けます。</p>
   </div>
 </header>
 
@@ -232,6 +240,7 @@
       </div>
       <p class="lead" id="wstar-note" style="margin-top:8px">—</p>
       <div class="glist" id="weapons" style="margin-top:14px"></div>
+      <div id="wp-more-wrap" style="text-align:center;margin-top:16px"></div>
     </div>
   </div>
 
@@ -294,7 +303,8 @@
 <script>window.TOUR = {"key": "gear-stats", "steps": [{"sel": "#cat", "t": "部位を選びます", "d": "装備の部位を選ぶと、Tier ごとのステータスが出ます。"}, {"sel": "#q-gear", "pre": "#tab button[data-v=\"gear\"]", "t": "愛用品を探します", "d": "生徒の名前で絞り込めます。下に、その子の愛用品と伸びるステータスが並びます。"}, {"sel": "#adapt", "pre": "#tab button[data-v=\"wp\"]", "t": "固有武器はここです", "d": "固有武器で上がる地形適性で絞り込めます。下に、固有1から固有4までの段ごとの伸びが並びます。"}]};</script>
 <script src="../tour.js?v=2"></script>
 
-<script src="../share.js?v=1"></script>
+<script src="../share.js?v=2"></script>
+<script src="../hint.js?v=1"></script>
 
 <footer>
   <div class="foot-inner">

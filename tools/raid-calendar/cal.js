@@ -194,7 +194,7 @@
   });
   el('more').addEventListener('click', function () { shown += 30; drawList(); });
 
-  el('ver').textContent = C.version;
+  el('ver').textContent = C.fetched;
   summary();
   draw();
 })();

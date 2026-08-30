@@ -19,7 +19,7 @@
 <!-- **ドメインを変えたらここも直すこと。** OGP の画像は絶対 URL でしか指定できず、クローラは JS を動かさないので、自動で追随させる手段が無い。 -->
 <meta property="og:image" content="https://arona-bot.com/images/hero-day.jpg">
 <meta name="twitter:card" content="summary_large_image">
-<link rel="stylesheet" href="style.css?v=15">
+<link rel="stylesheet" href="style.css?v=16">
 </head>
 <body>
 
@@ -102,7 +102,7 @@
       <div class="main-feat">
         <p class="tag">主な機能</p>
         <h3>イベントの自動登録</h3>
-        <p>公式の告知を拾って、<b>Discord のイベントに予定を登録します。</b>総力戦・合同火力演習・キャンペーン。期間と告知画像つきで並ぶので、<b>いつ始まっていつ終わるかが一目で分かります。</b></p>
+        <p>公式の告知を拾って、<b>Discord のイベントに予定を登録します。</b>期間と告知画像つきなので、<b>いつ始まっていつ終わるかが一目で分かります。</b><button type="button" class="qm" data-hint="総力戦・合同火力演習・キャンペーンが対象です。"></button></p>
         <figure class="main-feat-shot">
           <a class="zoom" href="images/event-list.webp"><img src="images/event-list.webp"
             alt="サーバーのイベント一覧にアロナが登録した予定が 2 件並んでいる画面"
@@ -112,7 +112,7 @@
       <div class="main-feat">
         <p class="tag">主な機能</p>
         <h3>公式 X の通知</h3>
-        <p>公式アカウントの投稿を拾って、<b>選んだチャンネルへ流します。</b>開催の知らせやメンテナンスの開始・延長・終了も、告知を読み取って<b>そのつどお伝えします。</b></p>
+        <p>公式アカウントの投稿を拾って、<b>選んだチャンネルへ流します。</b>開催やメンテナンスの知らせも、告知を読み取って<b>そのつど。</b></p>
         <figure class="main-feat-shot">
           <a class="zoom" href="images/notice-x.webp"><img src="images/notice-x.webp"
             alt="公式 X の投稿がアロナ経由でチャンネルに流れている画面。本文と告知画像とリンクが並んでいる"
@@ -124,8 +124,8 @@
     <p class="para para-sub">そのほかにできること</p>
     <ul class="glance">
       <li><b>総力戦・大決戦を調べる</b><span>攻略情報とボーダーを、選択式で。<code>/st</code></span></li>
-      <li><b>リマインダー</b><span>忘れたくないメッセージを、時間が来たら引用して</span></li>
-      <li><b>4 時のまとめ</b><span>その日から始まるものを毎朝</span></li>
+      <li><b>リマインダー</b><span>忘れたくないメッセージを、時間が来たら引用でお知らせ。</span></li>
+      <li><b>4 時のまとめ</b><span>その日から始まるものを、毎朝 4 時に。</span></li>
       <li><b>ガチャを 10 連</b><span>開催中の募集から選んで、本物の確率で。<code>/g</code></span></li>
     </ul>
 
@@ -136,7 +136,7 @@
       <div class="feature-text">
         <p class="cmd">/st</p>
         <h4>総力戦・大決戦を調べる</h4>
-        <p>コンテンツとボスを選ぶと、<b>攻略情報</b>（推奨属性・地形・編成の考え方・ギミック）か <b>ボーダー情報</b>（プラチナ / ゴールド / シルバー）を出します。開催中は定期的に数字を取り直します。</p>
+        <p>コンテンツとボスを選ぶと、<b>攻略情報</b>か<b>ボーダー情報</b>を出します。<button type="button" class="qm" data-hint="攻略情報は推奨属性・地形・編成の考え方・ギミック。ボーダー情報はプラチナ / ゴールド / シルバー。開催中は定期的に数字を取り直します。"></button></p>
       </div>
       <!-- **3 枚で 1 本の流れを見せる。** コンテンツを選ぶ → ボスを選ぶ → 結果。途中を飛ばすと「選ぶだけ」がどれくらい手軽なのか伝わらない。 -->
       <div class="shots shots-3">
@@ -153,33 +153,35 @@
       <div class="feature-text">
         <p class="cmd">/g</p>
         <h4>開催中の募集を 10 連引く</h4>
-        <p><b>今やっている募集から選んで引けます。</b>公式 X の告知を読んで、ピックアップ生徒も提供割合も自動で合わせます。<b>周年記念募集なら★3 は 6%、すり抜けには周年の生徒も混ざります。</b>
-          10 回目は★2以上が確定。ボタンからそのまま引き直せます。</p>
-        <p class="mini">開催中のものが分からないときは、2026 年 7 月 29 日に廃止された「通常募集」の確率で引きます。</p>
+        <p><b>今やっている募集から、本物の確率で引けます。</b>ボタンからそのまま引き直せます。<button type="button" class="qm" data-hint="公式 X の告知を読んで、ピックアップ生徒も提供割合も自動で合わせます。周年記念募集なら★3 は 6%、すり抜けには周年の生徒も混ざります。10 回目は★2以上が確定。開催中のものが分からないときは、2026 年 7 月 29 日に廃止された「通常募集」の確率で引きます。"></button></p>
       </div>
       <div class="feature-text">
         <p class="cmd">/h</p>
         <h4>できることの一覧を出す</h4>
         <p>迷ったらこれです。自分にだけ見えます。</p>
+        <!-- **/settings もここに置く。**残り 1 つだけを右に置くと下が空いて、
+             左の /g との高さの差がそのまま穴になっていた（2026-08-31） -->
+        <p class="cmd">/settings</p>
+        <h4>届くものを選ぶ</h4>
+        <p>チャンネルとオン・オフをここで決めます。<b>「サーバー管理」の権限を持つ人にだけ出ます。</b></p>
       </div>
     </div>
 
     <h3 class="lead-h">設定すると届くもの</h3>
-    <p class="para">次の 5 つを、それぞれチャンネルを選んで受け取れます。<b>既定はすべてオフです。</b>
-      <br>「開催予定のイベント登録」だけはチャンネルへ投稿しないので、選ばずにオンにできます。</p>
+    <p class="para">次の 5 つを、それぞれチャンネルを選んで受け取れます。<b>既定はすべてオフです。</b><button type="button" class="qm" data-hint="「開催予定のイベント登録」だけはチャンネルへ投稿しないので、チャンネルを選ばずにオンにできます。"></button></p>
 
     <ul class="notice-list">
-      <li><b>4 時のまとめ</b><span>毎朝 4 時。その日から始まるイベントやメンテナンスに触れます</span></li>
+      <li><b>4 時のまとめ</b><span>毎朝 4 時。その日から始まるものをまとめて</span></li>
       <li><b>公式 X の更新通知</b><span>公式アカウントの投稿を拾って流します</span></li>
-      <li><b>総力戦・イベントの開催通知</b><span>総力戦・大決戦のほか、合同火力演習・キャンペーンも、始まったときにお知らせします。総力戦だけは終了の前日にもう一度出て、そのときはボーダーの数字を続けて出します</span></li>
+      <li><b>総力戦・イベントの開催通知</b><span>始まったときにお知らせします<button type="button" class="qm" data-hint="総力戦・大決戦のほか、合同火力演習・キャンペーンも対象です。総力戦だけは終了の前日にもう一度出て、そのときはボーダーの数字を続けて出します。"></button></span></li>
       <li><b>開催予定のイベント登録</b><span>告知を拾って、Discord のイベントに予定を登録します</span></li>
-      <li><b>メンテナンスの知らせ</b><span>定期メンテナンスと緊急メンテナンスの開始・延長・終了。延長のときは新しい終了予定の時刻を出します</span></li>
+      <li><b>メンテナンスの知らせ</b><span>メンテナンスの開始・延長・終了<button type="button" class="qm" data-hint="定期・緊急のどちらも対象です。延長のときは新しい終了予定の時刻を出します。"></button></span></li>
     </ul>
 
     <div class="feature feature-wide is-flipped">
       <div class="feature-text">
         <h4>公式 X の投稿は、そのまま流れます</h4>
-        <p>公式アカウントが投稿すると、<b>本文と画像をそのまま選んだチャンネルへ出します。</b>元の投稿へのリンクも付くので、<b>X を開かなくても中身が読めます。</b></p>
+        <p>公式アカウントが投稿すると、<b>本文と画像をそのまま選んだチャンネルへ出します。</b>元の投稿へのリンクも付きます。</p>
       </div>
       <div class="shots shots-narrow">
         <figure><a class="zoom" href="images/notice-x.webp"><img src="images/notice-x.webp" alt="公式 X の投稿がアロナ経由でチャンネルに流れている画面。本文と告知画像とリンクが並んでいる" loading="lazy" width="480" height="675"></a>
@@ -190,7 +192,7 @@
     <div class="feature feature-wide">
       <div class="feature-text">
         <h4>始まるときも、終わる前にも届きます</h4>
-        <p>告知を読み取って<b>「何が始まったか」を一言で伝えます。</b>総力戦は終了の前日にもう一度出て、ボーダーの数字を続けて出します。下に付くカードは登録された予定そのもので、<b>押すと期間と場所が開きます。</b></p>
+        <p>告知を読み取って<b>「何が始まったか」を一言で伝えます。</b>下に付くカードは登録された予定そのもので、押すと期間と場所が開きます。<button type="button" class="qm" data-hint="総力戦は終了の前日にもう一度出て、そのときはボーダーの数字を続けて出します。"></button></p>
       </div>
       <div class="shots">
         <figure><a class="zoom" href="images/notice-event.webp"><img src="images/notice-event.webp" alt="終了前日のお知らせと、その下に登録された予定のカードが並んでいる画面" loading="lazy" width="610" height="432"></a>
@@ -201,7 +203,7 @@
     <div class="feature feature-wide is-flipped">
       <div class="feature-text">
         <h4>予定はサーバーの「イベント」に並びます</h4>
-        <p>チャンネルへの投稿ではありません。<b>サーバー名の下にある「イベント」</b>に、期間と告知画像つきで登録されます。開催通知に貼られるリンクからも飛べます。</p>
+        <p>チャンネルへの投稿ではなく、<b>サーバー名の下の「イベント」</b>に期間と告知画像つきで登録されます。</p>
       </div>
       <div class="shots shots-2">
         <figure><a class="zoom" href="images/event-list.webp"><img src="images/event-list.webp" alt="サーバーのイベント一覧にアロナが登録した予定が 2 件並んでいる画面" loading="lazy" width="595" height="715"></a>
@@ -328,23 +330,23 @@
 <!-- BAND:START -->
         <a class="toolband-card" href="tools/cafe-layout/">
           <img class="ticon" src="tools/img/furniture_icon_sofaset.webp" alt="" width="54" height="54" loading="lazy">
-          <div class="cat">育成・計画</div>
+          <div class="cat">カフェ</div>
           <h3>カフェの家具配置</h3>
-          <p>カフェの床と壁に家具を並べて、置ける・置けないと快適度の合計を確かめます。公式の家具テンプレート 20 個をそのまま読み込めます。床 20×20・壁 20×7 はゲームのデータから裏取りしています。</p>
+          <p>カフェの床と壁に家具を並べて、置けるかと快適度の合計を確かめます。</p>
         </a>
 
         <a class="toolband-card" href="tools/cafe/">
           <img class="ticon" src="tools/img/ui_cafe_icon_comfort.webp" alt="" width="54" height="54" loading="lazy">
-          <div class="cat">育成・計画</div>
+          <div class="cat">カフェ</div>
           <h3>カフェの収入計算機</h3>
-          <p>快適度を入れると 1 時間あたりのクレジットと AP、倉庫が満杯になるまでの時間が出ます。ランクごとの快適度上限と招待人数、ランクアップに要るクレジットも一緒に。</p>
+          <p>快適度から、1 時間あたりのクレジットと AP、倉庫が満杯になる時間。</p>
         </a>
 
         <a class="toolband-card" href="tools/schedule/">
           <img class="ticon" src="tools/img/ui_school_icon_schedule_favor.webp" alt="" width="54" height="54" loading="lazy">
           <div class="cat">育成</div>
           <h3>スケジュールの期待値</h3>
-          <p>どの場所にスケジュールを送ると絆経験値と神名文字がいちばん多いかを、確率込みの期待値で出します。ランクを上げるのに何回要るか、チケットが 1 枚増えるのはどこかも。</p>
+          <p>どこにスケジュールを送ると絆経験値と神名文字がいちばん多いか。</p>
         </a>
 <!-- BAND:END -->
       </div>
@@ -365,6 +367,8 @@
   <div class="foot-inner">
     <p class="foot-name">AronaBotの使い方</p>
     <p class="foot-links">
+      <a href="tools/">ツール一覧</a>
+      <span class="sep">/</span>
       <a href="https://x.com/pe6cak" target="_blank" rel="noopener">制作者の X（@pe6cak）</a>
       <span class="sep">/</span>
       <span>不具合・要望は <b>@0r.not</b> まで</span>
@@ -517,5 +521,6 @@
   });
 })();
 </script>
+<script src="tools/hint.js?v=1"></script>
 </body>
 </html>

@@ -7,14 +7,22 @@
 <meta name="description" content="総力戦と大決戦が、いつ・どのボスで・どの地形で開かれたかの全記録。ボスごとの登場回数と前回、開催の間隔も出します。">
 <meta name="theme-color" content="#c8892e">
 <link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="AronaBot">
+<meta property="og:locale" content="ja_JP">
+<meta property="og:url" content="https://arona-bot.com/tools/raid-calendar/">
 <meta property="og:title" content="総力戦の開催カレンダー">
 <meta property="og:description" content="このボスは前回いつだったか。次はいつごろか。">
-<meta property="og:type" content="website">
-<meta property="og:url" content="https://arona-bot.com/tools/raid-calendar/">
-<meta property="og:image" content="https://arona-bot.com/images/hero-night.jpg">
+<meta property="og:image" content="https://arona-bot.com/images/og/raid-calendar.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="総力戦の開催カレンダー — AronaBot のツール">
 <meta name="twitter:card" content="summary_large_image">
-<link rel="stylesheet" href="../../style.css?v=15">
-<link rel="stylesheet" href="../tool.css?v=10">
+<meta name="twitter:title" content="総力戦の開催カレンダー">
+<meta name="twitter:description" content="このボスは前回いつだったか。次はいつごろか。">
+<meta name="twitter:image" content="https://arona-bot.com/images/og/raid-calendar.jpg">
+<link rel="stylesheet" href="../../style.css?v=16">
+<link rel="stylesheet" href="../tool.css?v=11">
 <style>
   /* ボスの一覧 */
   /* **札は広めに取る。**168px だと絵の 52px を引いて文字が 86px しか残らず、
@@ -148,7 +156,7 @@
   </div>
   <div class="thero-body">
     <h1>総力戦の開催カレンダー</h1>
-    <p class="thero-lead">総力戦と大決戦が、いつ・どのボスで・どの地形で開かれたかの全記録です。ボスごとの登場回数と前回、開催の間隔も出します。</p>
+    <p class="thero-lead">総力戦・大決戦の開催記録です。ボスごとの回数・前回・間隔が出ます。</p>
   </div>
 </header>
 
@@ -157,7 +165,7 @@
 
   <div class="stats c3" style="margin-top:20px">
     <div class="stat hero">
-      <div class="k">次の総力戦の目安</div>
+      <div class="k">次の総力戦の目安<button type="button" class="qm" data-hint="予定表ではありません。これまでの開催間隔を並べた見積もりで、ゲームのデータに次回の日付は入っていません。正しい日付は公式のお知らせで確認してください。ボスと地形は、これまでの並びからは決まりません。"></button></div>
       <div class="v" id="o-next">—</div>
       <div class="sub" id="o-next-sub"></div>
     </div>
@@ -173,9 +181,6 @@
     </div>
   </div>
 
-  <div class="note-box" style="margin-top:16px">
-    <b>「次の目安」は予定表ではありません。</b>これまでの開催間隔を並べただけの見積もりで、ゲームのデータには次回の日付が入っていません。<b>正しい日付は公式のお知らせを見てください。</b>ボスと地形にいたっては、これまでの並びからは決まりません。
-  </div>
 
   <!-- **ここから下はタブで畳む。**3 枚あわせてスマホで 4,822px、
        頁ぜんぶで 6,773px ＝ 8.7 画面ぶんあった（2026-08-30 に実測）。
@@ -195,7 +200,7 @@
          aria-labelledby="tb-rc-boss" tabindex="0">
       <div class="panel">
         <div class="panel-h"><h2>ボス</h2></div>
-        <p class="lead" id="boss-lead">押すと<b>「開催の記録」</b>の面に移って、そのボスの回だけ並びます。もう一度押すと戻ります。色の付いた札は、<b>Insane 以上でそのボスに有効な攻撃属性</b>です。</p>
+        <p class="lead" id="boss-lead">押すと<b>「開催の記録」</b>で、そのボスの回だけ絞られます。<button type="button" class="qm" data-hint="色の付いた札は、Insane 以上でそのボスに有効な攻撃属性です。もう一度押すと戻ります。"></button></p>
         <div class="bosses" id="bosses"></div>
       </div>
     </div>
@@ -262,7 +267,8 @@
 <script src="../panes.js?v=1"></script>
 <script src="../tour.js?v=2"></script>
 
-<script src="../share.js?v=1"></script>
+<script src="../share.js?v=2"></script>
+<script src="../hint.js?v=1"></script>
 
 <footer>
   <div class="foot-inner">

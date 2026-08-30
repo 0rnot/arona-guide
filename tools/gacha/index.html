@@ -7,14 +7,22 @@
 <meta name="description" content="ピックアップ生徒をお迎えできる確率と、天井までに必要な青輝石を計算します。呼び出しチャージの 100 カウント（★3確定・50%でピックアップ）と 200 カウント（確定）を織り込んだ、正確な確率です。">
 <meta name="theme-color" content="#c8892e">
 <link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="AronaBot">
+<meta property="og:locale" content="ja_JP">
+<meta property="og:url" content="https://arona-bot.com/tools/gacha/">
 <meta property="og:title" content="募集の天井計算機">
 <meta property="og:description" content="今の石でピックアップを引ける確率は何 % か。呼び出しチャージ 100 / 200 カウントを織り込んで計算します。">
-<meta property="og:type" content="website">
-<meta property="og:url" content="https://arona-bot.com/tools/gacha/">
-<meta property="og:image" content="https://arona-bot.com/images/hero-night.jpg">
+<meta property="og:image" content="https://arona-bot.com/images/og/gacha.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="募集の天井計算機 — AronaBot のツール">
 <meta name="twitter:card" content="summary_large_image">
-<link rel="stylesheet" href="../../style.css?v=15">
-<link rel="stylesheet" href="../tool.css?v=10">
+<meta name="twitter:title" content="募集の天井計算機">
+<meta name="twitter:description" content="今の石でピックアップを引ける確率は何 % か。呼び出しチャージ 100 / 200 カウントを織り込んで計算します。">
+<meta name="twitter:image" content="https://arona-bot.com/images/og/gacha.jpg">
+<link rel="stylesheet" href="../../style.css?v=16">
+<link rel="stylesheet" href="../tool.css?v=11">
 <style>
   .chartbox { margin-top: 8px; }
   .chartbox svg { width: 100%; height: auto; display: block; overflow: visible; }
@@ -26,7 +34,6 @@
   .cx-dot  { fill: var(--accent); stroke: var(--card); stroke-width: 2; }
   .cx-lab  { fill: var(--fg); font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; }
   .cx-lab2 { fill: var(--fg-mute); font-size: 11px; font-variant-numeric: tabular-nums; }
-  .cx-hit  { fill: transparent; cursor: crosshair; }
 </style>
 </head>
 <body>
@@ -103,7 +110,7 @@
   </div>
   <div class="thero-body">
     <h1>募集の天井計算機</h1>
-    <p class="thero-lead">ピックアップの生徒をお迎えできる確率と、そこまでに要る青輝石を出します。呼び出しチャージの 100 / 200 カウントを織り込むので、単純な「0.7% を N 回」より高く出ます。</p>
+    <p class="thero-lead">ピックアップの生徒をお迎えできる確率と、そこまでに要る青輝石を出します。<button type="button" class="qm" data-hint="呼び出しチャージの 100 / 200 カウントを織り込むので、単純な「0.7% を N 回」より高く出ます。"></button></p>
   </div>
 </header>
 
@@ -115,7 +122,7 @@
     <div class="tcol">
       <div class="panel">
         <div class="panel-h"><h2>今の状況</h2></div>
-        <p class="lead"><b>呼び出しチャージは、募集を引いた回数だけ貯まります。</b>単発で 1、10 連で 10。ピックアップをお迎えした時点で 0 に戻り、それ以外では募集をまたいでも消えません。</p>
+        <p class="lead">呼び出しチャージは、募集を引いた回数だけ貯まります（単発 1、10 連で 10）。<button type="button" class="qm" data-hint="ピックアップをお迎えした時点で 0 に戻り、それ以外では募集をまたいでも消えません。"></button></p>
         <div class="fields c3">
           <div class="field" id="f-gem">
             <label for="i-gem"><img class="ico" src="../img/currency_icon_gem.webp" alt="" width="24" height="24" loading="lazy"> 持っている青輝石<span class="hint">1 連 120 個</span></label>
@@ -141,20 +148,6 @@
         <p class="err" id="err" hidden></p>
       </div>
 
-      <div class="panel">
-        <div class="panel-h"><h2>内訳</h2></div>
-        <div class="ledger">
-          <div class="row"><span>引ける回数<span class="subnote">1 連 120 個。募集回数特典の 10 連チケットを足したぶん</span></span><span id="l-pulls">—</span></div>
-          <div class="row"><span id="l-charge-k">引き終わったときの呼び出しチャージ</span><span id="l-charge">—</span></div>
-          <div class="row"><span id="l-star3-k">出る★3 の平均人数</span><span id="l-star3">—</span></div>
-          <div class="row total"><span id="l-need-k">天井まで足りない青輝石</span><span id="l-need">—</span></div>
-        </div>
-      </div>
-
-      <div class="note-box" id="multi-note" hidden></div>
-    </div>
-
-    <div class="tcol sticky">
       <div class="stats c4">
         <div class="stat hero">
           <div class="k"><img class="ico" src="../img/currency_icon_gem.webp" alt="" width="18" height="18" loading="lazy"> 今の石でお迎えできる確率</div>
@@ -179,6 +172,20 @@
       </div>
 
       <div class="panel">
+        <div class="panel-h"><h2>内訳</h2></div>
+        <div class="ledger">
+          <div class="row"><span>引ける回数<span class="subnote">1 連 120 個。募集回数特典の 10 連チケットを足したぶん</span></span><span id="l-pulls">—</span></div>
+          <div class="row"><span id="l-charge-k">引き終わったときの呼び出しチャージ</span><span id="l-charge">—</span></div>
+          <div class="row"><span id="l-star3-k">出る★3 の平均人数</span><span id="l-star3">—</span></div>
+          <div class="row total"><span id="l-need-k">天井まで足りない青輝石</span><span id="l-need">—</span></div>
+        </div>
+      </div>
+
+      <div class="note-box" id="multi-note" hidden></div>
+    </div>
+
+    <div class="tcol sticky">
+      <div class="panel">
         <div class="panel-h"><h2>★3 の内訳</h2></div>
         <p class="lead" id="b-lead"></p>
         <div class="tscroll">
@@ -191,7 +198,7 @@
 
       <div class="panel">
         <div class="panel-h"><h2>何連まで引けば届くか</h2></div>
-        <p class="lead">左から右へ引いていったときの、<b>「ここまでにお迎えできている確率」</b>です。100 カウントで一段、200 カウントで 100% に届きます。</p>
+        <p class="lead">引いた回数ごとの、お迎えできている確率です。100 と 200 カウントで段がつきます。</p>
         <div class="chartbox" id="chart"></div>
         <div class="tscroll">
           <table class="dt">
@@ -229,7 +236,8 @@
 <script>window.TOUR = {"key": "gacha", "steps": [{"sel": "#i-gem", "t": "今の石とチャージを入れます", "d": "持っている青輝石と、呼び出しチャージの数を入れると、お迎えできる確率が出ます。"}, {"sel": "#l-pulls", "t": "内訳で中身を確かめます", "d": "何連引けるか、天井まで何連か、★3 が何人出るかを分けて出しています。"}, {"sel": "#tb-q", "t": "何連で届くかを見ます", "d": "確率を先に決めて「そこに届くには何連いるか」を逆から見られます。"}]};</script>
 <script src="../tour.js?v=2"></script>
 
-<script src="../share.js?v=1"></script>
+<script src="../share.js?v=2"></script>
+<script src="../hint.js?v=1"></script>
 
 <footer>
   <div class="foot-inner">
@@ -351,8 +359,8 @@
     }).join('') +
       '<tr class="here"><td>★3 の合計</td><td>' + (rate3 * 100).toFixed(1) + ' %</td><td>' + e3.toFixed(2) + ' 人</td></tr>';
     el('b-lead').innerHTML = bannerKind === 'fes'
-      ? '<b>★3 の合計が 2 倍の 6.0% になりますが、ピックアップの 0.7% は動きません。</b>増えるのはすり抜けの側で、周年・限定の生徒が 0.9%、通常の★3 が 4.4% です。<b>お迎えできる確率は変わらず、手に入る★3 の人数だけが増えます。</b>'
-      : '<b>★3 の 3.0% のうち、ピックアップは 0.7%。</b>残りの 2.3% は通常の★3 へのすり抜けです。';
+      ? '<b>★3 の合計は 6.0% ですが、ピックアップの 0.7% は変わりません。</b>増えるのは周年・限定 0.9%／通常★3 4.4% のすり抜けです。'
+      : '<b>★3 の 3.0% のうち、ピックアップは 0.7%。</b>残り 2.3% はすり抜けです。';
     var need = Math.max(0, ceilGem - gem);
     el('l-need-k').textContent = need > 0 ? '天井まで足りない青輝石' : '天井ぶんの石は足りています';
     el('l-need').textContent = need > 0 ? fmt(need) + ' 個' : '足りています';
@@ -360,8 +368,7 @@
     var mn = el('multi-note');
     if (copies > 1) {
       mn.hidden = false;
-      mn.innerHTML = '<p><b>2 人目からは、呼び出しチャージが 0 に戻ったところからやり直しです。</b>' +
-        'ピックアップをお迎えした時点でカウントがリセットされるためで、' +
+      mn.innerHTML = '<p><b>2 人目からは、呼び出しチャージが 0 に戻った状態からやり直しです。</b>' +
         copies + ' 人そろえるには最大で <b>' + fmt(ceilPulls) + ' 連</b>（' + fmt(ceilGem) + ' 個）かかります。</p>';
     } else {
       mn.hidden = true;
@@ -421,7 +428,7 @@
       x.setAttribute('aria-pressed', String(x.dataset.b === bannerKind));
     });
     el('banner-note').textContent = bannerKind === 'fes'
-      ? '★3 の合計が 6.0%（ピックアップ 0.7% ／ 周年・限定のすり抜け 0.9% ／ 通常★3 4.4%）。お迎えできる確率は変わらず、★3 の人数だけが増えます。'
+      ? '★3 の合計が 6.0%（ピックアップ 0.7% ／ 周年・限定のすり抜け 0.9% ／ 通常★3 4.4%）。'
       : '★3 が 3.0%（ピックアップ 0.7% ／ すり抜け 2.3%）。';
     calc();
   });

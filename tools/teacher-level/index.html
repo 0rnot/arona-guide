@@ -7,14 +7,22 @@
 <meta name="description" content="今の先生レベルと経験値から、目標レベルまでに必要な AP と日数を計算します。レベルアップのたびに AP が全回復するぶんも差し引きます。">
 <meta name="theme-color" content="#c8892e">
 <link rel="icon" href="../../favicon.svg" type="image/svg+xml">
-<meta property="og:title" content="先生レベル計算機">
-<meta property="og:description" content="目標の先生レベルまで、あと何 AP・何日か。レベルアップの全回復ぶんも込みで計算します。">
 <meta property="og:type" content="website">
+<meta property="og:site_name" content="AronaBot">
+<meta property="og:locale" content="ja_JP">
 <meta property="og:url" content="https://arona-bot.com/tools/teacher-level/">
-<meta property="og:image" content="https://arona-bot.com/images/hero-night.jpg">
+<meta property="og:title" content="先生レベル計算機">
+<meta property="og:description" content="目標の先生レベルまで、あと何 AP・何日かかるかを出します。経験値 2 倍期間と新米先生ブースト、Lv90 のあとの熟達証書にも対応。">
+<meta property="og:image" content="https://arona-bot.com/images/og/teacher-level.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="先生レベル計算機 — AronaBot のツール">
 <meta name="twitter:card" content="summary_large_image">
-<link rel="stylesheet" href="../../style.css?v=15">
-<link rel="stylesheet" href="../tool.css?v=10">
+<meta name="twitter:title" content="先生レベル計算機">
+<meta name="twitter:description" content="目標の先生レベルまで、あと何 AP・何日かかるかを出します。経験値 2 倍期間と新米先生ブースト、Lv90 のあとの熟達証書にも対応。">
+<meta name="twitter:image" content="https://arona-bot.com/images/og/teacher-level.jpg">
+<link rel="stylesheet" href="../../style.css?v=16">
+<link rel="stylesheet" href="../tool.css?v=11">
 <style>
   .pick-row2 { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; margin-top: 18px; }
   .pick-row2 .lb2 { font-size: .8rem; font-weight: 700; color: var(--fg-mute); }
@@ -101,7 +109,7 @@
   </div>
   <div class="thero-body">
     <h1>先生レベル計算機</h1>
-    <p class="thero-lead">目標のレベルまで、あと何 AP・何日かかるかを出します。消費した AP がそのまま先生経験値になるので、残りの経験値がそのまま残りの AP です。レベルアップのたびに AP が全回復するぶんも差し引いています。</p>
+    <p class="thero-lead">目標レベルまで、あと何 AP・何日かかるかを出します。<button type="button" class="qm" data-hint="消費した AP がそのまま先生経験値になるので、残りの経験値がそのまま残りの AP です。レベルアップのたびに AP が全回復するぶんも差し引いています。"></button></p>
   </div>
 </header>
 
@@ -113,7 +121,7 @@
     <div class="tcol">
       <div class="panel">
         <div class="panel-h"><h2>今の状況</h2></div>
-        <p class="lead">経験値が分からなければ 0 のままで大丈夫です。多少ずれても日数はほとんど変わりません。</p>
+        <p class="lead">経験値が分からなければ 0 のままで構いません。</p>
         <div class="fields c3">
           <div class="field" id="f-level">
             <label for="i-level">今の先生レベル<span class="hint">1 〜 90</span></label>
@@ -144,13 +152,13 @@
             <button type="button" data-p="2" aria-pressed="false">＋20%</button>
           </div>
         </div>
-        <p class="lead" style="margin:10px 0 0">周年やハーフアニバーサリーには先生経験値が 2 倍になる期間があります。<b>新米先生経験値ブーストは先生レベルで段が変わります</b>——Lv50 までが ＋250%、Lv70 までが ＋200%、Lv83 までが ＋150%、Lv85 までが ＋100%、Lv88 までが ＋50%、そこから先は付きません。<b>どれもゲームのデータそのままの値です。</b></p>
+        <p class="lead" style="margin:10px 0 0">周年などの経験値 2 倍期間と、新米先生経験値ブーストに対応しています。<button type="button" class="qm" data-hint="新米先生経験値ブーストは先生レベルで段が変わります——Lv50 まで+250%、Lv70 まで+200%、Lv83 まで+150%、Lv85 まで+100%、Lv88 まで+50%、そこから先は付きません。どれもゲームのデータそのままの値です。"></button></p>
         <p class="err" id="err" hidden></p>
       </div>
 
       <div class="panel">
         <div class="panel-h"><h2><img class="ico" src="../img/currency_icon_ap.webp" alt="" width="24" height="24" loading="lazy"> 1 日に手に入る AP</h2></div>
-        <p class="lead"><b>自分の遊び方に合わせてください。</b>初期値は無課金・石割なしで、カフェはランク 10 のときの値です。</p>
+        <p class="lead">初期値は無課金・カフェランク 10 想定です。</p>
 
         <div class="btnrow" style="margin-bottom:18px">
           <div class="seg" id="preset" role="group" aria-label="遊び方のめやす">
@@ -230,7 +238,7 @@
 
       <div class="panel">
         <div class="panel-h"><h2>内訳</h2></div>
-        <p class="lead"><b>レベルが上がると AP は上限まで回復します。</b>その回復ぶんは自分で用意しなくていいので、必要量から引いています。AP を使い切ってから上がるものとして数えているので、満タンのまま上がったぶんは受け取れません。</p>
+        <p class="lead">レベルアップの全回復ぶんは、必要 AP から引いています。<button type="button" class="qm" data-hint="AP を使い切ってから上がるものとして計算しているので、満タンのまま上がったぶんは受け取れません。"></button></p>
         <div class="ledger">
           <div class="row"><span id="l-span-k">必要な経験値</span><span id="l-span">—</span></div>
           <div class="row minus"><span>今の経験値ぶん</span><span id="l-exp">—</span></div>
@@ -245,7 +253,7 @@
 
       <div class="panel" id="mastery-panel">
         <div class="panel-h"><h2><img class="ico" src="../img/currency_icon_mastercoin.webp" alt="" width="24" height="24" loading="lazy"> Lv90 のあと</h2></div>
-        <p class="lead" style="margin:0"><b>Lv90 で経験値も上限に達すると、そのあと使った AP は「熟達証書」に変わります。</b>AP 1 につき 1 枚。ただし<b>週にもらえる枚数には上限</b>があって、素で <b id="m-cap1">—</b> 枚、月額パス 2 種（980 円のものと 490 円のもの）で <b id="m-cap2">—</b> 枚と <b id="m-cap3">—</b> 枚ぶん増えて、両方あるといちばん多くて <b id="m-cap4">—</b> 枚です。上限に当たったぶんの AP は捨てることになるので、Lv90 まで行ったら AP の使い道を見直してください。</p>
+        <p class="lead" style="margin:0">Lv90 到達後は、使った AP が熟達証書に変わります（1 AP＝1 枚）。週の上限は素で <b id="m-cap1">—</b> 枚、月額パス込みで最大 <b id="m-cap4">—</b> 枚です。<button type="button" class="qm" data-hint="月額パス 2 種（980円/490円）でそれぞれ枚数が増え、両方あると最大になります。上限を超えたぶんの AP は熟達証書になりません。"></button><span hidden><b id="m-cap2">—</b><b id="m-cap3">—</b></span></p>
         <div class="mrow">
           <div class="mc"><div class="k">1 週間で使える AP</div><div class="v" id="m-week">—</div></div>
           <div class="mc"><div class="k">素の上限で受け取れる</div><div class="v" id="m-get1">—</div></div>
@@ -259,7 +267,7 @@
     <div class="tfull">
       <div class="panel">
         <div class="panel-h"><h2>レベルごとの内訳</h2></div>
-        <p class="lead">今のレベルの前後を出します。AP 上限は、そのレベルになったときの値です。<b>低いレベルでは上限が小さい</b>ので、こまめに使わないと自然回復ぶんが溢れます。</p>
+        <p class="lead">今のレベル前後の AP 上限と、上限まで貯まる時間です。<button type="button" class="qm" data-hint="低いレベルでは上限が小さいので、こまめに使わないと自然回復ぶんが溢れます。"></button></p>
         <div class="tscroll">
           <table class="dt">
             <thead><tr><th>レベル</th><th>次まで</th><th>ここまでの累計</th><th>AP 上限</th><th>上限まで貯まる時間</th></tr></thead>
@@ -282,7 +290,7 @@
           <li><code>Excel/ClanRewardExcelTable.json</code> — サークルの出席報酬が 10（<code>ClanRewardType: Attendance</code>）</li>
         </ul>
         <p><b><code>AccountExpRatio</code> が 1 なので、消費した AP と得られる先生経験値は 1 対 1 です。</b>このツールが「必要経験値＝必要 AP」として扱っているのはそのためです。取得元は <a href="https://github.com/electricgoat/ba-data" target="_blank" rel="noopener">electricgoat/ba-data</a> の
-          <code>jp</code> ブランチ、バージョン <code id="ver">—</code> 時点のもので、Lv1 から Lv90 までの合計は <b>294,782</b> でした。</p>
+          <code>jp</code> ブランチで、Lv1 から Lv90 までの合計は <b>294,782</b> でした。取得は <span id="ver">—</span>。</p>
         <p><b>1 日の AP の内訳は攻略サイトの記載によります。</b>自然回復は 6 分に 1 で 1 日 240、デイリーミッションはログイン 100 ＋ スケジュール 2 回 50 の合計 150、サークルは 10。青輝石での回復は <b>1 回 120 AP</b> で、値段は 1〜3 回目 30 個、4〜6 回目 60 個、7〜9 回目 100 個、10〜12 回目 150 個、13〜15 回目 200 個、16〜20 回目 300 個。カフェはランク 1 から 10 まで 90 / 150 / 220 / 300 / 390 / 460 / 530 / 600 / 670 / 740。レベルアップで AP が全回復することもここの記載です。</p>
         <p><b>「新米先生経験値ブースト」の倍率はゲームのデータに入っていました。</b><code>DB/AccountLevelExcelTable.json</code> の <code>NewbieExpRatio</code> がそれで、レベルごとに値が入っています（10000 分率。25000 なら ＋250%）。段はこうです。</p>
         <ul>
@@ -310,7 +318,8 @@
 <script>window.TOUR = {"key": "teacher-level", "steps": [{"sel": "#i-level", "t": "今のレベルと目標を入れます", "d": "そこまでに要る AP と、何日かかるかを出します。新米先生ブーストはレベルごとに倍率が変わります。"}, {"sel": "#preset", "t": "1 日に入る AP を決めます", "d": "自然回復・デイリー・カフェ・青輝石での回復を足し合わせます。カフェのランクで量が変わります。"}, {"sel": "#m-week", "t": "Lv90 のあとも見られます", "d": "経験値が上限に達したあと、使った AP が熟達証書に変わります。週にもらえる枚数には上限があります。"}]};</script>
 <script src="../tour.js?v=2"></script>
 
-<script src="../share.js?v=1"></script>
+<script src="../share.js?v=2"></script>
+<script src="../hint.js?v=1"></script>
 
 <footer>
   <div class="foot-inner">
@@ -634,7 +643,7 @@
 
   [iLevel, iExp, iTarget, cafeSel, drinkSel, gemSel, cDaily, cClan, cPack, iEtc]
     .forEach(function (n) { n.addEventListener('input', calc); n.addEventListener('change', calc); });
-  el('ver').textContent = D.version;
+  el('ver').textContent = D.fetched;
   calc();
 })();
 </script>

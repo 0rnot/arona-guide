@@ -7,14 +7,22 @@
 <meta name="description" content="生徒を選んで今のレベルと★、目標を入れると、要る経験値と武器パーツの数が出ます。武器種ごとに 1.5 倍になるパーツも分かります。">
 <meta name="theme-color" content="#c8892e">
 <link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="AronaBot">
+<meta property="og:locale" content="ja_JP">
+<meta property="og:url" content="https://arona-bot.com/tools/weapon/">
 <meta property="og:title" content="固有武器の強化計算機">
 <meta property="og:description" content="生徒を選んで今のレベルと★、目標を入れると、要る経験値と武器パーツの数が出ます。武器種ごとに 1.5 倍になるパーツも分かります。">
-<meta property="og:type" content="website">
-<meta property="og:url" content="https://arona-bot.com/tools/weapon/">
-<meta property="og:image" content="https://arona-bot.com/images/hero-night.jpg">
+<meta property="og:image" content="https://arona-bot.com/images/og/weapon.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="固有武器の強化計算機 — AronaBot のツール">
 <meta name="twitter:card" content="summary_large_image">
-<link rel="stylesheet" href="../../style.css?v=15">
-<link rel="stylesheet" href="../tool.css?v=10">
+<meta name="twitter:title" content="固有武器の強化計算機">
+<meta name="twitter:description" content="生徒を選んで今のレベルと★、目標を入れると、要る経験値と武器パーツの数が出ます。武器種ごとに 1.5 倍になるパーツも分かります。">
+<meta name="twitter:image" content="https://arona-bot.com/images/og/weapon.jpg">
+<link rel="stylesheet" href="../../style.css?v=16">
+<link rel="stylesheet" href="../tool.css?v=11">
 <style>
   .stucard { display: grid; grid-template-columns: 96px 1fr; gap: 16px; align-items: center;
              padding: 14px; margin-bottom: 16px;
@@ -143,7 +151,7 @@
   </div>
   <div class="thero-body">
     <h1>固有武器の強化計算機</h1>
-    <p class="thero-lead">生徒を選んで今のレベルと★、目標を入れると、要る経験値と武器パーツの数が出ます。武器種ごとに 1.5 倍になるパーツも分かります。</p>
+    <p class="thero-lead">生徒と今・目標を入れると、要る経験値とパーツの数が出ます。</p>
   </div>
 </header>
 
@@ -159,7 +167,7 @@
           <div class="stuimg" id="stu-img"><span class="ph">none</span></div>
           <div>
             <p class="stuname" id="stu-name">まだ誰も選んでいません</p>
-            <p class="stunote" id="stu-note">名前を入れると、その子の武器種に効くパーツが出ます。要る経験値は武器種に関わらず同じです。</p>
+            <p class="stunote" id="stu-note">名前を入れると、効くパーツが分かります。</p>
           </div>
         </div>
         <div class="wshot" id="wshot" hidden></div>
@@ -228,7 +236,8 @@
 
       <div class="panel">
         <div class="panel-h"><h2>パーツだけで賄うと</h2></div>
-        <p class="lead"><b>そのパーツ 1 種類だけで目標まで上げたときの個数です。</b>1.5 倍が効く系統は色を付けてあります。</p>
+        <p class="lead"><b>そのパーツ 1 種類だけで目標まで上げたときの個数です。</b>
+          <button type="button" class="qm" data-hint="1.5倍が効く系統は色を付けてあります。"></button></p>
         <div class="tscroll">
           <table class="dt">
             <thead><tr><th>パーツ</th><th>要る個数</th><th>1 個の経験値</th><th>この武器では</th></tr></thead>
@@ -322,7 +331,8 @@
 ]};</script>
 <script src="../tour.js?v=2"></script>
 
-<script src="../share.js?v=1"></script>
+<script src="../share.js?v=2"></script>
+<script src="../hint.js?v=1"></script>
 
 <footer>
   <div class="foot-inner">
@@ -383,7 +393,7 @@
       return '<option value="' + esc(s.n) + '">';
     }).join('');
     el('src-coef').textContent = W.coef;
-    el('ver').textContent = W.version;
+    el('ver').textContent = W.fetched;
 
     // 武器種ごとの表
     el('th-bonus').innerHTML = '<th>武器種</th>' + W.partOrder.map(function (k) {
@@ -479,7 +489,7 @@
       card.classList.add('none');
       el('stu-img').innerHTML = '<span class="ph">none</span>';
       el('stu-name').textContent = 'まだ誰も選んでいません';
-      el('stu-note').textContent = '名前を入れると、その子の武器種に効くパーツが出ます。要る経験値は武器種に関わらず同じです。';
+      el('stu-note').textContent = '名前を入れると、効くパーツが分かります。';
       el('wshot').hidden = true; el('wshot').innerHTML = '';
     }
 
@@ -489,7 +499,7 @@
     stars(el('to-stars'), toStar, fromStar, false);
     el('capnote').innerHTML = '今の ★' + fromStar + ' なら <b>Lv' + cap(fromStar) +
       '</b> まで、目標の ★' + toStar + ' なら <b>Lv' + cap(toStar) + '</b> までです。' +
-      '日本版で開いているのは <b>★' + W.jpStar + '（Lv' + W.jpLv + '）</b>まで。';
+      '<button type="button" class="qm" data-hint="日本版で開いているのは★' + W.jpStar + '（Lv' + W.jpLv + '）までです。"></button>';
 
     var need = expNeed(fromLv, toLv);
     var sc = starCost(fromStar, toStar);
@@ -540,9 +550,8 @@
           '<td class="nowrap">' + fmt(s.el) + ' 個' + (s.src !== 'data' ? ' <b>*</b>' : '') + '</td>' +
           '<td class="nowrap">' + fmt(s.cr) + '</td><td>' + esc(open) + '</td></tr>';
       })).join('');
-    el('starnote').innerHTML = '<b>*</b> ★3→★4 の神名文字だけ、ゲームのデータが仮置き（1 個）のままなので、' +
-      '<a href="https://game8.jp/blue-archive/706922" target="_blank" rel="noopener">ゲームエイト</a>の <b>200 個</b>を採っています。' +
-      'クレジットの 200 万はデータ側と一致しました。';
+    el('starnote').innerHTML = '<b>*</b> は<a href="https://game8.jp/blue-archive/706922" target="_blank" rel="noopener">ゲームエイト</a>の値です。' +
+      '<button type="button" class="qm" data-hint="★3→★4の神名文字だけ、ゲームのデータが仮置き（1個）のままなので、外部の200個を採っています。クレジットの200万はデータ側と一致しました。"></button>';
 
     // 武器種の行を光らせる
     [].forEach.call(document.querySelectorAll('#tb-bonus tr'), function (tr) {

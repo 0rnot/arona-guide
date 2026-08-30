@@ -283,7 +283,7 @@
       return '<details class="cat" data-c="' + c + '"' + (folded[c] ? '' : ' open') + '>' +
         '<summary>' +
           '<div class="cat-h">' +
-            '<b>' + esc(E.catJa[c]) + '</b>' +
+            '<b><span class="gi gi-icon-inven-' + c.toLowerCase() + '" aria-hidden="true"></span>' + esc(E.catJa[c]) + '</b>' +
             '<span class="cat-n">' + n1(done) + ' / ' + goal + ' セット</span>' +
             '<button type="button" class="btn tiny" data-a="zero">0 に戻す</button>' +
           '</div>' +
@@ -341,7 +341,7 @@
     }
     el('short').innerHTML =
       '<p class="lead">足りない枚数の多い順です。全部で <b>' + fmt(totalNeed) +
-        ' 枚</b>足りません。<b>万能設計図はここでは差し引いていません</b>（上の「セット」の数字が、万能を配ったあとの実力です）。</p>' +
+        ' 枚</b>足りません。<button type="button" class="qm" data-hint="万能設計図はここでは差し引いていません。上の「セット」の数字が、万能を配ったあとの実力です。"></button></p>' +
       '<div class="slist">' + rows.slice(0, shortOpen ? rows.length : 8).map(function (r) {
         var pct = Math.min(100, r.have / r.N * 100);
         return '<div class="srow">' +
@@ -425,12 +425,9 @@
       '</div>';
 
     el('stages').innerHTML =
-      '<p class="lead">点数の高い順です。<b>点数は「1 周でどれだけ満足度が上がるか」</b>で、' +
-        'AP は割っていません。<b>AP あたりで見たいときは右の列を見てください。</b></p>' +
-      (useHard ? '<div class="note-box" style="margin:0 0 12px"><b>ハードは AP が 2 倍で、' +
-        '1 日に入れる回数も決まっています。</b>回数はゲームのデータに入っていないので、' +
-        'ここには書きません。<b>点数だけで並べるとハードが上に来ます</b>ので、' +
-        '「1 AP あたり」の列と見比べてください。</div>' : '') +
+      '<p class="lead">点数の高い順です。<button type="button" class="qm" data-hint="点数は「1周でどれだけ満足度が上がるか」で、APでは割っていません。APあたりで見たいときは右の列を見てください。"></button></p>' +
+      (useHard ? '<div class="note-box" style="margin:0 0 12px"><b>ハードは点数だけで並べると上に来ます。</b>' +
+        '<button type="button" class="qm" data-hint="ハードはAPが2倍で、1日に入れる回数も決まっています（回数はゲームのデータに無いためここには書きません）。「1 APあたり」の列と見比べてください。"></button></div>' : '') +
       '<div class="tscroll"><table class="dt"><thead><tr><th>ステージ</th><th>難易度</th>' +
       '<th>AP</th><th>点数</th><th>1 AP あたり</th><th>いちばんの目当て</th></tr></thead><tbody>' +
       list.slice(0, 12).map(function (r, i) {
@@ -714,7 +711,7 @@
   el('src-def').textContent = CATS.map(function (c) {
     return E.catJa[c] + ' ' + E.defSets[c];
   }).join(' / ');
-  el('ver').textContent = E.version;
+  el('ver').textContent = E.fetched;
 
   /* **URL だけが変わったときも読み直す。**同じページで別の共有リンクを開くと、
      ブラウザは再読み込みせずにハッシュだけ差し替える（2026-08-30 に検査で踏んだ） */

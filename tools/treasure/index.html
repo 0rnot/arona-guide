@@ -7,14 +7,22 @@
 <meta name="description" content="イベントのミニゲーム「宝探し（在庫管理）」で、次に開けるべきマスを出します。開けた結果を入れると、残りのマスに何がある確率かを数え上げて出します。">
 <meta name="theme-color" content="#c8892e">
 <link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="AronaBot">
+<meta property="og:locale" content="ja_JP">
+<meta property="og:url" content="https://arona-bot.com/tools/treasure/">
 <meta property="og:title" content="宝探しの確率計算機">
 <meta property="og:description" content="開けた結果を入れると、残りのマスに何がある確率かが分かります。近似ではなく、置き方を全部数え上げた値です。">
-<meta property="og:type" content="website">
-<meta property="og:url" content="https://arona-bot.com/tools/treasure/">
-<meta property="og:image" content="https://arona-bot.com/images/hero-night.jpg">
+<meta property="og:image" content="https://arona-bot.com/images/og/treasure.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="宝探しの確率計算機 — AronaBot のツール">
 <meta name="twitter:card" content="summary_large_image">
-<link rel="stylesheet" href="../../style.css?v=15">
-<link rel="stylesheet" href="../tool.css?v=10">
+<meta name="twitter:title" content="宝探しの確率計算機">
+<meta name="twitter:description" content="開けた結果を入れると、残りのマスに何がある確率かが分かります。近似ではなく、置き方を全部数え上げた値です。">
+<meta name="twitter:image" content="https://arona-bot.com/images/og/treasure.jpg">
+<link rel="stylesheet" href="../../style.css?v=16">
+<link rel="stylesheet" href="../tool.css?v=11">
 <style>
   /* **スマホでは 1 列になる。**そのとき盤面が先に来ると、備品の型を決める前に
      盤を触ることになるので、狭いときだけ右の柱を先に出す（番号どおりの順番） */
@@ -213,7 +221,7 @@
   </div>
   <div class="thero-body wide">
     <h1>宝探しの確率計算機</h1>
-    <p class="thero-lead">開けた結果を入れると、残りのマスに何がある確率かが出ます。サンプリングでも近似でもなく、条件に合う置き方を全部数え上げた値です。</p>
+    <p class="thero-lead">開けた結果を入れると、残りのマスに何がある確率かを出します。</p>
   </div>
 </header>
 
@@ -225,7 +233,7 @@
     <div class="tcol">
       <div class="panel">
         <div class="panel-h"><h2>盤面</h2></div>
-        <p class="lead"><b>なにが出たかを選んでから、そのマスを 1 つだけ</b>押します。もう一度押すと消えます。備品の一部が見えただけで大丈夫で、端でも真ん中でも構いません。マスの上に指を置くと、その備品が届きうる範囲が枠で出ます。</p>
+        <p class="lead"><b>なにが出たかを選んでから、そのマスを押します。</b>もう一度押すと消えます。<button type="button" class="qm" data-hint="備品の一部が見えただけで大丈夫です(端でも真ん中でも構いません)。マスの上に指を置くと、その備品が届きうる範囲が枠で出ます。"></button></p>
         <div class="seg" id="view" role="group" aria-label="表示の切り替え" style="margin-bottom:14px">
           <button type="button" data-v="any" aria-pressed="true">なにかある確率</button>
           <button type="button" data-v="rev" aria-pressed="false">当たる備品の大きさ</button>
@@ -264,7 +272,7 @@
 
       <div class="panel">
         <div class="panel-h"><h2>おすすめのマス</h2></div>
-        <p class="lead">上から順に、<b>備品に当たる確率</b>が高いマスです。「当たる備品の大きさ」は、そこに何かあったとき<b>それが何マスの備品か</b>の期待値で、大きいものほど見つけたときの手がかりが増えます。</p>
+        <p class="lead">上から順に、<b>当たる確率</b>が高いマスです。<button type="button" class="qm" data-hint="「当たる備品の大きさ」は、そこに何かあったときそれが何マスの備品かの期待値です。大きいものほど、見つけたときの手がかりが増えます。"></button></p>
         <div class="picks" id="picks"></div>
       </div>
     </div>
@@ -272,7 +280,7 @@
     <div class="tcol">
       <div class="panel">
         <div class="panel-h"><h2>備品の型</h2></div>
-        <p class="lead"><b>イベントごとに名前も大きさも変わります。</b>ゲーム内の表示に合わせて、名前・よこ・たて・個数を書き換えてください。</p>
+        <p class="lead">名前・よこ・たて・個数は、ゲーム内の表示に合わせて書き換えられます。</p>
         <div class="field" style="margin-bottom:14px">
           <label for="event">イベント</label>
           <select id="event"></select>
@@ -285,8 +293,7 @@
 
 
       <div class="note-box">
-        <p><b>入力に矛盾があると「あり得る置き方 0 通り」になります。</b>個数や印を見直してください。数え上げが 0 になった時点で確率は出せません。</p>
-        <p>計算はぜんぶこのページの中でやっています。<b>入れた内容が外へ送られることはありません。</b></p>
+        <p>入れた内容は外へ送らず、このページの中だけで計算します。<button type="button" class="qm" data-hint="入力に矛盾があると「あり得る置き方0通り」になり、確率は出せません。個数や印を見直してください。"></button></p>
       </div>
     </div>
 
@@ -320,7 +327,7 @@
           <a href="https://github.com/terry-u16/schale-inventory-management" target="_blank" rel="noopener">terry-u16/schale-inventory-management</a>（MIT ライセンス）の
           <code>src/components/MainArea.tsx</code> から写したものです。データから作り直した値と 1 つ残らず一致しました。「周目」という呼び方も、ゲーム側の列名 <code>TreasureRound</code> と、同じリポジトリの日本語ロケール（1周目〜13周目以降）に合わせています。解き方は同じ考え方の DP ですが、こちらは通り数がいくつでも厳密な値を出します。</p>
         <p><b>過去のイベントもぜんぶ選べます。</b>在庫管理のミニゲームは名前と大きさを変えて何度も来ていて、今のところ 12 回ぶんが入っています。載っていないものでも、備品は毎回 3 種類なので、上の欄を書き換えればそのまま使えます。</p>
-        <p>取得は <span id="ver">—</span>。</p>
+        <p>出典 — <a href="https://github.com/electricgoat/ba-data" target="_blank" rel="noopener">electricgoat/ba-data</a>（周ごとの中身・備品の大きさ・名前）、<a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a>（イベント名）。取得は <span id="ver">—</span>。</p>
       </details>
     </div>
 
@@ -330,7 +337,8 @@
 <script>window.TOUR = {"key": "treasure", "steps": [{"sel": "#board", "t": "盤面を写します", "d": "開けたマスの結果を、上の色を選んでから盤面に置いていきます。間違えたら「ひとつ戻す」で戻せます。"}, {"sel": "#picks", "t": "次に開けるマスが出ます", "d": "残りの置き方をぜんぶ数えて、当たりが入っている確率がいちばん高いマスを出しています。"}, {"sel": "#items", "t": "備品の型を確かめます", "d": "周ごとに入っている備品の形と数が変わります。今どの周かをここで合わせてください。"}]};</script>
 <script src="../tour.js?v=2"></script>
 
-<script src="../share.js?v=1"></script>
+<script src="../share.js?v=2"></script>
+<script src="../hint.js?v=1"></script>
 
 <footer>
   <div class="foot-inner">
@@ -711,7 +719,7 @@
 
   loadFirst();
   drawEvents(); drawWeeks(); drawItems(); draw();
-  el('ver').textContent = (window.TREASURE_EVENTS || {}).version || '';
+  el('ver').textContent = (window.TREASURE_EVENTS || {}).fetched || '';
 })();
 </script>
 </body>

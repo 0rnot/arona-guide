@@ -486,6 +486,9 @@ h1 {
 }
 .feature-text p { margin: 0 0 1.2em; }
 
+/* **2 つめ以降のコマンドは、前の説明から離す。**続けて書くと同じ話に見える */
+.feature-text p + .cmd { margin-top: 1.6em; }
+
 .cmd {
   display: inline-block;
   margin: 0 0 .3em;
@@ -964,3 +967,39 @@ a.toolband-card:hover .ticon { transform: scale(1.09) rotate(-4deg); }
 
 .toolband-more { margin: clamp(20px, 3vw, 26px) 0 0; }
 .toolband-more .cta { font-size: .95rem; }
+
+/* ------------------------------------------------------------ くわしく（丸に i）
+
+   **ツールにも本編にも出すので `style.css` に置く。**本文は一目で読める長さにして、理由や但し書きはここへしまう**
+   （2026-08-31 の先生の指示）。使い方は `tools/hint.js` の頭に書いてある。 */
+
+.qm {
+  position: relative;
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 1.15em; height: 1.15em; margin-left: .3em; padding: 0;
+  vertical-align: -.12em;
+  font: inherit; font-size: .82em; font-weight: 700; font-style: normal;
+  line-height: 1; cursor: pointer;
+  border: 1px solid var(--line); border-radius: 50%;
+  background: var(--bg-sub); color: var(--fg-mute);
+  transition: color .14s ease, border-color .14s ease;
+}
+/* **丸の中の字は CSS で出す。**JS が組み直した場所にも同じものが出るように。
+   字は「!」（2026-08-31 の先生の指示。「i」にするならここ 1 行） */
+.qm::before { content: "!"; font-family: Georgia, "Times New Roman", serif; }
+/* **押せる範囲は見た目より広く。**丸そのものは 14px ほどしかなく、
+   指では狙えない。見た目を変えずに 30px 角の的を重ねる（2026-08-31） */
+.qm::after { content: ""; position: absolute; inset: -8px; }
+.qm:hover { color: var(--fg); border-color: var(--accent); }
+.qm:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.qm[aria-expanded="true"] { background: var(--accent); border-color: transparent; color: var(--accent-in); }
+
+.qm-pop {
+  position: absolute; z-index: 60;
+  padding: .7em .9em;
+  font-size: .84rem; line-height: 1.7; color: var(--fg);
+  background: var(--card); border: 1px solid var(--line); border-radius: 10px;
+  box-shadow: var(--shadow);
+}
+/* **角は付けない。**吹き出しは画面からはみ出さないよう左右にずらすので、
+   角の位置と丸の位置が合わなくなる。近さで十分つながって見える（2026-08-31） */

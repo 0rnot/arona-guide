@@ -7,14 +7,22 @@
 <meta name="description" content="編成した 6 人からコスト回復力を計算して、EX スキルを撃つ順番を並べると、それぞれが何秒目に撃てるかを出します。総力戦の TL 作りに。">
 <meta name="theme-color" content="#c8892e">
 <link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="AronaBot">
+<meta property="og:locale" content="ja_JP">
+<meta property="og:url" content="https://arona-bot.com/tools/cost-timeline/">
 <meta property="og:title" content="TL のコスト計算機">
 <meta property="og:description" content="この編成なら、その EX は何秒目に撃てるのか。">
-<meta property="og:type" content="website">
-<meta property="og:url" content="https://arona-bot.com/tools/cost-timeline/">
-<meta property="og:image" content="https://arona-bot.com/images/hero-night.jpg">
+<meta property="og:image" content="https://arona-bot.com/images/og/cost-timeline.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="TL のコスト計算機 — AronaBot のツール">
 <meta name="twitter:card" content="summary_large_image">
-<link rel="stylesheet" href="../../style.css?v=15">
-<link rel="stylesheet" href="../tool.css?v=10">
+<meta name="twitter:title" content="TL のコスト計算機">
+<meta name="twitter:description" content="この編成なら、その EX は何秒目に撃てるのか。">
+<meta name="twitter:image" content="https://arona-bot.com/images/og/cost-timeline.jpg">
+<link rel="stylesheet" href="../../style.css?v=16">
+<link rel="stylesheet" href="../tool.css?v=11">
 <style>
   /* 編成の 6 枠 */
   .party { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
@@ -287,14 +295,14 @@
   </div>
   <div class="thero-body">
     <h1>TL のコスト計算機</h1>
-    <p class="thero-lead">編成した 6 人からコスト回復力を計算して、EX スキルを撃つ順番を並べると、それぞれが何秒目に撃てるかを出します。総力戦の TL を組み立てるときの下地に。</p>
+    <p class="thero-lead">編成と撃つ順番から、EX が何秒目に撃てるかを出します。</p>
   </div>
 </header>
 
 <div class="twrap">
   <p class="tcrumb"><a href="../../">AronaBotの使い方</a><span class="sl">/</span><a href="../">ツール</a><span class="sl">/</span>TL のコスト計算機</p>
 
-  <div class="note-box" style="margin-top:20px"><b>スキルの順番は運では決まりません。</b>山札はパーティの人数ぶん、手札は 3 枚で、使ったカードは山札の一番下に回ります。<b>最初の並びさえ決めれば、そこから先はずっと同じ順で回ります。</b>その最初の並びが「開始スキル」で、2026 年 5 月 27 日のアップデートから通常編成は 5 人、制約解除決戦は 9 人まで指定できます。残り 1 人は自動で決まるので、<b>実質どちらも並びは全部決まります。</b>下の一覧では、そのとき手札に何があるかも一緒に出しています。なお、このツールが見ているのは<b>コストと手札だけ</b>です。敵の位置・ノックバック・遮蔽で実際の結果は変わります。</div>
+  <div class="note-box" style="margin-top:20px"><b>スキルの順番は運では決まりません。</b>最初の並び（開始スキル）さえ決めれば、そこから先はずっと同じ順で回ります。<button type="button" class="qm" data-hint="山札はパーティの人数ぶん、手札は3枚で、使ったカードは山札の一番下に回ります。2026年5月27日のアップデートから通常編成は5人、制約解除決戦は9人まで開始スキルを指定でき、残り1人は自動で決まるので実質どちらも並びは全部決まります。このツールが見ているのはコストと手札だけです。敵の位置・ノックバック・遮蔽で実際の結果は変わります。"></button></div>
 
   <div class="tcols lean" style="margin-top:20px">
 
@@ -307,7 +315,7 @@
             <button type="button" data-m="10" aria-pressed="false">制約解除決戦（10 人）</button>
           </div>
         </div>
-        <p class="lead" id="party-lead" style="margin-top:12px">ストライカー 4 人とスペシャル 2 人。<b>コスト回復力は 6 人の合計で決まります</b>ので、EX を撃たない子も入れてください。同じ子は 1 人までです。</p>
+        <p class="lead" id="party-lead" style="margin-top:12px"><b>EX を撃たない子もコスト回復力に入ります</b>（重複不可）。</p>
         <p class="lead" style="margin-top:.8em"><b>ストライカー</b></p>
         <div class="party" id="party-main"></div>
         <p class="lead" style="margin-top:1em"><b>スペシャル</b></p>
@@ -351,7 +359,7 @@
 
       <div class="panel">
         <div class="panel-h"><h2>ステージのギミック</h2></div>
-        <p class="lead">ボスの怯みなどで<b>途中からコスト回復力が増える</b>ものを、時刻・増加量・効果時間で足せます。増やした分は<b>編成の合計にそのまま足します</b>（％のバフは掛けません）。</p>
+        <p class="lead"><b>途中からコスト回復力が増える</b>分を、時刻・増加量・効果時間で足せます。<button type="button" class="qm" data-hint="ボスの怯みなどが対象です。増やした分は編成の合計にそのまま足し、％のバフは掛けません。"></button></p>
         <div id="gims" class="tlx-gims"></div>
         <div class="tlx-gimadd">
           <label>発動<input id="i-gim-t" type="text" inputmode="numeric" placeholder="1:30" autocomplete="off"></label>
@@ -390,7 +398,7 @@
     <div class="tfull">
       <div class="panel">
         <div class="panel-h"><h2>撃つ順番</h2></div>
-        <p class="lead">下のボタンで EX を後ろに足していきます。<b>そのとき手札に無い子を並べると、赤い帯で知らせます。</b>山札は編成の人数ぶんで、1 枚使うと一番下に回ります。<b>撃つたびに EX が変わる子（ネル（制服）・ミカ（水着）など 12 人）は、何回目かで形態を切り替えてコストを計算します。</b>行の「形態」で選び直せます。カードを引く・複製する動きは計算に入れていないので、行の「但し書き」を読んでください。</p>
+        <p class="lead">顔を押すと EX を後ろに足します。<b>手札に無い子を並べると、赤い帯で知らせます。</b><button type="button" class="qm" data-hint="山札は編成の人数ぶんで、使うと一番下に回ります。撃つたびにEXが変わる子(ネル(制服)・ミカ(水着)など12人)は形態を自動で切り替え、行の「形態」で選び直せます。カードを引く・複製する動きは計算に入れていないので、行の「但し書き」を確認してください。"></button></p>
         <div class="addrow" id="add"></div>
         <div id="timeline" style="margin-top:14px"></div>
         <p class="lead" id="tl-lead" style="margin-top:12px">まだ何も並んでいません。</p>
@@ -403,12 +411,12 @@
           <button type="button" class="btn" id="png-white">画像で保存（白）</button>
           <button type="button" class="btn" id="png-alpha">画像で保存（透過）</button>
         </div>
-        <p class="lead" style="margin-top:14px">書き出したもの。<b>そのまま動画の説明や記事に貼れます。</b>1 行目の <code>#</code> に共有 URL が入っているので、<b>これをまるごと貼り戻すと編成ごと元に戻ります。</b></p>
+        <p class="lead" style="margin-top:14px">書き出したものです。<b>そのまま動画の説明や記事に貼れます。</b><button type="button" class="qm" data-hint="1行目の#に共有URLが入っています。これをまるごと貼り戻すと編成ごと元に戻ります。"></button></p>
         <textarea class="out" id="out" readonly aria-label="書き出した TL"></textarea>
         <details class="tlx-imp">
           <summary>よそで書かれた TL を取り込む</summary>
-          <p class="lead" style="margin:.8em 0"><b><code>#</code> の行があればそれが正本</b>で、無いときは名前から編成を組み直します。書かれていない子は編成に入らないので回復力が変わります。<b>その場合、貼った秒より早く撃てない行は「この秒に」で留めます。</b></p>
-          <p class="lead" style="margin:.8em 0">動画の説明や記事に貼ってある書き方も読めます。<b>読めるのはこの形です。</b></p>
+          <p class="lead" style="margin:.8em 0"><b><code>#</code> の行があればそれが正本</b>で、無いときは名前から編成を組み直します。<button type="button" class="qm" data-hint="書かれていない子は編成に入らないので回復力が変わります。その場合、貼った秒より早く撃てない行は「この秒に」で留めます。"></button></p>
+          <p class="lead" style="margin:.8em 0">読み込める書き方は次のとおりです。</p>
           <ul class="lead imp-ex">
             <li><code>3:21.2 セイア</code> — 時刻。<b>数字が減っていく書き方なら残り時間</b>として読みます（上で「ボスの戦闘時間」を選んでおいてください）</li>
             <li><code>即セイア</code> <code>最速ヒマリ</code> <code>AUTO ホシノ</code> — 最短で撃つ</li>
@@ -450,7 +458,7 @@
            aria-labelledby="tb-ct-chart" tabindex="0">
         <div class="panel">
           <div class="panel-h"><h2>コストの動き</h2></div>
-          <p class="lead" id="chart-lead">EX を並べると、コストが貯まって減っていく様子が出ます。</p>
+          <p class="lead" id="chart-lead">EX を並べるとコストの増減が出ます。</p>
           <div class="chart" id="chart"></div>
         </div>
       </div>
@@ -464,7 +472,7 @@
             <label class="tlx-chk"><input type="checkbox" id="c-ns" data-k="show" data-s="ns" checked>ノーマルスキル</label>
             <label class="tlx-chk"><input type="checkbox" id="c-pv" data-k="show" data-s="pv" checked>パッシブ・サブ</label>
           </div>
-          <p class="lead" id="bars-lead">編成を決めると、持続する効果がここに帯で出ます。</p>
+          <p class="lead" id="bars-lead">編成を決めると持続する効果が帯で出ます。</p>
           <div class="chart" id="bars"></div>
         </div>
       </div>
@@ -473,7 +481,7 @@
            aria-labelledby="tb-ct-atk" tabindex="0">
         <div class="panel" id="atk-panel">
           <div class="panel-h"><h2>攻撃力の倍率</h2></div>
-          <p class="lead" id="atk-lead">編成を決めると、攻撃力が何倍になっているかがここに出ます。</p>
+          <p class="lead" id="atk-lead">編成を決めると攻撃力の倍率が出ます。</p>
           <div class="chart" id="atk"></div>
           <div id="atk-more"></div>
         </div>
@@ -483,7 +491,7 @@
            aria-labelledby="tb-ct-cond" tabindex="0">
         <div class="panel" id="cond-panel">
           <div class="panel-h"><h2>条件で発動するもの</h2></div>
-          <p class="lead" id="cond-lead">編成を決めると、時刻を置けないスキルがここに出ます。</p>
+          <p class="lead" id="cond-lead">編成を決めると条件発動のスキルが出ます。</p>
           <div id="cond"></div>
         </div>
       </div>
@@ -550,11 +558,12 @@
   </div>
 </div>
 
-<script>window.TOUR = {"key": "cost-timeline", "steps": [{"sel": "#party-main", "t": "先に編成を決めます", "d": "名前を入れて 6 人（制約解除決戦なら 10 人）そろえてください。EX を撃たない子もコスト回復力に効くので入れます。"}, {"sel": "#ledger", "t": "コスト回復力はここで確かめます", "d": "素の 700 に、ヒマリのようなスキルぶんが乗ります。持続するバフは「効いている間」に切り替えると合計に入ります。"}, {"sel": "#add", "t": "撃つ順番を並べます", "d": "顔を押すと下に積まれます。最短で撃つか、秒を決め打ちするかを行ごとに選べます。手札に無い並びは赤く出ます。"}, {"sel": "#bars-panel", "pre": "#tb-ct-bars", "t": "効果がいつ切れるかを見ます", "d": "EX だけでなく、ノーマルスキル・パッシブ・サブの効果も同じ横軸に並びます。帯の右端の縦線で切れます。上のチェックで種別ごとに畳めます。"}, {"sel": "#atk-panel", "pre": "#tb-ct-atk", "t": "攻撃力が何倍かを見ます", "d": "掛け算の攻撃力バフだけを足した倍率です。味方に付くバフが 1 人ぶんか全員ぶんかはデータに入っていないので、下限と上限の幅で出しています。"}]};</script>
+<script>window.TOUR = {"key": "cost-timeline", "steps": [{"sel": "#party-main", "t": "先に編成を決めます", "d": "名前を入れて 6 人（制約解除決戦なら 10 人）そろえてください。EX を撃たない子も入れます。"}, {"sel": "#ledger", "t": "コスト回復力はここで確かめます", "d": "素の 700 に、ヒマリのようなスキルぶんが乗ります。"}, {"sel": "#add", "t": "撃つ順番を並べます", "d": "顔を押すと下に積まれます。手札に無い並びは赤く出ます。"}, {"sel": "#bars-panel", "pre": "#tb-ct-bars", "t": "効果がいつ切れるかを見ます", "d": "EX・ノーマル・パッシブ・サブの効果が同じ横軸に並びます。上のチェックで種別ごとに畳めます。"}, {"sel": "#atk-panel", "pre": "#tb-ct-atk", "t": "攻撃力が何倍かを見ます", "d": "掛け算の攻撃力バフの倍率です。1 人ぶんか全員ぶんかが不明なので、幅で出しています。"}]};</script>
 <script src="../panes.js?v=1"></script>
 <script src="../tour.js?v=2"></script>
 
-<script src="../share.js?v=1"></script>
+<script src="../share.js?v=2"></script>
+<script src="../hint.js?v=1"></script>
 
 <footer>
   <div class="foot-inner">

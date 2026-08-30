@@ -215,7 +215,7 @@
       card.classList.add('none');
       el('stu-img').innerHTML = '<span class="ph">none</span>';
       el('stu-name').textContent = 'まだ誰も選んでいません';
-      el('stu-note').textContent = '素材もクレジットも生徒ごとに違うので、選ぶまではレベルのぶんだけ数えています。';
+      el('stu-note').textContent = '選ぶまではレベルのぶんだけ数えています。';
     }
     drawGoals();
     calc();
@@ -268,7 +268,7 @@
   el('src-total').textContent = fmt(lvTotal);
   el('src-lvcost').textContent = fmt(lvTotal * C.creditPerExp);
   el('src-gear').textContent = C.stu.filter(function (s) { return (s.gr || []).length; }).length;
-  el('ver').textContent = C.version;
+  el('ver').textContent = C.fetched;
 
   drawGoals();
   calc();

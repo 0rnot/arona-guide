@@ -7,14 +7,22 @@
 <meta name="description" content="T1 から T10 まで、装備を目標のレベルまで上げるのに強化珠が何個要るかを出します。手持ちを入れれば足りない数と、ショップで買ったときのクレジットも一緒に出ます。">
 <meta name="theme-color" content="#c8892e">
 <link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="AronaBot">
+<meta property="og:locale" content="ja_JP">
+<meta property="og:url" content="https://arona-bot.com/tools/equip-level/">
 <meta property="og:title" content="装備の強化珠計算機">
 <meta property="og:description" content="T1 から T10 まで、装備を目標のレベルまで上げるのに強化珠が何個要るかを出します。手持ちを入れれば足りない数と、ショップで買ったときのクレジットも一緒に出ます。">
-<meta property="og:type" content="website">
-<meta property="og:url" content="https://arona-bot.com/tools/equip-level/">
-<meta property="og:image" content="https://arona-bot.com/images/hero-night.jpg">
+<meta property="og:image" content="https://arona-bot.com/images/og/equip-level.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="装備の強化珠計算機 — AronaBot のツール">
 <meta name="twitter:card" content="summary_large_image">
-<link rel="stylesheet" href="../../style.css?v=15">
-<link rel="stylesheet" href="../tool.css?v=10">
+<meta name="twitter:title" content="装備の強化珠計算機">
+<meta name="twitter:description" content="T1 から T10 まで、装備を目標のレベルまで上げるのに強化珠が何個要るかを出します。手持ちを入れれば足りない数と、ショップで買ったときのクレジットも一緒に出ます。">
+<meta name="twitter:image" content="https://arona-bot.com/images/og/equip-level.jpg">
+<link rel="stylesheet" href="../../style.css?v=16">
+<link rel="stylesheet" href="../tool.css?v=11">
 <style>
   /* 1 行が「今 → 目標 × 個数」。**部位は選ばせない**（どの部位でも同じ表なので） */
   .eqrow { display: grid; gap: 8px 10px; align-items: end;
@@ -138,7 +146,7 @@
   </div>
   <div class="thero-body">
     <h1>装備の強化珠計算機</h1>
-    <p class="thero-lead">T1 から T10 まで、装備を目標のレベルまで上げるのに強化珠が何個要るかを出します。手持ちを入れれば足りない数と、ショップで買ったときのクレジットも一緒に出ます。</p>
+    <p class="thero-lead">目標レベルまでに要る強化珠の数と、買うクレジットを出します。</p>
   </div>
 </header>
 
@@ -150,20 +158,22 @@
     <div class="tcol">
       <div class="panel">
         <div class="panel-h"><h2>どの装備を上げますか</h2></div>
-        <p class="lead"><b>部位は選びません。</b>帽子でもお守りでも、Tier ごとのレベル上限と必要経験値は 9 部位すべて同じだからです。<b>Tier が上がるとレベルは Lv1 に戻ります。</b></p>
+        <p class="lead"><b>部位は選びません。</b><b>Tier が上がるとレベルは Lv1 に戻ります。</b>
+          <button type="button" class="qm" data-hint="帽子でもお守りでも、Tierごとのレベル上限と必要経験値は9部位すべて同じです。"></button></p>
         <div id="rows"></div>
         <div class="btnrow" style="margin-top:14px">
           <button type="button" class="btn" id="b-add">行を足す</button>
           <button type="button" class="btn" id="b-one">生徒 1 人ぶん（3 枠）</button>
           <button type="button" class="btn" id="b-reset">戻す</button>
         </div>
-        <p class="lead" style="margin:16px 0 0"><b>Tier 上げに要る設計図はここでは数えません。</b>そちらは<a href="../equipment/">装備設計図の周回計算機</a>にあります。</p>
+        <p class="lead" style="margin:16px 0 0"><b>設計図はここでは数えません。</b><a href="../equipment/">装備設計図の周回計算機</a>へ。</p>
       </div>
 
       <div class="panel">
         <div class="panel-h"><h2>手持ちの強化珠</h2></div>
         <div class="gems" id="own"></div>
-        <p class="lead" style="margin:16px 0 0">上の段から順に使い、<b>あふれるぶんがいちばん少なくなるように</b>詰めます。ゲーム内の「自動選択」と同じ詰め方です。</p>
+        <p class="lead" style="margin:16px 0 0">上の段から順に、<b>あふれが最小になるように</b>詰めます。
+          <button type="button" class="qm" data-hint="ゲーム内の「自動選択」と同じ詰め方です。"></button></p>
       </div>
     </div>
 
@@ -195,7 +205,7 @@
 
       <div class="panel">
         <div class="panel-h"><h2>ショップで買うと</h2></div>
-        <p class="lead">通常アイテムショップの強化珠は、どれを買っても<b>経験値あたりの値段が同じ</b>です（<span id="rate">—</span> クレジット / 1 EXP）。1 日に買えるのは全部で <b><span id="dayexp">—</span> EXP</b>ぶんです。</p>
+        <p class="lead"><b>経験値あたりの値段はどれも同じ</b>（<span id="rate">—</span> クレジット / 1 EXP）。1 日に買えるのは全部で <b><span id="dayexp">—</span> EXP</b>ぶんです。</p>
         <div class="ledger" id="shop"></div>
       </div>
     </div>
@@ -218,7 +228,8 @@
            aria-labelledby="tb-e-tier" tabindex="0">
         <div class="panel">
           <div class="panel-h"><h2>Tier ごとの必要経験値</h2></div>
-          <p class="lead"><b>レベルは Tier が上がるたびに Lv1 からやり直しです。</b>下の「必要な経験値」は、その Tier で Lv1 からレベル上限まで上げるぶん。いちばん右は T1 から積み上げた累計です。<b>いま選んでいる段には色が付きます。</b></p>
+          <p class="lead"><b>レベルは Tier が上がるたびに Lv1 からやり直しです。</b><b>いま選んでいる段には色が付きます。</b>
+            <button type="button" class="qm" data-hint="「必要な経験値」は、そのTierでLv1からレベル上限まで上げるぶんです。いちばん右の「T1からの累計」は積み上げた合計です。"></button></p>
           <div class="tscroll" id="tier-scroll">
             <table class="dt">
               <thead><tr><th>Tier</th><th class="num">レベル上限</th><th class="num">必要な経験値</th><th class="num">最上級強化珠だけなら</th><th class="num">端数</th><th class="num">T1 からの累計</th></tr></thead>
@@ -233,7 +244,8 @@
            aria-labelledby="tb-e-waste" tabindex="0">
         <div class="panel">
           <div class="panel-h"><h2>あふれるぶんを設計図で埋める</h2></div>
-          <p class="lead">強化珠だけで詰めると、最後の初級強化珠でどうしても経験値があふれます。<b>設計図や余った装備も強化素材として食わせられる</b>ので、初級を 1 個減らしてこちらで埋めると無駄が消えます。</p>
+          <p class="lead"><b>強化珠だけだと、最後に経験値があふれます。</b>設計図や余った装備でも埋められます。
+            <button type="button" class="qm" data-hint="強化珠の初級を1個減らし、そのぶんを設計図や余った装備で埋めると無駄が消えます。"></button></p>
           <div class="ledger" id="waste"></div>
           <div class="tscroll">
             <table class="dt">
@@ -335,7 +347,8 @@
 <script src="../panes.js?v=1"></script>
 <script src="../tour.js?v=2"></script>
 
-<script src="../share.js?v=1"></script>
+<script src="../share.js?v=2"></script>
+<script src="../hint.js?v=1"></script>
 
 <footer>
   <div class="foot-inner">
@@ -582,7 +595,7 @@
     el('src-day').textContent = fmt(E.dayExp);
     el('src-daycredit').textContent = fmt(E.dayCredit);
     el('src-cats').textContent = E.cats.length;
-    el('ver').textContent = E.version;
+    el('ver').textContent = E.fetched;
   })();
 
   /* ---- 触ったとき */

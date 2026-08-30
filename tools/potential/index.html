@@ -7,14 +7,22 @@
 <meta name="description" content="生徒を選んで最大 HP・攻撃力・治癒力の目標段を入れると、要るオーパーツと応用 WB とクレジットが出ます。オーパーツからの逆引きも。">
 <meta name="theme-color" content="#c8892e">
 <link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="AronaBot">
+<meta property="og:locale" content="ja_JP">
+<meta property="og:url" content="https://arona-bot.com/tools/potential/">
 <meta property="og:title" content="潜在能力解放の計算機">
 <meta property="og:description" content="生徒を選んで最大 HP・攻撃力・治癒力の目標段を入れると、要るオーパーツと応用 WB とクレジットが出ます。オーパーツからの逆引きも。">
-<meta property="og:type" content="website">
-<meta property="og:url" content="https://arona-bot.com/tools/potential/">
-<meta property="og:image" content="https://arona-bot.com/images/hero-night.jpg">
+<meta property="og:image" content="https://arona-bot.com/images/og/potential.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="潜在能力解放の計算機 — AronaBot のツール">
 <meta name="twitter:card" content="summary_large_image">
-<link rel="stylesheet" href="../../style.css?v=15">
-<link rel="stylesheet" href="../tool.css?v=10">
+<meta name="twitter:title" content="潜在能力解放の計算機">
+<meta name="twitter:description" content="生徒を選んで最大 HP・攻撃力・治癒力の目標段を入れると、要るオーパーツと応用 WB とクレジットが出ます。オーパーツからの逆引きも。">
+<meta name="twitter:image" content="https://arona-bot.com/images/og/potential.jpg">
+<link rel="stylesheet" href="../../style.css?v=16">
+<link rel="stylesheet" href="../tool.css?v=11">
 <style>
   /* 選んだ生徒。**選ぶ前は破線。** */
   .stucard { display: grid; grid-template-columns: 96px 1fr; gap: 16px; align-items: center;
@@ -150,7 +158,7 @@
   </div>
   <div class="thero-body">
     <h1>潜在能力解放の計算機</h1>
-    <p class="thero-lead">生徒を選んで最大 HP・攻撃力・治癒力の目標段を入れると、要るオーパーツと応用 WB とクレジットが出ます。オーパーツからの逆引きも。</p>
+    <p class="thero-lead">生徒と目標段を入れると、要るオーパーツ・応用 WB・クレジットが出ます。</p>
   </div>
 </header>
 
@@ -166,7 +174,7 @@
           <div class="stuimg" id="stu-img"><span class="ph">none</span></div>
           <div>
             <p class="stuname" id="stu-name">まだ誰も選んでいません</p>
-            <p class="stunote" id="stu-note">名前を入れると、その子に要るオーパーツの名前が出ます。要る個数とクレジットは、どの子でも同じです。</p>
+            <p class="stunote" id="stu-note">名前を入れると、要るオーパーツの名前が出ます。</p>
           </div>
         </div>
         <div class="field">
@@ -179,7 +187,8 @@
 
       <div class="panel">
         <div class="panel-h"><h2>どこまで開きますか</h2></div>
-        <p class="lead">枠は 3 つあって、それぞれ <b>0 段から <span id="lead-max">25</span> 段</b>まで別々に上がります。<b>1 段で基礎値の 0.2%</b>なので、<span id="lead-max2">25</span> 段で ＋5% です。</p>
+        <p class="lead">枠は 3 つ、それぞれ <b>0 段から <span id="lead-max">25</span> 段</b>まで上がります。
+          <button type="button" class="qm" data-hint="1段で基礎値の0.2%です（25段で+5%）。"></button></p>
         <div class="pothead"><span></span><span>今</span><span>目標</span></div>
         <div id="potsteps"></div>
         <div class="btnrow" style="margin-top:14px">
@@ -191,7 +200,8 @@
 
       <div class="panel">
         <div class="panel-h"><h2>どれだけ強くなりますか</h2></div>
-        <p class="lead">生徒が <b>Lv<span id="lead-lv">90</span></b> のときの伸びです。<b>★の倍率が掛かる前の基礎値</b>から数えています（SchaleDB と同じ数え方）。</p>
+        <p class="lead">生徒が <b>Lv<span id="lead-lv">90</span></b> のときの伸びです。
+          <button type="button" class="qm" data-hint="★の倍率が掛かる前の基礎値から数えています（SchaleDBと同じ数え方）。"></button></p>
         <div class="ledger" id="growth"></div>
       </div>
     </div>
@@ -226,7 +236,8 @@
     <div class="tfull">
       <div class="panel">
         <div class="panel-h"><h2>段ごとの中身</h2></div>
-        <p class="lead"><b>要る量は全員同じです。</b>1〜15 段目は<b>欠片</b>、16〜25 段目は<b>壊れたほう</b>を使います。<b>同じ中身が続く区間はまとめてあります。</b>いちばん右は 0 段からの累計です。</p>
+        <p class="lead"><b>要る量は全員同じです。</b>1〜15 段目は<b>欠片</b>、16〜25 段目は<b>壊れたほう</b>を使います。
+          <button type="button" class="qm" data-hint="同じ中身が続く区間はまとめてあります。いちばん右は0段からの累計です。"></button></p>
         <div class="tscroll">
           <table class="dt">
             <thead><tr><th>段</th><th>1 段あたり</th><th>WB</th><th>クレジット</th><th>ここまでの累計</th></tr></thead>
@@ -296,7 +307,8 @@
 ]};</script>
 <script src="../tour.js?v=2"></script>
 
-<script src="../share.js?v=1"></script>
+<script src="../share.js?v=2"></script>
+<script src="../hint.js?v=1"></script>
 
 <footer>
   <div class="foot-inner">
@@ -372,13 +384,12 @@
       return '<option value="' + esc(s.n) + '">';
     }).join('');
     el('lead-max').textContent = P.max;
-    el('lead-max2').textContent = P.max;
     el('lead-lv').textContent = P.openLv;
     el('artcount').textContent = Object.keys(P.arts).length;
     el('src-n').textContent = fmt(P.checked);
     el('src-s').textContent = P.stu.length;
     el('src-un').textContent = P.stu.filter(function (s) { return s.un[2]; }).length;
-    el('ver').textContent = P.version;
+    el('ver').textContent = P.fetched;
 
     // 段ごとの表。**中身は生徒に依らない**ので一度だけ組む。
     // **同じ中身が続く区間はまとめる。**25 行そのまま並べるとスマホで画面 3 枚ぶんになり、
@@ -516,7 +527,7 @@
       card.classList.add('none');
       el('stu-img').innerHTML = '<span class="ph">none</span>';
       el('stu-name').textContent = 'まだ誰も選んでいません';
-      el('stu-note').textContent = '名前を入れると、その子に要るオーパーツの名前が出ます。要る個数とクレジットは、どの子でも同じです。';
+      el('stu-note').textContent = '名前を入れると、要るオーパーツの名前が出ます。';
     }
 
     var t = total();

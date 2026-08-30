@@ -7,14 +7,22 @@
 <meta name="description" content="贈り物を選ぶと、それが ×4 で効く生徒が顔つきで並びます。持て余している贈り物を誰に配ればいいかが一目で分かります。">
 <meta name="theme-color" content="#c8892e">
 <link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="AronaBot">
+<meta property="og:locale" content="ja_JP">
+<meta property="og:url" content="https://arona-bot.com/tools/gift-search/">
 <meta property="og:title" content="贈り物の逆引き">
 <meta property="og:description" content="贈り物を選ぶと、それが ×4 で効く生徒が顔つきで並びます。持て余している贈り物を誰に配ればいいかが一目で分かります。">
-<meta property="og:type" content="website">
-<meta property="og:url" content="https://arona-bot.com/tools/gift-search/">
-<meta property="og:image" content="https://arona-bot.com/images/hero-night.jpg">
+<meta property="og:image" content="https://arona-bot.com/images/og/gift-search.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="贈り物の逆引き — AronaBot のツール">
 <meta name="twitter:card" content="summary_large_image">
-<link rel="stylesheet" href="../../style.css?v=15">
-<link rel="stylesheet" href="../tool.css?v=10">
+<meta name="twitter:title" content="贈り物の逆引き">
+<meta name="twitter:description" content="贈り物を選ぶと、それが ×4 で効く生徒が顔つきで並びます。持て余している贈り物を誰に配ればいいかが一目で分かります。">
+<meta name="twitter:image" content="https://arona-bot.com/images/og/gift-search.jpg">
+<link rel="stylesheet" href="../../style.css?v=16">
+<link rel="stylesheet" href="../tool.css?v=11">
 <style>
   /* 贈り物の一覧。**押して選ぶ。**顔の一覧が右に出る */
   .glist { display: grid; grid-template-columns: repeat(auto-fill, minmax(148px, 1fr)); gap: 8px; }
@@ -142,7 +150,7 @@
   </div>
   <div class="thero-body">
     <h1>贈り物の逆引き</h1>
-    <p class="thero-lead">贈り物を選ぶと、それが ×4 で効く生徒が顔つきで並びます。持て余している贈り物を誰に配ればいいかが一目で分かります。</p>
+    <p class="thero-lead">贈り物を選ぶと、それが ×4 で効く生徒が顔つきで並びます。</p>
   </div>
 </header>
 
@@ -154,7 +162,7 @@
     <div class="tcol">
       <div class="panel">
         <div class="panel-h"><h2>どの贈り物ですか</h2></div>
-        <p class="lead"><b>数字は、その贈り物が ×4 で効く生徒の人数です。</b>多い順に並んでいます。押すと右に顔が出ます。</p>
+        <p class="lead">数字は ×4 で効く人数です。押すと右に顔が出ます。</p>
         <div class="fields c2">
           <div class="field">
             <label for="i-q">名前で絞る</label>
@@ -173,12 +181,12 @@
       </div>
     </div>
 
-    <div class="tcol sticky">
+    <div class="tcol">
       <div class="pick none" id="pick">
         <div class="ph" id="pick-img">none</div>
         <div>
           <p class="nm" id="pick-name">まだ選んでいません</p>
-          <p class="note" id="pick-note">左の一覧から贈り物を押すと、その贈り物が効く生徒がここに並びます。</p>
+          <p class="note" id="pick-note">左で選ぶと、効く生徒が並びます。</p>
         </div>
       </div>
 
@@ -248,14 +256,15 @@
 </div>
 
 <script>window.TOUR = {"key": "gift-search", "steps": [
-  {"sel": "#glist", "t": "贈り物を押します", "d": "×4 で効く生徒が多い順に並んでいます。名前やレア度で絞れます。"},
-  {"sel": "#o-m4", "t": "効く人数がここに出ます", "d": "×4・×3・×2 の人数です。×4 なら基本値の 4 倍の絆経験値になります。"},
-  {"sel": "#groups", "t": "顔で並びます", "d": "学校で絞れます。持て余している贈り物を誰に配ればいいかが、ここで決まります。"},
-  {"sel": "#sharebar", "t": "結果はそのまま渡せます", "d": "選んだ贈り物ごと URL になるので、リンクを送れば相手の画面にも同じ結果が出ます。"}
+  {"sel": "#glist", "t": "贈り物を押します", "d": "×4 で効く人数が多い順です。名前やレア度で絞れます。"},
+  {"sel": "#o-m4", "t": "効く人数がここに出ます", "d": "×4・×3・×2 の人数です。"},
+  {"sel": "#groups", "t": "顔で並びます", "d": "学校で絞れます。"},
+  {"sel": "#sharebar", "t": "結果はそのまま渡せます", "d": "リンクを送ると、相手の画面にも同じ結果が出ます。"}
 ]};</script>
 <script src="../tour.js?v=2"></script>
 
-<script src="../share.js?v=1"></script>
+<script src="../share.js?v=2"></script>
+<script src="../hint.js?v=1"></script>
 
 <footer>
   <div class="foot-inner">
@@ -343,7 +352,7 @@
       box.classList.add('none');
       el('pick-img').outerHTML = '<div class="ph" id="pick-img">none</div>';
       el('pick-name').textContent = 'まだ選んでいません';
-      el('pick-note').textContent = '左の一覧から贈り物を押すと、その贈り物が効く生徒がここに並びます。';
+      el('pick-note').textContent = '左で選ぶと、効く生徒が並びます。';
       ['o-m4', 'o-m3', 'o-m2'].forEach(function (id) { el(id).textContent = '—'; });
       el('o-m3-sub').textContent = ''; el('o-m2-sub').textContent = '';
       el('groups').innerHTML = '<p class="empty">まだ贈り物を選んでいません。</p>';
@@ -354,8 +363,8 @@
       '.webp" alt="" width="74" height="74">';
     el('pick-name').textContent = picked.n;
     var c = counts[picked.id];
-    el('pick-note').innerHTML = '基本の絆経験値は <b>' + picked.e + '</b>。' +
-      '×4 なら <b>' + picked.e * 4 + '</b>、×3 なら <b>' + picked.e * 3 + '</b> 入ります。';
+    el('pick-note').innerHTML = '基本 <b>' + picked.e + '</b>。×4 で <b>' +
+      picked.e * 4 + '</b>、×3 で <b>' + picked.e * 3 + '</b>。';
     el('o-m4').textContent = c[4] + ' 人';
     el('o-m4-sub').textContent = '1 個で ' + picked.e * 4 + ' の絆経験値';
     el('o-m3').textContent = c[3] + ' 人';
@@ -415,7 +424,7 @@
   el('gen').textContent = GEN.join(' / ');
   el('src-n').textContent = G.stu.length;
   el('src-3').textContent = counts[order[2].id][4];
-  el('ver').textContent = G.version;
+  el('ver').textContent = G.fetched;
   drawList(); drawPick();
 })();
 </script>

@@ -7,14 +7,22 @@
 <meta name="description" content="どの場所にスケジュールを送ると絆経験値と神名文字がいちばん多いかを、確率込みの期待値で出します。ランクを上げるのに何回要るか、チケットが 1 枚増えるのはどこかも。">
 <meta name="theme-color" content="#c8892e">
 <link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="AronaBot">
+<meta property="og:locale" content="ja_JP">
+<meta property="og:url" content="https://arona-bot.com/tools/schedule/">
 <meta property="og:title" content="スケジュールの期待値">
 <meta property="og:description" content="どの場所にスケジュールを送ると絆経験値と神名文字がいちばん多いかを、確率込みの期待値で出します。ランクを上げるのに何回要るか、チケットが 1 枚増えるのはどこかも。">
-<meta property="og:type" content="website">
-<meta property="og:url" content="https://arona-bot.com/tools/schedule/">
-<meta property="og:image" content="https://arona-bot.com/images/hero-night.jpg">
+<meta property="og:image" content="https://arona-bot.com/images/og/schedule.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="スケジュールの期待値 — AronaBot のツール">
 <meta name="twitter:card" content="summary_large_image">
-<link rel="stylesheet" href="../../style.css?v=15">
-<link rel="stylesheet" href="../tool.css?v=10">
+<meta name="twitter:title" content="スケジュールの期待値">
+<meta name="twitter:description" content="どの場所にスケジュールを送ると絆経験値と神名文字がいちばん多いかを、確率込みの期待値で出します。ランクを上げるのに何回要るか、チケットが 1 枚増えるのはどこかも。">
+<meta name="twitter:image" content="https://arona-bot.com/images/og/schedule.jpg">
+<link rel="stylesheet" href="../../style.css?v=16">
+<link rel="stylesheet" href="../tool.css?v=11">
 <style>
   /* ロケーションのランク。**左に名前、右に段。** */
   .lrow { display: grid; grid-template-columns: 1fr 96px; gap: 10px; align-items: center;
@@ -152,7 +160,7 @@
   </div>
   <div class="thero-body">
     <h1>スケジュールの期待値</h1>
-    <p class="thero-lead">どの場所にスケジュールを送ると絆経験値と神名文字がいちばん多いかを、確率込みの期待値で出します。ランクを上げるのに何回要るか、チケットが 1 枚増えるのはどこかも。</p>
+    <p class="thero-lead">どの場所に送ると絆経験値と神名文字がいちばん多いかを、期待値で出します。</p>
   </div>
 </header>
 
@@ -164,7 +172,7 @@
     <div class="tcol">
       <div class="panel" id="p-rank">
         <div class="panel-h"><h2>今のロケーションランク</h2></div>
-        <p class="lead">11 か所それぞれのランクを入れてください。<b>まだ開いていない場所は「—」のまま</b>にします。合計ランクでチケットの枚数が決まります。</p>
+        <p class="lead">11 か所それぞれのランクを入れてください。<button type="button" class="qm" data-hint="まだ開いていない場所は「—」のままにします。合計ランクでチケットの枚数が決まります。"></button></p>
         <div class="lhead"><span></span><span>ランク</span></div>
         <div id="ranks"></div>
         <div class="btnrow" style="margin-top:14px">
@@ -176,7 +184,7 @@
 
       <div class="panel" id="p-up">
         <div class="panel-h"><h2>ランクを上げるのに何回</h2></div>
-        <p class="lead">スケジュールは<b>成否にかかわらず 1 回で <span id="lead-run">100</span> 経験値</b>が入ります。増える量は場所によって変わりません。</p>
+        <p class="lead">スケジュールは<b>成否にかかわらず 1 回で <span id="lead-run">100</span> 経験値</b>です。</p>
         <div class="field">
           <label for="i-goal">目標ランク<span class="hint">開いている場所を全部そこまで上げたとき</span></label>
           <select id="i-goal"></select>
@@ -207,7 +215,7 @@
 
       <div class="panel" id="p-tic">
         <div class="panel-h"><h2>次にチケットが増えるのは</h2></div>
-        <p class="lead">合計ランクが節目を越えると、1 日に持てるチケットが 1 枚増えます。<b>いちばん安く越える上げ方</b>を出しています。</p>
+        <p class="lead">合計ランクが節目を越えると、チケットが 1 枚増えます。<button type="button" class="qm" data-hint="いちばん安く越える上げ方を出しています。"></button></p>
         <div class="ledger" id="tic"></div>
         <p class="barnote" id="ticnote">—</p>
       </div>
@@ -231,14 +239,14 @@
            aria-labelledby="tb-s-loc" tabindex="0">
         <div class="panel" id="p-loc">
           <div class="panel-h"><h2>今のランクで 1 回あたり</h2></div>
-          <p class="lead"><b>絆経験値と神名文字は、場所ではなくランクだけで決まります。</b>同じランクならどこへ送っても同じで、変わるのは追加でもらえる素材だけです。</p>
+          <p class="lead">絆経験値と神名文字は、<b>場所ではなくランクだけ</b>で決まります。<button type="button" class="qm" data-hint="同じランクならどこへ送っても同じです。変わるのは追加でもらえる素材だけです。"></button></p>
           <div class="tscroll">
             <table class="dt">
               <thead><tr><th>場所</th><th>ランク</th><th>絆経験値</th><th>神名文字</th></tr></thead>
               <tbody id="loctb"></tbody>
             </table>
           </div>
-          <p class="barnote">絆経験値は<b>本体ぶん ＋ 追加ぶん × 確率</b>、神名文字は<b>1 個 × 確率</b>です。追加ぶんは本体と同じ量が乗ります。</p>
+          <p class="barnote">絆経験値は<b>本体 ＋ 追加 × 確率</b>、神名文字は<b>1 個 × 確率</b>です。<button type="button" class="qm" data-hint="追加ぶんは本体と同じ量が乗ります。"></button></p>
         </div>
 
       </div>
@@ -247,7 +255,7 @@
            aria-labelledby="tb-s-zone" tabindex="0">
         <div class="panel" id="p-zone">
           <div class="panel-h"><h2>エリアごとの追加報酬</h2></div>
-          <p class="lead">場所を選ぶと、その中のエリアが並びます。<b>エリアによって素材の等級が違います</b>——初級・中級・上級・最上級の順に、開放ランクが上がるほど良いものになります。数字は<b>1 回あたりの期待個数</b>です。</p>
+          <p class="lead">場所を選ぶと、その中のエリアが並びます。数字は<b>1 回あたりの期待個数</b>です。<button type="button" class="qm" data-hint="エリアによって素材の等級が違います。初級・中級・上級・最上級の順に、開放ランクが上がるほど良いものになります。"></button></p>
           <div class="chips" id="zpick"></div>
           <div id="zonetb" style="margin-top:12px"></div>
         </div>
@@ -258,7 +266,7 @@
            aria-labelledby="tb-s-tier" tabindex="0">
         <div class="panel" id="p-tier">
           <div class="panel-h"><h2>ランクごとの早見</h2></div>
-          <p class="lead"><b>段は 6 つしかありません。</b>ランク 1〜3 は同じ、4〜6 も同じ……という並びで、11 と 12 だけ絆経験値そのものが増えます。</p>
+          <p class="lead">段は<b>6 つ</b>しかありません。<button type="button" class="qm" data-hint="ランク1〜3は同じ、4〜6も同じ……という並びで、11と12だけ絆経験値そのものが増えます。"></button></p>
           <div class="tscroll">
             <table class="dt">
               <thead><tr><th>ランク</th><th>絆の期待値</th><th>神名文字</th><th>本体</th><th>追加の確率</th><th>そこに入るまで</th></tr></thead>
@@ -324,7 +332,7 @@
           <a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a>（道具の絵）。
           裏取りに <a href="https://gameranbu.jp/bluearchive/b32fa904198c01c0d130" target="_blank" rel="noopener">ゲーム乱舞</a>、
           <a href="https://kamigame.jp/bluearchive/page/143091843515583937.html" target="_blank" rel="noopener">神ゲー攻略</a>。
-          データは <span id="ver">—</span>。</p>
+          取得は <span id="ver">—</span>。</p>
       </details>
     </div>
 
@@ -332,16 +340,17 @@
 </div>
 
 <script>window.TOUR = {"key": "schedule", "steps": [
-  {"sel": "#ranks", "t": "まず今のランクを入れます", "d": "11 か所それぞれのランクです。まだ開いていない場所は「—」のままにしてください。"},
-  {"sel": "#o-best", "t": "いちばん多い場所が出ます", "d": "絆経験値と神名文字はランクだけで決まるので、いちばんランクの高い場所がそのまま答えになります。"},
-  {"sel": "#tic", "t": "チケットが増えるところ", "d": "合計ランクが節目を越えると 1 枚増えます。いちばん安く越える上げ方を出しています。"},
-  {"sel": "#zpick", "pre": "#tb-s-zone", "t": "素材はエリアで変わります", "d": "場所を選ぶと、その中のエリアと 1 回あたりの期待個数が並びます。奥のエリアほど良い等級です。"},
-  {"sel": "#sharebar", "t": "結果はそのまま渡せます", "d": "入れたランクごと URL になるので、リンクを送れば相手の画面にも同じ結果が出ます。"}
+  {"sel": "#ranks", "t": "まず今のランクを入れます", "d": "開いていない場所は「—」のままにしてください。"},
+  {"sel": "#o-best", "t": "いちばん多い場所が出ます", "d": "ランクだけで決まるので、いちばん高い場所が答えです。"},
+  {"sel": "#tic", "t": "チケットが増えるところ", "d": "合計ランクが節目を越えると 1 枚増えます。"},
+  {"sel": "#zpick", "pre": "#tb-s-zone", "t": "素材はエリアで変わります", "d": "場所を選ぶと、エリアごとの期待個数が並びます。"},
+  {"sel": "#sharebar", "t": "結果はそのまま渡せます", "d": "リンクを送ると、相手の画面にも同じ結果が出ます。"}
 ]};</script>
 <script src="../panes.js?v=1"></script>
 <script src="../tour.js?v=2"></script>
 
-<script src="../share.js?v=1"></script>
+<script src="../share.js?v=2"></script>
+<script src="../hint.js?v=1"></script>
 
 <footer>
   <div class="foot-inner">
@@ -486,7 +495,7 @@
   el('src-zn').textContent = String(S.loc.length + S.loc.reduce(function (a, l) { return a + l.z.length; }, 0));
   el('src-tot').textContent = S.rank[S.rank.length - 1].tot.toLocaleString('ja-JP');
   el('src-run').textContent = String(runsFor(1, MAXR));
-  el('ver').textContent = S.version;
+  el('ver').textContent = S.fetched;
 
   /* ---- 書き出し ------------------------------------------------------- */
 
@@ -494,6 +503,13 @@
     var open = S.loc.filter(function (l) { return rk[l.id] > 0; });
     var sum = open.reduce(function (a, l) { return a + rk[l.id]; }, 0);
     var tic = open.length ? tickets(sum) : 0;
+
+    // **「—」のままの場所は名前を薄くする。**`.lrow.off` は前からあったのに
+    // 付け忘れていて、開いていない場所が開いている場所と同じ濃さで並んでいた
+    var lrows = el('ranks').querySelectorAll('.lrow');
+    for (var li = 0; li < lrows.length; li++) {
+      lrows[li].classList.toggle('off', !rk[+lrows[li].dataset.l]);
+    }
 
     // いちばん多い場所
     var best = null;
@@ -582,7 +598,7 @@
       el('upnote').innerHTML = tot
         ? 'チケット <b>' + tic + ' 枚</b>ずつ使うと <b>' +
           Math.ceil(tot / Math.max(tic, 1)).toLocaleString('ja-JP') + ' 日</b>ぶん。' +
-          '上げていくとチケットも増えるので、実際はこれより短くなります。'
+          '<button type="button" class="qm" data-hint="上げていくとチケットも増えるので、実際はこれより短くなります。"></button>'
         : '開いている場所はもう全部そのランクに届いています。';
     }
 

@@ -7,14 +7,22 @@
 <meta name="description" content="いま持っている設計図の枚数を入れると、何がどれだけ足りないかを出して、全体のバランスが整う周回先を 1 本に絞って出します。万能設計図とドロップ 2 倍・3 倍にも対応。">
 <meta name="theme-color" content="#c8892e">
 <link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="AronaBot">
+<meta property="og:locale" content="ja_JP">
+<meta property="og:url" content="https://arona-bot.com/tools/equipment/">
 <meta property="og:title" content="装備設計図の周回計算機">
 <meta property="og:description" content="いま持っている設計図の枚数を入れると、何がどれだけ足りないかを出して、全体のバランスが整う周回先を 1 本に絞って出します。万能設計図とドロップ 2 倍・3 倍にも対応。">
-<meta property="og:type" content="website">
-<meta property="og:url" content="https://arona-bot.com/tools/equipment/">
-<meta property="og:image" content="https://arona-bot.com/images/hero-night.jpg">
+<meta property="og:image" content="https://arona-bot.com/images/og/equipment.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="装備設計図の周回計算機 — AronaBot のツール">
 <meta name="twitter:card" content="summary_large_image">
-<link rel="stylesheet" href="../../style.css?v=15">
-<link rel="stylesheet" href="../tool.css?v=10">
+<meta name="twitter:title" content="装備設計図の周回計算機">
+<meta name="twitter:description" content="いま持っている設計図の枚数を入れると、何がどれだけ足りないかを出して、全体のバランスが整う周回先を 1 本に絞って出します。万能設計図とドロップ 2 倍・3 倍にも対応。">
+<meta name="twitter:image" content="https://arona-bot.com/images/og/equipment.jpg">
+<link rel="stylesheet" href="../../style.css?v=16">
+<link rel="stylesheet" href="../tool.css?v=11">
 <style>
   /* 在庫のマス目。**9 部位 × 10 枠を、打ちやすい大きさで並べる。**
      参考元（シャーレ装備管理室）と同じ「部位ごとの札」の形にしてある */
@@ -220,7 +228,7 @@
   </div>
   <div class="thero-body wide">
     <h1>装備設計図の周回計算機</h1>
-    <p class="thero-lead">いま持っている設計図の枚数を入れると、何がどれだけ足りないかと、そこを埋めるのにいちばん効率のいい任務ステージが 1 本出ます。</p>
+    <p class="thero-lead">設計図の枚数を入れると、足りない分と最適な周回先が出ます。</p>
   </div>
 </header>
 
@@ -273,11 +281,8 @@
          aria-labelledby="tb-eq-inv" tabindex="0">
       <div class="panel" id="p-inv">
         <div class="panel-h"><h2>① いま持っている設計図</h2></div>
-        <p class="lead">部位ごとに、<b>T2 から T10 までの設計図と万能設計図</b>の枚数を入れてください。
-          <b>持っていない段は 0 のままで大丈夫です。</b>欄に入ると数字が選ばれ、<b>Enter で次の欄</b>へ進みます。
-          90 個まとめて貼りたいときは下の<b>「まとめて入れる・書き出す」</b>から。
-          右上の数字は<b>「T1 から T10 まで上げきれる装備が何個ぶんあるか」</b>で、万能設計図を
-          いちばん足りない段に配ったものとして数えています。</p>
+        <p class="lead">部位ごとに、<b>T2 から T10 の設計図と万能設計図</b>の枚数を入れてください。
+          <button type="button" class="qm" data-hint="持っていない段は0のままで大丈夫です。欄に入ると数字が選ばれ、Enterで次の欄へ進みます。90個まとめて貼りたいときは下の「まとめて入れる・書き出す」から。右上の数字は「T1からT10まで上げきれる装備が何個ぶんあるか」で、万能設計図をいちばん足りない段に配ったものとして数えています。"></button></p>
 
         <details class="src bulk" id="bulk">
           <summary>まとめて入れる・書き出す</summary>
@@ -357,8 +362,8 @@
           </div>
         </div>
 
-        <p class="lead" style="margin-top:16px"><b>目標セット数</b>——その部位を
-          <b>T1 から T10 まで上げきる装備を何個ぶん</b>そろえるか。初期値は参考元のものです。</p>
+        <p class="lead" style="margin-top:16px"><b>目標セット数</b>——T1〜T10まで上げきる装備の必要数。
+          <button type="button" class="qm" data-hint="初期値は参考元（シャーレ装備管理室）と同じです。"></button></p>
         <div class="tgrid" id="tgrid"></div>
         <div class="btnrow" style="margin-top:12px">
           <button type="button" class="btn" id="t-reset">初期値に戻す</button>
@@ -468,11 +473,12 @@
   </div>
 </div>
 
-<script>window.TOUR = {"key": "equipment", "steps": [{"sel": "#inv", "pre": "#tb-eq-inv", "t": "持っている設計図を入れます", "d": "部位ごとに T2〜T10 と万能設計図の枚数を。持っていない段は 0 のままで大丈夫です。Enter で次の欄へ進み、欄に入ると数字が選ばれるので続けて打てます。90 個をまとめて貼りたいときは、上の「まとめて入れる・書き出す」から。右上の数字は「T1 から T10 まで上げきれる装備が何個ぶんあるか」です。"}, {"sel": "#p-short", "pre": "#tb-eq-short", "t": "足りないものが出ます", "d": "目標セット数に対して何がどれだけ足りないかを、多い順に並べます。"}, {"sel": "#p-plan", "pre": "#tb-eq-plan", "t": "周回先が 1 本に決まります", "d": "足りないものがいちばん早く埋まるステージです。点数の内訳で「何目当てで選ばれたか」も出します。"}, {"sel": "#stages", "pre": "#tb-eq-plan", "t": "ほかの候補も見られます", "d": "点数の高い順に 12 本。回ったら、上の欄に実際に出た枚数を入れて「在庫に足す」を押してください。次の 1 本が出ます。"}, {"sel": "#p-set", "pre": "#tb-eq-set", "t": "方針はここで変えられます", "d": "ドロップ 2 倍・3 倍、ハードを混ぜるか、足りないもの優先か備蓄重視か、そして目標セット数。"}, {"sel": "#sharebar", "t": "入力ごと URL になります", "d": "在庫も設定も URL に入るので、リンクを送れば別の端末でも同じ状態が開きます。"}]};</script>
+<script>window.TOUR = {"key": "equipment", "steps": [{"sel": "#inv", "pre": "#tb-eq-inv", "t": "持っている設計図を入れます", "d": "部位ごとに T2〜T10 と万能設計図の枚数を入力します。Enter で次の欄へ進めます。"}, {"sel": "#p-short", "pre": "#tb-eq-short", "t": "足りないものが出ます", "d": "目標セット数に対して何がどれだけ足りないかを、多い順に並べます。"}, {"sel": "#p-plan", "pre": "#tb-eq-plan", "t": "周回先が 1 本に決まります", "d": "足りないものがいちばん早く埋まるステージです。点数の内訳で「何目当てで選ばれたか」も出します。"}, {"sel": "#stages", "pre": "#tb-eq-plan", "t": "ほかの候補も見られます", "d": "点数の高い順に 12 本。回った枚数を入れて「在庫に足す」を押すと、次の 1 本が出ます。"}, {"sel": "#p-set", "pre": "#tb-eq-set", "t": "方針はここで変えられます", "d": "ドロップ 2 倍・3 倍、ハードを混ぜるか、足りないもの優先か備蓄重視か、そして目標セット数。"}, {"sel": "#sharebar", "t": "入力ごと URL になります", "d": "在庫も設定も URL に入るので、リンクを送れば別の端末でも同じ状態が開きます。"}]};</script>
 <script src="../panes.js?v=1"></script>
 <script src="../tour.js?v=2"></script>
 
-<script src="../share.js?v=1"></script>
+<script src="../share.js?v=2"></script>
+<script src="../hint.js?v=1"></script>
 
 <footer>
   <div class="foot-inner">

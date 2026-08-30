@@ -7,14 +7,22 @@
 <meta name="description" content="生徒を選んで、今と目標を入れると、レベル・スキル・星・固有武器・愛用品にかかるクレジットと素材が出ます。レポートの枚数も種類ごとに。">
 <meta name="theme-color" content="#c8892e">
 <link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="AronaBot">
+<meta property="og:locale" content="ja_JP">
+<meta property="og:url" content="https://arona-bot.com/tools/student-cost/">
 <meta property="og:title" content="生徒 1 人の育成費用">
 <meta property="og:description" content="この子を仕上げるのに、クレジットがいくらで、素材が何個要るか。">
-<meta property="og:type" content="website">
-<meta property="og:url" content="https://arona-bot.com/tools/student-cost/">
-<meta property="og:image" content="https://arona-bot.com/images/hero-night.jpg">
+<meta property="og:image" content="https://arona-bot.com/images/og/student-cost.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="生徒 1 人の育成費用 — AronaBot のツール">
 <meta name="twitter:card" content="summary_large_image">
-<link rel="stylesheet" href="../../style.css?v=15">
-<link rel="stylesheet" href="../tool.css?v=10">
+<meta name="twitter:title" content="生徒 1 人の育成費用">
+<meta name="twitter:description" content="この子を仕上げるのに、クレジットがいくらで、素材が何個要るか。">
+<meta name="twitter:image" content="https://arona-bot.com/images/og/student-cost.jpg">
+<link rel="stylesheet" href="../../style.css?v=16">
+<link rel="stylesheet" href="../tool.css?v=11">
 <style>
   /* 選んだ生徒 */
   .stucard {
@@ -150,7 +158,7 @@
   </div>
   <div class="thero-body">
     <h1>生徒 1 人の育成費用</h1>
-    <p class="thero-lead">この子を今の状態から目標まで持っていくのに、クレジットがいくらで、素材が何個要るか。レベル・スキル・星・固有武器・愛用品をまとめて数えます。</p>
+    <p class="thero-lead">レベル・スキル・星・固有武器・愛用品ぶんのクレジットと素材を、まとめて数えます。</p>
   </div>
 </header>
 
@@ -166,7 +174,7 @@
           <div class="stuimg" id="stu-img"><span class="ph">none</span></div>
           <div>
             <p class="stuname" id="stu-name">まだ誰も選んでいません</p>
-            <p class="stunote" id="stu-note">素材もクレジットも生徒ごとに違うので、選ぶまではレベルのぶんだけ数えています。</p>
+            <p class="stunote" id="stu-note">選ぶまではレベルのぶんだけ数えています。</p>
           </div>
         </div>
         <div class="field">
@@ -185,7 +193,7 @@
 
       <div class="panel">
         <div class="panel-h"><h2>どこまで育てますか</h2></div>
-        <p class="lead">左が今、右が目標です。上げないところは同じ数字のままにしてください。スキルの <b>◎</b> が付いた Lv は、そこで効果の伸びが大きくなるところです。</p>
+        <p class="lead">左が今、右が目標です。上げないところは同じ数字のままにしてください。<button type="button" class="qm" data-hint="スキルの ◎ が付いた Lv は、そこで効果の伸びが大きくなるところです。"></button></p>
         <div id="goals"></div>
         <p class="err" id="err" hidden></p>
       </div>
@@ -217,7 +225,7 @@
 
       <div class="panel">
         <div class="panel-h"><h2>レポート</h2></div>
-        <p class="lead">上の経験値を 1 種類だけで埋めたときの枚数です。端数は切り上げています。</p>
+        <p class="lead">上の経験値を 1 種類だけで埋めたときの枚数です。</p>
         <div class="repbox" id="reps"></div>
       </div>
     </div>
@@ -261,7 +269,8 @@
 <script>window.TOUR = {"key": "student-cost", "steps": [{"sel": "#i-student", "t": "生徒を選びます", "d": "名前を入れると、その子を育てきるのに要るクレジット・経験値・素材が出ます。"}, {"sel": "#goals", "t": "どこまで育てるかを決めます", "d": "レベル・スキル・装備・愛用品を別々に決められます。要らないところは外してください。"}, {"sel": "#mats", "t": "要る素材が並びます", "d": "オーパーツ・技術ノート・戦術教育 BD が段ごとに出ます。持て余している素材から逆に引きたいときは「オーパーツ逆引き」へ。"}]};</script>
 <script src="../tour.js?v=2"></script>
 
-<script src="../share.js?v=1"></script>
+<script src="../share.js?v=2"></script>
+<script src="../hint.js?v=1"></script>
 
 <footer>
   <div class="foot-inner">

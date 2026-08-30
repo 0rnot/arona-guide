@@ -7,19 +7,24 @@
 <meta name="description" content="快適度を入れると 1 時間あたりのクレジットと AP、倉庫が満杯になるまでの時間が出ます。ランクごとの快適度上限と招待人数、ランクアップに要るクレジットも一緒に。">
 <meta name="theme-color" content="#c8892e">
 <link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="AronaBot">
+<meta property="og:locale" content="ja_JP">
+<meta property="og:url" content="https://arona-bot.com/tools/cafe/">
 <meta property="og:title" content="カフェの収入計算機">
 <meta property="og:description" content="快適度を入れると 1 時間あたりのクレジットと AP、倉庫が満杯になるまでの時間が出ます。ランクごとの快適度上限と招待人数、ランクアップに要るクレジットも一緒に。">
-<meta property="og:type" content="website">
-<meta property="og:url" content="https://arona-bot.com/tools/cafe/">
-<meta property="og:image" content="https://arona-bot.com/images/hero-night.jpg">
+<meta property="og:image" content="https://arona-bot.com/images/og/cafe.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="カフェの収入計算機 — AronaBot のツール">
 <meta name="twitter:card" content="summary_large_image">
-<link rel="stylesheet" href="../../style.css?v=15">
-<link rel="stylesheet" href="../tool.css?v=10">
+<meta name="twitter:title" content="カフェの収入計算機">
+<meta name="twitter:description" content="快適度を入れると 1 時間あたりのクレジットと AP、倉庫が満杯になるまでの時間が出ます。ランクごとの快適度上限と招待人数、ランクアップに要るクレジットも一緒に。">
+<meta name="twitter:image" content="https://arona-bot.com/images/og/cafe.jpg">
+<link rel="stylesheet" href="../../style.css?v=16">
+<link rel="stylesheet" href="../tool.css?v=11">
 <style>
   /* 快適度のつまみ */
-  .cf { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: center; }
-  .cf input[type="number"] { width: 100%; }
-  .cf .cap { font-size: .8rem; color: var(--fg-mute); white-space: nowrap; }
   input[type="range"] { width: 100%; margin: 12px 0 2px; accent-color: var(--accent); }
   .bar { height: 12px; border-radius: 999px; background: var(--bg-sub);
          border: 1px solid var(--line); overflow: hidden; margin: .55em 0 .35em; }
@@ -133,7 +138,7 @@
   </div>
   <div class="thero-body">
     <h1>カフェの収入計算機</h1>
-    <p class="thero-lead">快適度を入れると 1 時間あたりのクレジットと AP、倉庫が満杯になるまでの時間が出ます。ランクごとの快適度上限と招待人数、ランクアップに要るクレジットも一緒に。</p>
+    <p class="thero-lead">快適度を入れると、1 時間の収入と倉庫が満杯になるまでの時間が出ます。</p>
   </div>
 </header>
 
@@ -170,7 +175,7 @@
 
       <div class="panel" id="p-up">
         <div class="panel-h"><h2>ランクを 1 つ上げると</h2></div>
-        <p class="lead"><b>快適度はそのまま</b>で、ランクだけ 1 つ上げたときの差です。上限も 500 上がるので、家具を足せばさらに伸びます。</p>
+        <p class="lead">快適度はそのままで、ランクだけ 1 つ上げたときの差です。<button type="button" class="qm" data-hint="上限も 500 上がるので、家具を足せばさらに伸びます。"></button></p>
         <div class="ledger" id="up"></div>
         <p class="barnote" id="upnote">—</p>
       </div>
@@ -178,7 +183,7 @@
       <div class="panel" id="p-cost">
         <div class="panel-h"><h2>ランク 10 までに要るもの</h2></div>
         <div class="ledger" id="cost"></div>
-        <p class="barnote">ランクアップに要るクレジットは<b>1 号店と 2 号店で同額</b>です。違うのは設備コアの種類だけでした。</p>
+        <p class="barnote">クレジットは<b>1 号店と 2 号店で同額</b>です。<button type="button" class="qm" data-hint="違うのは設備コアの種類だけでした。"></button></p>
       </div>
     </div>
 
@@ -208,7 +213,7 @@
 
       <div class="panel" id="p-comfort">
         <div class="panel-h"><h2>快適度をどう作るか</h2></div>
-        <p class="lead">快適度は<b>置いた家具の快適度の合計 ＋ セットボーナス</b>で、<b>ランクの上限で頭打ち</b>になります。</p>
+        <p class="lead">快適度は<b>家具の合計 ＋ セットボーナス</b>（上限で頭打ち）です。</p>
         <div class="ledger" id="need"></div>
         <div class="tscroll">
           <table class="dt">
@@ -216,7 +221,7 @@
             <tbody id="settb"></tbody>
           </table>
         </div>
-        <p class="barnote"><b>段のボーナスは足し上がります。</b>7 個そろえると ＋100 ＋200 ＋450 ＋750 で <b>＋1,500</b> です（2026-08-30 に外の 2 つと突き合わせて直しました。<a href="https://kamigame.jp/bluearchive/page/143084388039553700.html" target="_blank" rel="noopener">神ゲー攻略</a>が「2個 100／3個 300／5個 750／7個 1500」と積み上げで出していて、<a href="https://game8.jp/blue-archive/645032" target="_blank" rel="noopener">ゲームエイト</a>も「合計：1500」です）。セットボーナスは<b>同時に <span id="n-setmax">3</span> セットまで</b>効くので、7 個そろえたセットを <span id="n-setmax2">3</span> つ置くと <b id="n-setsum">＋4,500</b> です。</p>
+        <p class="barnote"><b>段のボーナスは足し上がります。</b>同時に <b><span id="n-setmax">3</span> セット</b>まで効くので、上限は <b id="n-setsum">＋4,500</b> です。<button type="button" class="qm" data-hint="7個そろえると+100+200+450+750で+1,500です（2026-08-30に神ゲー攻略・ゲームエイトの数値と突き合わせて直しました）。"></button></p>
       </div>
     </div>
 
@@ -238,7 +243,7 @@
            aria-labelledby="tb-c-rank" tabindex="0">
         <div class="panel" id="p-tb">
           <div class="panel-h"><h2>ランクごとの一覧</h2></div>
-          <p class="lead">クレジットと AP は<b>その快適度上限まで埋めたとき</b>の 1 時間あたりです。<b>倉庫はクレジットならちょうど 24 時間ぶん</b>で、AP だけは丸められています。</p>
+          <p class="lead">クレジットと AP は、<b>快適度上限まで埋めたとき</b>の 1 時間あたりです。<button type="button" class="qm" data-hint="倉庫はクレジットならちょうど24時間ぶんです。APだけは丸められています。"></button></p>
           <div class="tscroll">
             <table class="dt">
               <thead><tr><th>ランク</th><th>快適度の上限</th><th>クレジット/時</th><th>AP/時</th><th>倉庫</th><th>招待</th><th>タグ</th><th>次へ上げる費用</th></tr></thead>
@@ -253,7 +258,7 @@
            aria-labelledby="tb-c-furn" tabindex="0">
         <div class="panel" id="p-furn">
           <div class="panel-h"><h2>家具の快適度</h2></div>
-          <p class="lead"><b><span id="n-furn">—</span> 個</b>あります。快適度は <b>20 / 50 / 120 / 180 / 350 / 500</b> の 6 段階しかありません。<b>マスあたり</b>は快適度をサイズ（縦 × 横）で割ったものです。</p>
+          <p class="lead"><b><span id="n-furn">—</span> 個</b>あります。<b>マスあたり</b>は快適度をサイズ（縦 × 横）で割ったものです。<button type="button" class="qm" data-hint="快適度は 20/50/120/180/350/500 の6段階しかありません。"></button></p>
           <div class="fields c3">
             <div class="field">
               <label for="f-set">セット</label>
@@ -295,7 +300,7 @@
            aria-labelledby="tb-c-sets" tabindex="0">
         <div class="panel" id="p-sets">
           <div class="panel-h"><h2>セットの一覧</h2></div>
-          <p class="lead"><b><span id="n-sets">—</span> セット</b>あります。押すと<b>「家具の快適度」</b>の面に移って、その一覧がそのセットだけになります。</p>
+          <p class="lead"><b><span id="n-sets">—</span> セット</b>あります。押すと、家具の一覧がそのセットに絞られます。</p>
           <div class="chips" id="setchips"></div>
           <div class="warn" id="setwarn"></div>
         </div>
@@ -370,7 +375,7 @@
           <a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a>（家具・セット名・絵）。
           裏取りに <a href="https://gamerch.com/bluearchive/222609" target="_blank" rel="noopener">ブルアカ攻略wiki（Gamerch）</a>、
           <a href="https://game8.jp/blue-archive/645032" target="_blank" rel="noopener">ゲームエイト</a>。
-          データは <span id="ver">—</span>。</p>
+          取得は <span id="ver">—</span>。</p>
       </details>
     </div>
 
@@ -378,16 +383,17 @@
 </div>
 
 <script>window.TOUR = {"key": "cafe", "steps": [
-  {"sel": "#p-in", "t": "カフェとランクと快適度", "d": "今の快適度を入れてください。上限はランクで決まります。2 号店は AP を作りません。"},
-  {"sel": "#o-ch", "t": "1 時間あたりが出ます", "d": "倉庫はクレジットならちょうど 24 時間ぶんです。放っておくと満杯で止まります。"},
-  {"sel": "#p-up", "t": "ランクを 1 つ上げたときの差", "d": "上げるのに要るクレジットと、それが何日で戻ってくるかを出しています。"},
-  {"sel": "#p-comfort", "t": "快適度の作り方", "d": "上限まであと何個の家具が要るかと、セットボーナスの段です。"},
-  {"sel": "#sharebar", "t": "結果はそのまま渡せます", "d": "入れた状態ごと URL になるので、リンクを送れば相手の画面にも同じ結果が出ます。"}
+  {"sel": "#p-in", "t": "カフェとランクと快適度", "d": "今の快適度を入れてください。2 号店は AP を作りません。"},
+  {"sel": "#o-ch", "t": "1 時間あたりが出ます", "d": "放っておくと倉庫が満杯で止まります。"},
+  {"sel": "#p-up", "t": "ランクを 1 つ上げたときの差", "d": "かかるクレジットと、何日で戻ってくるかを出しています。"},
+  {"sel": "#p-comfort", "t": "快適度の作り方", "d": "あと何個の家具が要るかと、セットボーナスの段です。"},
+  {"sel": "#sharebar", "t": "結果はそのまま渡せます", "d": "リンクを送ると、相手の画面にも同じ結果が出ます。"}
 ]};</script>
 <script src="../panes.js?v=1"></script>
 <script src="../tour.js?v=2"></script>
 
-<script src="../share.js?v=1"></script>
+<script src="../share.js?v=2"></script>
+<script src="../hint.js?v=1"></script>
 
 <footer>
   <div class="foot-inner">
@@ -472,7 +478,6 @@
            num(setCum) + '</b></td><td>' + num(setCum / n, 1) + '</td></tr>';
   }).join('');
   el('n-setmax').textContent = String(C.setMax);
-  el('n-setmax2').textContent = String(C.setMax);
   var setAll = 0;
   C.setBonus.forEach(function (v) { setAll += v; });
   el('n-setsum').textContent = '＋' + num(setAll * C.setMax);
@@ -480,7 +485,7 @@
   el('n-sets').textContent = num(C.sets.length);
   el('src-furn').textContent = num(C.furn.length);
   el('src-setmax').textContent = String(C.setMax);
-  el('ver').textContent = C.version;
+  el('ver').textContent = C.fetched;
 
   el('setchips').innerHTML = C.sets.map(function (s) {
     return '<button type="button" class="chip" data-s="' + s.id + '">' + s.nm +
@@ -488,11 +493,10 @@
   }).join('');
   var nook = C.sets.filter(function (s) { return !s.ok; });
   el('setwarn').innerHTML = nook.length
-    ? '<b>※ の ' + nook.length + ' セットは ba-data 側にまだ載っていません</b>（' +
+    ? '<b>※ の ' + nook.length + ' セットは未確認です</b>（' +
       nook.map(function (s) { return s.nm; }).join('、') +
-      '）。名前は SchaleDB から借りていて、<b>ボーナスの段は他の ' +
-      (C.sets.length - nook.length) + ' セットと同じと決めつけずに、確かめられていないものとして扱ってください。</b>'
-    : '<b>25 セットすべて ba-data 側でボーナスの段を確かめられています。</b>';
+      '）。<b>ボーナスの段を他と同じと決めつけないでください。</b>'
+    : '<b>全セット、ボーナスの段を確認済みです。</b>';
 
   /* ---- 出来事 ---- */
   el('segcafe').addEventListener('click', function (e) {
@@ -610,8 +614,9 @@
       rows.push('<div class="row total"><span>元が取れるまで</span><span>' +
         (dg > 0 ? Math.ceil(up.cr / dg) + ' 日' : '—') + '</span></div>');
       el('up').innerHTML = rows.join('');
-      el('upnote').innerHTML = '毎日きちんと受け取ったときの日数です。' +
-        '<b>上限が ' + num(capOf(cafe, rank + 1) - cap) + ' 上がる</b>ので、家具を足せばもっと早く戻ります。';
+      el('upnote').innerHTML = '毎日受け取ったときの日数です。' +
+        '<button type="button" class="qm" data-hint="上限も ' + num(capOf(cafe, rank + 1) - cap) +
+        ' 上がるので、家具を足せばもっと早く戻ります。"></button>';
     }
 
     // ランク 10 まで

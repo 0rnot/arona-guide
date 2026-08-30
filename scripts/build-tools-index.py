@@ -58,9 +58,26 @@ def band(t):
           <p>{esc(t['desc'])}</p>
         </a>'''
 
+# **並び順。**tools.json は作った順で、一覧に出すとばらばらに見える。
+# 絞り込みの 3 つ（data-group）を大きな塊にして、その中を肩書きでまとめる。
+# 同じ肩書きの中は tools.json の順（＝作った順）のまま
+GROUP_ORDER = ["育てる", "戦う", "集める・つくる"]
+CAT_ORDER = ["育成", "装備", "カフェ", "総力戦", "戦術対抗戦", "戦闘",
+             "募集", "イベント", "素材集め", "つくる"]
+
+def sort_key(i_t):
+    i, t = i_t
+    g = t.get("group", "")
+    c = (t["cat"] or [""])[0]
+    return (GROUP_ORDER.index(g) if g in GROUP_ORDER else len(GROUP_ORDER),
+            CAT_ORDER.index(c) if c in CAT_ORDER else len(CAT_ORDER), i)
+
+def ordered(tools):
+    return [t for _, t in sorted(enumerate(tools), key=sort_key)]
+
 def main():
     data = json.loads(SRC.read_text(encoding="utf-8"))
-    blocks = [card(t) for t in data.get("tools", [])]
+    blocks = [card(t) for t in ordered(data.get("tools", []))]
     blocks += [soon(s) for s in data.get("soon", [])]
     body = "<!-- TOOLS:START -->\n" + "\n\n".join(blocks) + "\n<!-- TOOLS:END -->"
 

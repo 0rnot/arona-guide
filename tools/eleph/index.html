@@ -7,14 +7,22 @@
 <meta name="description" content="生徒を選んで今の段と目標を入れると、要る神名文字とクレジットが出ます。★1 から ★5、そのあとの固有1〜固有4（限界解放）まで通しで数えます。">
 <meta name="theme-color" content="#c8892e">
 <link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="AronaBot">
+<meta property="og:locale" content="ja_JP">
+<meta property="og:url" content="https://arona-bot.com/tools/eleph/">
 <meta property="og:title" content="星上げの計算機">
 <meta property="og:description" content="生徒を選んで今の段と目標を入れると、要る神名文字とクレジットが出ます。★1 から ★5、そのあとの固有1〜固有4（限界解放）まで通しで数えます。">
-<meta property="og:type" content="website">
-<meta property="og:url" content="https://arona-bot.com/tools/eleph/">
-<meta property="og:image" content="https://arona-bot.com/images/hero-night.jpg">
+<meta property="og:image" content="https://arona-bot.com/images/og/eleph.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="星上げの計算機 — AronaBot のツール">
 <meta name="twitter:card" content="summary_large_image">
-<link rel="stylesheet" href="../../style.css?v=15">
-<link rel="stylesheet" href="../tool.css?v=10">
+<meta name="twitter:title" content="星上げの計算機">
+<meta name="twitter:description" content="生徒を選んで今の段と目標を入れると、要る神名文字とクレジットが出ます。★1 から ★5、そのあとの固有1〜固有4（限界解放）まで通しで数えます。">
+<meta name="twitter:image" content="https://arona-bot.com/images/og/eleph.jpg">
+<link rel="stylesheet" href="../../style.css?v=16">
+<link rel="stylesheet" href="../tool.css?v=11">
 <style>
   /* 選んだ生徒。**選ぶ前は none。** */
   .stucard { display: grid; grid-template-columns: 96px 1fr; gap: 16px; align-items: center;
@@ -152,7 +160,7 @@
   </div>
   <div class="thero-body">
     <h1>星上げの計算機</h1>
-    <p class="thero-lead">生徒を選んで今の段と目標を入れると、要る神名文字とクレジットが出ます。★1 から ★5、そのあとの固有1〜固有4（限界解放）まで通しで数えます。</p>
+    <p class="thero-lead">生徒を選んで今の段と目標を入れると、要る神名文字とクレジットが出ます。</p>
   </div>
 </header>
 
@@ -168,7 +176,7 @@
           <div class="stuimg" id="stu-img"><span class="ph">none</span></div>
           <div>
             <p class="stuname" id="stu-name">まだ誰も選んでいません</p>
-            <p class="stunote" id="stu-note">名前を入れると、その子の神名文字の名前と、今の段から数えた必要量が出ます。</p>
+            <p class="stunote" id="stu-note">名前を入れると、必要な神名文字と量が出ます。</p>
           </div>
         </div>
         <div class="fields c2">
@@ -195,7 +203,7 @@
 
       <div class="panel">
         <div class="panel-h"><h2>段ごとの中身</h2></div>
-        <p class="lead"><b>要る神名文字とクレジットは 7 段とも全員同じです。</b>上がり幅も同じで、生徒ごとの差はありません。右の数字はその段までの累計です。<b>★5 になると固有武器が使えるようになり、その状態が固有1</b>です。そこから先は「限界解放」と呼ばれていて、ステータスの％ではなく覚えるものが変わります。</p>
+        <p class="lead"><b>★5 になると固有武器が使えるようになり、その状態が固有1</b>です。<button type="button" class="qm" data-hint="そこから先は「限界解放」で、ステータスの％ではなく覚えるものが変わります。要る神名文字とクレジットは7段とも全員同じで、生徒ごとの差はありません。右の数字はその段までの累計です。"></button></p>
         <div class="stargrid" id="starsteps"></div>
       </div>
     </div>
@@ -240,7 +248,7 @@
             <tbody id="tb"></tbody>
           </table>
         </div>
-        <p class="lead" style="margin:12px 0 0"><b>上がり幅は足し算です。</b>★5 まで上げると、攻撃力は ★1 のときの <b id="tot-atk">—</b>、最大 HP は <b id="tot-hp">—</b>、回復力は <b id="tot-heal">—</b> になります。<b>固有2 から先はこの％を動かしません。</b>上がるのは固有武器のレベル上限と、覚えるものです。</p>
+        <p class="lead" style="margin:12px 0 0">★5 まで上げると、攻撃力は ★1 の <b id="tot-atk">—</b>、最大 HP は <b id="tot-hp">—</b>、回復力は <b id="tot-heal">—</b>になります。<b>固有2 から先はこの％を動かしません。</b></p>
       </div>
     </div>
 
@@ -325,13 +333,14 @@
 
 <script>window.TOUR = {"key": "eleph", "steps": [
   {"sel": "#stucard", "t": "まず生徒を選びます", "d": "名前を入れると、その子の神名文字の名前が出ます。要る個数はどの子でも同じです。"},
-  {"sel": "#from-stars", "t": "今の段と目標を押します", "d": "上の列が今、下の列が目標です。★が 5 つ並んだあとに固有2・固有3・固有4 が続きます。★5 になると固有武器が使えるようになるので、★5 と固有1 は同じ段です。"},
+  {"sel": "#from-stars", "t": "今の段と目標を押します", "d": "上の列が今、下の列が目標です。★5 のあとは固有2・固有3・固有4 と続きます。"},
   {"sel": "#o-eleph", "t": "要る量がここに出ます", "d": "神名文字とクレジット、それに攻撃力がどれだけ伸びるか。手持ちを入れると、あと何週間かも出ます。"},
   {"sel": "#sharebar", "t": "結果はそのまま渡せます", "d": "開いている状態ごと URL になるので、リンクを送れば相手の画面にも同じ結果が出ます。"}
 ]};</script>
 <script src="../tour.js?v=2"></script>
 
-<script src="../share.js?v=1"></script>
+<script src="../share.js?v=2"></script>
+<script src="../hint.js?v=1"></script>
 
 <footer>
   <div class="foot-inner">
@@ -458,7 +467,7 @@
       card.classList.add('none');
       el('stu-img').innerHTML = '<span class="ph">none</span>';
       el('stu-name').textContent = 'まだ誰も選んでいません';
-      el('stu-note').textContent = '名前を入れると、その子の神名文字の名前と、今の段から数えた必要量が出ます。';
+      el('stu-note').textContent = '名前を入れると、必要な神名文字と量が出ます。';
     }
     stars(el('from-stars'), from, to, true);
     stars(el('to-stars'), to, from, false);
@@ -585,7 +594,7 @@
 
   el('src-n').textContent = E.stu.length;
   el('src-n2').textContent = E.stu.length;
-  el('ver').textContent = E.version;
+  el('ver').textContent = E.fetched;
   draw();
 })();
 </script>

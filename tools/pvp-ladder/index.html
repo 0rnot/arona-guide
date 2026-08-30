@@ -7,14 +7,22 @@
 <meta name="description" content="今の順位から 1 位まで、あと何回勝てばいいかを出します。挑戦できる相手の順位範囲（0.7〜0.95 倍、11 位以下は固定）をそのまま辿るので、手数も経路も正確です。">
 <meta name="theme-color" content="#c8892e">
 <link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="AronaBot">
+<meta property="og:locale" content="ja_JP">
+<meta property="og:url" content="https://arona-bot.com/tools/pvp-ladder/">
 <meta property="og:title" content="戦術対抗戦の順位経路">
 <meta property="og:description" content="今の順位から 1 位まで、あと何回勝てばいいか。挑戦できる相手の範囲をそのまま辿って出します。">
-<meta property="og:type" content="website">
-<meta property="og:url" content="https://arona-bot.com/tools/pvp-ladder/">
-<meta property="og:image" content="https://arona-bot.com/images/hero-night.jpg">
+<meta property="og:image" content="https://arona-bot.com/images/og/pvp-ladder.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="戦術対抗戦の順位経路 — AronaBot のツール">
 <meta name="twitter:card" content="summary_large_image">
-<link rel="stylesheet" href="../../style.css?v=15">
-<link rel="stylesheet" href="../tool.css?v=10">
+<meta name="twitter:title" content="戦術対抗戦の順位経路">
+<meta name="twitter:description" content="今の順位から 1 位まで、あと何回勝てばいいか。挑戦できる相手の範囲をそのまま辿って出します。">
+<meta name="twitter:image" content="https://arona-bot.com/images/og/pvp-ladder.jpg">
+<link rel="stylesheet" href="../../style.css?v=16">
+<link rel="stylesheet" href="../tool.css?v=11">
 <style>
   /* 階段。**1 行 1 戦。**上から順に読めるようにする */
   .ladder { display: flex; flex-direction: column; gap: 0; margin-top: 6px; }
@@ -114,7 +122,7 @@
   </div>
   <div class="thero-body">
     <h1>戦術対抗戦の順位経路</h1>
-    <p class="thero-lead">今の順位から目指す順位まで、あと何回勝てばいいかを出します。目標は報酬が切り替わる境目から選べます。挑戦できる相手の範囲をそのまま辿るので、11 位から 10 位へ挑めない段差も込みです。</p>
+    <p class="thero-lead">今の順位から目標まで、あと何勝いるかを出します。<button type="button" class="qm" data-hint="挑戦できる相手の順位の範囲（0.7〜0.95 倍、11 位以下は固定）をそのまま辿るので、手数も経路も正確です。11 位から 10 位へは挑めない段差も込みです。"></button></p>
   </div>
 </header>
 
@@ -150,12 +158,12 @@
 
       <div class="panel">
         <div class="panel-h"><h2>登り方</h2></div>
-        <p class="lead">上から順に、この順位の相手に勝っていきます。<b>かっこの中は、そのとき挑戦できる相手の順位の範囲</b>です。</p>
+        <p class="lead">上から順に、この順位の相手に勝っていきます。<button type="button" class="qm" data-hint="実際に出る相手は範囲の中からランダムなので、いちばん上の順位が毎回並ぶとは限りません。表示が渋いと、その日のうちに登り切れないこともあります。負けると順位はおよそ 1.4 倍まで落ちます。この経路は勝ち続けた場合の回数です。"></button></p>
         <div class="ladder" id="ladder"></div>
       </div>
     </div>
 
-    <div class="tcol sticky">
+    <div class="tcol">
       <div class="stats c3">
         <div class="stat hero">
           <div class="k">勝つ回数</div>
@@ -176,7 +184,7 @@
 
       <div class="panel">
         <div class="panel-h"><h2><img class="ico" src="../img/currency_icon_gem.webp" alt="" width="24" height="24" loading="lazy"><img class="ico" src="../img/item_icon_arenacoin.webp" alt="" width="24" height="24" loading="lazy"> 1 日にもらえるもの</h2></div>
-        <p class="lead">日別報酬は<b>毎日 14 時にリセット</b>されます。そのときの順位で決まります。</p>
+        <p class="lead"><b>毎日 14 時にリセット</b>されます。</p>
         <div class="ledger">
           <div class="row"><span id="l-now-k">今の順位（—）</span><span id="l-now">—</span></div>
           <div class="row"><span id="l-goal-k">目標の順位</span><span id="l-goal">—</span></div>
@@ -185,10 +193,9 @@
       </div>
 
       <div class="note-box">
-        <p><b>これは理論値です。</b>実際に表示される相手は範囲の中からランダムなので、<b>いちばん上の順位がいつも並ぶとはかぎりません</b>。表示が渋いときは、その日のうちに登り切れないこともあります。</p>
-        <p><b>負けると順位はおよそ 1.4 倍まで落ちます。</b>この経路は勝ち続けたときの回数です。</p>
-        <p><b>日別報酬とは別に「シーズン最高記録報酬」があります。</b>シーズン中にいちばん上がった順位で決まる、1 回きりのぶんです。
-          1〜10 位まで登れば累計 2,490 個、11〜100 位でも 2,290 個。<b>ここには入れていないので、実際にはこれより多くもらえます。</b></p>
+        <p><b>日別報酬とは別に、最高記録でもらえる分が 2 つあります（<code>SeasonRecord</code> と <code>OverallRecord</code>）。</b>
+          15000 位から 1〜10 位まで登ると合わせて 2,251 個、11〜100 位でも 2,181 個です。
+          <button type="button" class="qm" data-hint="シーズンごとにリセットされる分（SeasonRecord）と、アカウントで1回きりの分（OverallRecord）の合計。1〜10位はシーズン分746個＋通算分1,505個。11〜100位は726＋1,455個。値はExcel/ArenaRewardExcelTable.jsonの帯を届いた順位から下へ全部足したもの。日別報酬はここに含めていないので、実際にはこれより多くもらえます。"></button></p>
       </div>
     </div>
 
@@ -227,7 +234,8 @@
 <script>window.TOUR = {"key": "pvp-ladder", "steps": [{"sel": "#i-rank", "t": "今の順位と目標を入れます", "d": "そこまで登るのに何勝いるか、何日かかるか、石を割るなら何個かを出します。"}, {"sel": "#ladder", "t": "登り方が段で出ます", "d": "報酬が 1 段良くなる境目を跨ぐたびに、もらえるものが増えます。"}, {"sel": "#l-now-k", "t": "1 日の差を見ます", "d": "今の順位帯と目標の順位帯で、毎日もらえるものがどれだけ変わるかを並べています。"}]};</script>
 <script src="../tour.js?v=2"></script>
 
-<script src="../share.js?v=1"></script>
+<script src="../share.js?v=2"></script>
+<script src="../hint.js?v=1"></script>
 
 <footer>
   <div class="foot-inner">
@@ -268,7 +276,6 @@
   (function buildGoals() {
     var h = '';
     P.BORDERS.forEach(function (b) {
-      var rw = P.rewardAt(b);
       var upper = P.REWARD.filter(function (x) { return x[0] >= b; });
       var top = upper.length ? upper[0][0] : b;
       var label = (b === top) ? (b.toLocaleString('ja-JP') + ' 位')
@@ -369,12 +376,12 @@
       x.setAttribute('aria-pressed', String(x.dataset.m === mode));
     });
     el('mode-note').textContent = mode === 'many'
-      ? '届く範囲でいちばん下の相手を選びます。1 回ずつしか上がらないので回数は増えますが、対戦のミッションを消化したいときはこちら。'
-      : '届く範囲でいちばん上の相手を選びます。これが最短です。';
+      ? '回数は増えますが、対戦ミッションの消化に向きます。'
+      : '最短ルートです。';
     calc();
   });
   iRank.addEventListener('input', calc);
-  el('mode-note').textContent = '届く範囲でいちばん上の相手を選びます。これが最短です。';
+  el('mode-note').textContent = '最短ルートです。';
   calc();
 })();
 </script>
