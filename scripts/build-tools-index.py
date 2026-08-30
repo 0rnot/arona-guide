@@ -31,8 +31,10 @@ def icon(t, prefix="", size=66):
             f'width="{size}" height="{size}" loading="lazy">')
 
 def card(t):
+    # **絞り込みは data-group（3 つだけ）。**data-cat は肩書きの表示用で、
+    # ここでボタンを作ると 7 種類に散らばって選びづらくなる
     cats = "|".join(t["cat"])
-    return f'''    <a class="tcard" href="{esc(t['slug'])}/" data-cat="{esc(cats)}">
+    return f'''    <a class="tcard" href="{esc(t['slug'])}/" data-cat="{esc(cats)}" data-group="{esc(t.get('group', ''))}">
       {icon(t)}
       <div class="cat">{esc(' · '.join(t['cat']))}</div>
       <h2>{esc(t['name'])}</h2>
@@ -41,7 +43,7 @@ def card(t):
     </a>'''
 
 def soon(s):
-    return f'''    <div class="tcard soon" data-cat="{esc(s['cat'])}">
+    return f'''    <div class="tcard soon" data-cat="{esc(s['cat'])}" data-group="">
       <div class="cat">{esc(s['cat'])}</div>
       <h2>{esc(s['name'])}</h2>
       <p>{esc(s['desc'])}</p>

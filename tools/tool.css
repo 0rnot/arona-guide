@@ -403,11 +403,15 @@ a.tcard:hover .go svg { transform: translateX(3px); }
 
 .tcard.soon { border-style: dashed; background: transparent; }
 .tcard .ticon {
-  position: absolute; top: 14px; right: 16px; width: 66px; height: 66px;
-  border-radius: 13px; pointer-events: none; object-fit: contain;
+  position: absolute; top: 15px; right: 15px; width: 50px; height: 50px;
+  border-radius: 11px; pointer-events: none; object-fit: contain;
   transition: transform .2s cubic-bezier(.22,.61,.36,1);
 }
-.tcard .cat, .tcard h2 { padding-right: 74px; }
+/* **アイコンのぶんだけ見出しの幅が減る。**66px だと 11 文字の題で折り返して、
+   しかも文節の途中で切れていた。アイコンを 50px に落として、
+   折り返すときは文節の切れ目で折るようにする */
+.tcard .cat, .tcard h2 { padding-right: 58px; }
+.tcard h2 { word-break: auto-phrase; }
 a.tcard:hover .ticon { transform: scale(1.09) rotate(-4deg); }
 
 .tcard.soon .cat { color: var(--fg-mute); }

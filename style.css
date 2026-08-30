@@ -289,6 +289,16 @@ h1 {
   font-size: .92rem;
 }
 .toc a { color: var(--fg-mute); text-decoration: none; }
+/* 目次の中のツール。**上部バーの丸ボタンと同じ見た目にする。**
+   節のリンクと同じ字面で並べると、別ページだと分からない */
+.toc .toc-tools {
+  display: inline-flex; align-items: center; gap: .4em;
+  padding: .3em .95em; border-radius: 999px;
+  background: var(--accent); color: var(--accent-in);
+  font-weight: 800; letter-spacing: .01em;
+}
+.toc .toc-tools:hover { color: var(--accent-in); filter: brightness(1.08); }
+.toc .toc-tools svg { width: 1em; height: 1em; fill: currentColor; }
 .toc a:hover { color: var(--accent); }
 
 /* ------------------------------------------------------------ 章 */

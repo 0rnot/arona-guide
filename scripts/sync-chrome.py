@@ -21,12 +21,15 @@ WRENCH = ('<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">\n'
 
 def topbar(up: str, tools_href: str, current: bool) -> str:
     cur = ' aria-current="page"' if current else ''
+    # **一覧に居るときは「ツール」、道具の中に居るときは「ツール一覧」。**
+    # 中に居るとき「ツール」とだけ出ていると、それが戻り道だと分からない
+    label = "ツール" if current else "ツール一覧"
     return f'''<div class="topbar">
   <div class="topbar-inner">
     <a class="topbar-name" href="{up}">AronaBotの使い方</a>
     <a class="topbar-tools" href="{tools_href}"{cur}>
       {WRENCH}
-      ツール
+      {label}
     </a>
     <nav class="topbar-nav">
       <a href="{up}#can">機能</a>
@@ -34,8 +37,51 @@ def topbar(up: str, tools_href: str, current: bool) -> str:
       <a href="{up}#message">メッセージから</a>
       <a href="{up}#faq">よくある質問</a>
     </nav>
+    <!-- 共有。**AronaBot 本体と同じ位置に置く。**押した先は環境で変える -->
+    <span class="share-nudge" aria-hidden="true">使えそうな人に、ぜひ</span>
+    <a class="share" id="share-page" target="_blank" rel="noopener" aria-label="このページを共有する"
+       href="https://x.com/intent/post?url=https%3A%2F%2Farona-bot.com%2Ftools%2F">
+      <svg class="share-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <path d="M14 9V5l7 7-7 7v-4.1c-5 0-8.5 1.6-11 5.1 1-5 4-10 11-11z"/>
+      </svg>
+      <span class="share-label">共有</span>
+    </a>
   </div>
-</div>'''
+</div>
+<div class="toast" id="toast-page" role="status" aria-live="polite"></div>
+<script>
+/* 共有ボタン。**そのページ自身の URL を配る。**
+   1. スマホ（navigator.share）→ OS の共有シート
+   2. PC（クリップボード）→ URL をコピーして帯で伝える
+   3. どちらも無い → <a href> のまま X の共有ページへ */
+(function () {{
+  var btn = document.getElementById('share-page'), toast = document.getElementById('toast-page');
+  if (!btn) return;
+  var url = location.href.split('#')[0];
+  var name = document.title.split('｜')[0];
+  var text = name + '（AronaBot のツール）';
+  btn.href = 'https://x.com/intent/post?text=' + encodeURIComponent(text) +
+             '&url=' + encodeURIComponent(url);
+  var timer = null;
+  function say(t) {{
+    if (!toast) return;
+    toast.textContent = t; toast.classList.add('shown');
+    clearTimeout(timer); timer = setTimeout(function () {{ toast.classList.remove('shown'); }}, 2000);
+  }}
+  btn.addEventListener('click', function (e) {{
+    if (navigator.share) {{
+      e.preventDefault();
+      navigator.share({{ title: name, text: text, url: url }}).catch(function () {{}});
+      return;
+    }}
+    if (navigator.clipboard && navigator.clipboard.writeText) {{
+      e.preventDefault();
+      navigator.clipboard.writeText(url).then(function () {{ say('リンクをコピーしました'); }},
+        function () {{ window.open(btn.href, '_blank', 'noopener'); }});
+    }}
+  }});
+}})();
+</script>'''
 
 def footer(up: str, tools_href: str) -> str:
     return f'''<footer>
@@ -61,7 +107,12 @@ def footer(up: str, tools_href: str) -> str:
   </div>
 </footer>'''
 
-TOPBAR_RE = re.compile(r'<div class="topbar">.*?\n</div>', re.S)
+# **toast と共有のスクリプトまでを 1 かたまりとして差し替える。**
+# 古い版（topbar だけ）にも当たるように、後ろの 2 つは任意にしてある
+TOPBAR_RE = re.compile(
+    r'<div class="topbar">.*?\n</div>'
+    r'(?:\n<div class="toast" id="toast(?:-page)?".*?</div>)?'
+    r'(?:\n<script>\n/\* 共有ボタン。.*?\n</script>)?', re.S)
 FOOTER_RE = re.compile(r'<footer>.*?\n</footer>', re.S)
 
 def sync(path: pathlib.Path, up: str, tools_href: str, current: bool) -> bool:

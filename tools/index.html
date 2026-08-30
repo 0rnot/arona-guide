@@ -54,8 +54,51 @@
       <a href="../#message">メッセージから</a>
       <a href="../#faq">よくある質問</a>
     </nav>
+    <!-- 共有。**AronaBot 本体と同じ位置に置く。**押した先は環境で変える -->
+    <span class="share-nudge" aria-hidden="true">使えそうな人に、ぜひ</span>
+    <a class="share" id="share-page" target="_blank" rel="noopener" aria-label="このページを共有する"
+       href="https://x.com/intent/post?url=https%3A%2F%2Farona-bot.com%2Ftools%2F">
+      <svg class="share-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <path d="M14 9V5l7 7-7 7v-4.1c-5 0-8.5 1.6-11 5.1 1-5 4-10 11-11z"/>
+      </svg>
+      <span class="share-label">共有</span>
+    </a>
   </div>
 </div>
+<div class="toast" id="toast-page" role="status" aria-live="polite"></div>
+<script>
+/* 共有ボタン。**そのページ自身の URL を配る。**
+   1. スマホ（navigator.share）→ OS の共有シート
+   2. PC（クリップボード）→ URL をコピーして帯で伝える
+   3. どちらも無い → <a href> のまま X の共有ページへ */
+(function () {
+  var btn = document.getElementById('share-page'), toast = document.getElementById('toast-page');
+  if (!btn) return;
+  var url = location.href.split('#')[0];
+  var name = document.title.split('｜')[0];
+  var text = name + '（AronaBot のツール）';
+  btn.href = 'https://x.com/intent/post?text=' + encodeURIComponent(text) +
+             '&url=' + encodeURIComponent(url);
+  var timer = null;
+  function say(t) {
+    if (!toast) return;
+    toast.textContent = t; toast.classList.add('shown');
+    clearTimeout(timer); timer = setTimeout(function () { toast.classList.remove('shown'); }, 2000);
+  }
+  btn.addEventListener('click', function (e) {
+    if (navigator.share) {
+      e.preventDefault();
+      navigator.share({ title: name, text: text, url: url }).catch(function () {});
+      return;
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      e.preventDefault();
+      navigator.clipboard.writeText(url).then(function () { say('リンクをコピーしました'); },
+        function () { window.open(btn.href, '_blank', 'noopener'); });
+    }
+  });
+})();
+</script>
 
 <header class="thero">
   <!-- **本編のヘッダー画像と昼夜を入れ替えてある。**
@@ -85,7 +128,7 @@
 
   <div class="tgrid c3" id="grid">
 <!-- TOOLS:START -->
-    <a class="tcard" href="teacher-level/" data-cat="育成・計画">
+    <a class="tcard" href="teacher-level/" data-cat="育成・計画" data-group="育てる">
       <img class="ticon" src="img/currency_icon_ap.webp" alt="" width="66" height="66" loading="lazy">
       <div class="cat">育成・計画</div>
       <h2>先生レベル計算機</h2>
@@ -93,31 +136,7 @@
       <span class="go">つかう <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M13.5 5.5 12.1 6.9l4.1 4.1H4v2h12.2l-4.1 4.1 1.4 1.4 6.5-6.5z"/></svg></span>
     </a>
 
-    <a class="tcard" href="gacha/" data-cat="募集">
-      <img class="ticon" src="img/currency_icon_gem.webp" alt="" width="66" height="66" loading="lazy">
-      <div class="cat">募集</div>
-      <h2>募集の天井計算機</h2>
-      <p>今の青輝石でピックアップをお迎えできる確率と、天井までに要る石を出します。呼び出しチャージの 100 / 200 カウントと募集回数特典を織り込んだ値です。</p>
-      <span class="go">つかう <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M13.5 5.5 12.1 6.9l4.1 4.1H4v2h12.2l-4.1 4.1 1.4 1.4 6.5-6.5z"/></svg></span>
-    </a>
-
-    <a class="tcard" href="pvp-ladder/" data-cat="戦術対抗戦">
-      <img class="ticon" src="img/item_icon_arenacoin.webp" alt="" width="66" height="66" loading="lazy">
-      <div class="cat">戦術対抗戦</div>
-      <h2>戦術対抗戦の順位経路</h2>
-      <p>今の順位から 1 位まで、あと何回勝てばいいか。挑戦できる相手の範囲をそのまま辿るので、11 位から 10 位へ挑めない段差も込みです。</p>
-      <span class="go">つかう <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M13.5 5.5 12.1 6.9l4.1 4.1H4v2h12.2l-4.1 4.1 1.4 1.4 6.5-6.5z"/></svg></span>
-    </a>
-
-    <a class="tcard" href="pvp-coin/" data-cat="戦術対抗戦">
-      <img class="ticon" src="img/item_icon_secretstone.webp" alt="" width="66" height="66" loading="lazy">
-      <div class="cat">戦術対抗戦</div>
-      <h2>戦術対抗戦コインの収支</h2>
-      <p>順位帯と買うものから、コインが 1 日でどれだけ増減するかを出します。防衛勝利のぶんも数えます。</p>
-      <span class="go">つかう <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M13.5 5.5 12.1 6.9l4.1 4.1H4v2h12.2l-4.1 4.1 1.4 1.4 6.5-6.5z"/></svg></span>
-    </a>
-
-    <a class="tcard" href="report-credit/" data-cat="育成・計画">
+    <a class="tcard" href="report-credit/" data-cat="育成・計画" data-group="育てる">
       <img class="ticon" src="img/item_icon_expitem_3.webp" alt="" width="66" height="66" loading="lazy">
       <div class="cat">育成・計画</div>
       <h2>特別依頼の行き先</h2>
@@ -125,7 +144,7 @@
       <span class="go">つかう <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M13.5 5.5 12.1 6.9l4.1 4.1H4v2h12.2l-4.1 4.1 1.4 1.4 6.5-6.5z"/></svg></span>
     </a>
 
-    <a class="tcard" href="equipment/" data-cat="装備">
+    <a class="tcard" href="equipment/" data-cat="装備" data-group="育てる">
       <img class="ticon" src="img/equipment_icon_hat_tier10_piece.webp" alt="" width="66" height="66" loading="lazy">
       <div class="cat">装備</div>
       <h2>装備設計図の周回計算機</h2>
@@ -133,7 +152,7 @@
       <span class="go">つかう <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M13.5 5.5 12.1 6.9l4.1 4.1H4v2h12.2l-4.1 4.1 1.4 1.4 6.5-6.5z"/></svg></span>
     </a>
 
-    <a class="tcard" href="bond/" data-cat="育成・計画">
+    <a class="tcard" href="bond/" data-cat="育成・計画" data-group="育てる">
       <img class="ticon" src="img/item_icon_favor_0.webp" alt="" width="66" height="66" loading="lazy">
       <div class="cat">育成・計画</div>
       <h2>絆ランク計算機</h2>
@@ -141,23 +160,23 @@
       <span class="go">つかう <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M13.5 5.5 12.1 6.9l4.1 4.1H4v2h12.2l-4.1 4.1 1.4 1.4 6.5-6.5z"/></svg></span>
     </a>
 
-    <a class="tcard" href="treasure/" data-cat="イベント">
-      <img class="ticon" src="img/item_icon_event_token_3_s29.webp" alt="" width="66" height="66" loading="lazy">
-      <div class="cat">イベント</div>
-      <h2>宝探しの確率計算機</h2>
-      <p>ミニゲーム「宝探し（在庫管理）」で、開けた結果を入れると残りのマスに何がある確率かが出ます。備品の名前と大きさを書き換えれば、どのイベントでも使えます。</p>
+    <a class="tcard" href="pvp-ladder/" data-cat="戦術対抗戦" data-group="戦う">
+      <img class="ticon" src="img/item_icon_arenacoin.webp" alt="" width="66" height="66" loading="lazy">
+      <div class="cat">戦術対抗戦</div>
+      <h2>戦術対抗戦の順位経路</h2>
+      <p>今の順位から 1 位まで、あと何回勝てばいいか。挑戦できる相手の範囲をそのまま辿るので、11 位から 10 位へ挑めない段差も込みです。</p>
       <span class="go">つかう <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M13.5 5.5 12.1 6.9l4.1 4.1H4v2h12.2l-4.1 4.1 1.4 1.4 6.5-6.5z"/></svg></span>
     </a>
 
-    <a class="tcard" href="tier/" data-cat="つくる">
-      <img class="ticon" src="img/item_icon_skillbook_hyakkiyako_3.webp" alt="" width="66" height="66" loading="lazy">
-      <div class="cat">つくる</div>
-      <h2>Tier表メーカー</h2>
-      <p>生徒を並べて自分の Tier 表を作れます。顔の大きさを 3 段階で変えられて、画像として保存でき、URL をそのまま渡せば相手にも同じ並びが出ます。</p>
+    <a class="tcard" href="pvp-coin/" data-cat="戦術対抗戦" data-group="戦う">
+      <img class="ticon" src="img/item_icon_secretstone.webp" alt="" width="66" height="66" loading="lazy">
+      <div class="cat">戦術対抗戦</div>
+      <h2>戦術対抗戦コインの収支</h2>
+      <p>順位帯と買うものから、コインが 1 日でどれだけ増減するかを出します。防衛勝利のぶんも数えます。</p>
       <span class="go">つかう <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M13.5 5.5 12.1 6.9l4.1 4.1H4v2h12.2l-4.1 4.1 1.4 1.4 6.5-6.5z"/></svg></span>
     </a>
 
-    <a class="tcard" href="raid/" data-cat="総力戦">
+    <a class="tcard" href="raid/" data-cat="総力戦" data-group="戦う">
       <img class="ticon" src="img/item_icon_raidcoin.webp" alt="" width="66" height="66" loading="lazy">
       <div class="cat">総力戦</div>
       <h2>総力戦の相性チェッカー</h2>
@@ -165,7 +184,31 @@
       <span class="go">つかう <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M13.5 5.5 12.1 6.9l4.1 4.1H4v2h12.2l-4.1 4.1 1.4 1.4 6.5-6.5z"/></svg></span>
     </a>
 
-    <div class="tcard soon" data-cat="つくっている途中">
+    <a class="tcard" href="gacha/" data-cat="募集" data-group="集める・つくる">
+      <img class="ticon" src="img/currency_icon_gem.webp" alt="" width="66" height="66" loading="lazy">
+      <div class="cat">募集</div>
+      <h2>募集の天井計算機</h2>
+      <p>今の青輝石でピックアップをお迎えできる確率と、天井までに要る石を出します。呼び出しチャージの 100 / 200 カウントと募集回数特典を織り込んだ値です。</p>
+      <span class="go">つかう <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M13.5 5.5 12.1 6.9l4.1 4.1H4v2h12.2l-4.1 4.1 1.4 1.4 6.5-6.5z"/></svg></span>
+    </a>
+
+    <a class="tcard" href="treasure/" data-cat="イベント" data-group="集める・つくる">
+      <img class="ticon" src="img/item_icon_event_token_3_s29.webp" alt="" width="66" height="66" loading="lazy">
+      <div class="cat">イベント</div>
+      <h2>宝探しの確率計算機</h2>
+      <p>ミニゲーム「宝探し（在庫管理）」で、開けた結果を入れると残りのマスに何がある確率かが出ます。備品の名前と大きさを書き換えれば、どのイベントでも使えます。</p>
+      <span class="go">つかう <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M13.5 5.5 12.1 6.9l4.1 4.1H4v2h12.2l-4.1 4.1 1.4 1.4 6.5-6.5z"/></svg></span>
+    </a>
+
+    <a class="tcard" href="tier/" data-cat="つくる" data-group="集める・つくる">
+      <img class="ticon" src="img/item_icon_skillbook_hyakkiyako_3.webp" alt="" width="66" height="66" loading="lazy">
+      <div class="cat">つくる</div>
+      <h2>Tier表メーカー</h2>
+      <p>生徒を並べて自分の Tier 表を作れます。顔の大きさを 3 段階で変えられて、画像として保存でき、URL をそのまま渡せば相手にも同じ並びが出ます。</p>
+      <span class="go">つかう <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M13.5 5.5 12.1 6.9l4.1 4.1H4v2h12.2l-4.1 4.1 1.4 1.4 6.5-6.5z"/></svg></span>
+    </a>
+
+    <div class="tcard soon" data-cat="つくっている途中" data-group="">
       <div class="cat">つくっている途中</div>
       <h2>まだ増えます</h2>
       <p>総力戦・大決戦のボーダー、カフェの家具配置あたりを順に作っています。ほしいものがあれば @0r.not まで。</p>
@@ -215,14 +258,15 @@
   var countEl = document.getElementById('count');
   var cards = [].slice.call(grid.querySelectorAll('[data-cat]'));
 
-  // 種類のボタンは、実際に載っているカードから作る。**手で並べない。**
-  // **「つくっている途中」は種類ではない**ので、そのカードからは拾わない。
+  /* **絞り込みは大きく 3 つだけ。** カードの肩書き（総力戦・イベント…）で
+     ボタンを作っていた頃は 7 個並んでいて、1 本しか入らない種類もあった。
+     細かすぎる絞り込みは、押しても何も減らないので使われない
+     （2026-08-30 の先生の指摘）。肩書きはカードの中に残してある。 */
   var seen = [];
   cards.forEach(function (c) {
     if (c.classList.contains('soon')) return;
-    c.dataset.cat.split('|').forEach(function (k) {
-      if (k && seen.indexOf(k) < 0) seen.push(k);
-    });
+    var g = c.dataset.group;
+    if (g && seen.indexOf(g) < 0) seen.push(g);
   });
   seen.forEach(function (k) {
     var b = document.createElement('button');
@@ -236,8 +280,7 @@
   function apply(cat) {
     var n = 0;
     cards.forEach(function (c) {
-      var hit = !cat || (!c.classList.contains('soon') &&
-                         c.dataset.cat.split('|').indexOf(cat) >= 0);
+      var hit = !cat || (!c.classList.contains('soon') && c.dataset.group === cat);
       c.hidden = !hit;
       if (hit && !c.classList.contains('soon')) n++;
     });
