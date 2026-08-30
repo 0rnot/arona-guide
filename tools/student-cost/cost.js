@@ -57,10 +57,17 @@
     return BASE + n;
   }
 
-  function opt(v, r) {
+  /* 効果の伸びが大きくなる Lv。**データではなく攻略サイトの記載**
+     （ブルアカ Wiki「スキル」: EX は Lv3・Lv5、それ以外は Lv4・Lv7・Lv10）。
+     選択肢に ◎ を付けて、どこで止めると得かが見えるようにしている。 */
+  var JUMP = { ex: [3, 5], sk: [4, 7, 10] };
+
+  /** 表示用の値。mark を立てたときだけ ◎ を付ける（選択肢の中でだけ使う）。 */
+  function opt(v, r, mark) {
     if (r.star || r.weapon) return '★' + v;
     if (r.gear) return 'T' + v;
-    return 'Lv' + v;
+    var j = mark && JUMP[r.slot];
+    return 'Lv' + v + (j && j.indexOf(v) >= 0 ? ' ◎' : '');
   }
 
   function drawGoals() {
@@ -73,7 +80,7 @@
       var sel = function (which) {
         var s = '<select data-k="' + r.k + '" data-w="' + which + '"' + (ok ? '' : ' disabled') + '>';
         for (var v = a; v <= b; v++) {
-          s += '<option value="' + v + '"' + (st[which] === v ? ' selected' : '') + '>' + opt(v, r) + '</option>';
+          s += '<option value="' + v + '"' + (st[which] === v ? ' selected' : '') + '>' + opt(v, r, true) + '</option>';
         }
         return s + '</select>';
       };
@@ -217,11 +224,13 @@
   var PRESET = {
     all:  function (r) { return { f: lo(r), t: hi(r) }; },
     mid:  function (r) {
-      // よくある「総力戦で使う形」。Lv90・EX5・ほかのスキルは Lv9 まで。
-      // **Lv10 は秘伝ノートが要る**ので、そこは別扱いにしてある
+      // 「キリのいい Lv まで」。**根拠はブルアカ Wiki「スキル」**の
+      // 「最大まで育成する余裕がない場合は数値が大きく上がるキリのいいLvを目指すと効率がいい」。
+      // EX は最後の伸びが Lv5 なので上限まで、ほかは Lv7 で止める
+      // （Lv10 はその 1 段だけで秘伝ノート 1 冊と 400 万クレジットが要る）
       if (r.k === 'lv') return { f: 1, t: 90 };
-      if (r.k === 'ex') return { f: 1, t: hi(r) };
-      if (r.slot === 'sk') return { f: 1, t: Math.max(1, hi(r) - 1) };
+      if (r.slot === 'ex') return { f: 1, t: hi(r) };
+      if (r.slot === 'sk') return { f: 1, t: Math.min(7, hi(r)) };
       return { f: lo(r), t: lo(r) };
     },
     none: function (r) { return { f: lo(r), t: lo(r) }; }

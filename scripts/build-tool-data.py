@@ -22,6 +22,9 @@ import io, json, pathlib, sys, urllib.request
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 IMG = ROOT / "tools" / "img"
 BA = "https://raw.githubusercontent.com/electricgoat/ba-data/jp/Excel/{}.json"
+# **同じリポジトリの DB/ 側。**Excel/ にも同名のファイルがあるが、
+# EventContentTreasure 系は Excel/ 側が空の殻で、中身は DB/ にしか無い
+BADB = "https://raw.githubusercontent.com/electricgoat/ba-data/jp/DB/{}.json"
 # **GitHub の SchaleDB/SchaleDB は 2024-08 で止まっている**（build 1723935982）。
 # 生徒が 194 人しか入っておらず、実際の 274 人と 80 人ずれる。
 # 本番サイトのほうは毎日更新されているので、そちらを見る（2026-08-30 に発見）。
@@ -774,9 +777,126 @@ def build_student_cost():
     }, header="/* scripts/build-tool-data.py が吐く。**手で直さない。** */\n")
 
 
+# ------------------------------------------------------------ 宝探し（在庫管理）
+
+# **文字列の Id は XXHash32（seed 0）。**LocalizeExcelTable の Key がこれで、
+# `Event_Treasure_60000_06` を引くと「ショッピングバッグ」が出る。
+# 依存を増やしたくないので 30 行だけ自前で持つ（xxhash モジュールの
+# 407 件の照合で一致を確認済み。2026-08-30）。
+_XM = 0xFFFFFFFF
+_XP1, _XP2, _XP3, _XP4, _XP5 = 0x9E3779B1, 0x85EBCA77, 0xC2B2AE3D, 0x27D4EB2F, 0x165667B1
+
+
+def _rotl(x, r):
+    return ((x << r) | (x >> (32 - r))) & _XM
+
+
+def _xround(acc, inp):
+    return (_rotl((acc + inp * _XP2) & _XM, 13) * _XP1) & _XM
+
+
+def xxh32(data, seed=0):
+    if isinstance(data, str):
+        data = data.encode()
+    n, i = len(data), 0
+    if n >= 16:
+        v1, v2, v3, v4 = (seed + _XP1 + _XP2) & _XM, (seed + _XP2) & _XM, seed & _XM, (seed - _XP1) & _XM
+        while i + 16 <= n:
+            v1 = _xround(v1, int.from_bytes(data[i:i + 4], "little")); i += 4
+            v2 = _xround(v2, int.from_bytes(data[i:i + 4], "little")); i += 4
+            v3 = _xround(v3, int.from_bytes(data[i:i + 4], "little")); i += 4
+            v4 = _xround(v4, int.from_bytes(data[i:i + 4], "little")); i += 4
+        h = (_rotl(v1, 1) + _rotl(v2, 7) + _rotl(v3, 12) + _rotl(v4, 18)) & _XM
+    else:
+        h = (seed + _XP5) & _XM
+    h = (h + n) & _XM
+    while i + 4 <= n:
+        h = (_rotl((h + int.from_bytes(data[i:i + 4], "little") * _XP3) & _XM, 17) * _XP4) & _XM
+        i += 4
+    while i < n:
+        h = (_rotl((h + data[i] * _XP5) & _XM, 11) * _XP1) & _XM
+        i += 1
+    h = ((h ^ (h >> 15)) * _XP2) & _XM
+    h = ((h ^ (h >> 13)) * _XP3) & _XM
+    return h ^ (h >> 16)
+
+
+def build_treasure():
+    print("宝探しの確率計算機")
+    # **この 4 つは Excel/ ではなく DB/ にある。**Excel/ 側は中身が空の殻だけ
+    tre = as_list(get_json(BADB.format("EventContentTreasureExcelTable")))
+    rounds = as_list(get_json(BADB.format("EventContentTreasureRoundExcelTable")))
+    rewards = as_list(get_json(BADB.format("EventContentTreasureRewardExcelTable")))
+    season = as_list(get_json(BADB.format("EventContentSeasonExcelTable")))
+    loc = {r["Key"]: r.get("Jp") for r in as_list(get_json(BADB.format("LocalizeExcelTable")))}
+    names = get_json(SD_CFG.replace("config.json", "jp/localization.min.json")).get("EventName") or {}
+
+    def jp(code, fallback=""):
+        return loc.get(xxh32(code)) or fallback
+
+    rw = {r["Id"]: r for r in rewards}
+    # 同じ EventContentId が何行も出るので、開催期間は 1 つに畳む
+    period, origin = {}, {}
+    for r in season:
+        eid = r.get("EventContentId")
+        if eid is not None and eid not in period:
+            period[eid] = (r.get("EventContentOpenTime", ""),
+                           r.get("ExtensionTime") or r.get("EventContentCloseTime", ""))
+            # **復刻は元のイベント名で呼ぶ。**10847 → 847 のように親が入っている
+            origin[eid] = r.get("OriginalEventContentId")
+
+    events = []
+    for e in tre:
+        eid = e["EventContentId"]
+        rs = sorted((r for r in rounds if r["EventContentId"] == eid),
+                    key=lambda r: r.get("TreasureRound", 0))
+        if not rs:
+            continue
+        size = rs[0].get("TreasureRoundSize") or [9, 5]
+        out = []
+        for r in rs:
+            items = []
+            for rid, amt in zip(r.get("RewardID", []), r.get("RewardAmount", [])):
+                it = rw.get(rid)
+                if not it:
+                    continue
+                items.append({"n": jp(it.get("LocalizeCodeID", ""), "？"),
+                              "w": it.get("CellUnderImageWidth", 1),
+                              "h": it.get("CellUnderImageHeight", 1),
+                              "c": amt})
+            if len(items) == 3:
+                out.append(items)
+        if not out:
+            continue
+        op, cl = period.get(eid, ("", ""))
+        # 復刻は EventName に載っていないので、元のイベント名を借りて「（復刻）」を付ける
+        nm = names.get(str(eid)) or names.get(eid)
+        if not nm:
+            src = origin.get(eid)
+            base = names.get(str(src)) or names.get(src) if src and src != eid else None
+            nm = (base + "（復刻）") if base else jp(e.get("TitleLocalize", ""), f"イベント {eid}")
+        events.append({
+            "id": eid,
+            "n": nm,
+            "open": op, "close": cl,
+            "loop": e.get("LoopRound", len(out)),
+            "w": size[0], "h": size[1],
+            "rounds": out,
+        })
+    # **新しいものから並べる。**ページ側は「今開いているもの」を既定にする
+    events.sort(key=lambda x: (x["open"], x["id"]), reverse=True)
+    if not events:
+        raise SystemExit("宝探しのイベントが 1 件も取れない")
+
+    return write_js("tools/treasure/data.js", "TREASURE_EVENTS", {
+        "events": events,
+        "version": "electricgoat/ba-data jp（DB/EventContentTreasure*）／ SchaleDB jp（イベント名）",
+    }, header="/* scripts/build-tool-data.py が吐く。**手で直さない。** */\n")
+
+
 BUILDERS = {"bond": build_bond, "teacher-level": build_teacher_level,
             "equipment": build_equipment, "tier": build_tier, "raid": build_raid,
-            "student-cost": build_student_cost}
+            "student-cost": build_student_cost, "treasure": build_treasure}
 
 if __name__ == "__main__":
     want = sys.argv[1:] or list(BUILDERS)

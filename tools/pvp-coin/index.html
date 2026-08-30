@@ -100,12 +100,12 @@
     <div class="tcol">
       <div class="panel">
         <div class="panel-h"><h2><img class="ico" src="../img/item_icon_arenacoin.webp" alt="" width="24" height="24" loading="lazy"> 入ってくるぶん</h2></div>
-        <div class="numrow">
-          <div class="nm">日別報酬<small>毎日 14 時にリセット。そのときの順位で決まる</small></div>
+        <div class="numrow wide">
+          <div class="nm">日別報酬<small id="rank-note">毎日 14 時にリセット。そのときの順位で決まる</small></div>
           <select id="i-rank" aria-label="順位帯"></select>
         </div>
         <div class="numrow">
-          <div class="nm">防衛で勝つ回数<small>1 勝 3 枚。1 日 10 回まで</small></div>
+          <div class="nm">防衛で勝つ回数<small id="def-note">1 勝 3 枚。1 日 10 回まで</small></div>
           <select id="i-def" aria-label="防衛勝利の回数"></select>
         </div>
         <div class="numrow sum"><div>1 日に入るコイン</div><div class="v" id="o-in">—</div></div>
@@ -115,12 +115,12 @@
         <div class="panel-h"><h2>出ていくぶん</h2></div>
         <p class="lead">ショップは<b>1 日 3 回まで更新</b>できます。更新するたびに、並んだものをもう一度買えます。</p>
         <div class="numrow">
-          <div class="nm">AP ドリンク<small>初級（AP30）15 枚 ／ 中級（AP60）30 枚</small></div>
+          <div class="nm">AP ドリンク<small id="drink-note">初級（AP30）15 枚 ／ 中級（AP60）30 枚</small></div>
           <select id="i-drink" aria-label="AP ドリンク">
             <option value="0">買わない</option>
-            <option value="15">初級だけ（15 枚）</option>
-            <option value="30">中級だけ（30 枚）</option>
-            <option value="45" selected>両方（45 枚）</option>
+            <option value="15">初級だけ</option>
+            <option value="30">中級だけ</option>
+            <option value="45" selected>両方</option>
           </select>
         </div>
         <div class="numrow">
@@ -259,18 +259,31 @@
     P.REWARD.forEach(function (row) {
       var lo = prev + 1, hi = row[0];
       var label = lo === hi ? (hi + ' 位') : (lo.toLocaleString('ja-JP') + ' 〜 ' + hi.toLocaleString('ja-JP') + ' 位');
-      h += '<option value="' + hi + '"' + (hi === 100 ? ' selected' : '') + '>' + label + '（' + row[2] + ' 枚）</option>';
+      h += '<option value="' + hi + '"' + (hi === 100 ? ' selected' : '') + '>' + label + '</option>';
       prev = hi;
     });
     iRank.innerHTML = h;
     h = '';
-    for (var n = 0; n <= DEF_MAX; n++) h += '<option value="' + n + '"' + (n === 0 ? ' selected' : '') + '>' + n + ' 勝（' + (n * DEF_COIN) + ' 枚）</option>';
+    for (var n = 0; n <= DEF_MAX; n++) h += '<option value="' + n + '"' + (n === 0 ? ' selected' : '') + '>' + n + ' 勝</option>';
     iDef.innerHTML = h;
   })();
 
   function fmt(n) { return Math.round(n).toLocaleString('ja-JP'); }
 
+  /* もらえる枚数は **選択肢の中ではなく行の下の一言に出す。**
+     括弧を付けると枠に収まらず、右端が矢印の下に隠れる（2026-08-30 の先生の指摘） */
+  function noteRows() {
+    var rw = P.rewardAt(parseInt(iRank.value, 10));
+    el('rank-note').textContent = '毎日 14 時にリセット。この順位帯なら 1 日 ' + rw.coin + ' 枚';
+    var d = parseInt(iDef.value, 10) || 0;
+    el('def-note').textContent = '1 勝 3 枚。1 日 10 回まで。' + d + ' 勝で ' + (d * DEF_COIN) + ' 枚';
+    var dr = parseInt(iDrink.value, 10) || 0;
+    el('drink-note').textContent = '初級（AP30）15 枚 ／ 中級（AP60）30 枚' +
+      (dr > 0 ? '。この選択で 1 回 ' + dr + ' 枚' : '');
+  }
+
   function calc() {
+    noteRows();
     var rank = parseInt(iRank.value, 10);
     var rw = P.rewardAt(rank);
     var def = parseInt(iDef.value, 10) * DEF_COIN;

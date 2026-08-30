@@ -48,7 +48,7 @@
   .goal.off { opacity: .45; }
   .goal.off select { pointer-events: none; }
   @media (max-width: 480px) {
-    .goal { grid-template-columns: 1fr 84px 14px 84px; gap: .35em; }
+    .goal { grid-template-columns: 1fr 94px 14px 94px; gap: .3em; }
     .goal .nm { font-size: .84rem; }
   }
 
@@ -175,7 +175,7 @@
         <div class="btnrow" style="margin-top:14px">
           <div class="seg" id="preset" role="group" aria-label="よくある目標">
             <button type="button" data-p="all">ぜんぶ最大まで</button>
-            <button type="button" data-p="mid">総力戦で使う形</button>
+            <button type="button" data-p="mid">キリのいい Lv まで</button>
             <button type="button" data-p="none">今のまま</button>
           </div>
         </div>
@@ -183,7 +183,8 @@
 
       <div class="panel">
         <div class="panel-h"><h2>どこまで育てますか</h2></div>
-        <p class="lead">左が今、右が目標です。上げないところは同じ数字のままにしてください。</p>
+        <p class="lead">左が今、右が目標です。上げないところは同じ数字のままにしてください。
+          スキルの <b>◎</b> が付いた Lv は、そこで効果の伸びが大きくなるところです。</p>
         <div id="goals"></div>
         <p class="err" id="err" hidden></p>
       </div>
@@ -238,6 +239,13 @@
           <code>CostAmount</code>（クレジット）と <code>IngredientId</code> / <code>IngredientAmount</code>（素材）です。</p>
         <p>ノーマル・パッシブ・サブの 3 つは<b>どれも枠 2 の同じ表を使います</b>。
           ゲームの中でも、この 3 つは同じ素材と同じクレジットで上がります。</p>
+        <p><b>スキルの ◎ と「キリのいい Lv まで」はデータではなく攻略サイトの記載です。</b>
+          <a href="https://bluearchive.wikiru.jp/?%E3%82%B9%E3%82%AD%E3%83%AB" target="_blank" rel="noopener">ブルアカ Wiki「スキル」</a>に
+          「EXスキルはLv3とLv5になった際に数値が大きく伸びる」「EX以外のスキルはLv4、Lv7、Lv10になった際に数値が大きく伸びる」
+          「最大まで育成する余裕がない場合は数値が大きく上がるキリのいいLvを目指すと効率がいい」とあります。
+          ボタンはこれに沿って <b>Lv90・EX Lv5・ほかのスキル Lv7</b> を入れます。
+          Lv10 まで行かないのは、その 1 段だけで<b>秘伝ノート 1 冊と 400 万クレジット</b>が要るからです。
+          <b>どの生徒でもこれが正解、という話ではありません。</b>手で書き換えてください。</p>
         <p><b>固有武器は開放されている段までしか出しません。</b>
           <code>CharacterWeaponExcelTable</code> の <code>Unlock</code> が
           <code>[true, true, true, false, false]</code> なので、今は★3 までです。

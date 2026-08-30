@@ -103,6 +103,16 @@
     color: var(--fg-mute); cursor: pointer;
   }
   .wkrow button[aria-pressed="true"] { background: var(--accent); color: var(--accent-in); border-color: transparent; }
+  /* **押すと下の入力が入れ替わる。**見ためが絞り込みのタブと同じなので、
+     何が起きるかを押す前に書いておく（2026-08-30 の先生の指摘） */
+  .wklabel { font-size: .84rem; font-weight: 700; margin: 0 0 .5em; }
+  .hintline { font-size: .76rem; color: var(--fg-mute); margin: .4em 0 0; }
+  /* イベント名は「秘密のミッドナイトパーティー～オニの手は鐘と共に～（復刻）」まである。
+     **枠に収まらないので幅いっぱいに使い、それでも足りなければ小さくする** */
+  #event { width: 100%; font-size: .88rem; }
+  @media (max-width: 620px) { #event { font-size: .74rem; } }
+  .wklabel small { display: block; font-weight: 400; font-size: .76rem;
+                   color: var(--fg-mute); margin-top: .15em; }
 
   /* 備品の型を自分で決める欄。**イベントごとに名前も大きさも変わる** */
   .item {
@@ -251,7 +261,14 @@
     <div class="tcol">
       <div class="panel">
         <div class="panel-h"><h2>備品の型</h2></div>
-        <p class="lead"><b>イベントごとに名前も大きさも変わります。</b>ゲーム内の表示に合わせて、名前・よこ・たて・個数を書き換えてください。下のボタンを押すと、開催中のイベント「DIVE into OCEAN!」の週ごとの中身が入ります。</p>
+        <p class="lead"><b>イベントごとに名前も大きさも変わります。</b>ゲーム内の表示に合わせて、名前・よこ・たて・個数を書き換えてください。</p>
+        <div class="field" style="margin-bottom:14px">
+          <label for="event">イベント</label>
+          <select id="event"></select>
+          <p class="hintline" id="event-note"></p>
+        </div>
+        <p class="wklabel">この周の中身を入れる
+          <small>押すと下の 3 つが入れ替わり、盤面も白紙に戻ります</small></p>
         <div class="wkrow" id="weeks"></div>
         <div style="margin-top:16px" id="items"></div>
       </div>
@@ -274,9 +291,21 @@
           <a href="https://github.com/terry-u16/schale-inventory-management" target="_blank" rel="noopener">terry-u16 の在庫管理計算機</a>も、
           置き方を「回した／回していない」の 2 通りで数えています。</p>
         <p><b>置いてある前提。</b>置き方はあり得る全通りから一様に選ばれていて、開ける前に決まっており、あとから変わらない。この 3 つを仮定しています。決まった型（絶対に出ない配置）があると、ここで出す数字はずれます。</p>
-        <p><b>数え上げのやり方。</b>盤を左の列から順に見ていき、各行について「いまの列から先、あと何マスぶん埋まっているか」だけを持ち歩きます。前向きの数え上げと後ろ向きの数え上げを掛け合わせると、1 マスごとの確率が厳密に出ます。1 週目（タツノオトシゴ 4・海藻 3・ウニ 1）なら、置き方は <b>175,761,438 通り</b>あります。</p>
-        <p><b>備品の大きさと個数。</b><a href="https://github.com/terry-u16/schale-inventory-management" target="_blank" rel="noopener">terry-u16/schale-inventory-management</a>（MIT ライセンス）の <code>src/components/MainArea.tsx</code> に載っている 13 週ぶんの一覧を、最初の値として置いています。同じ考え方の DP ですが、こちらは通り数がいくつでも厳密な値を出します。</p>
-        <p><b>ほかのイベントでも使えます。</b>在庫管理のミニゲームは名前と大きさを変えて何度も来ています（在庫管理／五塵来降／秘密のミッドナイトパーティー／水上勝負／DIVE into OCEAN!）。備品は毎回 3 種類なので、上の欄を書き換えればそのまま使えます。</p>
+        <p><b>数え上げのやり方。</b>盤を左の列から順に見ていき、各行について「いまの列から先、あと何マスぶん埋まっているか」だけを持ち歩きます。前向きの数え上げと後ろ向きの数え上げを掛け合わせると、1 マスごとの確率が厳密に出ます。1 周目（タツノオトシゴ 4・海藻 3・ウニ 1）なら、置き方は <b>175,761,438 通り</b>あります。</p>
+        <p><b>備品の大きさと個数は、ゲームのデータから毎日作り直しています。</b>
+          <code>DB/EventContentTreasureRoundExcelTable.json</code> の <code>RewardID</code> と <code>RewardAmount</code> が周ごとの中身、
+          <code>DB/EventContentTreasureRewardExcelTable.json</code> の <code>CellUnderImageWidth</code> / <code>CellUnderImageHeight</code> が備品の大きさ、
+          <code>TreasureRoundSize</code> が盤の大きさです。備品の名前は <code>LocalizeCodeID</code> を
+          <b>XXHash32（seed 0）</b>にかけて <code>DB/LocalizeExcelTable.json</code> の <code>Key</code> と突き合わせて引いています。
+          <b>新しいイベントが来れば、翌日には選べるようになります。</b></p>
+        <p><b>2026-08-30 まではここに DIVE into OCEAN！の 13 周ぶんを手で書いていました。</b>
+          <a href="https://github.com/terry-u16/schale-inventory-management" target="_blank" rel="noopener">terry-u16/schale-inventory-management</a>（MIT ライセンス）の
+          <code>src/components/MainArea.tsx</code> から写したものです。データから作り直した値と 1 つ残らず一致しました。
+          「周目」という呼び方も、ゲーム側の列名 <code>TreasureRound</code> と、同じリポジトリの日本語ロケール（1周目〜13周目以降）に合わせています。
+          解き方は同じ考え方の DP ですが、こちらは通り数がいくつでも厳密な値を出します。</p>
+        <p><b>過去のイベントもぜんぶ選べます。</b>在庫管理のミニゲームは名前と大きさを変えて何度も来ていて、今のところ 12 回ぶんが入っています。
+          載っていないものでも、備品は毎回 3 種類なので、上の欄を書き換えればそのまま使えます。</p>
+        <p>取得は <span id="ver">—</span>。</p>
       </details>
     </div>
 
@@ -307,6 +336,7 @@
 </footer>
 
 <script src="solver.js?v=2"></script>
+<script src="data.js"></script>
 <script>
 (function () {
   'use strict';
@@ -315,33 +345,24 @@
 
   var COLOR = ['#3a76c4', '#cf7020', '#7b57b8'];
 
-  /* 開催中のイベント「DIVE into OCEAN!」の週ごとの中身。
-     出どころは terry-u16/schale-inventory-management の MainArea.tsx（MIT）。
-     **これはあくまで初期値。**上の欄を書き換えれば、ほかのイベントでも使える */
-  var SHAPE = {
-    seahorse:    ['タツノオトシゴ', 3, 1],
-    seaweed:     ['海藻',           1, 4],
-    seaUrchin:   ['ウニ',           3, 2],
-    nudibranch:  ['ウミウシ',       1, 2],
-    starfish:    ['ヒトデ',         2, 2],
-    spiralShell: ['巻貝',           4, 2],
-    turtleShell: ['亀の甲羅',       3, 3]
-  };
-  var WEEKS = [
-    [['seahorse', 4], ['seaweed', 3], ['seaUrchin', 1]],
-    [['nudibranch', 3], ['starfish', 4], ['spiralShell', 1]],
-    [['seahorse', 3], ['starfish', 3], ['turtleShell', 1]],
-    [['seahorse', 2], ['starfish', 3], ['seaUrchin', 2]],
-    [['seahorse', 4], ['seaweed', 3], ['seaUrchin', 1]],
-    [['nudibranch', 3], ['starfish', 4], ['spiralShell', 1]],
-    [['seahorse', 3], ['starfish', 3], ['turtleShell', 1]],
-    [['seahorse', 2], ['starfish', 3], ['seaUrchin', 2]],
-    [['seahorse', 4], ['seaweed', 3], ['seaUrchin', 1]],
-    [['nudibranch', 3], ['starfish', 4], ['spiralShell', 1]],
-    [['seahorse', 3], ['starfish', 3], ['turtleShell', 1]],
-    [['seahorse', 2], ['starfish', 3], ['seaUrchin', 2]],
-    [['seahorse', 2], ['seaweed', 2], ['spiralShell', 2]]
-  ];
+  /* 周ごとの中身は data.js（window.TREASURE_EVENTS）から来る。
+     **もう手で書いていない。**ゲームのデータ（DB/EventContentTreasure*）から
+     GitHub Actions が毎日作り直すので、新しいイベントが来れば勝手に増える
+     （2026-08-30 まではここに DIVE into OCEAN! の 13 周ぶんを直接書いていた）。 */
+  var EVENTS = (window.TREASURE_EVENTS && window.TREASURE_EVENTS.events) || [];
+
+  /** 今日から見て開催中のイベント。無ければいちばん新しいもの。 */
+  function currentEvent() {
+    var now = new Date();
+    for (var i = 0; i < EVENTS.length; i++) {
+      var o = new Date(EVENTS[i].open.replace(/-/g, '/')),
+          c = new Date(EVENTS[i].close.replace(/-/g, '/'));
+      if (o <= now && now <= c) return i;
+    }
+    return 0;
+  }
+  var ev = EVENTS.length ? currentEvent() : -1;
+  function WEEKS() { return ev >= 0 ? EVENTS[ev].rounds : []; }
 
   var week = -1, items = [], marks = [], order = [], sel = 'e', view = 'any', last = null;
   var hover = -1;
@@ -363,9 +384,8 @@
 
   function loadWeek(i) {
     week = i;
-    items = WEEKS[i].map(function (p) {
-      var d = SHAPE[p[0]];
-      return { n: d[0], w: d[1], h: d[2], count: p[1] };
+    items = WEEKS()[i].map(function (m) {
+      return { n: m.n, w: m.w, h: m.h, count: m.c };
     });
     clearBoard();
   }
@@ -400,9 +420,32 @@
 
   // ---- 描画
   function drawWeeks() {
-    el('weeks').innerHTML = WEEKS.map(function (_, i) {
-      return '<button type="button" data-w="' + i + '" aria-pressed="' + (i === week) + '">' + (i + 1) + '週目</button>';
+    var rs = WEEKS(), loop = ev >= 0 ? EVENTS[ev].loop : rs.length;
+    // **「周目」。**ゲームのデータ側の列名が TreasureRound で、
+    // terry-u16 の日本語ロケールも「1周目」〜「13周目以降」。
+    // 2026-08-30 まで "週目" と書いていた（先生が見つけてくれた）
+    el('weeks').innerHTML = rs.map(function (_, i) {
+      var nm = (i + 1 >= loop) ? (i + 1) + '周目以降' : (i + 1) + '周目';
+      return '<button type="button" data-w="' + i + '" aria-pressed="' + (i === week) + '">' + nm + '</button>';
     }).join('');
+  }
+
+  function drawEvents() {
+    var sel2 = el('event');
+    if (!sel2) return;
+    // **選択肢の中では畳む。**「秘密のミッドナイトパーティー～オニの手は鐘と共に～（復刻）」は
+    // どう幅を取っても入りきらないので、副題（～…～）を落として全文は下の一言に出す
+    sel2.innerHTML = EVENTS.map(function (e, i) {
+      var nm = e.n.replace(/～[^～]*～/g, '').replace(/  +/g, ' ');
+      if (nm.length > 18) nm = nm.slice(0, 17) + '…';
+      return '<option value="' + i + '"' + (i === ev ? ' selected' : '') + '>' +
+             e.open.slice(0, 7) + '　' + nm + '</option>';
+    }).join('');
+    var e = EVENTS[ev];
+    el('event-note').textContent = e
+      ? e.n + '（' + e.open.slice(0, 10) + ' 〜 ' + e.close.slice(0, 10) + '）　' +
+        e.rounds.length + ' 周ぶん・盤は ' + e.w + ' × ' + e.h
+      : '';
   }
 
   function mini(w, h) {
@@ -584,10 +627,14 @@
     });
     draw();
   });
-  el('weeks').addEventListener('click', function (ev) {
-    var b = ev.target.closest('button'); if (!b) return;
+  el('weeks').addEventListener('click', function (e2) {
+    var b = e2.target.closest('button'); if (!b) return;
     loadWeek(+b.dataset.w);
     drawWeeks(); drawItems(); draw();
+  });
+  el('event').addEventListener('change', function () {
+    ev = +this.value; week = -1;
+    drawEvents(); drawWeeks();
   });
   el('items').addEventListener('input', function (ev) {
     var t = ev.target, k = t.dataset.k, f = t.dataset.f;
@@ -616,7 +663,8 @@
   el('reset').addEventListener('click', function () { clearBoard(); draw(); });
 
   loadDefault();
-  drawWeeks(); drawItems(); draw();
+  drawEvents(); drawWeeks(); drawItems(); draw();
+  el('ver').textContent = (window.TREASURE_EVENTS || {}).version || '';
 })();
 </script>
 </body>

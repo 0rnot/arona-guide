@@ -171,12 +171,12 @@
         </div>
 
         <div class="numrow">
-          <div class="nm">AP ドリンク<small>戦術対抗戦コインと交換。初級 AP30 ／ 中級 AP60</small></div>
+          <div class="nm">AP ドリンク<small id="drink-note">戦術対抗戦コインと交換。初級 AP30 ／ 中級 AP60</small></div>
           <select id="a-drink" aria-label="AP ドリンク">
             <option value="0">買わない</option>
-            <option value="30">初級だけ（30）</option>
-            <option value="60">中級だけ（60）</option>
-            <option value="90" selected>両方（90）</option>
+            <option value="30">初級だけ</option>
+            <option value="60">中級だけ</option>
+            <option value="90" selected>両方</option>
           </select>
         </div>
 
@@ -385,10 +385,10 @@
   // 選択肢を組み立てる
   (function build() {
     var h = '';
-    for (var r = 1; r <= 10; r++) h += '<option value="' + r + '"' + (r === 10 ? ' selected' : '') + '>ランク ' + r + '（' + CAFE[r - 1] + '）</option>';
+    for (var r = 1; r <= 10; r++) h += '<option value="' + r + '"' + (r === 10 ? ' selected' : '') + '>ランク ' + r + '</option>';
     cafeSel.innerHTML = h;
     h = '<option value="0" selected>使わない</option>';
-    for (var n = 1; n <= GEM_MAX; n++) h += '<option value="' + n + '">' + n + ' 回（' + (n * GEM_HEAL) + ' AP／石 ' + gemCost(n).toLocaleString('ja-JP') + '）</option>';
+    for (var n = 1; n <= GEM_MAX; n++) h += '<option value="' + n + '">' + n + ' 回</option>';
     gemSel.innerHTML = h;
   })();
 
@@ -406,6 +406,22 @@
     });
     var e = el('err'); e.textContent = msg; e.hidden = false;
     clearOut();
+  }
+
+  /* 選んだ中身がいくらになるかは、**選択肢の中ではなく行の下の一言に出す。**
+     「ランク 10（740）」のように括弧を付けると枠に収まらず、右端が矢印の下に隠れる
+     （2026-08-30 の先生の指摘）。下の一言なら折り返せる */
+  function noteRows() {
+    var r = parseInt(cafeSel.value, 10);
+    el('cafe-note').textContent = 'ランク ' + r + 'で 1 日 ' + fmt(CAFE[r - 1]) + ' AP';
+    var d = parseInt(drinkSel.value, 10) || 0;
+    el('drink-note').textContent = d > 0
+      ? '戦術対抗戦コインと交換。初級 AP30 ／ 中級 AP60。この選択で 1 日 ' + d + ' AP'
+      : '戦術対抗戦コインと交換。初級 AP30 ／ 中級 AP60';
+    var g = parseInt(gemSel.value, 10) || 0;
+    el('gem-note').textContent = g > 0
+      ? '1 回 120 AP。' + g + ' 回で ' + fmt(g * GEM_HEAL) + ' AP・青輝石 ' + fmt(gemCost(g)) + ' 個'
+      : '1 回 120 AP。値段は回数で上がる';
   }
 
   function dailyAp() {
@@ -448,6 +464,7 @@
     var daily = dailyAp();
     el('a-sum').textContent = fmt(daily);
     syncPreset();
+    noteRows();
 
     var gems = parseInt(gemSel.value, 10) || 0;
     var gc = el('gem-cost');

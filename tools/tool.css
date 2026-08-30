@@ -185,10 +185,15 @@ select {
 
 /* 数値を右寄せで並べる行（内訳の入力など） */
 .numrow {
-  display: grid; grid-template-columns: 1fr 118px; gap: 14px; align-items: center;
+  /* **右の列は 132px。**118px だと `select` が矢印のぶん 2.4em を引かれて、
+     「ランク 10」のような短い選択肢でも右端が隠れる（2026-08-30 の先生の指摘） */
+  display: grid; grid-template-columns: 1fr 132px; gap: 14px; align-items: center;
   padding: 11px 0; border-bottom: 1px solid var(--line);
 }
 .numrow:last-of-type { border-bottom: 0; }
+/* 選択肢が長くて右の列に入らない行。**ラベルの下に幅いっぱいで置く** */
+.numrow.wide { grid-template-columns: 1fr; gap: 8px; }
+.numrow.wide > select { width: 100%; }
 .numrow .nm { font-size: .9rem; line-height: 1.6; }
 .numrow .nm small { display: block; color: var(--fg-mute); font-size: .76rem; margin-top: .1em; }
 .numrow input { text-align: right; padding: .45em .65em; font-size: .95rem; }

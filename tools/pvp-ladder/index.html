@@ -131,7 +131,7 @@
             <input id="i-rank" type="number" inputmode="numeric" min="2" max="15001" step="1" value="15001">
           </div>
           <div class="field">
-            <label for="i-goal">目指すところ<span class="hint">報酬が切り替わる境目</span></label>
+            <label for="i-goal">目指すところ<span class="hint" id="goal-note">報酬が切り替わる境目</span></label>
             <select id="i-goal" aria-label="目標の順位"></select>
           </div>
         </div>
@@ -269,12 +269,19 @@
       var rw = P.rewardAt(b);
       var upper = P.REWARD.filter(function (x) { return x[0] >= b; });
       var top = upper.length ? upper[0][0] : b;
-      var label = (b === top) ? (b + ' 位') : (b + ' 〜 ' + top.toLocaleString('ja-JP') + ' 位');
-      h += '<option value="' + b + '"' + (b === 1 ? ' selected' : '') + '>' +
-           label + '（青輝石 ' + rw.gem + ' ／ コイン ' + rw.coin + '）</option>';
+      var label = (b === top) ? (b.toLocaleString('ja-JP') + ' 位')
+                              : (b.toLocaleString('ja-JP') + ' 〜 ' + top.toLocaleString('ja-JP') + ' 位');
+      // **報酬は選択肢に書かない。**枠に収まらず右端が矢印の下に隠れる
+      // （2026-08-30 の先生の指摘）。下の一言に出す
+      h += '<option value="' + b + '"' + (b === 1 ? ' selected' : '') + '>' + label + '</option>';
     });
     iGoal.innerHTML = h;
   })();
+
+  function noteGoal() {
+    var rw = P.rewardAt(parseInt(iGoal.value, 10));
+    el('goal-note').textContent = '毎日 青輝石 ' + rw.gem + ' ／ コイン ' + rw.coin;
+  }
 
   function fmt(n) { return Math.round(n).toLocaleString('ja-JP'); }
 
@@ -350,6 +357,7 @@
 
   el('i-goal').addEventListener('change', function () {
     goal = parseInt(el('i-goal').value, 10);
+    noteGoal();
     calc();
   });
   el('mode').addEventListener('click', function (e) {
