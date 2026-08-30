@@ -251,11 +251,19 @@ def build_teacher_level():
     acc = as_list(get_json(BA.format("AccountLevelExcelTable")))
     const = as_list(get_json(BA.format("ConstCommonExcelTable")))
     mx, ratio = 90, 1
+    # Lv90 のあと、AP は熟達証書（MasterCoin）に変わる。**週の上限は AP で決まる**
+    coin_week, plus1, plus2 = 12000, 0, 0
     for row in const:
         if "AccountMaxLevel" in row:
             mx = row["AccountMaxLevel"]
         if "AccountExpRatio" in row:
             ratio = row["AccountExpRatio"]
+        if "MaxApMasterCoinPerWeek" in row:
+            coin_week = row["MaxApMasterCoinPerWeek"]
+        if "PlusMaxApMasterCoinPerWeek1" in row:
+            plus1 = row["PlusMaxApMasterCoinPerWeek1"]
+        if "PlusMaxApMasterCoinPerWeek2" in row:
+            plus2 = row["PlusMaxApMasterCoinPerWeek2"]
 
     rows = {r["Level"]: r for r in acc if "Level" in r}
     exp_to_next, ap_cap = [], []
@@ -269,6 +277,7 @@ def build_teacher_level():
     return write_js("tools/teacher-level/data.js", "TEACHER_LEVEL", {
         "maxLevel": mx, "accountExpRatio": ratio,
         "expToNext": exp_to_next, "apCap": ap_cap,
+        "coinWeek": coin_week, "coinPlus1": plus1, "coinPlus2": plus2,
         "source": "electricgoat/ba-data jp",
         "version": "electricgoat/ba-data jp",
     }, header="/* scripts/build-tool-data.py が吐く。**手で直さない。** */\n")
@@ -285,10 +294,10 @@ def build_equipment():
     print("装備設計図の周回計算機")
     equip = as_list(get_json(BA.format("EquipmentExcelTable")))
     recipe_ing = as_list(get_json(BA.format("RecipeIngredientExcelTable")))
-    stages = as_list(get_json(BA.format("CampaignStageExcelTable")))
-    rewards = as_list(get_json(BA.format("CampaignStageRewardExcelTable")))
     gacha_el = as_list(get_json(BA.format("GachaElementExcelTable")))
-    # **SchaleDB の stages は id をキーにした平らな辞書。**欲しいのは Campaign だけ
+    # **ステージのドロップは SchaleDB を正本にする。**ba-data の jp ブランチには
+    # 2026-04-21 に実装された万能設計図がまだ入っていない（該当 Id が 1 件も無い）。
+    # SchaleDB の stages には万能設計図も固定数・確率つきで載っている
     loc_stage = [x for x in as_list(get_json(SD.format("stages")))
                  if x.get("Category") == "Campaign"]
     # **名前は SchaleDB から。**ba-data 側は LocalizeEtcId しか持っていない。
@@ -324,6 +333,14 @@ def build_equipment():
             piece[e["Id"]] = (cat, tier)
             if sd_name.get(e["Id"]):
                 names[cat + str(tier)] = sd_name[e["Id"]]
+
+    # **万能設計図は Tier 0 の Equipment（Id 50X000）。**ba-data に無いので SchaleDB から。
+    # 部位ごとに 1 種類あって、その部位のどの Tier の設計図の代わりにもなる
+    univ = {}
+    for e in as_list(get_json(SD.format("equipment"))):
+        if e.get("Tier") == 0 and e.get("Category") in CAT_JA and str(e.get("Icon", "")).endswith("_useall_piece"):
+            univ[e["Id"]] = e["Category"]
+            names[e["Category"] + "0"] = e.get("Name", "")
 
     # ティアアップのレシピ。**Tier N の装備が持つ RecipeId は「N → N+1」の手順。**
     # そのまま Tier N として入れると 1 段ずつずれて、T2 のぶんが丸ごと消える
@@ -361,43 +378,48 @@ def build_equipment():
         boxes.setdefault(r["GachaGroupID"], []).append(
             (piece[pid], r.get("Prob", 0), (r.get("ParcelAmountMin", 1) + r.get("ParcelAmountMax", 1)) / 2.0))
 
-    sname = {s["Id"]: s.get("Name", "") for s in loc_stage if s.get("Id")}
-
-    rw = {}
-    for r in rewards:
-        if r.get("RewardTag") != "Default":
-            continue
-        rw.setdefault(r["GroupId"], []).append(r)
-
     out = []
-    for st in stages:
-        sid, gid = st.get("Id"), st.get("CampaignStageRewardId")
-        if not sid or gid not in rw or st.get("Deprecated"):
-            continue
-        acc = {}
-        def add(cat, tier, v):
-            acc[(cat, tier)] = acc.get((cat, tier), 0) + v
-        for r in rw[gid]:
-            pid, kind = r.get("StageRewardId"), r.get("StageRewardParcelType")
-            ev = (r.get("StageRewardProb", 0) / 10000.0) * r.get("StageRewardAmount", 0)
-            if kind == "Equipment" and pid in piece:
-                add(piece[pid][0], piece[pid][1], ev)
-            elif kind == "GachaGroup" and pid in boxes:
-                tot = sum(x[1] for x in boxes[pid]) or 1
-                for (cat, tier), prob, amt in boxes[pid]:
-                    add(cat, tier, ev * (prob / tot) * amt)
-        if not acc:
-            continue
-        d = [[c, t, round(v, 4)] for (c, t), v in sorted(acc.items())]
+    for st in loc_stage:
+        sid = st.get("Id")
         # Id は 1 CC D T SS。CC=章、D=難易度(1 Normal / 2 Hard)、
         # T=種別(1 Main / 2 Sub)、SS=何番目。**T を落とすと番号が 101 になる**
         txt = str(sid)
+        if len(txt) != 7 or txt[0] != "1":
+            continue
         area, diff, kind, num = int(txt[1:3]), int(txt[3]), int(txt[4]), int(txt[5:])
         if diff not in (1, 2) or kind != 1:
             continue
+
+        acc, uni = {}, {}
+        def add(cat, tier, v):
+            acc[(cat, tier)] = acc.get((cat, tier), 0) + v
+        for r in st.get("Rewards", []):
+            # FirstClear / ThreeStar は周回では出ない。**繰り返し出るぶんだけ数える**
+            if r.get("RewardType"):
+                continue
+            pid, kind_ = r.get("Id"), r.get("Type")
+            amt = r.get("Amount", 1)
+            if r.get("AmountMin") is not None and r.get("AmountMax") is not None:
+                amt = (r["AmountMin"] + r["AmountMax"]) / 2.0
+            ev = amt * (r["Chance"] if r.get("Chance") is not None else 1.0)
+            if kind_ == "Equipment" and pid in piece:
+                add(piece[pid][0], piece[pid][1], ev)
+            elif kind_ == "Equipment" and pid in univ:
+                uni[univ[pid]] = uni.get(univ[pid], 0) + ev
+            elif kind_ == "GachaGroup" and pid in boxes:
+                tot = sum(x[1] for x in boxes[pid]) or 1
+                for (cat, tier), prob, n_ in boxes[pid]:
+                    add(cat, tier, ev * (prob / tot) * n_)
+        if not acc:
+            continue
+        d = [[c, t, round(v, 4)] for (c, t), v in sorted(acc.items())]
+        b = [[c, round(v, 3)] for c, v in sorted(uni.items())]
+        ap = 0
+        for cost in st.get("EntryCost", []):
+            if len(cost) == 2:
+                ap += cost[1]
         out.append({"id": sid, "a": area, "s": num, "h": 1 if diff == 2 else 0,
-                    "n": sname.get(sid, ""), "ap": st.get("StageEnterCostAmount", 0),
-                    "d": d, "b": []})
+                    "n": st.get("Name", ""), "ap": ap, "d": d, "b": b})
     out.sort(key=lambda x: (x["a"], x["h"], x["s"]))
 
     n = 0
@@ -408,13 +430,16 @@ def build_equipment():
     for t in range(2, 9):
         nm = f"equipment_icon_selection_tier{t}_piece"
         n += fetch_icon(nm, f"https://schaledb.com/images/item/icon/{nm}.webp")
+    for cat in CATS:
+        nm = f"equipment_icon_{cat.lower()}_useall_piece"
+        n += fetch_icon(nm, f"https://schaledb.com/images/equipment/icon/{nm}.webp")
     print(f"  アイコン {n} 枚を追加、周回できるステージ {len(out)} 本")
 
     return write_js("tools/equipment/data.js", "EQUIP", {
         "cats": CATS, "catJa": CAT_JA, "maxTier": max_tier,
         "recipes": recipes, "stages": out, "names": names,
         "slots": slots, "roster": roster,
-        "version": "electricgoat/ba-data jp（ドロップ・AP・箱の比率）／ SchaleDB jp（ステージ名・設計図の名前）",
+        "version": "SchaleDB jp（ステージ・ドロップ・AP・万能設計図）／ electricgoat/ba-data jp（レシピ・箱の比率）",
     }, header="/* scripts/build-tool-data.py が吐く。**手で直さない。** */\n")
 
 
@@ -453,37 +478,10 @@ def build_tier():
 
 # ------------------------------------------------------------ 総力戦の相性
 
-# ボスの立ち絵のファイル名。**PathName（小文字）とは一致しない。**
-# 実際に叩いて確かめた対応表（2026-08-30）。新しいボスが増えたら
-# 下の候補で当たらなければログに出るので、そのとき足す
-BOSS_IMG = {
-    "binah": "Binah", "chesed": "Chesed", "shirokuro": "Shirokuro",
-    "hieronymus": "Hieronymus", "kaiten": "KaitenFxMk0", "perorodzilla": "Perorozilla",
-    "hod": "HOD", "goz": "Goz", "gregorius": "EN0005", "hovercraft": "RaidHoverCraft",
-    "kurokage": "EN0006", "geburah": "EN0008", "yesod": "EN0009", "drumbarka": "EN0011",
-}
-
-
-def boss_image(path_name):
-    """立ち絵の実ファイル名を探す。**当たらなければ None。**"""
-    cands = []
-    if path_name in BOSS_IMG:
-        cands.append(BOSS_IMG[path_name])
-    cands += [path_name[:1].upper() + path_name[1:], path_name.upper(), path_name]
-    for c in cands:
-        url = f"https://schaledb.com/images/raid/Boss_Portrait_{c}_Lobby.png"
-        try:
-            req = urllib.request.Request(url, method="HEAD",
-                                         headers={"User-Agent": "arona-guide/1.0"})
-            with urllib.request.urlopen(req, timeout=30) as r:
-                if int(r.headers.get("Content-Length") or 0) > 3000:
-                    return url
-        except Exception:
-            continue
-    print(f"    立ち絵が見つからない: {path_name}", file=sys.stderr)
-    return None
-
-
+# ボスの立ち絵のファイル名は **DevName**。PathName（小文字）とは別物で、
+# ゲヘナ側の内部名（EN0010 など）が入っている。**当てずっぽうで探さない**
+# ——2026-08-30 に EN0008 / EN0009 / EN0011 と推測して 3 体ぶん別のボスの絵を
+# 出していた。schaledb.com 側も images/raid/icon/Icon_${DevName}.png で引いている。
 def build_raid():
     print("総力戦・大決戦の相性チェッカー")
     raids = get_json(SD.format("raids"))
@@ -501,6 +499,7 @@ def build_raid():
             continue
         bosses.append({
             "id": r["Id"], "n": r["Name"], "p": r["PathName"],
+            "dev": r.get("DevName", ""),
             "tr": r.get("Terrain", []),
             "bt": r.get("BulletType", "Normal"),
             "bti": r.get("BulletTypeInsane", ""),
@@ -543,12 +542,14 @@ def build_raid():
 
     n = 0
     for b in bosses:
-        out = IMG / ("boss_" + b["p"] + ".webp")
-        if out.exists():
+        if not b["dev"]:
+            print(f"    DevName が無い: {b['n']}", file=sys.stderr)
             continue
-        url = boss_image(b["p"])
-        if url:
-            n += fetch_raw("boss_" + b["p"], url)
+        n += fetch_raw("boss_" + b["p"],
+                       f"https://schaledb.com/images/raid/Boss_Portrait_{b['dev']}_Lobby.png")
+        # 四角いアイコン。**ドラム缶ガニだけまだ用意されていない**
+        fetch_icon("bossicon_" + b["p"],
+                   f"https://schaledb.com/images/raid/icon/Icon_{b['dev']}.png")
     for s in stu:
         n += fetch_portrait(f"student_{s['id']}", f"https://schaledb.com/images/student/collection/{s['id']}.webp")
     print(f"  画像 {n} 枚を追加、ボス {len(bosses)} 体")

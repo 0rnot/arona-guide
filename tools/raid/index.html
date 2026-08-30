@@ -52,8 +52,6 @@
   .b.good { background: #2f7d4f; color: #fff; border-color: transparent; }
   .b.mid  { background: var(--bg-sub); }
   .b.bad  { background: #a8402f; color: #fff; border-color: transparent; }
-  .b.tr   { background: color-mix(in srgb, var(--accent) 22%, var(--card)); color: var(--fg); border-color: color-mix(in srgb, var(--accent) 40%, var(--line)); }
-  .b.up   { background: var(--accent); color: var(--accent-in); border-color: transparent; }
   .card.top { border-color: var(--accent); }
 
   .fbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 14px; }
@@ -104,7 +102,7 @@
       <img src="../../images/hero-night.jpg" alt="" width="1600" height="400" fetchpriority="high">
     </picture>
   </div>
-  <div class="thero-body">
+  <div class="thero-body wide">
     <p class="thero-en">RAID</p>
     <h1>総力戦の相性チェッカー</h1>
     <p class="thero-lead">ボスと地形を選ぶと、<b>有効な攻撃属性</b>と<b>連れて行く生徒</b>が並びます。<b>専用武器で上がる地形適性</b>も込みで見られます。</p>
@@ -153,7 +151,7 @@
 
   <div class="panel">
     <div class="panel-h"><span class="n">03</span><h2>連れて行く生徒</h2></div>
-    <p class="lead"><b>攻撃が通る順、次に地形適性の順</b>で並べています。左上の数字が与ダメージの倍率、その隣が地形適性、いちばん右がボスの攻撃を受けたときの倍率です。<b>実際の火力は育成度と編成で変わるので、ここで順位は付けていません。</b></p>
+    <p class="lead"><b>攻撃が通る順、次にその地形での当たりやすさの順</b>で並べています。左の数字が与ダメージの倍率、右がボスの攻撃を受けたときの倍率です。<b>実際の火力は育成度と編成で変わるので、ここで順位は付けていません。</b></p>
     <div class="fbar">
       <input type="search" id="q" placeholder="名前で探す" aria-label="名前で探す" autocomplete="off">
       <select id="f-ro" aria-label="役割"><option value="">役割：ぜんぶ</option></select>
@@ -168,7 +166,7 @@
   </div>
 
   <div class="note-box">
-    <p><b>地形適性は専用武器で上がります。</b>「今は D だから外そう」と決める前に、その子の武器がどの地形を上げるかを見てください。上のチェックを外すと、武器なしの素の値になります。</p>
+    <p><b>並び順には地形適性も入れています。</b>適性は専用武器で上がるので、武器を持たせた前提の順番です。上のチェックを外すと、武器なしの素の適性で並べ直します。</p>
     <p><b>大決戦の装甲は開催ごとに変わります。</b>3 つの装甲が同時に立ち、Torment だけ別の装甲になります。ここでは自分で選んでください——過去にどの組み合わせが来たかは上に出しています。</p>
   </div>
 
@@ -179,8 +177,8 @@
     <p><b>ボスの地形・装甲・攻撃属性は <code>data/jp/raids.min.json</code> から。</b>
       <code>BulletTypeInsane</code> という別の攻撃属性が入っているので、Insane 以上ではそちらに切り替えています。
       大決戦の装甲の組み合わせは <code>RaidSeasons[].EliminateSeasons</code> の実績から拾っています。</p>
-    <p><b>生徒の地形適性は 0〜5 の数値で、D / C / B / A / S / SS に対応します。</b>
-      専用武器の <code>AdaptationType</code> と <code>AdaptationValue</code> を足したものが、武器ありの値です。</p>
+    <p><b>生徒の地形適性は 0〜5 の数値です（ゲーム内の D / C / B / A / S / SS）。</b>
+      専用武器の <code>AdaptationType</code> と <code>AdaptationValue</code> を足したものが、武器ありの値で、並び順にはこちらを使っています。</p>
     <p><b>順位は付けていません。</b>実際の火力はレベル・装備・スキル・編成で変わるもので、
       ここが出せるのは「属性が通るか」「その地形で当たるか」までです。</p>
   </details>
@@ -219,7 +217,6 @@
   var DIFF = ['Normal', 'Hard', 'VeryHard', 'HardCore', 'Extreme', 'Insane', 'Torment', 'Lunatic'];
   /** Insane 以上でボスの攻撃属性が変わる（データに BulletTypeInsane がある） */
   var INSANE_FROM = 5;
-  var GRADE = ['D', 'C', 'B', 'A', 'S', 'SS'];
   /* **属性は増える。**2026-08 に Chemical（化学）と CompositeArmor（複合装甲）が入った。
      決め打ちにせず、データに出てくるものをそのまま並べる */
   var ARMORS = R.armors, BULLETS = R.bullets;
@@ -285,6 +282,9 @@
 
     el('armor-row').hidden = mode !== 'elim';
     el('armor-note').hidden = mode !== 'elim';
+    // **総力戦のボスの装甲は難易度で変わらない**（データで全 8 段階を確かめた）ので、
+    // ここは大決戦のときだけ。戻ったときにボタンが残らないよう空にしておく
+    if (mode !== 'elim') el('armor').innerHTML = '';
     if (mode === 'elim') {
       if (!armor) armor = ARMORS[0];
       el('armor').innerHTML = ARMORS.map(function (a) {
@@ -358,8 +358,6 @@
         '<img src="../img/student_' + s.id + '.webp" alt="" width="54" height="54" loading="lazy">' +
         '<div><div class="nm">' + s.n + '</div><div class="bd">' +
           '<span class="b ' + cls(r.atk) + '" title="与ダメージの倍率">' + multTxt(r.atk) + '</span>' +
-          '<span class="b ' + (r.up ? 'up' : 'tr') + '" title="地形適性">' + GRADE[r.ad] +
-            (r.up ? '↑' : '') + '</span>' +
           '<span class="b ' + (r.def > 1.05 ? 'bad' : (r.def < 0.95 ? 'good' : 'mid')) +
             '" title="ボスの攻撃を受けたときの倍率">被' + multTxt(r.def) + '</span>' +
         '</div></div></div>';

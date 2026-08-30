@@ -7,8 +7,9 @@
    - ドロップの期待値は `StageRewardProb ÷ 10000 × StageRewardAmount` の和
    - **箱（GachaGroup）で出る枠がある。**中身と比率は GachaElement に出ているので、
      推測せずそのまま使って期待値に畳んである（data.js を作る時点で済ませている）
-   - **「T◯装備設計図選択ボックス」（通称 万能設計図）は部位を選ばない。**
-     その Tier の不足なら、どの部位にも充てられる。T2〜T8 しか無い
+   - **「T◯装備設計図選択ボックス」と「万能設計図」は別のもの。**
+     選択ボックスは Tier が決まっていて部位が自由（熟達証書ショップ、T2〜T8）。
+     万能設計図は部位が決まっていて Tier が自由（任務でドロップ、T2:2 枚〜T10:50 枚）
    - **部位ごとに使う生徒の数がまるで違う。**ヘアピンは 274 人中 175 人、
      お守りは 38 人。「9 部位を同じ数だけ」揃えるのは無駄が大きい
    - **ドロップ 2 倍・3 倍のときは、期待値がそのまま倍になる。**AP は変わらない
@@ -21,8 +22,12 @@
 
   var state = {};    // state[cat] = {from, to, n}
   var have = {};     // have[cat][tier] = 枚数
-  var uni = {};      // uni[tier] = T◯装備設計図選択ボックス（万能設計図）の個数
-  var UNI_MIN = 2, UNI_MAX = 8;   // 選択ボックスは T2〜T8 しか存在しない
+  var sel = {};      // sel[tier] = T◯装備設計図選択ボックスの個数
+  var SEL_MIN = 2, SEL_MAX = 8;   // 選択ボックスは T2〜T8 しか存在しない
+  var univ = {};     // univ[cat] = 万能設計図の枚数（部位ごと）
+  /* **万能設計図 → 設計図 の交換レート。**高い Tier ほど割に合わない。
+     ゲームのデータには出ていないので、ここだけ攻略 wiki の表から取った（出どころに明記） */
+  var UR = { 2: 2, 3: 3, 4: 5, 5: 7, 6: 10, 7: 15, 8: 20, 9: 30, 10: 50 };
   var bpCat = CATS[0];
   var diff = 'all';
   var mul = 1;       // ドロップ倍率（2 倍・3 倍のとき）
@@ -101,14 +106,14 @@
     calc(true);
   });
 
-  // ---- 万能設計図（T◯装備設計図選択ボックス）
-  function uniIcon(t) { return '../img/equipment_icon_selection_tier' + t + '_piece.webp'; }
+  // ---- T◯装備設計図選択ボックス（部位が自由、Tier は固定）
+  function selIcon(t) { return '../img/equipment_icon_selection_tier' + t + '_piece.webp'; }
 
-  function buildUni() {
+  function buildSel() {
     var h = '';
-    for (var t = UNI_MIN; t <= UNI_MAX; t++) {
+    for (var t = SEL_MIN; t <= SEL_MAX; t++) {
       h += '<div class="uni">' +
-        '<img src="' + uniIcon(t) + '" alt="" width="56" height="56" loading="lazy">' +
+        '<img src="' + selIcon(t) + '" alt="" width="56" height="56" loading="lazy">' +
         '<div class="t">T' + t + '</div>' +
         '<input type="number" inputmode="numeric" min="0" max="999" step="1" value="0" ' +
           'data-t="' + t + '" aria-label="T' + t + '装備設計図選択ボックスの所持数">' +
@@ -117,9 +122,31 @@
     el('unigrid').innerHTML = h;
     el('unigrid').addEventListener('input', function (e) {
       var n = e.target; if (!n.dataset.t) return;
-      uni[parseInt(n.dataset.t, 10)] = Math.max(0, Math.min(999, parseInt(n.value, 10) || 0));
+      sel[parseInt(n.dataset.t, 10)] = Math.max(0, Math.min(999, parseInt(n.value, 10) || 0));
       calc();
     });
+  }
+
+  // ---- 万能設計図（Tier が自由、部位は固定）
+  function univIcon(c) { return '../img/equipment_icon_' + c.toLowerCase() + '_useall_piece.webp'; }
+
+  function buildUniv() {
+    el('univgrid').innerHTML = CATS.map(function (c) {
+      return '<div class="uni">' +
+        '<img src="' + univIcon(c) + '" alt="" width="56" height="56" loading="lazy">' +
+        '<div class="t">' + JA[c] + '</div>' +
+        '<input type="number" inputmode="numeric" min="0" max="99999" step="1" value="0" ' +
+          'data-c="' + c + '" aria-label="' + JA[c] + 'の万能設計図の枚数">' +
+        '</div>';
+    }).join('');
+    el('univgrid').addEventListener('input', function (e) {
+      var n = e.target; if (!n.dataset.c) return;
+      univ[n.dataset.c] = Math.max(0, Math.min(99999, parseInt(n.value, 10) || 0));
+      calc();
+    });
+    el('urate').innerHTML = Object.keys(UR).map(function (t) {
+      return '<span class="rt">T' + t + '<b>' + UR[t] + '</b></span>';
+    }).join('');
   }
 
   // ---- 必要量
@@ -152,11 +179,11 @@
       });
     });
 
-    /* **万能設計図は部位を選ばない。**同じ Tier なら、どの部位の不足にも充てられる。
+    /* **選択ボックスは部位を選ばない。**同じ Tier なら、どの部位の不足にも充てられる。
        どこに使うかは持ち主が決められるので、**不足がいちばん多い部位から 1 枚ずつ**
        充てていく（＝残る不足がなるべく平らになる配り方）。 */
-    for (var t = UNI_MIN; t <= UNI_MAX; t++) {
-      var box = uni[t] || 0;
+    for (var t = SEL_MIN; t <= SEL_MAX; t++) {
+      var box = sel[t] || 0;
       while (box > 0) {
         var bc = null, bv = 0;
         for (var i = 0; i < CATS.length; i++) {
@@ -170,11 +197,27 @@
       }
     }
 
+    /* **万能設計図は Tier を選ばないかわりに、部位が決まっている。**
+       レートが Tier ごとに違って、低い Tier ほど得なので、**低いほうから充てる**。 */
+    CATS.forEach(function (c) {
+      var stock = univ[c] || 0;
+      for (var t2 = 2; t2 <= 10 && stock > 0; t2++) {
+        var lack = sh[c][t2] || 0;
+        if (!lack) continue;
+        var can = Math.min(lack, Math.floor(stock / UR[t2]));
+        if (can <= 0) continue;
+        stock -= can * UR[t2];
+        sh[c][t2] -= can;
+        total -= can;
+        if (sh[c][t2] <= 0) delete sh[c][t2];
+      }
+    });
+
     sh.__total = total;
     return sh;
   }
 
-  /** 万能設計図が実際に何枚ぶん埋めたか（余ったぶんは数えない） */
+  /** 手持ちの設計図以外（選択ボックス・万能設計図）で埋まった枚数。余りは数えない */
   function uniUsed(need) {
     var raw = 0, cut = 0;
     CATS.forEach(function (c) {
@@ -195,6 +238,13 @@
     // **2 倍・3 倍のときは落ちる枚数がそのまま倍になる。**AP は変わらない
     s.d.forEach(function (r) { add(r[0], r[1], r[2] * mul); });
     return m;
+  }
+
+  /** ステージ 1 周でもらえる万能設計図。**部位ごとの枚数と、その合計。** */
+  function univOf(s) {
+    var m = {}, tot = 0;
+    (s.b || []).forEach(function (r) { m[r[0]] = r[1] * mul; tot += r[1] * mul; });
+    return { by: m, total: tot };
   }
 
   function passDiff(s) {
@@ -259,7 +309,8 @@
         var need = Math.ceil(lack2 / m[k]);
         if (need > runs) runs = need;
       });
-      out.push({ s: s, got: got, per: got / s.ap, score: score / s.ap, runs: runs,
+      var u = univOf(s);
+      out.push({ s: s, got: got, per: got / s.ap, score: score / s.ap, runs: runs, uni: u.total,
                  parts: parts.map(function (x) { return x.txt; }) });
     });
     out.sort(function (a, b) { return b.score - a.score || b.per - a.per; });
@@ -280,7 +331,7 @@
     CATS.forEach(function (c) { kinds += Object.keys(sh[c]).length; });
     var cut = uniUsed(need);
     el('o-short-sub').textContent = (kinds > 0 ? (kinds + ' 種類が足りていません') : '足りています') +
-      (cut > 0 ? '（万能設計図 ' + fmt(cut) + ' 枚ぶんを差し引き済み）' : '');
+      (cut > 0 ? '（選択ボックスと万能設計図で ' + fmt(cut) + ' 枚ぶんを差し引き済み）' : '');
 
     el('o-credit').innerHTML = fmt(credit) + '<small></small>';
 
@@ -319,7 +370,9 @@
             '<span class="n">' + (i + 1) + '</span>' +
             '<span><b>' + stageName(x.s) + '</b>' +
             '<span class="dt2">AP ' + x.s.ap + '　' + (x.per * 100).toFixed(1) + ' 枚/100AP　' +
-              x.parts.join('　') + '</span></span>' +
+              x.parts.join('　') +
+              (x.uni > 0 ? '<br>万能設計図 1 周 ' + x.uni.toFixed(1) + ' 枚（' +
+                fmt(x.uni * x.runs) + ' 枚たまる）' : '') + '</span></span>' +
             '<span class="sc">' + fmt(x.runs) + '<small style="font-weight:400;color:var(--fg-mute)"> 周' +
               '<br>' + fmt(x.runs * x.s.ap) + ' AP</small></span>' +
             '</div>';
@@ -414,7 +467,7 @@
     calc();
   });
 
-  buildGoals(); buildBpTabs(); buildUni();
+  buildGoals(); buildBpTabs(); buildSel(); buildUniv();
   el('ver').textContent = E.version;
   // 最初から何か見えているように、T9 まで 1 個ずつを入れておく
   CATS.forEach(function (c) { state[c].from = 1; state[c].to = Math.min(9, MAXT[c]); state[c].n = 1; });

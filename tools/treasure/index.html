@@ -136,7 +136,7 @@
       <img src="../../images/hero-night.jpg" alt="" width="1600" height="400" fetchpriority="high">
     </picture>
   </div>
-  <div class="thero-body">
+  <div class="thero-body wide">
     <p class="thero-en">TREASURE</p>
     <h1>宝探しの確率計算機</h1>
     <p class="thero-lead">開けた結果を入れると、<b>残りのマスに何がある確率か</b>が出ます。サンプリングでも近似でもなく、条件に合う置き方を<b>全部数え上げた</b>値です。</p>
@@ -151,7 +151,7 @@
     <div class="tcol">
       <div class="panel">
         <div class="panel-h"><span class="n">02</span><h2>盤面</h2></div>
-        <p class="lead">右で「なにが出たか」を選んでから、<b>そのマスを 1 つだけ</b>押します。押したマスが備品のどこ（端か真ん中か）かは分からなくていいです。<b>色の枠は、その備品が届きうる範囲</b>です。</p>
+        <p class="lead">右で「なにが出たか」を選んでから、<b>そのマスを 1 つだけ</b>押します。マスの上に指を置くと、<b>その備品が届きうる範囲</b>が色の枠で出ます。</p>
         <div class="seg" id="view" role="group" aria-label="表示の切り替え" style="margin-bottom:14px">
           <button type="button" data-v="any" aria-pressed="true">なにかある確率</button>
           <button type="button" data-v="rev" aria-pressed="false">当たる備品の大きさ</button>
@@ -194,7 +194,7 @@
     <div class="tcol">
       <div class="panel">
         <div class="panel-h"><span class="n">01</span><h2>備品の型</h2></div>
-        <p class="lead"><b>イベントごとに名前も大きさも変わります。</b>ゲーム内の表示に合わせて、名前・横・縦・個数を書き換えてください。下のボタンは開催中のイベント「DIVE into OCEAN!」の週ごとの中身です。</p>
+        <p class="lead"><b>イベントごとに名前も大きさも変わります。</b>ゲーム内の表示に合わせて、名前・よこ・たて・個数を書き換えてください。下のボタンを押すと、開催中のイベント「DIVE into OCEAN!」の週ごとの中身が入ります。</p>
         <div class="wkrow" id="weeks"></div>
         <div style="margin-top:16px" id="items"></div>
       </div>
@@ -202,11 +202,11 @@
       <div class="panel">
         <div class="panel-h"><span class="n">02</span><h2>開けた結果</h2></div>
         <p class="lead">選んでから盤面のマスを押します。<b>1 マスずつ</b>印を付けてください。もう一度押すと消えます。</p>
+        <p class="lead"><b>備品の一部が見えただけで印を付けられます。</b>それが端でも真ん中でも構いません。</p>
         <div class="pal" id="pal"></div>
       </div>
 
       <div class="note-box">
-        <p><b>備品の真ん中が見えただけでも大丈夫です。</b>その 1 マスに印を付ければ、そこを覆える置き方だけを数えます。左上がどこかを当てる必要はありません。</p>
         <p><b>入力に矛盾があると「あり得る置き方 0 通り」になります。</b>個数や印を見直してください。数え上げが 0 になった時点で確率は出せません。</p>
         <p>計算はぜんぶこのページの中でやっています。<b>入れた内容が外へ送られることはありません。</b></p>
       </div>
@@ -218,7 +218,7 @@
         <p><b>盤は 9 × 5 の 45 マス。</b>備品は重ならずに置かれていて、種類ごとの個数は決まっています。ここから「条件に合う置き方」をすべて数え上げ、そのうち何通りでそのマスが備品に覆われているかを割ったものが確率です。<b>近似やサンプリングは使っていません。</b></p>
         <p><b>置いてある前提。</b>置き方はあり得る全通りから一様に選ばれていて、開ける前に決まっており、あとから変わらない——この 3 つを仮定しています。決まった型（絶対に出ない配置）があると、ここで出す数字はずれます。</p>
         <p><b>数え上げのやり方。</b>盤を左の列から順に見ていき、各行について「いまの列から先、あと何マスぶん埋まっているか」だけを持ち歩きます。前向きの数え上げと後ろ向きの数え上げを掛け合わせると、1 マスごとの確率が厳密に出ます。1 週目（タツノオトシゴ 4・海藻 3・ウニ 1）なら、置き方は <b>175,761,438 通り</b>あります。</p>
-        <p><b>備品の大きさと個数。</b><a href="https://github.com/terry-u16/schale-inventory-management" target="_blank" rel="noopener">terry-u16/schale-inventory-management</a>（MIT ライセンス）の <code>src/components/MainArea.tsx</code> に載っている 13 週ぶんの一覧を、最初の値として置いています。<b>アルゴリズムのコードは流用していません。</b>同じ考え方の DP ですが実装は自前で、あちらが 10 万通りを超えるとサンプリングに切り替えるのに対し、こちらは常に厳密な値を出します。</p>
+        <p><b>備品の大きさと個数。</b><a href="https://github.com/terry-u16/schale-inventory-management" target="_blank" rel="noopener">terry-u16/schale-inventory-management</a>（MIT ライセンス）の <code>src/components/MainArea.tsx</code> に載っている 13 週ぶんの一覧を、最初の値として置いています。同じ考え方の DP ですが、こちらは通り数がいくつでも厳密な値を出します。</p>
         <p><b>ほかのイベントでも使えます。</b>在庫管理のミニゲームは名前と大きさを変えて何度も来ています（在庫管理／五塵来降／秘密のミッドナイトパーティー／水上勝負／DIVE into OCEAN!）。備品は毎回 3 種類なので、上の欄を書き換えればそのまま使えます。</p>
       </details>
     </div>
@@ -286,8 +286,23 @@
     [['seahorse', 2], ['seaweed', 2], ['spiralShell', 2]]
   ];
 
-  var week = 0, items = [], marks = [], order = [], sel = 'e', view = 'any', last = null;
+  var week = -1, items = [], marks = [], order = [], sel = 'e', view = 'any', last = null;
   var hover = -1;
+
+  /* 何も選んでいないときの既定。**イベント名を出さない。**
+     どのイベントでも使えるものなので、最初から特定の備品名が入っていると
+     「そのイベント専用の道具」に見える */
+  var DEFAULT = [
+    { n: 'アイテム 1', w: 3, h: 1, count: 3 },
+    { n: 'アイテム 2', w: 2, h: 2, count: 3 },
+    { n: 'アイテム 3', w: 3, h: 3, count: 1 }
+  ];
+
+  function loadDefault() {
+    week = -1;
+    items = DEFAULT.map(function (d) { return { n: d.n, w: d.w, h: d.h, count: d.count }; });
+    clearBoard();
+  }
 
   function loadWeek(i) {
     week = i;
@@ -415,17 +430,16 @@
     if (!isFinite(lo)) { lo = 0; hi = 1; }
     var span = hi - lo, bestV = hi;
 
-    // 届きうる範囲の枠。印を付けたマスぶんと、いま指しているマスぶん
+    /* 届きうる範囲の枠。**指しているマスの分だけ出す。**
+       印を付けたぶんを出しっぱなしにすると、盤が枠だらけになって
+       いま何を見ているのか分からなくなる */
     var shade = {};
-    for (var m = 0; m < N; m++) {
-      if (marks[m] >= 0) {
-        var rc = reach(marks[m], m);
-        Object.keys(rc).forEach(function (x) { shade[x] = COLOR[marks[m]]; });
+    if (hover >= 0) {
+      var hk = marks[hover] >= 0 ? marks[hover] : (marks[hover] === U && sel !== 'e' ? +sel : -1);
+      if (hk >= 0) {
+        var rh = reach(hk, hover);
+        Object.keys(rh).forEach(function (x) { shade[x] = COLOR[hk]; });
       }
-    }
-    if (hover >= 0 && marks[hover] === U && sel !== 'e') {
-      var rh = reach(+sel, hover);
-      Object.keys(rh).forEach(function (x) { shade[x] = COLOR[+sel]; });
     }
 
     var h = '';
@@ -494,11 +508,11 @@
     var b = ev.target.closest('button.cell'); if (!b) return;
     var id = idxOf(+b.dataset.c, +b.dataset.r);
     if (id === hover) return;
-    hover = id; if (sel !== 'e') draw();
+    hover = id; draw();
   });
   el('board').addEventListener('pointerleave', function () {
     if (hover < 0) return;
-    hover = -1; if (sel !== 'e') draw();
+    hover = -1; draw();
   });
 
   el('pal').addEventListener('click', function (ev) {
@@ -544,7 +558,7 @@
   });
   el('reset').addEventListener('click', function () { clearBoard(); draw(); });
 
-  loadWeek(0);
+  loadDefault();
   drawWeeks(); drawItems(); draw();
 })();
 </script>

@@ -189,7 +189,8 @@ select {
 }
 .field.bad input, .field.bad select { border-color: #c0392b; }
 .err { color: #c0392b; font-size: .85rem; margin: 14px 0 0; }
-.err[hidden] { display: none; }
+/* **hidden 属性は display の指定に負ける。** ここで一度だけ勝たせる */
+[hidden] { display: none !important; }
 
 /* 数値を右寄せで並べる行（内訳の入力など） */
 .numrow {
