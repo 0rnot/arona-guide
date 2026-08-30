@@ -35,21 +35,26 @@
   }
   .stu[data-drag="over"] { border-color: var(--accent); }
 
-  /* Tier の行 */
-  .tiers { display: flex; flex-direction: column; gap: 8px; }
+  /* Tier の行。**--sz は盤の中だけ差し替える**（下の手札は今の大きさのまま） */
+  .tiers { display: flex; flex-direction: column; gap: 8px; --sz: 62px; }
+  .tiers.sz-s { --sz: 44px; }
+  .tiers.sz-l { --sz: 88px; }
+  /* 小さいときは名前が読めないので出さない。大きいときは少し上げる */
+  .tiers.sz-s .stu .nm { display: none; }
+  .tiers.sz-l .stu .nm { font-size: 11px; padding: .2em .25em .25em; }
   .row {
     display: grid; grid-template-columns: 74px 1fr 30px; align-items: stretch;
     border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: var(--card);
   }
   .row .lb {
-    display: grid; place-items: center; padding: .5em .3em; min-height: 74px;
+    display: grid; place-items: center; padding: .5em .3em; min-height: calc(var(--sz) + 12px);
     font-size: 1.25rem; font-weight: 900; color: #241a08;
     border: 0; font-family: inherit; text-align: center; width: 100%;
     background: var(--tc, #e8b45a); resize: none; letter-spacing: .02em;
   }
   .row .lb:focus { outline: 2px solid #241a08; outline-offset: -4px; }
   .row .drop {
-    display: flex; flex-wrap: wrap; gap: 6px; padding: 8px; min-height: 74px;
+    display: flex; flex-wrap: wrap; gap: 6px; padding: 8px; min-height: calc(var(--sz) + 12px);
     align-content: flex-start; background: var(--bg-sub);
   }
   .row .drop.over { background: color-mix(in srgb, var(--accent) 16%, var(--bg-sub)); }
@@ -80,10 +85,12 @@
   .held-note img { width: 30px; height: 30px; border-radius: 7px; display: block; }
 
   @media (max-width: 560px) {
-    .stu { --sz: 52px; }
+    .tiers { --sz: 52px; }
+    .tiers.sz-s { --sz: 38px; }
+    .tiers.sz-l { --sz: 74px; }
     .row { grid-template-columns: 56px 1fr 26px; }
-    .row .lb { font-size: 1rem; min-height: 62px; }
-    .row .drop { min-height: 62px; padding: 6px; gap: 5px; }
+    .row .lb { font-size: 1rem; }
+    .row .drop { padding: 6px; gap: 5px; }
   }
 </style>
 </head>
@@ -131,6 +138,14 @@
       <span id="held-img"></span>
       <span><b id="held-name"></b> を持っています。置きたい段を押してください。</span>
       <button type="button" class="btn" id="held-cancel" style="margin-left:auto;padding:.3em .8em;font-size:.8rem">やめる</button>
+    </div>
+    <div class="btnrow" style="margin-bottom:12px">
+      <span style="font-size:.8rem;font-weight:700;color:var(--fg-mute)">顔の大きさ</span>
+      <div class="seg" id="size" role="group" aria-label="顔の大きさ">
+        <button type="button" data-z="s">小</button>
+        <button type="button" data-z="m" aria-pressed="true">中</button>
+        <button type="button" data-z="l">大</button>
+      </div>
     </div>
     <div class="tiers" id="tiers"></div>
     <div class="btnrow" style="margin-top:14px">
@@ -218,6 +233,18 @@
   var held = null;                 // 手に持っている生徒の id
   var filters = { q: '', sc: '', ro: '', bt: '', at: '', sq: '', st: '' };
   var KEY = 'arona-tier-v1';
+  var SZKEY = 'arona-tier-size';
+  var zoom = 'm';     // s / m / l。**盤の中の顔の大きさだけを変える**
+
+  function applyZoom() {
+    var n = el('tiers');
+    n.classList.remove('sz-s', 'sz-l');
+    if (zoom === 's') n.classList.add('sz-s');
+    if (zoom === 'l') n.classList.add('sz-l');
+    [].forEach.call(el('size').querySelectorAll('button'), function (b) {
+      b.setAttribute('aria-pressed', String(b.dataset.z === zoom));
+    });
+  }
 
   function placed() {
     var m = {};
@@ -227,7 +254,7 @@
 
   // ---- 保存と読み出し
   function save() {
-    try { localStorage.setItem(KEY, JSON.stringify(rows)); } catch (e) {}
+    try { localStorage.setItem(KEY, JSON.stringify(rows)); localStorage.setItem(SZKEY, zoom); } catch (e) {}
   }
   function encode() {
     return rows.map(function (r) {
@@ -249,6 +276,10 @@
     var h = location.hash.replace(/^#t=/, '');
     var fromUrl = h && h !== location.hash ? decode(h) : null;
     if (fromUrl) { rows = fromUrl; return; }
+    try {
+      var z = localStorage.getItem(SZKEY);
+      if (z === 's' || z === 'm' || z === 'l') zoom = z;
+    } catch (e) {}
     try {
       var raw = localStorage.getItem(KEY);
       if (raw) {
@@ -458,7 +489,8 @@
   // 段の色・顔・名前を同じ並びで描く。名前を入れるのは、渡された相手が
   // 顔だけでは分からない子を判別できるようにするため
   el('save').addEventListener('click', function () {
-    var SZ = 76, NH = 17, GAP = 10, PAD = 12, LB = 104, W = 1120;
+    var SZ = zoom === 's' ? 54 : (zoom === 'l' ? 104 : 76);
+    var NH = 17, GAP = 10, PAD = 12, LB = 104, W = 1120;
     var CW = SZ, CH = SZ + NH;
     var perRow = Math.max(1, Math.floor((W - LB - PAD * 2 + GAP) / (CW + GAP)));
     var css = getComputedStyle(document.documentElement);
@@ -551,8 +583,14 @@
     });
   });
 
+  el('size').addEventListener('click', function (ev) {
+    var b = ev.target.closest('button'); if (!b) return;
+    zoom = b.dataset.z; applyZoom(); save();
+  });
+
   el('hero-n').textContent = T.students.length;
   el('ver-n').textContent = T.students.length;
+  applyZoom();
   draw();
 })();
 </script>
