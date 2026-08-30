@@ -151,17 +151,17 @@
     <div class="tcol">
       <div class="panel">
         <div class="panel-h"><span class="n">02</span><h2>盤面</h2></div>
-        <p class="lead" id="lead">マスを選んでから、右の「開けた結果」を押します。数字は<b>そのマスに備品がある確率</b>です。</p>
+        <p class="lead">右で「なにが出たか」を選んでから、<b>そのマスを 1 つだけ</b>押します。押したマスが備品のどこ（端か真ん中か）かは分からなくていいです。<b>色の枠は、その備品が届きうる範囲</b>です。</p>
         <div class="seg" id="view" role="group" aria-label="表示の切り替え" style="margin-bottom:14px">
           <button type="button" data-v="any" aria-pressed="true">なにかある確率</button>
-          <button type="button" data-v="rev" aria-pressed="false">開くマス数の期待値</button>
+          <button type="button" data-v="rev" aria-pressed="false">当たる備品の大きさ</button>
         </div>
         <div class="board" id="board"></div>
         <div class="legend" id="legend"></div>
         <div class="btnrow" style="margin-top:18px">
           <button type="button" class="btn" id="undo">ひとつ戻す</button>
           <button type="button" class="btn" id="reset">盤面をまっさらに</button>
-          <span class="tag" id="cnt-open">開けた 0 マス</span>
+          <span class="tag" id="cnt-open">印 0 マス</span>
         </div>
         <p class="err" id="err" hidden></p>
       </div>
@@ -186,31 +186,28 @@
 
       <div class="panel">
         <div class="panel-h"><span class="n">03</span><h2>おすすめのマス</h2></div>
-        <p class="lead">上から順に、<b>備品に当たる確率</b>が高いマスです。当たった備品はまるごと見えるので、大きい備品ほど一度に開くマスが多くなります。<b>開くマス数の期待値</b>はそれを数えたものです。</p>
+        <p class="lead">上から順に、<b>備品に当たる確率</b>が高いマスです。「当たる備品の大きさ」は、そこに何かあったとき<b>それが何マスの備品か</b>の期待値で、大きいものほど見つけたときの手がかりが増えます。</p>
         <div class="picks" id="picks"></div>
       </div>
     </div>
 
     <div class="tcol">
       <div class="panel">
-        <div class="panel-h"><span class="n">01</span><h2>今週の中身</h2></div>
-        <p class="lead">週を選ぶと備品の種類と数が入ります。<b>ゲーム内の表示と違うときは数を直してください。</b></p>
+        <div class="panel-h"><span class="n">01</span><h2>備品の型</h2></div>
+        <p class="lead"><b>イベントごとに名前も大きさも変わります。</b>ゲーム内の表示に合わせて、名前・横・縦・個数を書き換えてください。下のボタンは開催中のイベント「DIVE into OCEAN!」の週ごとの中身です。</p>
         <div class="wkrow" id="weeks"></div>
-        <div style="margin-top:16px" id="counts"></div>
+        <div style="margin-top:16px" id="items"></div>
       </div>
 
       <div class="panel">
         <div class="panel-h"><span class="n">02</span><h2>開けた結果</h2></div>
-        <p class="lead">押してから盤面のマスをタップします。備品は<b>押したマスが左上</b>になるように置かれます。置いたものを消すときは、そのマスをもう一度タップしてください。</p>
+        <p class="lead">選んでから盤面のマスを押します。<b>1 マスずつ</b>印を付けてください。もう一度押すと消えます。</p>
         <div class="pal" id="pal"></div>
-        <div class="btnrow" style="margin-top:14px">
-          <button type="button" class="btn" id="rot">たてよこを入れ替える</button>
-          <span class="tag" id="rot-t">よこ向き</span>
-        </div>
       </div>
 
       <div class="note-box">
-        <p><b>入力に矛盾があると「あり得る置き方 0 通り」になります。</b>備品の数や置いた位置を見直してください。数え上げが 0 になった時点で確率は出せません。</p>
+        <p><b>備品の真ん中が見えただけでも大丈夫です。</b>その 1 マスに印を付ければ、そこを覆える置き方だけを数えます。左上がどこかを当てる必要はありません。</p>
+        <p><b>入力に矛盾があると「あり得る置き方 0 通り」になります。</b>個数や印を見直してください。数え上げが 0 になった時点で確率は出せません。</p>
         <p>計算はぜんぶこのページの中でやっています。<b>入れた内容が外へ送られることはありません。</b></p>
       </div>
     </div>
@@ -219,14 +216,10 @@
       <details class="src">
         <summary>数字の出どころと、計算のしくみ</summary>
         <p><b>盤は 9 × 5 の 45 マス。</b>備品は重ならずに置かれていて、種類ごとの個数は決まっています。ここから「条件に合う置き方」をすべて数え上げ、そのうち何通りでそのマスが備品に覆われているかを割ったものが確率です。<b>近似やサンプリングは使っていません。</b></p>
-        <p><b>数え上げのやり方。</b>盤を左の列から順に見ていき、各行について「いまの列から先、あと何マスぶん埋まっているか」だけを持ち歩きます。備品の幅は最大 4 なので 0〜3 に収まり、5 行ぶんで 10 ビット。前向きの数え上げと後ろ向きの数え上げを掛け合わせると、1 マスごとの確率が厳密に出ます。1 週目（タツノオトシゴ 4・海藻 3・ウニ 1）なら、置き方は <b>175,761,438 通り</b>あります。</p>
-        <p><b>備品の大きさと個数。</b><a href="https://github.com/terry-u16/schale-inventory-management" target="_blank" rel="noopener">terry-u16/schale-inventory-management</a>（MIT ライセンス）の <code>src/components/MainArea.tsx</code> に載っている 13 週ぶんの一覧をそのまま使っています。<b>アルゴリズムのコードは流用していません</b>——上に書いた数え上げは自前の実装です。</p>
-        <p><b>アイコンについて。</b>ヒトデと巻貝だけ、<a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a> にある別イベントの「乾いたヒトデ」「貝殻」の画像を借りています。<b>今回のイベントのアイコンはまだ SchaleDB に入っていません。</b>入り次第、差し替えます。</p>
-        <ul>
-          <li>備品の一覧: <code>terry-u16/schale-inventory-management</code> の <code>MainArea.tsx</code>（MIT）</li>
-          <li>アイコン: <code>item_icon_event_token_3_s29</code> / <code>item_icon_event_token_2_s29</code>（SchaleDB）</li>
-          <li>数え上げの実装: このページの <code>solver.js</code>。読めます</li>
-        </ul>
+        <p><b>置いてある前提。</b>置き方はあり得る全通りから一様に選ばれていて、開ける前に決まっており、あとから変わらない——この 3 つを仮定しています。決まった型（絶対に出ない配置）があると、ここで出す数字はずれます。</p>
+        <p><b>数え上げのやり方。</b>盤を左の列から順に見ていき、各行について「いまの列から先、あと何マスぶん埋まっているか」だけを持ち歩きます。前向きの数え上げと後ろ向きの数え上げを掛け合わせると、1 マスごとの確率が厳密に出ます。1 週目（タツノオトシゴ 4・海藻 3・ウニ 1）なら、置き方は <b>175,761,438 通り</b>あります。</p>
+        <p><b>備品の大きさと個数。</b><a href="https://github.com/terry-u16/schale-inventory-management" target="_blank" rel="noopener">terry-u16/schale-inventory-management</a>（MIT ライセンス）の <code>src/components/MainArea.tsx</code> に載っている 13 週ぶんの一覧を、最初の値として置いています。<b>アルゴリズムのコードは流用していません。</b>同じ考え方の DP ですが実装は自前で、あちらが 10 万通りを超えるとサンプリングに切り替えるのに対し、こちらは常に厳密な値を出します。</p>
+        <p><b>ほかのイベントでも使えます。</b>在庫管理のミニゲームは名前と大きさを変えて何度も来ています（在庫管理／五塵来降／秘密のミッドナイトパーティー／水上勝負／DIVE into OCEAN!）。備品は毎回 3 種類なので、上の欄を書き換えればそのまま使えます。</p>
       </details>
     </div>
 
@@ -256,22 +249,26 @@
   </div>
 </footer>
 
-<script src="solver.js?v=1"></script>
+<script src="solver.js?v=2"></script>
 <script>
 (function () {
   'use strict';
   var T = window.TREASURE, W = T.W, H = T.H, N = T.N, U = T.UNKNOWN, E = T.EMPTY;
   function el(id) { return document.getElementById(id); }
 
-  /* 備品の形。terry-u16/schale-inventory-management の MainArea.tsx より */
-  var DEF = {
-    seahorse:    { n: 'タツノオトシゴ', w: 3, h: 1 },
-    seaweed:     { n: '海藻',           w: 1, h: 4 },
-    seaUrchin:   { n: 'ウニ',           w: 3, h: 2 },
-    nudibranch:  { n: 'ウミウシ',       w: 1, h: 2 },
-    starfish:    { n: 'ヒトデ',         w: 2, h: 2, img: 'item_icon_event_token_3_s29' },
-    spiralShell: { n: '巻貝',           w: 4, h: 2, img: 'item_icon_event_token_2_s29' },
-    turtleShell: { n: '亀の甲羅',       w: 3, h: 3 }
+  var COLOR = ['#3a76c4', '#cf7020', '#7b57b8'];
+
+  /* 開催中のイベント「DIVE into OCEAN!」の週ごとの中身。
+     出どころは terry-u16/schale-inventory-management の MainArea.tsx（MIT）。
+     **これはあくまで初期値。**上の欄を書き換えれば、ほかのイベントでも使える */
+  var SHAPE = {
+    seahorse:    ['タツノオトシゴ', 3, 1],
+    seaweed:     ['海藻',           1, 4],
+    seaUrchin:   ['ウニ',           3, 2],
+    nudibranch:  ['ウミウシ',       1, 2],
+    starfish:    ['ヒトデ',         2, 2],
+    spiralShell: ['巻貝',           4, 2],
+    turtleShell: ['亀の甲羅',       3, 3]
   };
   var WEEKS = [
     [['seahorse', 4], ['seaweed', 3], ['seaUrchin', 1]],
@@ -289,173 +286,190 @@
     [['seahorse', 2], ['seaweed', 2], ['spiralShell', 2]]
   ];
 
-  var week = 0, items = [], placed = [], empties = [], sel = 'e', rot = false, view = 'any';
-  var last = null;
+  var week = 0, items = [], marks = [], order = [], sel = 'e', view = 'any', last = null;
+  var hover = -1;
 
   function loadWeek(i) {
     week = i;
     items = WEEKS[i].map(function (p) {
-      var d = DEF[p[0]];
-      return { key: p[0], n: d.n, w: d.w, h: d.h, img: d.img, count: p[1] };
+      var d = SHAPE[p[0]];
+      return { n: d[0], w: d[1], h: d[2], count: p[1] };
     });
-    placed = []; empties = [];
-    sel = 'e'; rot = false;
+    clearBoard();
   }
+  function clearBoard() { marks = new Array(N).fill(U); order = []; }
 
-  /* 盤の内部添字は 列 * H + 行。表示は行優先なので都度変換する */
   function idxOf(c, r) { return c * H + r; }
 
-  function buildBoardArray() {
-    var b = new Array(N);
-    for (var i = 0; i < N; i++) b[i] = U;
-    empties.forEach(function (i) { b[i] = E; });
-    placed.forEach(function (p) {
-      for (var dx = 0; dx < p.aw; dx++) for (var dy = 0; dy < p.ah; dy++) b[idxOf(p.col + dx, p.row + dy)] = p.k;
+  /* **その備品が届きうる範囲。**印を付けたマスを覆える置き方すべての和。
+     真ん中が 1 マス見えただけでも、端がどこまで来るかが目で分かる */
+  function reach(k, idx) {
+    var it = items[k], out = {};
+    var c0 = (idx / H) | 0, r0 = idx % H;
+    var fs = it.w === it.h ? [[it.w, it.h]] : [[it.w, it.h], [it.h, it.w]];
+    fs.forEach(function (f) {
+      var aw = f[0], ah = f[1];
+      for (var c = Math.max(0, c0 - aw + 1); c <= c0 && c + aw <= W; c++) {
+        for (var r = Math.max(0, r0 - ah + 1); r <= r0 && r + ah <= H; r++) {
+          var ok = true, cells = [];
+          for (var dx = 0; dx < aw && ok; dx++) {
+            for (var dy = 0; dy < ah; dy++) {
+              var id = idxOf(c + dx, r + dy), v = marks[id];
+              if (v !== U && v !== k) { ok = false; break; }
+              cells.push(id);
+            }
+          }
+          if (ok) cells.forEach(function (x) { out[x] = 1; });
+        }
+      }
     });
-    return b;
+    return out;
   }
 
-  function occupant(c, r) {
-    for (var i = 0; i < placed.length; i++) {
-      var p = placed[i];
-      if (c >= p.col && c < p.col + p.aw && r >= p.row && r < p.row + p.ah) return i;
-    }
-    return -1;
-  }
-
-  /* ---------- 描画 ---------- */
-
+  // ---- 描画
   function drawWeeks() {
     el('weeks').innerHTML = WEEKS.map(function (_, i) {
       return '<button type="button" data-w="' + i + '" aria-pressed="' + (i === week) + '">' + (i + 1) + '週目</button>';
     }).join('');
   }
 
-  function drawCounts() {
-    el('counts').innerHTML = items.map(function (it, k) {
-      return '<div class="cnt">' +
-        '<span class="sw k' + k + '" style="width:16px;height:16px;border-radius:5px;display:inline-block;background:' + COLOR[k] + '"></span>' +
-        '<span>' + it.n + '<span class="sz"> ' + it.w + '×' + it.h + '</span></span>' +
-        '<input type="number" inputmode="numeric" min="0" max="6" step="1" value="' + it.count + '" data-k="' + k + '" aria-label="' + it.n + 'の個数">' +
-        '</div>';
+  function mini(w, h) {
+    var cells = '';
+    for (var i = 0; i < w * h; i++) cells += '<i></i>';
+    return '<span class="mini" style="grid-template-columns:repeat(' + w + ',7px)">' + cells + '</span>';
+  }
+
+  function drawItems() {
+    el('items').innerHTML = items.map(function (it, k) {
+      return '<div class="item">' +
+        '<span class="sw" style="background:' + COLOR[k] + '"></span>' +
+        '<div>' +
+          '<input class="nm" type="text" maxlength="12" value="' + it.n.replace(/"/g, '&quot;') +
+            '" data-k="' + k + '" data-f="n" aria-label="' + (k + 1) + ' 番目の備品の名前">' +
+          '<div class="dims">' +
+            '<span><label for="w' + k + '">よこ</label><input id="w' + k + '" type="number" inputmode="numeric" min="1" max="' + T.MAX_W + '" step="1" value="' + it.w + '" data-k="' + k + '" data-f="w"></span>' +
+            '<span><label for="h' + k + '">たて</label><input id="h' + k + '" type="number" inputmode="numeric" min="1" max="' + H + '" step="1" value="' + it.h + '" data-k="' + k + '" data-f="h"></span>' +
+            '<span><label for="c' + k + '">個数</label><input id="c' + k + '" type="number" inputmode="numeric" min="0" max="6" step="1" value="' + it.count + '" data-k="' + k + '" data-f="count"></span>' +
+          '</div>' +
+          '<div class="shape">' + mini(it.w, it.h) + '<span>' + it.w + ' × ' + it.h + ' を ' + it.count + ' 個</span></div>' +
+        '</div></div>';
     }).join('');
   }
 
-  var COLOR = ['#3a76c4', '#cf7020', '#7b57b8'];
-
   function drawPal() {
-    var used = [0, 0, 0];
-    placed.forEach(function (p) { used[p.k]++; });
+    var cnt = [0, 0, 0], emp = 0;
+    marks.forEach(function (v) { if (v === E) emp++; else if (v >= 0) cnt[v]++; });
     var h = '<button type="button" data-s="e" aria-pressed="' + (sel === 'e') + '">' +
-      '<span class="sw emp"></span><span>なにも無かった</span><span class="rem">空マス ' + empties.length + '</span></button>';
+      '<span class="sw emp"></span><span>なにも無かった</span><span class="rem">' + emp + ' マス</span></button>';
     h += items.map(function (it, k) {
-      var rem = it.count - used[k];
-      return '<button type="button" data-s="' + k + '" aria-pressed="' + (sel === String(k)) + '"' + (rem <= 0 ? ' disabled' : '') + '>' +
-        '<span class="sw k' + k + '"></span>' +
-        '<span>' + (it.img ? '<img src="../img/' + it.img + '.webp" alt="" width="16" height="16" style="width:16px;height:16px;display:inline-block;border-radius:4px;vertical-align:-3px;margin-right:.35em">' : '') + it.n + '</span>' +
-        '<span class="rem">残り ' + rem + ' / ' + it.count + '</span></button>';
+      return '<button type="button" data-s="' + k + '" aria-pressed="' + (sel === String(k)) + '">' +
+        '<span class="sw" style="background:' + COLOR[k] + '"></span>' +
+        '<span>' + (it.n || ((k + 1) + ' 番目')) + '</span>' +
+        '<span class="rem">' + cnt[k] + ' マス</span></button>';
     }).join('');
     el('pal').innerHTML = h;
-    el('rot-t').textContent = rot ? 'たて向き' : 'よこ向き';
   }
 
   function drawLegend() {
     el('legend').innerHTML = items.map(function (it, k) {
-      var f = form(k);
-      return '<span class="lg"><span class="sw k' + k + '"></span>' +
-        (it.img ? '<img src="../img/' + it.img + '.webp" alt="" width="18" height="18" loading="lazy">' : '') +
-        it.n + ' <span style="color:var(--fg-mute)">' + it.w + '×' + it.h + ' ×' + it.count + '</span></span>';
+      return '<span class="lg"><span class="sw" style="background:' + COLOR[k] + '"></span>' +
+        (it.n || (k + 1) + ' 番目') + ' <span style="color:var(--fg-mute)">' + it.w + '×' + it.h + ' ×' + it.count + '</span></span>';
     }).join('') + '<span class="lg"><span class="sw" style="background:var(--bg-sub);border:1px solid var(--line)"></span>数字＝確率</span>';
   }
-
-  function form(k) { var it = items[k]; return rot ? [it.h, it.w] : [it.w, it.h]; }
 
   function pct(x) { return (x * 100).toFixed(x >= 0.995 ? 0 : 1).replace(/\.0$/, '') + '%'; }
 
   function draw() {
-    var board = buildBoardArray();
-    var res = T.solve(items.map(function (it) { return { w: it.w, h: it.h, count: it.count }; }), board);
+    var res = T.solve(items.map(function (it) { return { w: it.w, h: it.h, count: it.count }; }), marks);
     last = res;
     var K = items.length;
     var bad = !res || res.total <= 0;
 
     el('err').hidden = !bad;
-    if (bad) el('err').textContent = 'いまの入力に合う置き方が 1 通りもありません。備品の数か、置いた位置を見直してください。';
+    if (bad) el('err').textContent = (res && res.error) ||
+      'いまの入力に合う置き方が 1 通りもありません。備品の数か、付けた印を見直してください。';
 
-    // 各マスの指標
-    var pAny = new Array(N).fill(0), pRev = new Array(N).fill(0);
+    var pAny = new Array(N).fill(0), pSize = new Array(N).fill(0);
     if (!bad) {
       for (var i = 0; i < N; i++) {
         pAny[i] = 1 - res.empty[i];
-        var rv = 0;
-        for (var k = 0; k < K; k++) rv += res.prob[i * K + k] * items[k].w * items[k].h;
-        pRev[i] = rv;
+        var sz = 0;
+        for (var k = 0; k < K; k++) sz += res.prob[i * K + k] * items[k].w * items[k].h;
+        // 「そこに何かあったとき、それが何マスの備品か」の期待値
+        pSize[i] = pAny[i] > 1e-9 ? sz / pAny[i] : 0;
       }
     }
-    var metric = view === 'any' ? pAny : pRev;
+    var metric = view === 'any' ? pAny : pSize;
 
-    // 未開封のマスのうち、指標が最大のもの
-    var open = 0, bestV = -1, order = [];
+    var open = 0, list = [];
     for (var c = 0; c < W; c++) for (var r = 0; r < H; r++) {
       var idx = idxOf(c, r);
-      if (board[idx] !== U) { open++; continue; }
-      order.push({ c: c, r: r, i: idx, any: pAny[idx], rev: pRev[idx], m: metric[idx] });
-      if (metric[idx] > bestV) bestV = metric[idx];
+      if (marks[idx] !== U) { open++; continue; }
+      list.push({ c: c, r: r, i: idx, any: pAny[idx], size: pSize[idx], m: metric[idx] });
     }
-    order.sort(function (a, b) { return b.m - a.m || b.any - a.any; });
-    el('cnt-open').textContent = '開けた ' + open + ' マス';
+    list.sort(function (a, b) { return b.m - a.m || b.any - a.any; });
+    el('cnt-open').textContent = '印 ' + open + ' マス';
 
-    // 盤。**濃淡は未開封のマスの最小〜最大で伸ばす。**
-    // 生の値をそのまま濃さにすると、48% と 74% が同じ色に見えて盤が真っ平らになる
     var lo = Infinity, hi = -Infinity;
-    order.forEach(function (o) { if (o.m < lo) lo = o.m; if (o.m > hi) hi = o.m; });
+    list.forEach(function (o) { if (o.m < lo) lo = o.m; if (o.m > hi) hi = o.m; });
     if (!isFinite(lo)) { lo = 0; hi = 1; }
-    var span = hi - lo;
+    var span = hi - lo, bestV = hi;
+
+    // 届きうる範囲の枠。印を付けたマスぶんと、いま指しているマスぶん
+    var shade = {};
+    for (var m = 0; m < N; m++) {
+      if (marks[m] >= 0) {
+        var rc = reach(marks[m], m);
+        Object.keys(rc).forEach(function (x) { shade[x] = COLOR[marks[m]]; });
+      }
+    }
+    if (hover >= 0 && marks[hover] === U && sel !== 'e') {
+      var rh = reach(+sel, hover);
+      Object.keys(rh).forEach(function (x) { shade[x] = COLOR[+sel]; });
+    }
+
     var h = '';
     for (var r2 = 0; r2 < H; r2++) {
       for (var c2 = 0; c2 < W; c2++) {
-        var id = idxOf(c2, r2), v = board[id], cls = 'cell', inner = '', st = '';
+        var id = idxOf(c2, r2), v = marks[id], cls = 'cell', inner = '', st = '';
         if (v === E) { cls += ' emp'; inner = '空'; }
-        else if (v >= 0) {
-          cls += ' k' + v;
-          var oi = occupant(c2, r2);
-          var p = placed[oi];
-          if (p && p.col === c2 && p.row === r2) inner = items[v].n.slice(0, 1);
-        } else if (bad) {
-          cls += ' dead'; inner = '—';
-        } else {
+        else if (v >= 0) { cls += ' k' + v; inner = (items[v].n || '').slice(0, 1) || (v + 1); }
+        else if (bad) { cls += ' dead'; inner = '—'; }
+        else {
           var mv = metric[id];
           var norm = span > 1e-9 ? (mv - lo) / span : 1;
           st = ' style="background:color-mix(in srgb, var(--accent) ' + Math.round(8 + norm * 62) + '%, var(--card))"';
-          inner = view === 'any' ? pct(mv) : mv.toFixed(2);
+          inner = view === 'any' ? pct(mv) : (mv ? mv.toFixed(1) : '—');
           if (Math.abs(mv - bestV) < 1e-12) cls += ' best';
         }
+        var sh = shade[id] ? '<span class="shade" style="--sc:' + shade[id] + '"></span>' : '';
         h += '<button type="button" class="' + cls + '"' + st + ' data-c="' + c2 + '" data-r="' + r2 + '" ' +
-             'aria-label="左から' + (c2 + 1) + '・上から' + (r2 + 1) + '">' + inner + '</button>';
+             'aria-label="左から' + (c2 + 1) + '・上から' + (r2 + 1) + '">' + inner + sh + '</button>';
       }
     }
     el('board').innerHTML = h;
 
-    // まとめ
-    if (bad || !order.length) {
+    if (bad || !list.length) {
       el('o-best').textContent = '—'; el('o-best-sub').innerHTML = '&nbsp;';
       el('o-p').textContent = '—';
       el('o-total').textContent = bad ? '0' : '—';
       el('picks').innerHTML = '';
     } else {
-      var b0 = order[0];
+      var b0 = list[0];
       el('o-best').innerHTML = '左' + (b0.c + 1) + '<small>・</small>上' + (b0.r + 1);
-      el('o-best-sub').textContent = view === 'any' ? 'いちばん当たりやすいマス' : 'いちばん多く開くマス';
+      el('o-best-sub').textContent = view === 'any' ? 'いちばん当たりやすいマス' : '大きい備品が当たりやすいマス';
       el('o-p').innerHTML = pct(b0.any);
       el('o-total').innerHTML = res.total.toLocaleString('ja-JP') + '<small>通り</small>';
 
-      el('picks').innerHTML = order.slice(0, 6).map(function (o, i) {
+      el('picks').innerHTML = list.slice(0, 6).map(function (o, i) {
         return '<div class="pick"><span class="no">' + (i + 1) + '</span>' +
           '<span>左から ' + (o.c + 1) + ' 番目・上から ' + (o.r + 1) + ' 番目' +
           '<small style="display:block;color:var(--fg-mute);font-size:.76rem">' +
-            items.map(function (it, k) { return it.n + ' ' + pct(res.prob[o.i * items.length + k]); }).join('・') +
+            items.map(function (it, k) {
+              return (it.n || (k + 1) + ' 番目') + ' ' + pct(res.prob[o.i * items.length + k]);
+            }).join('・') +
           '</small></span>' +
-          '<span class="v">' + pct(o.any) + '<small>開く ' + o.rev.toFixed(2) + ' マス</small></span></div>';
+          '<span class="v">' + pct(o.any) + '<small>' + o.size.toFixed(1) + ' マスの備品</small></span></div>';
       }).join('');
     }
 
@@ -463,45 +477,34 @@
     drawLegend();
   }
 
-  /* ---------- 操作 ---------- */
-
-  function tryPlace(k, c, r) {
-    var f = form(k), aw = f[0], ah = f[1];
-    // はみ出すときは盤の中へ寄せる
-    var col = Math.min(c, W - aw), row = Math.min(r, H - ah);
-    if (col < 0 || row < 0) return 'この向きでは盤に入りません。「たてよこを入れ替える」を試してください。';
-    var used = 0;
-    placed.forEach(function (p) { if (p.k === k) used++; });
-    if (used >= items[k].count) return items[k].n + 'はもう ' + items[k].count + ' 個ぶん置いてあります。';
-    for (var dx = 0; dx < aw; dx++) for (var dy = 0; dy < ah; dy++) {
-      var id = idxOf(col + dx, row + dy);
-      if (empties.indexOf(id) >= 0) return 'そこには「なにも無かった」マスが重なります。';
-      if (occupant(col + dx, row + dy) >= 0) return 'そこには別の備品が重なります。';
-    }
-    placed.push({ k: k, aw: aw, ah: ah, col: col, row: row });
-    return null;
-  }
-
+  // ---- 操作
   el('board').addEventListener('click', function (ev) {
     var b = ev.target.closest('button.cell'); if (!b) return;
-    var c = +b.dataset.c, r = +b.dataset.r, id = idxOf(c, r);
-
-    var ei = empties.indexOf(id);
-    if (ei >= 0) { empties.splice(ei, 1); draw(); return; }
-    var oi = occupant(c, r);
-    if (oi >= 0) { placed.splice(oi, 1); draw(); return; }
-
-    if (sel === 'e') { empties.push(id); draw(); return; }
-    var msg = tryPlace(+sel, c, r);
-    if (msg) { el('err').textContent = msg; el('err').hidden = false; return; }
+    var id = idxOf(+b.dataset.c, +b.dataset.r);
+    if (marks[id] !== U) {
+      marks[id] = U;
+      var at = order.indexOf(id); if (at >= 0) order.splice(at, 1);
+    } else {
+      marks[id] = sel === 'e' ? E : +sel;
+      order.push(id);
+    }
     draw();
+  });
+  el('board').addEventListener('pointerover', function (ev) {
+    var b = ev.target.closest('button.cell'); if (!b) return;
+    var id = idxOf(+b.dataset.c, +b.dataset.r);
+    if (id === hover) return;
+    hover = id; if (sel !== 'e') draw();
+  });
+  el('board').addEventListener('pointerleave', function () {
+    if (hover < 0) return;
+    hover = -1; if (sel !== 'e') draw();
   });
 
   el('pal').addEventListener('click', function (ev) {
-    var b = ev.target.closest('button'); if (!b || b.disabled) return;
-    sel = b.dataset.s; drawPal();
+    var b = ev.target.closest('button'); if (!b) return;
+    sel = b.dataset.s; draw();
   });
-  el('rot').addEventListener('click', function () { rot = !rot; drawPal(); });
   el('view').addEventListener('click', function (ev) {
     var b = ev.target.closest('button'); if (!b) return;
     view = b.dataset.v;
@@ -513,24 +516,36 @@
   el('weeks').addEventListener('click', function (ev) {
     var b = ev.target.closest('button'); if (!b) return;
     loadWeek(+b.dataset.w);
-    drawWeeks(); drawCounts(); draw();
+    drawWeeks(); drawItems(); draw();
   });
-  el('counts').addEventListener('input', function (ev) {
-    var t = ev.target; if (!t.dataset.k) return;
-    var k = +t.dataset.k, v = Math.max(0, Math.min(6, parseInt(t.value, 10) || 0));
-    items[k].count = v;
-    placed = placed.filter(function (p) { return p.k !== k; });
+  el('items').addEventListener('input', function (ev) {
+    var t = ev.target, k = t.dataset.k, f = t.dataset.f;
+    if (k == null || !f) return;
+    k = +k;
+    if (f === 'n') { items[k].n = t.value; }
+    else {
+      var lim = f === 'w' ? T.MAX_W : (f === 'h' ? H : 6);
+      var v = Math.max(f === 'count' ? 0 : 1, Math.min(lim, parseInt(t.value, 10) || 0));
+      items[k][f] = v;
+      // 大きさが変わったら、その備品の印は当てにならないので落とす
+      if (f !== 'count') {
+        for (var i = 0; i < N; i++) if (marks[i] === k) marks[i] = U;
+      }
+    }
+    var shp = t.closest('.item').querySelector('.shape');
+    if (shp) shp.innerHTML = mini(items[k].w, items[k].h) +
+      '<span>' + items[k].w + ' × ' + items[k].h + ' を ' + items[k].count + ' 個</span>';
     draw();
   });
   el('undo').addEventListener('click', function () {
-    if (placed.length) placed.pop();
-    else if (empties.length) empties.pop();
+    var id = order.pop();
+    if (id != null) marks[id] = U;
     draw();
   });
-  el('reset').addEventListener('click', function () { placed = []; empties = []; draw(); });
+  el('reset').addEventListener('click', function () { clearBoard(); draw(); });
 
   loadWeek(0);
-  drawWeeks(); drawCounts(); draw();
+  drawWeeks(); drawItems(); draw();
 })();
 </script>
 </body>
