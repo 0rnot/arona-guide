@@ -1411,12 +1411,145 @@ def build_gear_stats():
     }, header="/* scripts/build-tool-data.py が吐く。**手で直さない。** */\n")
 
 
+# ------------------------------------------------------------ 総力戦のスコア
+
+def build_raid_score():
+    print("総力戦・大決戦のスコア計算機")
+    raids = get_json(SD.format("raids"))
+    loc = get_json(SD.format("localization"))
+    stages = as_list(get_json(BA.format("RaidStageExcelTable")))
+    elim = as_list(get_json(BA.format("EliminateRaidStageExcelTable")))
+
+    # ボスの日本語名。**`RaidStageExcelTable` は開発名（`Binah`）しか持たない**
+    name = {}
+    icons = {}
+    for kind in ("Raid", "EliminateRaid"):
+        for r in raids.get(kind) or []:
+            dev = r.get("DevName") or ""
+            if not dev:
+                continue
+            name[dev] = r.get("Name", dev)
+            icons[dev] = r.get("PathName", "")
+
+    # **開発名の大文字小文字が表ごとに揃っていない**（`ShiroKuro` と `Shirokuro`）。
+    # 小文字にして引く
+    lname = {k.lower(): v for k, v in name.items()}
+    licon = {k.lower(): v for k, v in icons.items()}
+    # **同じボスが表ごとに別の開発名で出てくる。**大決戦の表だけこの 2 つがずれる
+    # （2026-08-30 に 648 行を数えて見つけた）
+    for alias, real in (("kaitenger", "kaitenfxmk0"), ("hovercraft", "raidhovercraft")):
+        lname.setdefault(alias, lname.get(real, alias))
+        licon.setdefault(alias, licon.get(real, ""))
+    # 大決戦の `RaidBossGroup` は「ボス_地形_装甲」の 3 つ組
+    TR_JA = {"street": "市街地", "outdoor": "屋外", "indoor": "屋内"}
+    AR_JA = {"lightarmor": "軽装備", "heavyarmor": "重装甲", "unarmed": "特殊装甲",
+             "elasticarmor": "弾力装甲", "normalarmor": "通常装甲"}
+
+    def split(dev):
+        """開発名を ボス / 地形 / 装甲 に割る。**総力戦は 1 つ目だけ。**"""
+        parts = dev.split("_")
+        base = parts[0]
+        tr = ar = ""
+        for x in parts[1:]:
+            if x.lower() in TR_JA:
+                tr = TR_JA[x.lower()]
+            elif x.lower() in AR_JA:
+                ar = AR_JA[x.lower()]
+        return base, tr, ar
+
+    def rows(src, kind):
+        out = []
+        for r in src:
+            dev = r.get("RaidBossGroup") or ""
+            if not dev or not r.get("DefaultClearScore"):
+                continue
+            base, tr, ar = split(dev)
+            out.append({
+                "k": kind, "b": base,
+                "n": lname.get(base.lower(), base),
+                "ic": licon.get(base.lower(), ""),
+                "tr": tr, "ar": ar,
+                "d": r.get("Difficulty", ""),
+                # クリアしたときに必ずもらえるぶん
+                "cl": r["DefaultClearScore"],
+                # HP をぜんぶ削ったときのぶん
+                "hp": r.get("HPPercentScore", 0),
+                # 1 秒あたり減るぶんと、その満額
+                "ps": r.get("PerSecondMinusScore", 0),
+                "mx": r.get("MaximumScore", 0),
+                "lo": r.get("MinimumAcquisitionScore", 0),
+                "hi": r.get("MaximumAcquisitionScore", 0),
+                "du": (r.get("BattleDuration") or 0) // 1000,
+            })
+        return out
+
+    all_rows = rows(stages, "raid") + rows(elim, "elim")
+    if len(all_rows) < 100:
+        raise SystemExit(f"スコアの行が {len(all_rows)} しか取れない")
+    lost = sorted({r["b"] for r in all_rows if r["n"] == r["b"]})
+    if lost:
+        raise SystemExit(f"日本語名が引けないボス: {lost}")
+
+    # **式が合っているかを、全行で機械に確かめさせる。**
+    #   いちばん低い ＝ クリアぶん ＋ HP ぶん（時間を使い切ったとき）
+    #   いちばん高い ＝ それ ＋ 時間ぶんの満額（0 秒で倒したとき）
+    for r in all_rows:
+        if r["lo"] and r["cl"] + r["hp"] != r["lo"]:
+            raise SystemExit(f"最低スコアが合わない: {r['dev']} {r['d']}")
+        if r["hi"] and r["lo"] + r["mx"] != r["hi"]:
+            raise SystemExit(f"最高スコアが合わない: {r['dev']} {r['d']}")
+
+    # 時間ぶんが 0 になるまでの秒数。**全行で同じなら定数にできる**
+    spans = {r["mx"] // r["ps"] for r in all_rows if r["ps"]}
+    if len(spans) != 1:
+        raise SystemExit(f"時間ぶんが尽きる秒数が揃わない: {sorted(spans)}")
+    span = spans.pop()
+
+    # **スコアは地形と装甲では変わらない。**大決戦は「ボス_地形_装甲」で 504 行
+    # あるが、同じボス・同じ難易度なら中身が 1 種類しかない（2026-08-30 に確認）。
+    # 畳んで、選べる地形と装甲の組だけ別に持つ
+    packed = {}
+    for r in all_rows:
+        key = (r["k"], r["b"], r["d"])
+        got = (r["cl"], r["hp"], r["ps"], r["mx"], r["du"])
+        if key in packed and packed[key]["v"] != got:
+            raise SystemExit(f"同じボス・難易度で値が割れている: {key}")
+        packed.setdefault(key, {"v": got, "r": r})
+    rows_out = []
+    for (kind, base, diff), x in packed.items():
+        r = x["r"]
+        rows_out.append({"k": kind, "b": base, "n": r["n"], "ic": r["ic"], "d": diff,
+                         "cl": r["cl"], "hp": r["hp"], "ps": r["ps"], "mx": r["mx"], "du": r["du"]})
+    print(f"  {len(all_rows)} 行を {len(rows_out)} 行に畳んだ")
+
+    n = 0
+    for dev, p_ in icons.items():
+        if not p_:
+            continue
+        if not fetch_portrait(f"bossicon_{p_}", f"https://schaledb.com/images/raid/icon/Boss_Portrait_{p_}_Lobby.png"):
+            n += fetch_portrait(f"boss_{p_}", f"https://schaledb.com/images/raid/Boss_Portrait_{p_}_Lobby.png")
+        else:
+            n += 1
+    print(f"  {len(all_rows)} 行（総力戦 {len(rows(stages, 'raid'))} ／ 大決戦 {len(rows(elim, 'elim'))}）、"
+          f"時間ぶんが尽きるのは {span} 秒、絵 {n} 枚を追加")
+
+    return write_js("tools/raid-score/data.js", "RSCORE", {
+        "rows": rows_out, "span": span,
+        # **地形と装甲はスコアに効かない**ので持たない。総力戦にも大決戦にも
+        # 「ボス_地形_装甲」の行があるが、同じボス・同じ難易度なら中身は 1 種類だった
+        "kinds": {"raid": "総力戦", "elim": "大決戦"},
+        "diffJa": loc.get("RaidDifficulty", {}),
+        "version": "electricgoat/ba-data jp（RaidStage・EliminateRaidStage）／ SchaleDB jp（ボスの名前と絵）",
+    }, header="/* scripts/build-tool-data.py が吐く。**手で直さない。** */\n")
+
+
 BUILDERS = {"bond": build_bond, "teacher-level": build_teacher_level,
             "equipment": build_equipment, "tier": build_tier, "raid": build_raid,
             "student-cost": build_student_cost, "treasure": build_treasure,
             "cost-timeline": build_cost_timeline,
             "raid-calendar": build_raid_calendar,
             "gear-stats": build_gear_stats,
+            "raid-score": build_raid_score,
             "ui": build_ui}
 
 if __name__ == "__main__":

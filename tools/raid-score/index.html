@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>総力戦のスコア計算機｜AronaBot</title>
+<meta name="description" content="クリアタイムからスコアを出します。逆に、目標スコアに届くのに何分何秒で倒せばいいかも出せます。総力戦と大決戦の全ボス・全難易度に対応。">
+<meta name="theme-color" content="#c8892e">
+<link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<meta property="og:title" content="総力戦のスコア計算機">
+<meta property="og:description" content="クリアタイムからスコアを出します。逆に、目標スコアに届くのに何分何秒で倒せばいいかも出せます。総力戦と大決戦の全ボス・全難易度に対応。">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://arona-bot.com/tools/raid-score/">
+<meta property="og:image" content="https://arona-bot.com/images/hero-night.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="stylesheet" href="../../style.css?v=15">
+<link rel="stylesheet" href="../tool.css?v=7">
+<style>
+  /* 相手を選ぶ */
+  .bosses { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 8px; }
+  .bbtn {
+    font: inherit; cursor: pointer; padding: 8px 4px 6px; border-radius: 12px;
+    border: 1px solid var(--line); background: var(--bg-sub); color: var(--fg);
+    display: grid; justify-items: center; gap: 4px; text-align: center;
+  }
+  .bbtn img { width: 46px; height: 46px; border-radius: 10px; background: var(--card); }
+  .bbtn .nm { font-size: .72rem; font-weight: 700; line-height: 1.25; word-break: auto-phrase; }
+  .bbtn[aria-pressed="true"] { border-color: var(--accent); }
+  .bbtn[aria-pressed="true"] .nm { color: var(--accent-tx); }
+
+  /* 時間の入力 */
+  .timein { display: grid; grid-template-columns: auto 5em auto 5em 1fr; gap: .5em; align-items: center; }
+  .timein input { width: 100%; text-align: right; font-variant-numeric: tabular-nums; }
+  .timein span { color: var(--fg-mute); font-size: .84rem; }
+
+  /* 目盛り */
+  .gauge { margin-top: 18px; overflow-x: auto; }
+  .gauge svg { display: block; width: 100%; height: auto; min-width: 360px; }
+  .gauge .track { fill: var(--bg-sub); }
+  .gauge .fill { fill: var(--accent); }
+  .gauge .tick { stroke: var(--line); stroke-width: 1; }
+  .gauge text { fill: var(--fg-mute); font-size: 11px; font-variant-numeric: tabular-nums; }
+  .gauge text.now { fill: var(--fg); font-weight: 700; }
+
+  .dt td.hi { color: var(--accent-tx); font-weight: 700; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-inner">
+    <a class="topbar-name" href="../../">AronaBotの使い方</a>
+    <a class="topbar-tools" href="../">
+      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <path d="M21.7 18.3l-6-6a5.5 5.5 0 0 0-7-7l3.1 3.1-2.1 2.1L6.6 7.3a5.5 5.5 0 0 0 7 7l6 6a1 1 0 0 0 1.4 0l.7-.7a1 1 0 0 0 0-1.3z"/>
+      </svg>
+      ツール一覧
+    </a>
+    <nav class="topbar-nav">
+      <a href="../../#can">機能</a>
+      <a href="../../#start">つかいはじめる</a>
+      <a href="../../#message">メッセージから</a>
+      <a href="../../#faq">よくある質問</a>
+    </nav>
+    <!-- 共有。**AronaBot 本体と同じ位置に置く。**押した先は環境で変える -->
+    <span class="share-nudge" aria-hidden="true">使えそうな人に、ぜひ</span>
+    <a class="share" id="share-page" target="_blank" rel="noopener" aria-label="このページを共有する"
+       href="https://x.com/intent/post?url=https%3A%2F%2Farona-bot.com%2Ftools%2F">
+      <svg class="share-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <path d="M14 9V5l7 7-7 7v-4.1c-5 0-8.5 1.6-11 5.1 1-5 4-10 11-11z"/>
+      </svg>
+      <span class="share-label">共有</span>
+    </a>
+  </div>
+</div>
+<div class="toast" id="toast-page" role="status" aria-live="polite"></div>
+<script>
+/* 共有ボタン。**そのページ自身の URL を配る。**
+   1. スマホ（navigator.share）→ OS の共有シート
+   2. PC（クリップボード）→ URL をコピーして帯で伝える
+   3. どちらも無い → <a href> のまま X の共有ページへ */
+(function () {
+  var btn = document.getElementById('share-page'), toast = document.getElementById('toast-page');
+  if (!btn) return;
+  // **`#` を落とさない。**TL のように状態をハッシュに入れているツールでは、
+  // ここを削ると相手の画面に同じ結果が出ない（2026-08-30）
+  var url = location.href;
+  var name = document.title.split('｜')[0];
+  var text = name + '（AronaBot のツール）';
+  btn.href = 'https://x.com/intent/post?text=' + encodeURIComponent(text) +
+             '&url=' + encodeURIComponent(url);
+  var timer = null;
+  function say(t) {
+    if (!toast) return;
+    toast.textContent = t; toast.classList.add('shown');
+    clearTimeout(timer); timer = setTimeout(function () { toast.classList.remove('shown'); }, 2000);
+  }
+  btn.addEventListener('click', function (e) {
+    if (navigator.share) {
+      e.preventDefault();
+      navigator.share({ title: name, text: text, url: url }).catch(function () {});
+      return;
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      e.preventDefault();
+      navigator.clipboard.writeText(url).then(function () { say('リンクをコピーしました'); },
+        function () { window.open(btn.href, '_blank', 'noopener'); });
+    }
+  });
+})();
+</script>` <div class="topbar">
+</div>
+<div class="toast" id="toast-page" role="status" aria-live="polite"></div>
+
+<header class="thero">
+  <div class="thero-media" aria-hidden="true">
+    <picture>
+      <source srcset="../../images/hero-day.jpg" media="(prefers-color-scheme: dark)">
+      <img src="../../images/hero-night.jpg" alt="" width="1600" height="400" fetchpriority="high">
+    </picture>
+  </div>
+  <div class="thero-body">
+    <h1>総力戦のスコア計算機</h1>
+    <p class="thero-lead">クリアタイムからスコアを出します。逆に、目標スコアに届くのに何分何秒で倒せばいいかも出せます。総力戦と大決戦の全ボス・全難易度に対応。</p>
+  </div>
+</header>
+
+<div class="twrap">
+  <p class="tcrumb"><a href="../../">AronaBotの使い方</a><span class="sl">/</span><a href="../">ツール</a><span class="sl">/</span>総力戦のスコア計算機</p>
+
+  <div class="tcols lean" style="margin-top:20px">
+
+    <div class="tcol">
+      <div class="panel">
+        <div class="panel-h"><h2>相手を選ぶ</h2></div>
+        <div class="seg" id="kind" role="group" aria-label="種類">
+          <button type="button" data-k="raid" aria-pressed="true">総力戦</button>
+          <button type="button" data-k="elim" aria-pressed="false">大決戦</button>
+        </div>
+        <p class="lead" id="pick-lead" style="margin-top:12px">ボスと難易度を選んでください。</p>
+        <div class="bosses" id="bosses" style="margin-top:12px"></div>
+        <div class="numrow wide" style="margin-top:14px">
+          <div class="nm">難易度<small id="diff-note">&nbsp;</small></div>
+          <select id="i-diff" aria-label="難易度"></select>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-h"><h2>クリアタイム</h2></div>
+        <p class="lead" style="margin:0 0 12px">倒すまでにかかった時間です。<b>部隊をまたいで戦った合計</b>を入れてください。</p>
+        <div class="timein">
+          <span>分</span><input id="i-min" type="number" inputmode="numeric" min="0" max="10" step="1" value="1">
+          <span>秒</span><input id="i-sec" type="number" inputmode="decimal" min="0" max="59.9" step="0.1" value="30">
+          <span id="t-total"></span>
+        </div>
+        <div class="numrow wide" style="margin-top:14px">
+          <div class="nm">削れた HP<small>倒しきれなかったときだけ触ってください</small></div>
+          <select id="i-hp" aria-label="削れた HP の割合"></select>
+        </div>
+        <p class="err" id="err" hidden></p>
+      </div>
+
+      <div class="panel">
+        <div class="panel-h"><h2>目標スコアから逆に引く</h2></div>
+        <p class="lead" style="margin:0 0 12px">狙いたいスコアを入れると、<b>何分何秒で倒せば届くか</b>が出ます。</p>
+        <div class="numrow wide">
+          <div class="nm">目標のスコア<small id="goal-note">&nbsp;</small></div>
+          <input id="i-goal" type="number" inputmode="numeric" min="0" step="1000" value="0">
+        </div>
+        <p class="lead" id="goal-out" style="margin-top:12px">目標を入れると、要るタイムが出ます。</p>
+      </div>
+    </div>
+
+    <div class="tcol">
+      <div class="stats c3">
+        <div class="stat hero">
+          <div class="k">このタイムのスコア</div>
+          <div class="v" id="o-score">—</div>
+          <div class="sub" id="o-score-sub">&nbsp;</div>
+        </div>
+        <div class="stat">
+          <div class="k">いちばん低いスコア</div>
+          <div class="v" id="o-lo">—</div>
+          <div class="sub">時間ぶんを使い切って倒したとき</div>
+        </div>
+        <div class="stat">
+          <div class="k">いちばん高いスコア</div>
+          <div class="v" id="o-hi">—</div>
+          <div class="sub">0 秒で倒したときの理屈の上限</div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-h"><h2>内訳</h2></div>
+        <div class="ledger" id="ledger"></div>
+        <div class="gauge" id="gauge"></div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-h"><h2>タイムごとの早見</h2></div>
+        <p class="lead" id="tb-lead" style="margin:0 0 12px">&nbsp;</p>
+        <div class="dtwrap">
+          <table class="dt">
+            <thead><tr><th>クリアタイム</th><th>スコア</th><th>いちばん高いときとの差</th></tr></thead>
+            <tbody id="tb"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="sharebar" id="sharebar"></div>
+
+      <details class="src">
+        <summary>数字の出どころ</summary>
+        <p><b>スコアの式は、ゲームのデータの列そのものです。</b><a href="https://github.com/electricgoat/ba-data" target="_blank" rel="noopener">ba-data</a> の <code>Excel/RaidStageExcelTable.json</code>（総力戦 144 行）と <code>Excel/EliminateRaidStageExcelTable.json</code>（大決戦 504 行）に、ボスと難易度ごとに 4 つの数が入っています。</p>
+        <ul>
+          <li><code>DefaultClearScore</code> — <b>倒したときに必ずもらえるぶん</b></li>
+          <li><code>HPPercentScore</code> — <b>HP をぜんぶ削ったときのぶん</b>。削りきれなければその割合ぶん</li>
+          <li><code>PerSecondMinusScore</code> — <b>1 秒ごとに減るぶん</b></li>
+          <li><code>MaximumScore</code> — <b>時間ぶんの満額</b>（0 秒で倒したときにもらえる量）</li>
+        </ul>
+        <p><b>スコア ＝ 倒したぶん ＋ HP ぶん ＋（時間ぶんの満額 − 経過秒 × 1 秒あたり）。</b>時間ぶんは 0 より下には行きません。</p>
+        <p><b>式が合っていることは、648 行ぜんぶで確かめました。</b>同じ表に <code>MinimumAcquisitionScore</code> と <code>MaximumAcquisitionScore</code> が入っていて、<code>最低 ＝ DefaultClearScore ＋ HPPercentScore</code>、<code>最高 ＝ 最低 ＋ MaximumScore</code> が <b>648 行すべてで 1 の狂いもなく一致</b>しました。合わない行が出たらデータを作り直すときに止まります。</p>
+        <p><b>時間ぶんが尽きるのは 360 秒（6 分）です。</b><code>MaximumScore ÷ PerSecondMinusScore</code> が 648 行すべてで 360 でした。1 回の戦闘は 3 分か 4 分なので、<b>部隊を継ぎ足して 6 分を超えると時間ぶんは 0 になります。</b></p>
+        <p><b>地形と装甲はスコアに関係しません。</b>大決戦の行は「ボス_地形_装甲」という名前で 504 行ありますが、<b>同じボス・同じ難易度なら中身が 1 種類しかありませんでした。</b>総力戦にも <code>Binah_Street</code> のような地形つきの行がありますが、そちらも値は同じです。なので 165 行に畳んで持っています。</p>
+        <p><b>ボスの日本語名は <a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a> から引いています。</b>ゲームのデータ側は <code>Binah</code> のような開発名しか持っていません。<b>表によって大文字小文字が揃っていない</b>（<code>ShiroKuro</code> と <code>Shirokuro</code>）ので小文字にして引き、大決戦だけ別名になっている 2 つ（<code>Kaitenger</code> ＝ KAITEN FX Mk.0、<code>HoverCraft</code> ＝ ホバークラフト）は対応表を持っています。</p>
+        <p><b>倒しきれなかったときは、クリアぶんと時間ぶんが入りません。</b>HP を削った割合ぶんだけになります。この扱いはデータに明記されていないので、<code>MinimumAcquisitionScore</code> が「クリアしたときの最低」であることからの読み取りです。</p>
+        <p>出典 — <a href="https://github.com/electricgoat/ba-data" target="_blank" rel="noopener">electricgoat/ba-data</a>（スコアの列）、<a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a>（ボスの名前と絵）。取得は <span id="ver">—</span>。</p>
+      </details>
+    </div>
+
+  </div>
+</div>
+
+<script>window.TOUR = {"key": "raid-score", "steps": [{"sel": "#bosses", "t": "ボスを選びます", "d": "総力戦と大決戦を切り替えられます。地形と装甲はスコアに関係しないので、選ぶ必要はありません。"}, {"sel": "#i-min", "t": "クリアタイムを入れます", "d": "倒すまでにかかった合計の時間です。部隊をまたいだぶんも足してください。"}, {"sel": "#o-score", "t": "スコアが出ます", "d": "内訳と、いちばん高いときとの差も出します。倒しきれなかったときは、削れた HP の割合を入れてください。"}, {"sel": "#i-goal", "t": "逆にも引けます", "d": "狙いたいスコアを入れると、何分何秒で倒せば届くかが出ます。"}]};</script>
+<script src="../tour.js?v=1"></script>
+
+<script src="../share.js?v=1"></script>
+
+<footer>
+  <div class="foot-inner">
+    <p class="foot-name">AronaBotの使い方</p>
+    <p class="foot-links">
+      <a href="../../">AronaBot のページ</a>
+      <span class="sep">/</span>
+      <a href="../">ツール一覧</a>
+      <span class="sep">/</span>
+      <a href="https://x.com/pe6cak" target="_blank" rel="noopener">制作者の X（@pe6cak）</a>
+      <span class="sep">/</span>
+      <span>不具合・要望は <b>@0r.not</b> まで</span>
+    </p>
+    <p class="disclaimer">
+      <b>このサイトはファンが作った非公式のものです。</b>運営とは関係ありません。
+      <small>掲載しているゲーム内の画像・アイコン・名称・数値は、Nexon Games / Yostar の
+      「ブルーアーカイブ」から引用したもので、著作権はすべて権利者に帰属します。
+      ツールの計算に使うデータは <a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a> と
+      <a href="https://github.com/electricgoat/ba-data" target="_blank" rel="noopener">ba-data</a> から取得しています。
+      権利者の方でご指摘があれば <b>@0r.not</b> までご連絡ください。</small>
+    </p>
+  </div>
+</footer>
+
+<script src="data.js"></script>
+<script>
+(function () {
+  'use strict';
+  var R = window.RSCORE;
+  var el = function (id) { return document.getElementById(id); };
+  function fmt(n) { return Math.round(n).toLocaleString('ja-JP'); }
+  function esc(t) {
+    return String(t).replace(/[&<>"]/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
+    });
+  }
+  /** 秒を M:SS.S の形に。**タイムは分と秒で読むもの。** */
+  function clock(sec) {
+    var m = Math.floor(sec / 60), r = sec - m * 60;
+    return m + ':' + (r < 10 ? '0' : '') + (Math.round(r * 10) / 10).toFixed(1);
+  }
+
+  var kind = 'raid', boss = null, diff = null, hp = 100;
+
+  function bossesOf(k) {
+    var seen = {}, out = [];
+    R.rows.forEach(function (r) {
+      if (r.k !== k || seen[r.b]) return;
+      seen[r.b] = true; out.push({ b: r.b, n: r.n, ic: r.ic });
+    });
+    return out;
+  }
+  function diffsOf(k, b) {
+    return R.rows.filter(function (r) { return r.k === k && r.b === b; })
+                 .map(function (r) { return r.d; });
+  }
+  function row() {
+    return R.rows.filter(function (r) {
+      return r.k === kind && r.b === boss && r.d === diff;
+    })[0] || null;
+  }
+
+  /** そのタイムのスコア。**時間ぶんは 0 より下には行かない。**
+      HP を削りきれなかったときは、クリアぶんが入らず HP ぶんだけになる。 */
+  function scoreAt(r, sec, hpPct) {
+    var hpPart = r.hp * (hpPct / 100);
+    if (hpPct < 100) return { total: hpPart, clear: 0, hp: hpPart, time: 0, killed: false };
+    var timePart = Math.max(0, r.mx - sec * r.ps);
+    return { total: r.cl + hpPart + timePart, clear: r.cl, hp: hpPart, time: timePart, killed: true };
+  }
+
+  function drawBosses() {
+    var list = bossesOf(kind);
+    if (!list.some(function (x) { return x.b === boss; })) boss = list.length ? list[0].b : null;
+    el('bosses').innerHTML = list.map(function (x) {
+      return '<button type="button" class="bbtn" data-b="' + esc(x.b) + '" aria-pressed="' +
+        (x.b === boss) + '">' +
+        '<img src="../img/bossicon_' + esc(x.ic) + '.webp" alt="" width="46" height="46" loading="lazy"' +
+        ' onerror="this.onerror=null;this.src=\'../img/boss_' + esc(x.ic) + '.webp\'">' +
+        '<span class="nm">' + esc(x.n) + '</span></button>';
+    }).join('');
+
+    var ds = diffsOf(kind, boss);
+    if (ds.indexOf(diff) < 0) diff = ds[ds.length - 1] || null;
+    el('i-diff').innerHTML = ds.map(function (d) {
+      return '<option value="' + esc(d) + '"' + (d === diff ? ' selected' : '') + '>' +
+        esc(R.diffJa[d] || d) + '</option>';
+    }).join('');
+    el('diff-note').textContent = ds.length + ' 段あります';
+  }
+
+  (function buildHp() {
+    var h = '';
+    for (var v = 100; v >= 5; v -= 5) {
+      h += '<option value="' + v + '"' + (v === 100 ? ' selected' : '') + '>' +
+        (v === 100 ? '倒しきった（100%）' : v + ' %') + '</option>';
+    }
+    el('i-hp').innerHTML = h;
+  })();
+
+  function secs() {
+    var m = Math.max(0, parseFloat(el('i-min').value) || 0);
+    var s = Math.max(0, parseFloat(el('i-sec').value) || 0);
+    return m * 60 + s;
+  }
+
+  function draw() {
+    var r = row();
+    if (!r) return;
+    var sec = secs();
+    hp = parseInt(el('i-hp').value, 10) || 100;
+    var sc = scoreAt(r, sec, hp);
+    var lo = r.cl + r.hp, hi = lo + r.mx;
+
+    el('t-total').textContent = '合わせて ' + clock(sec);
+    var over = sec > R.span;
+    el('err').hidden = !over;
+    if (over) {
+      el('err').textContent = R.span + ' 秒（' + clock(R.span) +
+        '）を超えると、時間ぶんは 0 のままです。';
+    }
+
+    el('o-score').innerHTML = fmt(sc.total) + '<small> 点</small>';
+    el('o-score-sub').textContent = sc.killed
+      ? 'いちばん高いときとの差は ' + fmt(hi - sc.total) + ' 点'
+      : '倒しきっていないので、クリアぶんと時間ぶんは入りません';
+    el('o-lo').innerHTML = fmt(lo) + '<small> 点</small>';
+    el('o-hi').innerHTML = fmt(hi) + '<small> 点</small>';
+
+    el('ledger').innerHTML = [
+      ['倒したぶん', sc.clear, r.cl],
+      ['HP を削ったぶん', sc.hp, r.hp],
+      ['時間ぶん', sc.time, r.mx]
+    ].map(function (x) {
+      return '<div class="row"><span>' + x[0] +
+        '<span class="subnote">満額 ' + fmt(x[2]) + '</span></span><span>' + fmt(x[1]) + '</span></div>';
+    }).join('') +
+      '<div class="row total"><span>合計</span><span>' + fmt(sc.total) + ' 点</span></div>';
+
+    drawGauge(r, sec, sc, lo, hi);
+    drawTable(r, sec);
+
+    el('goal-note').textContent = fmt(lo) + ' 〜 ' + fmt(hi) + ' 点のあいだで入れてください';
+    drawGoal(r, lo, hi);
+    el('pick-lead').innerHTML = esc(r.n) + '（' + esc(R.diffJa[r.d] || r.d) + '）は<b>1 戦 ' +
+      r.du + ' 秒</b>。<b>地形と装甲はスコアに関係しません。</b>';
+  }
+
+  /* 目盛り。**低いところから高いところまでの、どこに居るか。** */
+  function drawGauge(r, sec, sc, lo, hi) {
+    var W = 720, H = 64, L = 8, Rr = 8, BH = 22, TOP = 10;
+    var p = Math.max(0, Math.min(1, (sc.total - lo) / (hi - lo || 1)));
+    var w = (W - L - Rr);
+    var g = '<rect class="track" x="' + L + '" y="' + TOP + '" width="' + w + '" height="' + BH + '" rx="6"></rect>' +
+      '<rect class="fill" x="' + L + '" y="' + TOP + '" width="' + (w * p).toFixed(1) + '" height="' + BH + '" rx="6"></rect>';
+    // 60 秒ごとの目盛り
+    for (var t = 0; t <= R.span; t += 60) {
+      var q = 1 - t / R.span;
+      var x = L + w * q;
+      g += '<line class="tick" x1="' + x.toFixed(1) + '" y1="' + TOP + '" x2="' + x.toFixed(1) +
+           '" y2="' + (TOP + BH) + '"></line>' +
+           '<text x="' + x.toFixed(1) + '" y="' + (TOP + BH + 14) + '" text-anchor="middle">' +
+           (t / 60) + '分</text>';
+    }
+    g += '<text class="now" x="' + Math.min(W - 40, Math.max(30, L + w * p)).toFixed(1) +
+         '" y="' + (TOP - 2) + '" text-anchor="middle">' + fmt(sc.total) + '</text>';
+    el('gauge').innerHTML = '<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="スコアの位置">' + g + '</svg>';
+  }
+
+  /* タイムごとの早見。**30 秒刻み。** */
+  function drawTable(r, sec) {
+    var hi = r.cl + r.hp + r.mx;
+    var rows = [];
+    for (var t = 0; t <= R.span; t += 30) rows.push(t);
+    var near = rows.reduce(function (a, b) {
+      return Math.abs(b - sec) < Math.abs(a - sec) ? b : a;
+    }, rows[0]);
+    el('tb-lead').innerHTML = '倒しきったときのスコアです。<b>1 秒あたり ' + fmt(r.ps) +
+      ' 点</b>ずつ減って、<b>' + clock(R.span) + ' で時間ぶんが 0</b> になります。';
+    el('tb').innerHTML = rows.map(function (t) {
+      var s2 = r.cl + r.hp + Math.max(0, r.mx - t * r.ps);
+      var on = t === near;
+      return '<tr' + (on ? ' class="here"' : '') + '><td>' + clock(t) + '</td>' +
+        '<td' + (on ? ' class="hi"' : '') + '>' + fmt(s2) + '</td>' +
+        '<td>' + (hi - s2 ? '−' + fmt(hi - s2) : '—') + '</td></tr>';
+    }).join('');
+  }
+
+  /* 目標スコアから、要るタイムを逆に出す。 */
+  function drawGoal(r, lo, hi) {
+    var g = Math.max(0, parseFloat(el('i-goal').value) || 0);
+    if (!g) { el('goal-out').textContent = '目標を入れると、要るタイムが出ます。'; return; }
+    if (g > hi) {
+      el('goal-out').innerHTML = '<b>' + fmt(g) + ' 点には届きません。</b>倒しきって 0 秒でも ' +
+        fmt(hi) + ' 点までです。';
+      return;
+    }
+    if (g <= lo) {
+      el('goal-out').innerHTML = '<b>倒しきれば必ず届きます。</b>' + clock(R.span) +
+        ' かけても ' + fmt(lo) + ' 点は入ります。';
+      return;
+    }
+    var need = (r.mx - (g - lo)) / r.ps;
+    el('goal-out').innerHTML = '<b>' + clock(Math.max(0, need)) + ' までに倒せば ' + fmt(g) +
+      ' 点に届きます。</b>いまのタイムとの差は ' + clock(Math.abs(need - secs())) +
+      (need >= secs() ? '（間に合っています）' : '（縮める必要があります）') + '。';
+  }
+
+  el('kind').addEventListener('click', function (e) {
+    var b = e.target.closest('button'); if (!b) return;
+    kind = b.dataset.k;
+    [].forEach.call(el('kind').querySelectorAll('button'), function (x) {
+      x.setAttribute('aria-pressed', String(x.dataset.k === kind));
+    });
+    drawBosses(); draw();
+  });
+  el('bosses').addEventListener('click', function (e) {
+    var b = e.target.closest('button'); if (!b) return;
+    boss = b.dataset.b; drawBosses(); draw();
+  });
+  ['i-diff', 'i-min', 'i-sec', 'i-hp', 'i-goal'].forEach(function (id) {
+    el(id).addEventListener('input', function () {
+      if (id === 'i-diff') diff = el('i-diff').value;
+      draw();
+    });
+    el(id).addEventListener('change', function () {
+      if (id === 'i-diff') diff = el('i-diff').value;
+      draw();
+    });
+  });
+
+  el('ver').textContent = R.version;
+  drawBosses();
+  draw();
+})();
+</script>
+</body>
+</html>

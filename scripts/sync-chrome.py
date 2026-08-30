@@ -120,8 +120,15 @@ FOOTER_RE = re.compile(r'<footer>.*?\n</footer>', re.S)
 def sync(path: pathlib.Path, up: str, tools_href: str, current: bool) -> bool:
     s = path.read_text(encoding="utf-8")
     out = s
-    if TOPBAR_RE.search(out):
-        out = TOPBAR_RE.sub(lambda m: topbar(up, tools_href, current), out, count=1)
+    m = TOPBAR_RE.search(out)
+    if m:
+        # **食いすぎていないかを見る。**この正規表現は `\n</div>` まで貪欲でない
+        # だけなので、閉じタグが 1 行に畳まれていると本文まで飲み込む
+        # （2026-08-30、16 本目の骨を作ったときに実際に本文が消えた）
+        if len(m.group(0)) > 4000:
+            print(f"  !! topbar の当たりが広すぎる（{len(m.group(0))} 文字）: {path}", file=sys.stderr)
+            return False
+        out = TOPBAR_RE.sub(lambda mm: topbar(up, tools_href, current), out, count=1)
     else:
         print(f"  !! topbar が見つからない: {path}", file=sys.stderr)
     if FOOTER_RE.search(out):
