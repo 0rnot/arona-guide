@@ -291,6 +291,8 @@
         var lag = b.af || 0;
         one.segs = [[r.at + lag, r.at + lag + one.ms / 1000]];
         one.iv = 0; one.lag = lag; one.afu = !!b.afu;
+        // **味方バフの相手。**`null` は全員（既定）
+        one.rcv = (r.e && r.e.bt != null) ? r.e.bt : null;
         out.push(one);
       });
     });
@@ -437,11 +439,12 @@
     }
     if (Array.isArray(d.o)) {
       order = d.o.map(function (e) {
-        return typeof e === 'number' ? { i: e, t: null, to: null, ov: null, f: null }
+        return typeof e === 'number' ? { i: e, t: null, to: null, ov: null, f: null, bt: null }
                                      : { i: e.i, t: (e.t == null ? null : +e.t),
                                          to: (e.to == null ? null : +e.to),
                                          ov: (e.ov == null ? null : +e.ov),
-                                         f: (e.f == null ? null : +e.f) };
+                                         f: (e.f == null ? null : +e.f),
+                                         bt: (e.bt == null ? null : +e.bt) };
       }).filter(function (e) { return e.i >= 0 && e.i < slots.length; });
     }
     if (Array.isArray(d.gk)) {
@@ -517,10 +520,13 @@
                   .filter(Boolean).join('!');
     var fm = order.map(function (e, j) { return e.f == null ? '' : j + ':' + e.f; })
                   .filter(Boolean).join('!');
+    // 味方バフの相手。**後ろに足しただけ**なので、古いリンクはそのまま読める
+    var bt = order.map(function (e, j) { return e.bt == null ? '' : j + ':' + e.bt; })
+                  .filter(Boolean).join('!');
     var sw = showKey();
     var tail = [el('i-start').value, capNow(), el('i-gb').value, el('i-gc').value,
                 goal == null ? '' : n1x(goal), gk, ov, fm, sw === '111' ? '' : sw,
-                dur ? String(dur) : ''];
+                dur ? String(dur) : '', bt];
     while (tail.length && tail[tail.length - 1] === '') tail.pop();
     return '#' + mode + '|' + ps + '|' + os + '|' + tail.join('/');
   }
@@ -552,7 +558,7 @@
         var to = null, y = x, gt = x.indexOf('>');
         if (gt >= 0) { to = +x.slice(gt + 1); y = x.slice(0, gt); }
         var a = y.split('@');
-        d.o.push({ i: +a[0], t: a.length > 1 ? +a[1] : null, to: isNaN(to) ? null : to });
+        d.o.push({ i: +a[0], t: a.length > 1 ? +a[1] : null, to: isNaN(to) ? null : to, bt: null });
       });
     }
     var g = (p[3] || '').split('/');
@@ -581,6 +587,12 @@
     }
     if (g[8]) d.sw = g[8];
     if (g[9]) d.dr = g[9];
+    if (g[10]) {
+      g[10].split('!').forEach(function (x) {
+        var a2 = x.split(':');
+        if (d.o[+a2[0]]) d.o[+a2[0]].bt = +a2[1];
+      });
+    }
     apply(d);
     return true;
   }
@@ -1100,6 +1112,30 @@
     });
     return h + '</select>';
   }
+  /** 味方にかかるバフを、誰に乗せるか。
+
+      **`data.js` は「誰にかかるか」を本人／味方／敵の 3 つでしか持っていない。**
+      味方バフが 1 人に付くのか全員に付くのかが分からないので、攻撃力の倍率を
+      幅（左が本人ぶんだけ、右が全部乗せ）でしか出せなかった
+      （2026-08-30 の先生の指摘——「上のスキル順のところでバフをかけるキャラも
+      選択できるようにすれば解決」）。**既定は全員で、絞りたい行だけ手で決める。** */
+  function btSel(r, i) {
+    var h = '<select data-k="bt" data-j="' + i + '" aria-label="味方バフの相手">' +
+      '<option value="">味方バフは全員へ</option>';
+    members().forEach(function (m) {
+      h += '<option value="' + m.i + '"' + (r.e.bt === m.i ? ' selected' : '') + '>' +
+        esc(m.d.n) + ' だけに</option>';
+    });
+    return h + '</select>';
+  }
+  /** その行の EX に、味方にかかる持続効果があるか。**無ければ選ばせない。** */
+  function hasAlly(r) {
+    return !!(r.sk && r.sk.bf && r.sk.bf.some(function (b) {
+      return eff_sd(b) === 'ally' && b.du;
+    }));
+  }
+  function eff_sd(b) { return b.sd; }
+
   /** オーバーコストを渡す先。**スキル文は「味方 1 人」としか言わない**ので、
       コスト減少と同じように手で決めてもらう。付くのはストライカー（`AllyMain`）。 */
   function ovSel(r, i) {
@@ -1226,6 +1262,7 @@
         (r.grant && r.grant.sd === 'ally' ? giveSel(r, i) : '') +
         (r.d.id === NAGISA_SW && partyFull() ? ovSel(r, i) : '') +
         (r.fl.length > 1 ? formSel(r, i) : '') +
+        (hasAlly(r) ? btSel(r, i) : '') +
         '</span></span>' +
         '<span class="at">' + (r.at === null ? '撃てない'
           : dur ? '残り ' + clock(Math.max(0, dur - r.at)) : n1(r.at) + ' 秒') +
@@ -1567,8 +1604,12 @@
         use.forEach(function (b) {
           var on = b.segs.some(function (s) { return mid >= s[0] && mid < s[1]; });
           if (!on) return;
+          /* **味方バフの相手が決まっていれば、その子にだけ乗せる。**
+             決めていない行は今までどおり全員に乗せる（既定）。
+             これで幅が消えて 1 本の線になる（2026-08-30 の先生の指示）。 */
           if (b.sd === 'self') { if (b.si === m.i) { lo += b.v; hi += b.v; } }
-          else hi += b.v;
+          else if (b.rcv == null) { lo += b.v; hi += b.v; }
+          else if (b.rcv === m.i) { lo += b.v; hi += b.v; }
         });
         var last = segs[segs.length - 1];
         if (last && last.lo === lo && last.hi === hi) last.t1 = t1;
@@ -1686,9 +1727,9 @@
       box.innerHTML = '<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="攻撃力の倍率">' +
         g + rows + goalMark(goal, x, T, H - B, span) + '</svg>';
       lead.textContent = '素の攻撃力を 1 としたときの倍率です。' +
-        '幅で出しているのは、data.js が「誰にかかるか」を本人／味方／敵の 3 つでしか持っておらず、' +
-        '味方のバフが 1 人に付くのか全員に付くのかが分からないためです——' +
-        '左が本人ぶんだけ、右が味方ぶんも全部乗せた場合。' +
+        '本人にかかるバフは撃った子だけ、味方にかかるバフは編成の全員に乗せています。' +
+        '1 人にしか付かないスキルは、上の「撃つ順番」でその行の相手を選ぶと、' +
+        'その子だけに乗ります。' +
         '足し算の攻撃力（AttackPower_Base）と特効は、ここには入れていません。';
     }
     // 内訳。**攻撃力に入れたものと、入れなかったものを分けて出す。**
@@ -1980,7 +2021,7 @@
       var i = here[w.id];
       if (i == null) return;
       slots[i].ex = w.ex;
-      order.push({ i: i, t: null, to: null, ov: null, f: null });
+      order.push({ i: i, t: null, to: null, ov: null, f: null, bt: null });
     });
     draw();
     // **貼られた時刻より遅くしか撃てない行だけ、時刻を留める。**
@@ -2180,6 +2221,10 @@
     } else if (k === 'give') {
       var jg = +t.dataset.j;
       if (order[jg]) order[jg].to = t.value === '' ? null : +t.value;
+      draw();
+    } else if (k === 'bt') {
+      var jb = +t.dataset.j;
+      if (order[jb]) order[jb].bt = t.value === '' ? null : +t.value;
       draw();
     } else if (k === 'at') {
       var j2 = +t.dataset.j;
