@@ -64,10 +64,13 @@
   .legend .sw.k0 { background: #3a76c4; } .legend .sw.k1 { background: #cf7020; }
   .legend .sw.k2 { background: #7b57b8; }
 
-  .pal { display: grid; gap: 8px; }
+  /* **盤のすぐ上に置く。**別の柱にあると、押すたびに視線と指が往復する */
+  .palrow { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; margin-bottom: 14px; }
+  .palrow .pallb { font-size: .78rem; font-weight: 700; color: var(--fg-mute); }
+  .pal { display: flex; flex-wrap: wrap; gap: 8px; }
   .pal button {
-    display: grid; grid-template-columns: 22px 1fr auto; align-items: center; gap: .7em;
-    width: 100%; text-align: left; padding: .6em .8em; font: inherit; font-size: .87rem;
+    display: inline-grid; grid-template-columns: 18px auto auto; align-items: center; gap: .5em;
+    text-align: left; padding: .45em .75em; font: inherit; font-size: .84rem;
     border: 1px solid var(--line); border-radius: 10px; background: var(--card);
     color: var(--fg); cursor: pointer; transition: border-color .14s ease, background .14s ease;
   }
@@ -76,6 +79,7 @@
   .pal .sw { width: 18px; height: 18px; border-radius: 5px; }
   .pal .sw.k0 { background: #3a76c4; } .pal .sw.k1 { background: #cf7020; }
   .pal .sw.k2 { background: #7b57b8; } .pal .sw.emp { background: var(--bg-sub); border: 1px solid var(--line); }
+  .pal .sz { font-size: .74rem; color: var(--fg-mute); font-variant-numeric: tabular-nums; }
   .pal .rem { font-size: .76rem; color: var(--fg-mute); font-variant-numeric: tabular-nums; }
 
   .picks { margin-top: 4px; }
@@ -157,11 +161,15 @@
 
     <div class="tcol">
       <div class="panel">
-        <div class="panel-h"><span class="n">03</span><h2>盤面</h2></div>
-        <p class="lead">右で「なにが出たか」を選んでから、<b>そのマスを 1 つだけ</b>押します。マスの上に指を置くと、<b>その備品が届きうる範囲</b>が色の枠で出ます。</p>
+        <div class="panel-h"><span class="n">02</span><h2>盤面</h2></div>
+        <p class="lead"><b>なにが出たかを選んでから、そのマスを 1 つだけ</b>押します。もう一度押すと消えます。<b>備品の一部が見えただけで大丈夫</b>——端でも真ん中でも構いません。マスの上に指を置くと、その備品が届きうる範囲が枠で出ます。</p>
         <div class="seg" id="view" role="group" aria-label="表示の切り替え" style="margin-bottom:14px">
           <button type="button" data-v="any" aria-pressed="true">なにかある確率</button>
           <button type="button" data-v="rev" aria-pressed="false">当たる備品の大きさ</button>
+        </div>
+        <div class="palrow">
+          <span class="pallb">なにが出た？</span>
+          <div class="pal" id="pal"></div>
         </div>
         <div class="board" id="board"></div>
         <div class="legend" id="legend"></div>
@@ -192,7 +200,7 @@
       </div>
 
       <div class="panel">
-        <div class="panel-h"><span class="n">04</span><h2>おすすめのマス</h2></div>
+        <div class="panel-h"><span class="n">03</span><h2>おすすめのマス</h2></div>
         <p class="lead">上から順に、<b>備品に当たる確率</b>が高いマスです。「当たる備品の大きさ」は、そこに何かあったとき<b>それが何マスの備品か</b>の期待値で、大きいものほど見つけたときの手がかりが増えます。</p>
         <div class="picks" id="picks"></div>
       </div>
@@ -206,12 +214,6 @@
         <div style="margin-top:16px" id="items"></div>
       </div>
 
-      <div class="panel">
-        <div class="panel-h"><span class="n">02</span><h2>開けた結果</h2></div>
-        <p class="lead">選んでから盤面のマスを押します。<b>1 マスずつ</b>印を付けてください。もう一度押すと消えます。</p>
-        <p class="lead"><b>備品の一部が見えただけで印を付けられます。</b>それが端でも真ん中でも構いません。</p>
-        <div class="pal" id="pal"></div>
-      </div>
 
       <div class="note-box">
         <p><b>入力に矛盾があると「あり得る置き方 0 通り」になります。</b>個数や印を見直してください。数え上げが 0 になった時点で確率は出せません。</p>
@@ -223,6 +225,12 @@
       <details class="src">
         <summary>数字の出どころと、計算のしくみ</summary>
         <p><b>盤は 9 × 5 の 45 マス。</b>備品は重ならずに置かれていて、種類ごとの個数は決まっています。ここから「条件に合う置き方」をすべて数え上げ、そのうち何通りでそのマスが備品に覆われているかを割ったものが確率です。<b>近似やサンプリングは使っていません。</b></p>
+        <p><b>備品は 90 度回して置かれることがあります。</b>3×1 の備品なら、横 3 マスだけでなく縦 3 マスの向きもあり得るということです。
+          <b>これを数に入れているので、見た目より確率が下がることがあります。</b>
+          たとえば横 3 マスの備品を左端の 2 マスぶん見つけたとき、「その右隣も必ず同じ備品」とは限りません——
+          縦向きの別の備品が 2 つ並んでいることもあるからです。
+          <a href="https://github.com/terry-u16/schale-inventory-management" target="_blank" rel="noopener">terry-u16 の在庫管理計算機</a>も、
+          置き方を「回した／回していない」の 2 通りで数えています。</p>
         <p><b>置いてある前提。</b>置き方はあり得る全通りから一様に選ばれていて、開ける前に決まっており、あとから変わらない——この 3 つを仮定しています。決まった型（絶対に出ない配置）があると、ここで出す数字はずれます。</p>
         <p><b>数え上げのやり方。</b>盤を左の列から順に見ていき、各行について「いまの列から先、あと何マスぶん埋まっているか」だけを持ち歩きます。前向きの数え上げと後ろ向きの数え上げを掛け合わせると、1 マスごとの確率が厳密に出ます。1 週目（タツノオトシゴ 4・海藻 3・ウニ 1）なら、置き方は <b>175,761,438 通り</b>あります。</p>
         <p><b>備品の大きさと個数。</b><a href="https://github.com/terry-u16/schale-inventory-management" target="_blank" rel="noopener">terry-u16/schale-inventory-management</a>（MIT ライセンス）の <code>src/components/MainArea.tsx</code> に載っている 13 週ぶんの一覧を、最初の値として置いています。同じ考え方の DP ですが、こちらは通り数がいくつでも厳密な値を出します。</p>
@@ -382,21 +390,21 @@
     var cnt = [0, 0, 0], emp = 0;
     marks.forEach(function (v) { if (v === E) emp++; else if (v >= 0) cnt[v]++; });
     var h = '<button type="button" data-s="e" aria-pressed="' + (sel === 'e') + '">' +
-      '<span class="sw emp"></span><span>なにも無かった</span><span class="rem">' + emp + ' マス</span></button>';
+      '<span class="sw emp"></span><span>なにも無かった</span>' +
+      (emp ? '<span class="rem">印 ' + emp + '</span>' : '<span class="rem"></span>') + '</button>';
     h += items.map(function (it, k) {
       return '<button type="button" data-s="' + k + '" aria-pressed="' + (sel === String(k)) + '">' +
         '<span class="sw" style="background:' + COLOR[k] + '"></span>' +
-        '<span>' + (it.n || ((k + 1) + ' 番目')) + '</span>' +
-        '<span class="rem">' + cnt[k] + ' マス</span></button>';
+        '<span>' + (it.n || ((k + 1) + ' 番目')) +
+          ' <span class="sz">' + it.w + '×' + it.h + ' ×' + it.count + '</span></span>' +
+        (cnt[k] ? '<span class="rem">印 ' + cnt[k] + '</span>' : '<span class="rem"></span>') + '</button>';
     }).join('');
     el('pal').innerHTML = h;
   }
 
   function drawLegend() {
-    el('legend').innerHTML = items.map(function (it, k) {
-      return '<span class="lg"><span class="sw" style="background:' + COLOR[k] + '"></span>' +
-        (it.n || (k + 1) + ' 番目') + ' <span style="color:var(--fg-mute)">' + it.w + '×' + it.h + ' ×' + it.count + '</span></span>';
-    }).join('') + '<span class="lg"><span class="sw" style="background:var(--bg-sub);border:1px solid var(--line)"></span>数字＝確率</span>';
+    // **上のパレットと同じものを 2 度出さない。**大きさはそちらに書いてある
+    el('legend').innerHTML = '<span class="lg">マスの数字は「なにかある確率」です</span>';
   }
 
   function pct(x) { return (x * 100).toFixed(x >= 0.995 ? 0 : 1).replace(/\.0$/, '') + '%'; }
