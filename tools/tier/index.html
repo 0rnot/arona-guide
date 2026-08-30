@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tier表メーカー｜AronaBot</title>
+<meta name="description" content="ブルアカの生徒 194 人を並べて、自分の Tier 表を作れます。画像として保存でき、URL でそのまま共有できます。">
+<meta name="theme-color" content="#c8892e">
+<link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<meta property="og:title" content="Tier表メーカー">
+<meta property="og:description" content="生徒を並べて自分の Tier 表を作る。画像で保存でき、URL でそのまま共有できます。">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://arona-bot.com/tools/tier/">
+<meta property="og:image" content="https://arona-bot.com/images/hero-night.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="stylesheet" href="../../style.css?v=15">
+<link rel="stylesheet" href="../tool.css?v=7">
+<style>
+  /* 生徒の顔。**盤と手札で同じ見た目にする。**動かしても大きさが変わらないほうが迷わない */
+  .stu {
+    position: relative; width: var(--sz, 62px); height: var(--sz, 62px);
+    border-radius: 12px; overflow: hidden; cursor: pointer; flex: none;
+    background: var(--bg-sub); border: 1px solid var(--line); padding: 0;
+    transition: transform .12s ease, box-shadow .12s ease, border-color .12s ease;
+  }
+  .stu img { display: block; width: 100%; height: 100%; object-fit: cover; }
+  .stu:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgb(0 0 0 / .18); }
+  .stu:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .stu.held { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 35%, transparent); transform: translateY(-3px); }
+  .stu .nm {
+    position: absolute; left: 0; right: 0; bottom: 0; padding: .15em .2em .2em;
+    font-size: 9px; line-height: 1.1; font-weight: 700; text-align: center;
+    color: #fff; background: linear-gradient(transparent, rgb(0 0 0 / .78) 55%);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .stu .sg {
+    position: absolute; top: 2px; left: 3px; font-size: 9px; font-weight: 800;
+    color: #ffd76a; text-shadow: 0 1px 2px rgb(0 0 0 / .8);
+  }
+  .stu[data-drag="over"] { border-color: var(--accent); }
+
+  /* Tier の行 */
+  .tiers { display: flex; flex-direction: column; gap: 8px; }
+  .row {
+    display: grid; grid-template-columns: 74px 1fr 30px; align-items: stretch;
+    border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: var(--card);
+  }
+  .row .lb {
+    display: grid; place-items: center; padding: .5em .3em; min-height: 74px;
+    font-size: 1.25rem; font-weight: 900; color: #241a08;
+    border: 0; font-family: inherit; text-align: center; width: 100%;
+    background: var(--tc, #e8b45a); resize: none; letter-spacing: .02em;
+  }
+  .row .lb:focus { outline: 2px solid #241a08; outline-offset: -4px; }
+  .row .drop {
+    display: flex; flex-wrap: wrap; gap: 6px; padding: 8px; min-height: 74px;
+    align-content: flex-start; background: var(--bg-sub);
+  }
+  .row .drop.over { background: color-mix(in srgb, var(--accent) 16%, var(--bg-sub)); }
+  .row .side { display: flex; flex-direction: column; border-left: 1px solid var(--line); }
+  .row .side button {
+    flex: 1; border: 0; background: var(--card); color: var(--fg-mute);
+    cursor: pointer; font-size: 11px; font-family: inherit; padding: 0;
+  }
+  .row .side button:hover { background: var(--bg-sub); color: var(--fg); }
+
+  .pool { display: flex; flex-wrap: wrap; gap: 6px; }
+  .pool.over { outline: 2px dashed var(--accent); outline-offset: 4px; border-radius: 12px; }
+  .poolwrap { max-height: 46vh; overflow-y: auto; padding: 2px; }
+
+  .fbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 12px; }
+  /* **style.css の select/input は width:100%。**そのまま並べると 1 行ずつになる */
+  .fbar select, .fbar input { width: auto; padding: .4em 2em .4em .7em; font-size: .84rem; }
+  .fbar input[type="search"] { padding-right: .7em; min-width: 150px; flex: 1 1 150px; max-width: 260px; }
+  @media (max-width: 560px) { .fbar select { flex: 1 1 45%; min-width: 0; } }
+
+  .held-note {
+    display: flex; align-items: center; gap: .6em; font-size: .84rem;
+    padding: .5em .8em; border-radius: 10px; margin-bottom: 12px;
+    background: color-mix(in srgb, var(--accent) 14%, var(--card));
+    border: 1px solid var(--accent);
+  }
+  .held-note[hidden] { display: none; }
+  .held-note img { width: 30px; height: 30px; border-radius: 7px; display: block; }
+
+  @media (max-width: 560px) {
+    .stu { --sz: 52px; }
+    .row { grid-template-columns: 56px 1fr 26px; }
+    .row .lb { font-size: 1rem; min-height: 62px; }
+    .row .drop { min-height: 62px; padding: 6px; gap: 5px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-inner">
+    <a class="topbar-name" href="../../">AronaBotの使い方</a>
+    <a class="topbar-tools" href="../">
+      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <path d="M21.7 18.3l-6-6a5.5 5.5 0 0 0-7-7l3.1 3.1-2.1 2.1L6.6 7.3a5.5 5.5 0 0 0 7 7l6 6a1 1 0 0 0 1.4 0l.7-.7a1 1 0 0 0 0-1.3z"/>
+      </svg>
+      ツール
+    </a>
+    <nav class="topbar-nav">
+      <a href="../../#can">機能</a>
+      <a href="../../#start">つかいはじめる</a>
+      <a href="../../#message">メッセージから</a>
+      <a href="../../#faq">よくある質問</a>
+    </nav>
+  </div>
+</div>
+
+<header class="thero">
+  <div class="thero-media" aria-hidden="true">
+    <picture>
+      <source srcset="../../images/hero-day.jpg" media="(prefers-color-scheme: dark)">
+      <img src="../../images/hero-night.jpg" alt="" width="1600" height="400" fetchpriority="high">
+    </picture>
+  </div>
+  <div class="thero-body">
+    <p class="thero-en">TIER LIST</p>
+    <h1>Tier表メーカー</h1>
+    <p class="thero-lead">生徒 <b id="hero-n">194</b> 人を並べて、自分の Tier 表を作れます。<b>画像として保存</b>でき、<b>URL をそのまま渡せば</b>相手にも同じ並びが出ます。</p>
+  </div>
+</header>
+
+<div class="twrap wide">
+  <p class="tcrumb"><a href="../../">AronaBotの使い方</a><span class="sl">/</span><a href="../">ツール</a><span class="sl">/</span>Tier表メーカー</p>
+
+  <div class="panel" style="margin-top:20px">
+    <div class="panel-h"><span class="n">01</span><h2>並べる</h2></div>
+    <p class="lead">生徒を<b>押してから、置きたい段を押します</b>。パソコンならそのまま掴んで運べます。<b>段の名前は書き換えられます。</b></p>
+    <div class="held-note" id="held-note" hidden>
+      <span id="held-img"></span>
+      <span><b id="held-name"></b> を持っています。置きたい段を押してください。</span>
+      <button type="button" class="btn" id="held-cancel" style="margin-left:auto;padding:.3em .8em;font-size:.8rem">やめる</button>
+    </div>
+    <div class="tiers" id="tiers"></div>
+    <div class="btnrow" style="margin-top:14px">
+      <button type="button" class="btn" id="add-row">段を足す</button>
+      <button type="button" class="btn" id="reset">ぜんぶ戻す</button>
+      <button type="button" class="btn pri" id="save">画像として保存</button>
+      <button type="button" class="btn" id="share">この並びの URL をコピー</button>
+      <span class="tag" id="msg"></span>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-h"><span class="n">02</span><h2>まだ置いていない生徒</h2></div>
+    <div class="fbar">
+      <input type="search" id="q" placeholder="名前で探す" aria-label="名前で探す" autocomplete="off">
+      <select id="f-sc" aria-label="学校"><option value="">学校：ぜんぶ</option></select>
+      <select id="f-ro" aria-label="役割"><option value="">役割：ぜんぶ</option></select>
+      <select id="f-bt" aria-label="攻撃属性"><option value="">攻撃：ぜんぶ</option></select>
+      <select id="f-at" aria-label="防御属性"><option value="">防御：ぜんぶ</option></select>
+      <select id="f-sq" aria-label="区分"><option value="">区分：ぜんぶ</option></select>
+      <select id="f-st" aria-label="レア度">
+        <option value="">★：ぜんぶ</option><option value="3">★3</option><option value="2">★2</option><option value="1">★1</option>
+      </select>
+      <span style="font-size:.8rem;color:var(--fg-mute)" id="pool-n"></span>
+    </div>
+    <div class="poolwrap"><div class="pool" id="pool"></div></div>
+  </div>
+
+  <div class="note-box">
+    <p><b>並びはこのブラウザに残ります。</b>次に開いたときも同じところから続けられます。外へ送ってはいません。</p>
+    <p><b>「この並びの URL をコピー」を押すと、並びが入った URL ができます。</b>それを渡せば、相手の画面にも同じ表が出ます。</p>
+  </div>
+
+  <details class="src">
+    <summary>数字と画像の出どころ</summary>
+    <p>生徒の一覧・学校・役割・攻撃属性・防御属性・区分・レア度、それに顔のアイコンは
+      <a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a> の <code>data/jp/students.min.json</code> と
+      <code>images/student/icon/</code> から取っています。日本語の呼び名も同じところの
+      <code>data/jp/localization.min.json</code> です。</p>
+    <p><b><code>data.js</code> は <code>scripts/build-tool-data.py</code> が作っています。</b>
+      GitHub Actions が毎日回しているので、<b>生徒が増えれば自動でここにも並びます。</b>
+      いま <b id="ver-n">—</b> 人です。</p>
+    <p><b>順位そのものはこのツールでは決めません。</b>誰が強いかは編成と相手で変わるもので、
+      ここが用意しているのは並べる場所だけです。</p>
+  </details>
+</div>
+
+<footer>
+  <div class="foot-inner">
+    <p class="foot-name">AronaBotの使い方</p>
+    <p class="foot-links">
+      <a href="../../">AronaBot のページ</a>
+      <span class="sep">/</span>
+      <a href="../">ツール一覧</a>
+      <span class="sep">/</span>
+      <a href="https://x.com/pe6cak" target="_blank" rel="noopener">制作者の X（@pe6cak）</a>
+      <span class="sep">/</span>
+      <span>不具合・要望は <b>@0r.not</b> まで</span>
+    </p>
+    <p class="disclaimer">
+      <b>このサイトはファンが作った非公式のものです。</b>運営とは関係ありません。
+      <small>掲載しているゲーム内の画像・アイコン・名称・数値は、Nexon Games / Yostar の
+      「ブルーアーカイブ」から引用したもので、著作権はすべて権利者に帰属します。
+      ツールの計算に使うデータは <a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a> と
+      <a href="https://github.com/electricgoat/ba-data" target="_blank" rel="noopener">ba-data</a> から取得しています。
+      権利者の方でご指摘があれば <b>@0r.not</b> までご連絡ください。</small>
+    </p>
+  </div>
+</footer>
+
+<script src="data.js?v=1"></script>
+<script>
+(function () {
+  'use strict';
+  var T = window.TIER, el = function (id) { return document.getElementById(id); };
+  var S = {}; T.students.forEach(function (s) { S[s.id] = s; });
+
+  /* 段の色。**上から下へ、赤 → 橙 → 黄 → 緑 → 青。**
+     Tier 表で見慣れた並びから外すと、段の上下が読み取れなくなる */
+  var COLORS = ['#e8635c', '#e89a4a', '#e8cc5a', '#8fc46a', '#6aa8d8', '#9b8fd0', '#b8b8b8'];
+  var DEFAULT = ['S', 'A', 'B', 'C', 'D'];
+
+  var rows = DEFAULT.map(function (n) { return { n: n, ids: [] }; });
+  var held = null;                 // 手に持っている生徒の id
+  var filters = { q: '', sc: '', ro: '', bt: '', at: '', sq: '', st: '' };
+  var KEY = 'arona-tier-v1';
+
+  function placed() {
+    var m = {};
+    rows.forEach(function (r) { r.ids.forEach(function (id) { m[id] = true; }); });
+    return m;
+  }
+
+  // ---- 保存と読み出し
+  function save() {
+    try { localStorage.setItem(KEY, JSON.stringify(rows)); } catch (e) {}
+  }
+  function encode() {
+    return rows.map(function (r) {
+      return encodeURIComponent(r.n) + ':' + r.ids.join('.');
+    }).join('~');
+  }
+  function decode(str) {
+    var out = [];
+    str.split('~').forEach(function (part) {
+      var i = part.indexOf(':');
+      if (i < 0) return;
+      var n = decodeURIComponent(part.slice(0, i));
+      var ids = part.slice(i + 1).split('.').map(Number).filter(function (x) { return S[x]; });
+      out.push({ n: n, ids: ids });
+    });
+    return out.length ? out : null;
+  }
+  (function load() {
+    var h = location.hash.replace(/^#t=/, '');
+    var fromUrl = h && h !== location.hash ? decode(h) : null;
+    if (fromUrl) { rows = fromUrl; return; }
+    try {
+      var raw = localStorage.getItem(KEY);
+      if (raw) {
+        var v = JSON.parse(raw);
+        if (Array.isArray(v) && v.length) {
+          rows = v.map(function (r) {
+            return { n: String(r.n || ''), ids: (r.ids || []).filter(function (x) { return S[x]; }) };
+          });
+        }
+      }
+    } catch (e) {}
+  })();
+
+  // ---- 生徒の札
+  function chip(s, where) {
+    return '<button type="button" class="stu' + (held === s.id ? ' held' : '') + '"' +
+      ' draggable="true" data-id="' + s.id + '" data-where="' + where + '"' +
+      ' title="' + s.n + '" aria-label="' + s.n + '">' +
+      '<img src="../img/student_' + s.id + '.webp" alt="" width="62" height="62" loading="lazy">' +
+      '<span class="sg">★' + s.st + '</span>' +
+      '<span class="nm">' + s.n + '</span></button>';
+  }
+
+  function drawTiers() {
+    el('tiers').innerHTML = rows.map(function (r, i) {
+      var c = COLORS[Math.min(i, COLORS.length - 1)];
+      return '<div class="row" data-r="' + i + '">' +
+        '<input class="lb" style="--tc:' + c + '" value="' + r.n.replace(/"/g, '&quot;') +
+          '" data-r="' + i + '" aria-label="' + (i + 1) + ' 段目の名前" maxlength="6">' +
+        '<div class="drop" data-r="' + i + '">' +
+          r.ids.map(function (id) { return chip(S[id], 'row'); }).join('') + '</div>' +
+        '<div class="side">' +
+          '<button type="button" data-act="up" data-r="' + i + '" aria-label="上へ">▲</button>' +
+          '<button type="button" data-act="del" data-r="' + i + '" aria-label="この段を消す">×</button>' +
+          '<button type="button" data-act="down" data-r="' + i + '" aria-label="下へ">▼</button>' +
+        '</div></div>';
+    }).join('');
+  }
+
+  function poolList() {
+    var used = placed();
+    return T.students.filter(function (s) {
+      if (used[s.id]) return false;
+      if (filters.q && s.n.indexOf(filters.q) < 0) return false;
+      if (filters.sc && s.sc !== filters.sc) return false;
+      if (filters.ro && s.ro !== filters.ro) return false;
+      if (filters.bt && s.bt !== filters.bt) return false;
+      if (filters.at && s.at !== filters.at) return false;
+      if (filters.sq && s.sq !== filters.sq) return false;
+      if (filters.st && String(s.st) !== filters.st) return false;
+      return true;
+    });
+  }
+
+  function drawPool() {
+    var list = poolList();
+    el('pool').innerHTML = list.map(function (s) { return chip(s, 'pool'); }).join('') ||
+      '<p style="color:var(--fg-mute);font-size:.86rem;margin:0">あてはまる生徒がいません。</p>';
+    var used = Object.keys(placed()).length;
+    el('pool-n').textContent = list.length + ' 人（置いたのは ' + used + ' 人）';
+  }
+
+  function drawHeld() {
+    var n = el('held-note');
+    if (!held) { n.hidden = true; return; }
+    n.hidden = false;
+    el('held-img').innerHTML = '<img src="../img/student_' + held + '.webp" alt="">';
+    el('held-name').textContent = S[held].n;
+  }
+
+  function draw() { drawTiers(); drawPool(); drawHeld(); save(); }
+
+  // ---- 置く・戻す
+  function removeFrom(id) {
+    rows.forEach(function (r) {
+      var i = r.ids.indexOf(id);
+      if (i >= 0) r.ids.splice(i, 1);
+    });
+  }
+  function putIn(rowIdx, id, beforeId) {
+    removeFrom(id);
+    var r = rows[rowIdx];
+    if (!r) return;
+    var at = beforeId != null ? r.ids.indexOf(beforeId) : -1;
+    if (at >= 0) r.ids.splice(at, 0, id); else r.ids.push(id);
+  }
+
+  // ---- タップ
+  document.addEventListener('click', function (ev) {
+    var chipEl = ev.target.closest('.stu');
+    if (chipEl) {
+      var id = +chipEl.dataset.id;
+      if (chipEl.dataset.where === 'row') {
+        // 置いてある子を押したら手札へ戻す。**持っている子がいれば入れ替えない**
+        if (held === id) { held = null; } else { removeFrom(id); held = null; }
+        draw(); return;
+      }
+      held = (held === id) ? null : id;
+      draw(); return;
+    }
+    var drop = ev.target.closest('.drop');
+    if (drop && held != null) { putIn(+drop.dataset.r, held); held = null; draw(); return; }
+    var pool = ev.target.closest('#pool, .poolwrap');
+    if (pool && held != null) { removeFrom(held); held = null; draw(); return; }
+  });
+
+  el('held-cancel').addEventListener('click', function (ev) { ev.stopPropagation(); held = null; draw(); });
+
+  // ---- 掴んで運ぶ（パソコン）
+  var dragId = null;
+  document.addEventListener('dragstart', function (ev) {
+    var c = ev.target.closest('.stu'); if (!c) return;
+    dragId = +c.dataset.id;
+    ev.dataTransfer.effectAllowed = 'move';
+    try { ev.dataTransfer.setData('text/plain', String(dragId)); } catch (e) {}
+  });
+  document.addEventListener('dragover', function (ev) {
+    var z = ev.target.closest('.drop, #pool, .poolwrap'); if (!z || dragId == null) return;
+    ev.preventDefault();
+    ev.dataTransfer.dropEffect = 'move';
+    var d = ev.target.closest('.drop');
+    [].forEach.call(document.querySelectorAll('.drop.over, .pool.over'), function (x) { x.classList.remove('over'); });
+    (d || el('pool')).classList.add('over');
+  });
+  document.addEventListener('drop', function (ev) {
+    if (dragId == null) return;
+    var d = ev.target.closest('.drop');
+    var z = d || ev.target.closest('#pool, .poolwrap');
+    if (!z) return;
+    ev.preventDefault();
+    if (d) {
+      var over = ev.target.closest('.stu');
+      putIn(+d.dataset.r, dragId, over && +over.dataset.id !== dragId ? +over.dataset.id : null);
+    } else {
+      removeFrom(dragId);
+    }
+    dragId = null; held = null; draw();
+  });
+  document.addEventListener('dragend', function () {
+    dragId = null;
+    [].forEach.call(document.querySelectorAll('.drop.over, .pool.over'), function (x) { x.classList.remove('over'); });
+  });
+
+  // ---- 段の操作
+  el('tiers').addEventListener('input', function (ev) {
+    var t = ev.target; if (!t.classList.contains('lb')) return;
+    rows[+t.dataset.r].n = t.value; save();
+  });
+  el('tiers').addEventListener('click', function (ev) {
+    var b = ev.target.closest('[data-act]'); if (!b) return;
+    var i = +b.dataset.r, act = b.dataset.act;
+    if (act === 'del') {
+      if (rows.length <= 1) return;
+      rows.splice(i, 1);
+    } else if (act === 'up' && i > 0) {
+      rows.splice(i - 1, 0, rows.splice(i, 1)[0]);
+    } else if (act === 'down' && i < rows.length - 1) {
+      rows.splice(i + 1, 0, rows.splice(i, 1)[0]);
+    }
+    draw();
+  });
+  el('add-row').addEventListener('click', function () {
+    rows.push({ n: String.fromCharCode(69 + rows.length - 4), ids: [] });
+    draw();
+  });
+  el('reset').addEventListener('click', function () {
+    rows = DEFAULT.map(function (n) { return { n: n, ids: [] }; });
+    held = null; draw();
+  });
+
+  // ---- 絞り込み
+  function bindFilter(id, key, opts) {
+    var n = el(id);
+    if (opts) {
+      var seen = {};
+      T.students.forEach(function (s) { seen[s[key]] = true; });
+      Object.keys(opts).forEach(function (k) {
+        if (!seen[k]) return;
+        n.insertAdjacentHTML('beforeend', '<option value="' + k + '">' + opts[k] + '</option>');
+      });
+    }
+    n.addEventListener('input', function () { filters[key] = n.value.trim(); drawPool(); });
+  }
+  bindFilter('q', 'q');
+  bindFilter('f-sc', 'sc', T.labels.School);
+  bindFilter('f-ro', 'ro', T.labels.TacticRole);
+  bindFilter('f-bt', 'bt', T.labels.BulletType);
+  bindFilter('f-at', 'at', T.labels.ArmorType);
+  bindFilter('f-sq', 'sq', T.labels.SquadType);
+  bindFilter('f-st', 'st');
+
+  // ---- 共有
+  function flash(t) {
+    el('msg').textContent = t;
+    setTimeout(function () { el('msg').textContent = ''; }, 2600);
+  }
+  el('share').addEventListener('click', function () {
+    var url = location.origin + location.pathname + '#t=' + encode();
+    history.replaceState(null, '', '#t=' + encode());
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(url).then(function () { flash('URL をコピーしました'); },
+        function () { flash('コピーできませんでした。アドレス欄からどうぞ'); });
+    } else { flash('アドレス欄の URL をそのまま渡せます'); }
+  });
+
+  // ---- 画像として保存
+  // **canvas に描き直す。**画面をそのまま撮る仕組みは無いので、
+  // 段の色・顔・名前を同じ並びで描く。名前を入れるのは、渡された相手が
+  // 顔だけでは分からない子を判別できるようにするため
+  el('save').addEventListener('click', function () {
+    var SZ = 76, NH = 17, GAP = 10, PAD = 12, LB = 104, W = 1120;
+    var CW = SZ, CH = SZ + NH;
+    var perRow = Math.max(1, Math.floor((W - LB - PAD * 2 + GAP) / (CW + GAP)));
+    var css = getComputedStyle(document.documentElement);
+    var bg = css.getPropertyValue('--bg').trim() || '#faf7f0';
+    var card = css.getPropertyValue('--card').trim() || '#fff';
+    var fg = css.getPropertyValue('--fg').trim() || '#241a08';
+    var mute = css.getPropertyValue('--fg-mute').trim() || '#8a8378';
+
+    var heights = rows.map(function (r) {
+      var lines = Math.max(1, Math.ceil(r.ids.length / perRow));
+      return lines * CH + (lines - 1) * GAP + PAD * 2;
+    });
+    var top = 92;
+    var H = top + heights.reduce(function (a, b) { return a + b + 8; }, 0) + 20;
+
+    var cv = document.createElement('canvas');
+    cv.width = W; cv.height = H;
+    var g = cv.getContext('2d');
+    g.fillStyle = bg; g.fillRect(0, 0, W, H);
+    g.fillStyle = fg;
+    g.font = '800 26px "Helvetica Neue", Arial, sans-serif';
+    g.fillText('Tier表', 26, 42);
+    g.font = '400 14px "Helvetica Neue", Arial, sans-serif';
+    g.fillStyle = mute;
+    g.fillText('arona-bot.com/tools/tier/', 26, 66);
+
+    function rrect(x, y, w, h, r) {
+      g.beginPath();
+      g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r);
+      g.arcTo(x + w, y + h, x, y + h, r); g.arcTo(x, y + h, x, y, r);
+      g.arcTo(x, y, x + w, y, r); g.closePath();
+    }
+
+    var imgs = {}, need = 0, done = 0;
+    rows.forEach(function (r) { need += r.ids.length; });
+
+    function paint() {
+      var y = top;
+      rows.forEach(function (r, i) {
+        var h = heights[i];
+        g.fillStyle = COLORS[Math.min(i, COLORS.length - 1)];
+        rrect(20, y, LB, h, 10); g.fill();
+        g.fillStyle = '#241a08';
+        g.font = '900 28px "Helvetica Neue", Arial, sans-serif';
+        g.textAlign = 'center'; g.textBaseline = 'middle';
+        g.fillText(r.n, 20 + LB / 2, y + h / 2);
+        g.textAlign = 'left'; g.textBaseline = 'alphabetic';
+
+        g.fillStyle = card;
+        rrect(20 + LB + 8, y, W - LB - 56, h, 10); g.fill();
+
+        r.ids.forEach(function (id, k) {
+          var cx = 20 + LB + 8 + PAD + (k % perRow) * (CW + GAP);
+          var cy = y + PAD + Math.floor(k / perRow) * (CH + GAP);
+          var im = imgs[id];
+          g.fillStyle = bg; rrect(cx, cy, SZ, SZ, 10); g.fill();
+          if (im) {
+            g.save(); rrect(cx, cy, SZ, SZ, 10); g.clip();
+            g.drawImage(im, cx, cy, SZ, SZ); g.restore();
+          }
+          g.fillStyle = fg;
+          g.font = '600 11px "Helvetica Neue", Arial, sans-serif';
+          g.textAlign = 'center';
+          var nm = S[id].n, wmax = SZ + 6;
+          while (nm.length > 1 && g.measureText(nm).width > wmax) nm = nm.slice(0, -1);
+          if (nm !== S[id].n) nm = nm.slice(0, -1) + '…';
+          g.fillText(nm, cx + SZ / 2, cy + SZ + 12);
+          g.textAlign = 'left';
+        });
+        y += h + 8;
+      });
+      cv.toBlob(function (blob) {
+        var a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'tier.png';
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(function () { URL.revokeObjectURL(a.href); }, 4000);
+        flash('画像を保存しました');
+      }, 'image/png');
+    }
+
+    if (!need) { paint(); return; }
+    rows.forEach(function (r) {
+      r.ids.forEach(function (id) {
+        var im = new Image();
+        im.onload = function () { imgs[id] = im; if (++done === need) paint(); };
+        im.onerror = function () { if (++done === need) paint(); };
+        im.src = '../img/student_' + id + '.webp';
+      });
+    });
+  });
+
+  el('hero-n').textContent = T.students.length;
+  el('ver-n').textContent = T.students.length;
+  draw();
+})();
+</script>
+</body>
+</html>

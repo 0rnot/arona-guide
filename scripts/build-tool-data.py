@@ -330,7 +330,41 @@ def build_equipment():
     }, header="/* scripts/build-tool-data.py が吐く。**手で直さない。** */\n")
 
 
-BUILDERS = {"bond": build_bond, "teacher-level": build_teacher_level, "equipment": build_equipment}
+# ------------------------------------------------------------ Tier 表
+
+def build_tier():
+    print("Tier 表メーカー")
+    students = as_list(get_json(SD.format("students")))
+    loc = get_json(SD.format("localization"))
+
+    keep = ("School", "TacticRole", "BulletType", "ArmorType", "SquadType")
+    labels = {k: loc.get(k, {}) for k in keep}
+
+    stu = []
+    for s in students:
+        if not s.get("Name"):
+            continue
+        stu.append({
+            "id": s["Id"], "n": s["Name"],
+            "sc": s.get("School", "ETC"), "ro": s.get("TacticRole", ""),
+            "bt": s.get("BulletType", ""), "at": s.get("ArmorType", ""),
+            "sq": s.get("SquadType", ""), "st": s.get("StarGrade", 0),
+        })
+    stu.sort(key=lambda x: (-x["st"], x["n"]))
+
+    n = 0
+    for s in stu:
+        n += fetch_icon(f"student_{s['id']}", f"https://schaledb.com/images/student/icon/{s['id']}.webp")
+    print(f"  アイコン {n} 枚を追加、生徒 {len(stu)} 人")
+
+    return write_js("tools/tier/data.js", "TIER", {
+        "students": stu, "labels": labels,
+        "version": "SchaleDB jp",
+    }, header="/* scripts/build-tool-data.py が吐く。**手で直さない。** */\n")
+
+
+BUILDERS = {"bond": build_bond, "teacher-level": build_teacher_level,
+            "equipment": build_equipment, "tier": build_tier}
 
 if __name__ == "__main__":
     want = sys.argv[1:] or list(BUILDERS)
