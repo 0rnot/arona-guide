@@ -74,6 +74,29 @@
   }
   .addrow button img { width: 26px; height: 26px; border-radius: 50%; }
 
+  /* 時刻の指定 */
+  .tlrow .when { display: flex; align-items: center; gap: .3em; margin-top: .35em;
+                 font-size: .74rem; color: var(--fg-mute); }
+  /* **幅を内容に合わせる。**`.tx` が 1fr なので、放っておくと行いっぱいに伸びる */
+  .tlrow .when select { width: auto; flex: none; padding: .2em 1.9em .2em .45em; font-size: .76rem; }
+  .tlrow .when input { width: 4.6em; flex: none; padding: .2em .4em; font-size: .78rem; text-align: right; }
+
+  /* コスト推移 */
+  .chart { width: 100%; overflow-x: auto; }
+  .chart svg { display: block; width: 100%; height: auto; min-width: 420px; }
+  .chart .grid { stroke: var(--line); stroke-width: 1; }
+  .chart .cap { stroke: var(--line); stroke-width: 1; stroke-dasharray: 4 4; }
+  .chart .area { fill: color-mix(in srgb, var(--accent) 16%, transparent); }
+  .chart .line { fill: none; stroke: var(--accent-tx); stroke-width: 2;
+                 stroke-linejoin: round; stroke-linecap: round; }
+  .chart .fire { stroke: var(--accent-tx); stroke-width: 1; stroke-dasharray: 3 3; }
+  .chart text { fill: var(--fg-mute); font-size: 11px; font-variant-numeric: tabular-nums; }
+  .chart text.n { fill: var(--fg); font-weight: 700; }
+
+  /* 書き出し */
+  .out { width: 100%; min-height: 8em; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+         font-size: .82rem; line-height: 1.7; padding: .7em .8em; resize: vertical; }
+
   /* コスト回復力を上げる生徒 */
   .rlist { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; }
   .rcard { display: grid; grid-template-columns: 46px 1fr; gap: .6em; align-items: start;
@@ -177,18 +200,21 @@
     <div class="tcol">
       <div class="panel">
         <div class="panel-h"><h2>編成</h2></div>
-        <p class="lead">ストライカー 4 人とスペシャル 2 人。<b>コスト回復力は 6 人の合計で決まります</b>ので、EX を撃たない子も入れてください。</p>
-        <p class="lead" style="margin-top:.6em"><b>ストライカー</b></p>
+        <div class="btnrow">
+          <div class="seg" id="mode" role="group" aria-label="コンテンツ">
+            <button type="button" data-m="6" aria-pressed="true">総力戦・大決戦（6 人）</button>
+            <button type="button" data-m="10" aria-pressed="false">制約解除決戦（10 人）</button>
+          </div>
+        </div>
+        <p class="lead" id="party-lead" style="margin-top:12px">ストライカー 4 人とスペシャル 2 人。<b>コスト回復力は 6 人の合計で決まります</b>ので、EX を撃たない子も入れてください。同じ子は 1 人までです。</p>
+        <p class="lead" style="margin-top:.8em"><b>ストライカー</b></p>
         <div class="party" id="party-main"></div>
         <p class="lead" style="margin-top:1em"><b>スペシャル</b></p>
         <div class="party sp" id="party-sup"></div>
         <datalist id="dl-main"></datalist>
         <datalist id="dl-sup"></datalist>
         <div class="btnrow" style="margin-top:14px">
-          <div class="seg" id="preset" role="group" aria-label="よくある編成">
-            <button type="button" data-p="himari">ヒマリ入り</button>
-            <button type="button" data-p="clear">空にする</button>
-          </div>
+          <button type="button" class="btn" id="clear-party">編成を空にする</button>
         </div>
       </div>
 
@@ -199,8 +225,16 @@
           <input id="i-start" type="number" min="0" max="10" step="0.1" value="0">
         </div>
         <div class="numrow">
-          <span class="nm">コストの上限<small>固有 4 でスペシャルだけ +0.5 になります</small></span>
-          <input id="i-cap" type="number" min="1" max="20" step="0.5" value="10">
+          <span class="nm">コストの上限<small>制約解除決戦は 20。固有 4 でスペシャルだけ +0.5 になります</small></span>
+          <input id="i-cap" type="number" min="1" max="30" step="0.5" value="10">
+        </div>
+        <div class="numrow">
+          <span class="nm">ステージのコスト回復力（実数）<small>ボスのギミックや、データに無いぶんを足し引きします</small></span>
+          <input id="i-gb" type="number" step="10" value="0">
+        </div>
+        <div class="numrow">
+          <span class="nm">ステージのコスト回復力（％）<small>編成の全員にかかる係数として足します</small></span>
+          <input id="i-gc" type="number" step="1" value="0">
         </div>
         <p class="err" id="err" hidden></p>
       </div>
@@ -240,7 +274,19 @@
         <p class="lead" id="tl-lead" style="margin-top:12px">まだ何も並んでいません。</p>
         <div class="btnrow" style="margin-top:10px">
           <button type="button" class="btn" id="clear-tl">並びを消す</button>
+          <button type="button" class="btn" id="copy-url">URL をコピー</button>
+          <button type="button" class="btn" id="copy-text">テキストをコピー</button>
         </div>
+        <p class="lead" style="margin-top:14px">書き出したもの。<b>そのまま動画の説明や記事に貼れます。</b></p>
+        <textarea class="out" id="out" readonly aria-label="書き出した TL"></textarea>
+      </div>
+    </div>
+
+    <div class="tfull">
+      <div class="panel">
+        <div class="panel-h"><h2>コストの動き</h2></div>
+        <p class="lead" id="chart-lead">EX を並べると、コストが貯まって減っていく様子が出ます。</p>
+        <div class="chart" id="chart"></div>
       </div>
     </div>
 
@@ -270,6 +316,10 @@
         <p><b>コストの上限は 10 です</b>（Blue Rec. の「最大コスト10まで溜まります」）。
           固有 4 でスペシャルのコスト上限が +0.5 になりますが、
           データ側の <code>Unlock</code> がまだ <code>false</code> なので初期値には入れていません。手で書き換えてください。</p>
+        <p><b>制約解除決戦はストライカー 6 人・スペシャル 4 人の 10 人編成で、コストの上限は 20 です。</b>
+          <a href="https://game8.jp/blue-archive/680052" target="_blank" rel="noopener">Game8「制約解除決戦の攻略とおすすめ編成」</a>に
+          「ストライカー生徒6人とスペシャル生徒4人を編成することができます」「コストの最大値も20まで増加しており」とあります。
+          コスト回復力の素は 700 × 10 人で 7000、1 コスト 1.43 秒です。</p>
         <p><b>開始時のコストはゲームのデータに入っていませんでした。</b>
           <code>Excel/</code> にも <code>DB/</code> にも戦闘の定数表が無く、攻略サイトにも記載を見つけられなかったので、
           <b>入力にしてあります</b>（既定は 0）。総力戦は 0 から始まるという前提です。</p>

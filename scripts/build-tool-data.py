@@ -1049,6 +1049,10 @@ def build_cost_timeline():
     n = 0
     for s in stu:
         n += fetch_portrait(f"student_{s['id']}", f"https://schaledb.com/images/student/collection/{s['id']}.webp")
+    # ツール一覧に出す絵。**スキルのアイコンは images/skill/ にある**（images/ui/ ではない）。
+    # コスト回復のアイコンがそのままあるので、時計を借りずにこれを使う
+    fetch_icon("skill_regencost",
+               "https://raw.githubusercontent.com/SchaleDB/SchaleDB/main/images/skill/COMMON_SKILLICON_REGENCOST.webp")
     holders = [s for s in stu if "r" in s]
     print(f"  生徒 {len(stu)} 人、コスト回復力に触る子 {len(holders)} 人、アイコン {n} 枚を追加")
     if len(holders) < 15:

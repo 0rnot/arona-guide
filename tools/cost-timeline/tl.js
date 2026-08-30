@@ -1,8 +1,8 @@
 /* TL のコスト計算機。
 
    見ているのは 2 つだけ。
-   ① 編成した 6 人からコスト回復力を出す（素 700 × 6 に、スキルの実数と % を重ねる）
-   ② 並べた EX を上から順に「コストの都合で最短いつ撃てるか」で置く
+   ① 編成した 6 人（制約解除決戦なら 10 人）からコスト回復力を出す
+   ② 並べた EX を上から順に置いて、コストの都合で撃てる時刻を出す
 
    **手札の並びは扱っていない。** ブルアカのカードは使うと山札に戻って引き直されるので、
    撃ちたい順に撃てるとは限らない。ここで出るのは下限であって、TL そのものではない。 */
@@ -14,52 +14,139 @@
   var byId = {};
   D.students.forEach(function (s) { byId[s.id] = s; });
 
+  /* 通常は ストライカー 4 ＋ スペシャル 2、制約解除決戦は 6 ＋ 4。
+     枠の数はモードで変わるが、**slots の並びは常に「ストライカーが先」**にしておき、
+     使わない後ろの枠は空のまま持っておく（モードを戻したときに編成が消えない）。 */
+  var LAYOUT = { 6: { main: 4, sup: 2, cap: 10 }, 10: { main: 6, sup: 4, cap: 20 } };
+  var MAIN_MAX = 6, SUP_MAX = 4;
+
   function n1(v) { return (Math.round(v * 10) / 10).toLocaleString('ja-JP', { minimumFractionDigits: 1, maximumFractionDigits: 1 }); }
   function n2(v) { return (Math.round(v * 100) / 100).toLocaleString('ja-JP', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
   function fmt(v) { return Math.round(v).toLocaleString('ja-JP'); }
   function face(id) { return '../img/student_' + id + '.webp'; }
+  /** 秒を M:SS.s にする。TL は分秒で書くのが普通なので、書き出しはこの形にする */
+  function clock(sec) {
+    var m = Math.floor(sec / 60), r = sec - m * 60;
+    return m + ':' + (r < 10 ? '0' : '') + n1(r);
+  }
+  function esc(t) {
+    return String(t).replace(/[&<>"]/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
+    });
+  }
 
   /* ---------- 状態
 
-     slots[0..3] がストライカー、slots[4..5] がスペシャル。
-     ex / sk はスキルの Lv、tier は「段のあるスキル」で手で選んだ段、
-     on は「持続時間のあるバフを効いているものとして数えるか」。 */
+     slots は ストライカー MAIN_MAX 枠 ＋ スペシャル SUP_MAX 枠の固定長。
+     order は { i: 枠の番号, t: 指定した秒（null なら最短） }。 */
   function emptySlot() { return { id: null, ex: 5, sk: 10, tier: {}, on: {} }; }
-  var slots = [], order = [];
-  for (var i = 0; i < 6; i++) slots.push(emptySlot());
+  var mode = 6, slots = [], order = [], lastSim = null;
+  for (var z = 0; z < MAIN_MAX + SUP_MAX; z++) slots.push(emptySlot());
+
+  function isMain(i) { return i < MAIN_MAX; }
+  function live(i) { return isMain(i) ? i < LAYOUT[mode].main : i - MAIN_MAX < LAYOUT[mode].sup; }
 
   var KEY = 'arona-cost-timeline';
+  function state() {
+    return { m: mode, s: slots, o: order,
+             st: el('i-start').value, cp: el('i-cap').value,
+             gb: el('i-gb').value, gc: el('i-gc').value };
+  }
+  function apply(d) {
+    if (!d) return;
+    if (d.m === 10 || d.m === 6) mode = d.m;
+    if (Array.isArray(d.s)) {
+      slots = [];
+      for (var i = 0; i < MAIN_MAX + SUP_MAX; i++) {
+        var x = d.s[i] || {};
+        // **枠と役割が食い違うものは捨てる。**保存していた古い形や、
+        // 手で書き換えた URL でスペシャルがストライカーの枠に入るのを防ぐ
+        var want = i < MAIN_MAX ? 'Main' : 'Support';
+        var ok = byId[x.id] && byId[x.id].sq === want;
+        slots.push({ id: ok ? x.id : null, ex: x.ex || 5, sk: x.sk || 10,
+                     tier: ok ? (x.tier || {}) : {}, on: ok ? (x.on || {}) : {} });
+      }
+    }
+    if (Array.isArray(d.o)) {
+      order = d.o.map(function (e) {
+        return typeof e === 'number' ? { i: e, t: null }
+                                     : { i: e.i, t: (e.t == null ? null : +e.t) };
+      }).filter(function (e) { return e.i >= 0 && e.i < slots.length; });
+    }
+    if (d.st != null) el('i-start').value = d.st;
+    if (d.cp != null) el('i-cap').value = d.cp;
+    if (d.gb != null) el('i-gb').value = d.gb;
+    if (d.gc != null) el('i-gc').value = d.gc;
+  }
   function save() {
-    try {
-      localStorage.setItem(KEY, JSON.stringify({ s: slots, o: order,
-        st: el('i-start').value, cp: el('i-cap').value }));
-    } catch (e) { /* 使えない環境でも動く */ }
+    try { localStorage.setItem(KEY, JSON.stringify(state())); } catch (e) { /* 使えない環境でも動く */ }
   }
   function load() {
     try {
       var raw = localStorage.getItem(KEY);
-      if (!raw) return;
-      var d = JSON.parse(raw);
-      if (d && Array.isArray(d.s) && d.s.length === 6) {
-        slots = d.s.map(function (x) {
-          return { id: byId[x.id] ? x.id : null, ex: x.ex || 5, sk: x.sk || 10,
-                   tier: x.tier || {}, on: x.on || {} };
-        });
-      }
-      if (Array.isArray(d.o)) order = d.o.filter(function (k) { return k >= 0 && k < 6; });
-      if (d.st != null) el('i-start').value = d.st;
-      if (d.cp != null) el('i-cap').value = d.cp;
+      if (raw) apply(JSON.parse(raw));
     } catch (e) { /* 壊れていたら初期状態のまま */ }
+  }
+
+  /* ---------- URL に載せる
+
+     `#6|10001.5.10,_,…|0,2@12.5|0/10/0/0`
+     順に モード ／ 編成 ／ 撃つ順番 ／ 開始・上限・ステージ補正。
+     **短く保つ。**QR にもチャットにも貼れる長さで収めたい。 */
+  function toHash() {
+    var ps = slots.map(function (s) {
+      if (!s.id) return '_';
+      var t = Object.keys(s.tier).map(function (k) { return k + ':' + s.tier[k]; }).join('!');
+      var o = Object.keys(s.on).filter(function (k) { return s.on[k]; }).join('!');
+      return s.id + '.' + s.ex + '.' + s.sk + (t || o ? '.' + t + '.' + o : '');
+    }).join(',');
+    var os = order.map(function (e) { return e.t == null ? e.i : e.i + '@' + e.t; }).join(',');
+    return '#' + mode + '|' + ps + '|' + os + '|' +
+      [el('i-start').value, el('i-cap').value, el('i-gb').value, el('i-gc').value].join('/');
+  }
+  function fromHash() {
+    var h = location.hash.replace(/^#/, '');
+    if (!h) return false;
+    var p = h.split('|');
+    if (p.length < 3) return false;
+    var d = { m: +p[0] === 10 ? 10 : 6, s: [], o: [] };
+    p[1].split(',').forEach(function (x) {
+      if (x === '_' || !x) { d.s.push({}); return; }
+      var f = x.split('.');
+      var tier = {}, on = {};
+      (f[3] || '').split('!').forEach(function (kv) {
+        if (!kv) return; var a = kv.split(':'); tier[a[0]] = +a[1];
+      });
+      (f[4] || '').split('!').forEach(function (k) { if (k) on[k] = true; });
+      d.s.push({ id: +f[0], ex: +f[1] || 5, sk: +f[2] || 10, tier: tier, on: on });
+    });
+    if (p[2]) {
+      p[2].split(',').forEach(function (x) {
+        if (!x) return;
+        var a = x.split('@');
+        d.o.push({ i: +a[0], t: a.length > 1 ? +a[1] : null });
+      });
+    }
+    var g = (p[3] || '').split('/');
+    if (g[0] != null && g[0] !== '') d.st = g[0];
+    if (g[1] != null && g[1] !== '') d.cp = g[1];
+    if (g[2] != null && g[2] !== '') d.gb = g[2];
+    if (g[3] != null && g[3] !== '') d.gc = g[3];
+    apply(d);
+    return true;
   }
 
   function members() {
     return slots.map(function (s, i) { return { i: i, s: s, d: byId[s.id] }; })
-                .filter(function (m) { return m.d; });
+                .filter(function (m) { return m.d && live(m.i); });
+  }
+  function usedIds(except) {
+    var out = {};
+    slots.forEach(function (s, i) { if (s.id && i !== except && live(i)) out[s.id] = true; });
+    return out;
   }
 
-  /* ---------- 効いているコスト回復力のスキルを並べる
-
-     返すのは { m: 持ち主, e: 効果, v: 実際の値, row: 段, ei: 効果の番号 }。 */
+  /* ---------- 効いているコスト回復力のスキル */
   function effects() {
     var ms = members(), out = [];
     ms.forEach(function (m) {
@@ -87,12 +174,13 @@
     return out;
   }
 
-  /* コスト回復力の合計。**1 人ごとに「（700 ＋ 実数）×（1 ＋ %）」を出して足す。**
-     ゲームの他のステータスと同じ順番（足してから掛ける）。 */
+  /* コスト回復力の合計。**1 人ごとに「（700 ＋ 実数）×（1 ＋ %）」を出して足す。** */
   function pool() {
     var ms = members(), efs = effects();
+    var gb = parseFloat(el('i-gb').value) || 0;
+    var gc = parseFloat(el('i-gc').value) || 0;
     var per = {};
-    ms.forEach(function (m) { per[m.i] = { b: D.base, c: 0 }; });
+    ms.forEach(function (m) { per[m.i] = { b: D.base + gb, c: gc * 100 }; });
     efs.forEach(function (x) {
       var targets = x.e.p === 'party' ? ms : [x.m];
       targets.forEach(function (t) {
@@ -102,13 +190,17 @@
     });
     var total = 0;
     ms.forEach(function (m) { total += per[m.i].b * (1 + per[m.i].c / 10000); });
-    return { total: total, per: per, efs: efs, ms: ms };
+    return { total: total, per: per, efs: efs, ms: ms, gb: gb, gc: gc };
   }
 
   /* ---------- 画面 */
 
   function drawParty() {
-    [['party-main', 0, 4, 'dl-main'], ['party-sup', 4, 6, 'dl-sup']].forEach(function (g) {
+    el('party-lead').innerHTML = mode === 10
+      ? 'ストライカー 6 人とスペシャル 4 人。<b>コスト回復力は 10 人の合計で決まります</b>ので、EX を撃たない子も入れてください。同じ子は 1 人までです。'
+      : 'ストライカー 4 人とスペシャル 2 人。<b>コスト回復力は 6 人の合計で決まります</b>ので、EX を撃たない子も入れてください。同じ子は 1 人までです。';
+    [['party-main', 0, LAYOUT[mode].main, 'dl-main'],
+     ['party-sup', MAIN_MAX, MAIN_MAX + LAYOUT[mode].sup, 'dl-sup']].forEach(function (g) {
       var box = el(g[0]), html = '';
       for (var i = g[1]; i < g[2]; i++) {
         var s = slots[i], d = byId[s.id];
@@ -117,7 +209,7 @@
           ? '<img src="' + face(d.id) + '" alt="" width="120" height="120" loading="lazy">'
           : '<span class="ph">空き</span>') + '</div>';
         if (d) {
-          html += '<div class="nm">' + d.n + '<small>' + d.en + '（' + d.c[s.ex - 1] + ' コスト）</small></div>';
+          html += '<div class="nm">' + esc(d.n) + '<small>' + esc(d.en) + '（' + d.c[s.ex - 1] + ' コスト）</small></div>';
           html += '<div class="lv"><span>EX</span><select data-k="ex" data-i="' + i + '">';
           for (var v = 1; v <= 5; v++) html += '<option value="' + v + '"' + (v === s.ex ? ' selected' : '') + '>Lv' + v + '</option>';
           html += '</select></div>';
@@ -130,7 +222,7 @@
             if (e.du > 0) {
               html += '<label class="lv" style="grid-template-columns:auto 1fr"><input type="checkbox" data-k="on" data-i="' +
                 i + '" data-e="' + ei + '"' + (s.on[ei] ? ' checked' : '') + '><span>' +
-                e.sn + ' が効いている間（' + n1(e.du / 1000) + ' 秒）</span></label>';
+                esc(e.sn) + ' が効いている間（' + n1(e.du / 1000) + ' 秒）</span></label>';
             } else if (e.v.length > 1 && !e.cond) {
               html += '<div class="lv"><span>段</span><select data-k="tier" data-i="' + i + '" data-e="' + ei + '">';
               for (var t = 0; t < e.v.length; t++) html += '<option value="' + t + '"' + (t === (s.tier[ei] || 0) ? ' selected' : '') + '>' + (t + 1) + ' 段目</option>';
@@ -145,6 +237,15 @@
       }
       box.innerHTML = html;
     });
+    // **候補から、もう入っている子を外す。**同じ子は 2 人まで入れられない
+    var used = usedIds(-1);
+    [['dl-main', 'Main'], ['dl-sup', 'Support']].forEach(function (g) {
+      el(g[0]).innerHTML = D.students.filter(function (s) { return s.sq === g[1] && !used[s.id]; })
+        .map(function (s) { return '<option value="' + esc(s.n) + '">'; }).join('');
+    });
+    [].forEach.call(el('mode').querySelectorAll('button'), function (b) {
+      b.setAttribute('aria-pressed', String(+b.dataset.m === mode));
+    });
   }
 
   function drawStats() {
@@ -158,23 +259,26 @@
     }
     var rate = p.total / 10000;
     el('o-sec').textContent = n2(1 / rate);
-    el('o-sec-sub').textContent = '秒／コスト（素の編成は 2.38 秒）';
+    el('o-sec-sub').textContent = '秒／コスト（素は ' + n2(10000 / (D.base * LAYOUT[mode].main + D.base * LAYOUT[mode].sup)) + ' 秒）';
     el('o-pool').textContent = fmt(p.total);
     el('o-pool-sub').textContent = p.ms.length + ' 人ぶん（素は ' + fmt(D.base * p.ms.length) + '）';
     el('o-rate').textContent = n2(rate);
-    el('o-rate-sub').textContent = '10 コスト貯まるまで ' + n1(10 / rate) + ' 秒';
+    el('o-rate-sub').textContent = '上限まで ' + n1((parseFloat(el('i-cap').value) || 10) / rate) + ' 秒';
 
     var rows = '<div class="row"><span>素のコスト回復力<span class="subnote">' +
       D.base + ' × ' + p.ms.length + ' 人</span></span><span>' + fmt(D.base * p.ms.length) + '</span></div>';
+    if (p.gb) rows += '<div class="row"><span>ステージ<span class="subnote">手で入れた実数</span></span><span>＋' +
+      fmt(p.gb) + ' × ' + p.ms.length + ' 人</span></div>';
+    if (p.gc) rows += '<div class="row"><span>ステージ<span class="subnote">手で入れた係数</span></span><span>＋' +
+      n2(p.gc) + '%（全員）</span></div>';
     p.efs.forEach(function (x) {
-      var who = x.m.d.n;
       var val = x.e.k === 'b'
         ? '＋' + fmt(x.v) + (x.e.p === 'party' ? ' × ' + p.ms.length + ' 人' : '')
         : '＋' + n2(x.v / 100) + '%' + (x.e.p === 'party' ? '（全員）' : '（本人のみ）');
-      var note = x.e.sn;
+      var note = esc(x.e.sn);
       if (x.e.v.length > 1) note += '（' + (x.row + 1) + ' 段目）';
       if (x.e.du > 0) note += '／' + n1(x.e.du / 1000) + ' 秒';
-      rows += '<div class="row"><span>' + who +
+      rows += '<div class="row"><span>' + esc(x.m.d.n) +
         '<span class="tag2">' + (x.e.sl === 'Ex' ? 'EX' : x.e.sl === 'Public' ? 'ノーマル' : 'パッシブ') + '</span>' +
         '<span class="subnote">' + note + '</span></span><span>' + val + '</span></div>';
     });
@@ -184,64 +288,129 @@
   }
 
   /* コストの都合だけで、上から順に置いていく。
-     撃っている間もコストは貯まり、次の EX はその演出が終わるまで撃てない。 */
+     撃っている間もコストは貯まり、次の EX はその演出が終わるまで撃てない。
+     時刻を指定した行は、その時刻に足りているかを見て、足りなければ最短へずらす。 */
   function simulate(rate, cap, start) {
-    var t = 0, cost = Math.min(cap, start), lock = 0, out = [];
-    order.forEach(function (si) {
-      var s = slots[si], d = byId[s.id];
-      if (!d) return;
+    var t = 0, cost = Math.min(cap, start), lock = 0, out = [], segs = [{ t: 0, c: cost }];
+    order.forEach(function (e, idx) {
+      var s = slots[e.i], d = byId[s.id];
+      if (!d || !live(e.i)) { out.push({ e: e, d: null }); return; }
       var need = d.c[s.ex - 1] || 0;
       var t0 = Math.max(t, lock);
       var c0 = Math.min(cap, cost + rate * (t0 - t));
-      var at, ok = true;
-      if (need > cap) { at = null; ok = false; }
-      else if (c0 >= need) at = t0;
-      else at = t0 + (need - c0) / rate;
-      if (ok) {
-        var cAt = Math.min(cap, c0 + rate * (at - t0));
-        cost = cAt - need; t = at; lock = at + (d.d || 0) / FPS;
+      var soon = need > cap ? null
+               : (c0 >= need ? t0 : t0 + (need - c0) / rate);
+      var at = soon, why = '';
+      if (soon === null) { why = 'コストの上限を超えています'; }
+      else if (e.t != null) {
+        if (e.t < soon - 1e-6) { why = '間に合いません（最短 ' + n1(soon) + ' 秒）'; at = soon; }
+        else { at = e.t; }
       }
-      out.push({ si: si, d: d, need: need, at: at, ok: ok, left: ok ? cost : 0,
-                 end: ok ? lock : null });
+      if (at !== null) {
+        var cAt = Math.min(cap, cost + rate * (at - t));
+        segs.push({ t: at, c: cAt });
+        cost = cAt - need; t = at; lock = at + (d.d || 0) / FPS;
+        segs.push({ t: at, c: cost });
+      }
+      out.push({ e: e, d: d, s: s, need: need, at: at, soon: soon, why: why,
+                 left: at === null ? 0 : cost, idx: idx });
     });
-    return out;
+    return { rows: out, segs: segs, end: t, cap: cap, rate: rate };
   }
 
   function drawTimeline(p) {
     var box = el('add'), html = '';
     slots.forEach(function (s, i) {
       var d = byId[s.id];
-      if (!d) return;
+      if (!d || !live(i)) return;
       html += '<button type="button" class="btn" data-k="add" data-i="' + i + '">' +
         '<img src="' + face(d.id) + '" alt="" width="26" height="26" loading="lazy">' +
-        d.n + '<small style="color:var(--fg-mute)">（' + d.c[s.ex - 1] + '）</small></button>';
+        esc(d.n) + '<small style="color:var(--fg-mute)">（' + d.c[s.ex - 1] + '）</small></button>';
     });
     box.innerHTML = html || '<span class="lead">先に編成を決めてください。</span>';
 
     if (!p.ms.length || !order.length) {
-      el('timeline').innerHTML = '';
+      el('timeline').innerHTML = ''; el('out').value = ''; el('chart').innerHTML = '';
+      el('chart-lead').textContent = 'EX を並べると、コストが貯まって減っていく様子が出ます。';
       el('tl-lead').textContent = order.length ? '生徒を入れてください。' : 'まだ何も並んでいません。';
       return;
     }
     var rate = p.total / 10000;
-    var cap = parseFloat(el('i-cap').value) || 10;
+    var cap = parseFloat(el('i-cap').value) || LAYOUT[mode].cap;
     var start = parseFloat(el('i-start').value) || 0;
     var sim = simulate(rate, cap, start);
-    el('timeline').innerHTML = sim.map(function (r, i) {
-      return '<div class="tlrow' + (r.ok ? '' : ' bad') + '">' +
+    lastSim = sim;
+
+    el('timeline').innerHTML = sim.rows.map(function (r, i) {
+      var fixed = r.e.t != null;
+      return '<div class="tlrow' + (r.why ? ' bad' : '') + '">' +
         '<span class="no">' + (i + 1) + '</span>' +
         '<img src="' + face(r.d.id) + '" alt="" width="40" height="40" loading="lazy">' +
-        '<span class="tx"><b>' + r.d.n + '</b><small>' + r.d.en + '／' + r.need + ' コスト' +
-        (r.d.d ? '／演出 ' + n1(r.d.d / FPS) + ' 秒' : '') + '</small></span>' +
-        '<span class="at">' + (r.ok ? n1(r.at) + ' 秒' : '撃てない') +
-        '<small>' + (r.ok ? '残り ' + n1(r.left) + ' コスト' : '上限を超えています') + '</small></span>' +
+        '<span class="tx"><b>' + esc(r.d.n) + '</b><small>' + esc(r.d.en) + '／' + r.need + ' コスト' +
+        (r.d.d ? '／演出 ' + n1(r.d.d / FPS) + ' 秒' : '') + '</small>' +
+        '<span class="when"><select data-k="mode-at" data-j="' + i + '">' +
+        '<option value="auto"' + (fixed ? '' : ' selected') + '>最短で</option>' +
+        '<option value="fix"' + (fixed ? ' selected' : '') + '>この秒に</option></select>' +
+        (fixed ? '<input type="number" step="0.1" min="0" data-k="at" data-j="' + i + '" value="' + r.e.t + '"> 秒' : '') +
+        '</span></span>' +
+        '<span class="at">' + (r.at === null ? '撃てない' : n1(r.at) + ' 秒') +
+        '<small>' + (r.why ? esc(r.why) : '残り ' + n1(r.left) + ' コスト') + '</small></span>' +
         '<span class="ops"><button type="button" class="btn" data-k="up" data-j="' + i + '">↑</button>' +
         '<button type="button" class="btn" data-k="del" data-j="' + i + '">×</button></span></div>';
     }).join('');
-    var last = sim[sim.length - 1];
-    el('tl-lead').textContent = last && last.ok
-      ? order.length + ' 発ぜんぶ撃つのに、コストの都合では最短 ' + n1(last.at) + ' 秒かかります。'
-      : 'コストの上限を超えている EX があります。';
+
+    var ok = sim.rows.filter(function (r) { return r.d && r.at !== null; });
+    var ng = sim.rows.filter(function (r) { return r.d && r.why; });
+    el('tl-lead').textContent = ng.length
+      ? ng.length + ' 発、指定どおりには撃てません。'
+      : ok.length + ' 発ぜんぶ撃つのに、コストの都合では最短 ' +
+        n1(ok.length ? ok[ok.length - 1].at : 0) + ' 秒かかります。';
+
+    el('out').value = sim.rows.filter(function (r) { return r.d && r.at !== null; })
+      .map(function (r) {
+        return clock(r.at) + '\t' + r.d.n + '\tEX' + r.s.ex + '\t' + r.need + 'コスト';
+      }).join('\n');
+
+    drawChart(sim);
+  }
+
+  /* コストの動き。**折れ線ひとつだけ。**軸は左に 1 本、EX を撃った点に縦の破線を引く */
+  function drawChart(sim) {
+    var W = 760, H = 220, L = 34, R = 12, T = 14, B = 26;
+    var last = sim.segs[sim.segs.length - 1];
+    var span = Math.max(5, last.t + 3);
+    var cap = sim.cap;
+    // 最後の点のあとも、上限まで貯まる様子を出す
+    var pts = sim.segs.slice();
+    var toCap = last.c >= cap ? 0 : (cap - last.c) / sim.rate;
+    // **上限に届く時刻が枠の外なら、枠の右端までの途中までしか描かない。**
+    // 無条件に「右端＝上限」へ線を引くと、実際より速く貯まって見える
+    var tail = Math.min(span, last.t + toCap);
+    pts.push({ t: tail, c: Math.min(cap, last.c + sim.rate * (tail - last.t)) });
+    if (tail < span) pts.push({ t: span, c: cap });
+
+    var x = function (t) { return L + (W - L - R) * (t / span); };
+    var y = function (c) { return T + (H - T - B) * (1 - c / cap); };
+    var line = pts.map(function (p, i) { return (i ? 'L' : 'M') + x(p.t).toFixed(1) + ' ' + y(p.c).toFixed(1); }).join(' ');
+    var area = line + ' L' + x(span).toFixed(1) + ' ' + y(0).toFixed(1) + ' L' + x(0).toFixed(1) + ' ' + y(0).toFixed(1) + ' Z';
+
+    var g = '';
+    for (var c = 0; c <= cap; c += (cap > 12 ? 5 : 2)) {
+      g += '<line class="grid" x1="' + L + '" y1="' + y(c).toFixed(1) + '" x2="' + (W - R) + '" y2="' + y(c).toFixed(1) + '"></line>' +
+           '<text x="' + (L - 6) + '" y="' + (y(c) + 4).toFixed(1) + '" text-anchor="end">' + c + '</text>';
+    }
+    var step = span <= 30 ? 5 : span <= 90 ? 15 : 30;
+    for (var t = 0; t <= span; t += step) {
+      g += '<text x="' + x(t).toFixed(1) + '" y="' + (H - 8) + '" text-anchor="middle">' + t + '秒</text>';
+    }
+    var marks = sim.rows.filter(function (r) { return r.d && r.at !== null; }).map(function (r) {
+      return '<line class="fire" x1="' + x(r.at).toFixed(1) + '" y1="' + T + '" x2="' + x(r.at).toFixed(1) + '" y2="' + y(0).toFixed(1) + '"></line>' +
+        '<text class="n" x="' + x(r.at).toFixed(1) + '" y="' + (T + 10) + '" text-anchor="middle">' + esc(r.d.n.slice(0, 4)) + '</text>';
+    }).join('');
+
+    el('chart').innerHTML = '<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="コストの動き">' +
+      g + '<path class="area" d="' + area + '"></path><path class="line" d="' + line + '"></path>' + marks + '</svg>';
+    el('chart-lead').textContent = '縦がコスト（上限 ' + n1(cap) + '）、横が秒です。破線は EX を撃ったところ。';
   }
 
   function drawRefList() {
@@ -256,35 +425,43 @@
         var vs = e.k === 'b' ? '＋' + fmt(lo) + '〜' + fmt(hi)
                              : '＋' + n2(lo / 100) + '〜' + n2(hi / 100) + '%';
         return '<div>' + (e.sl === 'Ex' ? 'EX' : e.sl === 'Public' ? 'ノーマル' : 'パッシブ') +
-          '「' + e.sn + '」<b>' + vs + '</b>' +
+          '「' + esc(e.sn) + '」<b>' + vs + '</b>' +
           (e.p === 'party' ? '（全員）' : '（本人）') +
           (e.du > 0 ? '／' + n1(e.du / 1000) + ' 秒' : '') + '</div>';
       }).join('');
       return '<div class="rcard"><img src="' + face(s.id) + '" alt="" width="46" height="46" loading="lazy">' +
-        '<div><div class="nm">' + s.n + '</div><div class="ef">' + ef + '</div></div></div>';
+        '<div><div class="nm">' + esc(s.n) + '</div><div class="ef">' + ef + '</div></div></div>';
     }).join('');
   }
 
   function draw() {
+    // **並びから、居なくなった子を先に落とす。**行の番号と order の番号がずれると、
+    // 「この秒に」の切り替えが別の行に効いてしまう
+    order = order.filter(function (e) {
+      return slots[e.i] && slots[e.i].id && byId[slots[e.i].id] && live(e.i);
+    });
     drawParty();
     var p = drawStats();
     drawTimeline(p);
     save();
   }
 
-  /* ---------- 名前の候補。ストライカーとスペシャルで分ける */
-  function fillLists() {
-    [['dl-main', 'Main'], ['dl-sup', 'Support']].forEach(function (g) {
-      el(g[0]).innerHTML = D.students.filter(function (s) { return s.sq === g[1]; })
-        .map(function (s) { return '<option value="' + s.n + '">'; }).join('');
-    });
-  }
-  function findByName(name, sq) {
+  function findByName(name, sq, slot) {
     name = (name || '').trim();
-    var hit = D.students.filter(function (s) { return s.sq === sq && s.n === name; });
+    var used = usedIds(slot);
+    var pick = D.students.filter(function (s) { return s.sq === sq && !used[s.id]; });
+    var hit = pick.filter(function (s) { return s.n === name; });
     if (hit.length) return hit[0];
-    hit = D.students.filter(function (s) { return s.sq === sq && s.n.indexOf(name) === 0; });
-    return name && hit.length === 1 ? hit[0] : null;
+    hit = pick.filter(function (s) { return s.n.indexOf(name) === 0; });
+    if (name && hit.length === 1) return hit[0];
+    // 名前は合っているのに候補に無い＝もう編成に入っている
+    var dup = D.students.filter(function (s) { return s.sq === sq && s.n === name; });
+    return dup.length ? { dup: true, n: dup[0].n } : null;
+  }
+  function say(msg) {
+    var e = el('err');
+    if (!msg) { e.hidden = true; return; }
+    e.hidden = false; e.textContent = msg;
   }
 
   /* ---------- 入力 */
@@ -292,9 +469,10 @@
     var t = ev.target, k = t.dataset && t.dataset.k;
     if (k === 'pick') {
       var i = +t.dataset.i;
-      var d = findByName(t.value, i < 4 ? 'Main' : 'Support');
-      if (!d) { el('err').hidden = false; el('err').textContent = 'その名前の生徒が見つかりません。'; return; }
-      el('err').hidden = true;
+      var d = findByName(t.value, isMain(i) ? 'Main' : 'Support', i);
+      if (!d) { say('その名前の生徒が見つかりません。'); return; }
+      if (d.dup) { say(d.n + ' はもう編成に入っています。同じ子は 1 人までです。'); return; }
+      say('');
       slots[i] = { id: d.id, ex: 5, sk: 10, tier: {}, on: {} };
       draw();
     } else if (k === 'ex' || k === 'sk') {
@@ -303,13 +481,35 @@
       slots[+t.dataset.i].tier[+t.dataset.e] = +t.value; draw();
     } else if (k === 'on') {
       slots[+t.dataset.i].on[+t.dataset.e] = t.checked; draw();
-    } else if (t.id === 'i-start' || t.id === 'i-cap') {
+    } else if (k === 'mode-at') {
+      var j = +t.dataset.j, e2 = order[j];
+      if (!e2) return;
+      if (t.value === 'fix') {
+        // **いま出ている時刻をそのまま初期値にする。**「この秒に」へ切り替えた
+        // 瞬間に 0 秒へ飛ぶと、そこから打ち直しになって使いづらい
+        var cur = lastSim && lastSim.rows[j] ? lastSim.rows[j].at : 0;
+        e2.t = cur == null ? 0 : Math.round(cur * 10) / 10;
+      } else { e2.t = null; }
+      draw();
+    } else if (k === 'at') {
+      var j2 = +t.dataset.j;
+      if (order[j2]) order[j2].t = Math.max(0, parseFloat(t.value) || 0);
+      draw();
+    } else if (t.id === 'i-start' || t.id === 'i-cap' || t.id === 'i-gb' || t.id === 'i-gc') {
       draw();
     }
   });
   document.addEventListener('input', function (ev) {
-    if (ev.target.id === 'i-start' || ev.target.id === 'i-cap') draw();
+    var id = ev.target.id;
+    if (id === 'i-start' || id === 'i-cap' || id === 'i-gb' || id === 'i-gc') draw();
   });
+
+  function toast(msg) {
+    var t = el('toast-page');
+    if (!t) return;
+    t.textContent = msg; t.classList.add('shown');
+    setTimeout(function () { t.classList.remove('shown'); }, 2000);
+  }
 
   document.addEventListener('click', function (ev) {
     var b = ev.target.closest('button'); if (!b) return;
@@ -317,33 +517,46 @@
     if (k === 'rmv') {
       var i = +b.dataset.i;
       slots[i] = emptySlot();
-      order = order.filter(function (x) { return x !== i; });
+      order = order.filter(function (e) { return e.i !== i; });
       draw();
     } else if (k === 'add') {
-      order.push(+b.dataset.i); draw();
+      order.push({ i: +b.dataset.i, t: null }); draw();
     } else if (k === 'del') {
       order.splice(+b.dataset.j, 1); draw();
     } else if (k === 'up') {
       var j = +b.dataset.j;
       if (j > 0) { var tmp = order[j - 1]; order[j - 1] = order[j]; order[j] = tmp; }
       draw();
+    } else if (b.dataset.m) {
+      mode = +b.dataset.m;
+      el('i-cap').value = LAYOUT[mode].cap;
+      order = order.filter(function (e) { return live(e.i); });
+      draw();
     } else if (b.id === 'clear-tl') {
       order = []; draw();
-    } else if (b.dataset.p === 'clear') {
-      slots = []; for (var z = 0; z < 6; z++) slots.push(emptySlot());
-      order = []; draw();
-    } else if (b.dataset.p === 'himari') {
-      var h = D.students.filter(function (s) { return s.n === 'ヒマリ'; })[0];
-      if (!h) return;
-      var at = slots[4].id ? 5 : 4;
-      slots[at] = { id: h.id, ex: 5, sk: 10, tier: {}, on: {} };
-      draw();
+    } else if (b.id === 'clear-party') {
+      slots = []; for (var z2 = 0; z2 < MAIN_MAX + SUP_MAX; z2++) slots.push(emptySlot());
+      order = []; say(''); draw();
+    } else if (b.id === 'copy-url') {
+      var url = location.href.split('#')[0] + toHash();
+      history.replaceState(null, '', toHash());
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(url).then(function () { toast('URL をコピーしました'); },
+          function () { toast('コピーできませんでした'); });
+      } else { toast('この環境ではコピーできません'); }
+    } else if (b.id === 'copy-text') {
+      var tx = el('out').value;
+      if (!tx) { toast('先に EX を並べてください'); return; }
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(tx).then(function () { toast('テキストをコピーしました'); },
+          function () { toast('コピーできませんでした'); });
+      } else { el('out').select(); toast('選択しました。手でコピーしてください'); }
     }
   });
 
   el('ver').textContent = D.version;
-  fillLists();
-  load();
+  // **URL が先、保存はそのあと。**人からもらったリンクを開いたときに上書きされない
+  if (!fromHash()) load();
   drawRefList();
   draw();
 })();
