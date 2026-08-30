@@ -118,11 +118,12 @@
 
     el('t4').innerHTML = fam.tiers.map(function (id, t) {
       if (!id) return '';
-      var m = C.mat[id];
-      return '<div class="t4">' +
+      var m = C.mat[id], rr = 'rar-' + (m.r || 'N');
+      return '<div class="t4 ' + rr + '">' +
         '<img src="../img/' + m.i + '.webp" alt="" width="40" height="40" loading="lazy">' +
         '<div class="v">' + fmt(grand[t]) + '</div>' +
-        '<div class="k">' + m.n + '</div></div>';
+        '<div class="k">' + m.n + '</div>' +
+        '<div class="rr">' + (m.r || 'N') + '</div></div>';
     }).join('');
 
     rows.sort(sort === 'amount'

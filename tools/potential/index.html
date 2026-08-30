@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>潜在能力解放の計算機｜AronaBot</title>
+<meta name="description" content="生徒を選んで最大 HP・攻撃力・治癒力の目標段を入れると、要るオーパーツと応用 WB とクレジットが出ます。オーパーツからの逆引きも。">
+<meta name="theme-color" content="#c8892e">
+<link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<meta property="og:title" content="潜在能力解放の計算機">
+<meta property="og:description" content="生徒を選んで最大 HP・攻撃力・治癒力の目標段を入れると、要るオーパーツと応用 WB とクレジットが出ます。オーパーツからの逆引きも。">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://arona-bot.com/tools/potential/">
+<meta property="og:image" content="https://arona-bot.com/images/hero-night.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="stylesheet" href="../../style.css?v=15">
+<link rel="stylesheet" href="../tool.css?v=7">
+<style>
+  /* 選んだ生徒。**選ぶ前は破線。** */
+  .stucard { display: grid; grid-template-columns: 96px 1fr; gap: 16px; align-items: center;
+             padding: 14px; margin-bottom: 16px;
+             border: 1px solid var(--line); border-radius: 14px; background: var(--bg-sub); }
+  .stucard.none { border-style: dashed; }
+  .stuimg { width: 96px; height: 96px; border-radius: 12px; overflow: hidden;
+            background: var(--card); border: 1px solid var(--line); display: grid; place-items: center; }
+  .stuimg img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .stuimg .ph { font-size: .72rem; color: var(--fg-mute); font-weight: 700; letter-spacing: .08em; }
+  .stuname { font-size: 1.15rem; font-weight: 800; margin: 0 0 .3em; }
+  .stucard.none .stuname { color: var(--fg-mute); font-size: .95rem; }
+  .stunote { font-size: .78rem; color: var(--fg-mute); margin: .35em 0 0; line-height: 1.6; }
+  .stunote b { color: var(--fg); }
+
+  /* 枠ごとの段。**左に名前、右に「今」と「目標」。** */
+  .potrow { display: grid; grid-template-columns: 1fr 78px 78px; gap: 10px; align-items: center;
+            padding: 11px 0; border-bottom: 1px solid var(--line); }
+  .potrow:last-of-type { border-bottom: 0; }
+  .potrow .nm { font-size: .92rem; font-weight: 700; line-height: 1.5; min-width: 0; }
+  .potrow .nm small { display: block; font-weight: 400; color: var(--fg-mute);
+                      font-size: .74rem; margin-top: .15em; }
+  .potrow select { padding: .42em .5em; font-size: .92rem; padding-right: 1.9em;
+                   background-position: calc(100% - 13px) calc(50% + 1px), calc(100% - 8px) calc(50% + 1px); }
+  .pothead { display: grid; grid-template-columns: 1fr 78px 78px; gap: 10px;
+             font-size: .74rem; color: var(--fg-mute); padding-bottom: 4px; }
+  .pothead span:not(:first-child) { text-align: center; }
+  /* 使わない枠の印 */
+  .potrow.off .nm { color: var(--fg-mute); }
+  .badge { display: inline-block; font-size: .68rem; font-weight: 700; padding: .1em .5em;
+           border-radius: 999px; border: 1px solid var(--line); color: var(--fg-mute);
+           margin-left: .4em; vertical-align: .1em; }
+
+  /* 進み具合の帯 */
+  .bar { height: 12px; border-radius: 999px; background: var(--bg-sub);
+         border: 1px solid var(--line); overflow: hidden; margin: .5em 0 .3em; }
+  .bar > i { display: block; height: 100%; background: var(--accent); }
+  .barnote { font-size: .76rem; color: var(--fg-mute); margin: 0; }
+
+  /* オーパーツの逆引き */
+  .arts { display: grid; grid-template-columns: repeat(auto-fill, minmax(122px, 1fr)); gap: 8px; }
+  .artb { display: flex; align-items: center; gap: 7px; padding: .5em .6em; text-align: left;
+          border: 1px solid var(--line); border-radius: 11px; background: var(--card);
+          cursor: pointer; font: inherit; font-size: .78rem; color: var(--fg); line-height: 1.35; }
+  .artb:hover { border-color: var(--accent); }
+  .artb[aria-pressed="true"] { background: var(--accent); color: var(--accent-in); border-color: transparent; }
+  .artb img { width: 26px; height: 26px; border-radius: 5px; flex: none; }
+  .artb span { min-width: 0; word-break: auto-phrase; }
+  .nowrap { white-space: nowrap; }
+  .faces { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+  .face { width: 62px; text-align: center; font-size: .7rem; line-height: 1.3; color: var(--fg-mute); }
+  .face img { width: 62px; height: 62px; border-radius: 10px; display: block;
+              border: 1px solid var(--line); background: var(--bg-sub); }
+  .face b { display: block; font-weight: 600; color: var(--fg); margin-top: .25em;
+            word-break: auto-phrase; }
+</style>
+</head>
+<body>
+
+<!-- 上のバーと footer は scripts/sync-chrome.py が流し込む。
+     **閉じタグの前に改行を入れておくこと。**あちらの正規表現は閉じタグの直前の
+     改行を目印にしているので、1 行に畳むと本文まで食われる。
+     **この注記に目印そのものを書かないこと。**書くと注記の中から当たる -->
+<div class="topbar">
+  <div class="topbar-inner">
+    <a class="topbar-name" href="../../">AronaBotの使い方</a>
+    <a class="topbar-tools" href="../">
+      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <path d="M21.7 18.3l-6-6a5.5 5.5 0 0 0-7-7l3.1 3.1-2.1 2.1L6.6 7.3a5.5 5.5 0 0 0 7 7l6 6a1 1 0 0 0 1.4 0l.7-.7a1 1 0 0 0 0-1.3z"/>
+      </svg>
+      ツール一覧
+    </a>
+    <nav class="topbar-nav">
+      <a href="../../#can">機能</a>
+      <a href="../../#start">つかいはじめる</a>
+      <a href="../../#message">メッセージから</a>
+      <a href="../../#faq">よくある質問</a>
+    </nav>
+    <!-- 共有。**AronaBot 本体と同じ位置に置く。**押した先は環境で変える -->
+    <span class="share-nudge" aria-hidden="true">使えそうな人に、ぜひ</span>
+    <a class="share" id="share-page" target="_blank" rel="noopener" aria-label="このページを共有する"
+       href="https://x.com/intent/post?url=https%3A%2F%2Farona-bot.com%2Ftools%2F">
+      <svg class="share-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <path d="M14 9V5l7 7-7 7v-4.1c-5 0-8.5 1.6-11 5.1 1-5 4-10 11-11z"/>
+      </svg>
+      <span class="share-label">共有</span>
+    </a>
+  </div>
+</div>
+<div class="toast" id="toast-page" role="status" aria-live="polite"></div>
+<script>
+/* 共有ボタン。**そのページ自身の URL を配る。**
+   1. スマホ（navigator.share）→ OS の共有シート
+   2. PC（クリップボード）→ URL をコピーして帯で伝える
+   3. どちらも無い → <a href> のまま X の共有ページへ */
+(function () {
+  var btn = document.getElementById('share-page'), toast = document.getElementById('toast-page');
+  if (!btn) return;
+  // **`#` を落とさない。**TL のように状態をハッシュに入れているツールでは、
+  // ここを削ると相手の画面に同じ結果が出ない（2026-08-30）
+  var url = location.href;
+  var name = document.title.split('｜')[0];
+  var text = name + '（AronaBot のツール）';
+  btn.href = 'https://x.com/intent/post?text=' + encodeURIComponent(text) +
+             '&url=' + encodeURIComponent(url);
+  var timer = null;
+  function say(t) {
+    if (!toast) return;
+    toast.textContent = t; toast.classList.add('shown');
+    clearTimeout(timer); timer = setTimeout(function () { toast.classList.remove('shown'); }, 2000);
+  }
+  btn.addEventListener('click', function (e) {
+    if (navigator.share) {
+      e.preventDefault();
+      navigator.share({ title: name, text: text, url: url }).catch(function () {});
+      return;
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      e.preventDefault();
+      navigator.clipboard.writeText(url).then(function () { say('リンクをコピーしました'); },
+        function () { window.open(btn.href, '_blank', 'noopener'); });
+    }
+  });
+})();
+</script>
+
+<header class="thero">
+  <div class="thero-media" aria-hidden="true">
+    <picture>
+      <source srcset="../../images/hero-day.jpg" media="(prefers-color-scheme: dark)">
+      <img src="../../images/hero-night.jpg" alt="" width="1600" height="400" fetchpriority="high">
+    </picture>
+  </div>
+  <div class="thero-body">
+    <h1>潜在能力解放の計算機</h1>
+    <p class="thero-lead">生徒を選んで最大 HP・攻撃力・治癒力の目標段を入れると、要るオーパーツと応用 WB とクレジットが出ます。オーパーツからの逆引きも。</p>
+  </div>
+</header>
+
+<div class="twrap">
+  <p class="tcrumb"><a href="../../">AronaBotの使い方</a><span class="sl">/</span><a href="../">ツール</a><span class="sl">/</span>潜在能力解放の計算機</p>
+
+  <div class="tcols lean" style="margin-top:20px">
+
+    <div class="tcol">
+      <div class="panel">
+        <div class="panel-h"><h2>だれの潜在能力を開きますか</h2></div>
+        <div class="stucard none" id="stucard">
+          <div class="stuimg" id="stu-img"><span class="ph">none</span></div>
+          <div>
+            <p class="stuname" id="stu-name">まだ誰も選んでいません</p>
+            <p class="stunote" id="stu-note">名前を入れると、その子に要るオーパーツの名前が出ます。要る個数とクレジットは、どの子でも同じです。</p>
+          </div>
+        </div>
+        <div class="field">
+          <label for="i-student">生徒<span class="hint">名前の一部でも探せます</span></label>
+          <input id="i-student" type="search" list="students" placeholder="アル／ホシノ／ヒナ…" autocomplete="off">
+          <datalist id="students"></datalist>
+        </div>
+        <p class="err" id="err" hidden></p>
+      </div>
+
+      <div class="panel">
+        <div class="panel-h"><h2>どこまで開きますか</h2></div>
+        <p class="lead">枠は 3 つあって、それぞれ <b>0 段から <span id="lead-max">25</span> 段</b>まで別々に上がります。<b>1 段で基礎値の 0.2%</b>なので、<span id="lead-max2">25</span> 段で ＋5% です。</p>
+        <div class="pothead"><span></span><span>今</span><span>目標</span></div>
+        <div id="potsteps"></div>
+        <div class="btnrow" style="margin-top:14px">
+          <button type="button" class="btn" id="b-max">ぜんぶ最大まで</button>
+          <button type="button" class="btn" id="b-atk">攻撃力だけ最大</button>
+          <button type="button" class="btn" id="b-reset">戻す</button>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-h"><h2>どれだけ強くなりますか</h2></div>
+        <p class="lead">生徒が <b>Lv<span id="lead-lv">90</span></b> のときの伸びです。<b>★の倍率が掛かる前の基礎値</b>から数えています（SchaleDB と同じ数え方）。</p>
+        <div class="ledger" id="growth"></div>
+      </div>
+    </div>
+
+    <div class="tcol">
+      <div class="stats c3">
+        <div class="stat hero">
+          <div class="k">要るオーパーツ</div>
+          <div class="v" id="o-art">—</div>
+          <div class="sub" id="o-art-sub">生徒を選ぶと名前が出ます</div>
+        </div>
+        <div class="stat">
+          <div class="k"><img class="ico" src="../img/currency_icon_gold.webp" alt="" width="18" height="18" loading="lazy"> クレジット</div>
+          <div class="v" id="o-credit">—</div>
+          <div class="sub">3 つの枠を合わせたぶん</div>
+        </div>
+        <div class="stat">
+          <div class="k">応用 WB</div>
+          <div class="v" id="o-book">—</div>
+          <div class="sub" id="o-book-sub">枠ごとに種類が違います</div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-h"><h2>手持ちで足りますか</h2></div>
+        <div class="bar"><i id="bar" style="width:0%"></i></div>
+        <p class="barnote" id="barnote">—</p>
+        <div class="ledger" id="have"></div>
+      </div>
+    </div>
+
+    <div class="tfull">
+      <div class="panel">
+        <div class="panel-h"><h2>段ごとの中身</h2></div>
+        <p class="lead"><b>要る量は全員同じです。</b>1〜15 段目は<b>欠片</b>、16〜25 段目は<b>壊れたほう</b>を使います。<b>同じ中身が続く区間はまとめてあります。</b>いちばん右は 0 段からの累計です。</p>
+        <div class="tscroll">
+          <table class="dt">
+            <thead><tr><th>段</th><th>1 段あたり</th><th>WB</th><th>クレジット</th><th>ここまでの累計</th></tr></thead>
+            <tbody id="tb"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-h"><h2>オーパーツから引く</h2></div>
+        <p class="lead">持て余しているオーパーツを押すと、<b>その欠片を使う生徒</b>が並びます。<span id="artcount">—</span> 種類あります。</p>
+        <div class="arts" id="artpick"></div>
+        <div class="faces" id="artfaces"></div>
+      </div>
+
+      <div class="sharebar" id="sharebar"></div>
+
+      <details class="src">
+        <summary>数字の出どころ</summary>
+        <p><b>要る量はゲームのレシピをそのまま読んでいます。</b>推測した数字はありません。</p>
+        <ul>
+          <li>段ごとの中身は SchaleDB の <code>config.json</code> の <code>PotentialMaterial</code>（25 要素）。
+            <b>この配列の <code>[i]</code> は「i 段目に到達するぶん」ではなく「i 段目から i+1 段目へ上げるぶん」です。</b>
+            到達段で引くと 5・10・15・20 段目の境目が全部 1 段ずれます</li>
+          <li>裏取りとして、<code>DB/CharacterPotentialStatExcelTable.json</code> の <code>RecipeId</code> を
+            <code>Excel/RecipeExcelTable.json</code> → <code>Excel/RecipeIngredientExcelTable.json</code> と辿り、
+            <b><span id="src-n">—</span> 手順すべてを 1 つずつ突き合わせています。</b>
+            クレジット・オーパーツの個数・WB の冊数が 1 か所でも食い違ったら、データを作る側で止まります</li>
+          <li>どのオーパーツを使うかは <code>DB/CharacterPotentialExcelTable.json</code> の
+            <code>PotentialStatGroupId</code> を 100 で割った値。
+            <b>SchaleDB 側の <code>PotentialMaterial</code> と <span id="src-s">—</span> 人全員で一致</b>しました</li>
+          <li>枠は <code>PotentialStatGroupId</code> の下 2 桁で決まります。<code>10</code> が最大 HP、
+            <code>20</code> が攻撃力、<code>30</code> が治癒力。WB もそれぞれ 応用体育 / 応用射撃 / 応用衛生 に固定です</li>
+          <li>「この枠は使わない」の印は同じ表の <code>IsUnnecessaryStat</code>。ゲームのデータが持っている印で、
+            こちらで判断したものではありません（治癒力に立っている生徒が <span id="src-un">—</span> 人います）</li>
+          <li>段の上限 25 と、開放に <b>Lv90</b> が要ることは <code>Excel/ConstCommonExcelTable.json</code> の
+            <code>PotentialBonusStatMaxLevelMaxHP</code> ほかと <code>PotentialOpenConditionCharacterLevel</code></li>
+          <li>伸び幅は <code>StatBonusRate</code>。<b>1 段あたり 20 で、10000 分率</b>なので 0.2%、25 段で 5% です。
+            <b>25 段ぶん全部を数えて、段 × 20 になっていることを確かめています。</b>
+            <b>掛け方は SchaleDB 本体の計算に合わせました</b> ——
+            あちらの JavaScript が <code>Math.round(基礎値(Lv) × 段数 × 0.002)</code> としていて、
+            <code>0.002</code> は <code>20 / 10000</code> と同じです
+            （<a href="https://schaledb.com/" target="_blank" rel="noopener">schaledb.com</a> の
+            <code>assets/StudentListModal-*.js</code>。2026-08-30 に読みました）</li>
+          <li>基礎値の出し方も同じところから。<code>Lv1</code> と <code>Lv100</code> の 2 点を
+            <code>基礎値 = round(Lv1 + (Lv100 − Lv1) × (Lv − 1) / 99)</code> で結んでいます。
+            <b>★の倍率は掛けません。</b>SchaleDB も潜在能力ぶんは★を掛ける前の値から数えています</li>
+        </ul>
+        <p><b>オーパーツと応用 WB の入手先は出していません。</b>ステージのドロップを 320 本ぜんぶ当たりましたが、
+          「◯◯の欠片」も応用 WB も 1 本も落ちてきませんでした。<b>裏が取れないので書かない</b>ことにしています。
+          手持ちの数は自分で入れる形にしました。</p>
+        <p>出典 —
+          <a href="https://github.com/electricgoat/ba-data" target="_blank" rel="noopener">electricgoat/ba-data</a>（レシピ・枠・上限）、
+          <a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a>（段ごとの中身、生徒と道具の名前、顔の絵、伸びの掛け方）。取得は <span id="ver">—</span>。</p>
+      </details>
+    </div>
+
+  </div>
+</div>
+
+<script>window.TOUR = {"key": "potential", "steps": [
+  {"sel": "#stucard", "t": "まず生徒を選びます", "d": "その子に要るオーパーツの名前が出ます。要る個数とクレジットは誰でも同じです。"},
+  {"sel": "#potsteps", "t": "枠ごとに今と目標を入れます", "d": "最大 HP・攻撃力・治癒力の 3 つが別々に上がります。使わない枠には印が付きます。"},
+  {"sel": "#o-art", "t": "要る量がここに出ます", "d": "オーパーツは欠片と壊れたほうで別々に数えます。手持ちを入れると、あと何個足りないかも出ます。"},
+  {"sel": "#artpick", "t": "オーパーツから引けます", "d": "持て余しているオーパーツを押すと、それを使う生徒が顔で並びます。"},
+  {"sel": "#sharebar", "t": "結果はそのまま渡せます", "d": "開いている状態ごと URL になるので、リンクを送れば相手の画面にも同じ結果が出ます。"}
+]};</script>
+<script src="../tour.js?v=1"></script>
+
+<script src="../share.js?v=1"></script>
+
+<footer>
+  <div class="foot-inner">
+    <p class="foot-name">AronaBotの使い方</p>
+    <p class="foot-links">
+      <a href="../../">AronaBot のページ</a>
+      <span class="sep">/</span>
+      <a href="../">ツール一覧</a>
+      <span class="sep">/</span>
+      <a href="https://x.com/pe6cak" target="_blank" rel="noopener">制作者の X（@pe6cak）</a>
+      <span class="sep">/</span>
+      <span>不具合・要望は <b>@0r.not</b> まで</span>
+    </p>
+    <p class="disclaimer">
+      <b>このサイトはファンが作った非公式のものです。</b>運営とは関係ありません。
+      <small>掲載しているゲーム内の画像・アイコン・名称・数値は、Nexon Games / Yostar の
+      「ブルーアーカイブ」から引用したもので、著作権はすべて権利者に帰属します。
+      ツールの計算に使うデータは <a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a> と
+      <a href="https://github.com/electricgoat/ba-data" target="_blank" rel="noopener">ba-data</a> から取得しています。
+      権利者の方でご指摘があれば <b>@0r.not</b> までご連絡ください。</small>
+    </p>
+  </div>
+</footer>
+
+<script src="data.js"></script>
+<script>
+(function () {
+  'use strict';
+  var P = window.POT;
+  var el = function (id) { return document.getElementById(id); };
+  var KEYS = ['MaxHP', 'AttackPower', 'HealPower'];
+  var byId = {};
+  P.stu.forEach(function (s) { byId[s.id] = s; });
+
+  var student = null;
+  var cur = [0, 0, 0], goal = [P.max, P.max, 0];
+  var art = null;
+
+  function fmt(n) { return Math.round(n).toLocaleString('ja-JP'); }
+  function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;'); }
+
+  /** **P.steps[i] は「i 段目 → i+1 段目」。**a から b へは i = a … b-1 を足す。 */
+  function need(a, b) {
+    var t = { a0: 0, a1: 0, bk: 0, cr: 0 };
+    for (var i = a; i < b; i++) {
+      var s = P.steps[i]; if (!s) continue;
+      if (s.g === 0) t.a0 += s.an; else t.a1 += s.an;
+      t.bk += s.bk; t.cr += s.cr;
+    }
+    return t;
+  }
+
+  /** 基礎値。**SchaleDB と同じ結び方。**★の倍率は掛けない。 */
+  function base(pair, lv) {
+    var i = +(((lv - 1) / 99).toFixed(4));
+    return Math.round(pair[0] + (pair[1] - pair[0]) * i);
+  }
+  function bonusAt(pair, lv, step) { return Math.round(base(pair, P.openLv) * (step * 0.002)); }
+
+  function total() {
+    var t = { a0: 0, a1: 0, cr: 0, bk: [0, 0, 0] };
+    for (var k = 0; k < 3; k++) {
+      var n = need(cur[k], goal[k]);
+      t.a0 += n.a0; t.a1 += n.a1; t.cr += n.cr; t.bk[k] = n.bk;
+    }
+    return t;
+  }
+
+  (function fill() {
+    el('students').innerHTML = P.stu.map(function (s) {
+      return '<option value="' + esc(s.n) + '">';
+    }).join('');
+    el('lead-max').textContent = P.max;
+    el('lead-max2').textContent = P.max;
+    el('lead-lv').textContent = P.openLv;
+    el('artcount').textContent = Object.keys(P.arts).length;
+    el('src-n').textContent = fmt(P.checked);
+    el('src-s').textContent = P.stu.length;
+    el('src-un').textContent = P.stu.filter(function (s) { return s.un[2]; }).length;
+    el('ver').textContent = P.version;
+
+    // 段ごとの表。**中身は生徒に依らない**ので一度だけ組む。
+    // **同じ中身が続く区間はまとめる。**25 行そのまま並べるとスマホで画面 3 枚ぶんになり、
+    // しかも 5 段ずつ全く同じ値が続くので読むところが無い（2026-08-30 に実物を見て畳んだ）
+    var c0 = 0, c1 = 0, rows = [], run = null;
+    var flush = function () {
+      if (!run) return;
+      rows.push('<tr><td class="nowrap">' + run.a + ' → ' + run.b + ' 段</td>' +
+        '<td class="nowrap">' + (run.s.g === 0 ? '欠片' : '壊れたほう') + ' ' + run.s.an + ' 個</td>' +
+        '<td class="nowrap">' + run.s.bk + ' 冊</td>' +
+        '<td class="nowrap">' + fmt(run.s.cr) + '</td>' +
+        '<td class="nowrap">欠片 ' + run.c0 + ' ／ 壊れた ' + run.c1 + '</td></tr>');
+      run = null;
+    };
+    P.steps.forEach(function (s, i) {
+      var same = run && run.s.g === s.g && run.s.an === s.an && run.s.bk === s.bk && run.s.cr === s.cr;
+      if (!same) { flush(); run = { a: i, s: s }; }
+      if (s.g === 0) c0 += s.an; else c1 += s.an;
+      run.b = i + 1; run.c0 = c0; run.c1 = c1;
+    });
+    flush();
+    el('tb').innerHTML = rows.join('');
+
+    // オーパーツの逆引きボタン
+    el('artpick').innerHTML = Object.keys(P.arts).sort(function (a, b) { return a - b; })
+      .map(function (id) {
+        var a = P.arts[id];
+        return '<button type="button" class="artb" data-a="' + id + '" aria-pressed="false">' +
+          '<img src="../img/' + a.a.i + '.webp" alt="" width="26" height="26" loading="lazy">' +
+          '<span>' + esc(a.c) + '</span></button>';
+      }).join('');
+  })();
+
+  /* **入れ物は組み直さない。値だけ合わせる。**
+     毎回 `innerHTML` を書き換えていたら、選んだ直後に焦点が飛んで
+     キーボードで続けて操作できなかった（2026-08-30 に実物で踏んだ）。
+     組み直すのは「この子には不要」の印が変わったときだけ。 */
+  var rowsKey = null;
+  function drawRows() {
+    var key = student ? student.un.join(',') : 'none';
+    if (rowsKey !== key) {
+      var h = '';
+      for (var k = 0; k < 3; k++) {
+        var off = student && student.un[k];
+        var o = '';
+        for (var v = 0; v <= P.max; v++) o += '<option value="' + v + '">' + v + '</option>';
+        h += '<div class="potrow' + (off ? ' off' : '') + '">' +
+          '<span class="nm">' + P.statJa[KEYS[k]] +
+          (off ? '<span class="badge">この子には不要</span>' : '') +
+          '<small>' + P.books[KEYS[k]].n + 'を使います</small></span>' +
+          '<select data-c="' + k + '" aria-label="' + P.statJa[KEYS[k]] + 'の今の段">' + o + '</select>' +
+          '<select data-g="' + k + '" aria-label="' + P.statJa[KEYS[k]] + 'の目標の段">' + o + '</select>' +
+          '</div>';
+      }
+      el('potsteps').innerHTML = h;
+      rowsKey = key;
+    }
+    for (var i = 0; i < 3; i++) {
+      el('potsteps').querySelector('[data-c="' + i + '"]').value = cur[i];
+      el('potsteps').querySelector('[data-g="' + i + '"]').value = goal[i];
+    }
+  }
+
+  function drawGrowth() {
+    var h = '';
+    for (var k = 0; k < 3; k++) {
+      var v = '<small style="color:var(--fg-mute);font-weight:400">生徒を選ぶと実数が出ます</small>';
+      if (student) {
+        var now = bonusAt(student.b[k], P.openLv, cur[k]);
+        var to = bonusAt(student.b[k], P.openLv, goal[k]);
+        v = '＋' + fmt(to) + '<span class="subnote">今より ＋' + fmt(to - now) +
+            '（基礎値 ' + fmt(base(student.b[k], P.openLv)) + '）</span>';
+      }
+      h += '<div class="row"><span>' + P.statJa[KEYS[k]] + '<span class="subnote">' +
+        goal[k] + ' 段で ＋' + (goal[k] * P.rate / 100).toFixed(1).replace(/\.0$/, '') + '%</span></span>' +
+        '<span>' + v + '</span></div>';
+    }
+    el('growth').innerHTML = h;
+  }
+
+  /* **手持ちの欄は一度だけ組む。**入力のたびに `innerHTML` を書き換えると、
+     打っている最中に入力欄そのものが作り直されて焦点も途中の文字も飛ぶ
+     （2026-08-30 に実物で踏んだ）。以降は名前と「あと何個」だけ書き換える。 */
+  var HAVE = [
+    { id: 'h-a0', ph: '持っている欠片の数' },
+    { id: 'h-a1', ph: '持っている壊れたオーパーツの数' },
+    { id: 'h-bk', ph: '持っている応用 WB の数' }
+  ];
+  (function buildHave() {
+    el('have').innerHTML = HAVE.map(function (x) {
+      return '<div class="row"><span><b id="' + x.id + '-k"></b>' +
+        '<span class="subnote" id="' + x.id + '-s"></span></span>' +
+        '<span><input id="' + x.id + '" type="number" inputmode="numeric" min="0" step="1" value="0" ' +
+        'aria-label="' + x.ph + '" style="width:92px;text-align:right;padding:.3em .5em"></span></div>';
+    }).join('');
+    HAVE.forEach(function (x) { el(x.id).addEventListener('input', draw); });
+  })();
+  function haveOf(id) { return Math.max(0, +el(id).value || 0); }
+  function drawHave(t) {
+    var names = [
+      student ? P.arts[student.a].a.n : 'オーパーツの欠片',
+      student ? P.arts[student.a].b.n : '壊れたオーパーツ',
+      '応用 WB（3 種の合計）'
+    ];
+    var needs = [t.a0, t.a1, t.bk[0] + t.bk[1] + t.bk[2]];
+    HAVE.forEach(function (x, i) {
+      var left = Math.max(0, needs[i] - haveOf(x.id));
+      el(x.id + '-k').textContent = names[i];
+      el(x.id + '-s').textContent = '要る ' + fmt(needs[i]) + ' 個' +
+        (left ? '／あと ' + fmt(left) + ' 個' : needs[i] ? '／足りています' : '');
+    });
+  }
+
+  function drawFaces() {
+    if (!art) { el('artfaces').innerHTML = ''; return; }
+    var list = P.stu.filter(function (s) { return s.a === +art; });
+    el('artfaces').innerHTML = '<p class="barnote" style="width:100%;margin:0 0 4px">' +
+      esc(P.arts[art].a.n) + ' を使う生徒 <b>' + list.length + ' 人</b></p>' +
+      list.map(function (s) {
+        return '<span class="face"><img src="../img/student_' + s.id + '.webp" alt="" width="62" height="62" loading="lazy"><b>' +
+          esc(s.n) + '</b></span>';
+      }).join('');
+  }
+
+  function draw() {
+    var card = el('stucard');
+    if (student) {
+      var a = P.arts[student.a];
+      card.classList.remove('none');
+      el('stu-img').innerHTML = '<img src="../img/student_' + student.id + '.webp" alt="" width="96" height="96" loading="lazy">';
+      el('stu-name').textContent = student.n;
+      el('stu-note').innerHTML = '使うのは <b>' + esc(a.a.n) + '</b> と <b>' + esc(a.b.n) + '</b>。' +
+        student.sc + '／' + student.ro + '。<b>Lv' + P.openLv + '</b> になってから開けます。';
+    } else {
+      card.classList.add('none');
+      el('stu-img').innerHTML = '<span class="ph">none</span>';
+      el('stu-name').textContent = 'まだ誰も選んでいません';
+      el('stu-note').textContent = '名前を入れると、その子に要るオーパーツの名前が出ます。要る個数とクレジットは、どの子でも同じです。';
+    }
+
+    var t = total();
+    el('o-art').innerHTML = fmt(t.a0 + t.a1) + ' <small>個</small>';
+    el('o-art-sub').innerHTML = student
+      ? esc(P.arts[student.a].a.n) + ' <b>' + fmt(t.a0) + '</b> ／ ' +
+        esc(P.arts[student.a].b.n) + ' <b>' + fmt(t.a1) + '</b>'
+      : '欠片 <b>' + fmt(t.a0) + '</b> ／ 壊れたほう <b>' + fmt(t.a1) + '</b>（生徒を選ぶと名前が出ます）';
+    el('o-credit').textContent = fmt(t.cr);
+    var bk = t.bk[0] + t.bk[1] + t.bk[2];
+    el('o-book').innerHTML = fmt(bk) + ' <small>冊</small>';
+    el('o-book-sub').innerHTML = KEYS.map(function (k, i) {
+      return esc(P.books[k].n) + ' ' + fmt(t.bk[i]);
+    }).join('／');
+
+    drawRows();
+    drawGrowth();
+    drawHave(t);
+
+    var needAll = t.a0 + t.a1;
+    var haveAll = haveOf('h-a0') + haveOf('h-a1');
+    var p = needAll ? Math.min(100, haveAll / needAll * 100) : 100;
+    el('bar').style.width = p.toFixed(1) + '%';
+    el('barnote').textContent = needAll
+      ? 'オーパーツは手持ち ' + fmt(haveAll) + ' 個で、要る ' + fmt(needAll) + ' 個の ' + p.toFixed(0) + '%'
+      : '今の段と目標が同じなので、何も要りません。';
+
+    drawFaces();
+    location.replace('#' + toHash());
+  }
+
+  function toHash() {
+    return (student ? student.id : '') + '|' + cur.join(',') + '|' + goal.join(',') + '|' +
+      haveOf('h-a0') + '|' + haveOf('h-a1') + '|' + haveOf('h-bk') +
+      (art ? '|' + art : '');
+  }
+  window.shareUrl = function () { return '#' + toHash(); };
+
+  function pick(name, exactOnly) {
+    var hit = null, i;
+    for (i = 0; i < P.stu.length; i++) { if (P.stu[i].n === name) { hit = P.stu[i]; break; } }
+    if (!hit && !exactOnly && name) {
+      var low = name.toLowerCase();
+      for (i = 0; i < P.stu.length; i++) {
+        if (P.stu[i].n.toLowerCase().indexOf(low) === 0) { hit = P.stu[i]; break; }
+      }
+    }
+    if (!hit) {
+      if (!exactOnly && name) { el('err').hidden = false; el('err').textContent = 'その名前の生徒が見つかりません。'; }
+      return;
+    }
+    el('err').hidden = true;
+    student = hit;
+    draw();
+  }
+
+  el('i-student').addEventListener('change', function () { pick(this.value.trim(), false); });
+  el('i-student').addEventListener('input', function () { pick(this.value.trim(), true); });
+  el('potsteps').addEventListener('change', function (e) {
+    var s = e.target.closest('select'); if (!s) return;
+    if (s.dataset.c !== undefined) {
+      cur[+s.dataset.c] = +s.value;
+      if (goal[+s.dataset.c] < cur[+s.dataset.c]) goal[+s.dataset.c] = cur[+s.dataset.c];
+    } else {
+      goal[+s.dataset.g] = +s.value;
+      if (cur[+s.dataset.g] > goal[+s.dataset.g]) cur[+s.dataset.g] = goal[+s.dataset.g];
+    }
+    draw();
+  });
+  el('b-max').addEventListener('click', function () { goal = [P.max, P.max, P.max]; draw(); });
+  el('b-atk').addEventListener('click', function () { goal = [0, P.max, 0]; draw(); });
+  el('b-reset').addEventListener('click', function () { cur = [0, 0, 0]; goal = [0, 0, 0]; draw(); });
+  el('artpick').addEventListener('click', function (e) {
+    var b = e.target.closest('.artb'); if (!b) return;
+    art = (art === b.dataset.a) ? null : b.dataset.a;
+    [].forEach.call(this.querySelectorAll('.artb'), function (x) {
+      x.setAttribute('aria-pressed', String(x.dataset.a === art));
+    });
+    drawFaces();
+    location.replace('#' + toHash());
+  });
+
+  (function fromHash() {
+    var h = decodeURIComponent(location.hash.replace(/^#/, ''));
+    if (!h) return;
+    var p = h.split('|');
+    if (p[0] && byId[p[0]]) { student = byId[p[0]]; el('i-student').value = student.n; }
+    var read = function (s, into) {
+      if (!s) return;
+      s.split(',').forEach(function (v, i) {
+        var n = parseInt(v, 10);
+        if (i < 3 && n >= 0 && n <= P.max) into[i] = n;
+      });
+    };
+    read(p[1], cur); read(p[2], goal);
+    for (var k = 0; k < 3; k++) { if (goal[k] < cur[k]) goal[k] = cur[k]; }
+    if (p[6] && P.arts[p[6]]) art = p[6];
+    HAVE.forEach(function (x, i) {
+      var v = parseInt(p[3 + i], 10);
+      if (v > 0) el(x.id).value = v;
+    });
+    if (art) {
+      [].forEach.call(document.querySelectorAll('.artb'), function (x) {
+        x.setAttribute('aria-pressed', String(x.dataset.a === art));
+      });
+    }
+  })();
+
+  draw();
+})();
+</script>
+</body>
+</html>

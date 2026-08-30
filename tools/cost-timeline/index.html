@@ -92,7 +92,8 @@
   .addrow button img { width: 26px; height: 26px; border-radius: 50%; }
 
   /* 時刻の指定 */
-  .tlrow .when { display: flex; align-items: center; gap: .3em; margin-top: .35em;
+  /* **折り返す。**「形態」の欄が増えて、390px で 160px はみ出した（2026-08-30 に実測） */
+  .tlrow .when { display: flex; flex-wrap: wrap; align-items: center; gap: .3em; margin-top: .35em;
                  font-size: .74rem; color: var(--fg-mute); }
   /* **幅を内容に合わせる。**`.tx` が 1fr なので、放っておくと行いっぱいに伸びる */
   .tlrow .when select { width: auto; flex: none; padding: .2em 1.9em .2em .45em; font-size: .76rem; }
@@ -120,6 +121,51 @@
   /* コストが下がった発動 */
   .tlrow .tx small .cut2 { color: var(--accent-tx); font-weight: 700; }
   .tlrow .when select[data-k="give"] { max-width: 11em; }
+  .tlrow .when select[data-k="ovto"] { max-width: 11em; }
+  /* 形態の名前は長い（「2 形態目 実行：ばんざい体操（0）」）ので、幅を切って省略する */
+  .tlrow .when select[data-k="form"] { max-width: 13em; }
+  @media (max-width: 480px) {
+    .tlrow .when select[data-k="form"],
+    .tlrow .when select[data-k="give"],
+    .tlrow .when select[data-k="ovto"] { max-width: 100%; }
+  }
+
+  /* 固有4 のチェックと、ギミックの一覧。**接頭辞を付ける**（共通の .steps などと
+     ぶつかると、思わぬ所で行が折れる） */
+  .tlx-chk { display: flex; align-items: center; gap: .35em; font-size: .74rem; cursor: pointer; }
+  .tlx-chk input { accent-color: var(--accent); margin: 0; }
+  .tlx-note { font-size: .82rem; line-height: 1.75; color: var(--fg-mute);
+              margin: 14px 0 0; padding: 10px 12px; border-radius: 10px;
+              background: var(--bg-sub); border: 1px solid var(--line); }
+  .tlx-gims { display: grid; gap: 6px; }
+  .tlx-gim { display: flex; align-items: center; justify-content: space-between; gap: .6em;
+             padding: 7px 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg-sub); }
+  .tlx-gim span { font-size: .84rem; }
+  .tlx-gim small { display: block; color: var(--fg-mute); font-size: .74rem; margin-top: .1em; }
+  .tlx-gim button { padding: .15em .55em; font-size: .78rem; }
+  .tlx-gimadd { display: flex; flex-wrap: wrap; gap: 8px; align-items: end; margin-top: 10px; }
+  .tlx-gimadd label { font-size: .74rem; color: var(--fg-mute); display: grid; gap: .25em; }
+  .tlx-gimadd input { width: 6.4em; padding: .35em .5em; font-size: .84rem; text-align: right; }
+  .tlx-imp { margin-top: 14px; }
+  .tlx-imp > summary { cursor: pointer; font-size: .86rem; font-weight: 700; }
+  /* 目標時刻の赤い縦線 */
+  .chart .tlx-goal { stroke: #c0392b; stroke-width: 1.5; stroke-dasharray: 5 3; }
+  .chart text.tlx-goaltx { fill: #c0392b; font-weight: 700; }
+  /* 何形態目かの札。**`.ledger .row .tag2` と同じ見た目を、行の中でも使う** */
+  .tlrow .tx small .tag2 { display: inline-block; font-size: .66rem; padding: .05em .4em; border-radius: 5px;
+                           background: var(--card); border: 1px solid var(--line); color: var(--fg-mute);
+                           margin: 0 .3em; vertical-align: .05em; }
+  /* 但し書き（スキル文の原文） */
+  .tlx-sp { display: block; margin-top: .2em; color: var(--fg-mute); }
+  details.tlx-sp > summary { cursor: pointer; font-size: .72rem; }
+  details.tlx-sp p { margin: .3em 0 0; font-size: .72rem; line-height: 1.6; }
+  details.tlx-sp > div { font-size: .72rem; margin-top: .3em; color: var(--fg); }
+  .tlx-warn { color: var(--accent-tx); }
+  /* 特効の帯。**中身は同じ色で、枠だけ点線にする** */
+  .chart .bar.amp { stroke: var(--accent-tx); stroke-width: 1; stroke-dasharray: 3 2; }
+  /* ステージギミックとオーバーコストの帯 */
+  .chart .bar.gim  { fill: color-mix(in srgb, var(--accent-tx) 34%, transparent); }
+  .chart .bar.over { fill: color-mix(in srgb, var(--accent-tx) 20%, transparent); }
 
   /* 書き出し */
   .out { width: 100%; min-height: 8em; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
@@ -249,8 +295,12 @@
           <input id="i-start" type="number" min="0" max="10" step="0.1" value="0">
         </div>
         <div class="numrow">
-          <span class="nm">コストの上限<small>制約解除決戦は 20。固有 4 でスペシャルだけ +0.5 になります</small></span>
-          <input id="i-cap" type="number" min="1" max="30" step="0.5" value="10">
+          <span class="nm">コストの上限<small id="o-capnote">素の 10。スペシャルの枠で「固有4」に印を付けると ＋0.5 ずつ増えます</small></span>
+          <span class="val" id="o-capv">10.0</span>
+        </div>
+        <div class="numrow">
+          <span class="nm">目標の時間<small>3:00 のように入れると、下のふたつの図に赤い縦線が出ます</small></span>
+          <input id="i-goal" type="text" inputmode="numeric" placeholder="3:00" autocomplete="off">
         </div>
         <div class="numrow">
           <span class="nm">ステージのコスト回復力（実数）<small>ボスのギミックや、データに無いぶんを足し引きします</small></span>
@@ -260,7 +310,20 @@
           <span class="nm">ステージのコスト回復力（％）<small>編成の全員にかかる係数として足します</small></span>
           <input id="i-gc" type="number" step="1" value="0">
         </div>
+        <p class="tlx-note" id="start-note" hidden></p>
         <p class="err" id="err" hidden></p>
+      </div>
+
+      <div class="panel">
+        <div class="panel-h"><h2>ステージのギミック</h2></div>
+        <p class="lead">ボスの怯みなどで<b>途中からコスト回復力が増える</b>ものを、時刻・増加量・効果時間で足せます。増やした分は<b>編成の合計にそのまま足します</b>（％のバフは掛けません）。</p>
+        <div id="gims" class="tlx-gims"></div>
+        <div class="tlx-gimadd">
+          <label>発動<input id="i-gim-t" type="text" inputmode="numeric" placeholder="1:30" autocomplete="off"></label>
+          <label>増加量<input id="i-gim-v" type="number" step="100" placeholder="5000"></label>
+          <label>効果時間<input id="i-gim-d" type="number" step="1" placeholder="23"></label>
+          <button type="button" class="btn" id="gim-add">足す</button>
+        </div>
       </div>
     </div>
 
@@ -292,7 +355,7 @@
     <div class="tfull">
       <div class="panel">
         <div class="panel-h"><h2>撃つ順番</h2></div>
-        <p class="lead">下のボタンで EX を後ろに足していきます。<b>そのとき手札に無い子を並べると、赤い帯で知らせます。</b>山札は編成の人数ぶんで、1 枚使うと一番下に回ります。</p>
+        <p class="lead">下のボタンで EX を後ろに足していきます。<b>そのとき手札に無い子を並べると、赤い帯で知らせます。</b>山札は編成の人数ぶんで、1 枚使うと一番下に回ります。<b>撃つたびに EX が変わる子（ネル（制服）・ミカ（水着）など 12 人）は、何回目かで形態を切り替えてコストを計算します。</b>行の「形態」で選び直せます。カードを引く・複製する動きは計算に入れていないので、行の「但し書き」を読んでください。</p>
         <div class="addrow" id="add"></div>
         <div id="timeline" style="margin-top:14px"></div>
         <p class="lead" id="tl-lead" style="margin-top:12px">まだ何も並んでいません。</p>
@@ -301,8 +364,20 @@
           <button type="button" class="btn" id="copy-url">URL をコピー</button>
           <button type="button" class="btn" id="copy-text">テキストをコピー</button>
         </div>
-        <p class="lead" style="margin-top:14px">書き出したもの。<b>そのまま動画の説明や記事に貼れます。</b></p>
+        <div class="btnrow" style="margin-top:10px">
+          <button type="button" class="btn" id="png-white">画像で保存（白）</button>
+          <button type="button" class="btn" id="png-alpha">画像で保存（透過）</button>
+        </div>
+        <p class="lead" style="margin-top:14px">書き出したもの。<b>そのまま動画の説明や記事に貼れます。</b>1 行目の <code>#</code> に共有 URL が入っているので、<b>これをまるごと貼り戻すと編成ごと元に戻ります。</b></p>
         <textarea class="out" id="out" readonly aria-label="書き出した TL"></textarea>
+        <details class="tlx-imp">
+          <summary>書いたものを取り込む</summary>
+          <p class="lead" style="margin:.8em 0">上の形（時刻・名前・EX・コストをタブ区切り）で貼ってください。<b><code>#</code> の行があればそれが正本</b>で、無いときは名前から編成を組み直します。書かれていない子は編成に入らないので回復力が変わります。<b>その場合、貼った秒より早く撃てない行は「この秒に」で留めます。</b></p>
+          <textarea class="out" id="in" placeholder="0:16.3&#9;ホシノ&#9;EX5&#9;4コスト" aria-label="取り込む TL"></textarea>
+          <div class="btnrow" style="margin-top:10px">
+            <button type="button" class="btn" id="load-text">読み込む</button>
+          </div>
+        </details>
       </div>
     </div>
 
@@ -341,11 +416,17 @@
           <a href="https://bluerec.kayagrv.com/entry/Tips%EF%BC%9A%E3%82%B3%E3%82%B9%E3%83%88%E9%96%A2%E9%80%A3%E3%82%B9%E3%82%AD%E3%83%AB%E5%8B%89%E5%BC%B7" target="_blank" rel="noopener">Blue Rec.「コスト回復、コスト回復加速、コスト削減のまとめ」</a>に載っています。</p>
         <p><b>実数と % の重ねかたは、ゲームの他のステータスと同じで「足してから掛ける」です。</b><code>（700 ＋ 実数の合計）×（1 ＋ % の合計）</code>。データ側では
           <code>RegenCost_Base</code> が実数、<code>RegenCost_Coefficient</code> が % で、後者は 10000 分率です（ヒマリ Lv10 の <code>2029</code> が +20.29%）。<b>この計算で 1 コスト 1.98 秒になり</b>、上の Ultimit Archive の「ヒマリで 1.98秒/C」と一致します。重複については同記事に「EX/NS/PS/SS のスキル種別が異なれば重複可能、また同じスキル種別でも加算と乗算は重複可能」とあります。</p>
-        <p><b>コストの上限は 10 です</b>（Blue Rec. の「最大コスト10まで溜まります」）。固有 4 でスペシャルのコスト上限が +0.5 になりますが、データ側の <code>Unlock</code> がまだ <code>false</code> なので初期値には入れていません。手で書き換えてください。</p>
+        <p><b>コストの上限は 10 です</b>（Blue Rec. の「最大コスト10まで溜まります」）。<b>固有武器 ★4 を解放したスペシャル 1 人につき、そこから ＋0.5 されます。</b>2025 年 7 月 19 日に
+          <a href="https://x.com/Blue_ArchiveJP/status/1946550863998468485" target="_blank" rel="noopener">公式が「固有武器の★4が解放されます！」と告知</a>したもので、内訳は画像でしか出ていないため、同じ日の
+          <a href="https://x.com/BlueArchive_kg2/status/1946538326938583102" target="_blank" rel="noopener">神ゲー攻略の投稿</a>の「ストライカーは固有4で属性特攻10% スペシャルはコスト上限が0.5追加されます 固有4のスペシャル枠が2人いる場合は、最大コストが11になりますね」を数字の出どころにしています。<b>ゲームのデータからは取れません。</b><code>CharacterWeaponExcelTable</code> の <code>Unlock</code> は ba-data の jp・global どちらも <code>[true, true, true, false, false]</code> のままで、★4 の枠には値が入っていません（2026 年 8 月 30 日に 224 件ぜんぶ数えて確かめました）。そのため<b>スペシャルの枠に付けた「固有4」の印を数えて、上限を出しています</b>——2 人に付ければ 11.0 です。</p>
         <p><b>山札はパーティの人数ぶん、手札は 3 枚です。</b><a href="https://syoyougame.jp/bluearchive/3220602622" target="_blank" rel="noopener">ブルーアーカイブ攻略wiki「スキル回しの効率的な方法」</a>に「手札のスキルカードは、1度に3枚まで表示されます」「使用したスキルカードは山札の一番下にいきます」「残り3枚のスキルカードは、手札を使用すると順番に引いてきます」「スキルカードの枚数は、パーティのキャラ数と同じです」とあります。<b>使ったカードが一番下に回るだけなので、最初の並びが決まれば以降は運が入りません。</b>6 人編成なら 6 発でひと回りして、手札も山札も最初の状態に戻ります。このツールは山札の並びを「TL に出てきた順」として、手札を同じ規則で回しています。</p>
         <p><b>開始スキルで指定できる人数は、通常編成 5 人・制約解除決戦 9 人です。</b>2026 年 5 月 27 日のアップデートで、それぞれ 3 人・5 人から増えました。神ゲー攻略の告知に「<a href="https://x.com/BlueArchive_kg2/status/2059154172373836095" target="_blank" rel="noopener">5月27日のアプデ以降、開始スキルの設定上限が増えます 通常戦闘：3→5 制約解除決戦：5→9</a>」とあります。<b>指定できないのは最後の 1 人だけで、それは残り物なので自動的に決まります。</b>つまり山札の並びは全部決められます。</p>
         <p><b>制約解除決戦はストライカー 6 人・スペシャル 4 人の 10 人編成で、コストの上限は 20 です。</b>
           <a href="https://game8.jp/blue-archive/680052" target="_blank" rel="noopener">Game8「制約解除決戦の攻略とおすすめ編成」</a>に「ストライカー生徒6人とスペシャル生徒4人を編成することができます」「コストの最大値も20まで増加しており」とあります。コスト回復力の素は 700 × 10 人で 7000、1 コスト 1.43 秒です。</p>
+        <p><b>ナギサ（水着）のオーバーコストに対応しています。</b>EX「Teatime in Wartime」の説明が「味方1人に対して、<b>コストオーバー</b>状態を付与（26秒間）」「（<b>コストオーバー</b>：生徒が編成可能な最大数まで編成され、誰も退却していない場合、保有コストを最大5コストまで超過して消費可能、超過した分はマイナスのコストとして差し引かれます）」で、<b>26 秒</b>は同じ EX の <code>Effects[].Duration</code> の <code>26000</code> と同じ値です。<b>つまり「編成に居れば最初から最後まで」ではなく、EX を撃った瞬間から 26 秒間だけ、渡した 1 人に付く状態です。</b>
+          <a href="https://kur-3dcg.github.io/blue-archive-tl-tool/" target="_blank" rel="noopener">kur-3dcg「ブルアカ TL作成支援ツール」</a>はここを簡単にしていて、スペシャルの枠に居て全枠が埋まっていれば戦闘のあいだずっと下限 −5 として扱っています。<b>こちらはデータの書きかたに寄せました。</b>誰に付くかは <code>Target: ["AllyMain"]</code>（ストライカー 1 人）としか書かれておらず、ゲームがどう選ぶかはデータに入っていないので、コスト減少と同じように<b>渡す先を選ぶ欄</b>を出しています。既定は「渡さない」です。持続は固有武器の <code>ExtendBuffDuration</code> ぶんだけ伸ばしています。</p>
+        <p><b>戦闘開始時にコストをくれる 2 人に対応しています。</b>どちらもノーマルスキルで、値はスキルレベルで変わります（SchaleDB の <code>Skills.Public.Parameters</code>）。<b>シュン</b>は「戦闘開始時、スキルコストを<b>&lt;?1&gt;</b>獲得（戦闘中に1回のみ）」で、Lv1 の <b>2</b> から Lv10 の <b>3.8</b> まで（2／2.1／2.2／2.6／2.7／2.8／3.2／3.3／3.4／3.8）。<b>シュン（水着）</b>は「戦闘開始時、編成した味方生徒1人当たり、スキルコストを<b>&lt;?1&gt;</b>獲得（最大6人まで）（戦闘中に1回のみ）」で、Lv1 の <b>0.37</b> から Lv10 の <b>0.71</b> まで（0.37／0.39／0.41／0.48／0.5／0.52／0.6／0.61／0.63／0.71）——6 人編成の Lv10 なら <b>4.26</b> です。<b>二人は重なりません。</b>シュン（水着）のスキル文に「ただし自分以外にも、戦闘開始時にコストを獲得する生徒が部隊にいる場合、このスキルではスキルコストを獲得しません」とあり、いまのデータでこれに当たるのはシュンだけなので、両方居るとシュンが勝ちます。<b>足す先は「開始時のコスト」の手入力で、手で入れた分と合わせてから上限で頭打ちにします。</b>時刻は 0 秒です（有志ツールは回復が始まる 2.033 秒に足していますが、スキル文が「戦闘開始時」なので手入力と同じ扱いにしました）。</p>
+        <p><b>ステージのギミックは手で入れます。</b>発動する時刻・コスト回復力の増加量・効果時間の 3 つで、何個でも足せます。<b>プリセットは入れていません。</b>有志ツールにはボスごとの数値が入っていますが、<b>その数字の出どころが確かめられなかったので、こちらでは載せていません。</b>増やした分は<b>編成の合計にそのまま足しています</b>——ヒマリのような % のバフを掛けるかどうかはゲーム内で確かめられないので、掛けていません。</p>
         <p><b>開始時のコストは 0 です。</b><code>Excel/ConstCombatExcelTable.json</code> の <code>EchelonInitCommonCost: 0</code>（制約解除決戦は <code>EchelonExtensionEchelonInitCommonCost: 0</code>）。ただしステージやギミックで変わることがあるので、<b>入力にしてあります</b>。同じ表に <code>EchelonMaxCommonCost: 10</code> / <code>EchelonExtensionEchelonMaxCommonCost: 20</code>（上限）と <code>SkillHandCount: 3</code>（手札の枚数）も入っていて、下に書いた攻略サイト由来の値と一致します。</p>
         <p><b>EX を撃っている間の秒数は、スキルの <code>Duration</code>（フレーム）を 30 で割った値です。</b>ブルアカは 30fps なので、229 フレームなら 7.63 秒。この計算では、<b>撃っている間もコストは貯まり続ける</b>ものとして扱い、<b>次の EX はその演出が終わるまで撃てない</b>ものとしています。</p>
         <p><b>条件で値が変わるスキルがあります。</b>チェリノは同じ部隊のレッドウィンター生徒の人数、カノエは同じ部隊の重装甲ストライカーの人数（どちらも自身を除いて最大 3 人）で段が変わるので、編成から自動で数えています。それ以外の段のあるスキルは、段を選ぶ欄が出ます。</p>
@@ -356,6 +437,13 @@
         <p><b>誰に渡すかは、こちらでは決められません。</b>スキル文は「自身を除く味方 1 人」としか言わず、<b>ゲームがどう選ぶかはデータに入っていません。</b>なので選ぶ欄を出しています。既定は「渡さない」です。キサキ（水着）は「最も近い味方 3 人」なので、このツールでは 1 人ぶんしか数えられません。<b>ノーマルスキルや装備で下げる子（ジュンコ・サオリ・ココナ・コユキ・シロコ（水着）・キキョウ・マリー（アイドル）・レイ・ミチル（ドレス）・コノカ の 10 人）は、自動で出るスキルなので TL には組み込んでいません。</b></p>
         <p><b>バフの帯は、EX の効果のうち持続時間があるものです。</b>同じ <code>Effects[]</code> の <code>Duration</code>（ミリ秒）から引いています。持続の無いもの（撃った瞬間のダメージや回復）は帯になりません。効果の名前は SchaleDB の <code>Stat</code> の訳語で、<code>Stat</code> を持たない 3 種（<code>Regen</code>・<code>Shield</code>・<code>DamageDebuff</code>）だけは種別から当てています。<b>着弾までの遅れ（<code>ApplyFrame</code>）は数えていません</b>ので、実際の効き始めは帯の左端より少し後ろです。</p>
         <p><b>固有武器で、自分がかけた効果の持続が伸びます。</b>データでは <code>ExtendBuffDuration_Base</code>（バフ側・<b>22 人</b>）と <code>ExtendDebuffDuration_Base</code>（デバフ側・<b>7 人</b>）という別々のステータスで、どちらも 10000 分率の 10 段です。<b>Lv10 で ＋19%</b>（<code>1900</code>）。枠の「固有」で段を選ぶと、帯の長さと「効いている間」の秒数に効きます。既定は「なし」です。<b>有志ツールはこの 2 つを混ぜて「固有 2 で ×1.19」と一括りにしていますが、データ上は別物なので分けています。</b>混ぜると、デバフだけ伸びるカンナ（水着）・フユ・ユウカ（パジャマ）のバフまで伸びてしまいます。</p>
+        <p><b>撃つたびに EX が変わる子に対応しています。</b>SchaleDB の <code>Skills.Ex.ExtraSkills[]</code> がそれで、<b>12 人・18 形態</b>あります（2026 年 8 月 30 日）。コストも演出時間も持続効果も形態ごとに別物なので、<b>それぞれの形態の値で計算しています。</b>既定は<b>「順送りして、最後の形態を維持」</b>——ネル（制服）なら 1 回目が「かかって来いよ」で <b>1 コスト</b>、2 回目から「怪我しても知らねえからな」で <b>4 コスト</b>。ミカ（水着）は <b>4 → 2 → 0 → 4</b> と進みます。<b>スキル文がそう読めない 3 人だけ別扱いです。</b>ココロは「潜水状態になり、「上がります！」にスキルが変更」なので<b>撃つたびに入れ替わり</b>、アリス（臨戦）は撃つ前に選ぶ形（アイコンが <code>SELECTEXSKILL</code>）、キサキ（水着）は「「実行：ばんざい体操」を2回使用後、「宣言：本日休業」にスキルが変更されます」で<b>どちらが 1 枚目かがデータの並びと食い違う</b>ため、この 2 人は<b>自動で決めず</b>に選んでもらいます。<b>行ごとの「形態」の欄で、いつでも上書きできます。</b></p>
+        <p><b>手札の並びを変える書きぶりは、計算に入れていません。</b>「EXスキルをすぐに1回ドロー」（ネル（制服）ほか）・「味方1人のEXスキルカードを複製」（リオ）・「カードをデッキの最後尾に移動」（ミカ（水着）・シュン（水着））がそれで、<b>引いた 1 枚が手札のどこに入るかがデータに書かれていません。</b>ここを推測で動かすと、山札の並びがずれて<b>以降の行の「手札にある／ない」の判定が全部変わります</b>ので、代わりに<b>スキル文の原文を行ごとに畳んで出しています</b>（「このスキルの但し書き」）。<b>11 人ぶんあります。</b>読んで手で補ってください。</p>
+        <p><b>ノーマルスキル（NS）のバフ・デバフ・CC は、まだ出せません。</b>このツールが読んでいる <code>data.js</code> には <b>EX スキルの効果しか入っていない</b>ためです（コスト回復力に触るものだけは、パッシブ・ノーマルも拾っています）。<b>先に有志ツールの作りを確かめました。</b>kur-3dcg の TL 作成支援ツールは、<b>生徒ごとに手で入れた発動間隔（<code>nsInterval</code>）・持続（<code>nsDuration</code>）・初回の遅れ（<code>nsDelay</code>）</b>で NS の目盛りと帯を出しています——<b>ストライカー 186 人のうち 41 人ぶんだけ</b>で、条件で撃つ 18 人（<code>nsConditional</code>）は目盛りを出さずアイコンだけ、<b>効果の名前・値・CC・特効・攻撃倍率はどれも出していません</b>（<a href="https://github.com/kur-3dcg/blue-archive-tl-tool" target="_blank" rel="noopener">公開されているソースの <code>characters_st.json</code></a> を数えました）。kina-ko-m-ochi.net は<b>動画つき TL を探すサイト</b>で、時間軸に効果を並べる機能そのものがありません。<b>NS の発動間隔はゲームのデータには入っていないので、載せるなら手で入れるしかありません。</b>推測で埋めるとこのページの他の数字まで信用できなくなるため、いまは出さずにここに書いています。</p>
+        <p><b>特効は、EX のぶんだけ帯に出しています。</b>効果の名前は SchaleDB の <code>Stat</code> の訳語をそのまま使っていて、いま出るのは<b>爆発特効 4・貫通特効 3・神秘特効 3・振動特効 1 の計 11 本</b>です（点線の枠にしてあります）。<b>相手の装甲や属性が合ったときだけ効く</b>ので、無条件には数えていません。<b>持続時間は <code>Duration</code> が入っている効果を全部使っています</b>——生徒 274 人のうち <b>132 人</b>が EX に持続効果を持ち、帯は <b>199 本</b>（形態ぶんが別に 10 本）。<b>残りの 142 人は、持続時間のある効果を EX に持っていません。</b></p>
+        <p><b>攻撃力が実質何倍になるかは、出していません。</b><code>data.js</code> の帯は「効果の名前・持続・誰にかかるか」しか持っておらず、<b>増える量（値）が入っていません。</b>値が無いまま倍率を出すと嘘になります。<b>仮に値を入れるとしても、加算（<code>_Base</code>）と乗算（<code>_Coefficient</code>）を分けて数える必要があり、同じ種類のバフが重なるのか上書きなのかは効果ごとに違います。</b>このツールはコスト回復力のバフを<b>「重ねずに、切れる時刻だけ延ばす」</b>扱いにしているので、攻撃力を出すときも同じ扱いに揃えます。<b>先駆者も出していません。</b></p>
+        <p><b>書き出しの形を少し変えました。</b>4 列（時刻・名前・EX・コスト）の本体は今までどおりで、<b>上に <code>#</code> で始まる 2 行を足しています。</b>1 行目に共有 URL が入っているので、<b>書き出したものをそのまま貼り戻すと、撃たない子も含めて編成ごと元に戻ります。</b>4 列だけでは編成が分からず（撃たない子は書かれていません）、コスト回復力が変わって時刻がずれるためです。<code>#</code> の行を消して本体だけ貼っても読めます。その場合は名前から編成を組み直し、<b>貼られた秒より早く撃てない行だけ「この秒に」で留めます。</b></p>
+        <p><b>画像の書き出しは、この場で作っています。</b>外のライブラリは読み込まない決まりなので、画面に出ている SVG をそのまま組み直して 1 枚にし、<code>canvas</code> に描いて PNG にしています。<b>SVG を画像として読むと外のスタイルシートは効かない</b>ので、色は表示中のページから読んで書き写しています。白背景と透過の 2 つを出せます。</p>
         <p>出典 —
           <a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a>（生徒・EX スキルのコストと演出時間・コスト回復力のスキル）。取得は <span id="ver">—</span>。</p>
       </details>

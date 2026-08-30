@@ -4,11 +4,11 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>装備設計図の周回計算機｜AronaBot</title>
-<meta name="description" content="装備を目標の Tier まで上げるのに要る設計図とクレジットを出して、足りないぶんを埋めるのにいちばん効率のいい任務ステージを AP あたりで並べます。">
+<meta name="description" content="いま持っている設計図の枚数を入れると、何がどれだけ足りないかを出して、全体のバランスが整う周回先を 1 本に絞って出します。万能設計図とドロップ 2 倍・3 倍にも対応。">
 <meta name="theme-color" content="#c8892e">
 <link rel="icon" href="../../favicon.svg" type="image/svg+xml">
 <meta property="og:title" content="装備設計図の周回計算機">
-<meta property="og:description" content="目標の Tier まで要る設計図とクレジット、そして足りないぶんを埋める周回先を AP あたりで並べます。">
+<meta property="og:description" content="いま持っている設計図の枚数を入れると、何がどれだけ足りないかを出して、全体のバランスが整う周回先を 1 本に絞って出します。万能設計図とドロップ 2 倍・3 倍にも対応。">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://arona-bot.com/tools/equipment/">
 <meta property="og:image" content="https://arona-bot.com/images/hero-night.jpg">
@@ -16,73 +16,114 @@
 <link rel="stylesheet" href="../../style.css?v=15">
 <link rel="stylesheet" href="../tool.css?v=6">
 <style>
-  /* 目標の行。アイコン・名前・今の Tier・目標 Tier・個数 */
-  .goalrow {
-    display: grid; grid-template-columns: 42px 1fr 76px 76px 66px; gap: .6em; align-items: center;
-    padding: .5em 0; border-bottom: 1px solid var(--line);
-  }
-  .goalrow:last-of-type { border-bottom: 0; }
-  .goalrow img { width: 42px; height: 42px; border-radius: 6px; background: var(--bg-sub); }
-  .goalrow .nm { font-size: .86rem; }
-  .goalrow select, .goalrow input { padding: .34em .4em; font-size: .88rem; text-align: center; }
-  .goalrow select { background-position: calc(100% - 12px) calc(50% + 1px), calc(100% - 8px) calc(50% + 1px); padding-right: 1.6em; }
-  .goalhead {
-    display: grid; grid-template-columns: 42px 1fr 76px 76px 66px; gap: .6em;
-    font-size: .72rem; color: var(--fg-mute); padding-bottom: .4em;
-  }
-  .goalhead span { text-align: center; }
-  .goalhead span:nth-child(2) { text-align: left; }
+  /* 在庫のマス目。**9 部位 × 10 枠を、打ちやすい大きさで並べる。**
+     参考元（シャーレ装備管理室）と同じ「部位ごとの札」の形にしてある */
+  .cat { padding: 12px 13px; margin-bottom: 10px; border: 1px solid var(--line);
+         border-radius: 13px; background: var(--card); }
+  .cat:last-child { margin-bottom: 0; }
+  .cat-h { display: flex; flex-wrap: wrap; gap: .5em .7em; align-items: baseline; }
+  .cat-h b { font-size: .95rem; }
+  .cat-n { font-size: .82rem; font-weight: 800; color: var(--accent-tx);
+           font-variant-numeric: tabular-nums; margin-left: auto; }
+  .btn.tiny { padding: .2em .7em; font-size: .7rem; }
+
+  .bar { display: block; height: 5px; margin: .5em 0 .7em; border-radius: 999px;
+         background: var(--bg-sub); overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--accent); border-radius: 999px; }
+  .bar.sm { height: 4px; margin: 0; min-width: 40px; }
+
+  .pgrid { display: grid; gap: 6px; grid-template-columns: repeat(auto-fill, minmax(74px, 1fr)); }
+  /* **狭い画面では枠を詰めて 5 列に。**74px のままだと 3 列にしかならず、
+     9 部位で 4,500px 近く縦に伸びて、入力欄にたどり着く前に力尽きる */
   @media (max-width: 560px) {
-    .goalrow, .goalhead { grid-template-columns: 36px 1fr 64px 64px 56px; gap: .4em; font-size: .8rem; }
-    .goalrow img { width: 36px; height: 36px; }
+    /* **`1fr` ではなく `minmax(0, 1fr)`。**数値入力欄には既定の最小幅があって、
+       `1fr` だと列がそこまで広がり、5 列ぶんで画面から 25px はみ出す */
+    .pgrid, .dgrid { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px; }
+    .pc { padding: 4px 2px 3px; min-width: 0; }
+    .pc img { width: 30px; height: 30px; }
+    .pc input { font-size: .78rem; min-width: 0; padding: .2em 0; }
+    .pc .need { font-size: .55rem; }
+    /* 「足りています」の 6 文字が枠に収まるまで落とす。**切って「足りて…」にしない** */
+    .pc.ok .need { font-size: .49rem; letter-spacing: -.02em; }
+  }
+  .pc { display: block; padding: 5px 4px 4px; border: 1px solid var(--line); border-radius: 10px;
+        background: var(--bg-sub); text-align: center; cursor: text; }
+  .pc .tg { display: block; font-size: .64rem; font-weight: 800; color: var(--fg-mute); }
+  .pc img { width: 40px; height: 40px; display: block; margin: 1px auto 2px; }
+  .pc input { width: 100%; box-sizing: border-box; padding: .2em .1em; font-size: .88rem;
+              text-align: center; font-variant-numeric: tabular-nums; }
+  .pc .need { display: block; font-size: .6rem; line-height: 1.4; margin-top: .2em;
+              color: var(--fg-mute); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  /* **足りているものは沈める。**目に入るのは足りていないものだけでいい */
+  .pc.ok { opacity: .5; }
+  .pc.short { border-color: color-mix(in srgb, var(--accent) 55%, var(--line)); }
+  .pc.short .need { color: var(--accent-tx); font-weight: 700; }
+  .pc.uni { border-style: dashed; }
+
+  /* 足りないものの一覧 */
+  .slist { display: grid; gap: 7px; }
+  .srow { display: grid; grid-template-columns: 34px minmax(0, 1fr) minmax(50px, 1.1fr) auto;
+          gap: .7em; align-items: center; padding: 6px 8px; border: 1px solid var(--line);
+          border-radius: 10px; background: var(--card); }
+  .srow img { width: 34px; height: 34px; }
+  .srow .nm { font-size: .82rem; min-width: 0; }
+  .srow .nm small { display: block; font-size: .68rem; color: var(--fg-mute);
+                    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .srow .num { text-align: right; font-size: .78rem; color: var(--fg-mute); white-space: nowrap; }
+  .srow .num b { display: block; font-size: .95rem; color: var(--accent-tx);
+                 font-variant-numeric: tabular-nums; }
+  .srow .num small { font-size: .66rem; font-variant-numeric: tabular-nums; }
+  /* **狭い画面では 2 段に畳む。**枠を明示しないと、棒が 2 行目に落ちたあと
+     枚数が 3 行目の左端に取り残されて、1 行が 110px まで伸びる */
+  @media (max-width: 560px) {
+    .srow { grid-template-columns: 30px minmax(0, 1fr) auto; row-gap: .35em; }
+    .srow img { grid-column: 1; grid-row: 1 / span 2; align-self: center;
+                width: 30px; height: 30px; }
+    .srow .nm { grid-column: 2; grid-row: 1; }
+    .srow .num { grid-column: 3; grid-row: 1; }
+    .srow .num b { display: inline; }
+    .srow .num small { display: block; }
+    .srow .bar.sm { grid-column: 2 / -1; grid-row: 2; }
   }
 
-  /* 必要な設計図のマス目 */
-  .bpgrid { display: grid; gap: 6px; grid-template-columns: repeat(auto-fill, minmax(88px, 1fr)); }
-  .bp {
-    border: 1px solid var(--line); border-radius: 10px; padding: 8px; text-align: center;
-    background: var(--card);
-  }
-  .bp img { width: 46px; height: 46px; margin: 0 auto 3px; }
-  .bp .t { font-size: .68rem; color: var(--fg-mute); }
-  .bp .v { font-size: .95rem; font-weight: 800; font-variant-numeric: tabular-nums; }
-  .bp .have { font-size: .68rem; color: var(--fg-mute); }
-  .bp input { width: 100%; padding: .2em .3em; font-size: .8rem; text-align: center; margin-top: 4px; }
-  .bp.short { border-color: var(--accent); }
-  .bp.short .v { color: var(--accent-tx); }
-  .bp.done { opacity: .45; }
+  /* 推した 1 本 */
+  .best { padding: 14px; border: 1px solid var(--accent); border-radius: 14px;
+          background: color-mix(in srgb, var(--accent) 8%, var(--card)); }
+  .best-h { display: flex; flex-wrap: wrap; gap: .4em .7em; align-items: baseline; }
+  .best-h b { font-size: 1.25rem; font-variant-numeric: tabular-nums; }
+  .best-h .tg2 { font-size: .68rem; font-weight: 800; line-height: 1.8; padding: 0 .6em;
+                 border-radius: 999px; background: var(--accent); color: var(--accent-in); }
+  .best-h .nm2 { font-size: .86rem; color: var(--fg-mute); min-width: 0; }
+  .best-h .runs { margin-left: auto; font-size: 1.05rem; font-weight: 800;
+                  color: var(--accent-tx); white-space: nowrap; }
+  .why-l { margin: 12px 0 .5em; font-size: .82rem; }
+  .why-l small { display: block; font-weight: 400; color: var(--fg-mute); font-size: .76rem;
+                 line-height: 1.6; margin-top: .15em; }
+  .whys { display: flex; flex-wrap: wrap; gap: 6px; }
+  .why { display: inline-flex; align-items: center; gap: .35em; padding: .25em .6em .25em .3em;
+         border: 1px solid var(--line); border-radius: 999px; background: var(--card);
+         font-size: .74rem; color: var(--fg-mute); white-space: nowrap; }
+  .why img { width: 24px; height: 24px; }
+  .why b { color: var(--accent-tx); font-variant-numeric: tabular-nums; }
+  .dgrid { display: grid; gap: 6px; grid-template-columns: repeat(auto-fill, minmax(74px, 1fr)); }
+  .dgrid .pc { background: var(--card); }
 
-  .stagerow { display: grid; grid-template-columns: 2em 1fr auto; gap: .7em; align-items: baseline;
-              padding: .6em 0; border-bottom: 1px solid var(--line); font-size: .88rem; }
-  .stagerow:last-child { border-bottom: 0; }
-  .stagerow .n { color: var(--fg-mute); font-size: .74rem; font-variant-numeric: tabular-nums; }
-  .stagerow .dt2 { display: block; color: var(--fg-mute); font-size: .74rem; margin-top: .15em; }
-  .stagerow .sc { font-variant-numeric: tabular-nums; font-weight: 800; color: var(--accent-tx); white-space: nowrap; }
-  .urate { display: flex; flex-wrap: wrap; gap: 6px; }
-  .urate .rt { display: inline-flex; align-items: baseline; gap: .35em; padding: .25em .6em;
-               border: 1px solid var(--line); border-radius: 999px; background: var(--bg-sub);
-               font-size: .74rem; color: var(--fg-mute); }
-  .urate .rt b { font-size: .86rem; color: var(--accent-tx); font-variant-numeric: tabular-nums; }
-  .unigrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 10px; }
-  .uni {
-    border: 1px solid var(--line); border-radius: 12px; background: var(--bg-sub);
-    padding: 10px 8px 9px; text-align: center;
-  }
-  .uni img { width: 56px; height: 56px; display: block; margin: 0 auto 2px; }
-  .uni .t { font-size: .74rem; font-weight: 800; color: var(--fg-mute); margin-bottom: .35em; }
-  .uni input { width: 100%; text-align: center; padding: .3em .2em; font-size: .9rem; }
-  .roster {
-    display: grid; gap: 12px; padding: 14px 16px; margin-bottom: 16px;
-    border: 1px solid var(--line); border-radius: 12px; background: var(--bg-sub);
-  }
-  .roster .rl > b { font-size: .88rem; display: block; margin-bottom: .3em; }
-  .roster .rl small { font-size: .78rem; color: var(--fg-mute); line-height: 1.75; display: block; word-break: auto-phrase; }
-  .roster .ri { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; }
-  .roster .ri span { display: block; }
-  .roster label { display: block; font-size: .72rem; color: var(--fg-mute); margin-bottom: .25em; }
-  .roster input, .roster select { width: 110px; padding: .38em .55em; font-size: .9rem; text-align: center; }
-  .goalrow .imp { display: block; font-size: .68rem; color: var(--fg-mute); font-variant-numeric: tabular-nums; }
-  .goalhead small { display: block; font-size: .62rem; opacity: .8; }
+  /* 設定 */
+  .tgrid { display: grid; gap: 8px; grid-template-columns: repeat(auto-fill, minmax(146px, 1fr)); }
+  .tset { display: flex; align-items: center; gap: .5em; padding: 6px 9px;
+          border: 1px solid var(--line); border-radius: 10px; background: var(--bg-sub); }
+  .tset span { flex: 1 1 auto; min-width: 0; font-size: .82rem; }
+  .tset small { display: block; font-size: .66rem; color: var(--fg-mute); }
+  .tset input { width: 58px; padding: .3em .2em; text-align: center;
+                font-variant-numeric: tabular-nums; }
+  .srow-set { display: flex; flex-wrap: wrap; gap: .7em 1.1em; align-items: center;
+              margin-bottom: 14px; }
+  .srow-set > span { font-size: .82rem; font-weight: 700; }
+  .rng { display: flex; align-items: center; gap: .6em; }
+  .rng input[type=range] { width: 170px; }
+  .rng b { font-size: .8rem; color: var(--accent-tx); min-width: 4.5em; }
+  .chk { display: inline-flex; align-items: center; gap: .45em; font-size: .82rem; }
+  .empty { font-size: .82rem; color: var(--fg-mute); line-height: 1.8; margin: 0; }
 </style>
 </head>
 <body>
@@ -159,149 +200,189 @@
   </div>
   <div class="thero-body wide">
     <h1>装備設計図の周回計算機</h1>
-    <p class="thero-lead">目標の Tier まで上げるのに要る設計図とクレジットを出して、足りないぶんを埋める任務を AP あたりで並べます。</p>
+    <p class="thero-lead">いま持っている設計図の枚数を入れると、何がどれだけ足りないかと、そこを埋めるのにいちばん効率のいい任務ステージが 1 本出ます。</p>
   </div>
 </header>
 
 <div class="twrap wide">
   <p class="tcrumb"><a href="../../">AronaBotの使い方</a><span class="sl">/</span><a href="../">ツール</a><span class="sl">/</span>装備設計図の周回計算機</p>
 
-  <div class="tcols lean" style="margin-top:20px">
+  <div class="stats c3" style="margin-top:20px">
+    <div class="stat hero">
+      <div class="k">次に周回するところ</div>
+      <div class="v" id="o-stage">—</div>
+      <div class="sub" id="o-stage-sub">在庫を入れると出ます</div>
+    </div>
+    <div class="stat">
+      <div class="k">推奨周回数</div>
+      <div class="v" id="o-runs">—</div>
+      <div class="sub" id="o-runs-sub"></div>
+    </div>
+    <div class="stat">
+      <div class="k">目標までの達成率</div>
+      <div class="v" id="o-pct">—</div>
+      <div class="sub" id="o-pct-sub"></div>
+    </div>
+  </div>
 
-    <div class="tcol">
-      <div class="panel">
-        <div class="panel-h"><h2>目標</h2></div>
-        <p class="lead">部位ごとに、<b>今の Tier から目標の Tier まで、何個ぶん</b>上げたいかを入れます。<b>お守り・腕時計・ネックレスは T9 が上限</b>です。</p>
-        <div class="roster">
-          <div class="rl"><b>生徒の人数から入れる</b><small>生徒 1 人が装備欄を 3 つ持っていて、どの部位を使うかは決まっています。人数を入れると、部位ごとに要る個数を割り出します（全 <b id="r-n">—</b> 人の装備欄から）。</small></div>
-          <div class="ri">
-            <span><label for="i-people">人数</label><input id="i-people" type="number" inputmode="numeric" min="1" max="300" step="1" value="30"></span>
-            <span><label for="i-goal">目標 Tier</label><select id="i-goal"></select></span>
-            <button type="button" class="btn pri" id="b-people">入れる</button>
-          </div>
+  <div class="note-box" style="margin-top:16px">
+    <b>入れるのは「いま持っている設計図の枚数」だけです。</b>そこから足りないものを出して、
+    <b>いちばん埋まりが早いステージを 1 本</b>選びます。回った結果を入れると、次の 1 本が出ます。
+    入力はこの端末のブラウザに残り、URL にも入るので、別の端末へはリンクを送れば移せます。
+  </div>
+
+  <div class="tfull" style="margin-top:20px">
+    <div class="panel" id="p-inv">
+      <div class="panel-h"><h2>① いま持っている設計図</h2></div>
+      <p class="lead">部位ごとに、<b>T2 から T10 までの設計図と万能設計図</b>の枚数を入れてください。
+        右上の数字は<b>「T1 から T10 まで上げきれる装備が何個ぶんあるか」</b>で、万能設計図を
+        いちばん足りない段に配ったものとして数えています。</p>
+      <div class="btnrow" style="margin-bottom:12px">
+        <button type="button" class="btn" id="zero-all">ぜんぶ 0 に戻す</button>
+      </div>
+      <div id="inv"></div>
+    </div>
+  </div>
+
+  <div class="tfull">
+    <div class="panel" id="p-short">
+      <div class="panel-h"><h2>② 足りないもの</h2></div>
+      <div id="short"></div>
+    </div>
+  </div>
+
+  <div class="tfull">
+    <div class="panel" id="p-plan">
+      <div class="panel-h"><h2>③ ここを周回してください</h2></div>
+      <div id="plan"></div>
+      <div id="stages" style="margin-top:18px"></div>
+    </div>
+  </div>
+
+  <div class="tfull">
+    <div class="panel" id="p-set">
+      <div class="panel-h"><h2>④ 設定</h2></div>
+
+      <div class="srow-set">
+        <span>ドロップ量</span>
+        <div class="seg" id="mult" role="group" aria-label="キャンペーン倍率">
+          <button type="button" data-m="1" aria-pressed="true">1 倍</button>
+          <button type="button" data-m="2" aria-pressed="false">2 倍</button>
+          <button type="button" data-m="3" aria-pressed="false">3 倍</button>
         </div>
-        <div class="goalhead"><span></span><span>部位<small id="imp-note"></small></span><span>今</span><span>目標</span><span>個数</span></div>
-        <div id="goals"></div>
-        <div class="btnrow" style="margin-top:16px">
-          <button type="button" class="btn" id="b-clear">ぜんぶ 0 に</button>
-          <button type="button" class="btn" id="b-t9">みんな T9 まで 1 個</button>
-          <button type="button" class="btn" id="b-t10">上げられるだけ 1 個</button>
+        <label class="chk"><input type="checkbox" id="i-hard"> ハードも候補に入れる</label>
+      </div>
+
+      <div class="srow-set">
+        <span>周回の方針</span>
+        <div class="seg" id="model" role="group" aria-label="周回の方針">
+          <button type="button" data-md="exponential" aria-pressed="true">完遂重視</button>
+          <button type="button" data-md="logarithmic" aria-pressed="false">備蓄重視</button>
+        </div>
+        <span style="font-weight:400;font-size:.78rem;color:var(--fg-mute)">完遂＝足りないものを優先／備蓄＝余りぶんも評価</span>
+      </div>
+
+      <div class="srow-set">
+        <span>推奨周回数</span>
+        <div class="rng">
+          <small style="font-size:.72rem;color:var(--fg-mute)">まとめて</small>
+          <input type="range" id="i-inertia" min="0" max="10" step="1" value="5" aria-label="推奨周回数の傾向">
+          <small style="font-size:.72rem;color:var(--fg-mute)">こまめに</small>
+          <b id="inertia-v">ふつう</b>
         </div>
       </div>
 
-      <div class="panel">
-        <div class="panel-h"><h2>持っている設計図</h2></div>
-        <p class="lead">分かるぶんだけ入れてください。<b>入れた数は必要量から引かれます。</b></p>
-        <div class="seg" id="bpcat" role="group" aria-label="部位" style="margin-bottom:14px"></div>
-        <div class="bpgrid" id="bpgrid"></div>
-      </div>
-
-      <div class="panel">
-        <div class="panel-h">
-          <h2><img class="ico" src="../img/equipment_icon_selection_tier7_piece.webp" alt="" width="24" height="24">設計図選択ボックス</h2>
-        </div>
-        <p class="lead">熟達証書ショップの「T◯装備設計図選択ボックス」です。<b>Tier は決まっていて、部位が自由</b>。入れた数は、不足がいちばん多い部位から順に差し引きます。並ぶ段は <span id="sel-range">—</span> です。</p>
-        <div class="unigrid" id="unigrid"></div>
-      </div>
-
-      <div class="panel">
-        <div class="panel-h">
-          <h2><img class="ico" src="../img/equipment_icon_hat_useall_piece.webp" alt="" width="24" height="24">万能設計図</h2>
-        </div>
-        <p class="lead">任務で落ちる「<b>◯◯の万能設計図</b>」です。選択ボックスとは逆で、<b>部位は決まっていて、Tier が自由</b>。ただし高い Tier ほど交換レートが悪くなります。</p>
-        <div class="urate" id="urate"></div>
-        <p class="lead" style="margin:12px 0 14px">1 枚の設計図と交換するのに要る枚数です。<b>低い Tier から充てるのがいちばん得</b>なので、ここもそう計算しています。</p>
-        <div class="unigrid" id="univgrid"></div>
+      <p class="lead" style="margin-top:16px"><b>目標セット数</b>——その部位を
+        <b>T1 から T10 まで上げきる装備を何個ぶん</b>そろえるか。初期値は参考元のものです。</p>
+      <div class="tgrid" id="tgrid"></div>
+      <div class="btnrow" style="margin-top:12px">
+        <button type="button" class="btn" id="t-reset">初期値に戻す</button>
       </div>
     </div>
+  </div>
 
-    <div class="tcol">
-      <div class="stats c3">
-        <div class="stat hero">
-          <div class="k">足りない設計図</div>
-          <div class="v" id="o-short">—</div>
-          <div class="sub" id="o-short-sub"></div>
-        </div>
-        <div class="stat">
-          <div class="k">要るクレジット</div>
-          <div class="v" id="o-credit">—</div>
-          <div class="sub">ティアアップの手数料</div>
-        </div>
-        <div class="stat">
-          <div class="k">見込みの周回</div>
-          <div class="v" id="o-runs">—</div>
-          <div class="sub" id="o-runs-sub"></div>
-        </div>
-      </div>
-
-      <div class="panel">
-        <div class="panel-h"><h2>いま回るならここ</h2></div>
-        <p class="lead"><b>足りない設計図が 1 AP あたり何個手に入るか</b>で並べています。足りている部位のドロップは数えていません。その面で落ちる万能設計図も、設計図に換算して数に入れています。高い Tier の面ほど大量に落ちるので、これを外すと低い Tier の面ばかりが上に来ます。</p>
-        <div class="btnrow" style="margin-bottom:12px">
-          <span style="font-size:.8rem;font-weight:700;color:var(--fg-mute)">ドロップ</span>
-          <div class="seg" id="mul" role="group" aria-label="ドロップ倍率">
-            <button type="button" data-m="1" aria-pressed="true">×1</button>
-            <button type="button" data-m="2">×2</button>
-            <button type="button" data-m="3">×3</button>
-          </div>
-          <div class="seg" id="diff" role="group" aria-label="難易度">
-            <button type="button" data-d="all" aria-pressed="true">両方</button>
-            <button type="button" data-d="n">Normal</button>
-            <button type="button" data-d="h">Hard</button>
-          </div>
-        </div>
-        <div id="stages"></div>
-      </div>
-    </div>
-
-    <div class="tfull">
-      <div class="panel">
-        <div class="panel-h"><h2>必要な設計図</h2></div>
-        <p class="lead">目標に届くまでに要る枚数です。<b>橙色は足りていないもの</b>で、薄いのは足りているものです。</p>
-        <div class="tscroll">
-          <table class="dt">
-            <thead><tr id="need-head"></tr></thead>
-            <tbody id="need-body"></tbody>
-          </table>
-        </div>
-      </div>
-
+  <div class="tfull">
       <div class="sharebar" id="sharebar"></div>
 
       <details class="src">
         <summary>数字の出どころ</summary>
-        <p><b>ティアアップの材料とクレジットは、ゲームのデータそのままです。</b>
-          <code>Excel/EquipmentExcelTable.json</code> の <code>RecipeId</code> から
-          <code>Excel/RecipeIngredientExcelTable.json</code> を引いています。</p>
-        <p><b>1 部位を T1 から T10 まで上げると、設計図は T2 40 ／ T3 45 ／ T4 50 ／ T5 55 ／
-          T6 65 ／ T7 65 ／ T8 60 ／ T9 50 ／ T10 60 枚、クレジットは 711,500 です。</b>
-          T10 まである 6 部位はどれも同じ表になります。</p>
-        <p><b>お守り・腕時計・ネックレスは T9 が上限です。</b>データ上、この 3 部位には T10 の装備もレシピも存在しません（帽子・手袋・靴・カバン・バッジ・ヘアピンは T10 まであります）。そのぶん T1 から上げ切るのに要るクレジットも 536,500 で、T10 まである部位の 711,500 より少なくなります。</p>
-        <p><b>ドロップは <a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a> の
-          <code>data/jp/stages.min.json</code> から、<code>Amount × Chance</code> を足して期待値にしています。</b>初回クリア報酬と星の報酬（<code>RewardType</code> が付いている行）は、周回では出ないので数えていません。たとえば Area 4-1 の帽子 T2 設計図は「確定 1 個」＋「20% でもう 1 個」なので 1.2 個です。
-          Hard は Normal のちょうど 2 倍落ちますが、AP も 2 倍（10 → 20）なので、<b>AP あたりの効率は同じ</b>です。違うのは<b>組み合わさる部位</b>なので、狙いによってどちらが良いかが変わります。</p>
-        <p><b>ドロップだけ ba-data ではなく SchaleDB を見ています。</b>
-          2026-04-21 に実装された万能設計図が ba-data の <code>jp</code> ブランチにまだ入っておらず、
-          <code>CampaignStageRewardExcelTable.json</code> を探しても <code>501000</code>〜<code>509000</code> が 1 件も出てこないためです。レシピ・箱の比率は今までどおり ba-data から取っています。</p>
-        <p><b>「設計図選択ボックス」と「万能設計図」は別のものです。</b>選択ボックスは熟達証書ショップのもので、Tier が決まっていて部位が自由。<b>並ぶ段は数えて出しています</b>——SchaleDB の <code>items</code> から「T◯装備設計図選択ボックス」を拾い、日本版で <code>Shop</code> と <code>IsReleased</code> がどちらも立っているものだけを取ります。<b>2026 年 8 月 30 日まで「T2 から T8 まで」と決め打ちにしていて、2026 年 2 月 1 日に増えた T9（<code>150045</code>）を数えていませんでした。</b>T10（<code>150048</code>）はアイテムとしては在りますが、まだどの版でもショップに並びません。万能設計図（<code>501000</code>〜<code>509000</code>、<code>Tier: 0</code>）は任務で落ちるもので、部位が決まっていて Tier が自由です。</p>
-        <p><b>部位ごとの需要は、生徒 <span id="src-roster">—</span> 人の装備欄から数えています。</b>ヘアピン 175 ／ 腕時計 161 ／ 帽子 102 ／ 靴 99 ／ ネックレス 75 ／ 手袋 73 ／ カバン 56 ／ バッジ 43 ／ お守り 38。ネックレスを 1 としたときの比は 2.33／2.15／1.36／1.32／1.00／0.97／0.75／0.57／0.51 で、<a href="https://bluearchive.wikiru.jp/?%E8%A3%85%E5%82%99%E3%81%AB%E3%81%A4%E3%81%84%E3%81%A6" target="_blank" rel="noopener">ブルアカ Wiki が別に数えた比</a>（260 人時点で 2.32／2.12／1.35／1.34／1／0.97／0.76／0.58／0.53）とほぼ一致します。<b>ヘアピンと腕時計は、ふつうに集めるだけでは足りません。</b></p>
-        <p><b>ドロップの期待値も Wiki の実測と合っています。</b>
-          Area 28〜29 を 3 倍期間に 200 周した記録では、T10 が 528 枚（1 周あたり 0.88）、T8 が 306 枚（0.51）、万能設計図が 22,530 枚（1 周 37.6）。このツールが出す 1 周あたりは T10 0.86 ／ T8 0.50 ／ 万能設計図 37.5 です。</p>
-        <p><b>万能設計図の交換レート（T2 は 2 枚、T10 は 50 枚）もゲームのデータです。</b><code>DB/EquipmentChangePieceExcelTable.json</code> の <code>ChangeAmount</code> で、90 行（9 部位 × 10 段）どれも <code>1 / 2 / 3 / 5 / 7 / 10 / 15 / 20 / 30 / 50</code> と同じ並びでした。<b><code>Excel/</code> 側は中身の無い殻なので、<code>DB/</code> を見ないと取れません。</b>2026 年 8 月 30 日まで <a href="https://bluearchive.wikiru.jp/?%E8%A3%85%E5%82%99%E3%81%AB%E3%81%A4%E3%81%84%E3%81%A6" target="_blank" rel="noopener">ブルアカ Wiki の「装備について」</a>の表を写していて、値は合っていました。この表は「全て万能設計図で補う場合の各 Tier の必要数」も載せていて、
-          T2 80 ／ T3 135 ／ T4 250 ／ T5 385 ／ T6 650 ／ T7 975 ／ T8 1,200 ／ T9 1,500 ／ T10 3,000。上のレシピの枚数（40 / 45 / 50 / 55 / 65 / 65 / 60 / 50 / 60）にレートを掛けた値と、9 つとも一致します。</p>
-        <p><b>箱（<code>GachaGroup</code>）で出る枠も数えています。</b>中身と比率は <code>Excel/GachaElementExcelTable.json</code> にそのまま入っているので、<b>推測せずにその比率で期待値へ畳んでいます。</b>ここで出る「T1 の装備そのもの」は設計図ではないので数えていません。</p>
-        <p><b>data.js は <code>scripts/build-tool-data.py</code> が作っています。</b>
-          GitHub Actions が毎日回しているので、<b>生徒・装備・ステージが増えれば自動で追いつきます。</b></p>
-        <p><b>Area 28 まで入っています。</b>SchaleDB のステージ表は Area 26 までなので、そこだけ見ていると T10 の設計図が落ちる場所を丸ごと見落とします。このツールは ba-data の <code>CampaignStageExcelTable</code> から作っているので、Area 28 も入っています（Area 28 のステージ名だけ日本語が取れていないので「Area 28-1」と出ます）。</p>
-        <p>出典 — <a href="https://github.com/electricgoat/ba-data" target="_blank" rel="noopener">electricgoat/ba-data</a>（jp、
-          <span id="ver">—</span>）、<a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a>（ステージ名とアイコン）、<a href="https://bluearchive.wikiru.jp/?%E8%A3%85%E5%82%99%E4%B8%80%E8%A6%A7" target="_blank" rel="noopener">ブルアカ攻略 Wiki「装備一覧」</a>（ティアアップの合計）。</p>
+
+        <p><b>この計算機は「シャーレ装備管理室」の考え方をそのまま借りています。</b>
+          画面の順番（在庫を入れる → 足りないものが出る → 周回先が 1 本出る）も、
+          周回先の選び方も、係数も、
+          <a href="https://st-blue-archive.gitlab.io/equipment-controller/" target="_blank" rel="noopener noreferrer">シャーレ装備管理室</a>（もやしいため氏）に合わせました。
+          理論は同氏の記事
+          <a href="https://note.com/st_blue_archive/n/nfcd85a238aca" target="_blank" rel="noopener noreferrer">「装備周回：各ステージの『美味しさ』を滑らかに評価しよう」</a>と
+          <a href="https://note.com/st_blue_archive/n/neb9c10a4db92" target="_blank" rel="noopener noreferrer">「万能設計図の価値を考えよう」</a>にあります。
+          <b>式をこちらで作ってはいません。</b>κ＝3・α＝9・inertia の刻み（1 − 10^−(1+2r/10)、11 段）・
+          目標セット数の初期値（<span id="src-def">—</span>）は、
+          あちらが配っている <code>optimizer.worker</code> と <code>index</code> のバンドルから写しました（2026-08-30 に取得）。
+          <b>本家のほうが機能は多いので、細かく詰めたい方はそちらをどうぞ。</b></p>
+
+        <p><b>周回先の選び方。</b>①その設計図が<b>いちばん出るステージでの 1 周あたりの期待枚数</b>から
+          「希少価値」を出します（万能設計図ぶんは交換レートで割って足します）。
+          ②「目標に対する手持ちの割合」を右下がりの関数に通して、<b>足りていないものほど高く</b>評価します。
+          ③その 2 つを掛けたものが 1 枚あたりの価値で、
+          ④<b>ステージの点数 ＝ Σ（1 周あたりの期待枚数 × 1 枚あたりの価値）</b>です。
+          ⑤推奨周回数は、回すたびに在庫が増えるものとして点数を計算し直し、
+          2 番目のステージに追い抜かれる手前までを出しています。
+          <b>AP では割っていません。</b>点数は「1 周でどれだけ満足度が上がるか」なので、
+          AP が違うステージ同士を並べるときはご注意ください。</p>
+
+        <p><b>ステージとドロップは SchaleDB の本番データそのままです。</b>
+          <code>stages.min.json</code> の <code>Category: "Campaign"</code> のうち、
+          任務（<code>Id</code> の 5 桁目が 1）だけを取っています。ノーマル <span id="src-normal">—</span> 本・
+          ハードを合わせて <span id="src-stages">—</span> 本。
+          1 周あたりの期待枚数は <code>Amount ×  Chance</code>（<code>AmountMin</code> /
+          <code>AmountMax</code> があるときはその中間）で、
+          <b><code>RewardType</code> の付いた初回クリア報酬と星 3 報酬は数えていません</b>（周回では出ないため）。
+          設計図の箱（<code>GachaGroup</code>）は
+          <a href="https://github.com/electricgoat/ba-data" target="_blank" rel="noopener">electricgoat/ba-data</a> の
+          <code>GachaElementExcelTable</code> で中身の比率を引いています。
+          <b>分母は箱に入っているもの全部で取ります。</b>設計図以外（できあがった T1 の装備など）を
+          先に捨ててから割ると設計図の期待値が水増しされ、Area 10・11 の 10 本が 1.5 倍になっていました（2026-08-30 に修正）。</p>
+
+        <p><b>T10 は 9 部位すべてにあります。</b>以前このページは
+          お守り・腕時計・ネックレスだけ T9 が上限だと書いていましたが、<b>これは誤りでした。</b>
+          原因は 2 つです。（1）部位と段を
+          <a href="https://github.com/electricgoat/ba-data" target="_blank" rel="noopener">ba-data</a> の
+          <code>Excel/EquipmentExcelTable.json</code> から読んでいたこと——このファイルは
+          <b>2025-01-20 で更新が止まっていて</b>、その 3 部位の T10 が入っていません。
+          （2）<code>IsReleased</code> の読み方——この配列は <b><code>[Jp, Global, Cn]</code> の順</b>で、
+          その 3 部位の T10 は <code>[true, true, false]</code>（中国だけ未実装）です。
+          <b>日本向けなので添字 0 だけを見ます。</b>
+          いまは装備・設計図・レシピを <code>schaledb.com/data/jp/equipment.min.json</code> から読んでいて、
+          <code>config.json</code> の <code>Regions[0]</code>（Jp）も
+          <code>"EquipmentMaxLevel": [10, 10, 10]</code> と言っています。
+          この取り違えで、<b>Area 29 の T10 設計図のドロップがまるごと消えていました</b>（同日に修正）。</p>
+
+        <p><b>「1 セット」＝ 装備 1 個を T1 から T10 まで上げきること。</b>要る設計図は
+          <code>equipment.min.json</code> の <code>Recipe</code> を足したもので、
+          <b>9 部位すべて同じ</b>です——<span id="src-perset">—</span>（合計 490 枚）。
+          クレジットは <code>RecipeCost</code> です。この表が参考元の持っている表と
+          1 枚も違わないことを確かめてあります。</p>
+
+        <p><b>万能設計図 1 枚は、どの部位のどの段の設計図にもなります。</b>要る枚数は
+          <span id="src-rate">—</span> で、9 部位とも同じです。出どころは ba-data の
+          <code>DB/EquipmentChangePieceExcelTable.json</code>（<b>2026-04-21 更新</b>。
+          万能設計図が実装された日です）。参考元が持っている表とも一致します。</p>
+
+        <p><b>このページはドロップ率を推定していません。</b>確率はすべてゲームのデータに
+          書いてある値で、書いていないものは出していません。
+          <b>ステージの並びが参考元と食い違わないことも確かめました</b>——ノーマル 90 本すべてで、
+          ステージ名も 1 周あたりの期待枚数も一致しています（2026-08-30）。</p>
+
+        <p>出典 — <a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a>、
+          <a href="https://github.com/electricgoat/ba-data" target="_blank" rel="noopener">electricgoat/ba-data</a>、
+          <a href="https://st-blue-archive.gitlab.io/equipment-controller/" target="_blank" rel="noopener noreferrer">シャーレ装備管理室</a>。
+          取得は <span id="ver">—</span>。</p>
       </details>
     </div>
 
   </div>
 </div>
 
-<script>window.TOUR = {"key": "equipment", "steps": [{"sel": "#i-people", "t": "何人ぶん育てるかを決めます", "d": "目標の Tier と人数を入れると、そこまでに要る設計図の枚数が出ます。"}, {"sel": "#bpgrid", "t": "持っている設計図を入れます", "d": "部位ごとに手持ちを入れると、足りないぶんだけが残ります。選択ボックスと万能設計図も差し引けます。"}, {"sel": "#stages", "t": "回るステージが出ます", "d": "足りない設計図がいちばん早く埋まる順に並びます。ドロップ 2 倍・3 倍のときは上の切り替えを使ってください。"}]};</script>
+<script>window.TOUR = {"key": "equipment", "steps": [{"sel": "#inv", "t": "持っている設計図を入れます", "d": "部位ごとに T2〜T10 と万能設計図の枚数を。ここが入口です。右上の数字は「T1 から T10 まで上げきれる装備が何個ぶんあるか」です。"}, {"sel": "#p-short", "t": "足りないものが出ます", "d": "目標セット数に対して何がどれだけ足りないかを、多い順に並べます。"}, {"sel": "#p-plan", "t": "周回先が 1 本に決まります", "d": "足りないものがいちばん早く埋まるステージです。点数の内訳で「何目当てで選ばれたか」も出します。"}, {"sel": "#stages", "t": "ほかの候補も見られます", "d": "点数の高い順に 12 本。回ったら、上の欄に実際に出た枚数を入れて「在庫に足す」を押してください。次の 1 本が出ます。"}, {"sel": "#p-set", "t": "方針はここで変えられます", "d": "ドロップ 2 倍・3 倍、ハードを混ぜるか、足りないもの優先か備蓄重視か、そして目標セット数。"}, {"sel": "#sharebar", "t": "入力ごと URL になります", "d": "在庫も設定も URL に入るので、リンクを送れば別の端末でも同じ状態が開きます。"}]};</script>
 <script src="../tour.js?v=1"></script>
 
 <script src="../share.js?v=1"></script>

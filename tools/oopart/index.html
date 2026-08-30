@@ -44,11 +44,30 @@
   .srow .tot small { font-weight: 400; color: var(--fg-mute); font-size: .72rem; }
 
   .tiers4 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
-  .t4 { text-align: center; padding: 10px 6px; border: 1px solid var(--line);
+  .t4 { text-align: center; padding: 10px 6px; border: 2px solid var(--rar, var(--line));
         border-radius: 11px; background: var(--bg-sub); }
-  .t4 img { width: 40px; height: 40px; }
+  .t4 img { width: 40px; height: 40px; border-radius: 8px;
+            background: var(--rar, var(--bg-sub)); }
   .t4 .v { font-weight: 800; font-size: 1.1rem; font-variant-numeric: tabular-nums; }
   .t4 .k { font-size: .7rem; color: var(--fg-mute); line-height: 1.4; word-break: auto-phrase; }
+  /* レアリティの札。**枠と絵の下地に同じ色を敷く。**段が上がるほど濃くなるので、
+     数字を読まなくても「これは完全な方」と分かる（2026-08-30 の先生の要望） */
+  .t4 .rr { display: inline-block; margin-top: .3em; padding: .05em .5em;
+            border-radius: 999px; font-size: .62rem; font-weight: 800; letter-spacing: .04em;
+            background: var(--rar, var(--line)); color: #1b1d21; }
+
+  /* **色は SchaleDB の `--col-bg-item-*` をそのまま借りた。**明るい方が
+     `:root`、暗い方が `.theme-dark` に入っている値。ゲームの枠の色に合わせてある */
+  .rar-N   { --rar: rgb(189, 197, 208); }
+  .rar-R   { --rar: rgb(144, 186, 236); }
+  .rar-SR  { --rar: rgb(214, 173, 129); }
+  .rar-SSR { --rar: rgb(168, 138, 236); }
+  @media (prefers-color-scheme: dark) {
+    .rar-N   { --rar: rgb(140, 147, 158); }
+    .rar-R   { --rar: rgb(101, 141, 191); }
+    .rar-SR  { --rar: rgb(168, 125, 81); }
+    .rar-SSR { --rar: rgb(122, 91, 190); }
+  }
 </style>
 </head>
 <body>
@@ -191,6 +210,14 @@
 
       <details class="src">
         <summary>数字の出どころ</summary>
+        <p><b>枠の色はレアリティです。</b>欠片が <b>N</b>、壊れたが <b>R</b>、摩耗したが <b>SR</b>、完全なが <b>SSR</b> で、
+          これは <a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a> の
+          <code>data/jp/items.min.json</code> の <code>Rarity</code> をそのまま読んでいます。
+          色そのものも SchaleDB の <code>--col-bg-item-n</code> / <code>-r</code> / <code>-sr</code> / <code>-ssr</code> と同じ値です
+          （明るい配色のとき <code>rgb(189,197,208)</code> / <code>rgb(144,186,236)</code> /
+          <code>rgb(214,173,129)</code> / <code>rgb(168,138,236)</code>、暗い配色のとき
+          <code>rgb(140,147,158)</code> / <code>rgb(101,141,191)</code> / <code>rgb(168,125,81)</code> /
+          <code>rgb(122,91,190)</code>）。</p>
         <p><b>個数は「スキルを最大まで上げたとき」のものです。</b>
           EX スキルを Lv1 → Lv5、ノーマル・パッシブ・サブをそれぞれ Lv1 → Lv10 にしたときに使う数を足しています。
           <b>EX 以外の 3 つは同じ表を使う</b>ので、1 つぶんの 3 倍です。途中まででいい場合は<a href="../student-cost/">生徒 1 人の育成費用</a>で刻んで出せます。</p>

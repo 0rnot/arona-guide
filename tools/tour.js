@@ -7,6 +7,8 @@
        key: 'bond',                       // 保存に使う名前。ツールごとに変える
        steps: [
          { sel: '#stucard', t: '見出し', d: '説明' },   // sel が無ければ画面の真ん中
+         { sel: '#gears', pre: '#tab button[data-v="gear"]', t: '…', d: '…' },
+                                            // pre = 目印が隠れているとき先に押すもの
          ...
        ]
      };
@@ -79,9 +81,75 @@
     card.style.left = Math.min(Math.max(12, r.left), Math.max(12, innerWidth - cw - 12)) + 'px';
   }
 
+  /** **見えている箱を持っているか。**`hidden` の面の中にある目印や、
+      中身がまだ空の入れ物は `getBoundingClientRect` が 0×0 を返す。
+      そのまま枠を描くと、画面の左上に潰れた点が出るだけになる
+      （2026-08-30、先生から「これの位置おかしい」と画像で指摘された。
+      愛用品と固有武器の段が、切り替えていない面の中にあった）。 */
+  function boxed(e) {
+    if (!e) return false;
+    /* **畳んである `<details>` の中は「大きさがある」ように見える。**
+       Chromium は閉じた `<details>` の中身を `content-visibility` で隠すので、
+       `getBoundingClientRect()` が最後に組んだときの大きさを返し続ける
+       （2026-08-30 に実測。閉じたままの `#bosses` が 294×2274 を返していた）。
+       閉じた親がいないかを自分で見る。 */
+    for (var n = e; n; n = n.parentElement) {
+      if (n.tagName === 'DETAILS' && !n.open) return false;
+      if (n.hidden) return false;
+    }
+    var r = e.getBoundingClientRect();
+    return r.width > 0 && r.height > 0;
+  }
+
+  /** 目印に箱が無いとき、**それを含んでいるいちばん近い箱**まで登る。
+      画面の 8 割を超えるほど大きくなったら、そこは「どこを指すでもない」ので諦める。 */
+  function nearest(e) {
+    for (var n = e; n && n !== document.body; n = n.parentElement) {
+      if (!boxed(n)) continue;
+      if (n.getBoundingClientRect().height > innerHeight * 0.8) return null;
+      return n;
+    }
+    return null;
+  }
+
+  /** 目印まで画面を動かす。**`scroll-behavior: smooth` を一瞬だけ切る。**
+      `style.css` が滑らかスクロールを掛けているので、`behavior: 'auto'` を
+      渡してもゆっくり動く。その間に位置を読むと、まだ動く前の座標が返る
+      （2026-08-30 に画素を読んで見つけた）。 */
+  function bring() {
+    if (!target) return;
+    var he = document.documentElement, keep = he.style.scrollBehavior;
+    /* **`body { overflow: hidden }` を一瞬だけ外す。**案内を開いているあいだ
+       背景を動かさないために掛けているものだが、body の overflow は viewport に
+       伝播するので、掛かったままだと `scrollIntoView` が 1px も動かない
+       （2026-08-30、`tools/raid/` のおまけを開いた段で目印が y=903 に
+        取り残されて見つけた。手で `scrollIntoView` を呼んでも動かなかった）。 */
+    var on = document.body.classList.contains('tour-on');
+    if (on) document.body.classList.remove('tour-on');
+    he.style.scrollBehavior = 'auto';
+    target.scrollIntoView({ block: 'center' });
+    he.style.scrollBehavior = keep;
+    if (on) document.body.classList.add('tour-on');
+  }
+
   function place() {
-    var s = T.steps[i];
+    var s = T.steps[i], opened = false;
     target = s.sel ? document.querySelector(s.sel) : null;
+    /* **段が「先に押しておくボタン」を持っていたら押す。**
+       切り替え式の面（`tools/gear-stats/` の装備／愛用品／固有武器）や
+       畳んである面（`tools/raid/` のおまけ）は、押さないと中身に箱が無い */
+    if (target && s.pre) {
+      var pre = document.querySelector(s.pre);
+      /* **`<summary>` は押すと切り替わる。**押しっぱなしにできないので、
+         畳んである面は `open` を立てる。二度呼んでも閉じない
+         （押す形だと、同じ段をもう一度描いたときに閉じてしまう） */
+      if (pre && pre.tagName === 'SUMMARY' && pre.parentElement) {
+        if (!pre.parentElement.open) { pre.parentElement.open = true; opened = true; }
+      } else if (pre && !boxed(target)) {
+        pre.click(); opened = true;
+      }
+    }
+    if (target && !boxed(target)) target = nearest(target);
     if (!target) {
       root.classList.add('nospot');
       ring.style.display = 'none';
@@ -91,20 +159,16 @@
     }
     root.classList.remove('nospot');
     card.classList.remove('mid');
-    /* **スクロールは一瞬で終わらせる。**`style.css` が `html { scroll-behavior: smooth }`
-       を持っているので、`behavior: 'auto'` を渡してもゆっくり動く。その間に
-       位置を読むと、まだ動く前の座標が返る——枠が画面の外に置かれて、
-       「そこだけ明るい」が効かなくなっていた（2026-08-30 に画素を読んで見つけた）。 */
-    var he = document.documentElement, keep = he.style.scrollBehavior;
-    he.style.scrollBehavior = 'auto';
-    target.scrollIntoView({ block: 'center' });
-    he.style.scrollBehavior = keep;
+    bring();
     position();
     /* **指で動かしている途中に開くと、1 回測っただけでは合わない。**
        慣性が残っていると `scrollIntoView` の直後に読んだ座標が古い。
-       次の描画と、少し置いてからもう一度合わせ直す */
-    requestAnimationFrame(position);
-    setTimeout(position, 140);
+       次の描画と、少し置いてからもう一度合わせ直す。
+       **`pre` で面を開いたときは、動かし直しもやる。**開いたぶんの高さが
+       まだ反映されていない状態で測ると、目印が画面の外に置き去りになる
+       （2026-08-30、`tools/raid/` のおまけを畳んだときに踏んだ）。 */
+    requestAnimationFrame(function () { if (opened) bring(); position(); });
+    setTimeout(function () { if (opened) bring(); position(); }, 140);
   }
 
   function draw() {

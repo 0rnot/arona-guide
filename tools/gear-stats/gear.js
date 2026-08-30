@@ -105,33 +105,106 @@
     }).join('') || '<p class="lead">見つかりませんでした。</p>';
   }
 
-  /* ---------- 固有武器 */
+  /* ---------- 固有武器
+     **固有の段（限界解放）でレベル上限が変わるので、ステータスも変わる。**
+     以前は Lv1 → Lv100 と出していたが、**Lv100 には届かない**。
+     日本で開いているのは固有4 の Lv60 まで（2026-08-30 に直した）。 */
+  var WLV = G.wlv || [30, 40, 50, 60];        // 固有1〜固有N のレベル上限
+  var WSTAR = G.wstar || WLV.length;
+
+  /** レベル L のときの値。**SchaleDB 本体と同じ式。**
+      `Math.ceil(Math.round(lo + (hi - lo) * (L - 1) / 99))`
+      （`assets/index-*.js` の `mg()` と `g$()`。Standard・LateBloom・Premature の
+      3 つはどれも直線で、段が付くのは TimeAttack だけ。固有武器にその型は無い）。 */
+  function atLv(pair, lv) {
+    if (!pair || !pair[1]) return 0;
+    return Math.ceil(Math.round(pair[0] + (pair[1] - pair[0]) * ((lv - 1) / 99)));
+  }
+
+  /** 固有 n 段（1 起点）のときの、その武器のステータス。 */
+  function wstats(w, n) {
+    var lv = WLV[n - 1];
+    return { lv: lv, a: atLv(w.a, lv), h: atLv(w.h, lv), p: atLv(w.p, lv) };
+  }
+
+  /** 固有 n 段で新しく付くもの。**段によって内容が変わる。**
+      固有2 でパッシブスキル＋、固有3 で地形適性、固有4 で特効かコスト上限。 */
+  function wgain(w, n) {
+    if (n === 1) return '固有武器が使えるようになります';
+    if (n === 2) return 'パッシブスキル＋を覚えます';
+    if (n === 3) return (TERRAIN[w.ad] || w.ad) + ' 適性 ＋' + w.av;
+    return w.sq === 'Support' ? 'コスト上限 ＋0.5' : '自分の攻撃属性の特効 ＋10%';
+  }
+
   var adapt = '';
+  var wsort = 'name', wstar = WSTAR;
+  var WSORTS = [
+    ['name', '名前', function (a, b) { return a.n.localeCompare(b.n, 'ja'); }],
+    ['atk', '攻撃力', function (a, b) { return wstats(b, wstar).a - wstats(a, wstar).a; }],
+    ['hp', '最大 HP', function (a, b) { return wstats(b, wstar).h - wstats(a, wstar).h; }],
+    ['heal', '治癒力', function (a, b) { return wstats(b, wstar).p - wstats(a, wstar).p; }],
+    ['adapt', '適性の伸び', function (a, b) {
+      return b.av - a.av || (TERRAIN[a.ad] || '').localeCompare(TERRAIN[b.ad] || '', 'ja')
+             || a.n.localeCompare(b.n, 'ja');
+    }]
+  ];
+
   function drawWeapons() {
     var q = (el('q-wp').value || '').trim();
     var rows = G.weapon.filter(function (w) {
       if (adapt && w.ad !== adapt) return false;
       return !q || w.n.indexOf(q) >= 0 || (w.wn || '').indexOf(q) >= 0;
     });
-    rows.sort(function (a, b) { return a.n.localeCompare(b.n, 'ja'); });
+    var cmp = WSORTS.filter(function (x) { return x[0] === wsort; })[0];
+    rows.sort(cmp ? cmp[2] : WSORTS[0][2]);
+
     var cnt = {};
     G.weapon.forEach(function (w) { cnt[w.ad] = (cnt[w.ad] || 0) + 1; });
     var av = {};
     G.weapon.forEach(function (w) { av[w.av] = (av[w.av] || 0) + 1; });
-    el('wp-lead').textContent = '全 ' + G.weapon.length + ' 人ぶん。固有武器で上がる地形は' +
+    el('wp-lead').textContent = '全 ' + G.weapon.length + ' 人ぶん。日本で開いているのは固有' + WSTAR +
+      '（Lv' + WLV[WSTAR - 1] + '）までです。固有武器で上がる地形は' +
       Object.keys(TERRAIN).map(function (t) { return TERRAIN[t] + ' ' + (cnt[t] || 0) + ' 人'; }).join('、') +
       '。上がり幅は ' + Object.keys(av).sort().map(function (k) { return '＋' + k + ' が ' + av[k] + ' 人'; }).join('、') +
       'です。' + (q || adapt ? 'いまは ' + rows.length + ' 人。' : '');
+
+    // 並べ替えの押しボタン
+    el('wsort').innerHTML = WSORTS.map(function (x) {
+      return '<button type="button" data-s="' + x[0] + '" aria-pressed="' + (x[0] === wsort) + '">' +
+        x[1] + '</button>';
+    }).join('');
+    // どの段の数字で並べるか
+    el('wstar').innerHTML = WLV.map(function (lv, i) {
+      return '<button type="button" data-n="' + (i + 1) + '" aria-pressed="' + (i + 1 === wstar) + '">' +
+        '固有' + (i + 1) + '</button>';
+    }).join('');
+    el('wstar-note').textContent = wsort === 'name' || wsort === 'adapt'
+      ? '並べ替えを攻撃力・最大 HP・治癒力にすると、この段の数字で並びます。'
+      : '固有' + wstar + '（Lv' + WLV[wstar - 1] + '）の数字で並べています。';
+
     el('weapons').innerHTML = rows.map(function (w) {
       // **武器の絵は横長。**衣装違いは元の子の絵を使い回すので `wi` を見る
       var wimg = w.wi ? '<img class="wpic" src="../img/' + w.wi + '.webp" alt="" width="130" height="34" loading="lazy">' : '';
+      var kinds = [['攻撃力', 'a'], ['最大HP', 'h'], ['治癒力', 'p']]
+        .filter(function (x) { return w[x[1]] && w[x[1]][1]; });
+      var head = '<tr><th>段</th><th>Lv</th>' +
+        kinds.map(function (x) { return '<th>' + x[0] + '</th>'; }).join('') + '</tr>';
+      var body = WLV.map(function (lv, i) {
+        var n = i + 1, st = wstats(w, n);
+        return '<tr' + (n === wstar ? ' class="on"' : '') + '><th>固有' + n + '</th><td>' + st.lv + '</td>' +
+          kinds.map(function (x) {
+            return '<td>' + num(st[x[1]]) + '</td>';
+          }).join('') + '</tr>';
+      }).join('');
+      var gains = WLV.map(function (lv, i) {
+        return '<li><b>固有' + (i + 1) + '</b> ' + esc(wgain(w, i + 1)) + '</li>';
+      }).join('');
       return '<div class="gcard"><img src="../img/student_' + w.id + '.webp" alt="" width="48" height="48" loading="lazy">' +
         '<div><div class="nm">' + esc(w.n) + '</div>' + wimg + '<div class="sub">' + esc(w.wn || '—') + '<br>' +
-        '<span class="ad">' + esc(TERRAIN[w.ad] || w.ad) + ' 適性 ＋' + w.av + '</span><br>' +
-        [['攻撃力', w.a], ['最大HP', w.h], ['治癒力', w.p]].filter(function (x) { return x[1][1]; })
-          .map(function (x) { return x[0] + ' <b>' + num(x[1][0]) + '</b> → <b>' + num(x[1][1]) + '</b>'; })
-          .join('<br>') + '<br>' +
-        '装備 ' + esc((w.eq || []).map(function (c) { return G.catJa[c] || c; }).join('・')) +
+        '<span class="ad">' + esc(TERRAIN[w.ad] || w.ad) + ' 適性 ＋' + w.av + '（固有3 から）</span></div>' +
+        '<table class="wtb">' + head + body + '</table>' +
+        '<ul class="wgain">' + gains + '</ul>' +
+        '<div class="sub">装備 ' + esc((w.eq || []).map(function (c) { return G.catJa[c] || c; }).join('・')) +
         '</div></div></div>';
     }).join('') || '<p class="lead">見つかりませんでした。</p>';
   }
@@ -163,6 +236,14 @@
   });
   el('q-gear').addEventListener('input', drawGear);
   el('q-wp').addEventListener('input', drawWeapons);
+  el('wsort').addEventListener('click', function (e) {
+    var b = e.target.closest('button'); if (!b) return;
+    wsort = b.dataset.s; drawWeapons();
+  });
+  el('wstar').addEventListener('click', function (e) {
+    var b = e.target.closest('button'); if (!b) return;
+    wstar = +b.dataset.n; drawWeapons();
+  });
 
   el('ver').textContent = G.version;
   el('src-gear').textContent = G.gear.length;

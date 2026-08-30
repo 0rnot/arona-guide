@@ -431,21 +431,33 @@ CAT_JA = {"Hat": "帽子", "Gloves": "手袋", "Shoes": "靴", "Bag": "カバン
           "Hairpin": "ヘアピン", "Charm": "お守り", "Watch": "腕時計", "Necklace": "ネックレス"}
 CATS = list(CAT_JA)
 
+# **設計図が入っていないと分かっている箱。**500100 は任務ノーマル・ハードの
+# 250 ステージ全部に 1 個ずつ付いていて、どのステージの設計図の差にもならない。
+# ba-data の `GachaElementExcelTable`（2025-05-07）には無いので、
+# 番人に引っかからないよう名指しで外す（2026-08-30 に 250 件を数えて確認）
+BOX_NOT_EQUIP = {500100}
+
 
 def build_equipment():
     print("装備設計図の周回計算機")
-    equip = as_list(get_json(BA.format("EquipmentExcelTable")))
-    recipe_ing = as_list(get_json(BA.format("RecipeIngredientExcelTable")))
+    # **装備・設計図・レシピの正本は SchaleDB の本番データ。**
+    # ba-data の jp ブランチは `Excel/EquipmentExcelTable.json` が
+    # **2025-01-20 で止まっていて**、お守り・腕時計・ネックレスの T10 が入っていない。
+    # そのせいで（1）最大 Tier が T9 に見え、（2）Area 29 の T10 設計図のドロップが
+    # 設計図として認識されず**まるごと消えていた**（2026-08-30 に実測して差し替えた）。
+    # `Excel/GachaElementExcelTable.json` は 2025-05-07 だが、箱の中身の比率は
+    # SchaleDB に無いのでこちらを使う（下に、知らない箱が出たら止まる番人を置いた）
+    sd_eq = as_list(get_json(SD.format("equipment")))
     gacha_el = as_list(get_json(BA.format("GachaElementExcelTable")))
-    # **ステージのドロップは SchaleDB を正本にする。**ba-data の jp ブランチには
-    # 2026-04-21 に実装された万能設計図がまだ入っていない（該当 Id が 1 件も無い）。
-    # SchaleDB の stages には万能設計図も固定数・確率つきで載っている
     loc_stage = [x for x in as_list(get_json(SD.format("stages")))
                  if x.get("Category") == "Campaign"]
-    # **名前は SchaleDB から。**ba-data 側は LocalizeEtcId しか持っていない。
-    # ただし SchaleDB には T10 の設計図（101009 など）がまだ入っていないので、
-    # 部位・Tier・レシピは ba-data を正本にして、名前だけ引く
-    sd_name = {e["Id"]: e.get("Name", "") for e in as_list(get_json(SD.format("equipment"))) if e.get("Id")}
+
+    # **`IsReleased` は [Jp, Global, Cn] の順。**日本向けなので 0 番だけを見る。
+    # お守り・腕時計・ネックレスの T10 は [true, true, false]（中国だけ未実装）で、
+    # 「どこかが false なら未実装」と読むと、その 3 部位だけ T9 で切れる
+    def released(e):
+        r = e.get("IsReleased") or []
+        return bool(r[0]) if r else False
 
     # **選択ボックスの段は数えて出す。**手で「T2〜T8」と書いていたら T9 が
     # 増えたのに気づけなかった（2026-08-30）。ba-data の `ShopExcelTable` には
@@ -495,67 +507,82 @@ def build_equipment():
         for cat in eq:
             slots[cat] = slots.get(cat, 0) + 1
 
-    def icon_of(e):
-        # ba-data の Icon は "UIs/01_Common/02_Equipment/Equipment_Icon_Hat_Tier2_Piece"
-        return str(e.get("Icon", "")).split("/")[-1].lower()
-
-    # 設計図（piece）の Id → (部位, Tier)
-    piece, names, max_tier = {}, {}, {}
-    for e in equip:
-        cat, tier = e.get("EquipmentCategory"), e.get("TierInit")
-        if cat not in CAT_JA or not tier:
+    # 設計図（piece）の Id → (部位, Tier)、万能設計図（Tier 0）、装備そのもの
+    piece, names, max_tier, univ = {}, {}, {}, {}
+    for e in sd_eq:
+        cat, tier = e.get("Category"), e.get("Tier")
+        if cat not in CAT_JA or tier is None or not released(e):
             continue
-        max_tier[cat] = max(max_tier.get(cat, 0), tier)
-        if icon_of(e).endswith("_piece"):
+        icon = str(e.get("Icon", ""))
+        if icon.endswith("_useall_piece"):
+            # **万能設計図は Tier 0。**部位ごとに 1 種類あって、
+            # その部位のどの Tier の設計図の代わりにもなる（2026-04-21 実装）
+            univ[e["Id"]] = cat
+            names[cat + "0"] = e.get("Name", "")
+        elif icon.endswith("_piece"):
             piece[e["Id"]] = (cat, tier)
-            if sd_name.get(e["Id"]):
-                names[cat + str(tier)] = sd_name[e["Id"]]
+            names[cat + str(tier)] = e.get("Name", "")
+        elif tier:
+            max_tier[cat] = max(max_tier.get(cat, 0), tier)
 
-    # **万能設計図は Tier 0 の Equipment（Id 50X000）。**ba-data に無いので SchaleDB から。
-    # 部位ごとに 1 種類あって、その部位のどの Tier の設計図の代わりにもなる
-    univ = {}
-    for e in as_list(get_json(SD.format("equipment"))):
-        if e.get("Tier") == 0 and e.get("Category") in CAT_JA and str(e.get("Icon", "")).endswith("_useall_piece"):
-            univ[e["Id"]] = e["Category"]
-            names[e["Category"] + "0"] = e.get("Name", "")
+    if sorted(max_tier) != sorted(CATS):
+        raise SystemExit(f"部位が 9 つそろわない: {sorted(max_tier)}")
+    if set(max_tier.values()) != {10}:
+        # **T10 は 9 部位すべてにある。**`config.json` の Regions[0]（Jp）が
+        # "EquipmentMaxLevel": [10, 10, 10] と言っている
+        raise SystemExit(f"最大 Tier が 10 でない部位がある: {max_tier}")
 
-    # ティアアップのレシピ。**Tier N の装備が持つ RecipeId は「N → N+1」の手順。**
-    # そのまま Tier N として入れると 1 段ずつずれて、T2 のぶんが丸ごと消える
-    # （帽子 T1→T10 の T2 が 40 枚のはずが 25 枚になる）
-    ing = {r["Id"]: r for r in recipe_ing if "Id" in r}
+    # ティアアップのレシピ。**SchaleDB の `Recipe` は「その装備を作る」手順**で、
+    # 中身は `[[設計図の Id, 枚数], …]`、クレジットは `RecipeCost`。
+    # ba-data は「Tier N の装備が N→N+1 を持つ」形だったので、添字が 1 段ずれる
     recipes = {c: {} for c in CATS}
-    for e in equip:
-        cat, tier, rid = e.get("EquipmentCategory"), e.get("TierInit"), e.get("RecipeId")
-        if cat not in CAT_JA or not rid or icon_of(e).endswith("_piece"):
+    for e in sd_eq:
+        cat, tier = e.get("Category"), e.get("Tier")
+        if cat not in CAT_JA or not tier or not released(e):
             continue
-        r = ing.get(rid)
-        if not r:
+        if str(e.get("Icon", "")).endswith("_piece"):
             continue
-        pairs = []
-        for kind, pid, cnt in zip(r.get("IngredientParcelType", []),
-                                  r.get("IngredientId", []), r.get("IngredientAmount", [])):
-            if kind == "Equipment" and pid in piece:
-                pairs.append([piece[pid][1], cnt])
-        credit = 0
-        for kind, amt in zip(r.get("CostParcelType", []), r.get("CostAmount", [])):
-            if kind == "Currency":
-                credit += amt
-        if pairs and tier + 1 <= max_tier.get(cat, 0):
-            recipes[cat][tier + 1] = {"ing": pairs, "credit": credit}
+        pairs = [[piece[pid][1], cnt] for pid, cnt in (e.get("Recipe") or []) if pid in piece]
+        if pairs:
+            recipes[cat][tier] = {"ing": pairs, "credit": e.get("RecipeCost", 0) or 0}
+
+    # **1 個を T1 から T10 まで上げるのに要る、各 Tier の設計図の枚数。**
+    # レシピを足すだけ。参考元「シャーレ装備管理室」が持っている表と
+    # 一致することを確かめてある（2026-08-30。あちらの `Ne` 定数）
+    per_set = {}
+    for cat in CATS:
+        tot = {}
+        for r in recipes[cat].values():
+            for tier, cnt in r["ing"]:
+                tot[tier] = tot.get(tier, 0) + cnt
+        per_set[cat] = tot
+    ref_set = {2: 40, 3: 45, 4: 50, 5: 55, 6: 65, 7: 65, 8: 60, 9: 50, 10: 60}
+    for cat in CATS:
+        if per_set[cat] != ref_set:
+            raise SystemExit(f"{cat} の 1 セットぶんが参考元と食い違う: {per_set[cat]}")
 
     # 箱（GachaGroup）の中身。**比率は GachaElement に出ている。**
-    # 「半分ずつ」と仮定する必要はない
-    boxes = {}
+    # 「半分ずつ」と仮定する必要はない。
+    # **分母は箱に入っている全部で取る。**設計図以外（できあがった T1 の装備など）を
+    # 先に捨ててから割ると、設計図の期待値が水増しされる。たとえば箱 601001 は
+    # 「T1 の帽子 1 ／ T2 の設計図 2」の 3 枠で、T2 は 2/3 枠ぶんしか出ない。
+    # 3/3 として数えていたので Area 10・11 の 10 本が 1.5 倍になっていた
+    # （2026-08-30、参考元の表と 1 本ずつ突き合わせて見つけた）
+    boxes, box_tot = {}, {}
     for r in gacha_el:
+        gid = r.get("GachaGroupID")
+        if gid is None:
+            continue
+        box_tot[gid] = box_tot.get(gid, 0) + r.get("Prob", 0)
         if r.get("ParcelType") != "Equipment":
             continue
         pid = r.get("ParcelID")
         if pid not in piece:
             continue
-        boxes.setdefault(r["GachaGroupID"], []).append(
+        boxes.setdefault(gid, []).append(
             (piece[pid], r.get("Prob", 0), (r.get("ParcelAmountMin", 1) + r.get("ParcelAmountMax", 1)) / 2.0))
 
-    out = []
+    out, unknown_box = [], set()
     for st in loc_stage:
         sid = st.get("Id")
         # Id は 1 CC D T SS。CC=章、D=難易度(1 Normal / 2 Hard)、
@@ -583,8 +610,15 @@ def build_equipment():
                 add(piece[pid][0], piece[pid][1], ev)
             elif kind_ == "Equipment" and pid in univ:
                 uni[univ[pid]] = uni.get(univ[pid], 0) + ev
-            elif kind_ == "GachaGroup" and pid in boxes:
-                tot = sum(x[1] for x in boxes[pid]) or 1
+            elif kind_ == "GachaGroup":
+                # **知らない箱が出たら止める。**箱の中身だけは ba-data
+                # （2025-05-07）に頼っていて、そこから先に増えた箱は
+                # 黙って 0 枚として落ちる。落ちたことに気づけるようにする
+                if pid not in boxes:
+                    if pid not in BOX_NOT_EQUIP:
+                        unknown_box.add(pid)
+                    continue
+                tot = box_tot.get(pid) or sum(x[1] for x in boxes[pid]) or 1
                 for (cat, tier), prob, n_ in boxes[pid]:
                     add(cat, tier, ev * (prob / tot) * n_)
         if not acc:
@@ -598,6 +632,9 @@ def build_equipment():
         out.append({"id": sid, "a": area, "s": num, "h": 1 if diff == 2 else 0,
                     "n": st.get("Name", ""), "ap": ap, "d": d, "b": b})
     out.sort(key=lambda x: (x["a"], x["h"], x["s"]))
+    if unknown_box:
+        raise SystemExit(f"中身の分からない箱がステージに出た: {sorted(unknown_box)}。"
+                         "ba-data の GachaElementExcelTable が追いついていない")
 
     n = 0
     for cat in CATS:
@@ -614,11 +651,21 @@ def build_equipment():
         n += fetch_icon(nm, f"https://schaledb.com/images/equipment/icon/{nm}.webp")
     print(f"  アイコン {n} 枚を追加、周回できるステージ {len(out)} 本")
 
+    # **目標セット数の初期値は参考元のものをそのまま写す。**
+    # 「シャーレ装備管理室」の `se` 定数（2026-08-30 に確認）。生徒の人数から
+    # 機械的に出せる値ではないので、こちらで作らずに借りている
+    def_sets = {"Hat": 3, "Gloves": 2, "Shoes": 4, "Bag": 2, "Badge": 2,
+                "Hairpin": 4, "Charm": 1, "Watch": 4, "Necklace": 2}
+    if sorted(def_sets) != sorted(CATS):
+        raise SystemExit("目標セット数の初期値と部位が合わない")
+
     return write_js("tools/equipment/data.js", "EQUIP", {
         "cats": CATS, "catJa": CAT_JA, "maxTier": max_tier,
-        "recipes": recipes, "stages": out, "names": names,
+        "recipes": recipes, "perSet": per_set, "defSets": def_sets,
+        "stages": out, "names": names,
         "slots": slots, "roster": roster, "selbox": selbox, "univRate": univ_rate,
-        "version": "SchaleDB jp（ステージ・ドロップ・AP・万能設計図）／ electricgoat/ba-data jp（レシピ・箱の比率）",
+        "version": "SchaleDB jp（装備・設計図・レシピ・ステージ・ドロップ・AP・万能設計図）／ "
+                   "electricgoat/ba-data jp（万能設計図の交換レート・箱の比率）",
     }, header="/* scripts/build-tool-data.py が吐く。**手で直さない。** */\n")
 
 
@@ -955,15 +1002,19 @@ def build_student_cost():
             if iid in by_name:
                 mat[str(iid)] = {"n": by_name[iid] + "の神名文字",
                                  "i": "item_icon_secretstone", "s": 1,
-                                 "k": "stone", "t": 0}
+                                 "k": "stone", "t": 0, "r": "SSR"}
             else:
                 print(f"    素材 {iid} が items に無い", file=sys.stderr)
             continue
         stone = it.get("Category") == "SecretStone"
+        # **レアリティは枠の色に使う**（2026-08-30 の先生の指摘——
+        # 「オーパーツはレアリティの色の枠があるとわかりやすいかも」）。
+        # オーパーツ・ノート・BD はどれも欠片 N → 壊れた R → 摩耗した SR → 完全な SSR
         mat[str(iid)] = {"n": it["Name"].replace("\n", ""),
                          "i": "item_icon_secretstone" if stone else it["Icon"],
                          "s": 1 if stone else 0,
-                         "k": mat_kind(it, stone), "t": mat_tier(it)}
+                         "k": mat_kind(it, stone), "t": mat_tier(it),
+                         "r": it.get("Rarity") or "N"}
 
     n = 0
     for v in mat.values():
@@ -1124,14 +1175,21 @@ def build_cost_timeline():
     loc = get_json(SD.format("localization"))
 
     statja = loc.get("Stat") or {}
+    # **CC の日本語名はここにしかない。**`BuffName` の `CC_<Icon>`
+    # （`CC_Stunned` = 気絶状態、`CC_Fear` = 恐怖状態 …）
+    buffja = loc.get("BuffName") or {}
 
     def eff_name(e):
         """効果の見出し。**`Stat` があるものはそこから引ける。**
            `Regen` / `Shield` / `DamageDebuff` の 3 つだけ `Stat` を持たないので、
-           そこは種別から名前を当てる（2026-08-30 に 29 種を数えて確かめた）。"""
+           そこは種別から名前を当てる（2026-08-30 に 29 種を数えて確かめた）。
+           CC は `Stat` を持たず `Icon` に種類が入っている。"""
         st = e.get("Stat") or ""
         if st:
             return statja.get(st.rsplit("_", 1)[0], st)
+        if e.get("Type") == "CrowdControl":
+            ic = e.get("Icon") or ""
+            return buffja.get("CC_" + ic, ic or "CC")
         return {"Regen": "継続回復", "Shield": "シールド",
                 "DamageDebuff": "持続ダメージ"}.get(e.get("Type") or "", e.get("Type") or "効果")
 
@@ -1153,12 +1211,40 @@ def build_cost_timeline():
         **EX 本体にも `ExtraSkills` の各形態にも同じ形で使う。**"""
         out = {}
         # 持続の無い効果（即時のダメージ・回復）は帯にならないので落とす
+        #
+        # **値と生の `Stat` も持たせる**（2026-08-30 の先生の指示——
+        # 「攻撃力が実質何倍になっているかも確認したい」）。
+        # `_Base` は足し算、`_Coefficient` は 10000 分率の掛け算で、
+        # **この 2 つを混ぜると答えが変わる**ので、加工せずそのまま渡す。
+        # `v` はスキルのレベルぶんの配列（EX は 5 段、NS などは 10 段）。
         bf = []
         for e in sk.get("Effects") or []:
             du = int(e.get("Duration") or 0)
+            # **CC は `Duration` を持たず、続く長さが `Scale` に入っている。**
+            # 気絶 3.6 秒なら `3600`。当たる確率は `Chance`（10000 = 100%）
+            if e.get("Type") == "CrowdControl":
+                sc = e.get("Scale") or []
+                if not sc:
+                    continue
+                bf.append({"n": eff_name(e), "du": 0, "sd": eff_side(e),
+                           "ty": "CrowdControl", "cc": e.get("Icon") or "",
+                           "sc": sc, "ch": int(e.get("Chance") or 10000)})
+                continue
             if du <= 0:
                 continue
-            bf.append({"n": eff_name(e), "du": du, "sd": eff_side(e)})
+            item = {"n": eff_name(e), "du": du, "sd": eff_side(e),
+                    "ty": e.get("Type") or ""}
+            st = e.get("Stat") or ""
+            if st:
+                # **末尾で足し算か掛け算かが決まる。**そのまま渡して、判断は使う側で
+                item["st"] = st
+            val = e.get("Value") or e.get("Scale") or []
+            # `Value` は [[段ごとの値]] の形。1 本だけのときは中身を出す
+            if len(val) == 1 and isinstance(val[0], list):
+                val = val[0]
+            if val:
+                item["v"] = val
+            bf.append(item)
         if bf:
             out["bf"] = bf
         # スキルコストを下げる効果。**`Uses` 回ぶんだけ効いて、時間では切れない。**
@@ -1194,6 +1280,45 @@ def build_cost_timeline():
                         "du": int(e.get("Duration") or 0), "cond": ""})
         if reg:
             out["r"] = reg
+        return out
+
+    # **ノーマルスキルなど、EX 以外のスキルも時間軸に乗せる**
+    # （2026-08-30 の先生の指示——「バッファーじゃないキャラも NS バフ、デバフとか、
+    # CC とかあるから、そこら辺も確認してタイムラインに乗るようにして」）。
+    #
+    # **発動間隔はスキル文にしか書かれていない。**ゲームのデータには欄が無く、
+    # 参考元の kur-3dcg は生徒ごとに手で入れている（`characters_st.json` の
+    # `nsInterval`。ストライカー 186 人のうち 41 人ぶんだけ）。
+    # こちらは**原文から「N秒毎に」を読む**ので、手入力を持たずに済む。
+    # 274 人中 213 人がこの書き方で、残り 61 人は「弾薬数が0になった時」
+    # 「敵を倒した時」のような**条件発動**なので、時刻を置けない。
+    # **そこは間隔 0 のまま、引き金の原文を添えて出す。**
+    NS_IV = re.compile(r"(\d+(?:\.\d+)?)\s*秒毎に")
+    # 引き金の書き出し。文の最初の読点までを原文のまま持つ
+    NS_COND = re.compile(r"^([^、。\n]{2,28}?(?:時|場合|とき))[、,]")
+
+    def timed_skill(sk):
+        """EX 以外のスキル 1 本を、時間軸に置ける形にする。
+
+        **効果そのものは `skill_extras()` と同じ拾い方**（`bf` / `cc` / `r`）。
+        ここが足すのは「いつ動くか」だけ。"""
+        if not sk or not sk.get("Name"):
+            return None
+        de = str(sk.get("Desc") or "")
+        out = {"n": sk.get("Name", ""), "ei": sk.get("Icon", "")}
+        m = NS_IV.search(de)
+        if m:
+            out["iv"] = float(m.group(1))
+        else:
+            out["iv"] = 0
+            c = NS_COND.match(de.replace("\n", ""))
+            # 条件が読めないものもある。**読めなかったことを黙って隠さない。**
+            # 途中で切らない——画面にそのまま出す文なので、切ると意味が変わる
+            out["cond"] = c.group(1) if c else de.split("\n")[0]
+        out.update(skill_extras(sk))
+        # 何も乗らないなら時間軸に出す意味がない
+        if not (out.get("bf") or out.get("cc") or out.get("r")):
+            return None
         return out
 
     # **手札とコストの回り方を変える書きぶり。**どれも効果の欄には出てこず、
@@ -1297,6 +1422,19 @@ def build_cost_timeline():
         sp = special_notes(ex)
         if sp:
             rec["sp"] = sp
+        # **EX 以外のスキルも時間軸に乗せる。**ノーマルは「N秒毎に」で回り、
+        # パッシブとサブは戦闘中ずっと効いている（＝時刻を持たない）
+        ns = timed_skill((s.get("Skills") or {}).get("Public"))
+        if ns:
+            rec["ns"] = ns
+        pv = []
+        for slot in ("Passive", "ExtraPassive"):
+            t = timed_skill((s.get("Skills") or {}).get(slot))
+            if t:
+                t["sl"] = slot
+                pv.append(t)
+        if pv:
+            rec["pv"] = pv
         reg = []
         for slot, sk in (s.get("Skills") or {}).items():
             if not isinstance(sk, dict):
@@ -1318,6 +1456,26 @@ def build_cost_timeline():
             rec["r"] = reg
         stu.append(rec)
     stu.sort(key=lambda x: (-x["st"], x["n"]))
+
+    # **拾えた数を毎回出す。**減ったらスキル文の書き方が変わった合図
+    ns_n = [x for x in stu if x.get("ns")]
+    ns_iv = [x for x in ns_n if x["ns"].get("iv")]
+    cc_n = [x for x in stu
+            if any(b.get("ty") == "CrowdControl" for b in (x.get("bf") or []))
+            or any(b.get("ty") == "CrowdControl" for b in ((x.get("ns") or {}).get("bf") or []))]
+    val_n = [x for x in stu if any(b.get("v") for b in (x.get("bf") or []))]
+    # **時間軸に何も乗らない NS は持たせない。**「N秒毎に」と書いてあっても
+    # 中身が即時ダメージだけの子が居て（274 人中 213 人に間隔の記述があり、
+    # そのうち帯・CC・コスト回復のどれかが乗るのは 150 人ほど）、
+    # 空の欄を作ると画面に「何も起きない行」が並ぶ
+    if len(ns_n) < 120:
+        raise SystemExit(f"ノーマルスキルが {len(ns_n)} 人しか拾えていない。効果の形が変わった疑い")
+    if len(ns_iv) < 110:
+        raise SystemExit(f"「N秒毎に」が {len(ns_iv)} 人しか読めていない。スキル文の書き方が変わった疑い")
+    print(f"  NS が時間軸に乗る子 {len(ns_n)} 人（うち発動間隔が読めたのが {len(ns_iv)} 人、"
+          f"条件発動が {len(ns_n) - len(ns_iv)} 人）、"
+          f"CC を持つ子 {len(cc_n)} 人、EX の帯に値が入った子 {len(val_n)} 人、"
+          f"パッシブ・サブが乗る子 {len([x for x in stu if x.get('pv')])} 人")
 
     n = 0
     for s in stu:
@@ -1470,6 +1628,10 @@ def build_gear_stats():
             "a": [w.get("AttackPower1", 0), w.get("AttackPower100", 0)],
             "h": [w.get("MaxHP1", 0), w.get("MaxHP100", 0)],
             "p": [w.get("HealPower1", 0), w.get("HealPower100", 0)],
+            # **伸び方の型。**SchaleDB の計算では Standard / LateBloom / Premature の
+            # どれもレベルに対して直線（`(Lv - 1) / 99`）で、TimeAttack だけ段付き。
+            # 型そのものを持たせておいて、あとで別の型が増えたら気づけるようにする
+            "lu": w.get("StatLevelUpType", "Standard"),
             "eq": s.get("Equipment") or [],
         })
         g = s.get("Gear") or {}
@@ -1480,6 +1642,33 @@ def build_gear_stats():
             })
     if len(gear) < 40:
         raise SystemExit(f"愛用品が {len(gear)} 人ぶんしか取れない")
+
+    # **固有武器の段ごとのレベル上限。**224 人ぶんを数えて全員同じことを確かめる
+    # （2026-08-30。それまでこのツールは Lv1 → Lv100 と出していたが、
+    # **Lv100 には届かない。**日本の上限は固有4 の Lv60）。
+    wlv = {}
+    for r in as_list(get_json(BA.format("CharacterWeaponExcelTable"))):
+        wlv[tuple(r["MaxLevel"])] = wlv.get(tuple(r["MaxLevel"]), 0) + 1
+    if len(wlv) != 1:
+        raise SystemExit(f"固有武器のレベル上限が生徒ごとに割れている: {sorted(wlv.items())[:3]}")
+    wmax = list(list(wlv)[0])
+    lu = {}
+    for r in weap:
+        lu[r["lu"]] = lu.get(r["lu"], 0) + 1
+    if set(lu) - {"Standard", "LateBloom", "Premature"}:
+        raise SystemExit(f"固有武器に知らない伸び方の型がある: {sorted(lu)}")
+
+    # 日本で開いている固有の段。SchaleDB の config が持っている
+    cfg = get_json(SD_CFG)
+    jp = [r for r in cfg["Regions"] if r.get("Name") == "Jp"]
+    if not jp:
+        raise SystemExit("config.json に Jp が無い")
+    # **`WeaponMaxLevel / 10 - 2` が開いている固有の段。**SchaleDB 本体が
+    # `WeaponStarGrade` をこの式で頭打ちにしている（`assets/index-*.js`）
+    wstar = jp[0]["WeaponMaxLevel"] // 10 - 2
+    if not 1 <= wstar <= 5:
+        raise SystemExit(f"固有の段が {wstar} になっている")
+    print(f"  固有武器のレベル上限 {wmax[:wstar]}（日本は固有{wstar} まで）、伸び方 {lu}")
 
     n = 0
     for c in cats:
@@ -1503,12 +1692,14 @@ def build_gear_stats():
     keep = ("Stat", "StatTooltip", "AdaptationType", "SquadType")
     return write_js("tools/gear-stats/data.js", "GEAR", {
         "eq": cats, "gear": gear, "weapon": weap,
+        # 固有1〜固有N のレベル上限と、日本で開いている段の数
+        "wlv": wmax[:wstar], "wstar": wstar,
         # 部位の日本語は localization に無いので、装備の周回計算機と同じ言い方に揃える
         "catJa": {"Hat": "帽子", "Gloves": "手袋", "Shoes": "靴", "Bag": "カバン",
                   "Badge": "バッジ", "Hairpin": "ヘアピン", "Charm": "お守り",
                   "Watch": "腕時計", "Necklace": "ネックレス"},
         "labels": {k: loc.get(k, {}) for k in keep},
-        "version": "SchaleDB jp",
+        "version": "SchaleDB jp（生徒・装備・愛用品・固有武器）／ electricgoat/ba-data jp（固有武器のレベル上限）",
     }, header="/* scripts/build-tool-data.py が吐く。**手で直さない。** */\n")
 
 
@@ -1726,13 +1917,97 @@ def build_eleph():
                       "atk": atk[i + 1], "hp": hp[i + 1], "heal": heal[i + 1],
                       "fav": fav[i + 1]})
 
+    # ---- ここから限界解放（固有武器の星）。**★5 が上限ではない**
+    #
+    # 2026-08-30 の先生の指摘。★5 のあとに 固有1 → 固有2 → 固有3 → 固有4 と続く。
+    # ★の方を「神秘解放」、固有武器の方を「限界解放」と呼び分ける
+    # （ブルアカ攻略 Wiki の「神秘解放/限界解放」）。
+    #
+    # **ba-data の jp ブランチは 2025-05-21（v1.57.342698）で止まっている。**
+    # `CharacterWeaponExcelTable` の `Unlock` は 224 人全員 `[T,T,T,F,F]` のままで、
+    # 固有4 が未実装に見える。実際には日本ではもう出ていて、
+    # SchaleDB の `config.json` の `Regions[0]`（Jp）が `"WeaponMaxLevel": 60`
+    # ＝ `MaxLevel` の 4 番目（固有4）を指している。
+    weap = {x["Id"]: x for x in as_list(get_json(BA.format("CharacterWeaponExcelTable")))}
+
+    # **固有3→4 の神名文字だけ、ba-data に実数が入っていない。**
+    # `IngredientAmount` が 1 の仮置きで、クレジット 2,000,000 のほうは正しい。
+    # 実数は game8 の「固有武器★4の解放必要素材」から取った（2026-08-30 に取得）:
+    #   固有★3→固有★4 … 神名文字 200 個 / クレジット 200 万
+    # 裏取り: 同記事の累計「★1→固有★4 = 830」が、
+    #   ★1→★5 の 330（30+80+100+120、ブルアカ攻略 Wiki と ba-data が一致）
+    #   ＋120＋180＋200 = 830 とぴたり合う。
+    WEAPON_EL_FALLBACK = {2: 200}          # 添字は「何段目の遷移か」（0 起点）
+    WEAPON_EL_SRC = "https://game8.jp/blue-archive/706922"
+
+    def weapon_steps(cid):
+        """固有1→2, 2→3, 3→4 の 3 段。4 段目（固有4→5）は日本では未実装。"""
+        w = weap.get(cid)
+        if not w or not w.get("RecipeId"):
+            return None
+        out = []
+        for k, r in enumerate(w["RecipeId"][:3]):
+            R = rec.get(r)
+            I = ing.get(R["RecipeIngredientId"]) if R else None
+            if not I or not I.get("CostAmount"):
+                return None
+            amt = I["IngredientAmount"][0] if I.get("IngredientAmount") else 0
+            # 仮置き（1 個）は外の出どころで置き換える
+            if amt <= 1 and k in WEAPON_EL_FALLBACK:
+                amt = WEAPON_EL_FALLBACK[k]
+            out.append((I["CostAmount"][0], amt))
+        return tuple(out) if len(out) == 3 else None
+
+    wpats, wlv, wskill = {}, {}, {}
+    sq_by = {x["Id"]: x.get("SquadType") for x in students}
+    for r in stu:
+        w = weap.get(r["id"])
+        ws = weapon_steps(r["id"])
+        if not w or not ws:
+            continue
+        wpats[ws] = wpats.get(ws, 0) + 1
+        wlv[tuple(w["MaxLevel"])] = wlv.get(tuple(w["MaxLevel"]), 0) + 1
+        wskill[tuple(w["LearnSkillSlot"])] = wskill.get(tuple(w["LearnSkillSlot"]), 0) + 1
+        # 固有3 で上がる地形適性。**+1 の子と +2 の子がいる**ので生徒ごとに持つ
+        r["ad"] = (w["StatType"][2] or "").replace("BattleAdaptation_Base", "")
+        r["av"] = w["StatValue"][2]
+        r["sq"] = sq_by.get(r["id"]) or "Main"
+
+    if len(wpats) != 1:
+        raise SystemExit(f"限界解放の必要数が生徒ごとに割れている: {sorted(wpats.items())[:4]}")
+    if len(wlv) != 1:
+        raise SystemExit(f"固有武器のレベル上限が生徒ごとに割れている: {len(wlv)} 通り")
+    if len(wskill) != 1:
+        raise SystemExit(f"固有武器で覚えるスキル枠が生徒ごとに割れている: {len(wskill)} 通り")
+    wneed = list(wpats)[0]
+    wmax = list(wlv)[0]
+    if wmax[:4] != (30, 40, 50, 60):
+        raise SystemExit(f"固有武器のレベル上限が {wmax} に変わっている")
+    if list(wskill)[0][1] != "Passive01":
+        raise SystemExit("固有2 でパッシブを覚えるという前提が崩れた")
+
+    # 固有1 は ★5 になった時点で使えるので、費用は 0
+    wsteps = [{"to": 1, "cr": 0, "el": 0, "lv": wmax[0], "gain": "unlock"}]
+    for i, (cr, el) in enumerate(wneed):
+        wsteps.append({"to": i + 2, "cr": cr, "el": el, "lv": wmax[i + 1],
+                       "gain": ["passive", "adapt", "final"][i],
+                       # 実数がゲームのデータに無く、外の出どころで埋めた段には印を付ける
+                       "src": WEAPON_EL_SRC if i in WEAPON_EL_FALLBACK else ""})
+
+    adapt = {}
+    for r in stu:
+        if r.get("ad"):
+            adapt[(r["ad"], r["av"])] = adapt.get((r["ad"], r["av"]), 0) + 1
     print(f"  {len(stu)} 人ぶん、必要な神名文字は {[x['el'] for x in steps]}、"
           f"クレジットは {[x['cr'] for x in steps]}")
+    print(f"  限界解放は {[x['el'] for x in wsteps]} 文字 / {[x['cr'] for x in wsteps]} クレジット、"
+          f"レベル上限 {list(wmax[:4])}、地形の伸び {sorted(adapt.items())}")
     return write_js("tools/eleph/data.js", "ELEPH", {
         "steps": steps,
+        "wsteps": wsteps,
         "fav1": fav[0],
         "stu": sorted(stu, key=lambda x: x["id"]),
-        "version": "electricgoat/ba-data jp（CharacterTranscendence・Recipe・RecipeIngredient）／ SchaleDB jp（生徒と道具の名前）",
+        "version": "electricgoat/ba-data jp（CharacterTranscendence・CharacterWeapon・Recipe・RecipeIngredient）／ SchaleDB jp（生徒と道具の名前）／ game8（固有3→4 の神名文字）",
     }, header="/* scripts/build-tool-data.py が吐く。**手で直さない。** */\n")
 
 
@@ -1893,6 +2168,412 @@ def build_matchup():
     }, header="/* scripts/build-tool-data.py が吐く。**手で直さない。** */\n")
 
 
+# ------------------------------------------------- 潜在能力解放（ポテンシャル）
+
+def build_potential():
+    """**段の表は「今の段 → 次の段」で引く。**
+
+    `SchaleDB config.json` の `PotentialMaterial` は 25 要素の配列だが、
+    **`[i]` は「レベル `i` に到達するぶん」ではなく「`i` から `i+1` へ上げるぶん」。**
+    到達レベルで引くと 5 / 10 / 15 / 20 の境目が全部 1 段ずれる（60 群 × 25 段の
+    うち 300 手順が食い違う。1 つずらすと 1515 手順すべて一致した。2026-08-30 に実測）。
+    SchaleDB 本体の `assets/StudentView-*.js` も
+    `for (g = 1; g <= 表示段; g++) { … E[g-1].CostAmount … }` と `g-1` で引いている。
+
+    もう一つ。**`PotentialLevel = 25` の行に付く `RecipeId` は存在しない**
+    （群 10010 なら `100100026`）。25 段目を「次へ上げる手順」として読まないこと。
+    """
+    print("潜在能力解放の計算機")
+    cfg = get_json(SD_CFG)
+    students = as_list(get_json(SD.format("students")))
+    items = as_list(get_json(SD.format("items")))
+    loc = get_json(SD.format("localization"))
+    pot = as_list(get_json(BADB.format("CharacterPotentialExcelTable")))
+    pstat = as_list(get_json(BADB.format("CharacterPotentialStatExcelTable")))
+    rec = {r["Id"]: r for r in as_list(get_json(BA.format("RecipeExcelTable")))}
+    ing = {r["Id"]: r for r in as_list(get_json(BA.format("RecipeIngredientExcelTable")))}
+    const = as_list(get_json(BA.format("ConstCommonExcelTable")))
+
+    mats = cfg.get("PotentialMaterial") or []
+    if len(mats) != 25:
+        raise SystemExit(f"PotentialMaterial が {len(mats)} 段しかない（25 のはず）")
+
+    # 上限と開放条件。**手で 25 と書かない。**表から取って、食い違ったら止める
+    cc = next((c for c in const if c.get("PotentialOpenConditionCharacterLevel")), None)
+    if not cc:
+        raise SystemExit("PotentialOpenConditionCharacterLevel が取れない")
+    caps = {cc.get("PotentialBonusStatMaxLevelMaxHP"),
+            cc.get("PotentialBonusStatMaxLevelAttackPower"),
+            cc.get("PotentialBonusStatMaxLevelHealPower")}
+    if caps != {25}:
+        raise SystemExit(f"段の上限が 25 で揃っていない: {sorted(caps)}")
+
+    # 生徒 → 群。**下 2 桁が枠**（10 最大 HP / 20 攻撃力 / 30 治癒力）
+    SUF = {10: "MaxHP", 20: "AttackPower", 30: "HealPower"}
+    by_cid = {}
+    for r in pot:
+        by_cid.setdefault(r["Id"], {})[r["PotentialStatBonusRateType"]] = r
+    used = {r["PotentialStatGroupId"] for r in pot}
+
+    groups = {}
+    for r in pstat:
+        groups.setdefault(r["PotentialStatGroupId"], {})[r["PotentialLevel"]] = r
+    # **どの生徒からも指されていない群はダミー。**29997〜29999 の 3 つで、
+    # 中身が全段同じ仮置きになっている。数えるほうに混ぜると 60 手順が食い違う
+    dummy = sorted(set(groups) - used)
+    if len(dummy) != 3:
+        raise SystemExit(f"生徒から指されていない群が {len(dummy)} 個ある: {dummy}")
+
+    books, arts, ok = {}, {}, 0
+    for gid, lv in groups.items():
+        if gid not in used:
+            continue
+        if sorted(lv) != list(range(26)):
+            raise SystemExit(f"群 {gid} の段が 0〜25 で揃っていない")
+        if rec.get(lv[25]["RecipeId"]):
+            raise SystemExit(f"群 {gid} の 25 段目にレシピがある。上限が伸びた疑い")
+        suf = gid % 100
+        if suf not in SUF:
+            raise SystemExit(f"群 {gid} の下 2 桁が {suf}。枠の割り当てが変わった疑い")
+        base = gid // 100
+        for l in range(25):
+            R = rec.get(lv[l]["RecipeId"])
+            I = ing.get(R["RecipeIngredientId"]) if R else None
+            if not I:
+                raise SystemExit(f"群 {gid} 段 {l} のレシピが引けない")
+            m = mats[l]
+            if (I["CostAmount"][0] != m["CostAmount"]
+                    or I["IngredientAmount"][0] != m["ArtifactAmount"]
+                    or I["IngredientAmount"][1] != m["BookAmount"]):
+                raise SystemExit(
+                    f"段 {l} の中身が config と食い違う（群 {gid}）: "
+                    f"{I['CostAmount'][0]}/{I['IngredientAmount']} と {m}")
+            if I["IngredientId"][0] != base + m["ArtifactGrade"]:
+                raise SystemExit(f"群 {gid} 段 {l} のオーパーツが {I['IngredientId'][0]}。"
+                                 f"{base} + {m['ArtifactGrade']} のはず")
+            books.setdefault(SUF[suf], set()).add(I["IngredientId"][1])
+            arts.setdefault(base, set()).add(I["IngredientId"][0])
+            # 伸び幅は 1 段 20（10000 分率）。**ここも数えて確かめる**
+            if lv[l + 1]["StatBonusRate"] != (l + 1) * 20:
+                raise SystemExit(f"群 {gid} 段 {l+1} の StatBonusRate が "
+                                 f"{lv[l+1]['StatBonusRate']}（{(l+1)*20} のはず）")
+            ok += 1
+    if ok != len(used) * 25:
+        raise SystemExit(f"数えた手順が {ok}。{len(used)} 群 × 25 のはず")
+    for k, v in books.items():
+        if len(v) != 1:
+            raise SystemExit(f"{k} の WB が 1 種類でない: {sorted(v)}")
+    for k, v in arts.items():
+        if v != {k, k + 1}:
+            raise SystemExit(f"オーパーツ {k} の段が {sorted(v)}。{k} と {k+1} のはず")
+
+    iname = {i["Id"]: i for i in items if i.get("Id")}
+
+    def item(iid):
+        it = iname.get(iid)
+        if not it:
+            raise SystemExit(f"道具 {iid} が SchaleDB の items に無い")
+        return {"n": (it.get("Name") or "").replace("\n", ""), "i": it.get("Icon", "")}
+
+    # **短い呼び名は `localization` の `ArtifactClass`。**「ネブラディスクの欠片」から
+    # 「の欠片」を削っても「ヴォルフスエックの鉄鉱石」のような子は短くならない
+    cls = loc.get("ArtifactClass", {})
+    art_out = {}
+    for base in sorted(arts):
+        key = str(base // 10)
+        if key not in cls:
+            raise SystemExit(f"オーパーツ {base} の呼び名が localization に無い（キー {key}）")
+        art_out[str(base)] = {"a": item(base), "b": item(base + 1), "c": cls[key]}
+    book_out = {k: dict(item(list(v)[0]), id=list(v)[0]) for k, v in books.items()}
+
+    school, role = loc.get("School", {}), loc.get("TacticRole", {})
+    stu = []
+    for s_ in students:
+        cid = s_.get("Id")
+        row = by_cid.get(cid)
+        if not row or not s_.get("Name"):
+            continue
+        bases = {r["PotentialStatGroupId"] // 100 for r in row.values()}
+        if len(bases) != 1:
+            raise SystemExit(f"生徒 {cid} の群が枠ごとに違う: {sorted(bases)}")
+        base = bases.pop()
+        # **SchaleDB 側の `PotentialMaterial` と突き合わせる。**274 人全員一致した
+        if s_.get("PotentialMaterial") != base:
+            raise SystemExit(f"生徒 {cid} のオーパーツが食い違う: "
+                             f"ba-data {base} / SchaleDB {s_.get('PotentialMaterial')}")
+        stu.append({
+            "id": cid, "n": s_["Name"], "a": base, "st": s_.get("StarGrade", 1),
+            "sc": school.get(s_.get("School", ""), s_.get("School", "")),
+            "ro": role.get(s_.get("TacticRole", ""), s_.get("TacticRole", "")),
+            # **要らない枠**（治癒力を使わない子など）。ゲームのデータが持っている
+            "un": [bool(row[k]["IsUnnecessaryStat"]) for k in ("MaxHP", "AttackPower", "HealPower")],
+            # Lv1 と Lv100 の 2 点。伸びはここから出す
+            "b": [[s_.get("MaxHP1", 0), s_.get("MaxHP100", 0)],
+                  [s_.get("AttackPower1", 0), s_.get("AttackPower100", 0)],
+                  [s_.get("HealPower1", 0), s_.get("HealPower100", 0)]],
+        })
+    if len(stu) < 250:
+        raise SystemExit(f"生徒が {len(stu)} 人しか取れない")
+    un = sum(1 for s_ in stu if s_["un"][2])
+    print(f"  生徒 {len(stu)} 人、オーパーツ {len(art_out)} 種、手順 {ok} 件を突き合わせて一致"
+          f"（治癒力が不要な子は {un} 人）")
+
+    n = 0
+    for v in art_out.values():
+        for k in ("a", "b"):
+            n += fetch_icon(v[k]["i"], f"https://schaledb.com/images/item/icon/{v[k]['i']}.webp")
+    for v in book_out.values():
+        n += fetch_icon(v["i"], f"https://schaledb.com/images/item/icon/{v['i']}.webp")
+    fetch_icon("currency_icon_gold", "https://schaledb.com/images/item/icon/currency_icon_gold.webp")
+    for s_ in stu:
+        n += fetch_portrait(f"student_{s_['id']}",
+                            f"https://schaledb.com/images/student/collection/{s_['id']}.webp")
+    print(f"  絵 {n} 枚を追加")
+
+    return write_js("tools/potential/data.js", "POT", {
+        # **添字は「今の段」。**steps[0] が 0 → 1
+        "steps": [{"cr": m["CostAmount"], "g": m["ArtifactGrade"],
+                   "an": m["ArtifactAmount"], "bk": m["BookAmount"]} for m in mats],
+        "max": 25,
+        "openLv": cc["PotentialOpenConditionCharacterLevel"],
+        "rate": 20,                      # 1 段あたりの伸び（10000 分率）
+        "arts": art_out, "books": book_out,
+        "statJa": {"MaxHP": "最大 HP", "AttackPower": "攻撃力", "HealPower": "治癒力"},
+        "stu": sorted(stu, key=lambda x: x["id"]),
+        "checked": ok,
+        "version": "SchaleDB config.json（PotentialMaterial）／ electricgoat/ba-data jp"
+                   "（CharacterPotential・CharacterPotentialStat・Recipe・RecipeIngredient・ConstCommon）"
+                   "／ SchaleDB jp（生徒・道具の名前と絵）",
+    }, header="/* scripts/build-tool-data.py が吐く。**手で直さない。** */\n")
+
+
+# ------------------------------------------------------------- 固有武器の強化
+
+# **★3→★4 の神名文字だけ、ゲームデータが仮置きのまま。**
+# 224 本すべてが `IngredientAmount = 1` で、クレジット `2000000` だけ実数が入っている。
+# 実際は 200 個（game8「固有4のおすすめキャラと必要数」——
+# https://game8.jp/blue-archive/706922 の「★3→★4の必要素材／神名文字：200個／
+# クレジット：200万／神名のカケラ換算 1000」）。クレジットが表と一致しているので、
+# 個数だけ外から補う。**表の値が 1 でなくなったら、この差し替えを外す**
+WP_STAR4_STONE = 200
+WP_STAR4_SRC = "game8"
+
+
+def build_weapon():
+    """固有武器のレベルと★。
+
+    **`TotalExp` は「その行のレベルに到達するまで」ではなく「次のレベルまで」の累計。**
+    行 `Level: 49` の `TotalExp` が 26280 で、これが Lv1 → Lv50 のぶん
+    （game8「経験値テーブル一覧」の「固有武器1つのレベルを1から最大の50まで育てるには、
+    26,280の経験値が必要」と一致。https://game8.jp/blue-archive/687342）。
+    → **a から b へは `TotalExp[b-1] - TotalExp[a-1]`。**
+
+    **武器パーツは `ItemExcelTable` に 1 件も無い。**`SchaleDB` の `equipment` 側に
+    `Category = WeaponExpGrowthA / B / C / Z` として入っている（Id 10〜43）。
+    Item として探すと 0 件で「JP に無い機能」と読み違える。
+
+    **★の上限を `Unlock` で決めない。**224 本すべて `[true, true, true, false, false]`
+    で ★3 までに見えるが、JP はもう ★4（`config.json` の `Regions[Jp].WeaponMaxLevel`
+    が 60 ＝ SchaleDB の数え方で ★4）。ba-data の jp ブランチが古い。
+    """
+    print("固有武器の強化計算機")
+    cfg = get_json(SD_CFG)
+    students = as_list(get_json(SD.format("students")))
+    equip = as_list(get_json(SD.format("equipment")))
+    loc = get_json(SD.format("localization"))
+    lv_tbl = as_list(get_json(BA.format("CharacterWeaponLevelExcelTable")))
+    bonus_tbl = as_list(get_json(BA.format("CharacterWeaponExpBonusExcelTable")))
+    weapons = as_list(get_json(BA.format("CharacterWeaponExcelTable")))
+    rec = {r["Id"]: r for r in as_list(get_json(BA.format("RecipeExcelTable")))}
+    ing = {r["Id"]: r for r in as_list(get_json(BA.format("RecipeIngredientExcelTable")))}
+    const = as_list(get_json(BA.format("ConstCommonExcelTable")))
+
+    # 経験値の表。**tot[i] は「Lv(i+1) から Lv(i+2) へ」までの累計**
+    rows = sorted(lv_tbl, key=lambda x: x.get("Level", 0))
+    if len(rows) != 70 or rows[0]["Level"] != 1 or rows[-1]["Level"] != 70:
+        raise SystemExit(f"武器の経験値表が 70 行 (1〜70) でない（{len(rows)} 行）")
+    if rows[-1]["Exp"] != 0:
+        raise SystemExit("最終行の Exp が 0 でない。上限が伸びた疑い")
+    tot = [r["TotalExp"] for r in rows]
+    for a, b in zip(tot, tot[1:]):
+        if b < a:
+            raise SystemExit("TotalExp が単調でない")
+    # **添字の付け替え。**`TotalExp` の行 `Level: N` は「Lv1 から Lv(N+1) まで」なので、
+    # そのまま持たせるとページ側で 2 つずれる。`cum[L]` ＝ Lv1 から Lv L までに
+    # 変えてから渡す（`cum[1] = 0`、`cum[50] = 26280`、`cum[70] = 83980`）
+    cum = [0, 0] + tot[:-1]
+    if len(cum) != 71:
+        raise SystemExit(f"累計の表が {len(cum)} 個（71 のはず）")
+    # **外の数字と突き合わせる見張り。**game8 の 26,280（Lv1→50）と合わなくなったら止める
+    if cum[50] != 26280:
+        raise SystemExit(f"Lv1→50 の経験値が {cum[50]}。game8 の 26,280 と食い違う")
+    if cum[70] != tot[-1]:
+        raise SystemExit("累計の付け替えがずれている")
+
+    # ★ごとのレベル上限
+    caps = {tuple(w["MaxLevel"]) for w in weapons}
+    if len(caps) != 1:
+        raise SystemExit(f"★ごとのレベル上限が武器で割れている: {sorted(caps)[:3]}")
+    max_lv = list(caps.pop())
+    jp = next((r for r in cfg.get("Regions", []) if r.get("Name") == "Jp"), None)
+    if not jp:
+        raise SystemExit("config.json に Jp の Regions が無い")
+    jp_lv = jp["WeaponMaxLevel"]
+    if jp_lv not in max_lv:
+        raise SystemExit(f"Jp の WeaponMaxLevel {jp_lv} が {max_lv} に無い")
+    jp_star = max_lv.index(jp_lv) + 1        # 60 → ★4
+
+    # ★上げのレシピ。**全 224 本で同じ値であることを数えて確かめる**
+    #
+    # **神名文字は「その武器の Id」とは限らない。**224 本のうち 1 本だけ、
+    # ホシノ（臨戦）の 10099 が 10098 の神名文字を使う（形態違いの片割れ。
+    # 2026-08-30 に 224 本すべてを数えて見つけた）。どの子の神名文字かは
+    # 生徒ごとに持たせる
+    sd_ids = {x["Id"] for x in students if x.get("Name")}
+    sets, stone_of = set(), {}
+    for w in weapons:
+        row = []
+        ids = set()
+        for rid in w.get("RecipeId") or []:
+            R = rec.get(rid)
+            I = ing.get(R["RecipeIngredientId"]) if R else None
+            if not I:
+                row.append(None)
+                continue
+            ids.add(I["IngredientId"][0])
+            row.append((I["CostAmount"][0], I["IngredientAmount"][0]))
+        if len(ids) > 1:
+            raise SystemExit(f"武器 {w['Id']} の★上げが段ごとに違う神名文字を使う: {sorted(ids)}")
+        if ids:
+            sid = ids.pop()
+            if sid not in sd_ids:
+                raise SystemExit(f"武器 {w['Id']} の神名文字 {sid} が生徒に無い")
+            stone_of[w["Id"]] = sid
+        sets.add(tuple(row))
+    if len(sets) != 1:
+        raise SystemExit(f"★上げの中身が武器で割れている: {len(sets)} 通り")
+    raw = list(sets.pop())
+    star = []
+    for i, v in enumerate(raw[:jp_star - 1]):        # ★1→2 … ★(jp_star-1)→jp_star
+        if not v:
+            raise SystemExit(f"★{i+1}→{i+2} のレシピが引けない")
+        cr, el = v
+        src = "data"
+        if el == 1:
+            # **仮置きの行。**★3→★4 だけ外の出典で補う
+            if i != 2 or cr != 2000000:
+                raise SystemExit(f"仮置きの段が ★{i+1}→{i+2}（クレジット {cr}）。想定と違う")
+            el, src = WP_STAR4_STONE, WP_STAR4_SRC
+        star.append({"to": i + 2, "cr": cr, "el": el, "src": src})
+    if len(star) != 3:
+        raise SystemExit(f"★の段が {len(star)} 段。JP は ★{jp_star} まで")
+
+    # 武器パーツ。**equipment の側にいる**
+    PART_ORDER = ["A", "B", "C", "Z"]
+    cat_ja = loc.get("ItemCategory", {})
+    parts = []
+    for e in equip:
+        c = e.get("Category") or ""
+        if not c.startswith("WeaponExpGrowth"):
+            continue
+        k = c[len("WeaponExpGrowth"):]
+        if k not in PART_ORDER:
+            raise SystemExit(f"知らない武器パーツの系統: {c}")
+        if not e.get("LevelUpFeedExp"):
+            raise SystemExit(f"{e.get('Name')} に LevelUpFeedExp が無い")
+        parts.append({"k": k, "id": e["Id"], "n": e.get("Name", ""),
+                      "i": e.get("Icon", ""), "e": e["LevelUpFeedExp"],
+                      "r": e.get("Rarity", ""),
+                      "sh": [{"c": s.get("ShopCategory", ""), "a": s.get("Amount", 0),
+                              "ct": s.get("CostType", ""), "ci": s.get("CostId", 0),
+                              "ca": s.get("CostAmount", 0)} for s in (e.get("Shops") or [])]})
+    if len(parts) != 16:
+        raise SystemExit(f"武器パーツが {len(parts)} 種（4 系統 × 4 段 = 16 のはず）")
+    feeds = {}
+    for p in parts:
+        feeds.setdefault(p["k"], []).append(p["e"])
+    for k, v in feeds.items():
+        if sorted(v) != [10, 50, 200, 1000]:
+            raise SystemExit(f"{k} の経験値が {sorted(v)}（10/50/200/1000 のはず）")
+    parts.sort(key=lambda p: (PART_ORDER.index(p["k"]), p["e"]))
+
+    # 系統ごとの 1.5 倍。**値は 10000 か 15000 の 2 つだけ**
+    bonus, seen = {}, set()
+    for r in bonus_tbl:
+        wt = r["WeaponType"]
+        row = {}
+        for k in PART_ORDER:
+            v = r["WeaponExpGrowth" + k]
+            seen.add(v)
+            row[k] = v
+        bonus[wt] = row
+    if seen - {10000, 15000}:
+        raise SystemExit(f"経験値の倍率に 10000 / 15000 以外がある: {sorted(seen)}")
+
+    # 生徒。**固有武器を持っている子だけ**
+    wp_by_id = {w["Id"]: w for w in weapons}
+    ad_ja = {"Street": "市街地", "Outdoor": "屋外", "Indoor": "屋内"}
+    school = loc.get("School", {})
+    stu = []
+    for s_ in students:
+        w = s_.get("Weapon") or {}
+        if not s_.get("Name") or not w.get("Name"):
+            continue
+        wt = s_.get("WeaponType", "")
+        if wt not in bonus:
+            raise SystemExit(f"{s_['Name']} の武器種 {wt} が倍率の表に無い")
+        raw_w = wp_by_id.get(s_["Id"]) or {}
+        # ★3 で開く地形適性。**28 本だけ ＋2**
+        av = 0
+        ad = w.get("AdaptationType", "")
+        for t_, v_ in zip(raw_w.get("StatType") or [], raw_w.get("StatValue") or []):
+            if t_ and t_ != "None":
+                av = v_
+        stu.append({"id": s_["Id"], "n": s_["Name"], "wt": wt,
+                    "wn": w.get("Name", ""), "wi": s_.get("WeaponImg", ""),
+                    "st": s_.get("StarGrade", 1),
+                    # **神名文字の持ち主。**ふつうは自分だが 1 人だけ例外がいる
+                    "es": stone_of.get(s_["Id"], s_["Id"]),
+                    "sc": school.get(s_.get("School", ""), s_.get("School", "")),
+                    "ad": ad_ja.get(ad, ad),
+                    "av": w.get("AdaptationValue", av)})
+    if len(stu) < 200:
+        raise SystemExit(f"固有武器を持つ生徒が {len(stu)} 人しか取れない")
+
+    coef = next((r["WeaponLvUpCoefficient"] for r in const if r.get("WeaponLvUpCoefficient")), None)
+    if not coef:
+        raise SystemExit("WeaponLvUpCoefficient が取れない")
+
+    print(f"  生徒 {len(stu)} 人、武器種 {len(bonus)} 種、パーツ {len(parts)} 種、"
+          f"★は JP で {jp_star} まで（Lv{jp_lv}）、Lv1→50 は {cum[50]:,} 経験値")
+
+    n = 0
+    for p in parts:
+        n += fetch_icon(p["i"], f"https://schaledb.com/images/equipment/icon/{p['i']}.webp")
+    fetch_icon("item_icon_secretstone", "https://schaledb.com/images/item/icon/item_icon_secretstone.webp")
+    fetch_icon("currency_icon_gold", "https://schaledb.com/images/item/icon/currency_icon_gold.webp")
+    for s_ in stu:
+        n += fetch_portrait(f"student_{s_['id']}",
+                            f"https://schaledb.com/images/student/collection/{s_['id']}.webp")
+    for wi in sorted({s_["wi"] for s_ in stu if s_["wi"]}):
+        n += fetch_wide(wi, f"https://schaledb.com/images/weapon/{wi}.webp")
+    print(f"  絵 {n} 枚を追加")
+
+    return write_js("tools/weapon/data.js", "WEAP", {
+        "cum": cum, "maxLv": max_lv, "jpLv": jp_lv, "jpStar": jp_star,
+        "star": star, "parts": parts, "partOrder": PART_ORDER,
+        "partJa": {k: cat_ja.get("WeaponExpGrowth" + k, k) for k in PART_ORDER},
+        "partTx": loc.get("WeaponPartExpBonus", {}),
+        "bonus": bonus, "coef": coef,
+        "stu": sorted(stu, key=lambda x: x["id"]),
+        "star4Src": WP_STAR4_SRC,
+        "version": "electricgoat/ba-data jp（CharacterWeaponLevel・CharacterWeaponExpBonus・"
+                   "CharacterWeapon・Recipe・RecipeIngredient・ConstCommon）／ "
+                   "SchaleDB jp（武器パーツ・生徒・絵）／ SchaleDB config.json（JP の★上限）"
+                   "／ game8（★3→★4 の神名文字 200 個）",
+    }, header="/* scripts/build-tool-data.py が吐く。**手で直さない。** */\n")
+
+
 BUILDERS = {"bond": build_bond, "teacher-level": build_teacher_level,
             "equipment": build_equipment, "tier": build_tier, "raid": build_raid,
             "student-cost": build_student_cost, "treasure": build_treasure,
@@ -1903,6 +2584,8 @@ BUILDERS = {"bond": build_bond, "teacher-level": build_teacher_level,
             "eleph": build_eleph,
             "gift-search": build_gift_search,
             "matchup": build_matchup,
+            "potential": build_potential,
+            "weapon": build_weapon,
             "ui": build_ui}
 
 if __name__ == "__main__":

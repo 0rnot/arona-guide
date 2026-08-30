@@ -25,7 +25,12 @@
   .gcard[aria-pressed="true"] { border-color: transparent; background: var(--accent); color: var(--accent-in); }
   .gcard[aria-pressed="true"] .sub { color: color-mix(in srgb, var(--accent-in) 78%, transparent); }
   .gcard img { width: 42px; height: 42px; border-radius: 8px; background: var(--bg-sub); display: block; }
-  .gcard .nm { display: block; font-size: .8rem; font-weight: 700; line-height: 1.35; word-break: auto-phrase; }
+  /* **`1fr` の柱は中身より縮まない。**`min-width: 0` を入れないと、
+     長い贈り物の名前が柱を押し広げて画面からはみ出す
+     （2026-08-30 に 390px で 90px はみ出していた） */
+  .gcard > span { min-width: 0; }
+  .gcard .nm { display: block; font-size: .8rem; font-weight: 700; line-height: 1.35;
+               word-break: auto-phrase; overflow-wrap: anywhere; }
   .gcard .sub { display: block; font-size: .72rem; color: var(--fg-mute); font-variant-numeric: tabular-nums; margin-top: .15em; }
 
   /* 選んだ贈り物 */

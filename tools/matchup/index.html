@@ -433,8 +433,15 @@
     var names = M.bullets.filter(function (b) { return b !== 'Normal' && rate(b, armor) === best; })
                          .map(function (b) { return M.bJa[b] || b; });
     el('o-best').textContent = best > 10000 ? names.join('・') : 'とくに無し';
+    // **その属性の生徒がまだ 1 人も居ないことがある。**分解がそれ（2026-08-30）
+    var have = {};
+    M.stu.forEach(function (t) { have[t.b] = (have[t.b] || 0) + 1; });
+    var none = M.bullets.filter(function (bb) {
+      return bb !== 'Normal' && rate(bb, armor) === best && !have[bb];
+    }).map(function (bb) { return M.bJa[bb] || bb; });
     el('o-best-sub').textContent = best > 10000
-      ? esc(M.aJa[armor] || armor) + 'に ' + x(best)
+      ? (esc(M.aJa[armor] || armor) + 'に ' + x(best) +
+         (none.length ? '（' + none.join('・') + 'の生徒はまだ居ません）' : ''))
       : esc(M.aJa[armor] || armor) + 'に弱点はありません';
     el('o-terr').textContent = '×1.3 〜 ×0.8';
     el('o-terr-sub').textContent = 'SS で ×1.3、B で ±0、D で ×0.8';

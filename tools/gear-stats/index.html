@@ -56,6 +56,24 @@
   .gcard .sub { font-size: .74rem; color: var(--fg-mute); line-height: 1.6; margin-top: .15em; }
   .gcard .sub b { color: var(--fg); font-variant-numeric: tabular-nums; }
   .gcard .sub .ad { color: var(--accent-tx); font-weight: 700; }
+
+  /* 固有の段ごとの表。**行が 4 つしかないので、そのまま札の中に置く。** */
+  .wtb { width: 100%; border-collapse: collapse; margin: .45em 0 .3em;
+         font-size: .72rem; font-variant-numeric: tabular-nums; }
+  .wtb th, .wtb td { padding: .18em .3em; text-align: right; border-bottom: 1px solid var(--line); }
+  .wtb tr:first-child th { color: var(--fg-mute); font-weight: 400; }
+  .wtb tr th:first-child { text-align: left; font-weight: 700; }
+  .wtb tr:last-child th, .wtb tr:last-child td { border-bottom: 0; }
+  /* いま並べ替えに使っている段 */
+  .wtb tr.on { background: color-mix(in srgb, var(--accent) 12%, transparent); }
+  .wtb tr.on th, .wtb tr.on td { color: var(--fg); font-weight: 700; }
+
+  /* 段ごとに増えるもの */
+  .wgain { margin: .2em 0 .35em; padding-left: 1.1em; font-size: .72rem;
+           color: var(--fg-mute); line-height: 1.65; }
+  .wgain b { color: var(--fg); }
+
+  .sortlb { font-size: .78rem; color: var(--fg-mute); align-self: center; }
 </style>
 </head>
 <body>
@@ -187,6 +205,15 @@
         <label for="q-wp">生徒をしぼる</label>
         <input id="q-wp" type="search" placeholder="名前の一部" autocomplete="off">
       </div>
+      <div class="btnrow" style="margin-top:12px">
+        <span class="sortlb">並べ替え</span>
+        <div class="seg" id="wsort" role="group" aria-label="並べ替え"></div>
+      </div>
+      <div class="btnrow" style="margin-top:8px">
+        <span class="sortlb">どの段の数字で</span>
+        <div class="seg" id="wstar" role="group" aria-label="固有の段"></div>
+      </div>
+      <p class="lead" id="wstar-note" style="margin-top:8px">—</p>
       <div class="glist" id="weapons" style="margin-top:14px"></div>
     </div>
   </div>
@@ -207,16 +234,47 @@
       <p><b>愛用品は <code>Gear</code> です。</b><span id="src-gear">—</span> 人が持っています。
         <code>StatValue</code> には数字が 2 つ入っていますが、
         <b>66 人ぶんを全部見たところ、どの子も 2 つとも同じ値でした</b>ので 1 つだけ出しています。<b>愛用品 T2 で効果がどう変わるかは、このデータからは分かりません。</b>持っていない生徒はここに出ません。</p>
-      <p><b>固有武器の「地形適性 +1」は <code>AdaptationType</code> と
-        <code>AdaptationValue</code> です。</b>固有武器の 3 段目で上がる地形がこれにあたります。攻撃力・最大 HP・治癒力は <code>AttackPower1</code> /
-        <code>AttackPower100</code> のような形で、<b>Lv1 と Lv100 の 2 点だけが入っています</b>。実際に上げられる上限は先生レベルで決まるので、ここでは 2 点をそのまま出しています。</p>
-      <p>出典 — <a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a>。取得は <span id="ver">—</span>。</p>
+      <p><b>固有武器は、固有の段（限界解放）でレベル上限が変わります。</b>
+        <code>Excel/CharacterWeaponExcelTable.json</code> の <code>MaxLevel</code> が
+        <code>30 / 40 / 50 / 60 / 70</code> で、固有1 が Lv30、固有4 が Lv60 です。
+        <b>224 人ぶんを数えて全員同じであることを確かめています。</b>
+        <code>70</code> の段（固有5）は日本ではまだ開いていません——
+        SchaleDB の <code>config.json</code> の <code>Regions</code> の Jp が
+        <code>"WeaponMaxLevel": 60</code> だからです。SchaleDB 本体も
+        <code>WeaponStarGrade</code> を <code>WeaponMaxLevel / 10 - 2</code> で頭打ちにしています。</p>
+      <p><b>段ごとの攻撃力・最大 HP・治癒力は、SchaleDB と同じ式で出しています。</b>
+        データに入っているのは <code>AttackPower1</code> / <code>AttackPower100</code> のような
+        <b>Lv1 と Lv100 の 2 点だけ</b>で、あいだは
+        <code>Math.round(Lv1 + (Lv100 − Lv1) × (Lv − 1) ÷ 99)</code> で埋めます
+        （<a href="https://schaledb.com/" target="_blank" rel="noopener">schaledb.com</a> の
+        <code>assets/index-*.js</code> の <code>mg()</code> と <code>g$()</code>。
+        <code>Standard</code>・<code>LateBloom</code>・<code>Premature</code> の 3 つはどれも直線で、
+        段が付くのは <code>TimeAttack</code> だけ。固有武器にその型の子はいません）。
+        <b>裏取り: 274 人ぶん 680 組で、この式が Lv1 と Lv100 の値をぴったり返すことを確かめました。</b>
+        以前このツールは「Lv1 → Lv100」と出していましたが、<b>Lv100 には届きません。</b></p>
+      <p><b>固有武器の「地形適性 ＋1」は <code>AdaptationType</code> と
+        <code>AdaptationValue</code> です。</b>これが乗るのは<b>固有3 から</b>で、
+        SchaleDB 本体も <code>WeaponStarGrade &gt;= 3</code> のときだけ足しています。
+        伸び幅は生徒ごとに違い、＋1 が 247 人、＋2 が 27 人です。</p>
+      <p><b>固有2 と固有4 で増えるものは、少しだけ出どころが違います。</b>
+        固有2 の「パッシブスキル＋」は <code>LearnSkillSlot</code> の 2 番目が
+        <code>Passive01</code> であることから。<b>固有4 のぶんはゲームのデータに入っていません</b>——
+        <code>StatType</code> の 4 番目は <code>None</code> のままです。
+        ストライカーは特効 ＋10%、スペシャルはコスト上限 ＋0.5 で、これは
+        <a href="https://game8.jp/blue-archive/706922" target="_blank" rel="noopener">game8</a> と、
+        <a href="https://bluearchive.wikiru.jp/?SandBox/%E7%A5%9E%E7%A7%98%E8%A7%A3%E6%94%BE%EF%BC%88%E9%99%90%E7%95%8C%E8%A7%A3%E6%94%BE%EF%BC%89" target="_blank" rel="noopener">ブルアカ攻略 Wiki</a>
+        の「限界解放 星3→星4」の欄（<code>ST:〇〇特効加算+10%、SP:最大コスト0.5増加</code>）が一致しています。
+        どちらを出すかは <code>SquadType</code> で切り替えています。</p>
+      <p>出典 — <a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a>（装備・愛用品・固有武器・日本の上限）、
+        <a href="https://github.com/electricgoat/ba-data" target="_blank" rel="noopener">electricgoat/ba-data</a>（固有武器のレベル上限）、
+        <a href="https://game8.jp/blue-archive/706922" target="_blank" rel="noopener">game8</a> と
+        <a href="https://bluearchive.wikiru.jp/?SandBox/%E7%A5%9E%E7%A7%98%E8%A7%A3%E6%94%BE%EF%BC%88%E9%99%90%E7%95%8C%E8%A7%A3%E6%94%BE%EF%BC%89" target="_blank" rel="noopener">ブルアカ攻略 Wiki</a>（固有4 の効果）。取得は <span id="ver">—</span>。</p>
     </details>
   </div>
 
 </div>
 
-<script>window.TOUR = {"key": "gear-stats", "steps": [{"sel": "#cat", "t": "部位を選びます", "d": "装備の部位を選ぶと、Tier ごとのステータスが出ます。"}, {"sel": "#gears", "t": "愛用品を探します", "d": "名前や生徒で絞り込めます。段ごとの伸びも並べてあります。"}, {"sel": "#weapons", "t": "固有武器はここです", "d": "地形適性の変化も出しています。上の切り替えで見たい適性だけに絞れます。"}]};</script>
+<script>window.TOUR = {"key": "gear-stats", "steps": [{"sel": "#cat", "t": "部位を選びます", "d": "装備の部位を選ぶと、Tier ごとのステータスが出ます。"}, {"sel": "#q-gear", "pre": "#tab button[data-v=\"gear\"]", "t": "愛用品を探します", "d": "生徒の名前で絞り込めます。下に、その子の愛用品と伸びるステータスが並びます。"}, {"sel": "#adapt", "pre": "#tab button[data-v=\"wp\"]", "t": "固有武器はここです", "d": "固有武器で上がる地形適性で絞り込めます。下に、固有1から固有4までの段ごとの伸びが並びます。"}]};</script>
 <script src="../tour.js?v=1"></script>
 
 <script src="../share.js?v=1"></script>

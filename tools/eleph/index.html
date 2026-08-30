@@ -4,11 +4,11 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>星上げの計算機｜AronaBot</title>
-<meta name="description" content="生徒を選んで今の星と目標を入れると、要る神名文字とクレジットが出ます。星ごとに上がるステータスと絆ランクの上限も。">
+<meta name="description" content="生徒を選んで今の段と目標を入れると、要る神名文字とクレジットが出ます。★1 から ★5、そのあとの固有1〜固有4（限界解放）まで通しで数えます。">
 <meta name="theme-color" content="#c8892e">
 <link rel="icon" href="../../favicon.svg" type="image/svg+xml">
 <meta property="og:title" content="星上げの計算機">
-<meta property="og:description" content="生徒を選んで今の星と目標を入れると、要る神名文字とクレジットが出ます。星ごとに上がるステータスと絆ランクの上限も。">
+<meta property="og:description" content="生徒を選んで今の段と目標を入れると、要る神名文字とクレジットが出ます。★1 から ★5、そのあとの固有1〜固有4（限界解放）まで通しで数えます。">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://arona-bot.com/tools/eleph/">
 <meta property="og:image" content="https://arona-bot.com/images/hero-night.jpg">
@@ -37,6 +37,8 @@
   .star { width: 34px; height: 34px; border-radius: 9px; border: 1px solid var(--line);
           background: var(--card); color: var(--fg-mute); cursor: pointer; font-size: 1rem;
           line-height: 1; display: grid; place-items: center; padding: 0; }
+  /* **固有の 3 つは文字が入るので横に広い。**★と同じ 34px だと「固有2」が入らない */
+  .star.ue { width: auto; min-width: 3.4em; padding: 0 .5em; font-size: .78rem; font-weight: 700; }
   .star.on { background: var(--accent); border-color: transparent; color: var(--accent-in); }
   .star.from { background: color-mix(in srgb, var(--accent) 26%, var(--card)); color: var(--fg); }
   .star:disabled { opacity: .35; cursor: default; }
@@ -150,7 +152,7 @@
   </div>
   <div class="thero-body">
     <h1>星上げの計算機</h1>
-    <p class="thero-lead">生徒を選んで今の星と目標を入れると、要る神名文字とクレジットが出ます。星ごとに上がるステータスと絆ランクの上限も。</p>
+    <p class="thero-lead">生徒を選んで今の段と目標を入れると、要る神名文字とクレジットが出ます。★1 から ★5、そのあとの固有1〜固有4（限界解放）まで通しで数えます。</p>
   </div>
 </header>
 
@@ -161,12 +163,12 @@
 
     <div class="tcol">
       <div class="panel">
-        <div class="panel-h"><h2>だれの星を上げますか</h2></div>
+        <div class="panel-h"><h2>だれを上げますか</h2></div>
         <div class="stucard none" id="stucard">
           <div class="stuimg" id="stu-img"><span class="ph">none</span></div>
           <div>
             <p class="stuname" id="stu-name">まだ誰も選んでいません</p>
-            <p class="stunote" id="stu-note">名前を入れると、その子の神名文字の名前と、今の星から数えた必要量が出ます。</p>
+            <p class="stunote" id="stu-note">名前を入れると、その子の神名文字の名前と、今の段から数えた必要量が出ます。</p>
           </div>
         </div>
         <div class="fields c2">
@@ -181,19 +183,19 @@
           </div>
         </div>
         <div class="starrow" style="margin-top:14px">
-          <span class="lb">今の星</span>
+          <span class="lb">今の段</span>
           <div id="from-stars"></div>
         </div>
         <div class="starrow" style="margin-top:10px">
-          <span class="lb">目標の星</span>
+          <span class="lb">目標の段</span>
           <div id="to-stars"></div>
         </div>
         <p class="err" id="err" hidden></p>
       </div>
 
       <div class="panel">
-        <div class="panel-h"><h2>星ごとの中身</h2></div>
-        <p class="lead"><b>要る神名文字とクレジットは 4 段とも全員同じです。</b>上がり幅も同じで、生徒ごとの差はありません。右の数字はその段までの累計です。</p>
+        <div class="panel-h"><h2>段ごとの中身</h2></div>
+        <p class="lead"><b>要る神名文字とクレジットは 7 段とも全員同じです。</b>上がり幅も同じで、生徒ごとの差はありません。右の数字はその段までの累計です。<b>★5 になると固有武器が使えるようになり、その状態が固有1</b>です。そこから先は「限界解放」と呼ばれていて、ステータスの％ではなく覚えるものが変わります。</p>
         <div class="stargrid" id="starsteps"></div>
       </div>
     </div>
@@ -208,12 +210,12 @@
         <div class="stat">
           <div class="k"><img class="ico" src="../img/currency_icon_gold.webp" alt="" width="18" height="18" loading="lazy"> クレジット</div>
           <div class="v" id="o-credit">—</div>
-          <div class="sub">この星まで上げるぶん</div>
+          <div class="sub">この段まで上げるぶん</div>
         </div>
         <div class="stat">
           <div class="k">攻撃力の伸び</div>
           <div class="v" id="o-atk">—</div>
-          <div class="sub" id="o-atk-sub">今の星から数えて</div>
+          <div class="sub" id="o-atk-sub">今の段から数えて</div>
         </div>
       </div>
 
@@ -231,14 +233,14 @@
       </div>
 
       <div class="panel">
-        <div class="panel-h"><h2>星で変わるもの</h2></div>
+        <div class="panel-h"><h2>段で変わるもの</h2></div>
         <div class="tscroll">
           <table class="dt">
-            <thead><tr><th>星</th><th>攻撃力</th><th>最大 HP</th><th>回復力</th><th>絆ランクの上限</th></tr></thead>
+            <thead><tr><th>段</th><th>攻撃力</th><th>最大 HP</th><th>回復力</th><th>絆ランクの上限</th><th>固有武器の上限</th></tr></thead>
             <tbody id="tb"></tbody>
           </table>
         </div>
-        <p class="lead" style="margin:12px 0 0"><b>上がり幅は足し算です。</b>★5 まで上げると、攻撃力は ★1 のときの <b id="tot-atk">—</b>、最大 HP は <b id="tot-hp">—</b>、回復力は <b id="tot-heal">—</b> になります。</p>
+        <p class="lead" style="margin:12px 0 0"><b>上がり幅は足し算です。</b>★5 まで上げると、攻撃力は ★1 のときの <b id="tot-atk">—</b>、最大 HP は <b id="tot-hp">—</b>、回復力は <b id="tot-heal">—</b> になります。<b>固有2 から先はこの％を動かしません。</b>上がるのは固有武器のレベル上限と、覚えるものです。</p>
       </div>
     </div>
 
@@ -268,6 +270,42 @@
             （<a href="https://schaledb.com/" target="_blank" rel="noopener">schaledb.com</a> の <code>assets/index-*.js</code>。2026-08-30 に読みました）</li>
           <li>絆ランクの上限は同じ表の <code>MaxFavorLevel</code>。<code>10 / 10 / 20 / 20 / 100</code> で、★3 で 20、★5 で 100 まで開きます</li>
         </ul>
+
+        <p><b>★5 のあとは「限界解放」です。</b>★の上げ方を<b>神秘解放</b>、固有武器の上げ方を<b>限界解放</b>と呼び分けます
+          （<a href="https://bluearchive.wikiru.jp/?SandBox/%E7%A5%9E%E7%A7%98%E8%A7%A3%E6%94%BE%EF%BC%88%E9%99%90%E7%95%8C%E8%A7%A3%E6%94%BE%EF%BC%89" target="_blank" rel="noopener">ブルアカ攻略 Wiki の「神秘解放/限界解放」</a>）。
+          <b>★5 になると固有武器が使えるようになり、その状態が固有1</b>です。そこから固有2・固有3・固有4 と続きます。</p>
+        <ul>
+          <li><code>Excel/CharacterWeaponExcelTable.json</code> の <code>RecipeId</code> が段の並びです。
+            ★のときと同じように <code>RecipeExcelTable</code> → <code>RecipeIngredientExcelTable</code> と辿ります。
+            神名文字は <code>120 / 180 / 200</code>、クレジットは <code>1,000,000 / 1,500,000 / 2,000,000</code> です</li>
+          <li>固有武器のレベル上限は同じ表の <code>MaxLevel</code>。<code>30 / 40 / 50 / 60 / 70</code> で、
+            <b>固有1 で Lv30、固有4 で Lv60</b> です（<code>70</code> の段＝固有5 は日本ではまだ出ていません）</li>
+          <li>覚えるものも同じ表から読んでいます。<code>LearnSkillSlot</code> の 2 番目が <code>Passive01</code> なので
+            <b>固有2 でパッシブスキル＋</b>、<code>StatType</code> の 3 番目が <code>〇〇BattleAdaptation_Base</code> なので
+            <b>固有3 で地形適性</b>です。<b>上がり幅は生徒ごとに違います</b>——
+            ＋1 段が 196 人、＋2 段が 28 人で、<code>StatValue</code> をその子ぶん読んでいます</li>
+        </ul>
+        <p><b>ここだけはゲームのデータから取れていません。</b>固有3→固有4 の神名文字です。
+          <code>RecipeIngredientExcelTable</code> の該当行は <code>IngredientAmount</code> が <code>1</code> の仮置きで、
+          <b>クレジットの <code>2,000,000</code> のほうは入っています</b>。
+          <b>ba-data の jp ブランチが 2025-05-21（v1.57.342698）で止まっている</b>のが理由で、
+          <code>Unlock</code> も 224 人全員が <code>[true, true, true, false, false]</code> ＝ 固有3 までのままです。
+          日本ではもう固有4 まで出ていることは、SchaleDB の <code>config.json</code> の <code>Regions</code> の Jp が
+          <code>"WeaponMaxLevel": 60</code>（＝ <code>MaxLevel</code> の 4 番目）になっていることで確かめました。</p>
+        <p>そこで <b>神名文字 200 個</b>だけは
+          <a href="https://game8.jp/blue-archive/706922" target="_blank" rel="noopener">game8 の「固有武器★4の解放必要素材」</a>から取っています（2026-08-30 に取得）。
+          <b>裏取りは 2 本立てです。</b>ひとつは、同じ記事の累計「★1→固有★4 は 830」が、
+          ★1→★5 の <code>330</code>（＝ <code>30+80+100+120</code>。ブルアカ攻略 Wiki と ba-data が一致）に
+          <code>120+180+200</code> を足した値とぴたり合うこと。
+          もうひとつは、同記事の「★3→固有★4 は 720」が、このツールで ★3 の生徒を固有4 まで上げたときの
+          <b>720 個</b>と一致することです。</p>
+        <p><b>固有4 で増えるものは、ゲームのデータには入っていません。</b>
+          <code>StatType</code> の 4 番目は <code>None</code> のままです。
+          ストライカーは<b>自分の攻撃属性の特効が ＋10%</b>、スペシャルは<b>コスト上限が ＋0.5</b>で、
+          これは上の game8 と、ブルアカ攻略 Wiki の「限界解放 星3→星4」の欄
+          （<code>ST:〇〇特効加算+10%、SP:最大コスト0.5増加</code>）が一致しています。
+          どちらを出すかは、その子の <code>SquadType</code>（<code>Main</code> がストライカー、
+          <code>Support</code> がスペシャル）で切り替えています。</p>
         <p><b>データに星上げのレシピが入っていない生徒は、この一覧に出しません。</b>
           <code>IngredientId</code> が「神名のカケラ」（Id 23）を 999 個という仮置きの行になっている生徒と、
           レシピそのものが空の生徒がいます。実装が追いついていないだけなので、<b>ゲーム側では上げられます。</b>
@@ -276,7 +314,9 @@
           ショップなど、経路が複数あって手持ちの状況で変わるためです。<b>1 週間ぶんの見込みは自分で入れる形</b>にしてあります。</p>
         <p>出典 —
           <a href="https://github.com/electricgoat/ba-data" target="_blank" rel="noopener">electricgoat/ba-data</a>（レシピと上がり幅）、
-          <a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a>（生徒と道具の名前、顔の絵）。取得は <span id="ver">—</span>。</p>
+          <a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a>（生徒と道具の名前、顔の絵、日本の上限）、
+          <a href="https://bluearchive.wikiru.jp/?SandBox/%E7%A5%9E%E7%A7%98%E8%A7%A3%E6%94%BE%EF%BC%88%E9%99%90%E7%95%8C%E8%A7%A3%E6%94%BE%EF%BC%89" target="_blank" rel="noopener">ブルアカ攻略 Wiki</a>（呼び名と各段の恩恵）、
+          <a href="https://game8.jp/blue-archive/706922" target="_blank" rel="noopener">game8</a>（固有3→4 の神名文字）。取得は <span id="ver">—</span>。</p>
       </details>
     </div>
 
@@ -285,7 +325,7 @@
 
 <script>window.TOUR = {"key": "eleph", "steps": [
   {"sel": "#stucard", "t": "まず生徒を選びます", "d": "名前を入れると、その子の神名文字の名前が出ます。要る個数はどの子でも同じです。"},
-  {"sel": "#from-stars", "t": "今の星と目標を押します", "d": "上の列が今の星、下の列が目標です。★3 の生徒なら ★3 から始まります。"},
+  {"sel": "#from-stars", "t": "今の段と目標を押します", "d": "上の列が今、下の列が目標です。★が 5 つ並んだあとに固有2・固有3・固有4 が続きます。★5 になると固有武器が使えるようになるので、★5 と固有1 は同じ段です。"},
   {"sel": "#o-eleph", "t": "要る量がここに出ます", "d": "神名文字とクレジット、それに攻撃力がどれだけ伸びるか。手持ちを入れると、あと何週間かも出ます。"},
   {"sel": "#sharebar", "t": "結果はそのまま渡せます", "d": "開いている状態ごと URL になるので、リンクを送れば相手の画面にも同じ結果が出ます。"}
 ]};</script>
@@ -326,20 +366,58 @@
   E.stu.forEach(function (s) { byId[s.id] = s; });
 
   var student = null;
+  /* **段は 8 つある。**1〜5 が ★1〜★5、6〜8 が 固有2・固有3・固有4。
+     ★5 になると固有武器が使えるようになり、その状態が固有1。
+     つまり **★5 と固有1 は同じ段**で、そこから先が限界解放（2026-08-30 に
+     ブルアカ攻略 Wiki と game8 で裏取りして足した。それまで ★5 で止めていた）。 */
+  var MAX = 8;
   var from = 1, to = 5;
 
   function fmt(n) { return Math.round(n).toLocaleString('ja-JP'); }
   function pct(v) { return (v / 100).toFixed(v % 100 ? 1 : 0).replace(/\.0$/, '') + '%'; }
 
-  /** ★a から ★b まで上げるぶんの合計。**steps[i] は ★(i+1) → ★(i+2)。** */
+  /** 段の呼び名。★5 だけは固有1 でもあるので両方書く。 */
+  function lvName(n, brief) {
+    if (n <= 4) return '★' + n;
+    if (n === 5) return brief ? '★5' : '★5（固有1）';
+    return '固有' + (n - 4);
+  }
+
+  /** **段 n → 段 n+1 の 1 手。**前半 4 手が神秘解放、後半 3 手が限界解放。
+      限界解放の側はステータスの伸びを持たない（覚えるものが違う）。 */
+  function stepAt(n) {
+    if (n <= 4) {
+      var s = E.steps[n - 1];
+      return { el: s.el, cr: s.cr, atk: s.atk, hp: s.hp, heal: s.heal, fav: s.fav,
+               kind: 'star', w: null };
+    }
+    var w = E.wsteps[n - 4];        // n=5 → wsteps[1]（固有1→固有2）
+    return { el: w.el, cr: w.cr, atk: 0, hp: 0, heal: 0, fav: 0, kind: 'weapon', w: w };
+  }
+
+  /** 段 a から段 b まで上げるぶんの合計。 */
   function sum(a, b) {
     var t = { el: 0, cr: 0, atk: 0, hp: 0, heal: 0 };
-    for (var i = a - 1; i < b - 1; i++) {
-      var s = E.steps[i];
-      if (!s) continue;
+    for (var n = a; n < b; n++) {
+      var s = stepAt(n);
       t.el += s.el; t.cr += s.cr; t.atk += s.atk; t.hp += s.hp; t.heal += s.heal;
     }
     return t;
+  }
+
+  /** 限界解放で何が起きるか。**生徒によって変わるのはここだけ。** */
+  var TERR_JA = { Street: '市街地', Outdoor: '屋外', Indoor: '屋内' };
+  function weaponGain(w, stu) {
+    if (w.gain === 'unlock') return '固有武器が使えるようになります';
+    if (w.gain === 'passive') return 'パッシブスキル＋を覚えます';
+    if (w.gain === 'adapt') {
+      if (!stu || !stu.ad) return '地形適性が上がります';
+      return TERR_JA[stu.ad] + 'の適性が ' + (stu.av > 1 ? stu.av + ' 段' : '1 段') + '上がります';
+    }
+    if (!stu) return 'ストライカーは特効＋10%、スペシャルはコスト上限＋0.5';
+    return stu.sq === 'Support'
+      ? 'スペシャルなので、部隊のコスト上限が ＋0.5 されます'
+      : 'ストライカーなので、自分の攻撃属性の特効が ＋10% されます';
   }
 
   (function buildList() {
@@ -348,17 +426,20 @@
     }).join('');
   })();
 
-  /** 星のボタン 5 個。**今の星より下は目標に選べない。** */
+  /** 段のボタン 8 個。**★が 5 個、そのあとに 固有2・固有3・固有4。**
+      押した数がそのまま段になる。★5 と固有1 は同じ段なので、
+      ★を 5 個押した状態が「固有1」を意味する。 */
   function stars(box, cur, other, isFrom) {
     var h = '';
-    for (var i = 1; i <= 5; i++) {
+    for (var i = 1; i <= MAX; i++) {
       var on = isFrom ? (i <= cur) : (i <= cur && i > other);
       // **初期の星より下は選べない。**★3 の子が ★1 だったことはない
       var dis = isFrom ? !!(student && i < student.s) : (i <= other);
-      h += '<button type="button" class="star' + (on ? ' on' : '') +
+      var lab = i <= 5 ? '★' : '固有' + (i - 4);
+      h += '<button type="button" class="star' + (i > 5 ? ' ue' : '') + (on ? ' on' : '') +
            (!isFrom && i <= other ? ' from' : '') + '" data-v="' + i + '"' +
            (dis ? ' disabled' : '') + ' aria-pressed="' + (i === cur) + '"' +
-           ' aria-label="★' + i + '">★</button>';
+           ' aria-label="' + lvName(i) + '">' + lab + '</button>';
     }
     box.innerHTML = h;
   }
@@ -375,7 +456,7 @@
       card.classList.add('none');
       el('stu-img').innerHTML = '<span class="ph">none</span>';
       el('stu-name').textContent = 'まだ誰も選んでいません';
-      el('stu-note').textContent = '名前を入れると、その子の神名文字の名前と、今の星から数えた必要量が出ます。';
+      el('stu-note').textContent = '名前を入れると、その子の神名文字の名前と、今の段から数えた必要量が出ます。';
     }
     stars(el('from-stars'), from, to, true);
     stars(el('to-stars'), to, from, false);
@@ -383,12 +464,13 @@
     var t = sum(from, to);
     var have = Math.max(0, +el('i-have').value || 0);
     el('o-eleph').textContent = t.el ? fmt(t.el) + ' 個' : '0 個';
-    el('o-eleph-sub').textContent = student
-      ? '★' + from + ' から ★' + to + ' まで'
-      : '★' + from + ' から ★' + to + ' まで（誰でも同じ）';
+    el('o-eleph-sub').textContent = lvName(from, true) + ' から ' + lvName(to, true) + ' まで' +
+      (student ? '' : '（誰でも同じ）');
     el('o-credit').textContent = fmt(t.cr);
     el('o-atk').textContent = t.atk ? '＋' + pct(t.atk) : '±0%';
-    el('o-atk-sub').textContent = '最大 HP は＋' + pct(t.hp) + '、回復力は＋' + pct(t.heal);
+    el('o-atk-sub').textContent = t.atk
+      ? '最大 HP は＋' + pct(t.hp) + '、回復力は＋' + pct(t.heal)
+      : '限界解放ではステータスの％は上がりません';
 
     el('l-need').textContent = fmt(t.el) + ' 個';
     el('l-have').textContent = fmt(Math.min(have, t.el)) + ' 個';
@@ -404,27 +486,37 @@
       ? '手持ち ' + fmt(have) + ' 個で、要る ' + fmt(t.el) + ' 個の ' + p.toFixed(0) + '%'
       : '同じ星なので何も要りません。';
 
-    // 星ごとの段
-    el('starsteps').innerHTML = E.steps.map(function (s, i) {
-      var st = i + 1, cum = sum(1, s.to);
-      var cls = (s.to <= from) ? ' done' : (s.to <= to ? ' use' : '');
-      return '<div class="starstep' + cls + '">' +
-        '<span class="to">★' + st + '→' + s.to + '</span>' +
-        '<span class="cost">' + fmt(s.el) + ' 個<small>クレジット ' + fmt(s.cr) +
+    // 段ごとの中身。**7 手ぶん。**前半 4 手が神秘解放、後半 3 手が限界解放
+    var rowsH = [];
+    for (var n = 1; n < MAX; n++) {
+      var sp = stepAt(n), cum = sum(1, n + 1);
+      var cls = (n + 1 <= from) ? ' done' : (n + 1 <= to ? ' use' : '');
+      var up = sp.kind === 'star'
+        ? '攻撃力 <b>＋' + pct(sp.atk) + '</b>／最大 HP <b>＋' + pct(sp.hp) +
+          '</b>／回復力 <b>＋' + pct(sp.heal) + '</b>／絆の上限 <b>' + sp.fav + '</b>'
+        : '<b>' + weaponGain(sp.w, student) + '</b>／固有武器のレベル上限 <b>' + sp.w.lv + '</b>';
+      rowsH.push('<div class="starstep' + cls + (sp.kind === 'weapon' ? ' ue' : '') + '">' +
+        '<span class="to">' + lvName(n, true) + '→' + lvName(n + 1, true) + '</span>' +
+        '<span class="cost">' + fmt(sp.el) + ' 個<small>クレジット ' + fmt(sp.cr) +
         '／累計 ' + fmt(cum.el) + ' 個</small></span>' +
-        '<span class="up">攻撃力 <b>＋' + pct(s.atk) + '</b>／最大 HP <b>＋' + pct(s.hp) +
-        '</b>／回復力 <b>＋' + pct(s.heal) + '</b>／絆の上限 <b>' + s.fav + '</b></span>' +
-        '</div>';
-    }).join('');
+        '<span class="up">' + up + '</span>' +
+        '</div>');
+    }
+    el('starsteps').innerHTML = rowsH.join('');
 
-    // 星ごとの表
-    var a = 0, h = 0, hl = 0;
-    var rows = ['<tr><td>★1</td><td>±0%</td><td>±0%</td><td>±0%</td><td>' + E.fav1 + '</td></tr>'];
-    E.steps.forEach(function (s) {
-      a += s.atk; h += s.hp; hl += s.heal;
-      rows.push('<tr><td>★' + s.to + '</td><td>＋' + pct(a) + '</td><td>＋' + pct(h) +
-                '</td><td>＋' + pct(hl) + '</td><td>' + s.fav + '</td></tr>');
-    });
+    // 段ごとの表
+    var a = 0, h = 0, hl = 0, fav = E.fav1;
+    var rows = ['<tr><td>★1</td><td>±0%</td><td>±0%</td><td>±0%</td><td>' + E.fav1 +
+                '</td><td class="wl">—</td></tr>'];
+    for (var m = 1; m < MAX; m++) {
+      var sp2 = stepAt(m);
+      a += sp2.atk; h += sp2.hp; hl += sp2.heal;
+      if (sp2.fav) fav = sp2.fav;
+      rows.push('<tr' + (sp2.kind === 'weapon' ? ' class="ue"' : '') + '><td>' + lvName(m + 1, true) +
+                '</td><td>＋' + pct(a) + '</td><td>＋' + pct(h) +
+                '</td><td>＋' + pct(hl) + '</td><td>' + fav + '</td>' +
+                '<td class="wl">' + (m >= 4 ? 'Lv' + E.wsteps[m - 4].lv : '—') + '</td></tr>');
+    }
     el('tb').innerHTML = rows.join('');
     el('tot-atk').textContent = (1 + a / 10000).toFixed(2) + ' 倍';
     el('tot-hp').textContent = (1 + h / 10000).toFixed(2) + ' 倍';
@@ -458,7 +550,7 @@
     student = hit;
     // **その生徒の初期の星に合わせる。**★3 の子を ★1 から数えても意味がない
     if (from < hit.s) from = hit.s;
-    if (to < from) to = 5;
+    if (to < from) to = Math.max(5, from);
     draw();
   }
 
@@ -482,8 +574,8 @@
     if (!h) return;
     var p = h.split('|');
     if (p[0] && byId[p[0]]) { student = byId[p[0]]; el('i-student').value = student.n; }
-    if (+p[1] >= 1 && +p[1] <= 5) from = +p[1];
-    if (+p[2] >= 1 && +p[2] <= 5) to = +p[2];
+    if (+p[1] >= 1 && +p[1] <= MAX) from = +p[1];
+    if (+p[2] >= 1 && +p[2] <= MAX) to = +p[2];
     if (to < from) to = from;
     if (p[3] !== undefined) el('i-have').value = Math.max(0, +p[3] || 0);
     if (p[4] !== undefined) el('i-week').value = Math.max(0, +p[4] || 0);

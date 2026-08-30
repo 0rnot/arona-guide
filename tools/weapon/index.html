@@ -1,0 +1,608 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>固有武器の強化計算機｜AronaBot</title>
+<meta name="description" content="生徒を選んで今のレベルと★、目標を入れると、要る経験値と武器パーツの数が出ます。武器種ごとに 1.5 倍になるパーツも分かります。">
+<meta name="theme-color" content="#c8892e">
+<link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<meta property="og:title" content="固有武器の強化計算機">
+<meta property="og:description" content="生徒を選んで今のレベルと★、目標を入れると、要る経験値と武器パーツの数が出ます。武器種ごとに 1.5 倍になるパーツも分かります。">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://arona-bot.com/tools/weapon/">
+<meta property="og:image" content="https://arona-bot.com/images/hero-night.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="stylesheet" href="../../style.css?v=15">
+<link rel="stylesheet" href="../tool.css?v=7">
+<style>
+  .stucard { display: grid; grid-template-columns: 96px 1fr; gap: 16px; align-items: center;
+             padding: 14px; margin-bottom: 16px;
+             border: 1px solid var(--line); border-radius: 14px; background: var(--bg-sub); }
+  .stucard.none { border-style: dashed; }
+  .stuimg { width: 96px; height: 96px; border-radius: 12px; overflow: hidden;
+            background: var(--card); border: 1px solid var(--line); display: grid; place-items: center; }
+  .stuimg img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .stuimg .ph { font-size: .72rem; color: var(--fg-mute); font-weight: 700; letter-spacing: .08em; }
+  .stuname { font-size: 1.15rem; font-weight: 800; margin: 0 0 .3em; }
+  .stucard.none .stuname { color: var(--fg-mute); font-size: .95rem; }
+  .stunote { font-size: .78rem; color: var(--fg-mute); margin: .35em 0 0; line-height: 1.6; }
+  .stunote b { color: var(--fg); }
+  /* 固有武器の絵。**800×205 の横長**なので幅だけ合わせる */
+  .wshot { margin: 0 0 16px; }
+  .wshot img { width: 100%; max-width: 340px; height: auto; display: block; border-radius: 10px; }
+
+  /* ★の並び */
+  .starrow { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+  .starrow .lb { font-size: .78rem; color: var(--fg-mute); width: 5.2em; flex: none; }
+  .starrow > div { display: flex; gap: 6px; }
+  .star { width: 34px; height: 34px; border-radius: 9px; border: 1px solid var(--line);
+          background: var(--card); color: var(--fg-mute); cursor: pointer; font-size: 1rem;
+          line-height: 1; display: grid; place-items: center; padding: 0; }
+  .star.on { background: var(--accent); border-color: transparent; color: var(--accent-in); }
+  .star.from { background: color-mix(in srgb, var(--accent) 26%, var(--card)); color: var(--fg); }
+  .star:disabled { opacity: .35; cursor: default; }
+
+  /* 系統ごとの効き目 */
+  /* **2 列に固定。**auto-fit にすると右の柱の幅で 3 ＋ 1 に折れて、
+     4 つ目の「撃針」だけが 1 行を独り占めする（2026-08-30 に実物を見て直した） */
+  .kinds { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  @media (min-width: 900px) and (max-width: 1099px) { .kinds { grid-template-columns: 1fr 1fr; } }
+  .kind { border: 1px solid var(--line); border-radius: 12px; background: var(--card);
+          padding: .7em .8em; font-size: .84rem; }
+  .kind.hot { border-color: color-mix(in srgb, var(--accent) 55%, var(--line));
+              background: color-mix(in srgb, var(--accent) 8%, var(--card)); }
+  .kind .h { display: flex; align-items: center; gap: 6px; font-weight: 800; }
+  .kind .h img { width: 24px; height: 24px; border-radius: 5px; }
+  .kind .m { display: block; margin-top: .35em; font-size: .95rem; font-weight: 800;
+             font-variant-numeric: tabular-nums; }
+  .kind.hot .m { color: var(--accent-tx); }
+  .kind small { display: block; color: var(--fg-mute); font-size: .74rem; margin-top: .2em; line-height: 1.5; }
+
+  table.dt td .pn { display: flex; align-items: center; gap: 7px; }
+  table.dt td .pn img { width: 24px; height: 24px; border-radius: 5px; flex: none; }
+  .hot-cell { font-weight: 800; color: var(--accent-tx); }
+  .nowrap { white-space: nowrap; }
+</style>
+</head>
+<body>
+
+<!-- 上のバーと footer は scripts/sync-chrome.py が流し込む。
+     **閉じタグの前に改行を入れておくこと。**あちらの正規表現は閉じタグの直前の
+     改行を目印にしているので、1 行に畳むと本文まで食われる。
+     **この注記に目印そのものを書かないこと。**書くと注記の中から当たる -->
+<div class="topbar">
+  <div class="topbar-inner">
+    <a class="topbar-name" href="../../">AronaBotの使い方</a>
+    <a class="topbar-tools" href="../">
+      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <path d="M21.7 18.3l-6-6a5.5 5.5 0 0 0-7-7l3.1 3.1-2.1 2.1L6.6 7.3a5.5 5.5 0 0 0 7 7l6 6a1 1 0 0 0 1.4 0l.7-.7a1 1 0 0 0 0-1.3z"/>
+      </svg>
+      ツール一覧
+    </a>
+    <nav class="topbar-nav">
+      <a href="../../#can">機能</a>
+      <a href="../../#start">つかいはじめる</a>
+      <a href="../../#message">メッセージから</a>
+      <a href="../../#faq">よくある質問</a>
+    </nav>
+    <!-- 共有。**AronaBot 本体と同じ位置に置く。**押した先は環境で変える -->
+    <span class="share-nudge" aria-hidden="true">使えそうな人に、ぜひ</span>
+    <a class="share" id="share-page" target="_blank" rel="noopener" aria-label="このページを共有する"
+       href="https://x.com/intent/post?url=https%3A%2F%2Farona-bot.com%2Ftools%2F">
+      <svg class="share-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <path d="M14 9V5l7 7-7 7v-4.1c-5 0-8.5 1.6-11 5.1 1-5 4-10 11-11z"/>
+      </svg>
+      <span class="share-label">共有</span>
+    </a>
+  </div>
+</div>
+<div class="toast" id="toast-page" role="status" aria-live="polite"></div>
+<script>
+/* 共有ボタン。**そのページ自身の URL を配る。**
+   1. スマホ（navigator.share）→ OS の共有シート
+   2. PC（クリップボード）→ URL をコピーして帯で伝える
+   3. どちらも無い → <a href> のまま X の共有ページへ */
+(function () {
+  var btn = document.getElementById('share-page'), toast = document.getElementById('toast-page');
+  if (!btn) return;
+  // **`#` を落とさない。**TL のように状態をハッシュに入れているツールでは、
+  // ここを削ると相手の画面に同じ結果が出ない（2026-08-30）
+  var url = location.href;
+  var name = document.title.split('｜')[0];
+  var text = name + '（AronaBot のツール）';
+  btn.href = 'https://x.com/intent/post?text=' + encodeURIComponent(text) +
+             '&url=' + encodeURIComponent(url);
+  var timer = null;
+  function say(t) {
+    if (!toast) return;
+    toast.textContent = t; toast.classList.add('shown');
+    clearTimeout(timer); timer = setTimeout(function () { toast.classList.remove('shown'); }, 2000);
+  }
+  btn.addEventListener('click', function (e) {
+    if (navigator.share) {
+      e.preventDefault();
+      navigator.share({ title: name, text: text, url: url }).catch(function () {});
+      return;
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      e.preventDefault();
+      navigator.clipboard.writeText(url).then(function () { say('リンクをコピーしました'); },
+        function () { window.open(btn.href, '_blank', 'noopener'); });
+    }
+  });
+})();
+</script>
+
+<header class="thero">
+  <div class="thero-media" aria-hidden="true">
+    <picture>
+      <source srcset="../../images/hero-day.jpg" media="(prefers-color-scheme: dark)">
+      <img src="../../images/hero-night.jpg" alt="" width="1600" height="400" fetchpriority="high">
+    </picture>
+  </div>
+  <div class="thero-body">
+    <h1>固有武器の強化計算機</h1>
+    <p class="thero-lead">生徒を選んで今のレベルと★、目標を入れると、要る経験値と武器パーツの数が出ます。武器種ごとに 1.5 倍になるパーツも分かります。</p>
+  </div>
+</header>
+
+<div class="twrap">
+  <p class="tcrumb"><a href="../../">AronaBotの使い方</a><span class="sl">/</span><a href="../">ツール</a><span class="sl">/</span>固有武器の強化計算機</p>
+
+  <div class="tcols lean" style="margin-top:20px">
+
+    <div class="tcol">
+      <div class="panel">
+        <div class="panel-h"><h2>だれの固有武器を強化しますか</h2></div>
+        <div class="stucard none" id="stucard">
+          <div class="stuimg" id="stu-img"><span class="ph">none</span></div>
+          <div>
+            <p class="stuname" id="stu-name">まだ誰も選んでいません</p>
+            <p class="stunote" id="stu-note">名前を入れると、その子の武器種に効くパーツが出ます。要る経験値は武器種に関わらず同じです。</p>
+          </div>
+        </div>
+        <div class="wshot" id="wshot" hidden></div>
+        <div class="field">
+          <label for="i-student">生徒<span class="hint">名前の一部でも探せます</span></label>
+          <input id="i-student" type="search" list="students" placeholder="アル／ホシノ／ヒナ…" autocomplete="off">
+          <datalist id="students"></datalist>
+        </div>
+        <p class="err" id="err" hidden></p>
+      </div>
+
+      <div class="panel">
+        <div class="panel-h"><h2>今と目標</h2></div>
+        <div class="fields c2">
+          <div class="field">
+            <label for="i-from">今のレベル</label>
+            <select id="i-from"></select>
+          </div>
+          <div class="field">
+            <label for="i-to">目標のレベル</label>
+            <select id="i-to"></select>
+          </div>
+        </div>
+        <div class="starrow"><span class="lb">今の★</span><div id="from-stars"></div></div>
+        <div class="starrow"><span class="lb">目標の★</span><div id="to-stars"></div></div>
+        <p class="lead" style="margin:14px 0 0"><b>★でレベルの上限が変わります。</b>
+          <span id="capnote">—</span></p>
+      </div>
+
+      <div class="panel">
+        <div class="panel-h"><h2>★で変わるもの</h2></div>
+        <div class="tscroll">
+          <table class="dt">
+            <thead><tr><th>★</th><th>Lv 上限</th><th>神名文字</th><th>クレジット</th><th>開くもの</th></tr></thead>
+            <tbody id="tb-star"></tbody>
+          </table>
+        </div>
+        <p class="lead" style="margin:12px 0 0" id="starnote">—</p>
+      </div>
+    </div>
+
+    <div class="tcol">
+      <div class="stats c3">
+        <div class="stat hero">
+          <div class="k">要る経験値</div>
+          <div class="v" id="o-exp">—</div>
+          <div class="sub" id="o-exp-sub">レベルを上げるぶん</div>
+        </div>
+        <div class="stat">
+          <div class="k"><img class="ico" src="../img/item_icon_secretstone.webp" alt="" width="18" height="18" loading="lazy"> 神名文字</div>
+          <div class="v" id="o-stone">—</div>
+          <div class="sub" id="o-stone-sub">★を上げるぶん</div>
+        </div>
+        <div class="stat">
+          <div class="k"><img class="ico" src="../img/currency_icon_gold.webp" alt="" width="18" height="18" loading="lazy"> クレジット</div>
+          <div class="v" id="o-credit">—</div>
+          <div class="sub">★を上げるぶん</div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-h"><h2>この武器に効くパーツ</h2></div>
+        <p class="lead" id="kindlead">生徒を選ぶと、その武器種で <b>1.5 倍</b>になる系統に色が付きます。</p>
+        <div class="kinds" id="kinds"></div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-h"><h2>パーツだけで賄うと</h2></div>
+        <p class="lead"><b>そのパーツ 1 種類だけで目標まで上げたときの個数です。</b>1.5 倍が効く系統は色を付けてあります。</p>
+        <div class="tscroll">
+          <table class="dt">
+            <thead><tr><th>パーツ</th><th>要る個数</th><th>1 個の経験値</th><th>この武器では</th></tr></thead>
+            <tbody id="tb-parts"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="tfull">
+      <div class="panel">
+        <div class="panel-h"><h2>武器種ごとの 1.5 倍の表</h2></div>
+        <p class="lead" id="bonuslead">—</p>
+        <div class="tscroll">
+          <table class="dt">
+            <thead><tr id="th-bonus"></tr></thead>
+            <tbody id="tb-bonus"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="sharebar" id="sharebar"></div>
+
+      <details class="src">
+        <summary>数字の出どころ</summary>
+        <p><b>経験値もパーツも、ゲームの表をそのまま読んでいます。</b></p>
+        <ul>
+          <li>レベルごとの経験値は <code>Excel/CharacterWeaponLevelExcelTable.json</code>（70 行）。
+            <b><code>TotalExp</code> は「その行のレベルに到達するまで」ではなく「次のレベルまで」の累計です。</b>
+            行 <code>Level: 49</code> の <code>TotalExp</code> が <code>26280</code> で、これが Lv1 → Lv50 のぶん。
+            <b>この 26,280 は外の数字とも合っています</b> ——
+            <a href="https://game8.jp/blue-archive/687342" target="_blank" rel="noopener">ゲームエイト「経験値テーブル一覧」</a>の
+            「固有武器1つのレベルを1から最大の50まで育てるには、26,280の経験値が必要」と一致しました。
+            <b>ここがずれたらデータを作る側で止まります。</b></li>
+          <li>武器パーツは <b><code>ItemExcelTable</code> には 1 件も入っていません。</b>
+            SchaleDB の <code>equipment</code> の側に <code>Category</code> が
+            <code>WeaponExpGrowthA / B / C / Z</code> として入っています（Id 10〜43 の 16 種）。
+            1 個ぶんの経験値は <code>LevelUpFeedExp</code> で、4 系統とも
+            <code>10 / 50 / 200 / 1000</code> です</li>
+          <li>1.5 倍になる組み合わせは <code>Excel/CharacterWeaponExpBonusExcelTable.json</code>（武器種 11 種）。
+            値は <code>15000</code>（1.5 倍）か <code>10000</code>（等倍）の 2 つだけでした。
+            <b>ゲーム内の説明文とも突き合わせています</b> —— SchaleDB の <code>localization</code> の
+            <code>WeaponPartExpBonus</code> に「SMG、SG、HGおよびFTの固有武器の強化時に獲得EXPが1.5倍になる。」などとあり、
+            表の <code>15000</code> の並びと一致します</li>
+          <li>★ごとのレベル上限は <code>Excel/CharacterWeaponExcelTable.json</code> の <code>MaxLevel</code>。
+            <b>224 本すべてで <code>30 / 40 / 50 / 60 / 70</code> と同じ</b>であることを数えて確かめています</li>
+          <li>★の上限は <b><code>Unlock</code> の列を見ていません。</b>あちらは 224 本すべて
+            <code>[true, true, true, false, false]</code>（＝★3 まで）ですが、
+            <b>JP はもう★4 まで開いています。</b>SchaleDB の <code>config.json</code> の
+            <code>Regions</code> で JP の <code>WeaponMaxLevel</code> が <code>60</code> ＝ ★4 なので、そちらを採りました。
+            ba-data の jp ブランチが追いついていないところです</li>
+          <li>★上げに要る神名文字とクレジットは <code>RecipeId</code> を
+            <code>RecipeExcelTable</code> → <code>RecipeIngredientExcelTable</code> と辿ったもの。
+            <b>224 本すべてで同じ値</b>でした。★1→2 が <code>120 個 / 1,000,000</code>、
+            ★2→3 が <code>180 個 / 1,500,000</code> です</li>
+          <li><b>★3→★4 の神名文字だけ、ゲームのデータが仮置きのままです。</b>
+            224 本すべてが <code>IngredientAmount = 1</code> で、クレジットの <code>2000000</code> だけ実数が入っています。
+            そこで個数は外の出典から <b>200 個</b>を採りました ——
+            <a href="https://game8.jp/blue-archive/706922" target="_blank" rel="noopener">ゲームエイト「固有4のおすすめキャラと必要数」</a>の
+            「★3→★4の必要素材／神名文字：200個／クレジット：200万／神名のカケラ換算 1000」。
+            <b>クレジットがゲームのデータと一致しているので、個数だけ補う形にしています。</b>
+            データ側が <code>1</code> でなくなったら、この差し替えを外すよう作る側に見張りを入れてあります</li>
+          <li>★2 で武器のパッシブスキルが開き、★3 で地形適性が 1 段上がることは同じ表の
+            <code>LearnSkillSlot</code> と <code>StatType</code> / <code>StatValue</code>。
+            <b>224 本すべて同じ並び</b>で、地形適性の上がり幅だけ 196 本が ＋1、28 本が ＋2 でした</li>
+        </ul>
+        <p><b>レベル上げのクレジットは出していません。</b>
+          <code>Excel/ConstCommonExcelTable.json</code> に <code>WeaponLvUpCoefficient</code> という値
+          （<span id="src-coef">—</span>）はあります。生徒のレベル上げが
+          <code>CharacterLvUpCoefficient</code> ×経験値という形なので同じだろうとは思いますが、
+          <b>実機で突き合わせていないので画面には出しません。</b>確かめが取れたら足します。</p>
+        <p><b>手持ちのパーツを入れる欄は付けていません。</b>16 種類ぶんの入力はスマホで使いものにならず、
+          「どの順に食わせるか」で結果が変わるためです。代わりに<b>「そのパーツ 1 種類だけで賄うと何個か」</b>を
+          16 種ぶん並べています。混ぜて使うときは、この表の数を目安に足し合わせてください。</p>
+        <p>出典 —
+          <a href="https://github.com/electricgoat/ba-data" target="_blank" rel="noopener">electricgoat/ba-data</a>（経験値・倍率・★のレシピ）、
+          <a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a>（武器パーツ・生徒・絵・JP の★上限）、
+          <a href="https://game8.jp/blue-archive/706922" target="_blank" rel="noopener">ゲームエイト</a>（★3→★4 の神名文字）。取得は <span id="ver">—</span>。</p>
+      </details>
+    </div>
+
+  </div>
+</div>
+
+<script>window.TOUR = {"key": "weapon", "steps": [
+  {"sel": "#stucard", "t": "まず生徒を選びます", "d": "その子の武器種に合わせて、1.5 倍になるパーツが変わります。"},
+  {"sel": "#i-from", "t": "今と目標を入れます", "d": "レベルの上限は★で決まります。★を上げると 30 → 40 → 50 → 60 と伸びます。"},
+  {"sel": "#o-exp", "t": "要る量がここに出ます", "d": "レベルぶんの経験値と、★を上げるぶんの神名文字・クレジットを分けて出します。"},
+  {"sel": "#kinds", "t": "効くパーツが色で分かります", "d": "スプリング・ハンマー・銃身・撃針のうち、その武器種で 1.5 倍になるものに色が付きます。"},
+  {"sel": "#sharebar", "t": "結果はそのまま渡せます", "d": "開いている状態ごと URL になるので、リンクを送れば相手の画面にも同じ結果が出ます。"}
+]};</script>
+<script src="../tour.js?v=1"></script>
+
+<script src="../share.js?v=1"></script>
+
+<footer>
+  <div class="foot-inner">
+    <p class="foot-name">AronaBotの使い方</p>
+    <p class="foot-links">
+      <a href="../../">AronaBot のページ</a>
+      <span class="sep">/</span>
+      <a href="../">ツール一覧</a>
+      <span class="sep">/</span>
+      <a href="https://x.com/pe6cak" target="_blank" rel="noopener">制作者の X（@pe6cak）</a>
+      <span class="sep">/</span>
+      <span>不具合・要望は <b>@0r.not</b> まで</span>
+    </p>
+    <p class="disclaimer">
+      <b>このサイトはファンが作った非公式のものです。</b>運営とは関係ありません。
+      <small>掲載しているゲーム内の画像・アイコン・名称・数値は、Nexon Games / Yostar の
+      「ブルーアーカイブ」から引用したもので、著作権はすべて権利者に帰属します。
+      ツールの計算に使うデータは <a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a> と
+      <a href="https://github.com/electricgoat/ba-data" target="_blank" rel="noopener">ba-data</a> から取得しています。
+      権利者の方でご指摘があれば <b>@0r.not</b> までご連絡ください。</small>
+    </p>
+  </div>
+</footer>
+
+<script src="data.js"></script>
+<script>
+(function () {
+  'use strict';
+  var W = window.WEAP;
+  var el = function (id) { return document.getElementById(id); };
+  var byId = {};
+  W.stu.forEach(function (s) { byId[s.id] = s; });
+
+  var student = null;
+  var fromStar = 1, toStar = W.jpStar, fromLv = 1, toLv = W.jpLv;
+
+  function fmt(n) { return Math.round(n).toLocaleString('ja-JP'); }
+  function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;'); }
+  /** ★ s のときのレベル上限。**JP の上限で頭を押さえる。** */
+  function cap(s) { return Math.min(W.maxLv[s - 1], W.jpLv); }
+  /** Lv a から Lv b までの経験値。**cum[L] は Lv1 から Lv L まで。** */
+  function expNeed(a, b) { return Math.max(0, (W.cum[b] || 0) - (W.cum[a] || 0)); }
+  /** その武器種でのパーツ 1 個ぶんの経験値。倍率は 10000 分率 */
+  function feed(p) {
+    var wt = student ? student.wt : null;
+    var m = (wt && W.bonus[wt]) ? W.bonus[wt][p.k] : 10000;
+    return p.e * m / 10000;
+  }
+  function isHot(k) {
+    var wt = student ? student.wt : null;
+    return !!(wt && W.bonus[wt] && W.bonus[wt][k] > 10000);
+  }
+
+  (function fill() {
+    el('students').innerHTML = W.stu.map(function (s) {
+      return '<option value="' + esc(s.n) + '">';
+    }).join('');
+    el('src-coef').textContent = W.coef;
+    el('ver').textContent = W.version;
+
+    // 武器種ごとの表
+    el('th-bonus').innerHTML = '<th>武器種</th>' + W.partOrder.map(function (k) {
+      return '<th>' + esc(W.partJa[k]) + '</th>';
+    }).join('') + '<th>使う生徒</th>';
+    var cnt = {};
+    W.stu.forEach(function (s) { cnt[s.wt] = (cnt[s.wt] || 0) + 1; });
+    el('tb-bonus').innerHTML = Object.keys(W.bonus)
+      .sort(function (a, b) { return (cnt[b] || 0) - (cnt[a] || 0); })
+      .map(function (wt) {
+        return '<tr data-wt="' + wt + '"><td>' + wt + '</td>' + W.partOrder.map(function (k) {
+          var hot = W.bonus[wt][k] > 10000;
+          return '<td class="' + (hot ? 'hot-cell' : '') + '">' + (hot ? '×1.5' : '×1') + '</td>';
+        }).join('') + '<td>' + (cnt[wt] || 0) + ' 人</td></tr>';
+      }).join('');
+    el('bonuslead').innerHTML = '<b>系統は 4 つ。</b>' + W.partOrder.map(function (k) {
+      return esc(W.partJa[k]) + '（' + esc((W.partTx['WeaponExpGrowth' + k] || '').replace(/の固有武器の強化時に獲得EXPが1\.5倍になる。$/, '')) + '）';
+    }).join('、') + ' に 1.5 倍が付きます。';
+  })();
+
+  /* **選択肢は上限が変わったときだけ組み直す。**毎回書き換えると、
+     選んだ直後に焦点が飛んでキーボードで続けて操作できない（2026-08-30） */
+  var lvBuilt = {};
+  function lvOptions(sel, id, max) {
+    if (lvBuilt[id] !== max) {
+      var h = '';
+      for (var v = 1; v <= max; v++) h += '<option value="' + v + '">Lv' + v + '</option>';
+      el(id).innerHTML = h;
+      lvBuilt[id] = max;
+    }
+    el(id).value = sel;
+  }
+
+  /* **★のボタンも組み直さない。**押すたびに `innerHTML` を書き換えていると、
+     押した瞬間にボタンそのものが差し替わって、押した先が宙に浮く
+     （2026-08-30、実物を触って見つけた）。中身は一度だけ組んで、
+     以降は class と disabled だけ付け替える。 */
+  (function buildStars() {
+    ['from-stars', 'to-stars'].forEach(function (id) {
+      var h = '';
+      for (var i = 1; i <= W.jpStar; i++) {
+        h += '<button type="button" class="star" data-v="' + i + '" aria-label="★' + i + '">★</button>';
+      }
+      el(id).innerHTML = h;
+    });
+  })();
+  function stars(box, cur, other, isFrom) {
+    [].forEach.call(box.querySelectorAll('.star'), function (b) {
+      var i = +b.dataset.v;
+      var on = isFrom ? (i <= cur) : (i <= cur && i > other);
+      b.classList.toggle('on', on);
+      b.classList.toggle('from', !isFrom && i <= other);
+      b.disabled = isFrom ? false : (i <= other);
+      b.setAttribute('aria-pressed', String(i === cur));
+    });
+  }
+
+  function starCost(a, b) {
+    var t = { el: 0, cr: 0, guess: false };
+    W.star.forEach(function (s) {
+      if (s.to > a && s.to <= b) { t.el += s.el; t.cr += s.cr; if (s.src !== 'data') t.guess = true; }
+    });
+    return t;
+  }
+
+  function draw() {
+    // レベルの上限は★で決まる
+    fromLv = Math.min(fromLv, cap(fromStar));
+    toLv = Math.min(Math.max(toLv, 1), cap(toStar));
+    if (toStar === fromStar && toLv < fromLv) toLv = fromLv;
+
+    var card = el('stucard');
+    if (student) {
+      card.classList.remove('none');
+      el('stu-img').innerHTML = '<img src="../img/student_' + student.id + '.webp" alt="" width="96" height="96" loading="lazy">';
+      el('stu-name').textContent = student.n;
+      var stone = (byId[student.es] || student).n;
+      el('stu-note').innerHTML = '固有武器は <b>' + esc(student.wn) + '</b>（' + student.wt + '）。' +
+        '★を上げるのに <b>' + esc(stone) + 'の神名文字</b>を使います。';
+      var box = el('wshot');
+      if (student.wi) {
+        box.hidden = false;
+        box.innerHTML = '<img src="../img/' + student.wi + '.webp" alt="' + esc(student.wn) + '" loading="lazy">';
+      } else { box.hidden = true; box.innerHTML = ''; }
+    } else {
+      card.classList.add('none');
+      el('stu-img').innerHTML = '<span class="ph">none</span>';
+      el('stu-name').textContent = 'まだ誰も選んでいません';
+      el('stu-note').textContent = '名前を入れると、その子の武器種に効くパーツが出ます。要る経験値は武器種に関わらず同じです。';
+      el('wshot').hidden = true; el('wshot').innerHTML = '';
+    }
+
+    lvOptions(fromLv, 'i-from', cap(fromStar));
+    lvOptions(toLv, 'i-to', cap(toStar));
+    stars(el('from-stars'), fromStar, toStar, true);
+    stars(el('to-stars'), toStar, fromStar, false);
+    el('capnote').innerHTML = '今の ★' + fromStar + ' なら <b>Lv' + cap(fromStar) +
+      '</b> まで、目標の ★' + toStar + ' なら <b>Lv' + cap(toStar) + '</b> までです。' +
+      '日本版で開いているのは <b>★' + W.jpStar + '（Lv' + W.jpLv + '）</b>まで。';
+
+    var need = expNeed(fromLv, toLv);
+    var sc = starCost(fromStar, toStar);
+    el('o-exp').innerHTML = fmt(need) + ' <small>経験値</small>';
+    el('o-exp-sub').textContent = 'Lv' + fromLv + ' から Lv' + toLv + ' まで';
+    el('o-stone').innerHTML = fmt(sc.el) + ' <small>個</small>';
+    el('o-stone-sub').innerHTML = fromStar === toStar
+      ? '★は上げません'
+      : '★' + fromStar + ' から ★' + toStar + ' まで' + (sc.guess ? '<b>（★4 ぶんは外の出典）</b>' : '');
+    el('o-credit').textContent = fmt(sc.cr);
+
+    // 効く系統
+    el('kinds').innerHTML = W.partOrder.map(function (k) {
+      var hot = isHot(k);
+      var top = null;
+      W.parts.forEach(function (p) { if (p.k === k && (!top || p.e > top.e)) top = p; });
+      return '<div class="kind' + (hot ? ' hot' : '') + '">' +
+        '<span class="h"><img src="../img/' + top.i + '.webp" alt="" width="24" height="24" loading="lazy">' +
+        esc(W.partJa[k]) + '</span>' +
+        '<span class="m">' + (student ? (hot ? '×1.5' : '×1') : '—') + '</span>' +
+        '<small>' + (top ? esc(top.n) + ' で 1 個 ' + fmt(top.e * (hot ? 1.5 : 1)) + ' 経験値' : '') + '</small>' +
+        '</div>';
+    }).join('');
+    el('kindlead').innerHTML = student
+      ? '<b>' + esc(student.n) + '</b> の武器種は <b>' + student.wt + '</b>。色が付いているものが <b>1.5 倍</b>です。'
+      : '生徒を選ぶと、その武器種で <b>1.5 倍</b>になる系統に色が付きます。';
+
+    // パーツごとの必要個数
+    el('tb-parts').innerHTML = W.parts.map(function (p) {
+      var f = feed(p), hot = isHot(p.k);
+      var n = (need && f) ? Math.ceil(need / f) : 0;
+      return '<tr><td><span class="pn"><img src="../img/' + p.i + '.webp" alt="" width="24" height="24" loading="lazy">' +
+        esc(p.n) + '</span></td>' +
+        '<td class="nowrap' + (hot ? ' hot-cell' : '') + '">' + (n ? fmt(n) + ' 個' : '—') + '</td>' +
+        '<td class="nowrap">' + fmt(p.e) + '</td>' +
+        '<td class="nowrap' + (hot ? ' hot-cell' : '') + '">' + (student ? fmt(f) + (hot ? '（×1.5）' : '') : '—') + '</td></tr>';
+    }).join('');
+
+    // ★の表
+    el('tb-star').innerHTML = ['<tr' + (toStar === 1 ? ' class="here"' : '') + '><td>★1</td><td>Lv' + cap(1) +
+      '</td><td>—</td><td>—</td><td>最初から</td></tr>']
+      .concat(W.star.map(function (s) {
+        var open = s.to === 2 ? '武器のパッシブスキル'
+          : s.to === 3 ? (student ? student.ad + '適性 ＋' + student.av : '地形適性 ＋1')
+          : 'レベル上限が Lv' + cap(s.to) + ' へ';
+        return '<tr' + (s.to === toStar ? ' class="here"' : '') + '><td>★' + s.to + '</td>' +
+          '<td>Lv' + cap(s.to) + '</td>' +
+          '<td class="nowrap">' + fmt(s.el) + ' 個' + (s.src !== 'data' ? ' <b>*</b>' : '') + '</td>' +
+          '<td class="nowrap">' + fmt(s.cr) + '</td><td>' + esc(open) + '</td></tr>';
+      })).join('');
+    el('starnote').innerHTML = '<b>*</b> ★3→★4 の神名文字だけ、ゲームのデータが仮置き（1 個）のままなので、' +
+      '<a href="https://game8.jp/blue-archive/706922" target="_blank" rel="noopener">ゲームエイト</a>の <b>200 個</b>を採っています。' +
+      'クレジットの 200 万はデータ側と一致しました。';
+
+    // 武器種の行を光らせる
+    [].forEach.call(document.querySelectorAll('#tb-bonus tr'), function (tr) {
+      tr.classList.toggle('here', !!student && tr.dataset.wt === student.wt);
+    });
+
+    location.replace('#' + toHash());
+  }
+
+  function toHash() {
+    return (student ? student.id : '') + '|' + fromStar + '|' + toStar + '|' + fromLv + '|' + toLv;
+  }
+  window.shareUrl = function () { return '#' + toHash(); };
+
+  function pick(name, exactOnly) {
+    var hit = null, i;
+    for (i = 0; i < W.stu.length; i++) { if (W.stu[i].n === name) { hit = W.stu[i]; break; } }
+    if (!hit && !exactOnly && name) {
+      var low = name.toLowerCase();
+      for (i = 0; i < W.stu.length; i++) {
+        if (W.stu[i].n.toLowerCase().indexOf(low) === 0) { hit = W.stu[i]; break; }
+      }
+    }
+    if (!hit) {
+      if (!exactOnly && name) { el('err').hidden = false; el('err').textContent = 'その名前の生徒が見つかりません。'; }
+      return;
+    }
+    el('err').hidden = true;
+    student = hit;
+    draw();
+  }
+
+  el('i-student').addEventListener('change', function () { pick(this.value.trim(), false); });
+  el('i-student').addEventListener('input', function () { pick(this.value.trim(), true); });
+  el('i-from').addEventListener('change', function () { fromLv = +this.value; draw(); });
+  el('i-to').addEventListener('change', function () { toLv = +this.value; draw(); });
+  el('from-stars').addEventListener('click', function (e) {
+    var b = e.target.closest('.star'); if (!b || b.disabled) return;
+    fromStar = +b.dataset.v;
+    if (toStar < fromStar) toStar = fromStar;
+    draw();
+  });
+  el('to-stars').addEventListener('click', function (e) {
+    var b = e.target.closest('.star'); if (!b || b.disabled) return;
+    toStar = +b.dataset.v;
+    // **★を上げたら、目標のレベルもその上限まで伸ばす。**押してから
+    // 「Lv が 30 のまま」だと、何のために★を上げたのか分からなくなる
+    toLv = cap(toStar);
+    draw();
+  });
+
+  (function fromHash() {
+    var h = decodeURIComponent(location.hash.replace(/^#/, ''));
+    if (!h) return;
+    var p = h.split('|');
+    if (p[0] && byId[p[0]]) { student = byId[p[0]]; el('i-student').value = student.n; }
+    var num = function (v, lo, hi, def) {
+      var n = parseInt(v, 10);
+      return (n >= lo && n <= hi) ? n : def;
+    };
+    fromStar = num(p[1], 1, W.jpStar, fromStar);
+    toStar = num(p[2], 1, W.jpStar, toStar);
+    if (toStar < fromStar) toStar = fromStar;
+    fromLv = num(p[3], 1, W.jpLv, fromLv);
+    toLv = num(p[4], 1, W.jpLv, toLv);
+  })();
+
+  draw();
+})();
+</script>
+</body>
+</html>

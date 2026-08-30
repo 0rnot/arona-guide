@@ -3,11 +3,11 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>総力戦の相性チェッカー｜AronaBot</title>
+<title>総力戦・大決戦の TL 検索｜AronaBot</title>
 <meta name="description" content="総力戦・大決戦・制約解除決戦のボスと地形を選ぶと、有効な攻撃属性と、連れて行くべき生徒が並びます。専用武器で上がる地形適性も込みで見られます。">
 <meta name="theme-color" content="#c8892e">
 <link rel="icon" href="../../favicon.svg" type="image/svg+xml">
-<meta property="og:title" content="総力戦の相性チェッカー">
+<meta property="og:title" content="総力戦・大決戦の TL 検索">
 <meta property="og:description" content="ボスと地形を選ぶと、有効な攻撃属性と連れて行くべき生徒が並びます。">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://arona-bot.com/tools/raid/">
@@ -87,6 +87,88 @@
   .now { display: grid; grid-template-columns: 200px 1fr; gap: 16px; align-items: start; }
   .now img { display: block; width: 100%; border-radius: 12px; }
   @media (max-width: 560px) { .now { grid-template-columns: 1fr; } }
+  /* ===== TL の保管庫と検索。**このかたまりごと移せる。**
+     `tools/tl-search/tl-search.js` が作る画面の見た目で、
+     クラスはすべて `.tls-` で始めてある。土台（`.panel` / `.field` /
+     `.btn` / `.seg` / `.stat` / `.note-box`）は `tools/tool.css` のもの ===== */
+  .tls-paste { width: 100%; box-sizing: border-box; min-height: 72px; resize: vertical;
+               font: inherit; font-size: .82rem; line-height: 1.55; padding: .6em .7em;
+               border: 1px solid var(--line); border-radius: 10px;
+               background: var(--card); color: var(--fg); overflow-wrap: anywhere; }
+  .tls-paste:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  .tls-prev { margin-top: 12px; padding: 12px; border-radius: 12px;
+              border: 1px solid var(--line); background: var(--bg-sub); }
+  .tls-prev.bad { border-style: dashed; }
+  .tls-prev .ph { margin: 0; font-size: .81rem; color: var(--fg-mute); line-height: 1.7; }
+  .tls-prev .hd { display: flex; flex-wrap: wrap; gap: .2em .6em; align-items: baseline;
+                  margin: 0 0 .55em; }
+  .tls-prev .hd b { font-size: .92rem; }
+  .tls-prev .hd span { color: var(--fg-mute); font-size: .75rem;
+                       font-variant-numeric: tabular-nums; }
+
+  /* 顔の並び。**贈り物の逆引きと同じ大きさに揃えてある** */
+  .tls-faces { display: grid; grid-template-columns: repeat(auto-fill, minmax(52px, 1fr)); gap: 6px; }
+  .tls-face { text-align: center; min-width: 0; }
+  .tls-face img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 9px;
+                  border: 1px solid var(--line); background: var(--bg-sub); display: block; }
+  .tls-face span { display: block; font-size: .62rem; line-height: 1.3; margin-top: .2em;
+                   color: var(--fg-mute); overflow: hidden; text-overflow: ellipsis;
+                   white-space: nowrap; }
+  /* スペシャルの枠だけ縁を変える。**並びは編成の枠順そのまま** */
+  .tls-face.sup img { border-color: color-mix(in srgb, var(--accent) 55%, var(--line)); }
+
+  /* 保管庫の 1 本 */
+  .tls-tl { padding: 13px; margin-bottom: 12px; border: 1px solid var(--line);
+            border-radius: 13px; background: var(--card); }
+  .tls-tl:last-child { margin-bottom: 0; }
+  .tls-tl.edit { border-color: var(--accent);
+                 background: color-mix(in srgb, var(--accent) 9%, var(--card)); }
+  .tls-tl-h { display: flex; flex-wrap: wrap; gap: .5em .7em; align-items: center;
+              margin-bottom: .5em; }
+  .tls-tl-bi { width: 104px; height: 32px; object-fit: cover; border-radius: 7px;
+               background: var(--bg-sub); flex: 0 0 auto; }
+  .tls-tl-t { flex: 1 1 150px; min-width: 0; font-size: .95rem; font-weight: 800;
+              line-height: 1.35; overflow-wrap: anywhere; }
+  .tls-tl-t small { display: block; font-size: .72rem; font-weight: 500; color: var(--fg-mute); }
+  /* **狭い画面では行が折り返す。**そのとき左に取り残されないよう右端へ寄せる */
+  .tls-tl-time { margin-left: auto; font-size: .95rem; font-weight: 800; white-space: nowrap;
+                 font-variant-numeric: tabular-nums; color: var(--accent-tx); }
+  .tls-tl-tags { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: .55em; }
+  .tls-tl-tags .tg { font-size: .69rem; font-weight: 700; line-height: 1.75; padding: 0 .55em;
+                     border-radius: 999px; border: 1px solid var(--line);
+                     background: var(--bg-sub); color: var(--fg-mute); white-space: nowrap; }
+  .tls-tl-tags .tg.hot { border-color: transparent; background: var(--accent);
+                         color: var(--accent-in); }
+  .tls-tl-m { margin: .6em 0 0; font-size: .8rem; line-height: 1.7; color: var(--fg-mute);
+              white-space: pre-wrap; overflow-wrap: anywhere; }
+  .tls-tl .btnrow { margin-top: .75em; gap: 7px; }
+  .tls-tl .btnrow .btn { font-size: .78rem; padding: .4em .85em; }
+
+  .tls-empty { font-size: .82rem; color: var(--fg-mute); line-height: 1.8; margin: 0; }
+
+  /* よそのサイトへ。**外に出ることが見て分かるように矢印を付ける** */
+  .tls-exts { display: grid; grid-template-columns: repeat(auto-fill, minmax(226px, 1fr)); gap: 9px; }
+  .tls-ext { display: block; padding: 11px 13px; border: 1px solid var(--line);
+             border-radius: 12px; background: var(--bg-sub); text-decoration: none;
+             color: inherit; min-width: 0; }
+  .tls-ext:hover { border-color: var(--accent); }
+  .tls-ext b { display: block; font-size: .87rem; line-height: 1.4; }
+  .tls-ext b::after { content: ' ↗'; font-weight: 400; color: var(--fg-mute); }
+  .tls-ext small { display: block; margin-top: .28em; font-size: .73rem; color: var(--fg-mute);
+                   line-height: 1.6; overflow-wrap: anywhere; }
+
+  /* おまけの相性チェッカー。**閉じてある状態が既定。** */
+  .subtool { border: 1px solid var(--line); border-radius: 14px;
+             background: var(--bg-sub); margin-top: 18px; }
+  .subtool > summary { cursor: pointer; padding: 14px 16px; font-weight: 800;
+                       font-size: 1rem; list-style: none; }
+  .subtool > summary::-webkit-details-marker { display: none; }
+  .subtool > summary::before { content: '▸'; margin-right: .5em; color: var(--fg-mute); }
+  .subtool[open] > summary::before { content: '▾'; }
+  .subtool > summary small { display: block; font-weight: 400; font-size: .78rem;
+                             color: var(--fg-mute); margin-top: .3em; }
+  .subtool > .subbody { padding: 0 12px 12px; }
 </style>
 </head>
 <body>
@@ -162,15 +244,24 @@
     </picture>
   </div>
   <div class="thero-body wide">
-    <h1>総力戦の相性チェッカー</h1>
-    <p class="thero-lead">ボスと地形を選ぶと、有効な攻撃属性と連れて行く生徒が並びます。総力戦・大決戦・制約解除決戦の 3 つに対応。専用武器で上がる地形適性も込みです。</p>
+    <h1>総力戦・大決戦の TL 検索</h1>
+    <p class="thero-lead">作った TL をこの端末に貯めて、ボス・難易度・地形・使った生徒で引き直せます。押せばコスト計算機に編成と撃つ順番がそのまま復元。よその TL 検索サイトへのリンクも条件から組み立てます。おまけで相性チェッカーも付いています。</p>
   </div>
 </header>
 
 <div class="twrap wide">
-  <p class="tcrumb"><a href="../../">AronaBotの使い方</a><span class="sl">/</span><a href="../">ツール</a><span class="sl">/</span>総力戦の相性チェッカー</p>
+  <p class="tcrumb"><a href="../../">AronaBotの使い方</a><span class="sl">/</span><a href="../">ツール</a><span class="sl">/</span>総力戦・大決戦の TL 検索</p>
 
-  <div class="panel" style="margin-top:20px">
+  <!-- ここから下は tl-search.js が組み立てる。**この 1 枚を貼れば動く。** -->
+  <div id="tlsearch-root" style="margin-top:20px"></div>
+
+  <details class="subtool" id="raid-extra">
+    <summary>おまけ — 総力戦の相性チェッカー
+      <small>ボスと地形を選ぶと、有効な攻撃属性と連れて行く生徒が並びます。専用武器で上がる地形適性も込みです。</small>
+    </summary>
+    <div class="subbody">
+
+  <div class="panel" style="margin-top:8px">
     <div class="panel-h"><h2>相手を選ぶ</h2></div>
     <div class="seg" id="mode" role="group" aria-label="種類" style="margin-bottom:14px">
       <button type="button" data-m="raid" aria-pressed="true">総力戦</button>
@@ -234,10 +325,36 @@
     <p><b>大決戦の装甲は開催ごとに変わります。</b>3 つの装甲が同時に立ち、Torment だけ別の装甲になります。ここでは自分で選んでください。直近 3 回にどの組み合わせが来たかは上に出しています。</p>
   </div>
 
+    </div>
+  </details>
+
   <div class="sharebar" id="sharebar"></div>
 
       <details class="src">
     <summary>数字の出どころ</summary>
+
+    <p><b>■ TL の保管庫と検索について</b></p>
+<p><b>このページに、他人が作った TL は 1 本も入っていません。</b>このサイトは GitHub Pages の静的配信で、サーバーもデータベースもありません。<b>投稿を受け取る仕組みが作れない</b>ので、代わりに「自分の TL を自分の端末に貯める帳面」と「よそへ条件ごと飛ばすリンク」の 2 つにしてあります。<b>中身の分からない TL を作って並べることはしません。</b></p>
+
+        <p><b>保存先は <code>localStorage</code> の <code>arona-tl-vault</code> ひとつです。</b>入っているのは、あなたが貼ったコスト計算機のハッシュと、あなたが選んだボス・難易度・地形・タイム・メモだけ。<b>どこにも送信していません。</b>ブラウザごと・端末ごとに別で、閲覧データを消すと一緒に消えます。書き出した JSON がそのまま中身です。</p>
+
+        <p><b>編成の絵と人数は、貼られたハッシュをその場で読んだ結果です。</b>形は <a href="../cost-timeline/">TL のコスト計算機</a>の <code>tl.js</code> にある <code>toHash()</code> / <code>fromHash()</code> と同じで、<code>モード｜編成｜撃つ順番｜開始・上限・ステージ補正</code> の 4 つを <code>|</code> で区切ったものです。編成は枠の順に <code>,</code> 区切り、空き枠は <code>_</code>、1 枠が <code>生徒 ID . EX レベル . 通常スキルレベル</code> から始まります。<b>枠はストライカー 6 ＋ スペシャル 4 の固定長で、通常編成は 4＋2、制約解除決戦は 6＋4 までが生きています。</b>ここでもその通りに数えているので、モードを 6 に戻したときに消える枠は人数に入りません。</p>
+
+        <p><b>「いまコスト計算機で開いている TL を取り込む」は、あちらが同じブラウザに置いている <code>arona-cost-timeline</code> を読んで組み直しています。</b>組んだハッシュは、保存する前に必ずこちらの読み取りに通しています。読めなければ保存させません。</p>
+
+        <p><b>ボス・生徒・難易度の名前は <code>data.js</code>（このツール自身）（<code>window.RAID</code>）から読んでいます。</b>総力戦・大決戦のボス 14 体は <code>bosses</code>、制約解除決戦の 6 体は <code>multi</code>、生徒 <span id="tls-src-stu">—</span> 人は <code>students</code> です。<b>大決戦にも出るボスかどうかは、開催の記録（<code>elim</code>）に載っているかで決めています。</b>難易度の並び（Normal・Hard・VeryHard・Hardcore・Extreme・Insane・Torment・Lunatic）は <code>labels.RaidDifficulty</code> のままで、制約解除決戦の <span id="tls-src-md">—</span> という区切りは <code>multi</code> の <code>secs</code> にある階層の区間そのものです。<b>このツールは戦闘の計算を一切していません。</b>ここに数字を作る場所はありません。</p>
+
+        <p><b>よそのサイトへのリンクは、検索の URL を組み立てているだけです。</b>
+          <a href="https://kina-ko-m-ochi.net/tlsearch/" target="_blank" rel="noopener noreferrer">TLサーチ（きなこもち）</a>の検索フォームは <code>GET</code> で、<code>boss_id</code> / <code>battle_field_id</code> / <code>armor_id</code> / <code>difficulty</code> という項目を持っています。<b>ボスと地形と装甲の番号は、先方のフォームの <code>&lt;option value&gt;</code> をそのまま写したものです</b>（2026-08-30 に実物で確認。<code>battle_field_id</code> は 市街地 1・屋外 2・屋内 3）。<b>先方が番号を振り直せば、このリンクは外れます。</b>難易度は先方が「階層の区間」で持っているため、制約解除決戦のときだけ渡しています。</p>
+
+        <p>飛び先 —
+          <a href="https://kina-ko-m-ochi.net/tlsearch/" target="_blank" rel="noopener noreferrer">TLサーチ（きなこもち）</a>、
+          <a href="https://bluearchive.tools/tl/search" target="_blank" rel="noopener noreferrer">BlueArchive Tools の TL 検索</a>、
+          <a href="https://www.youtube.com/" target="_blank" rel="noopener noreferrer">YouTube</a>、
+          <a href="https://x.com/" target="_blank" rel="noopener noreferrer">X</a>。
+          <b>いずれも当サイトとは関係のない外部サイトです。</b>中身の正しさや掲載の可否は、それぞれの運営者に帰属します。</p>
+
+    <p><b>■ おまけの相性チェッカーについて</b></p>
     <p><b>属性の倍率は <a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a> の <code>data/config.json</code> にある <code>TypeEffectiveness</code> そのままです。</b>
       10000 が等倍なので、20000 なら ×2.0、5000 なら ×0.5 です。<b>ここは推測していません。</b></p>
     <p><b>ボスの地形・装甲・攻撃属性は <code>data/jp/raids.min.json</code> から。</b>
@@ -247,7 +364,7 @@
   </details>
 </div>
 
-<script>window.TOUR = {"key": "raid", "steps": [{"sel": "#bosses", "t": "相手のボスを選びます", "d": "総力戦・大決戦・制約解除決戦を切り替えられます。ボスと地形を選ぶと、装甲と攻撃属性が出ます。"}, {"sel": "#o-at", "t": "何が刺さるかが出ます", "d": "ボスの装甲に対して有効な攻撃属性と、こちらが受ける攻撃の属性を出しています。"}, {"sel": "#q", "t": "連れて行く生徒を絞ります", "d": "有効な属性・地形適性・役割で絞り込めます。手持ちに合わせて並べ替えてください。"}]};</script>
+<script>window.TOUR = {"key": "raid", "steps": [{"sel": "#tls-add", "t": "コスト計算機の URL を貼ります", "d": "TL のコスト計算機は編成と撃つ順番をぜんぶ URL に入れます。その URL を貼って、ボス・難易度・地形とメモを付けて保存します。"}, {"sel": "#tls-pull", "t": "開きっぱなしなら押すだけです", "d": "同じブラウザでコスト計算機を使っていれば、いまの盤面をそのまま取り込めます。"}, {"sel": "#tls-vault", "t": "ボスや生徒で引き直せます", "d": "ボス・難易度・地形・使った生徒・メモの語句で絞れます。「コスト計算機で開く」を押すと、その編成と順番が復元されます。"}, {"sel": "#tls-ext", "t": "他人の TL はよそで探します", "d": "このサイトには投稿を集める仕組みがありません。選んだ条件で、TL 動画を集めている外部サイトと YouTube の検索 URL を組み立てます。"}, {"sel": "#bosses", "pre": "#raid-extra > summary", "t": "おまけの相性チェッカー", "d": "下の「おまけ」を開くと、ボスと地形から有効な攻撃属性と連れて行く生徒を出せます。総力戦・大決戦・制約解除決戦の 3 つに対応しています。"}, {"sel": "#sharebar", "t": "絞り込みはそのまま渡せます", "d": "URL には絞り込みの条件だけが入ります。保管庫の中身は端末の外に出ません。"}]};</script>
 <script src="../tour.js?v=1"></script>
 
 <script src="../share.js?v=1"></script>
@@ -276,6 +393,31 @@
 </footer>
 
 <script src="data.js?v=1"></script>
+<script src="tl-search.js?v=1"></script>
+<script>
+/* TL の保管庫と検索。**画面はぜんぶ tl-search.js が組む。**
+   ここは置き場所を渡して、共有バーの行き先を差し替えるだけ。 */
+(function () {
+  'use strict';
+  var root = document.getElementById('tlsearch-root');
+  if (!root || !window.TLSEARCH_MOUNT) return;
+  var api = window.TLSEARCH_MOUNT(root);
+  // **`tls=` 付きで返す。**相性チェッカー側も同じハッシュに区画を持つので、
+  // `&` で割ったうえで自分の区画だけを差し替える作りになっている
+  if (api) window.shareUrl = function () { return '#' + api.hash(); };
+
+  var R = window.RAID;
+  if (!R) return;
+  var stu = document.getElementById('tls-src-stu');
+  if (stu) stu.textContent = R.students.length;
+  var md = document.getElementById('tls-src-md');
+  if (md && R.multi && R.multi[0]) {
+    md.textContent = R.multi[0].secs.map(function (x) { return x.lo + '-' + x.hi; }).join('・');
+  }
+  var ver = document.getElementById('tls-ver');
+  if (ver) ver.textContent = R.version;
+})();
+</script>
 <script>
 (function () {
   'use strict';
