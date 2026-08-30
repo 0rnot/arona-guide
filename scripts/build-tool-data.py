@@ -720,6 +720,35 @@ def build_raid():
 SC_LAST_SKILL = 99999 * 1000 + 2 * 100 + 8      # Lv9→Lv10。秘伝ノート
 
 
+# 素材の種別。**アイコンの名前で決まる。**Category はどれも "Material" で区別が付かない
+#   item_icon_material_exskill_<学校>_<段>  戦術教育 BD（EX スキル用）
+#   item_icon_skillbook_<学校>_<段>         技術ノート（EX 以外のスキル用）
+#   item_icon_skillbook_ultimate            秘伝ノート（Lv9→Lv10。誰でも共通）
+#   item_icon_material_<名前>_<段>          オーパーツ（生徒ごとに違う。逆引きの主役）
+def mat_kind(it, stone):
+    if stone:
+        return "stone"
+    ic = it.get("Icon", "")
+    if ic.startswith("item_icon_material_exskill_"):
+        return "bd"
+    if ic == "item_icon_skillbook_ultimate":
+        return "ult"
+    if ic.startswith("item_icon_skillbook_"):
+        return "note"
+    if ic.startswith("item_icon_favor"):
+        return "gift"          # 愛用品の T1→T2 に使う贈り物
+    if ic.startswith("item_icon_material_"):
+        return "oopart"
+    return "etc"
+
+
+def mat_tier(it):
+    """初級=0 …最上級=3。アイコン末尾の数字がそのまま段になっている。"""
+    ic = it.get("Icon", "")
+    tail = ic.rsplit("_", 1)[-1]
+    return int(tail) if tail.isdigit() else 0
+
+
 def build_student_cost():
     print("生徒 1 人の育成費用")
     students = as_list(get_json(SD.format("students")))
@@ -817,14 +846,16 @@ def build_student_cost():
             # **未実装の生徒は神名文字だけ items に無い。**名前は生徒から作れる
             if iid in by_name:
                 mat[str(iid)] = {"n": by_name[iid] + "の神名文字",
-                                 "i": "item_icon_secretstone", "s": 1}
+                                 "i": "item_icon_secretstone", "s": 1,
+                                 "k": "stone", "t": 0}
             else:
                 print(f"    素材 {iid} が items に無い", file=sys.stderr)
             continue
         stone = it.get("Category") == "SecretStone"
         mat[str(iid)] = {"n": it["Name"].replace("\n", ""),
                          "i": "item_icon_secretstone" if stone else it["Icon"],
-                         "s": 1 if stone else 0}
+                         "s": 1 if stone else 0,
+                         "k": mat_kind(it, stone), "t": mat_tier(it)}
 
     n = 0
     for v in mat.values():
