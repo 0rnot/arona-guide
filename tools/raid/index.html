@@ -70,7 +70,13 @@
   .ce.bad { border-color: #a8402f; background: color-mix(in srgb, #a8402f 10%, var(--card)); }
   .ce.bad b { color: #a8402f; }
 
-  .now { display: grid; grid-template-columns: 200px 1fr; gap: 16px; align-items: center; }
+  .bstats { display: grid; grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: 8px; }
+  .bstats .bs { border: 1px solid var(--line); border-radius: 10px; background: var(--bg-sub); padding: .5em .7em; }
+  .bstats .bs .k { font-size: .7rem; color: var(--fg-mute); }
+  .bstats .bs .v { font-size: .95rem; font-weight: 800; font-variant-numeric: tabular-nums; }
+  .bstats .bs.wide { grid-column: span 2; }
+  .bstats .bs.wide .v { font-size: .84rem; font-weight: 700; }
+  .now { display: grid; grid-template-columns: 200px 1fr; gap: 16px; align-items: start; }
   .now img { display: block; width: 100%; border-radius: 12px; }
   @media (max-width: 560px) { .now { grid-template-columns: 1fr; } }
 </style>
@@ -145,6 +151,8 @@
         <div class="chart" id="atk"></div>
         <p class="lead" style="margin:14px 0 8px"><b>ボスの攻撃がどれだけ痛いか。</b>装甲別に見た倍率です。</p>
         <div class="chart" id="def"></div>
+        <p class="lead" style="margin:14px 0 8px"><b>この難易度のボスのステータス。</b><span id="bs-note"></span></p>
+        <div class="bstats" id="bstats"></div>
       </div>
     </div>
   </div>
@@ -230,6 +238,10 @@
     for (var i = 0; i < R.bosses.length; i++) if (R.bosses[i].id === bossId) return R.bosses[i];
     return R.bosses[0];
   }
+  function ymd(t) {
+    var d = new Date(t * 1000);
+    return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2);
+  }
   function ja(kind, key) { return (L[kind] && L[kind][key]) || key; }
   function mult(bt, at) {
     var row = R.eff[bt];
@@ -291,14 +303,15 @@
         return '<button type="button" data-a="' + a + '" aria-pressed="' + (a === armor) + '">' +
           ja('ArmorType', a) + '</button>';
       }).join('');
-      var past = R.elim.filter(function (e) { return e.id === b.id; });
+      var past = R.elim.filter(function (e) { return e.id === b.id; }).slice(0, 3);
       el('armor-note').innerHTML = past.length
-        ? '<b>' + b.n + 'の大決戦は、これまでこの組み合わせで来ています。</b>' +
+        ? '<b>' + b.n + 'の大決戦は、直近こう来ています。</b>' +
           past.map(function (e) {
-            return ja('AdaptationType', e.tr) + '：' +
-              e.ats.map(function (a) { return ja('ArmorType', a); }).join('・') +
-              '（Torment は ' + ja('ArmorType', e.tat) + '）';
-          }).join(' ／ ')
+            return ymd(e.t) + '　' + ja('AdaptationType', e.tr) + '：' +
+              Object.keys(e.od).map(function (a) {
+                return ja('ArmorType', a) + ' ' + ja('RaidDifficulty', DIFF[e.od[a]]) + ' まで';
+              }).join('・');
+          }).join('<br>')
         : '<b>' + b.n + 'は、まだ大決戦での実績がデータにありません。</b>いま立っている装甲を選んでください。';
     }
   }
@@ -320,6 +333,8 @@
 
     el('o-tr').textContent = ja('AdaptationType', terrain);
 
+    drawStats(b);
+
     el('atk').innerHTML = BULLETS.map(function (x) {
       var m = mult(x, at);
       return '<div class="ce ' + cls(m) + '"><span>' + ja('BulletType', x) + '</span><b>' + multTxt(m) + '</b></div>';
@@ -331,6 +346,41 @@
         ja('ArmorType', x) + '</span><b>' + multTxt(m) + '</b></div>';
     }).join('');
   }
+
+  /** 難易度ごとのボスのステータス。**EnemyList の並びがそのまま難易度。** */
+  function drawStats(b) {
+    var st = (b.st || [])[diff];
+    if (!st) {
+      el('bstats').innerHTML = '<p style="color:var(--fg-mute);font-size:.8rem;margin:0">この難易度のデータがありません。</p>';
+      el('bs-note').textContent = '';
+      return;
+    }
+    var dur = (b.dur || [])[diff] || 0;
+    el('bs-note').textContent = ja('RaidDifficulty', DIFF[diff]) + ' のボス本体の値です。' +
+      (dur ? '制限時間は ' + Math.floor(dur / 60) + ' 分' + (dur % 60 ? dur % 60 + ' 秒' : '') + '。' : '');
+
+    var rows = [
+      ['最大 HP', num(st.hp)],
+      ['攻撃力', num(st.atk)],
+      ['防御力', num(st.df)],
+      ['命中値', num(st.acc)],
+      ['回避値', num(st.dg)],
+      ['会心値', num(st.cr)],
+      ['安定値', num(st.sp) + '（' + (st.sr / 100).toFixed(0) + '%）'],
+      ['射程', num(st.rg)]
+    ];
+    var h = rows.map(function (r) {
+      return '<div class="bs"><div class="k">' + r[0] + '</div><div class="v">' + r[1] + '</div></div>';
+    }).join('');
+    if (st.ph && st.ph.length) {
+      h += '<div class="bs wide"><div class="k">フェーズが変わる HP</div><div class="v">' +
+        st.ph.map(function (x) { return num(x) + '（' + Math.round(x / st.hp * 100) + '%）'; }).join('　→　') +
+        '</div></div>';
+    }
+    el('bstats').innerHTML = h;
+  }
+
+  function num(n) { return (n || 0).toLocaleString('ja-JP'); }
 
   function drawList() {
     var at = bossArmor(), bt = bossBullet();

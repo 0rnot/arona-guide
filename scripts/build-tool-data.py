@@ -493,6 +493,31 @@ def build_raid():
     if not eff:
         raise SystemExit("TypeEffectiveness が取れない")
 
+    # 敵 1 体ずつのステータス。**EnemyList は難易度ごとの並び**で、その先頭がボス本体
+    enemies = get_json(SD.format("enemies")).get("Enemies") or {}
+    if isinstance(enemies, list):
+        enemies = {str(e["Id"]): e for e in enemies if e.get("Id")}
+
+    def boss_stats(r):
+        rows = []
+        for ids in r.get("EnemyList") or []:
+            e = enemies.get(str(ids[0])) if ids else None
+            if not e:
+                rows.append(None)
+                continue
+            rows.append({
+                "hp": e.get("MaxHP1", 0), "atk": e.get("AttackPower1", 0),
+                "df": e.get("DefensePower1", 0), "acc": e.get("AccuracyPoint", 0),
+                "dg": e.get("DodgePoint", 0), "cr": e.get("CriticalPoint", 0),
+                "sp": e.get("StabilityPoint", 0), "sr": e.get("StabilityRate", 0),
+                "rg": e.get("Range", 0), "sz": e.get("Size", ""),
+                "at": e.get("ArmorType", ""), "bt": e.get("BulletType", ""),
+                # HP がこの値を割るとフェーズが変わる。**割合ではなく実数で入っている**
+                "ph": [x.get("Argument", 0) for x in (e.get("PhaseChange") or [])
+                       if x.get("Trigger") == "HPUnder"],
+            })
+        return rows
+
     bosses = []
     for r in raids.get("Raid", []):
         if not r.get("Name"):
@@ -505,20 +530,23 @@ def build_raid():
             "bti": r.get("BulletTypeInsane", ""),
             "at": r.get("ArmorType", "Normal"),
             "mx": (r.get("MaxDifficulty") or [6])[0],
+            "dur": r.get("BattleDuration", 0),
+            "st": boss_stats(r),
         })
 
     # 大決戦は、開催のたびに 3 つの装甲が割り当てられる。
-    # **どの組み合わせが来るかは季節ごとに違う**ので、過去の実績を候補として持っておく
+    # **どの組み合わせが来るかは開催ごとに違う**ので、過去の実績を候補として持っておく。
+    # `OpenDifficulty` は「装甲 → その装甲で開く最高難易度の番号」（6 が Torment）。
+    # **RaidSeasons は 3 本入っていて中身が違う。**先頭がいちばん長いのでそれを使う
     elim = []
-    seen = set()
-    for season in raids.get("RaidSeasons", []):
-        for e in season.get("EliminateSeasons", []):
-            key = (e.get("RaidId"), tuple(e.get("ArmorTypes", [])), e.get("TormentArmorType"))
-            if key in seen:
-                continue
-            seen.add(key)
-            elim.append({"id": e.get("RaidId"), "tr": e.get("Terrain"),
-                         "ats": e.get("ArmorTypes", []), "tat": e.get("TormentArmorType", "")})
+    seasons = raids.get("RaidSeasons") or []
+    for e in (seasons[0].get("EliminateSeasons", []) if seasons else []):
+        od = e.get("OpenDifficulty") or {}
+        if not od:
+            continue
+        elim.append({"id": e.get("RaidId"), "tr": e.get("Terrain"),
+                     "od": od, "t": e.get("Start", 0)})
+    elim.sort(key=lambda x: -x["t"])
 
     stu = []
     for s in students:
