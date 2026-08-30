@@ -203,7 +203,7 @@
           <li>さらに<b>誰にでも効く共通タグ</b>があります（<code>CommonFavorItemTags</code>: <code id="gen">—</code>）</li>
           <li>絆経験値 ＝ <b><code>ExpValue ×（一致したタグの数 ＋ 1）</code></b></li>
         </ul>
-        <p>この式だと「美しい花束」は<b>194 人ぜんぶに対して ×4</b>になります
+        <p>この式だと「美しい花束」は<b><span id="src-n">—</span> 人ぜんぶに対して ×4</b>になります
           （ゲーム内で誰に渡しても最大効果になるのと同じです）。
           <b>どの生徒にも ×4 の贈り物が最低 1 つあります。</b></p>
         <p><b>絆ランクの必要経験値は <code>Excel/FavorLevelExcelTable.json</code> そのままです。</b>
@@ -432,6 +432,7 @@
   });
   el('gen').textContent = GEN.join(' / ');
   el('ver').textContent = B.version;
+  el('src-n').textContent = B.students.length;   // **人数は増える。**出どころの文章にも埋め込む
   calc();
 })();
 </script>

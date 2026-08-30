@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>総力戦の相性チェッカー｜AronaBot</title>
-<meta name="description" content="総力戦・大決戦のボスと地形を選ぶと、有効な攻撃属性と、連れて行くべき生徒が並びます。専用武器で上がる地形適性も込みで見られます。">
+<meta name="description" content="総力戦・大決戦・制約解除決戦のボスと地形を選ぶと、有効な攻撃属性と、連れて行くべき生徒が並びます。専用武器で上がる地形適性も込みで見られます。">
 <meta name="theme-color" content="#c8892e">
 <link rel="icon" href="../../favicon.svg" type="image/svg+xml">
 <meta property="og:title" content="総力戦の相性チェッカー">
@@ -75,6 +75,7 @@
   .bstats .bs .k { font-size: .7rem; color: var(--fg-mute); }
   .bstats .bs .v { font-size: .95rem; font-weight: 800; font-variant-numeric: tabular-nums; }
   .bstats .bs.wide { grid-column: span 2; }
+  .bstats .bs.on { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, var(--card)); }
   .bstats .bs.wide .v { font-size: .84rem; font-weight: 700; }
   .now { display: grid; grid-template-columns: 200px 1fr; gap: 16px; align-items: start; }
   .now img { display: block; width: 100%; border-radius: 12px; }
@@ -111,7 +112,7 @@
   <div class="thero-body wide">
     <p class="thero-en">RAID</p>
     <h1>総力戦の相性チェッカー</h1>
-    <p class="thero-lead">ボスと地形を選ぶと、<b>有効な攻撃属性</b>と<b>連れて行く生徒</b>が並びます。<b>専用武器で上がる地形適性</b>も込みで見られます。</p>
+    <p class="thero-lead">ボスと地形を選ぶと、<b>有効な攻撃属性</b>と<b>連れて行く生徒</b>が並びます。<b>総力戦・大決戦・制約解除決戦</b>の 3 つに対応していて、<b>専用武器で上がる地形適性</b>も込みです。</p>
   </div>
 </header>
 
@@ -123,13 +124,17 @@
     <div class="seg" id="mode" role="group" aria-label="種類" style="margin-bottom:14px">
       <button type="button" data-m="raid" aria-pressed="true">総力戦</button>
       <button type="button" data-m="elim" aria-pressed="false">大決戦</button>
+      <button type="button" data-m="multi" aria-pressed="false">制約解除決戦</button>
     </div>
     <div class="bosses" id="bosses"></div>
     <div class="pick-row">
       <span class="lb">地形</span><div class="seg" id="terrain" role="group" aria-label="地形"></div>
     </div>
-    <div class="pick-row">
+    <div class="pick-row" id="diff-row">
       <span class="lb">難易度</span><div class="seg" id="diff" role="group" aria-label="難易度"></div>
+    </div>
+    <div class="pick-row" id="floor-row" hidden>
+      <span class="lb">階層</span><div class="seg" id="floor" role="group" aria-label="階層"></div>
     </div>
     <div class="pick-row" id="armor-row" hidden>
       <span class="lb">ボスの装甲</span><div class="seg" id="armor" role="group" aria-label="ボスの装甲"></div>
@@ -230,13 +235,20 @@
   var ARMORS = R.armors, BULLETS = R.bullets;
 
   var mode = 'raid', bossId = R.bosses[0].id, terrain = R.bosses[0].tr[0], diff = 0;
+  var multiId = (R.multi[0] || {}).id, sec = 0;   // 制約解除決戦の枠と階層区間
   var armor = null;    // 大決戦のときだけ使う
   var filters = { q: '', ro: '', sq: '', sc: '', st: '' };
   var withWeapon = true, onlyGood = false;
 
   function boss() {
+    if (mode === 'multi') return mBoss();
     for (var i = 0; i < R.bosses.length; i++) if (R.bosses[i].id === bossId) return R.bosses[i];
     return R.bosses[0];
+  }
+  /** 制約解除決戦の枠。**同じボスに装甲違いの枠がある**ので、枠ごとに選ぶ */
+  function mBoss() {
+    for (var i = 0; i < R.multi.length; i++) if (R.multi[i].id === multiId) return R.multi[i];
+    return R.multi[0];
   }
   function ymd(t) {
     var d = new Date(t * 1000);
@@ -253,8 +265,11 @@
 
   /** いまの条件でのボスの装甲。大決戦は自分で選ぶ */
   function bossArmor() { return mode === 'elim' ? (armor || ARMORS[0]) : boss().at; }
+  /** 制約解除決戦の、いまの階層区間 */
+  function mSec() { var b = mBoss(); return (b.secs || [])[sec] || (b.secs || [])[0] || { bt: 'Normal' }; }
   /** いまの条件でのボスの攻撃属性。Insane 以上は別のものになる */
   function bossBullet() {
+    if (mode === 'multi') return mSec().bt;
     var b = boss();
     return (diff >= INSANE_FROM && b.bti) ? b.bti : b.bt;
   }
@@ -267,6 +282,16 @@
 
   // ---- 描画
   function drawBosses() {
+    if (mode === 'multi') {
+      el('bosses').innerHTML = R.multi.map(function (b) {
+        return '<button type="button" class="boss" data-b="' + b.id + '" aria-pressed="' + (b.id === multiId) + '">' +
+          '<img src="../img/boss_' + b.p + '.webp" alt="" width="520" height="160" loading="lazy">' +
+          '<span class="cap">' + b.n +
+            '<small>' + b.tr.map(function (t) { return ja('AdaptationType', t); }).join(' / ') +
+            '　' + ja('ArmorType', b.at) + '</small></span></button>';
+      }).join('');
+      return;
+    }
     el('bosses').innerHTML = R.bosses.map(function (b) {
       return '<button type="button" class="boss" data-b="' + b.id + '" aria-pressed="' + (b.id === bossId) + '">' +
         '<img src="../img/boss_' + b.p + '.webp" alt="" width="520" height="160" loading="lazy">' +
@@ -279,6 +304,17 @@
   function drawPickers() {
     var b = boss();
     if (b.tr.indexOf(terrain) < 0) terrain = b.tr[0];
+
+    el('diff-row').hidden = mode === 'multi';
+    el('floor-row').hidden = mode !== 'multi';
+    if (mode === 'multi') {
+      var secs = b.secs || [];
+      if (sec >= secs.length) sec = 0;
+      el('floor').innerHTML = secs.map(function (x, i) {
+        return '<button type="button" data-s="' + i + '" aria-pressed="' + (i === sec) + '">' +
+          x.lo + (x.hi ? '〜' + x.hi : '〜') + 'F</button>';
+      }).join('');
+    }
     el('terrain').innerHTML = b.tr.map(function (t) {
       return '<button type="button" data-t="' + t + '" aria-pressed="' + (t === terrain) + '">' +
         ja('AdaptationType', t) + '</button>';
@@ -318,7 +354,8 @@
 
   function drawNow() {
     var b = boss(), at = bossArmor(), bt = bossBullet();
-    el('now-h').textContent = b.n + '　' + ja('AdaptationType', terrain) + '　' + ja('RaidDifficulty', DIFF[diff]);
+    el('now-h').textContent = b.n + '　' + ja('AdaptationType', terrain) + '　' +
+      (mode === 'multi' ? (mSec().lo + '〜' + (mSec().hi || '') + 'F') : ja('RaidDifficulty', DIFF[diff]));
     el('now-img').src = '../img/boss_' + b.p + '.webp';
     el('now-img').alt = b.n;
 
@@ -327,7 +364,9 @@
     el('o-at-sub').textContent = ja('BulletType', best) + ' が ' + multTxt(mult(best, at)) + ' で通ります';
 
     el('o-bt').textContent = ja('BulletType', bt);
-    el('o-bt-sub').textContent = (diff >= INSANE_FROM && b.bti)
+    el('o-bt-sub').textContent = mode === 'multi'
+      ? 'この階層でのボスの攻撃属性です'
+      : (diff >= INSANE_FROM && b.bti)
       ? ja('RaidDifficulty', DIFF[INSANE_FROM]) + ' 以上で変わったあとの属性です'
       : 'Insane 以上では ' + (b.bti ? ja('BulletType', b.bti) : '—') + ' に変わります';
 
@@ -349,6 +388,16 @@
 
   /** 難易度ごとのボスのステータス。**EnemyList の並びがそのまま難易度。** */
   function drawStats(b) {
+    if (mode === 'multi') {
+      var mb = mBoss(), dur = mb.dur || 0;
+      el('bs-note').textContent = '階層ごとに攻撃力と HP に倍率がかかるので、素の値は出していません。' +
+        (dur ? '制限時間は ' + Math.floor(dur / 60) + ' 分' + (dur % 60 ? ' ' + (dur % 60) + ' 秒' : '') + '。' : '');
+      el('bstats').innerHTML = (mb.secs || []).map(function (x, i) {
+        return '<div class="bs' + (i === sec ? ' on' : '') + '"><div class="k">' + x.lo +
+          (x.hi ? '〜' + x.hi : '〜') + 'F</div><div class="v">' + ja('BulletType', x.bt) + '</div></div>';
+      }).join('');
+      return;
+    }
     var st = (b.st || [])[diff];
     if (!st) {
       el('bstats').innerHTML = '<p style="color:var(--fg-mute);font-size:.8rem;margin:0">この難易度のデータがありません。</p>';
@@ -357,7 +406,7 @@
     }
     var dur = (b.dur || [])[diff] || 0;
     el('bs-note').textContent = ja('RaidDifficulty', DIFF[diff]) + ' のボス本体の値です。' +
-      (dur ? '制限時間は ' + Math.floor(dur / 60) + ' 分' + (dur % 60 ? dur % 60 + ' 秒' : '') + '。' : '');
+      (dur ? '制限時間は ' + Math.floor(dur / 60) + ' 分' + (dur % 60 ? ' ' + (dur % 60) + ' 秒' : '') + '。' : '');
 
     var rows = [
       ['最大 HP', num(st.hp)],
@@ -427,7 +476,12 @@
   });
   el('bosses').addEventListener('click', function (ev) {
     var b = ev.target.closest('.boss'); if (!b) return;
-    bossId = +b.dataset.b; draw();
+    if (mode === 'multi') { multiId = +b.dataset.b; } else { bossId = +b.dataset.b; }
+    draw();
+  });
+  el('floor').addEventListener('click', function (ev) {
+    var b = ev.target.closest('button'); if (!b) return;
+    sec = +b.dataset.s; draw();
   });
   el('terrain').addEventListener('click', function (ev) {
     var b = ev.target.closest('button'); if (!b) return;

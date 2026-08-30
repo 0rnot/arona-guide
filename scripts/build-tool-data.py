@@ -548,6 +548,34 @@ def build_raid():
                      "od": od, "t": e.get("Start", 0)})
     elim.sort(key=lambda x: -x["t"])
 
+    # 制約解除決戦（MultiFloorRaid）。**階層で区切られていて、区間ごとに攻撃属性が変わる。**
+    # 装甲は変わらないが、同じボスに装甲違いの枠が用意されている
+    multi = []
+    for m in raids.get("MultiFloorRaid", []):
+        rel = m.get("IsReleased") or [False]
+        if not rel[0] or not m.get("Name"):
+            continue
+        floors = m.get("DifficultyStartFloor") or []
+        elist = m.get("EnemyList") or []
+        secs = []
+        for i, bt in enumerate(m.get("BulletType") or []):
+            e = enemies.get(str(elist[i][0])) if i < len(elist) and elist[i] else None
+            secs.append({
+                "bt": bt,
+                "lo": floors[i] if i < len(floors) else 0,
+                "hi": (floors[i + 1] - 1) if i + 1 < len(floors) else 0,
+                "st": ({"hp": e.get("MaxHP1", 0), "atk": e.get("AttackPower1", 0),
+                        "df": e.get("DefensePower1", 0), "acc": e.get("AccuracyPoint", 0),
+                        "dg": e.get("DodgePoint", 0), "cr": e.get("CriticalPoint", 0),
+                        "sp": e.get("StabilityPoint", 0), "sr": e.get("StabilityRate", 0),
+                        "rg": e.get("Range", 0), "sz": e.get("Size", ""),
+                        "at": e.get("ArmorType", ""), "bt": e.get("BulletType", ""),
+                        "ph": []} if e else None)})
+        multi.append({"id": m["Id"], "n": m["Name"], "p": m.get("PathName", ""),
+                      "dev": m.get("DevName", ""), "at": m.get("ArmorType", "Normal"),
+                      "tr": m.get("Terrain", []), "dur": m.get("BattleDuration", 0),
+                      "secs": secs})
+
     stu = []
     for s in students:
         if not s.get("Name"):
@@ -578,9 +606,13 @@ def build_raid():
         # 四角いアイコン。**ドラム缶ガニだけまだ用意されていない**
         fetch_icon("bossicon_" + b["p"],
                    f"https://schaledb.com/images/raid/icon/Icon_{b['dev']}.png")
+    for m in multi:
+        if m["dev"]:
+            n += fetch_raw("boss_" + m["p"],
+                           f"https://schaledb.com/images/raid/Boss_Portrait_{m['dev']}_Lobby.png")
     for s in stu:
         n += fetch_portrait(f"student_{s['id']}", f"https://schaledb.com/images/student/collection/{s['id']}.webp")
-    print(f"  画像 {n} 枚を追加、ボス {len(bosses)} 体")
+    print(f"  画像 {n} 枚を追加、ボス {len(bosses)} 体、制約解除決戦 {len(multi)} 枠")
 
     labels = {k: loc.get(k, {}) for k in
               ("BulletType", "ArmorType", "TacticRole", "SquadType", "School",
@@ -591,7 +623,7 @@ def build_raid():
     armors = [k for k in (eff.get("Normal") or {}) if k not in ("Normal", "Structure")]
 
     return write_js("tools/raid/data.js", "RAID", {
-        "bosses": bosses, "elim": elim, "students": stu,
+        "bosses": bosses, "elim": elim, "multi": multi, "students": stu,
         "eff": eff, "labels": labels, "bullets": bullets, "armors": armors,
         "version": "SchaleDB jp",
     }, header="/* scripts/build-tool-data.py が吐く。**手で直さない。** */\n")
