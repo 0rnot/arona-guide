@@ -47,7 +47,20 @@
 
      slots は ストライカー MAIN_MAX 枠 ＋ スペシャル SUP_MAX 枠の固定長。
      order は { i: 枠の番号, t: 指定した秒（null なら最短） }。 */
-  function emptySlot() { return { id: null, ex: 5, sk: 10, tier: {}, on: {} }; }
+  function emptySlot() { return { id: null, ex: 5, sk: 10, wp: 0, tier: {}, on: {} }; }
+
+  /** 固有武器のパッシブで伸びた持続（ミリ秒）。**バフとデバフで別の値。**
+      `ExtendBuffDuration_Base` / `ExtendDebuffDuration_Base` はどちらも
+      10000 分率で、Lv10 が 1900 ＝ +19%。**掛かるのは、その子がかけた効果だけ。** */
+  function extend(d, slot, du, side) {
+    var lv = slot && slot.wp;
+    if (!lv) return du;
+    var tbl = side === 'enemy' ? d.ed : d.eb;
+    if (!tbl) return du;
+    // **ミリ秒の段階で丸める。**丸めずに渡すと 15000×1.19 が 17849.999… になり、
+    // 同じ値なのに片方が 17.8 秒、もう片方が 17.9 秒と食い違って出る
+    return Math.round(du * (1 + (tbl[lv - 1] || 0) / 10000));
+  }
   var mode = 6, slots = [], order = [], lastSim = null;
   for (var z = 0; z < MAIN_MAX + SUP_MAX; z++) slots.push(emptySlot());
 
@@ -71,7 +84,7 @@
         // 手で書き換えた URL でスペシャルがストライカーの枠に入るのを防ぐ
         var want = i < MAIN_MAX ? 'Main' : 'Support';
         var ok = byId[x.id] && byId[x.id].sq === want;
-        slots.push({ id: ok ? x.id : null, ex: x.ex || 5, sk: x.sk || 10,
+        slots.push({ id: ok ? x.id : null, ex: x.ex || 5, sk: x.sk || 10, wp: x.wp || 0,
                      tier: ok ? (x.tier || {}) : {}, on: ok ? (x.on || {}) : {} });
       }
     }
@@ -107,7 +120,7 @@
       if (!s.id) return '_';
       var t = Object.keys(s.tier).map(function (k) { return k + ':' + s.tier[k]; }).join('!');
       var o = Object.keys(s.on).filter(function (k) { return s.on[k]; }).join('!');
-      return s.id + '.' + s.ex + '.' + s.sk + (t || o ? '.' + t + '.' + o : '');
+      return s.id + '.' + s.ex + '.' + s.sk + (t || o || s.wp ? '.' + t + '.' + o + (s.wp ? '.' + s.wp : '') : '');
     }).join(',');
     var os = order.map(function (e) {
       return (e.t == null ? String(e.i) : e.i + '@' + e.t) + (e.to == null ? '' : '>' + e.to);
@@ -129,7 +142,7 @@
         if (!kv) return; var a = kv.split(':'); tier[a[0]] = +a[1];
       });
       (f[4] || '').split('!').forEach(function (k) { if (k) on[k] = true; });
-      d.s.push({ id: +f[0], ex: +f[1] || 5, sk: +f[2] || 10, tier: tier, on: on });
+      d.s.push({ id: +f[0], ex: +f[1] || 5, sk: +f[2] || 10, wp: +f[5] || 0, tier: tier, on: on });
     });
     if (p[2]) {
       p[2].split(',').forEach(function (x) {
@@ -226,6 +239,16 @@
           html += '<div class="lv"><span>EX</span><select data-k="ex" data-i="' + i + '">';
           for (var v = 1; v <= 5; v++) html += '<option value="' + v + '"' + (v === s.ex ? ' selected' : '') + '>Lv' + v + '</option>';
           html += '</select></div>';
+          if (d.eb || d.ed) {
+            var wk = d.eb ? d.eb : d.ed, wt = d.eb ? 'バフ' : 'デバフ';
+            html += '<div class="lv"><span>固有</span><select data-k="wp" data-i="' + i + '">' +
+              '<option value="0"' + (!s.wp ? ' selected' : '') + '>なし</option>';
+            for (var q = 1; q <= wk.length; q++) {
+              html += '<option value="' + q + '"' + (q === s.wp ? ' selected' : '') + '>Lv' + q +
+                '（' + wt + ' ＋' + n1(wk[q - 1] / 100) + '%）</option>';
+            }
+            html += '</select></div>';
+          }
           if (d.r && d.r.some(function (e) { return e.sl !== 'Ex'; })) {
             html += '<div class="lv"><span>他</span><select data-k="sk" data-i="' + i + '">';
             for (var w = 1; w <= 10; w++) html += '<option value="' + w + '"' + (w === s.sk ? ' selected' : '') + '>Lv' + w + '</option>';
@@ -235,7 +258,8 @@
             if (e.du > 0) {
               html += '<label class="lv" style="grid-template-columns:auto 1fr"><input type="checkbox" data-k="on" data-i="' +
                 i + '" data-e="' + ei + '"' + (s.on[ei] ? ' checked' : '') + '><span>' +
-                esc(e.sn) + ' が効いている間（' + n1(e.du / 1000) + ' 秒）</span></label>';
+                esc(e.sn) + ' が効いている間（' +
+                n1(extend(d, s, e.du, e.p === 'party' ? 'ally' : 'self') / 1000) + ' 秒）</span></label>';
             } else if (e.v.length > 1 && !e.cond) {
               html += '<div class="lv"><span>段</span><select data-k="tier" data-i="' + i + '" data-e="' + ei + '">';
               for (var t = 0; t < e.v.length; t++) html += '<option value="' + t + '"' + (t === (s.tier[ei] || 0) ? ' selected' : '') + '>' + (t + 1) + ' 段目</option>';
@@ -548,7 +572,11 @@
     sim.rows.forEach(function (r) {
       if (!r.d || r.at === null || !r.d.bf) return;
       r.d.bf.forEach(function (b) {
-        bars.push({ at: r.at, end: r.at + b.du / 1000, n: r.d.n, e: b.n, sd: b.sd });
+        var du = extend(r.d, r.s, b.du, b.sd);
+        // **秒数は帯の長さから引き算しない。**at が小数なので
+        // 17.85 が 17.849999… になって、他の表示と 0.1 秒ずれる
+        bars.push({ at: r.at, end: r.at + du / 1000, sec: du / 1000,
+                    n: r.d.n, e: b.n, sd: b.sd, grew: du > b.du });
       });
     });
     var box = el('bars'), lead = el('bars-lead');
@@ -579,7 +607,8 @@
       return '<rect class="bar ' + b.sd + '" x="' + x0.toFixed(1) + '" y="' + y +
         '" width="' + w.toFixed(1) + '" height="' + h + '" rx="4"></rect>' + endMark +
         '<text class="lb" x="' + (x0 + 6).toFixed(1) + '" y="' + (y + h - 3) + '">' +
-        esc(b.n) + '／' + esc(b.e) + ' ' + n1(b.end - b.at) + '秒</text>';
+        esc(b.n) + '／' + esc(b.e) + ' ' + n1(b.sec) + '秒' +
+        (b.grew ? '（固有で延長）' : '') + '</text>';
     }).join('');
 
     box.innerHTML = '<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="バフの持続">' +
@@ -663,7 +692,7 @@
     var t = ev.target, k = t.dataset && t.dataset.k;
     if (k === 'pick') {
       takePick(t, false);
-    } else if (k === 'ex' || k === 'sk') {
+    } else if (k === 'ex' || k === 'sk' || k === 'wp') {
       slots[+t.dataset.i][k] = +t.value; draw();
     } else if (k === 'tier') {
       slots[+t.dataset.i].tier[+t.dataset.e] = +t.value; draw();

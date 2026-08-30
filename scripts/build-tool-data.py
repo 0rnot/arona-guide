@@ -1069,6 +1069,20 @@ def build_cost_timeline():
             # **Duration はフレーム。**ゲームは 30fps なので、秒にするには 30 で割る
             "d": ex.get("Duration") or 0,
         }
+        # **固有武器のパッシブで、自分がかけた効果の持続が伸びる子がいる。**
+        # `ExtendBuffDuration_Base` がバフ側、`ExtendDebuffDuration_Base` が
+        # デバフ側で、どちらも 10000 分率（1900 ＝ +19%）の 10 段。
+        # 有志ツールはこの 2 つを混ぜて「固有 2 で ×1.19」と一括りにしているが、
+        # データ上は別物なので分けて持つ（2026-08-30 に数えて 22 人と 3 人）
+        for sk in (s.get("Skills") or {}).values():
+            if not isinstance(sk, dict):
+                continue
+            for e in sk.get("Effects") or []:
+                st = e.get("Stat") or ""
+                key = "eb" if st.startswith("ExtendBuffDuration") else \
+                      "ed" if st.startswith("ExtendDebuffDuration") else ""
+                if key:
+                    rec[key] = (e.get("Value") or [[]])[0]
         # EX が置いていく効果の持続。**タイムラインに帯で出すため。**
         # 持続の無い効果（即時のダメージ・回復）は帯にならないので落とす
         bf = []
