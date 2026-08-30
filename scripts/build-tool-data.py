@@ -1502,10 +1502,28 @@ def build_raid_score():
             raise SystemExit(f"最高スコアが合わない: {r['dev']} {r['d']}")
 
     # 時間ぶんが 0 になるまでの秒数。**全行で同じなら定数にできる**
+    #
+    # **`PerSecondMinusScore` をそのまま 1 秒あたりの減点として使ってはいけない。**
+    # 割ると 360 になるが、これだと 3 分ボスを 2 凸しただけで時間ぶんが 0 になり、
+    # 誰でも同じ点になってしまう。実際は **1/10 が 1 秒あたりの減点**で、
+    # 時間ぶんが尽きるのは 3600 秒（＝部隊の合計戦闘時間 1 時間）ぶん。
+    # kina-ko-m-ochi.net/score/ の `script.js` が
+    # `timeScore = (3600 - clearSeconds) * multiplier` としていて、その
+    # `multiplier` が難易度ごとに 120/240/480/960/1440/1920/2400/2880 ——
+    # **こちらの `PerSecondMinusScore` のちょうど 1/10** で全段一致する。
+    # あちらの `baseScores` も `DefaultClearScore + HPPercentScore` と
+    # 3 分ボス・4 分ボスの両方で一致した（2026-08-30 に突き合わせた）。
     spans = {r["mx"] // r["ps"] for r in all_rows if r["ps"]}
     if len(spans) != 1:
         raise SystemExit(f"時間ぶんが尽きる秒数が揃わない: {sorted(spans)}")
-    span = spans.pop()
+    raw_span = spans.pop()
+    if raw_span != 360:
+        raise SystemExit(f"時間ぶんが尽きる目盛りが 360 でない: {raw_span}")
+    span = raw_span * 10                      # 3600 秒
+    for r in all_rows:
+        if r["ps"] % 10:
+            raise SystemExit(f"PerSecondMinusScore が 10 で割り切れない: {r['dev']} {r['ps']}")
+        r["ps"] //= 10
 
     # **スコアは地形と装甲では変わらない。**大決戦は「ボス_地形_装甲」で 504 行
     # あるが、同じボス・同じ難易度なら中身が 1 種類しかない（2026-08-30 に確認）。
