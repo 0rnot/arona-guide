@@ -948,7 +948,7 @@ a.toolband-card:focus-visible { outline: 2px solid var(--accent); outline-offset
 .toolband-card { position: relative; overflow: hidden; }
 .toolband-card .ticon {
   position: absolute; top: 12px; right: 14px; width: 54px; height: 54px;
-  border-radius: 10px; pointer-events: none;
+  border-radius: 10px; pointer-events: none; object-fit: contain;
   transition: transform .2s cubic-bezier(.22,.61,.36,1);
 }
 .toolband-card .cat, .toolband-card h3 { padding-right: 62px; }

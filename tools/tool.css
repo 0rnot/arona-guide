@@ -403,7 +403,7 @@ a.tcard:hover .go svg { transform: translateX(3px); }
 .tcard.soon { border-style: dashed; background: transparent; }
 .tcard .ticon {
   position: absolute; top: 14px; right: 16px; width: 66px; height: 66px;
-  border-radius: 13px; pointer-events: none;
+  border-radius: 13px; pointer-events: none; object-fit: contain;
   transition: transform .2s cubic-bezier(.22,.61,.36,1);
 }
 .tcard .cat, .tcard h2 { padding-right: 74px; }

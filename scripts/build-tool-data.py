@@ -22,8 +22,11 @@ import io, json, pathlib, sys, urllib.request
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 IMG = ROOT / "tools" / "img"
 BA = "https://raw.githubusercontent.com/electricgoat/ba-data/jp/Excel/{}.json"
-SD = "https://raw.githubusercontent.com/SchaleDB/SchaleDB/main/data/jp/{}.min.json"
-SD_CFG = "https://raw.githubusercontent.com/SchaleDB/SchaleDB/main/data/config.json"
+# **GitHub の SchaleDB/SchaleDB は 2024-08 で止まっている**（build 1723935982）。
+# 生徒が 194 人しか入っておらず、実際の 274 人と 80 人ずれる。
+# 本番サイトのほうは毎日更新されているので、そちらを見る（2026-08-30 に発見）。
+SD = "https://schaledb.com/data/jp/{}.min.json"
+SD_CFG = "https://schaledb.com/data/config.json"
 
 CROP = (12, 0, 134, 116)      # 146×116 の中で、どの絵もはみ出さない横方向の枠
 SQUARE = 122
@@ -46,6 +49,75 @@ def as_list(d):
             return d["DataList"]
         return list(d.values())
     return d
+
+
+def fetch_raw(name, url, force=False):
+    """切り直さずにそのまま置く（ボスの立ち絵など、正方形でない絵）。"""
+    out = IMG / (name + ".webp")
+    if out.exists() and not force:
+        return False
+    try:
+        raw = get(url)
+    except Exception as e:
+        print(f"    落とせない {name}: {e}", file=sys.stderr)
+        return False
+    if len(raw) < 2000:
+        print(f"    実体が無い {name}（{len(raw)} バイト）", file=sys.stderr)
+        return False
+    IMG.mkdir(parents=True, exist_ok=True)
+    try:
+        from PIL import Image
+        im = Image.open(io.BytesIO(raw)).convert("RGBA")
+        im.thumbnail((520, 520))
+        im.save(out, "WEBP", quality=86, method=6)
+    except ImportError:
+        import subprocess, shutil, tempfile
+        exe = shutil.which("magick") or shutil.which("convert")
+        if not exe:
+            raise SystemExit("Pillow も ImageMagick も無い")
+        with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as t:
+            t.write(raw); tmp = t.name
+        subprocess.run([exe, tmp, "-resize", "520x520>", "-quality", "86", str(out)], check=True)
+        pathlib.Path(tmp).unlink(missing_ok=True)
+    return True
+
+
+def fetch_portrait(name, url, force=False, size=200):
+    """生徒の顔。**icon（120×120）ではなく collection（200×226）を使う。**
+    icon は小さくて、Tier 表のように大きく出すと粗い。collection のほうが
+    画素も多く、学校の色が背景に入っていて並べたときに見分けやすい。
+    上を残して正方形に切る（顔が上寄りにあるため）。"""
+    out = IMG / (name + ".webp")
+    if out.exists() and not force:
+        return False
+    try:
+        raw = get(url)
+    except Exception as e:
+        print(f"    落とせない {name}: {e}", file=sys.stderr)
+        return False
+    if len(raw) < 2000:
+        print(f"    実体が無い {name}（{len(raw)} バイト）", file=sys.stderr)
+        return False
+    IMG.mkdir(parents=True, exist_ok=True)
+    try:
+        from PIL import Image
+        im = Image.open(io.BytesIO(raw)).convert("RGBA")
+        w, h = im.size
+        side = min(w, h)
+        left = (w - side) // 2
+        im = im.crop((left, 0, left + side, side)).resize((size, size), Image.LANCZOS)
+        im.save(out, "WEBP", quality=90, method=6)
+    except ImportError:
+        import subprocess, shutil, tempfile
+        exe = shutil.which("magick") or shutil.which("convert")
+        if not exe:
+            raise SystemExit("Pillow も ImageMagick も無い")
+        with tempfile.NamedTemporaryFile(suffix=".webp", delete=False) as t:
+            t.write(raw); tmp = t.name
+        subprocess.run([exe, tmp, "-resize", f"{size}x{size}^", "-gravity", "north",
+                        "-extent", f"{size}x{size}", "-quality", "90", str(out)], check=True)
+        pathlib.Path(tmp).unlink(missing_ok=True)
+    return True
 
 
 def fetch_icon(name, url, force=False):
@@ -163,7 +235,7 @@ def build_bond():
     for g in gifts:
         n += fetch_icon(g["i"], f"https://schaledb.com/images/item/icon/{g['i']}.webp")
     for s in stu:
-        n += fetch_icon(f"student_{s['id']}", f"https://schaledb.com/images/student/icon/{s['id']}.webp")
+        n += fetch_portrait(f"student_{s['id']}", f"https://schaledb.com/images/student/collection/{s['id']}.webp")
     print(f"  アイコン {n} 枚を追加")
 
     return write_js("tools/bond/data.js", "BOND", {
@@ -216,7 +288,9 @@ def build_equipment():
     stages = as_list(get_json(BA.format("CampaignStageExcelTable")))
     rewards = as_list(get_json(BA.format("CampaignStageRewardExcelTable")))
     gacha_el = as_list(get_json(BA.format("GachaElementExcelTable")))
-    loc_stage = get_json(SD.format("stages")).get("Campaign", [])
+    # **SchaleDB の stages は id をキーにした平らな辞書。**欲しいのは Campaign だけ
+    loc_stage = [x for x in as_list(get_json(SD.format("stages")))
+                 if x.get("Category") == "Campaign"]
     # **名前は SchaleDB から。**ba-data 側は LocalizeEtcId しか持っていない。
     # ただし SchaleDB には T10 の設計図（101009 など）がまだ入っていないので、
     # 部位・Tier・レシピは ba-data を正本にして、名前だけ引く
@@ -354,7 +428,7 @@ def build_tier():
 
     n = 0
     for s in stu:
-        n += fetch_icon(f"student_{s['id']}", f"https://schaledb.com/images/student/icon/{s['id']}.webp")
+        n += fetch_portrait(f"student_{s['id']}", f"https://schaledb.com/images/student/collection/{s['id']}.webp")
     print(f"  アイコン {n} 枚を追加、生徒 {len(stu)} 人")
 
     return write_js("tools/tier/data.js", "TIER", {
@@ -363,8 +437,125 @@ def build_tier():
     }, header="/* scripts/build-tool-data.py が吐く。**手で直さない。** */\n")
 
 
+# ------------------------------------------------------------ 総力戦の相性
+
+# ボスの立ち絵のファイル名。**PathName（小文字）とは一致しない。**
+# 実際に叩いて確かめた対応表（2026-08-30）。新しいボスが増えたら
+# 下の候補で当たらなければログに出るので、そのとき足す
+BOSS_IMG = {
+    "binah": "Binah", "chesed": "Chesed", "shirokuro": "Shirokuro",
+    "hieronymus": "Hieronymus", "kaiten": "KaitenFxMk0", "perorodzilla": "Perorozilla",
+    "hod": "HOD", "goz": "Goz", "gregorius": "EN0005", "hovercraft": "RaidHoverCraft",
+    "kurokage": "EN0006", "geburah": "EN0008", "yesod": "EN0009", "drumbarka": "EN0011",
+}
+
+
+def boss_image(path_name):
+    """立ち絵の実ファイル名を探す。**当たらなければ None。**"""
+    cands = []
+    if path_name in BOSS_IMG:
+        cands.append(BOSS_IMG[path_name])
+    cands += [path_name[:1].upper() + path_name[1:], path_name.upper(), path_name]
+    for c in cands:
+        url = f"https://schaledb.com/images/raid/Boss_Portrait_{c}_Lobby.png"
+        try:
+            req = urllib.request.Request(url, method="HEAD",
+                                         headers={"User-Agent": "arona-guide/1.0"})
+            with urllib.request.urlopen(req, timeout=30) as r:
+                if int(r.headers.get("Content-Length") or 0) > 3000:
+                    return url
+        except Exception:
+            continue
+    print(f"    立ち絵が見つからない: {path_name}", file=sys.stderr)
+    return None
+
+
+def build_raid():
+    print("総力戦・大決戦の相性チェッカー")
+    raids = get_json(SD.format("raids"))
+    students = as_list(get_json(SD.format("students")))
+    loc = get_json(SD.format("localization"))
+    cfg = get_json(SD_CFG)
+
+    eff = cfg.get("TypeEffectiveness")
+    if not eff:
+        raise SystemExit("TypeEffectiveness が取れない")
+
+    bosses = []
+    for r in raids.get("Raid", []):
+        if not r.get("Name"):
+            continue
+        bosses.append({
+            "id": r["Id"], "n": r["Name"], "p": r["PathName"],
+            "tr": r.get("Terrain", []),
+            "bt": r.get("BulletType", "Normal"),
+            "bti": r.get("BulletTypeInsane", ""),
+            "at": r.get("ArmorType", "Normal"),
+            "mx": (r.get("MaxDifficulty") or [6])[0],
+        })
+
+    # 大決戦は、開催のたびに 3 つの装甲が割り当てられる。
+    # **どの組み合わせが来るかは季節ごとに違う**ので、過去の実績を候補として持っておく
+    elim = []
+    seen = set()
+    for season in raids.get("RaidSeasons", []):
+        for e in season.get("EliminateSeasons", []):
+            key = (e.get("RaidId"), tuple(e.get("ArmorTypes", [])), e.get("TormentArmorType"))
+            if key in seen:
+                continue
+            seen.add(key)
+            elim.append({"id": e.get("RaidId"), "tr": e.get("Terrain"),
+                         "ats": e.get("ArmorTypes", []), "tat": e.get("TormentArmorType", "")})
+
+    stu = []
+    for s in students:
+        if not s.get("Name"):
+            continue
+        w = s.get("Weapon") or {}
+        stu.append({
+            "id": s["Id"], "n": s["Name"],
+            "bt": s.get("BulletType", ""), "at": s.get("ArmorType", ""),
+            "ro": s.get("TacticRole", ""), "sq": s.get("SquadType", ""),
+            "st": s.get("StarGrade", 0), "sc": s.get("School", "ETC"),
+            # 地形適性。0=D 1=C 2=B 3=A 4=S 5=SS
+            "ad": {"Street": s.get("StreetBattleAdaptation", 0),
+                   "Outdoor": s.get("OutdoorBattleAdaptation", 0),
+                   "Indoor": s.get("IndoorBattleAdaptation", 0)},
+            # **専用武器を持たせると、ここに書いてある地形の適性が上がる。**
+            # 見落とすと「この子は D だから外す」と間違える
+            "wa": w.get("AdaptationType", ""), "wv": w.get("AdaptationValue", 0),
+        })
+    stu.sort(key=lambda x: (-x["st"], x["n"]))
+
+    n = 0
+    for b in bosses:
+        out = IMG / ("boss_" + b["p"] + ".webp")
+        if out.exists():
+            continue
+        url = boss_image(b["p"])
+        if url:
+            n += fetch_raw("boss_" + b["p"], url)
+    for s in stu:
+        n += fetch_portrait(f"student_{s['id']}", f"https://schaledb.com/images/student/collection/{s['id']}.webp")
+    print(f"  画像 {n} 枚を追加、ボス {len(bosses)} 体")
+
+    labels = {k: loc.get(k, {}) for k in
+              ("BulletType", "ArmorType", "TacticRole", "SquadType", "School",
+               "AdaptationType", "RaidDifficulty")}
+    # **属性は増える。**（2026-08 に Chemical と CompositeArmor が入った）
+    # ページ側で決め打ちにせず、実際に出てくるものをここから渡す
+    bullets = [k for k in eff if k not in ("Normal",)]
+    armors = [k for k in (eff.get("Normal") or {}) if k not in ("Normal", "Structure")]
+
+    return write_js("tools/raid/data.js", "RAID", {
+        "bosses": bosses, "elim": elim, "students": stu,
+        "eff": eff, "labels": labels, "bullets": bullets, "armors": armors,
+        "version": "SchaleDB jp",
+    }, header="/* scripts/build-tool-data.py が吐く。**手で直さない。** */\n")
+
+
 BUILDERS = {"bond": build_bond, "teacher-level": build_teacher_level,
-            "equipment": build_equipment, "tier": build_tier}
+            "equipment": build_equipment, "tier": build_tier, "raid": build_raid}
 
 if __name__ == "__main__":
     want = sys.argv[1:] or list(BUILDERS)

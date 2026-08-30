@@ -33,10 +33,6 @@
     color: #fff; background: linear-gradient(transparent, rgb(0 0 0 / .78) 55%);
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
-  .stu .sg {
-    position: absolute; top: 2px; left: 3px; font-size: 9px; font-weight: 800;
-    color: #ffd76a; text-shadow: 0 1px 2px rgb(0 0 0 / .8);
-  }
   .stu[data-drag="over"] { border-color: var(--accent); }
 
   /* Tier の行 */
@@ -121,7 +117,7 @@
   <div class="thero-body">
     <p class="thero-en">TIER LIST</p>
     <h1>Tier表メーカー</h1>
-    <p class="thero-lead">生徒 <b id="hero-n">194</b> 人を並べて、自分の Tier 表を作れます。<b>画像として保存</b>でき、<b>URL をそのまま渡せば</b>相手にも同じ並びが出ます。</p>
+    <p class="thero-lead">生徒 <b id="hero-n">274</b> 人を並べて、自分の Tier 表を作れます。<b>画像として保存</b>でき、<b>URL をそのまま渡せば</b>相手にも同じ並びが出ます。</p>
   </div>
 </header>
 
@@ -271,7 +267,6 @@
       ' draggable="true" data-id="' + s.id + '" data-where="' + where + '"' +
       ' title="' + s.n + '" aria-label="' + s.n + '">' +
       '<img src="../img/student_' + s.id + '.webp" alt="" width="62" height="62" loading="lazy">' +
-      '<span class="sg">★' + s.st + '</span>' +
       '<span class="nm">' + s.n + '</span></button>';
   }
 
