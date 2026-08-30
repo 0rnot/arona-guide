@@ -14,7 +14,7 @@
 <meta property="og:image" content="https://arona-bot.com/images/hero-night.jpg">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="stylesheet" href="../../style.css?v=15">
-<link rel="stylesheet" href="../tool.css?v=9">
+<link rel="stylesheet" href="../tool.css?v=10">
 <style>
   /* 在庫のマス目。**9 部位 × 10 枠を、打ちやすい大きさで並べる。**
      参考元（シャーレ装備管理室）と同じ「部位ごとの札」の形にしてある */
@@ -251,95 +251,118 @@
     入力はこの端末のブラウザに残り、URL にも入るので、別の端末へはリンクを送れば移せます。
   </div>
 
-  <div class="tfull" style="margin-top:20px">
-    <div class="panel" id="p-inv">
-      <div class="panel-h"><h2>① いま持っている設計図</h2></div>
-      <p class="lead">部位ごとに、<b>T2 から T10 までの設計図と万能設計図</b>の枚数を入れてください。
-        <b>持っていない段は 0 のままで大丈夫です。</b>欄に入ると数字が選ばれ、<b>Enter で次の欄</b>へ進みます。
-        90 個まとめて貼りたいときは下の<b>「まとめて入れる・書き出す」</b>から。
-        右上の数字は<b>「T1 から T10 まで上げきれる装備が何個ぶんあるか」</b>で、万能設計図を
-        いちばん足りない段に配ったものとして数えています。</p>
-
-      <details class="src bulk" id="bulk">
-        <summary>まとめて入れる・書き出す</summary>
-        <p><b>90 個の数字をカンマ区切りで貼ると、そのまま在庫になります。</b>並びは
-          <b>帽子 T2〜T10 → 手袋 T2〜T10 →（9 部位ぶん）→ 最後に万能設計図を 9 部位ぶん</b>。
-          <a href="https://st-blue-archive.gitlab.io/equipment-controller/" target="_blank" rel="noopener noreferrer">シャーレ装備管理室</a>と<b>同じ並びなので、あちらとこちらで数字をそのまま行き来できます。</b></p>
-        <textarea id="bulk-tx" rows="4" placeholder="10, 2, 5, 0, 32, 100, ...（90 個）"
-                  aria-label="設計図の枚数を 90 個、カンマ区切りで"></textarea>
-        <p class="bulk-n" id="bulk-n">いま 0 / 90 個</p>
-        <div class="btnrow">
-          <button type="button" class="btn pri" id="bulk-in">この数字を在庫にする</button>
-          <button type="button" class="btn" id="bulk-out">いまの在庫を書き出す</button>
-          <button type="button" class="btn" id="bulk-ai">読み取り用の指示をコピー</button>
-        </div>
-        <p><b>「読み取り用の指示」</b>は、ゲームの在庫画面のスクリーンショットと一緒に
-          生成 AI へ渡すための文です。返ってきた数字の列を上の枠に貼ってください。
-          <b>合っているかは必ずご自分で見比べてください。</b></p>
-      </details>
-
-      <div class="btnrow" style="margin:12px 0">
-        <button type="button" class="btn" id="fold-all">ぜんぶ畳む</button>
-        <button type="button" class="btn" id="zero-all">ぜんぶ 0 に戻す</button>
-        <button type="button" class="btn" id="go-plan">周回先へ移動</button>
-      </div>
-      <div id="inv"></div>
+  <!-- **①〜④ をタブで畳む。**在庫の板だけで 3,426px、頁ぜんぶで 8,973px
+       ＝ 11.5 画面ぶんあった（2026-08-30 にスマホ 390×780 で実測）。
+       **上の 3 つの数字はタブの外に置いたまま**——在庫を打っている間も
+       「次に周回するところ」「推奨周回数」「達成率」が見えている必要がある。
+       既定は ①。開いた直後は在庫が空で、②③ には出せるものが無い。
+       ①の「周回先へ移動」を押すと equip.js が ③ の面へ移す -->
+  <div class="tfull tpanes" data-panes="equipment" style="margin-top:20px">
+    <div class="ttabs" role="tablist" aria-label="どの段を見るか" hidden>
+      <button type="button" role="tab" id="tb-eq-inv" data-p="inv"
+              aria-controls="pn-inv" aria-selected="true">① 在庫</button>
+      <button type="button" role="tab" id="tb-eq-short" data-p="short"
+              aria-controls="pn-short" aria-selected="false">② 足りないもの</button>
+      <button type="button" role="tab" id="tb-eq-plan" data-p="plan"
+              aria-controls="pn-plan" aria-selected="false">③ 周回先</button>
+      <button type="button" role="tab" id="tb-eq-set" data-p="set"
+              aria-controls="pn-set" aria-selected="false">④ 設定</button>
     </div>
-  </div>
 
-  <div class="tfull">
-    <div class="panel" id="p-short">
-      <div class="panel-h"><h2>② 足りないもの</h2></div>
-      <div id="short"></div>
+    <div class="tpane" id="pn-inv" data-p="inv" role="tabpanel"
+         aria-labelledby="tb-eq-inv" tabindex="0">
+      <div class="panel" id="p-inv">
+        <div class="panel-h"><h2>① いま持っている設計図</h2></div>
+        <p class="lead">部位ごとに、<b>T2 から T10 までの設計図と万能設計図</b>の枚数を入れてください。
+          <b>持っていない段は 0 のままで大丈夫です。</b>欄に入ると数字が選ばれ、<b>Enter で次の欄</b>へ進みます。
+          90 個まとめて貼りたいときは下の<b>「まとめて入れる・書き出す」</b>から。
+          右上の数字は<b>「T1 から T10 まで上げきれる装備が何個ぶんあるか」</b>で、万能設計図を
+          いちばん足りない段に配ったものとして数えています。</p>
+
+        <details class="src bulk" id="bulk">
+          <summary>まとめて入れる・書き出す</summary>
+          <p><b>90 個の数字をカンマ区切りで貼ると、そのまま在庫になります。</b>並びは
+            <b>帽子 T2〜T10 → 手袋 T2〜T10 →（9 部位ぶん）→ 最後に万能設計図を 9 部位ぶん</b>。
+            <a href="https://st-blue-archive.gitlab.io/equipment-controller/" target="_blank" rel="noopener noreferrer">シャーレ装備管理室</a>と<b>同じ並びなので、あちらとこちらで数字をそのまま行き来できます。</b></p>
+          <textarea id="bulk-tx" rows="4" placeholder="10, 2, 5, 0, 32, 100, ...（90 個）"
+                    aria-label="設計図の枚数を 90 個、カンマ区切りで"></textarea>
+          <p class="bulk-n" id="bulk-n">いま 0 / 90 個</p>
+          <div class="btnrow">
+            <button type="button" class="btn pri" id="bulk-in">この数字を在庫にする</button>
+            <button type="button" class="btn" id="bulk-out">いまの在庫を書き出す</button>
+            <button type="button" class="btn" id="bulk-ai">読み取り用の指示をコピー</button>
+          </div>
+          <p><b>「読み取り用の指示」</b>は、ゲームの在庫画面のスクリーンショットと一緒に
+            生成 AI へ渡すための文です。返ってきた数字の列を上の枠に貼ってください。
+            <b>合っているかは必ずご自分で見比べてください。</b></p>
+        </details>
+
+        <div class="btnrow" style="margin:12px 0">
+          <button type="button" class="btn" id="fold-all">ぜんぶ畳む</button>
+          <button type="button" class="btn" id="zero-all">ぜんぶ 0 に戻す</button>
+          <button type="button" class="btn" id="go-plan">周回先へ移動</button>
+        </div>
+        <div id="inv"></div>
+      </div>
     </div>
-  </div>
 
-  <div class="tfull">
-    <div class="panel" id="p-plan">
-      <div class="panel-h"><h2>③ ここを周回してください</h2></div>
-      <div id="plan"></div>
-      <div id="stages" style="margin-top:18px"></div>
+    <div class="tpane" id="pn-short" data-p="short" role="tabpanel"
+         aria-labelledby="tb-eq-short" tabindex="0">
+      <div class="panel" id="p-short">
+        <div class="panel-h"><h2>② 足りないもの</h2></div>
+        <div id="short"></div>
+      </div>
     </div>
-  </div>
 
-  <div class="tfull">
-    <div class="panel" id="p-set">
-      <div class="panel-h"><h2>④ 設定</h2></div>
-
-      <div class="srow-set">
-        <span>ドロップ量</span>
-        <div class="seg" id="mult" role="group" aria-label="キャンペーン倍率">
-          <button type="button" data-m="1" aria-pressed="true">1 倍</button>
-          <button type="button" data-m="2" aria-pressed="false">2 倍</button>
-          <button type="button" data-m="3" aria-pressed="false">3 倍</button>
-        </div>
-        <label class="chk"><input type="checkbox" id="i-hard"> ハードも候補に入れる</label>
+    <div class="tpane" id="pn-plan" data-p="plan" role="tabpanel"
+         aria-labelledby="tb-eq-plan" tabindex="0">
+      <div class="panel" id="p-plan">
+        <div class="panel-h"><h2>③ ここを周回してください</h2></div>
+        <div id="plan"></div>
+        <div id="stages" style="margin-top:18px"></div>
       </div>
+    </div>
 
-      <div class="srow-set">
-        <span>周回の方針</span>
-        <div class="seg" id="model" role="group" aria-label="周回の方針">
-          <button type="button" data-md="exponential" aria-pressed="true">完遂重視</button>
-          <button type="button" data-md="logarithmic" aria-pressed="false">備蓄重視</button>
+    <div class="tpane" id="pn-set" data-p="set" role="tabpanel"
+         aria-labelledby="tb-eq-set" tabindex="0">
+      <div class="panel" id="p-set">
+        <div class="panel-h"><h2>④ 設定</h2></div>
+
+        <div class="srow-set">
+          <span>ドロップ量</span>
+          <div class="seg" id="mult" role="group" aria-label="キャンペーン倍率">
+            <button type="button" data-m="1" aria-pressed="true">1 倍</button>
+            <button type="button" data-m="2" aria-pressed="false">2 倍</button>
+            <button type="button" data-m="3" aria-pressed="false">3 倍</button>
+          </div>
+          <label class="chk"><input type="checkbox" id="i-hard"> ハードも候補に入れる</label>
         </div>
-        <span style="font-weight:400;font-size:.78rem;color:var(--fg-mute)">完遂＝足りないものを優先／備蓄＝余りぶんも評価</span>
-      </div>
 
-      <div class="srow-set">
-        <span>推奨周回数</span>
-        <div class="rng">
-          <small style="font-size:.72rem;color:var(--fg-mute)">まとめて</small>
-          <input type="range" id="i-inertia" min="0" max="10" step="1" value="5" aria-label="推奨周回数の傾向">
-          <small style="font-size:.72rem;color:var(--fg-mute)">こまめに</small>
-          <b id="inertia-v">ふつう</b>
+        <div class="srow-set">
+          <span>周回の方針</span>
+          <div class="seg" id="model" role="group" aria-label="周回の方針">
+            <button type="button" data-md="exponential" aria-pressed="true">完遂重視</button>
+            <button type="button" data-md="logarithmic" aria-pressed="false">備蓄重視</button>
+          </div>
+          <span style="font-weight:400;font-size:.78rem;color:var(--fg-mute)">完遂＝足りないものを優先／備蓄＝余りぶんも評価</span>
         </div>
-      </div>
 
-      <p class="lead" style="margin-top:16px"><b>目標セット数</b>——その部位を
-        <b>T1 から T10 まで上げきる装備を何個ぶん</b>そろえるか。初期値は参考元のものです。</p>
-      <div class="tgrid" id="tgrid"></div>
-      <div class="btnrow" style="margin-top:12px">
-        <button type="button" class="btn" id="t-reset">初期値に戻す</button>
+        <div class="srow-set">
+          <span>推奨周回数</span>
+          <div class="rng">
+            <small style="font-size:.72rem;color:var(--fg-mute)">まとめて</small>
+            <input type="range" id="i-inertia" min="0" max="10" step="1" value="5" aria-label="推奨周回数の傾向">
+            <small style="font-size:.72rem;color:var(--fg-mute)">こまめに</small>
+            <b id="inertia-v">ふつう</b>
+          </div>
+        </div>
+
+        <p class="lead" style="margin-top:16px"><b>目標セット数</b>——その部位を
+          <b>T1 から T10 まで上げきる装備を何個ぶん</b>そろえるか。初期値は参考元のものです。</p>
+        <div class="tgrid" id="tgrid"></div>
+        <div class="btnrow" style="margin-top:12px">
+          <button type="button" class="btn" id="t-reset">初期値に戻す</button>
+        </div>
       </div>
     </div>
   </div>
@@ -441,13 +464,13 @@
           <a href="https://st-blue-archive.gitlab.io/equipment-controller/" target="_blank" rel="noopener noreferrer">シャーレ装備管理室</a>。
           取得は <span id="ver">—</span>。</p>
       </details>
-    </div>
 
   </div>
 </div>
 
-<script>window.TOUR = {"key": "equipment", "steps": [{"sel": "#inv", "t": "持っている設計図を入れます", "d": "部位ごとに T2〜T10 と万能設計図の枚数を。持っていない段は 0 のままで大丈夫です。Enter で次の欄へ進み、欄に入ると数字が選ばれるので続けて打てます。90 個をまとめて貼りたいときは、上の「まとめて入れる・書き出す」から。右上の数字は「T1 から T10 まで上げきれる装備が何個ぶんあるか」です。"}, {"sel": "#p-short", "t": "足りないものが出ます", "d": "目標セット数に対して何がどれだけ足りないかを、多い順に並べます。"}, {"sel": "#p-plan", "t": "周回先が 1 本に決まります", "d": "足りないものがいちばん早く埋まるステージです。点数の内訳で「何目当てで選ばれたか」も出します。"}, {"sel": "#stages", "t": "ほかの候補も見られます", "d": "点数の高い順に 12 本。回ったら、上の欄に実際に出た枚数を入れて「在庫に足す」を押してください。次の 1 本が出ます。"}, {"sel": "#p-set", "t": "方針はここで変えられます", "d": "ドロップ 2 倍・3 倍、ハードを混ぜるか、足りないもの優先か備蓄重視か、そして目標セット数。"}, {"sel": "#sharebar", "t": "入力ごと URL になります", "d": "在庫も設定も URL に入るので、リンクを送れば別の端末でも同じ状態が開きます。"}]};</script>
-<script src="../tour.js?v=1"></script>
+<script>window.TOUR = {"key": "equipment", "steps": [{"sel": "#inv", "pre": "#tb-eq-inv", "t": "持っている設計図を入れます", "d": "部位ごとに T2〜T10 と万能設計図の枚数を。持っていない段は 0 のままで大丈夫です。Enter で次の欄へ進み、欄に入ると数字が選ばれるので続けて打てます。90 個をまとめて貼りたいときは、上の「まとめて入れる・書き出す」から。右上の数字は「T1 から T10 まで上げきれる装備が何個ぶんあるか」です。"}, {"sel": "#p-short", "pre": "#tb-eq-short", "t": "足りないものが出ます", "d": "目標セット数に対して何がどれだけ足りないかを、多い順に並べます。"}, {"sel": "#p-plan", "pre": "#tb-eq-plan", "t": "周回先が 1 本に決まります", "d": "足りないものがいちばん早く埋まるステージです。点数の内訳で「何目当てで選ばれたか」も出します。"}, {"sel": "#stages", "pre": "#tb-eq-plan", "t": "ほかの候補も見られます", "d": "点数の高い順に 12 本。回ったら、上の欄に実際に出た枚数を入れて「在庫に足す」を押してください。次の 1 本が出ます。"}, {"sel": "#p-set", "pre": "#tb-eq-set", "t": "方針はここで変えられます", "d": "ドロップ 2 倍・3 倍、ハードを混ぜるか、足りないもの優先か備蓄重視か、そして目標セット数。"}, {"sel": "#sharebar", "t": "入力ごと URL になります", "d": "在庫も設定も URL に入るので、リンクを送れば別の端末でも同じ状態が開きます。"}]};</script>
+<script src="../panes.js?v=1"></script>
+<script src="../tour.js?v=2"></script>
 
 <script src="../share.js?v=1"></script>
 

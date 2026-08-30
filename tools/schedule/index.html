@@ -14,7 +14,7 @@
 <meta property="og:image" content="https://arona-bot.com/images/hero-night.jpg">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="stylesheet" href="../../style.css?v=15">
-<link rel="stylesheet" href="../tool.css?v=9">
+<link rel="stylesheet" href="../tool.css?v=10">
 <style>
   /* ロケーションのランク。**左に名前、右に段。** */
   .lrow { display: grid; grid-template-columns: 1fr 96px; gap: 10px; align-items: center;
@@ -213,35 +213,60 @@
       </div>
     </div>
 
-    <div class="tfull">
-      <div class="panel" id="p-loc">
-        <div class="panel-h"><h2>今のランクで 1 回あたり</h2></div>
-        <p class="lead"><b>絆経験値と神名文字は、場所ではなくランクだけで決まります。</b>同じランクならどこへ送っても同じで、変わるのは追加でもらえる素材だけです。</p>
-        <div class="tscroll">
-          <table class="dt">
-            <thead><tr><th>場所</th><th>ランク</th><th>絆経験値</th><th>神名文字</th></tr></thead>
-            <tbody id="loctb"></tbody>
-          </table>
-        </div>
-        <p class="barnote">絆経験値は<b>本体ぶん ＋ 追加ぶん × 確率</b>、神名文字は<b>1 個 × 確率</b>です。追加ぶんは本体と同じ量が乗ります。</p>
+    <!-- **ここから下はタブで畳む。**参考の表が 3 枚で、スマホでは 2,687px あった
+         （2026-08-30 に実測。頁ぜんぶで 7,293px ＝ 9.3 画面ぶん）。
+         入力のランクと右の結果は上に出したまま。既定は「1 回あたり」——
+         入れたランクがそのまま出る面で、開いた瞬間に空にならない -->
+    <div class="tfull tpanes" data-panes="schedule">
+      <div class="ttabs" role="tablist" aria-label="下に出すもの" hidden>
+        <button type="button" role="tab" id="tb-s-loc" data-p="loc"
+                aria-controls="pn-loc" aria-selected="true">1 回あたり</button>
+        <button type="button" role="tab" id="tb-s-zone" data-p="zone"
+                aria-controls="pn-zone" aria-selected="false">エリアの報酬</button>
+        <button type="button" role="tab" id="tb-s-tier" data-p="tier"
+                aria-controls="pn-tier" aria-selected="false">ランクの早見</button>
       </div>
 
-      <div class="panel" id="p-zone">
-        <div class="panel-h"><h2>エリアごとの追加報酬</h2></div>
-        <p class="lead">場所を選ぶと、その中のエリアが並びます。<b>エリアによって素材の等級が違います</b>——初級・中級・上級・最上級の順に、開放ランクが上がるほど良いものになります。数字は<b>1 回あたりの期待個数</b>です。</p>
-        <div class="chips" id="zpick"></div>
-        <div id="zonetb" style="margin-top:12px"></div>
+      <div class="tpane" id="pn-loc" data-p="loc" role="tabpanel"
+           aria-labelledby="tb-s-loc" tabindex="0">
+        <div class="panel" id="p-loc">
+          <div class="panel-h"><h2>今のランクで 1 回あたり</h2></div>
+          <p class="lead"><b>絆経験値と神名文字は、場所ではなくランクだけで決まります。</b>同じランクならどこへ送っても同じで、変わるのは追加でもらえる素材だけです。</p>
+          <div class="tscroll">
+            <table class="dt">
+              <thead><tr><th>場所</th><th>ランク</th><th>絆経験値</th><th>神名文字</th></tr></thead>
+              <tbody id="loctb"></tbody>
+            </table>
+          </div>
+          <p class="barnote">絆経験値は<b>本体ぶん ＋ 追加ぶん × 確率</b>、神名文字は<b>1 個 × 確率</b>です。追加ぶんは本体と同じ量が乗ります。</p>
+        </div>
+
       </div>
 
-      <div class="panel" id="p-tier">
-        <div class="panel-h"><h2>ランクごとの早見</h2></div>
-        <p class="lead"><b>段は 6 つしかありません。</b>ランク 1〜3 は同じ、4〜6 も同じ……という並びで、11 と 12 だけ絆経験値そのものが増えます。</p>
-        <div class="tscroll">
-          <table class="dt">
-            <thead><tr><th>ランク</th><th>絆の期待値</th><th>神名文字</th><th>本体</th><th>追加の確率</th><th>そこに入るまで</th></tr></thead>
-            <tbody id="tiertb"></tbody>
-          </table>
+      <div class="tpane" id="pn-zone" data-p="zone" role="tabpanel"
+           aria-labelledby="tb-s-zone" tabindex="0">
+        <div class="panel" id="p-zone">
+          <div class="panel-h"><h2>エリアごとの追加報酬</h2></div>
+          <p class="lead">場所を選ぶと、その中のエリアが並びます。<b>エリアによって素材の等級が違います</b>——初級・中級・上級・最上級の順に、開放ランクが上がるほど良いものになります。数字は<b>1 回あたりの期待個数</b>です。</p>
+          <div class="chips" id="zpick"></div>
+          <div id="zonetb" style="margin-top:12px"></div>
         </div>
+
+      </div>
+
+      <div class="tpane" id="pn-tier" data-p="tier" role="tabpanel"
+           aria-labelledby="tb-s-tier" tabindex="0">
+        <div class="panel" id="p-tier">
+          <div class="panel-h"><h2>ランクごとの早見</h2></div>
+          <p class="lead"><b>段は 6 つしかありません。</b>ランク 1〜3 は同じ、4〜6 も同じ……という並びで、11 と 12 だけ絆経験値そのものが増えます。</p>
+          <div class="tscroll">
+            <table class="dt">
+              <thead><tr><th>ランク</th><th>絆の期待値</th><th>神名文字</th><th>本体</th><th>追加の確率</th><th>そこに入るまで</th></tr></thead>
+              <tbody id="tiertb"></tbody>
+            </table>
+          </div>
+        </div>
+
       </div>
 
       <div class="sharebar" id="sharebar"></div>
@@ -310,10 +335,11 @@
   {"sel": "#ranks", "t": "まず今のランクを入れます", "d": "11 か所それぞれのランクです。まだ開いていない場所は「—」のままにしてください。"},
   {"sel": "#o-best", "t": "いちばん多い場所が出ます", "d": "絆経験値と神名文字はランクだけで決まるので、いちばんランクの高い場所がそのまま答えになります。"},
   {"sel": "#tic", "t": "チケットが増えるところ", "d": "合計ランクが節目を越えると 1 枚増えます。いちばん安く越える上げ方を出しています。"},
-  {"sel": "#zpick", "t": "素材はエリアで変わります", "d": "場所を選ぶと、その中のエリアと 1 回あたりの期待個数が並びます。奥のエリアほど良い等級です。"},
+  {"sel": "#zpick", "pre": "#tb-s-zone", "t": "素材はエリアで変わります", "d": "場所を選ぶと、その中のエリアと 1 回あたりの期待個数が並びます。奥のエリアほど良い等級です。"},
   {"sel": "#sharebar", "t": "結果はそのまま渡せます", "d": "入れたランクごと URL になるので、リンクを送れば相手の画面にも同じ結果が出ます。"}
 ]};</script>
-<script src="../tour.js?v=1"></script>
+<script src="../panes.js?v=1"></script>
+<script src="../tour.js?v=2"></script>
 
 <script src="../share.js?v=1"></script>
 

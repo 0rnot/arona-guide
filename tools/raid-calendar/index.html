@@ -14,7 +14,7 @@
 <meta property="og:image" content="https://arona-bot.com/images/hero-night.jpg">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="stylesheet" href="../../style.css?v=15">
-<link rel="stylesheet" href="../tool.css?v=9">
+<link rel="stylesheet" href="../tool.css?v=10">
 <style>
   /* ボスの一覧 */
   /* **札は広めに取る。**168px だと絵の 52px を引いて文字が 86px しか残らず、
@@ -177,43 +177,61 @@
     <b>「次の目安」は予定表ではありません。</b>これまでの開催間隔を並べただけの見積もりで、ゲームのデータには次回の日付が入っていません。<b>正しい日付は公式のお知らせを見てください。</b>ボスと地形にいたっては、これまでの並びからは決まりません。
   </div>
 
-  <div class="tfull" style="margin-top:20px">
-    <div class="panel">
-      <div class="panel-h"><h2>ボス</h2></div>
-      <p class="lead" id="boss-lead">押すと、そのボスの回だけ下に並びます。もう一度押すと戻ります。色の付いた札は、<b>Insane 以上でそのボスに有効な攻撃属性</b>です。</p>
-      <div class="bosses" id="bosses"></div>
+  <!-- **ここから下はタブで畳む。**3 枚あわせてスマホで 4,822px、
+       頁ぜんぶで 6,773px ＝ 8.7 画面ぶんあった（2026-08-30 に実測）。
+       上の 3 つの数字と注意書きは出したまま。既定は「ボス」——
+       ボスを押すと cal.js が「開催の記録」の面へ移してから絞り込む -->
+  <div class="tfull tpanes" data-panes="raid-calendar" style="margin-top:20px">
+    <div class="ttabs" role="tablist" aria-label="下に出すもの" hidden>
+      <button type="button" role="tab" id="tb-rc-boss" data-p="boss"
+              aria-controls="pn-boss" aria-selected="true">ボス</button>
+      <button type="button" role="tab" id="tb-rc-rec" data-p="rec"
+              aria-controls="pn-rec" aria-selected="false">開催の記録</button>
+      <button type="button" role="tab" id="tb-rc-gap" data-p="gap"
+              aria-controls="pn-gap" aria-selected="false">開催の間隔</button>
     </div>
-  </div>
 
-  <div class="tfull">
-    <div class="panel">
-      <div class="panel-h"><h2>開催の記録</h2></div>
-      <div class="btnrow">
-        <div class="seg" id="kind" role="group" aria-label="どちらを見るか">
-          <button type="button" data-k="all" aria-pressed="true">両方</button>
-          <button type="button" data-k="raid" aria-pressed="false">総力戦</button>
-          <button type="button" data-k="elim" aria-pressed="false">大決戦</button>
-        </div>
-        <div class="seg" id="terrain" role="group" aria-label="地形">
-          <button type="button" data-t="" aria-pressed="true">全部</button>
-          <button type="button" data-t="Street" aria-pressed="false"><span class="gi gi-terrain-street" aria-hidden="true"></span>市街地</button>
-          <button type="button" data-t="Outdoor" aria-pressed="false"><span class="gi gi-terrain-outdoor" aria-hidden="true"></span>屋外</button>
-          <button type="button" data-t="Indoor" aria-pressed="false"><span class="gi gi-terrain-indoor" aria-hidden="true"></span>屋内</button>
-        </div>
-      </div>
-      <p class="lead" id="list-lead" style="margin-top:12px">—</p>
-      <div id="list"></div>
-      <div class="btnrow" style="margin-top:12px">
-        <button type="button" class="btn" id="more">もっと見る</button>
+    <div class="tpane" id="pn-boss" data-p="boss" role="tabpanel"
+         aria-labelledby="tb-rc-boss" tabindex="0">
+      <div class="panel">
+        <div class="panel-h"><h2>ボス</h2></div>
+        <p class="lead" id="boss-lead">押すと<b>「開催の記録」</b>の面に移って、そのボスの回だけ並びます。もう一度押すと戻ります。色の付いた札は、<b>Insane 以上でそのボスに有効な攻撃属性</b>です。</p>
+        <div class="bosses" id="bosses"></div>
       </div>
     </div>
-  </div>
 
-  <div class="tfull">
-    <div class="panel">
-      <div class="panel-h"><h2>開催の間隔</h2></div>
-      <p class="lead" id="gap-lead">—</p>
-      <div class="gaps" id="gaps"></div>
+    <div class="tpane" id="pn-rec" data-p="rec" role="tabpanel"
+         aria-labelledby="tb-rc-rec" tabindex="0">
+      <div class="panel">
+        <div class="panel-h"><h2>開催の記録</h2></div>
+        <div class="btnrow">
+          <div class="seg" id="kind" role="group" aria-label="どちらを見るか">
+            <button type="button" data-k="all" aria-pressed="true">両方</button>
+            <button type="button" data-k="raid" aria-pressed="false">総力戦</button>
+            <button type="button" data-k="elim" aria-pressed="false">大決戦</button>
+          </div>
+          <div class="seg" id="terrain" role="group" aria-label="地形">
+            <button type="button" data-t="" aria-pressed="true">全部</button>
+            <button type="button" data-t="Street" aria-pressed="false"><span class="gi gi-terrain-street" aria-hidden="true"></span>市街地</button>
+            <button type="button" data-t="Outdoor" aria-pressed="false"><span class="gi gi-terrain-outdoor" aria-hidden="true"></span>屋外</button>
+            <button type="button" data-t="Indoor" aria-pressed="false"><span class="gi gi-terrain-indoor" aria-hidden="true"></span>屋内</button>
+          </div>
+        </div>
+        <p class="lead" id="list-lead" style="margin-top:12px">—</p>
+        <div id="list"></div>
+        <div class="btnrow" style="margin-top:12px">
+          <button type="button" class="btn" id="more">もっと見る</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="tpane" id="pn-gap" data-p="gap" role="tabpanel"
+         aria-labelledby="tb-rc-gap" tabindex="0">
+      <div class="panel">
+        <div class="panel-h"><h2>開催の間隔</h2></div>
+        <p class="lead" id="gap-lead">—</p>
+        <div class="gaps" id="gaps"></div>
+      </div>
     </div>
   </div>
 
@@ -240,8 +258,9 @@
 
 </div>
 
-<script>window.TOUR = {"key": "raid-calendar", "steps": [{"sel": "#bosses", "t": "ボスで絞ります", "d": "総力戦と大決戦の開催履歴を、ボスと地形で絞り込めます。"}, {"sel": "#list", "t": "過去の開催が並びます", "d": "いつ・どの地形で・どの難易度まで開いたかを、新しい順に出しています。"}, {"sel": "#gaps", "t": "次の目安が出ます", "d": "直近 6 回の間隔から、最短と中央値の 2 つで幅を出しています。あくまで目安です。"}]};</script>
-<script src="../tour.js?v=1"></script>
+<script>window.TOUR = {"key": "raid-calendar", "steps": [{"sel": "#bosses", "pre": "#tb-rc-boss", "t": "ボスで絞ります", "d": "総力戦と大決戦の開催履歴を、ボスと地形で絞り込めます。"}, {"sel": "#list", "pre": "#tb-rc-rec", "t": "過去の開催が並びます", "d": "いつ・どの地形で・どの難易度まで開いたかを、新しい順に出しています。"}, {"sel": "#gaps", "pre": "#tb-rc-gap", "t": "次の目安が出ます", "d": "直近 6 回の間隔から、最短と中央値の 2 つで幅を出しています。あくまで目安です。"}]};</script>
+<script src="../panes.js?v=1"></script>
+<script src="../tour.js?v=2"></script>
 
 <script src="../share.js?v=1"></script>
 

@@ -581,6 +581,10 @@
     el('fold-all').textContent = open ? 'ぜんぶ開く' : 'ぜんぶ畳む';
   });
   el('go-plan').addEventListener('click', function () {
+    /* **周回先は別の面にいる。**先に開かないと送った先が隠れたままになる
+       （2026-08-30、①〜④ をタブに割ったときから）。
+       `showPane` は `../panes.js` が置いていく。無くても動くようにしておく。 */
+    if (window.showPane) window.showPane(el('p-plan'));
     el('p-plan').scrollIntoView({ behavior: 'smooth', block: 'start' });
   });
   el('zero-all').addEventListener('click', function () {

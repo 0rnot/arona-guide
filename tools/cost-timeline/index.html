@@ -14,7 +14,7 @@
 <meta property="og:image" content="https://arona-bot.com/images/hero-night.jpg">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="stylesheet" href="../../style.css?v=15">
-<link rel="stylesheet" href="../tool.css?v=9">
+<link rel="stylesheet" href="../tool.css?v=10">
 <style>
   /* 編成の 6 枠 */
   .party { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
@@ -425,49 +425,76 @@
       </div>
     </div>
 
-    <div class="tfull">
-      <div class="panel">
-        <div class="panel-h"><h2>コストの動き</h2></div>
-        <p class="lead" id="chart-lead">EX を並べると、コストが貯まって減っていく様子が出ます。</p>
-        <div class="chart" id="chart"></div>
+    <!-- **「撃つ順番」から下の 5 枚をタブで畳む。**5 枚あわせてスマホで
+         2,934px、頁ぜんぶで 8,149px ＝ 10.4 画面ぶんあった（2026-08-30 に実測）。
+         **「撃つ順番」はタブに入れない**——EX を積む入力そのもので、
+         これが隠れると盤面を作れない。編成とコスト回復力の内訳も上に出したまま。
+         **`data-nourl` を付けて URL には載せない。**このツールのハッシュは
+         tl.js が `|` 区切りの位置指定で丸ごと持っていて、`&pane=` を足すと
+         最後の欄が壊れる。tl.js のロジックは触らない約束なので、面は URL に出さない -->
+    <div class="tfull tpanes" data-panes="cost-timeline" data-nourl>
+      <div class="ttabs" role="tablist" aria-label="下に出すもの" hidden>
+        <button type="button" role="tab" id="tb-ct-chart" data-p="chart"
+                aria-controls="pn-chart" aria-selected="true">コストの動き</button>
+        <button type="button" role="tab" id="tb-ct-bars" data-p="bars"
+                aria-controls="pn-bars" aria-selected="false">効果の持続</button>
+        <button type="button" role="tab" id="tb-ct-atk" data-p="atk"
+                aria-controls="pn-atk" aria-selected="false">攻撃力の倍率</button>
+        <button type="button" role="tab" id="tb-ct-cond" data-p="cond"
+                aria-controls="pn-cond" aria-selected="false">条件で発動</button>
+        <button type="button" role="tab" id="tb-ct-regen" data-p="regen"
+                aria-controls="pn-regen" aria-selected="false">回復力を上げる生徒</button>
       </div>
-    </div>
 
-    <div class="tfull">
-      <div class="panel" id="bars-panel">
-        <div class="panel-h"><h2>効果の持続</h2></div>
-        <div class="tlx-toggles">
-          <label class="tlx-chk"><input type="checkbox" id="c-ex" data-k="show" data-s="ex" checked>EX スキル</label>
-          <label class="tlx-chk"><input type="checkbox" id="c-ns" data-k="show" data-s="ns" checked>ノーマルスキル</label>
-          <label class="tlx-chk"><input type="checkbox" id="c-pv" data-k="show" data-s="pv" checked>パッシブ・サブ</label>
+      <div class="tpane" id="pn-chart" data-p="chart" role="tabpanel"
+           aria-labelledby="tb-ct-chart" tabindex="0">
+        <div class="panel">
+          <div class="panel-h"><h2>コストの動き</h2></div>
+          <p class="lead" id="chart-lead">EX を並べると、コストが貯まって減っていく様子が出ます。</p>
+          <div class="chart" id="chart"></div>
         </div>
-        <p class="lead" id="bars-lead">編成を決めると、持続する効果がここに帯で出ます。</p>
-        <div class="chart" id="bars"></div>
       </div>
-    </div>
 
-    <div class="tfull">
-      <div class="panel" id="atk-panel">
-        <div class="panel-h"><h2>攻撃力の倍率</h2></div>
-        <p class="lead" id="atk-lead">編成を決めると、攻撃力が何倍になっているかがここに出ます。</p>
-        <div class="chart" id="atk"></div>
-        <div id="atk-more"></div>
+      <div class="tpane" id="pn-bars" data-p="bars" role="tabpanel"
+           aria-labelledby="tb-ct-bars" tabindex="0">
+        <div class="panel" id="bars-panel">
+          <div class="panel-h"><h2>効果の持続</h2></div>
+          <div class="tlx-toggles">
+            <label class="tlx-chk"><input type="checkbox" id="c-ex" data-k="show" data-s="ex" checked>EX スキル</label>
+            <label class="tlx-chk"><input type="checkbox" id="c-ns" data-k="show" data-s="ns" checked>ノーマルスキル</label>
+            <label class="tlx-chk"><input type="checkbox" id="c-pv" data-k="show" data-s="pv" checked>パッシブ・サブ</label>
+          </div>
+          <p class="lead" id="bars-lead">編成を決めると、持続する効果がここに帯で出ます。</p>
+          <div class="chart" id="bars"></div>
+        </div>
       </div>
-    </div>
 
-    <div class="tfull">
-      <div class="panel" id="cond-panel">
-        <div class="panel-h"><h2>条件で発動するもの</h2></div>
-        <p class="lead" id="cond-lead">編成を決めると、時刻を置けないスキルがここに出ます。</p>
-        <div id="cond"></div>
+      <div class="tpane" id="pn-atk" data-p="atk" role="tabpanel"
+           aria-labelledby="tb-ct-atk" tabindex="0">
+        <div class="panel" id="atk-panel">
+          <div class="panel-h"><h2>攻撃力の倍率</h2></div>
+          <p class="lead" id="atk-lead">編成を決めると、攻撃力が何倍になっているかがここに出ます。</p>
+          <div class="chart" id="atk"></div>
+          <div id="atk-more"></div>
+        </div>
       </div>
-    </div>
 
-    <div class="tfull">
-      <div class="panel">
-        <div class="panel-h"><h2>コスト回復力を上げる生徒</h2></div>
-        <p class="lead" id="rlist-lead">—</p>
-        <div class="rlist" id="rlist"></div>
+      <div class="tpane" id="pn-cond" data-p="cond" role="tabpanel"
+           aria-labelledby="tb-ct-cond" tabindex="0">
+        <div class="panel" id="cond-panel">
+          <div class="panel-h"><h2>条件で発動するもの</h2></div>
+          <p class="lead" id="cond-lead">編成を決めると、時刻を置けないスキルがここに出ます。</p>
+          <div id="cond"></div>
+        </div>
+      </div>
+
+      <div class="tpane" id="pn-regen" data-p="regen" role="tabpanel"
+           aria-labelledby="tb-ct-regen" tabindex="0">
+        <div class="panel">
+          <div class="panel-h"><h2>コスト回復力を上げる生徒</h2></div>
+          <p class="lead" id="rlist-lead">—</p>
+          <div class="rlist" id="rlist"></div>
+        </div>
       </div>
     </div>
 
@@ -523,8 +550,9 @@
   </div>
 </div>
 
-<script>window.TOUR = {"key": "cost-timeline", "steps": [{"sel": "#party-main", "t": "先に編成を決めます", "d": "名前を入れて 6 人（制約解除決戦なら 10 人）そろえてください。EX を撃たない子もコスト回復力に効くので入れます。"}, {"sel": "#ledger", "t": "コスト回復力はここで確かめます", "d": "素の 700 に、ヒマリのようなスキルぶんが乗ります。持続するバフは「効いている間」に切り替えると合計に入ります。"}, {"sel": "#add", "t": "撃つ順番を並べます", "d": "顔を押すと下に積まれます。最短で撃つか、秒を決め打ちするかを行ごとに選べます。手札に無い並びは赤く出ます。"}, {"sel": "#bars-panel", "t": "効果がいつ切れるかを見ます", "d": "EX だけでなく、ノーマルスキル・パッシブ・サブの効果も同じ横軸に並びます。帯の右端の縦線で切れます。上のチェックで種別ごとに畳めます。"}, {"sel": "#atk-panel", "t": "攻撃力が何倍かを見ます", "d": "掛け算の攻撃力バフだけを足した倍率です。味方に付くバフが 1 人ぶんか全員ぶんかはデータに入っていないので、下限と上限の幅で出しています。"}]};</script>
-<script src="../tour.js?v=1"></script>
+<script>window.TOUR = {"key": "cost-timeline", "steps": [{"sel": "#party-main", "t": "先に編成を決めます", "d": "名前を入れて 6 人（制約解除決戦なら 10 人）そろえてください。EX を撃たない子もコスト回復力に効くので入れます。"}, {"sel": "#ledger", "t": "コスト回復力はここで確かめます", "d": "素の 700 に、ヒマリのようなスキルぶんが乗ります。持続するバフは「効いている間」に切り替えると合計に入ります。"}, {"sel": "#add", "t": "撃つ順番を並べます", "d": "顔を押すと下に積まれます。最短で撃つか、秒を決め打ちするかを行ごとに選べます。手札に無い並びは赤く出ます。"}, {"sel": "#bars-panel", "pre": "#tb-ct-bars", "t": "効果がいつ切れるかを見ます", "d": "EX だけでなく、ノーマルスキル・パッシブ・サブの効果も同じ横軸に並びます。帯の右端の縦線で切れます。上のチェックで種別ごとに畳めます。"}, {"sel": "#atk-panel", "pre": "#tb-ct-atk", "t": "攻撃力が何倍かを見ます", "d": "掛け算の攻撃力バフだけを足した倍率です。味方に付くバフが 1 人ぶんか全員ぶんかはデータに入っていないので、下限と上限の幅で出しています。"}]};</script>
+<script src="../panes.js?v=1"></script>
+<script src="../tour.js?v=2"></script>
 
 <script src="../share.js?v=1"></script>
 

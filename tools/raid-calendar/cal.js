@@ -158,6 +158,10 @@
       先生の指摘——「スクロール位置が中途半端」）。`scrollIntoView` では
       この差を引けないので、自分で座標を出す。 */
   function scrollToList() {
+    /* **記録は別の面にいる。**先に開いておかないと、送った先が隠れたままになる
+       （2026-08-30、ボス・記録・間隔をタブに割ったときから）。
+       `showPane` は `../panes.js` が置いていく。無くても動くようにしておく。 */
+    if (window.showPane) window.showPane(el('list'));
     var box = el('list').closest('.panel') || el('list');
     var bar = document.querySelector('.topbar');
     var off = (bar ? bar.getBoundingClientRect().height : 0) + 14;

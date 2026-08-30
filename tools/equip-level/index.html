@@ -14,7 +14,7 @@
 <meta property="og:image" content="https://arona-bot.com/images/hero-night.jpg">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="stylesheet" href="../../style.css?v=15">
-<link rel="stylesheet" href="../tool.css?v=9">
+<link rel="stylesheet" href="../tool.css?v=10">
 <style>
   /* 1 行が「今 → 目標 × 個数」。**部位は選ばせない**（どの部位でも同じ表なので） */
   .eqrow { display: grid; gap: 8px 10px; align-items: end;
@@ -200,39 +200,64 @@
       </div>
     </div>
 
-    <div class="tfull">
-      <div class="panel">
-        <div class="panel-h"><h2>Tier ごとの必要経験値</h2></div>
-        <p class="lead"><b>レベルは Tier が上がるたびに Lv1 からやり直しです。</b>下の「必要な経験値」は、その Tier で Lv1 からレベル上限まで上げるぶん。いちばん右は T1 から積み上げた累計です。<b>いま選んでいる段には色が付きます。</b></p>
-        <div class="tscroll" id="tier-scroll">
-          <table class="dt">
-            <thead><tr><th>Tier</th><th class="num">レベル上限</th><th class="num">必要な経験値</th><th class="num">最上級強化珠だけなら</th><th class="num">端数</th><th class="num">T1 からの累計</th></tr></thead>
-            <tbody id="tb-tier"></tbody>
-          </table>
-        </div>
+    <!-- **ここから下はタブで畳む。**参考の表が 3 枚で、スマホでは 2,655px あった
+         （2026-08-30 に実測。頁ぜんぶで 6,024px ＝ 7.7 画面ぶん）。
+         入力と結果の 2 段組みは上に出したまま。既定は「必要経験値」——
+         いま入れている段に色が付く表なので、入力の答え合わせになる -->
+    <div class="tfull tpanes" data-panes="equip-level">
+      <div class="ttabs" role="tablist" aria-label="下に出すもの" hidden>
+        <button type="button" role="tab" id="tb-e-tier" data-p="tier"
+                aria-controls="pn-tier" aria-selected="true">必要経験値</button>
+        <button type="button" role="tab" id="tb-e-waste" data-p="waste"
+                aria-controls="pn-waste" aria-selected="false">端数を埋める</button>
+        <button type="button" role="tab" id="tb-e-shop" data-p="shop"
+                aria-controls="pn-shop" aria-selected="false">ショップ</button>
       </div>
 
-      <div class="panel">
-        <div class="panel-h"><h2>あふれるぶんを設計図で埋める</h2></div>
-        <p class="lead">強化珠だけで詰めると、最後の初級強化珠でどうしても経験値があふれます。<b>設計図や余った装備も強化素材として食わせられる</b>ので、初級を 1 個減らしてこちらで埋めると無駄が消えます。</p>
-        <div class="ledger" id="waste"></div>
-        <div class="tscroll">
-          <table class="dt">
-            <thead><tr><th>溶かすもの</th><th class="num">入る経験値</th></tr></thead>
-            <tbody id="tb-feed"></tbody>
-          </table>
+      <div class="tpane" id="pn-tier" data-p="tier" role="tabpanel"
+           aria-labelledby="tb-e-tier" tabindex="0">
+        <div class="panel">
+          <div class="panel-h"><h2>Tier ごとの必要経験値</h2></div>
+          <p class="lead"><b>レベルは Tier が上がるたびに Lv1 からやり直しです。</b>下の「必要な経験値」は、その Tier で Lv1 からレベル上限まで上げるぶん。いちばん右は T1 から積み上げた累計です。<b>いま選んでいる段には色が付きます。</b></p>
+          <div class="tscroll" id="tier-scroll">
+            <table class="dt">
+              <thead><tr><th>Tier</th><th class="num">レベル上限</th><th class="num">必要な経験値</th><th class="num">最上級強化珠だけなら</th><th class="num">端数</th><th class="num">T1 からの累計</th></tr></thead>
+              <tbody id="tb-tier"></tbody>
+            </table>
+          </div>
         </div>
+
       </div>
 
-      <div class="panel">
-        <div class="panel-h"><h2>通常アイテムショップの品ぞろえ</h2></div>
-        <p class="lead">1 日に 1 回ずつ買えます。<b>全部買うと <span id="daycredit">—</span> クレジットで <span id="dayexp2">—</span> EXP</b>ぶんです。</p>
-        <div class="tscroll">
-          <table class="dt">
-            <thead><tr><th>値段</th><th>中身</th><th class="num">経験値</th><th class="num">1 EXP あたり</th></tr></thead>
-            <tbody id="tb-shop"></tbody>
-          </table>
+      <div class="tpane" id="pn-waste" data-p="waste" role="tabpanel"
+           aria-labelledby="tb-e-waste" tabindex="0">
+        <div class="panel">
+          <div class="panel-h"><h2>あふれるぶんを設計図で埋める</h2></div>
+          <p class="lead">強化珠だけで詰めると、最後の初級強化珠でどうしても経験値があふれます。<b>設計図や余った装備も強化素材として食わせられる</b>ので、初級を 1 個減らしてこちらで埋めると無駄が消えます。</p>
+          <div class="ledger" id="waste"></div>
+          <div class="tscroll">
+            <table class="dt">
+              <thead><tr><th>溶かすもの</th><th class="num">入る経験値</th></tr></thead>
+              <tbody id="tb-feed"></tbody>
+            </table>
+          </div>
         </div>
+
+      </div>
+
+      <div class="tpane" id="pn-shop" data-p="shop" role="tabpanel"
+           aria-labelledby="tb-e-shop" tabindex="0">
+        <div class="panel">
+          <div class="panel-h"><h2>通常アイテムショップの品ぞろえ</h2></div>
+          <p class="lead">1 日に 1 回ずつ買えます。<b>全部買うと <span id="daycredit">—</span> クレジットで <span id="dayexp2">—</span> EXP</b>ぶんです。</p>
+          <div class="tscroll">
+            <table class="dt">
+              <thead><tr><th>値段</th><th>中身</th><th class="num">経験値</th><th class="num">1 EXP あたり</th></tr></thead>
+              <tbody id="tb-shop"></tbody>
+            </table>
+          </div>
+        </div>
+
       </div>
 
       <div class="sharebar" id="sharebar"></div>
@@ -306,8 +331,9 @@
   </div>
 </div>
 
-<script>window.TOUR = {"key": "equip-level", "steps": [{"sel": "#rows", "t": "今と目標を入れます", "d": "Tier が上がるとレベルは Lv1 に戻るので、T1 Lv1 から T10 Lv70 のように Tier をまたいで入れられます。部位は選びません。"}, {"sel": "#own", "t": "手持ちの強化珠を入れます", "d": "上の段から順に、あふれるぶんがいちばん少なくなるように詰めます。ゲーム内の自動選択と同じ詰め方です。"}, {"sel": "#o-exp", "t": "要る経験値とクレジットが出ます", "d": "クレジットは 1 EXP につき 4。買い足す強化珠のぶんは、その下の板に分けて出しています。"}, {"sel": "#plan", "t": "内訳は「手持ち／買う」で分けます", "d": "手持ちを使い切ったあと、足りないぶんを最上級から詰め直した数です。"}, {"sel": "#tier-scroll", "t": "Tier ごとの必要経験値", "d": "いま入れている段には色が付きます。いちばん右は T1 から積み上げた累計です。"}, {"sel": "#sharebar", "t": "結果はそのまま渡せます", "d": "入れている行と手持ちごと URL になるので、リンクを送れば相手の画面にも同じ結果が出ます。"}]};</script>
-<script src="../tour.js?v=1"></script>
+<script>window.TOUR = {"key": "equip-level", "steps": [{"sel": "#rows", "t": "今と目標を入れます", "d": "Tier が上がるとレベルは Lv1 に戻るので、T1 Lv1 から T10 Lv70 のように Tier をまたいで入れられます。部位は選びません。"}, {"sel": "#own", "t": "手持ちの強化珠を入れます", "d": "上の段から順に、あふれるぶんがいちばん少なくなるように詰めます。ゲーム内の自動選択と同じ詰め方です。"}, {"sel": "#o-exp", "t": "要る経験値とクレジットが出ます", "d": "クレジットは 1 EXP につき 4。買い足す強化珠のぶんは、その下の板に分けて出しています。"}, {"sel": "#plan", "t": "内訳は「手持ち／買う」で分けます", "d": "手持ちを使い切ったあと、足りないぶんを最上級から詰め直した数です。"}, {"sel": "#tier-scroll", "pre": "#tb-e-tier", "t": "Tier ごとの必要経験値", "d": "いま入れている段には色が付きます。いちばん右は T1 から積み上げた累計です。"}, {"sel": "#sharebar", "t": "結果はそのまま渡せます", "d": "入れている行と手持ちごと URL になるので、リンクを送れば相手の画面にも同じ結果が出ます。"}]};</script>
+<script src="../panes.js?v=1"></script>
+<script src="../tour.js?v=2"></script>
 
 <script src="../share.js?v=1"></script>
 
@@ -609,7 +635,10 @@
   window.shareUrl = function () { return '#' + toHash(); };
 
   (function fromHash() {
-    var h = decodeURIComponent(location.hash.replace(/^#/, ''));
+    /* **自分の区画だけ読む。**`../panes.js` が `&pane=…` を足すので、
+       そのまま `|` で割ると手持ちの最後の欄に混ざる（2026-08-30）。
+       この区画に `&` は出てこないので、先頭だけ取れば足りる。 */
+    var h = decodeURIComponent(location.hash.replace(/^#/, '')).split('&')[0];
     var p = h.split('|');
     (p[0] || '').split(',').forEach(function (s) {
       var v = s.split('.').map(Number);

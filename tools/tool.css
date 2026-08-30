@@ -227,6 +227,43 @@ select {
 .seg button[aria-pressed="true"] { background: var(--accent); color: var(--accent-in); }
 .seg button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
+/* ------------------------------------------------------------ 面の切り替え
+   **縦に長いツールを、参考の面ごとに畳む**（2026-08-30 の先生の指示——
+   「スクロールが多くなってるツールはツール内でタブ選択できるようにして」）。
+   スマホ 390×780 で 11.5 画面ぶんあるツールがあり、下のほうの表までは届かない。
+
+   見た目は上の `.seg` に合わせる。**別の顔を作らない**——サイトの中で
+   「押して切り替えるもの」はこの丸い帯という 1 つの形にしておきたい。
+   違うのは役割だけで、`.seg` は `aria-pressed`、こちらは `role="tab"` ＋
+   `aria-selected`（面と結びつくので読み上げが「タブ 2/5」になる）。
+
+   **折り返す。**横スクロールにすると、画面の外に出たタブに気付けない
+   （`tools/cost-timeline/` は 5 枚あって、390px では 3 行になる）。
+   動かすのは ../panes.js。中身は HTML に全部あって、JS は隠すだけ。 */
+.ttabs {
+  display: flex; flex-wrap: wrap; gap: 4px;
+  background: var(--bg-sub); border: 1px solid var(--line);
+  border-radius: 999px; padding: 4px; margin: 26px 0 0;
+}
+.ttabs button {
+  font: inherit; font-size: .84rem; font-weight: 700;
+  border: 0; background: transparent; color: var(--fg-mute);
+  padding: .45em 1.05em; border-radius: 999px; cursor: pointer;
+  white-space: nowrap;
+  transition: background .14s ease, color .14s ease;
+}
+.ttabs button:hover { color: var(--fg); }
+.ttabs button[aria-selected="true"] { background: var(--accent); color: var(--accent-in); }
+.ttabs button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.tpane { min-width: 0; }
+/* **面の先頭は帯にくっつけない。**板の 26px はそのままだと帯と離れすぎる */
+.tpane > .panel:first-child, .tpane > .stats:first-child { margin-top: 18px; }
+/* 中身が押せるものだけのときに備えて、面そのものにも焦点が置ける。
+   `:focus-visible` にしているので、指やマウスで押したときには出ない */
+.tpane:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px;
+                       border-radius: var(--radius); }
+
 /* 押しボタン */
 .btn {
   font: inherit; font-size: .9rem; font-weight: 700;

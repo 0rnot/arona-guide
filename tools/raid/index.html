@@ -14,7 +14,7 @@
 <meta property="og:image" content="https://arona-bot.com/images/hero-night.jpg">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="stylesheet" href="../../style.css?v=15">
-<link rel="stylesheet" href="../tool.css?v=8">
+<link rel="stylesheet" href="../tool.css?v=10">
 <style>
   /* ===== ① ボスを絵から選ぶ。**ページの導入で、ここが全体の相手を決める。**
      2026-08-30 に、畳んであった相性チェッカーの中から先頭へ引き上げた
@@ -333,35 +333,59 @@
     <p class="lead" id="armor-note" style="margin:12px 0 0" hidden></p>
   </div>
 
-  <!-- ===== ①' 選んだ相手の相性。**上で選んだ瞬間にここへ出る。**
+  <!-- ===== ①' 選んだ相手の相性と、② TL の保管庫。**タブで切り替える。**
        2026-08-30 の先生の指示——「相手を選んだらこの位置に相性チェッカーと
        同じ表記がされていい、下のおまけは不要」。おまけに残すのは
-       「連れて行く生徒」だけ（「連れて行く生徒だけおまけとして」） ===== -->
-  <div class="panel">
-    <div class="panel-h"><h2 id="now-h">いまの相手</h2></div>
-    <div class="now">
-      <img id="now-img" src="" alt="" width="520" height="160">
-      <div>
-        <div class="stats c3" style="margin:0 0 16px">
-          <div class="stat hero"><div class="k"><i class="gi gi-type-defense"></i> ボスの装甲</div><div class="v" id="o-at">—</div><div class="sub" id="o-at-sub">&nbsp;</div></div>
-          <div class="stat"><div class="k"><i class="gi gi-type-attack"></i> ボスの攻撃属性</div><div class="v" id="o-bt">—</div><div class="sub" id="o-bt-sub">&nbsp;</div></div>
-          <div class="stat"><div class="k"><i class="gi" id="o-tr-ico"></i> 地形</div><div class="v" id="o-tr">—</div><div class="sub">適性が高い子ほど当たる</div></div>
+       「連れて行く生徒」だけ（「連れて行く生徒だけおまけとして」）。
+
+       **相性と TL 保管庫をタブで畳む。**2 枚で 4,106px、頁ぜんぶで 6,766px
+       ＝ 8.7 画面ぶんあった（2026-08-30 にスマホ 390×780 で実測）。
+       **ボスの選択はタブの外**——どちらの面もここで選んだ相手で中身が変わる。
+       既定は「いまの相手」。保管庫は自分で貯めるまで空なので、
+       はじめて来た人にいきなり空の面を見せないため ===== -->
+  <div class="tpanes" data-panes="raid">
+    <div class="ttabs" role="tablist" aria-label="下に出すもの" hidden>
+      <button type="button" role="tab" id="tb-r-now" data-p="now"
+              aria-controls="pn-now" aria-selected="true">いまの相手</button>
+      <button type="button" role="tab" id="tb-r-tls" data-p="tls"
+              aria-controls="pn-tls" aria-selected="false">TL の保管庫</button>
+    </div>
+
+    <div class="tpane" id="pn-now" data-p="now" role="tabpanel"
+         aria-labelledby="tb-r-now" tabindex="0">
+    <div class="panel">
+      <div class="panel-h"><h2 id="now-h">いまの相手</h2></div>
+      <div class="now">
+        <img id="now-img" src="" alt="" width="520" height="160">
+        <div>
+          <div class="stats c3" style="margin:0 0 16px">
+            <div class="stat hero"><div class="k"><i class="gi gi-type-defense"></i> ボスの装甲</div><div class="v" id="o-at">—</div><div class="sub" id="o-at-sub">&nbsp;</div></div>
+            <div class="stat"><div class="k"><i class="gi gi-type-attack"></i> ボスの攻撃属性</div><div class="v" id="o-bt">—</div><div class="sub" id="o-bt-sub">&nbsp;</div></div>
+            <div class="stat"><div class="k"><i class="gi" id="o-tr-ico"></i> 地形</div><div class="v" id="o-tr">—</div><div class="sub">適性が高い子ほど当たる</div></div>
+          </div>
+          <p class="lead" style="margin:0 0 8px"><b>こちらの攻撃がどれだけ通るか。</b>数字はゲームのデータの倍率そのままです。</p>
+          <div class="chart" id="atk"></div>
+          <p class="lead" style="margin:14px 0 8px"><b>ボスの攻撃がどれだけ痛いか。</b>装甲別に見た倍率です。</p>
+          <div class="chart" id="def"></div>
+          <p class="lead" style="margin:14px 0 8px"><b>この難易度のボスのステータス。</b><span id="bs-note"></span></p>
+          <div class="bstats" id="bstats"></div>
         </div>
-        <p class="lead" style="margin:0 0 8px"><b>こちらの攻撃がどれだけ通るか。</b>数字はゲームのデータの倍率そのままです。</p>
-        <div class="chart" id="atk"></div>
-        <p class="lead" style="margin:14px 0 8px"><b>ボスの攻撃がどれだけ痛いか。</b>装甲別に見た倍率です。</p>
-        <div class="chart" id="def"></div>
-        <p class="lead" style="margin:14px 0 8px"><b>この難易度のボスのステータス。</b><span id="bs-note"></span></p>
-        <div class="bstats" id="bstats"></div>
       </div>
+    </div>
+    </div>
+
+    <div class="tpane" id="pn-tls" data-p="tls" role="tabpanel"
+         aria-labelledby="tb-r-tls" tabindex="0">
+
+
+    <!-- ===== ② TL の保管庫と検索。tl-search.js が組み立てる ===== -->
+    <div id="tlsearch-root"></div>
+
     </div>
   </div>
 
-
-  <!-- ===== ② TL の保管庫と検索。tl-search.js が組み立てる ===== -->
-  <div id="tlsearch-root"></div>
-
-  <!-- ===== ③ おまけの相性チェッカー。**相手は上で選んだものを使う** ===== -->
+  <!-- ===== ③ おまけの相性チェッカー。**相手は上で選んだものを使う**。
+       畳んであるので、タブには入れない ===== -->
   <details class="subtool" id="raid-extra">
     <summary>おまけ — 連れて行く生徒
       <small>上で選んだ相手に、攻撃が通る順で 274 人を並べます。専用武器で上がる地形適性も込みです。</small>
@@ -432,8 +456,9 @@
   </details>
 </div>
 
-<script>window.TOUR = {"key": "raid", "steps": [{"sel": "#bosses", "t": "まず相手を絵から選びます", "d": "総力戦・大決戦・制約解除決戦のボスが並びます。押すと、下の TL・攻撃属性・生徒がぜんぶその相手のものに切り替わります。地形と難易度もここで選びます。"}, {"sel": "#tls-vault", "t": "選んだ相手の TL が出ます", "d": "ここに出るのは、あなたがこの端末に保存した TL だけです。他人の TL はこのサイトには入っていません。難易度・使った生徒・メモの語句でさらに絞れます。"}, {"sel": "#tls-add", "t": "コスト計算機の URL を貼って貯めます", "d": "TL のコスト計算機は編成と撃つ順番をぜんぶ URL に入れます。その URL を貼って保存すると、あとから「コスト計算機で開く」で盤面ごと戻せます。保存先の相手は上で選んだものです。"}, {"sel": "#tls-exts", "pre": "#tls-ext-wrap > summary", "t": "他人の TL はよそで探します", "d": "このサイトには投稿を集める仕組みがありません。選んでいる相手を、TL 動画を集めている外部サイトと YouTube の検索 URL に組み立てて渡します。"}, {"sel": "#atk", "t": "こちらの攻撃がどれだけ通るか", "d": "選んだ相手の装甲と地形から、攻撃属性ごとの倍率が出ます。下のおまけを開くと、連れて行く生徒が攻撃の通る順に並びます。"}, {"sel": "#sharebar", "t": "選んだ相手はそのまま渡せます", "d": "URL には選んだボスと絞り込みの条件だけが入ります。保管庫の中身は端末の外に出ません。"}]};</script>
-<script src="../tour.js?v=1"></script>
+<script>window.TOUR = {"key": "raid", "steps": [{"sel": "#bosses", "t": "まず相手を絵から選びます", "d": "総力戦・大決戦・制約解除決戦のボスが並びます。押すと、下の TL・攻撃属性・生徒がぜんぶその相手のものに切り替わります。地形と難易度もここで選びます。"}, {"sel": "#tls-vault", "pre": "#tb-r-tls", "t": "選んだ相手の TL が出ます", "d": "ここに出るのは、あなたがこの端末に保存した TL だけです。他人の TL はこのサイトには入っていません。難易度・使った生徒・メモの語句でさらに絞れます。"}, {"sel": "#tls-add", "pre": "#tb-r-tls", "t": "コスト計算機の URL を貼って貯めます", "d": "TL のコスト計算機は編成と撃つ順番をぜんぶ URL に入れます。その URL を貼って保存すると、あとから「コスト計算機で開く」で盤面ごと戻せます。保存先の相手は上で選んだものです。"}, {"sel": "#tls-exts", "pre": ["#tb-r-tls", "#tls-ext-wrap > summary"], "t": "他人の TL はよそで探します", "d": "このサイトには投稿を集める仕組みがありません。選んでいる相手を、TL 動画を集めている外部サイトと YouTube の検索 URL に組み立てて渡します。"}, {"sel": "#atk", "pre": "#tb-r-now", "t": "こちらの攻撃がどれだけ通るか", "d": "選んだ相手の装甲と地形から、攻撃属性ごとの倍率が出ます。下のおまけを開くと、連れて行く生徒が攻撃の通る順に並びます。"}, {"sel": "#sharebar", "t": "選んだ相手はそのまま渡せます", "d": "URL には選んだボスと絞り込みの条件だけが入ります。保管庫の中身は端末の外に出ません。"}]};</script>
+<script src="../panes.js?v=1"></script>
+<script src="../tour.js?v=2"></script>
 
 <script src="../share.js?v=1"></script>
 
@@ -447,7 +472,9 @@
       <span class="sep">/</span>
       <a href="https://x.com/pe6cak" target="_blank" rel="noopener">制作者の X（@pe6cak）</a>
       <span class="sep">/</span>
-      <span>不具合・要望は <b>@0r.not</b> まで</span>
+      <a href="https://github.com/0rnot/arona-guide/issues/new?template=tool-feedback.yml&title=%5B%E7%B7%8F%E5%8A%9B%E6%88%A6%E3%83%BB%E5%A4%A7%E6%B1%BA%E6%88%A6%E3%81%AE%20TL%20%E6%A4%9C%E7%B4%A2%5D%20&tool=%E7%B7%8F%E5%8A%9B%E6%88%A6%E3%83%BB%E5%A4%A7%E6%B1%BA%E6%88%A6%E3%81%AE%20TL%20%E6%A4%9C%E7%B4%A2" target="_blank" rel="noopener">このツールへの要望・不具合</a>
+      <span class="sep">/</span>
+      <span>Discord なら <b>@0r.not</b> まで</span>
     </p>
     <p class="disclaimer">
       <b>このサイトはファンが作った非公式のものです。</b>運営とは関係ありません。

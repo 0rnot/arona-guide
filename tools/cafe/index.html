@@ -14,7 +14,7 @@
 <meta property="og:image" content="https://arona-bot.com/images/hero-night.jpg">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="stylesheet" href="../../style.css?v=15">
-<link rel="stylesheet" href="../tool.css?v=9">
+<link rel="stylesheet" href="../tool.css?v=10">
 <style>
   /* 快適度のつまみ */
   .cf { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: center; }
@@ -220,61 +220,86 @@
       </div>
     </div>
 
-    <div class="tfull">
-      <div class="panel" id="p-tb">
-        <div class="panel-h"><h2>ランクごとの一覧</h2></div>
-        <p class="lead">クレジットと AP は<b>その快適度上限まで埋めたとき</b>の 1 時間あたりです。<b>倉庫はクレジットならちょうど 24 時間ぶん</b>で、AP だけは丸められています。</p>
-        <div class="tscroll">
-          <table class="dt">
-            <thead><tr><th>ランク</th><th>快適度の上限</th><th>クレジット/時</th><th>AP/時</th><th>倉庫</th><th>招待</th><th>タグ</th><th>次へ上げる費用</th></tr></thead>
-            <tbody id="ranktb"></tbody>
-          </table>
-        </div>
+    <!-- **ここから下はタブで畳む。**参考の表が 3 枚あって、スマホでは 4,842px（6.2 画面ぶん）あった（2026-08-30 に実測）。
+         入力と時給の板は上に出したままにする。**家具の一覧だけで 2,742px あるので、
+         セットとは面を分けた**（同じ面に置くと 8,079px ＝ 10.4 画面ぶんになる）。
+         セットの札を押したときは、下の JS が「家具の快適度」の面へ移してから絞る -->
+    <div class="tfull tpanes" data-panes="cafe">
+      <div class="ttabs" role="tablist" aria-label="下に出すもの" hidden>
+        <button type="button" role="tab" id="tb-c-rank" data-p="rank"
+                aria-controls="pn-rank" aria-selected="true">ランクごとの一覧</button>
+        <button type="button" role="tab" id="tb-c-furn" data-p="furn"
+                aria-controls="pn-furn" aria-selected="false">家具の快適度</button>
+        <button type="button" role="tab" id="tb-c-sets" data-p="sets"
+                aria-controls="pn-sets" aria-selected="false">セットの一覧</button>
       </div>
 
-      <div class="panel" id="p-furn">
-        <div class="panel-h"><h2>家具の快適度</h2></div>
-        <p class="lead"><b><span id="n-furn">—</span> 個</b>あります。快適度は <b>20 / 50 / 120 / 180 / 350 / 500</b> の 6 段階しかありません。<b>マスあたり</b>は快適度をサイズ（縦 × 横）で割ったものです。</p>
-        <div class="fields c3">
-          <div class="field">
-            <label for="f-set">セット</label>
-            <select id="f-set"></select>
-          </div>
-          <div class="field">
-            <label for="f-rr">レア度</label>
-            <select id="f-rr">
-              <option value="">ぜんぶ</option>
-              <option value="SSR">SSR</option>
-              <option value="SR">SR</option>
-              <option value="R">R</option>
-              <option value="N">N</option>
-            </select>
-          </div>
-          <div class="field">
-            <label for="f-sort">並べ方</label>
-            <select id="f-sort">
-              <option value="c">快適度が高い順</option>
-              <option value="e">マスあたりが高い順</option>
-            </select>
+      <div class="tpane" id="pn-rank" data-p="rank" role="tabpanel"
+           aria-labelledby="tb-c-rank" tabindex="0">
+        <div class="panel" id="p-tb">
+          <div class="panel-h"><h2>ランクごとの一覧</h2></div>
+          <p class="lead">クレジットと AP は<b>その快適度上限まで埋めたとき</b>の 1 時間あたりです。<b>倉庫はクレジットならちょうど 24 時間ぶん</b>で、AP だけは丸められています。</p>
+          <div class="tscroll">
+            <table class="dt">
+              <thead><tr><th>ランク</th><th>快適度の上限</th><th>クレジット/時</th><th>AP/時</th><th>倉庫</th><th>招待</th><th>タグ</th><th>次へ上げる費用</th></tr></thead>
+              <tbody id="ranktb"></tbody>
+            </table>
           </div>
         </div>
-        <div class="tscroll">
-          <table class="dt">
-            <thead><tr><th>家具</th><th>快適度</th><th>サイズ</th><th>マスあたり</th></tr></thead>
-            <tbody id="furntb"></tbody>
-          </table>
-        </div>
-        <div class="btnrow" style="margin-top:12px">
-          <button type="button" class="btn" id="b-more">もっと見る</button>
-          <span class="barnote" id="fcount" style="margin:0;align-self:center">—</span>
-        </div>
+
       </div>
 
-      <div class="panel" id="p-sets">
-        <div class="panel-h"><h2>セットの一覧</h2></div>
-        <p class="lead"><b><span id="n-sets">—</span> セット</b>あります。押すと上の一覧がそのセットだけになります。</p>
-        <div class="chips" id="setchips"></div>
-        <div class="warn" id="setwarn"></div>
+      <div class="tpane" id="pn-furn" data-p="furn" role="tabpanel"
+           aria-labelledby="tb-c-furn" tabindex="0">
+        <div class="panel" id="p-furn">
+          <div class="panel-h"><h2>家具の快適度</h2></div>
+          <p class="lead"><b><span id="n-furn">—</span> 個</b>あります。快適度は <b>20 / 50 / 120 / 180 / 350 / 500</b> の 6 段階しかありません。<b>マスあたり</b>は快適度をサイズ（縦 × 横）で割ったものです。</p>
+          <div class="fields c3">
+            <div class="field">
+              <label for="f-set">セット</label>
+              <select id="f-set"></select>
+            </div>
+            <div class="field">
+              <label for="f-rr">レア度</label>
+              <select id="f-rr">
+                <option value="">ぜんぶ</option>
+                <option value="SSR">SSR</option>
+                <option value="SR">SR</option>
+                <option value="R">R</option>
+                <option value="N">N</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="f-sort">並べ方</label>
+              <select id="f-sort">
+                <option value="c">快適度が高い順</option>
+                <option value="e">マスあたりが高い順</option>
+              </select>
+            </div>
+          </div>
+          <div class="tscroll">
+            <table class="dt">
+              <thead><tr><th>家具</th><th>快適度</th><th>サイズ</th><th>マスあたり</th></tr></thead>
+              <tbody id="furntb"></tbody>
+            </table>
+          </div>
+          <div class="btnrow" style="margin-top:12px">
+            <button type="button" class="btn" id="b-more">もっと見る</button>
+            <span class="barnote" id="fcount" style="margin:0;align-self:center">—</span>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="tpane" id="pn-sets" data-p="sets" role="tabpanel"
+           aria-labelledby="tb-c-sets" tabindex="0">
+        <div class="panel" id="p-sets">
+          <div class="panel-h"><h2>セットの一覧</h2></div>
+          <p class="lead"><b><span id="n-sets">—</span> セット</b>あります。押すと<b>「家具の快適度」</b>の面に移って、その一覧がそのセットだけになります。</p>
+          <div class="chips" id="setchips"></div>
+          <div class="warn" id="setwarn"></div>
+        </div>
+
       </div>
 
       <div class="sharebar" id="sharebar"></div>
@@ -359,7 +384,8 @@
   {"sel": "#p-comfort", "t": "快適度の作り方", "d": "上限まであと何個の家具が要るかと、セットボーナスの段です。"},
   {"sel": "#sharebar", "t": "結果はそのまま渡せます", "d": "入れた状態ごと URL になるので、リンクを送れば相手の画面にも同じ結果が出ます。"}
 ]};</script>
-<script src="../tour.js?v=1"></script>
+<script src="../panes.js?v=1"></script>
+<script src="../tour.js?v=2"></script>
 
 <script src="../share.js?v=1"></script>
 
@@ -510,6 +536,10 @@
     fset = fset === b.dataset.s ? '' : b.dataset.s;
     el('f-set').value = fset;
     shown = 25; drawFurn();
+    /* **家具の一覧は別の面にいる。**先に開かないと送った先が隠れたままになる
+       （2026-08-30、参考の 3 枚をタブに割ったときから）。
+       `showPane` は `../panes.js` が置いていく。無くても動くようにしておく。 */
+    if (window.showPane) window.showPane(el('p-furn'));
     el('p-furn').scrollIntoView({ behavior: 'smooth', block: 'start' });
   });
 
