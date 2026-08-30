@@ -179,6 +179,33 @@
   .rcard .nm { font-weight: 700; font-size: .86rem; }
   .rcard .ef { font-size: .74rem; color: var(--fg-mute); line-height: 1.55; margin-top: .2em; }
   .rcard .ef b { color: var(--fg); font-variant-numeric: tabular-nums; }
+
+  /* ノーマル・パッシブ・サブの帯。**EX より薄くして見分ける。**
+     ただし「誰にかかるか」の色分けは EX と同じ決まりのまま残す
+     （`.bar.ns` ひとつで塗ると、敵へのデバフまで味方の色になる） */
+  .chart .bar.ns.self  { fill: color-mix(in srgb, var(--accent) 56%, transparent); }
+  .chart .bar.ns.ally  { fill: color-mix(in srgb, var(--accent) 30%, transparent); }
+  .chart .bar.ns.enemy { fill: color-mix(in srgb, var(--fg-mute) 20%, transparent); }
+  /* CC の帯。**敵にかかるものなので、味方のバフとは別の色にする** */
+  .chart .bar.cc { fill: color-mix(in srgb, var(--fg-mute) 48%, transparent); }
+  /* 攻撃力の倍率 */
+  .chart .bar.atk { fill: color-mix(in srgb, var(--accent-tx) 30%, transparent); }
+  .chart text.at2 { fill: var(--fg); font-size: 11px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  /* 帯の出し分け */
+  .tlx-toggles { display: flex; flex-wrap: wrap; gap: .2em 1.1em; margin: 0 0 10px; }
+  /* 効果の一覧（攻撃力の内訳・条件で発動するもの） */
+  .tlx-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 8px; margin-top: 6px; }
+  .tlx-item { padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg-sub); }
+  .tlx-item .h { font-size: .84rem; font-weight: 700; line-height: 1.5; word-break: auto-phrase; }
+  .tlx-item .h small { font-weight: 500; color: var(--fg-mute); font-size: .72rem; margin-left: .4em; }
+  .tlx-item .b { font-size: .76rem; color: var(--fg-mute); line-height: 1.75; margin-top: .2em; word-break: break-word; }
+  .tlx-item .b b { color: var(--fg); font-variant-numeric: tabular-nums; }
+  .tlx-item .b code { font-size: .92em; }
+  /* 引き金の原文。**ゲームの書きぶりをそのまま出す** */
+  .tlx-item .q { font-size: .76rem; line-height: 1.7; margin-top: .35em; padding-left: .6em;
+                 border-left: 2px solid var(--accent); color: var(--fg); word-break: auto-phrase; }
+  .tlx-h3 { font-size: .84rem; font-weight: 700; margin: 16px 0 0; }
+  .tlx-h3:first-child { margin-top: 8px; }
 </style>
 </head>
 <body>
@@ -390,10 +417,32 @@
     </div>
 
     <div class="tfull">
-      <div class="panel">
-        <div class="panel-h"><h2>バフの持続</h2></div>
-        <p class="lead" id="bars-lead">並べた EX に持続する効果があると、ここに帯が出ます。</p>
+      <div class="panel" id="bars-panel">
+        <div class="panel-h"><h2>効果の持続</h2></div>
+        <div class="tlx-toggles">
+          <label class="tlx-chk"><input type="checkbox" id="c-ex" data-k="show" data-s="ex" checked>EX スキル</label>
+          <label class="tlx-chk"><input type="checkbox" id="c-ns" data-k="show" data-s="ns" checked>ノーマルスキル</label>
+          <label class="tlx-chk"><input type="checkbox" id="c-pv" data-k="show" data-s="pv" checked>パッシブ・サブ</label>
+        </div>
+        <p class="lead" id="bars-lead">編成を決めると、持続する効果がここに帯で出ます。</p>
         <div class="chart" id="bars"></div>
+      </div>
+    </div>
+
+    <div class="tfull">
+      <div class="panel" id="atk-panel">
+        <div class="panel-h"><h2>攻撃力の倍率</h2></div>
+        <p class="lead" id="atk-lead">編成を決めると、攻撃力が何倍になっているかがここに出ます。</p>
+        <div class="chart" id="atk"></div>
+        <div id="atk-more"></div>
+      </div>
+    </div>
+
+    <div class="tfull">
+      <div class="panel" id="cond-panel">
+        <div class="panel-h"><h2>条件で発動するもの</h2></div>
+        <p class="lead" id="cond-lead">編成を決めると、時刻を置けないスキルがここに出ます。</p>
+        <div id="cond"></div>
       </div>
     </div>
 
@@ -435,13 +484,18 @@
         <p><b>コスト回復力の数値そのものは、あちらと突き合わせて確かめています。</b>こちらはゲームデータ（<code>RegenCost_Base</code> / <code>RegenCost_Coefficient</code>）をスキルレベルごとに読んでいて、あちらは実測で 1 つの数にしたものですが、<b>スキル最大のときの値が一致します</b>——カノエ <code>342 ＋ 85 × 重装甲</code>＝最大 <b>597</b>、セイア <b>718</b>／15 秒、ヒフミ <b>1,861</b>／5 秒、クルミ パッシブ <b>183</b>・EX <b>854</b>／10 秒、スズミ（マジカル）<b>690</b>／35 秒、ユカリ（水着）<b>1,259</b>／10 秒、レイジョ <b>1,861</b>／5 秒、キサキ（水着）<b>1,625</b>／5 秒、ヒマリ <b>+20.29%</b>（あちらの ×1.202）。<b>別々に出した数が揃ったので、どちらの読み違いでもないと言えます。</b></p>
         <p><b>スキルコストを下げる効果に対応しています。</b>SchaleDB の <code>Skills.Ex.Effects[]</code> にある <code>Type: "CostChange"</code> がそれで、EX に持っているのは <b>6 人</b>（ウイ・セイア・フウカ（正月）・ユズ（臨戦）・キサキ（水着）・レイサ（マジカル））です。<code>ValueType: "Coefficient"</code> のときの <code>Scale: -5000</code> が 50% 引き、<code>"BaseAmount"</code> のときは引く数そのもの。<b>減る量のほうを切り捨てます</b>——スキル文の「ただし減少値は小数点以下切り捨て」がこれで、7 コストなら 7 − ⌊3.5⌋ ＝ <b>4 コスト</b>になります。効くのは時間ではなく <code>Uses</code> 回ぶんです。<b>セイアだけは EX のレベルで回数が変わります</b>（Lv1〜4 が 1 回、Lv5 で 2 回）ので、スキル文のパラメータから取っています。</p>
         <p><b>誰に渡すかは、こちらでは決められません。</b>スキル文は「自身を除く味方 1 人」としか言わず、<b>ゲームがどう選ぶかはデータに入っていません。</b>なので選ぶ欄を出しています。既定は「渡さない」です。キサキ（水着）は「最も近い味方 3 人」なので、このツールでは 1 人ぶんしか数えられません。<b>ノーマルスキルや装備で下げる子（ジュンコ・サオリ・ココナ・コユキ・シロコ（水着）・キキョウ・マリー（アイドル）・レイ・ミチル（ドレス）・コノカ の 10 人）は、自動で出るスキルなので TL には組み込んでいません。</b></p>
-        <p><b>バフの帯は、EX の効果のうち持続時間があるものです。</b>同じ <code>Effects[]</code> の <code>Duration</code>（ミリ秒）から引いています。持続の無いもの（撃った瞬間のダメージや回復）は帯になりません。効果の名前は SchaleDB の <code>Stat</code> の訳語で、<code>Stat</code> を持たない 3 種（<code>Regen</code>・<code>Shield</code>・<code>DamageDebuff</code>）だけは種別から当てています。<b>着弾までの遅れ（<code>ApplyFrame</code>）は数えていません</b>ので、実際の効き始めは帯の左端より少し後ろです。</p>
+        <p><b>効果の帯は、持続時間のあるものです。</b><code>Effects[]</code> の <code>Duration</code>（ミリ秒）から引いています。持続の無いもの（撃った瞬間のダメージや回復）は帯になりません。効果の名前は SchaleDB の <code>Stat</code> の訳語で、<code>Stat</code> を持たない 3 種（<code>Regen</code>・<code>Shield</code>・<code>DamageDebuff</code>）だけは種別から当てています。<b>着弾までの遅れ（<code>ApplyFrame</code>）は数えていません</b>ので、実際の効き始めは帯の左端より少し後ろです。<b>2026 年 8 月 30 日から、EX だけでなくノーマルスキル・パッシブ・サブスキルも同じ図に乗せています。</b>帯は<b>編成に入れた子のぶんだけ</b>で、種別ごとにチェックで畳めます。</p>
         <p><b>固有武器で、自分がかけた効果の持続が伸びます。</b>データでは <code>ExtendBuffDuration_Base</code>（バフ側・<b>22 人</b>）と <code>ExtendDebuffDuration_Base</code>（デバフ側・<b>7 人</b>）という別々のステータスで、どちらも 10000 分率の 10 段です。<b>Lv10 で ＋19%</b>（<code>1900</code>）。枠の「固有」で段を選ぶと、帯の長さと「効いている間」の秒数に効きます。既定は「なし」です。<b>有志ツールはこの 2 つを混ぜて「固有 2 で ×1.19」と一括りにしていますが、データ上は別物なので分けています。</b>混ぜると、デバフだけ伸びるカンナ（水着）・フユ・ユウカ（パジャマ）のバフまで伸びてしまいます。</p>
         <p><b>撃つたびに EX が変わる子に対応しています。</b>SchaleDB の <code>Skills.Ex.ExtraSkills[]</code> がそれで、<b>12 人・18 形態</b>あります（2026 年 8 月 30 日）。コストも演出時間も持続効果も形態ごとに別物なので、<b>それぞれの形態の値で計算しています。</b>既定は<b>「順送りして、最後の形態を維持」</b>——ネル（制服）なら 1 回目が「かかって来いよ」で <b>1 コスト</b>、2 回目から「怪我しても知らねえからな」で <b>4 コスト</b>。ミカ（水着）は <b>4 → 2 → 0 → 4</b> と進みます。<b>スキル文がそう読めない 3 人だけ別扱いです。</b>ココロは「潜水状態になり、「上がります！」にスキルが変更」なので<b>撃つたびに入れ替わり</b>、アリス（臨戦）は撃つ前に選ぶ形（アイコンが <code>SELECTEXSKILL</code>）、キサキ（水着）は「「実行：ばんざい体操」を2回使用後、「宣言：本日休業」にスキルが変更されます」で<b>どちらが 1 枚目かがデータの並びと食い違う</b>ため、この 2 人は<b>自動で決めず</b>に選んでもらいます。<b>行ごとの「形態」の欄で、いつでも上書きできます。</b></p>
         <p><b>手札の並びを変える書きぶりは、計算に入れていません。</b>「EXスキルをすぐに1回ドロー」（ネル（制服）ほか）・「味方1人のEXスキルカードを複製」（リオ）・「カードをデッキの最後尾に移動」（ミカ（水着）・シュン（水着））がそれで、<b>引いた 1 枚が手札のどこに入るかがデータに書かれていません。</b>ここを推測で動かすと、山札の並びがずれて<b>以降の行の「手札にある／ない」の判定が全部変わります</b>ので、代わりに<b>スキル文の原文を行ごとに畳んで出しています</b>（「このスキルの但し書き」）。<b>11 人ぶんあります。</b>読んで手で補ってください。</p>
-        <p><b>ノーマルスキル（NS）のバフ・デバフ・CC は、まだ出せません。</b>このツールが読んでいる <code>data.js</code> には <b>EX スキルの効果しか入っていない</b>ためです（コスト回復力に触るものだけは、パッシブ・ノーマルも拾っています）。<b>先に有志ツールの作りを確かめました。</b>kur-3dcg の TL 作成支援ツールは、<b>生徒ごとに手で入れた発動間隔（<code>nsInterval</code>）・持続（<code>nsDuration</code>）・初回の遅れ（<code>nsDelay</code>）</b>で NS の目盛りと帯を出しています——<b>ストライカー 186 人のうち 41 人ぶんだけ</b>で、条件で撃つ 18 人（<code>nsConditional</code>）は目盛りを出さずアイコンだけ、<b>効果の名前・値・CC・特効・攻撃倍率はどれも出していません</b>（<a href="https://github.com/kur-3dcg/blue-archive-tl-tool" target="_blank" rel="noopener">公開されているソースの <code>characters_st.json</code></a> を数えました）。kina-ko-m-ochi.net は<b>動画つき TL を探すサイト</b>で、時間軸に効果を並べる機能そのものがありません。<b>NS の発動間隔はゲームのデータには入っていないので、載せるなら手で入れるしかありません。</b>推測で埋めるとこのページの他の数字まで信用できなくなるため、いまは出さずにここに書いています。</p>
-        <p><b>特効は、EX のぶんだけ帯に出しています。</b>効果の名前は SchaleDB の <code>Stat</code> の訳語をそのまま使っていて、いま出るのは<b>爆発特効 4・貫通特効 3・神秘特効 3・振動特効 1 の計 11 本</b>です（点線の枠にしてあります）。<b>相手の装甲や属性が合ったときだけ効く</b>ので、無条件には数えていません。<b>持続時間は <code>Duration</code> が入っている効果を全部使っています</b>——生徒 274 人のうち <b>132 人</b>が EX に持続効果を持ち、帯は <b>199 本</b>（形態ぶんが別に 10 本）。<b>残りの 142 人は、持続時間のある効果を EX に持っていません。</b></p>
-        <p><b>攻撃力が実質何倍になるかは、出していません。</b><code>data.js</code> の帯は「効果の名前・持続・誰にかかるか」しか持っておらず、<b>増える量（値）が入っていません。</b>値が無いまま倍率を出すと嘘になります。<b>仮に値を入れるとしても、加算（<code>_Base</code>）と乗算（<code>_Coefficient</code>）を分けて数える必要があり、同じ種類のバフが重なるのか上書きなのかは効果ごとに違います。</b>このツールはコスト回復力のバフを<b>「重ねずに、切れる時刻だけ延ばす」</b>扱いにしているので、攻撃力を出すときも同じ扱いに揃えます。<b>先駆者も出していません。</b></p>
+        <p><b>ノーマルスキル・パッシブ・サブスキルの効果も、時間軸に乗せました</b>（2026 年 8 月 30 日）。<code>data.js</code> に <code>Skills.Public</code>／<code>Passive</code>／<code>ExtraPassive</code> の効果が入ったためです。<b>発動間隔だけは、ゲームのデータに欄がありません。</b>スキル文の「<b>N秒毎に</b>」を読んで拾っていて、<b>ノーマルスキルを持つ 175 人のうち 142 人ぶんが読めました。</b>残る <b>33 人</b>は「弾薬数が0になった時」「敵を倒した時」のような<b>条件発動</b>で、時刻が決まりません——<b>帯にせず、引き金の原文をそのまま「条件で発動するもの」に並べています。</b>パッシブとサブは <b>100 人</b>が持っていて、間隔が読めるのは <b>7 人</b>（キキョウ・コハル・シュン（水着）・ヒヨリ（水着）・ミネ・ミモリ・ルミ）だけ、残りは同じく条件発動の一覧に回しています。<b>先駆者はここまで出していません。</b><a href="https://kur-3dcg.github.io/blue-archive-tl-tool/" target="_blank" rel="noopener">kur-3dcg「ブルアカ TL作成支援ツール」</a>は<b>生徒ごとに手で入れた発動間隔（<code>nsInterval</code>）</b>で目盛りを出していて、<b>ストライカー 186 人のうち 41 人ぶんだけ</b>、<b>効果の名前・値・CC・特効・攻撃倍率はどれも出していません</b>（<a href="https://github.com/kur-3dcg/blue-archive-tl-tool" target="_blank" rel="noopener">公開されているソースの <code>characters_st.json</code></a> を数えました）。kina-ko-m-ochi.net は<b>動画つき TL を探すサイト</b>で、時間軸に効果を並べる機能そのものがありません。</p>
+        <p><b>ノーマルスキルの帯は 0 秒から、間隔ごとに置いています。</b><b>初回のずれ（ディレイ）はデータに無いので置いていません。</b>kur-3dcg は <code>nsDelay</code> という欄を手で持っていますが、こちらは手入力の値を持たない方針なので、<b>1 回目は実際にはこれより後ろにずれます。</b>帯が 200 回を超えるときは、そこで打ち切って「打ち切り」と画面に出します。<b>効果が持続時間より短い間隔で撃ち直されるときは、重ねがけにせず切れる時刻だけ後ろにずらしています</b>——このツールがコスト回復力のバフでやっている扱い（<code>Recovery.start()</code>）と同じです。</p>
+        <p><b>CC（気絶・挑発・恐怖・混乱）を帯に出しています。</b>CC は他の効果と書き方が違い、<b><code>Duration</code> を持たず、続く長さが <code>Scale</code> に入っています</b>（気絶 3.6 秒なら <code>3600</code>）。当たる確率は <code>Chance</code> で 10000 ＝ 100%。<b>全部で 32 本・25 人</b>（気絶状態 23・挑発状態 4・恐怖状態 3・混乱 2）で、<b>100% でないものが 3 本</b>——<b>カリン</b>のノーマル「火力支援、開始」が <b>50%</b>、<b>ヤクモ</b>の EX「出版、重版、流通」が <b>61%</b>、<b>カヨコ</b>のノーマル「パニックショット」が <b>30%</b>です。<b>この 3 本は帯にも一覧にも確率を書いています。</b>敵にかかるものなので、味方のバフとは色を分けました。<b>CC の長さには固有武器の延長（<code>ExtendDebuffDuration</code>）を掛けていません</b>——CC がその対象かどうかを、データから確かめられないためです。<b>EX レベルが低いと長さが 0 のものがあり</b>（ホシノ・スズミ・ネル（バニーガール）の Lv1〜2）、そのときは帯を出しません。</p>
+        <p><b>属性特効は、EX・ノーマル・サブのぶんを帯に出しています。</b>拾っているのは <code>Stat</code> が <code>EnhanceExplosionRate</code>／<code>EnhancePierceRate</code>／<code>EnhanceMysticRate</code>／<code>EnhanceSonicRate</code> で終わるもので、<b>EX 11 本・ノーマル 15 本・サブ 5 本の計 31 本、25 人</b>です（振動特効 10・貫通特効 9・神秘特効 6・爆発特効 6。点線の枠にしてあります）。セイアのノーマル「智者の助言」の貫通特効もこれです。<b>攻撃力の倍率には入れていません。</b>特効は<b>受け取った子の攻撃属性が合っていなければ乗らず</b>、さらに<b>相手の装甲で通り方が変わる</b>ためです。代わりに、その特効の属性が<b>この編成の誰と合っているかを名指しで出しています</b>（<code>data.js</code> の <code>bt</code>）。<b>装甲を選ばせる形にはしませんでした</b>——属性と装甲の掛け算表（<code>BulletArmorDamageFactorExcelTable</code>）は <code>data.js</code> に入っておらず、特効がその表の値に足されるという読み方を、こちらのデータだけでは確かめられないためです。<b>持続時間は <code>Duration</code> が入っている効果を全部使っています</b>——効果の帯になりうるものは全部で <b>525 本</b>（EX 221・形態 11・ノーマル 197・サブ 96）あります。</p>
+        <p><b>攻撃力の倍率を出しました。</b>使っているのは <code>Stat</code> が <code>AttackPower_Coefficient</code> の効果だけで、<b>EX 34 本・ノーマル 47 本・サブ 20 本の計 101 本</b>です。<code>_Coefficient</code> は 10000 分率の掛け算（<code>2105</code> ＝ ×1.2105）なので、効いているぶんを足してから <code>1 ＋ 合計 ÷ 10000</code> にしています。<b><code>AttackPower_Base</code>（EX 6 本・形態 3 本・ノーマル 1 本の計 10 本）は混ぜていません。</b>こちらは実数の足し算で、<b>素の攻撃力が <code>data.js</code> に入っていないため倍率に直せません</b>——実数のまま別立てで出しています。<b><code>_Base</code> と <code>_Coefficient</code> は末尾で見分けています</b>が、<code>_Base</code> がいつも実数というわけではなく、<code>EnhancePierceRate_Base</code> のように<b>ステータス名が <code>Rate</code> で終わるものは 10000 分率</b>です（<code>4983</code> ＝ ＋49.83%）。画面の表示はそこで分けています。</p>
+        <p><b>倍率は 1 つの数ではなく、幅で出しています。</b><code>data.js</code> が持っている「誰にかかるか」は <b>本人（<code>self</code>）／味方（<code>ally</code>）／敵（<code>enemy</code>）の 3 つだけ</b>で、<b>味方のバフが「自身を除く味方1人」なのか「味方全員」なのかが落ちています。</b>SchaleDB の元データを見ても <code>Target</code> は <code>["AllyMain"]</code>・<code>["Self","AllyMain","AllySupport"]</code> のような<b>枠の種類</b>しか持っておらず、<b>人数はスキル文にしか書かれていません</b>（セイアのノーマルは <code>["AllyMain"]</code> ですが、文は「自身を除く味方1人」です）。<b>そこで、下限を「本人にかかるぶんだけ」、上限を「味方ぶんも全部乗せた場合」として、×1.00〜1.86 のように幅で出しました。</b>1 つの数にすると、どちらに寄せても嘘になります。<b>敵にかける攻撃力デバフは、こちらの倍率には入れていません</b>（別枠で一覧に出しています）。</p>
+        <p><b>重なり方は、コスト回復力のバフと同じ扱いに揃えました。</b><b>同じスキルの同じ効果は重ねがけにならず、切れる時刻だけ後ろにずれます</b>（<code>Recovery.start()</code> と同じ）。<b>別のスキルどうしは足し算で重なります</b>——上に書いた Ultimit Archive の「EX/NS/PS/SS のスキル種別が異なれば重複可能、また同じスキル種別でも加算と乗算は重複可能」に沿った扱いです。</p>
+        <p><b>攻撃力以外の火力は、倍率にまとめていません。</b>会心ダメージ・会心値・攻撃速度・与ダメージ倍率・EXスキル与ダメージ倍率・防御力貫通・属性特効は、<b>どれも攻撃力ではなく、ダメージ計算の別の場所に入ります。</b>会心が乗るかどうか・相手の装甲が何か・通常攻撃なのか EX なのかで効き方が変わるので、<b>掛け合わせて 1 つの数にすると正確に見えて違う数になります。</b>値と持続をそのまま並べて出すところまでにしました。<b>段のある効果（<code>v</code> が二重配列。全部で 26 本）は 1 段目で数えていて、画面に「段あり（1 段目）」と出しています</b>——段の決まり方はスキル文にしか書かれていないためです。<b><code>Stat</code> を持たない効果（継続回復・シールド・持続ダメージ）は、値の単位が決められないので数を出していません。</b>また <b><code>Target</code> を持たない効果を <code>data.js</code> は「敵」として扱っています</b>——敵への設置や持続ダメージがそれですが、<b>召喚（<code>Summon</code>）もそこに混ざる</b>ので、画面では種別で先に抜いて「召喚したものに付く効果」に分けています（ヒフミのペロロ様の最大HPなど）。</p>
         <p><b>書き出しの形を少し変えました。</b>4 列（時刻・名前・EX・コスト）の本体は今までどおりで、<b>上に <code>#</code> で始まる 2 行を足しています。</b>1 行目に共有 URL が入っているので、<b>書き出したものをそのまま貼り戻すと、撃たない子も含めて編成ごと元に戻ります。</b>4 列だけでは編成が分からず（撃たない子は書かれていません）、コスト回復力が変わって時刻がずれるためです。<code>#</code> の行を消して本体だけ貼っても読めます。その場合は名前から編成を組み直し、<b>貼られた秒より早く撃てない行だけ「この秒に」で留めます。</b></p>
         <p><b>画像の書き出しは、この場で作っています。</b>外のライブラリは読み込まない決まりなので、画面に出ている SVG をそのまま組み直して 1 枚にし、<code>canvas</code> に描いて PNG にしています。<b>SVG を画像として読むと外のスタイルシートは効かない</b>ので、色は表示中のページから読んで書き写しています。白背景と透過の 2 つを出せます。</p>
         <p>出典 —
@@ -452,7 +506,7 @@
   </div>
 </div>
 
-<script>window.TOUR = {"key": "cost-timeline", "steps": [{"sel": "#party-main", "t": "先に編成を決めます", "d": "名前を入れて 6 人（制約解除決戦なら 10 人）そろえてください。EX を撃たない子もコスト回復力に効くので入れます。"}, {"sel": "#ledger", "t": "コスト回復力はここで確かめます", "d": "素の 700 に、ヒマリのようなスキルぶんが乗ります。持続するバフは「効いている間」に切り替えると合計に入ります。"}, {"sel": "#add", "t": "撃つ順番を並べます", "d": "顔を押すと下に積まれます。最短で撃つか、秒を決め打ちするかを行ごとに選べます。手札に無い並びは赤く出ます。"}, {"sel": "#bars", "t": "バフがいつ切れるかを見ます", "d": "帯の右端の縦線で効果が切れます。次の一手がその中に入っているかを、コストの図と同じ横軸で見比べてください。"}]};</script>
+<script>window.TOUR = {"key": "cost-timeline", "steps": [{"sel": "#party-main", "t": "先に編成を決めます", "d": "名前を入れて 6 人（制約解除決戦なら 10 人）そろえてください。EX を撃たない子もコスト回復力に効くので入れます。"}, {"sel": "#ledger", "t": "コスト回復力はここで確かめます", "d": "素の 700 に、ヒマリのようなスキルぶんが乗ります。持続するバフは「効いている間」に切り替えると合計に入ります。"}, {"sel": "#add", "t": "撃つ順番を並べます", "d": "顔を押すと下に積まれます。最短で撃つか、秒を決め打ちするかを行ごとに選べます。手札に無い並びは赤く出ます。"}, {"sel": "#bars-panel", "t": "効果がいつ切れるかを見ます", "d": "EX だけでなく、ノーマルスキル・パッシブ・サブの効果も同じ横軸に並びます。帯の右端の縦線で切れます。上のチェックで種別ごとに畳めます。"}, {"sel": "#atk-panel", "t": "攻撃力が何倍かを見ます", "d": "掛け算の攻撃力バフだけを足した倍率です。味方に付くバフが 1 人ぶんか全員ぶんかはデータに入っていないので、下限と上限の幅で出しています。"}]};</script>
 <script src="../tour.js?v=1"></script>
 
 <script src="../share.js?v=1"></script>

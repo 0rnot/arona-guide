@@ -1138,6 +1138,25 @@ def build_treasure():
         return loc.get(xxh32(code)) or fallback
 
     rw = {r["Id"]: r for r in rewards}
+
+    # **備品を当てると何がもらえるかも出す**（2026-08-30 に足した）。
+    # `RewardParcelType` / `RewardParcelId` / `RewardParcelAmount` の 3 本が
+    # 同じ長さで並んでいる。`Item` は道具、`Equipment` は装備で、**別々の表**
+    item_nm = {int(i["Id"]): i.get("Name", "") for i in as_list(get_json(SD.format("items"))) if i.get("Id")}
+    equip_nm = {int(i["Id"]): i.get("Name", "") for i in as_list(get_json(SD.format("equipment"))) if i.get("Id")}
+
+    def parcels(it):
+        """その備品の中身。**名前が引けないものは落とさず「？」で出す。**"""
+        ty = it.get("RewardParcelType") or []
+        ids = it.get("RewardParcelId") or []
+        amt = it.get("RewardParcelAmount") or []
+        if not (len(ty) == len(ids) == len(amt)):
+            return []
+        out = []
+        for t, i, a in zip(ty, ids, amt):
+            nm = (item_nm if t == "Item" else equip_nm).get(i, "")
+            out.append({"n": nm or f"？（{t} {i}）", "c": a})
+        return out
     # 同じ EventContentId が何行も出るので、開催期間は 1 つに畳む
     period, origin = {}, {}
     for r in season:
@@ -1166,7 +1185,8 @@ def build_treasure():
                 items.append({"n": jp(it.get("LocalizeCodeID", ""), "？"),
                               "w": it.get("CellUnderImageWidth", 1),
                               "h": it.get("CellUnderImageHeight", 1),
-                              "c": amt})
+                              "c": amt,
+                              "rw": parcels(it)})
             if len(items) == 3:
                 out.append(items)
         if not out:

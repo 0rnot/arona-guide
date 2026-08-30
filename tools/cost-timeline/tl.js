@@ -162,6 +162,151 @@
     // 同じ値なのに片方が 17.8 秒、もう片方が 17.9 秒と食い違って出る
     return Math.round(du * (1 + (tbl[lv - 1] || 0) / 10000));
   }
+
+  /* ---------- EX 以外のスキル（ノーマル・パッシブ・サブ）
+
+     `data.js` の `ns` がノーマルスキル、`pv` がパッシブとサブスキル。中身の形は
+     EX の `bf` と同じで、**`iv`（発動間隔・秒）だけが増えている。**
+
+     **`iv` はゲームのデータには欄が無い。**スキル文の「N秒毎に」を読んだ値で、
+     読めたのは `ns` を持つ 175 人のうち 142 人。読めなかった 33 人は `iv: 0` の
+     まま、引き金の原文が `cond` に入っている——そちらは時刻が決められないので
+     帯にせず、「条件で発動するもの」の一覧に回す。 */
+
+  // SchaleDB の `SkillTypeShort`。Public ＝ ノーマル、Passive ＝ パッシブ、
+  // ExtraPassive ＝ サブ
+  var SKJA = { Public: 'ノーマル', Passive: 'パッシブ', ExtraPassive: 'サブ' };
+  var BT_JA = { Explosion: '爆発', Pierce: '貫通', Mystic: '神秘', Sonic: '振動',
+                Normal: 'ノーマル', Chemical: '分解' };
+
+  /** どの種別の帯を出すか。**編成した子のぶんだけでも本数が多い**ので畳めるようにする。
+      URL と保存にも載せる（後ろに足しただけなので、古いリンクはそのまま読める）。 */
+  var show = { ex: true, ns: true, pv: true };
+
+  function isArr(x) { return Object.prototype.toString.call(x) === '[object Array]'; }
+  /** 効果の値の並び。**段のあるもの（`v` が二重配列）は 1 段目を使う。**
+      段の決まり方はスキル文にしか書かれていないので、画面に「段あり」と出す。 */
+  function bfRow(b) { var v = b.v || []; return (v.length && isArr(v[0])) ? (v[0] || []) : v; }
+  function bfTiered(b) { var v = b.v || []; return v.length > 1 && isArr(v[0]); }
+  /** レベルで 1 つ引く。**EX は 5 段（EX レベル）、それ以外は 10 段（スキルレベル）。** */
+  function atLv(arr, s, isEx) {
+    if (!arr || !arr.length) return 0;
+    var lv = (isEx ? s.ex : s.sk) - 1;
+    return arr[Math.min(arr.length - 1, Math.max(0, lv))] || 0;
+  }
+  /** `Stat` の末尾で足し算か掛け算かが決まる。**この 2 つを混ぜると答えが変わる。**
+      `_Coefficient` は素の値に掛かる 10000 分率（2105 ＝ ×1.2105）、
+      `_Base` はそのステータスの単位のまま足す。 */
+  function statKind(st) { return /_Coefficient$/.test(st || '') ? 'c' : (/_Base$/.test(st || '') ? 'b' : ''); }
+  function statRoot(st) { return String(st || '').replace(/_(Base|Coefficient)$/, ''); }
+  /** その値が % で読むものか。**`_Coefficient` は必ず % で、`_Base` は
+      ステータス名が `Rate` / `Ratio` で終わるものだけ %**（`EnhancePierceRate_Base`
+      の 4983 は ＋49.83%、`AttackPower_Base` の 4983 は攻撃力 ＋4,983）。 */
+  function isPct(st) {
+    return statKind(st) === 'c' || /(Rate|Ratio\d*)$/.test(statRoot(st));
+  }
+  /** 画面に出す値。**単位が決められないもの（`Stat` を持たない Regen / Shield /
+      持続ダメージ）は数を出さない。** */
+  function valJa(st, v) {
+    if (!st) return '';
+    var sign = v < 0 ? '−' : '＋';
+    return isPct(st) ? sign + n2(Math.abs(v) / 100) + '%' : sign + fmt(Math.abs(v));
+  }
+
+  /** 属性特効。**受け取った子の攻撃属性が合っていないと乗らない**ので、
+      攻撃力の倍率には混ぜず、誰に効くかを名指しで出す。 */
+  var AMP_BT = { EnhanceExplosionRate: 'Explosion', EnhancePierceRate: 'Pierce',
+                 EnhanceMysticRate: 'Mystic', EnhanceSonicRate: 'Sonic',
+                 EnhanceNormalRate: 'Normal', EnhanceChemicalRate: 'Chemical' };
+
+  /** その子の、時間軸に置けるスキル（`iv` を持つもの）。 */
+  function timedOf(d) {
+    var out = [];
+    if (d.ns && d.ns.iv) out.push({ g: 'ns', key: 'ns', ja: 'ノーマル', sk: d.ns });
+    (d.pv || []).forEach(function (p, i) {
+      if (p.iv) out.push({ g: 'pv', key: 'pv' + i, ja: SKJA[p.sl] || 'パッシブ', sk: p });
+    });
+    return out;
+  }
+  /** 時刻を置けないスキル。**引き金の原文をそのまま持って出す。** */
+  function condOf(d) {
+    var out = [];
+    if (d.ns && !d.ns.iv) out.push({ ja: 'ノーマル', sk: d.ns });
+    (d.pv || []).forEach(function (p) {
+      if (!p.iv) out.push({ ja: SKJA[p.sl] || 'パッシブ', sk: p });
+    });
+    return out;
+  }
+
+  /** 帯 1 本ぶんの中身。**時刻はまだ入れない。** */
+  function mkBar(d, s, b, isEx, key, si, kindJa, skn) {
+    var cc = b.ty === 'CrowdControl';
+    /* **CC の長さは `Scale` そのまま。**固有武器の延長（`ExtendDebuffDuration`）を
+       掛けていないのは、CC がその対象かどうかをデータから確かめられないため。 */
+    var ms = cc ? atLv(b.sc || [], s, isEx) : extend(d, s, b.du, b.sd);
+    if (!ms) return null;
+    var root = statRoot(b.st);
+    return { key: key, si: si, who: d.n, d: d, s: s, e: b.n, sd: b.sd, ms: ms,
+             grew: !cc && ms > b.du, cc: cc, ch: cc ? (b.ch == null ? 10000 : b.ch) : 10000,
+             amp: !!AMP_BT[root], bt: AMP_BT[root] || '', kind: kindJa, skn: skn,
+             st: b.st || '', root: root, k: statKind(b.st),
+             v: cc ? 0 : atLv(bfRow(b), s, isEx), tier: bfTiered(b), ty: b.ty || '' };
+  }
+
+  /** 重なりをひとつにまとめる。**同じ効果は重ねがけにならず、切れる時刻だけ
+      後ろにずれる**——このツールがコスト回復力のバフでやっているのと同じ扱い
+      （`Recovery.start()`）に揃えてある。 */
+  function mergeSegs(segs) {
+    var a = segs.slice().sort(function (p, q) { return p[0] - q[0]; }), out = [];
+    a.forEach(function (x) {
+      var last = out[out.length - 1];
+      if (last && x[0] <= last[1] + 1e-9) last[1] = Math.max(last[1], x[1]);
+      else out.push([x[0], x[1]]);
+    });
+    return out;
+  }
+
+  // 1 本の帯に置く発動の上限。**これを超えたら止めて、止めたと画面に出す**
+  var TICK_MAX = 200;
+
+  /** 図に出す帯を全部集める。**EX は撃った行から、それ以外は発動間隔から。**
+      `sim` が無いとき（まだ EX を並べていないとき）は EX 抜きで返す。 */
+  function collectBars(sim, span) {
+    var out = [];
+    if (sim && show.ex) sim.rows.forEach(function (r) {
+      if (!r.d || r.at === null || !r.sk || !r.sk.bf) return;
+      r.sk.bf.forEach(function (b, bi) {
+        var one = mkBar(r.d, r.s, b, true, 'ex' + r.idx + '.' + bi, r.e.i, 'EX', r.sk.n);
+        if (!one) return;
+        one.segs = [[r.at, r.at + one.ms / 1000]];
+        one.iv = 0;
+        out.push(one);
+      });
+    });
+    members().forEach(function (m) {
+      timedOf(m.d).forEach(function (t) {
+        if (!show[t.g]) return;
+        (t.sk.bf || []).forEach(function (b, bi) {
+          var one = mkBar(m.d, m.s, b, false, m.i + '.' + t.key + '.' + bi, m.i, t.ja, t.sk.n);
+          if (!one) return;
+          /* **0 秒から `iv` 秒ごと。**初回のずれ（ディレイ）はデータに無いので
+             置いていない。実際の 1 回目はここより後ろにずれる。 */
+          var segs = [], cut = false;
+          for (var k = 0; ; k++) {
+            var at = k * t.sk.iv;
+            if (at > span) break;
+            if (segs.length >= TICK_MAX) { cut = true; break; }
+            segs.push([at, at + one.ms / 1000]);
+          }
+          one.segs = segs; one.iv = t.sk.iv; one.cut = cut;
+          out.push(one);
+        });
+      });
+    });
+    out.forEach(function (b) { b.segs = mergeSegs(b.segs); });
+    return out;
+  }
+
   var mode = 6, slots = [], order = [], lastSim = null;
   // ステージギミック { t: 発動する秒, v: 回復力の増加量, du: 効果時間の秒 }
   var gims = [], goal = null;
@@ -206,7 +351,7 @@
   function state() {
     return { m: mode, s: slots, o: order, gk: gims, gl: goal,
              st: el('i-start').value, cp: capNow(),
-             gb: el('i-gb').value, gc: el('i-gc').value };
+             gb: el('i-gb').value, gc: el('i-gc').value, sw: showKey() };
   }
   function apply(d) {
     if (!d) return;
@@ -256,6 +401,14 @@
     }
     if (d.gb != null) el('i-gb').value = d.gb;
     if (d.gc != null) el('i-gc').value = d.gc;
+    // 帯の出し分け。**古いリンクと保存には入っていない**ので、無ければ既定のまま
+    if (typeof d.sw === 'string' && /^[01]{3}$/.test(d.sw)) {
+      show = { ex: d.sw.charAt(0) === '1', ns: d.sw.charAt(1) === '1', pv: d.sw.charAt(2) === '1' };
+    }
+  }
+  /** 帯の出し分けを 3 文字にする。**全部 on の `111` は URL に書かない。** */
+  function showKey() {
+    return (show.ex ? '1' : '0') + (show.ns ? '1' : '0') + (show.pv ? '1' : '0');
   }
   function save() {
     try { localStorage.setItem(KEY, JSON.stringify(state())); } catch (e) { /* 使えない環境でも動く */ }
@@ -294,8 +447,9 @@
                   .filter(Boolean).join('!');
     var fm = order.map(function (e, j) { return e.f == null ? '' : j + ':' + e.f; })
                   .filter(Boolean).join('!');
+    var sw = showKey();
     var tail = [el('i-start').value, capNow(), el('i-gb').value, el('i-gc').value,
-                goal == null ? '' : n1x(goal), gk, ov, fm];
+                goal == null ? '' : n1x(goal), gk, ov, fm, sw === '111' ? '' : sw];
     while (tail.length && tail[tail.length - 1] === '') tail.pop();
     return '#' + mode + '|' + ps + '|' + os + '|' + tail.join('/');
   }
@@ -354,6 +508,7 @@
         if (d.o[+a[0]]) d.o[+a[0]].f = +a[1];
       });
     }
+    if (g[8]) d.sw = g[8];
     apply(d);
     return true;
   }
@@ -954,6 +1109,11 @@
       el('timeline').innerHTML = ''; el('out').value = ''; el('chart').innerHTML = '';
       el('chart-lead').textContent = 'EX を並べると、コストが貯まって減っていく様子が出ます。';
       el('tl-lead').textContent = order.length ? '生徒を入れてください。' : 'まだ何も並んでいません。';
+      lastSim = null;
+      /* **EX を並べていなくても、ノーマル・パッシブの帯は出せる。**
+         横軸だけ決まらないので、既定の 60 秒（目標時刻があればそこまで）で描く。
+         幅の数（760 / 34 / 12）は `drawChart` の枠と同じもの。 */
+      drawSide(null, Math.max(60, goal == null ? 0 : goal + 5), 760, 34, 12);
       return;
     }
     var cap = capNow();
@@ -1101,7 +1261,7 @@
       + '戦闘開始から ' + REC_DELAY + ' 秒は貯まりません。傾きが変わるところは、'
       + 'コスト回復力のバフが立ったか切れたところです。'
       + (goal == null ? '' : '赤い縦線が目標の ' + clockIn(goal) + ' です。');
-    drawBars(sim, span, W, L, R);
+    drawSide(sim, span, W, L, R);
   }
 
   /** 目標時刻の赤い縦線。**枠の外なら描かない。**
@@ -1117,40 +1277,63 @@
 
   /* バフの持続。**コストの図と横軸を揃えた帯。**
      どの効果がいつ切れるか、次の一手がその中に入っているかを見るためのもの。
-     持続を持たない効果（撃った瞬間のダメージ・回復）は帯にならないので出さない。 */
+     持続を持たない効果（撃った瞬間のダメージ・回復）は帯にならないので出さない。
+
+     2026-08-30 から、EX だけでなく**ノーマルスキル・パッシブ・サブスキル**も
+     同じ図に乗せている。EX は撃った 1 回ぶん、それ以外は `iv` 秒ごとに繰り返す。 */
   var SIDE_JA = { self: '本人', ally: '味方', enemy: '敵' };
-  function drawBars(sim, span, W, L, R) {
-    var bars = [];
-    sim.rows.forEach(function (r) {
-      if (!r.d || r.at === null || !r.sk || !r.sk.bf) return;
-      r.sk.bf.forEach(function (b) {
-        var du = extend(r.d, r.s, b.du, b.sd);
-        // **秒数は帯の長さから引き算しない。**at が小数なので
-        // 17.85 が 17.849999… になって、他の表示と 0.1 秒ずれる
-        bars.push({ at: r.at, end: r.at + du / 1000, sec: du / 1000,
-                    // **「◯◯特効」は相手の装甲・属性しだい。**印を分けて数える
-                    n: r.d.n, e: b.n, sd: b.sd, grew: du > b.du, amp: /特効$/.test(b.n) });
-      });
-    });
+
+  /** 帯の見出し。**収まらないぶんは `<title>` に回す**（技術情報は削らない）。 */
+  function barLabel(b) {
+    return (b.kind === 'EX' || !b.kind ? '' : '〈' + b.kind + '〉') + b.who + '／' + b.e +
+      ' ' + n1(b.ms / 1000) + '秒' +
+      (b.iv ? '（' + nn(b.iv) + '秒ごと）' : '') +
+      (b.ch < 10000 ? '（' + nn(b.ch / 100) + '%）' : '') +
+      (b.dup ? '（' + (SIDE_JA[b.sd] || b.sd) + '）' : '') +
+      (b.tier ? '（段あり・1段目）' : '') +
+      (b.grew ? '（固有で延長）' : '');
+  }
+  function barTitle(b) {
+    return b.who + '　' + (b.skn ? '「' + b.skn + '」' : '') + b.e +
+      (b.st ? '（' + b.st + (b.v ? ' ' + b.v : '') + '）' : '') +
+      '　' + n1(b.ms / 1000) + ' 秒　' + (SIDE_JA[b.sd] || '') +
+      (b.iv ? '　' + nn(b.iv) + ' 秒ごと' : '') +
+      (b.ch < 10000 ? '　確率 ' + nn(b.ch / 100) + '%' : '');
+  }
+
+  /** 帯・攻撃力の倍率・条件で発動するもの。**3 つとも横軸をコストの図に揃える。** */
+  function drawSide(sim, span, W, L, R) {
+    var bars = collectBars(sim, span);
+    drawBars(sim, span, W, L, R, bars);
+    drawAtk(span, W, L, R, bars, !!sim);
+    drawCond();
+  }
+
+  function drawBars(sim, span, W, L, R, bars) {
+    bars = bars.slice();
     // オーバーコストの帯。**渡した子が、いつまで超過して払えるか。**
-    (sim.ovWin || []).forEach(function (w) {
+    ((sim && sim.ovWin) || []).forEach(function (w) {
       var d = byId[slots[w.to] && slots[w.to].id];
-      bars.push({ at: w.s, end: w.e, sec: w.e - w.s, n: d ? d.n : '？',
-                  e: 'オーバーコスト（下限 ' + neg(OVER_FLOOR) + '）', sd: 'over', grew: false });
+      bars.push({ segs: [[w.s, w.e]], ms: (w.e - w.s) * 1000, who: d ? d.n : '？',
+                  e: 'オーバーコスト（下限 ' + neg(OVER_FLOOR) + '）', sd: 'over',
+                  kind: '', iv: 0, ch: 10000, grew: false, cc: false, amp: false, k: '', st: '' });
     });
     // ステージギミックの帯
     gims.forEach(function (g) {
-      bars.push({ at: g.t, end: g.t + g.du, sec: g.du, n: 'ステージ',
-                  e: 'コスト回復力 ' + (g.v >= 0 ? '＋' : '−') + fmt(Math.abs(g.v)), sd: 'gim', grew: false });
+      bars.push({ segs: [[g.t, g.t + g.du]], ms: g.du * 1000, who: 'ステージ',
+                  e: 'コスト回復力 ' + (g.v >= 0 ? '＋' : '−') + fmt(Math.abs(g.v)), sd: 'gim',
+                  kind: '', iv: 0, ch: 10000, grew: false, cc: false, amp: false, k: '', st: '' });
     });
     var box = el('bars'), lead = el('bars-lead');
     if (!bars.length) {
       box.innerHTML = '';
-      lead.textContent = '並べた EX に持続する効果があると、ここに帯が出ます。';
+      lead.textContent = members().length
+        ? '持続する効果を持った子が編成にいません。上のチェックで種別を戻すと出ることがあります。'
+        : '編成を決めると、持続する効果がここに帯で出ます。';
       return;
     }
     var ROW = 22, T = 6, B = 22, H = T + ROW * bars.length + B;
-    var x = function (t) { return L + (W - L - R) * (Math.min(t, span) / span); };
+    var x = function (t) { return L + (W - L - R) * (Math.min(Math.max(t, 0), span) / span); };
     var step = span <= 30 ? 5 : span <= 90 ? 15 : 30;
     var g = '';
     for (var t = 0; t <= span; t += step) {
@@ -1158,36 +1341,273 @@
            '" y2="' + (H - B).toFixed(1) + '"></line>' +
            '<text x="' + x(t).toFixed(1) + '" y="' + (H - 6) + '" text-anchor="middle">' + t + '秒</text>';
     }
-    var over = 0, amp = 0;
-    bars.forEach(function (b) { if (b.amp) amp++; });
+    var over = 0, amp = 0, cc = 0, ns = 0, cut = 0;
+    bars.forEach(function (b) {
+      if (b.amp) amp++;
+      if (b.cc) cc++;
+      if (b.kind && b.kind !== 'EX') ns++;
+      if (b.cut) cut++;
+      // **繰り返す帯は数えない。**最後の 1 回はほぼ必ず枠の外へ出るので、
+      // 全部数えると「N 本は先まで続きます」が毎回出て意味を持たなくなる
+      if (!b.iv && b.segs.length && b.segs[b.segs.length - 1][1] > span) over++;
+    });
+    /* **同じ名前・同じ長さの帯が 2 本以上あるときは、誰にかかるかを書き足す。**
+       セイアのノーマルは本人ぶんと味方ぶんが別の効果として入っているので、
+       書かないと同じ行が 2 本並んでいるようにしか見えない。 */
+    var dup = {};
+    bars.forEach(function (b) {
+      var k = b.who + '|' + b.e + '|' + Math.round(b.ms);
+      dup[k] = (dup[k] || 0) + 1;
+    });
     var rows = bars.map(function (b, i) {
+      b.dup = dup[b.who + '|' + b.e + '|' + Math.round(b.ms)] > 1;
       var y = T + ROW * i + 3, h = ROW - 7;
-      var x0 = x(b.at), x1 = x(b.end);
-      if (b.end > span) over++;
-      var w = Math.max(2, x1 - x0);
-      // **切れる位置に印を付ける。**帯が枠の外まで伸びるときは付けない
-      var endMark = b.end <= span
-        ? '<line class="out" x1="' + x1.toFixed(1) + '" y1="' + (y - 2) + '" x2="' + x1.toFixed(1) +
-          '" y2="' + (y + h + 2) + '"></line>' : '';
+      var cls = 'bar ' + (b.cc ? 'cc' : b.sd) + (b.amp ? ' amp' : '') +
+                (b.kind && b.kind !== 'EX' ? ' ns' : '');
+      var body = '';
+      b.segs.forEach(function (s) {
+        if (s[0] > span) return;
+        var x0 = x(s[0]), x1 = x(s[1]);
+        body += '<rect class="' + cls + '" x="' + x0.toFixed(1) + '" y="' + y +
+          '" width="' + Math.max(2, x1 - x0).toFixed(1) + '" height="' + h + '" rx="4">' +
+          '<title>' + esc(barTitle(b)) + '</title></rect>' +
+          // **切れる位置に印を付ける。**帯が枠の外まで伸びるときは付けない
+          (s[1] <= span ? '<line class="out" x1="' + x1.toFixed(1) + '" y1="' + (y - 2) +
+            '" x2="' + x1.toFixed(1) + '" y2="' + (y + h + 2) + '"></line>' : '');
+      });
       // **札が右端からはみ出さないようにする。**帯が後ろのほうにあるときは
       // 帯の左に置くと枠の外に出るので、右端に寄せて右揃えにする
+      var x0 = b.segs.length ? x(b.segs[0][0]) : L;
       var late = x0 > (W - R) * 0.62;
-      return '<rect class="bar ' + b.sd + (b.amp ? ' amp' : '') + '" x="' + x0.toFixed(1) + '" y="' + y +
-        '" width="' + w.toFixed(1) + '" height="' + h + '" rx="4"></rect>' + endMark +
-        '<text class="lb" text-anchor="' + (late ? 'end' : 'start') + '" x="' +
+      return body + '<text class="lb" text-anchor="' + (late ? 'end' : 'start') + '" x="' +
         (late ? (W - R - 4) : (x0 + 6)).toFixed(1) + '" y="' + (y + h - 3) + '">' +
-        esc(b.n) + '／' + esc(b.e) + ' ' + n1(b.sec) + '秒' +
-        (b.grew ? '（固有で延長）' : '') + '</text>';
+        esc(barLabel(b)) + '</text>';
     }).join('');
 
-    box.innerHTML = '<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="バフの持続">' +
+    box.innerHTML = '<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="効果の持続">' +
       g + rows + goalMark(goal, x, T, H - B, span) + '</svg>';
     lead.textContent = '帯 ' + bars.length + ' 本。左端が発動、右端の縦線で切れます。' +
+      (ns ? (ns === bars.length ? '' : 'うち ') + ns + ' 本はノーマル・パッシブ・サブで、0 秒から発動間隔ごとに置いています（初回のずれはデータに無いので置いていません）。' : '') +
       (over ? over + ' 本は図の右端より先まで続きます。' : '') +
       '色は本人（濃い）／味方（中）／敵（薄い）です。' +
-      ((sim.ovWin || []).length ? 'オーバーコストの帯も出しています。' : '') +
+      (cc ? 'CC（気絶・挑発など）は敵にかかる灰色の帯で、100% でないものは確率を書いています。' : '') +
+      (amp ? 'うち ' + amp + ' 本は属性特効（点線の枠）で、受け取る子の攻撃属性が合ったときだけ乗ります。' : '') +
+      ((sim && sim.ovWin && sim.ovWin.length) ? 'オーバーコストの帯も出しています。' : '') +
       (gims.length ? 'ステージギミックの帯も出しています。' : '') +
-      (amp ? 'うち ' + amp + ' 本は特効（点線の枠）で、相手の装甲や属性が合ったときだけ効きます。' : '');
+      (cut ? cut + ' 本は発動が ' + TICK_MAX + ' 回で打ち切りです。' : '');
+  }
+
+  /* ---------- 攻撃力の倍率
+
+     **`AttackPower_Coefficient` だけで出す。**同じ `AttackPower` でも `_Base` は
+     実数の加算で、素の攻撃力が `data.js` に入っていないため倍率には直せない。
+     混ぜると答えが変わるので、別立てで実数のまま出す。
+
+     重なり方はコスト回復力のバフと同じ——**同じスキルの同じ効果は重ねず、
+     切れる時刻だけ後ろにずれる。**別のスキルどうしは足し算で重なる。
+
+     **誰にかかるかは `self` / `ally` / `enemy` の 3 つしか `data.js` に無い。**
+     「自身を除く味方1人」なのか「味方全員」なのかが落ちているので、1 つの数に
+     まとめず、**下限（本人にかかるぶんだけ）と上限（味方ぶんも全部乗せる）の幅**
+     で出している。 */
+  function atkRows(bars, span) {
+    var ms = members();
+    var use = bars.filter(function (b) {
+      return !b.cc && b.k === 'c' && b.root === 'AttackPower' && b.sd !== 'enemy' && b.v;
+    });
+    if (!use.length || !ms.length) return null;
+    var edges = [0, span];
+    use.forEach(function (b) {
+      b.segs.forEach(function (s) {
+        if (s[0] >= 0 && s[0] <= span) edges.push(s[0]);
+        if (s[1] >= 0 && s[1] <= span) edges.push(s[1]);
+      });
+    });
+    edges.sort(function (p, q) { return p - q; });
+    var cuts = [];
+    edges.forEach(function (v) { if (!cuts.length || v - cuts[cuts.length - 1] > 1e-6) cuts.push(v); });
+    var rows = ms.map(function (m) {
+      var segs = [];
+      for (var i = 0; i < cuts.length - 1; i++) {
+        var t0 = cuts[i], t1 = cuts[i + 1], mid = (t0 + t1) / 2, lo = 0, hi = 0;
+        use.forEach(function (b) {
+          var on = b.segs.some(function (s) { return mid >= s[0] && mid < s[1]; });
+          if (!on) return;
+          if (b.sd === 'self') { if (b.si === m.i) { lo += b.v; hi += b.v; } }
+          else hi += b.v;
+        });
+        var last = segs[segs.length - 1];
+        if (last && last.lo === lo && last.hi === hi) last.t1 = t1;
+        else segs.push({ t0: t0, t1: t1, lo: lo, hi: hi });
+      }
+      var top = 0;
+      segs.forEach(function (s) { if (s.hi > top) top = s.hi; });
+      return { m: m, segs: segs, top: top };
+    }).filter(function (r) { return r.top > 0; });
+    /* **動きが同じ子は 1 行にまとめる。**味方全員にかかるバフしか無い編成だと、
+       同じ帯が人数ぶん並ぶだけで読みづらい（2026-08-30 に実物を見て気づいた）。 */
+    var group = [], byKey = {};
+    rows.forEach(function (r) {
+      var k = r.segs.map(function (x) {
+        return n1(x.t0) + '/' + n1(x.t1) + '/' + x.lo + '/' + x.hi; }).join(',');
+      if (byKey[k]) { byKey[k].who.push(r.m.d.n); return; }
+      byKey[k] = { segs: r.segs, who: [r.m.d.n] };
+      group.push(byKey[k]);
+    });
+    var all = members().length;
+    group.forEach(function (g) {
+      g.n = g.who.length === all && all > 1 ? '全員（' + all + ' 人）' : g.who.join('・');
+    });
+    return group.length ? { rows: group, use: use } : null;
+  }
+
+  /** 火力に効く効果の並べ分け。**攻撃力に入れたものと、入れなかったものを分ける。** */
+  var ATK_GRP = [
+    { t: '攻撃力（掛け算）— 上の倍率に入れたもの',
+      f: function (b) { return b.root === 'AttackPower' && b.k === 'c' && b.sd !== 'enemy'; } },
+    { t: '攻撃力（足し算・実数）— 倍率には直せません',
+      f: function (b) { return b.root === 'AttackPower' && b.k === 'b' && b.sd !== 'enemy'; } },
+    { t: '属性特効 — 受け取る子の攻撃属性が合ったときだけ乗ります。相手の装甲でも通り方が変わるので、上の倍率には入れていません',
+      f: function (b) { return b.amp && b.sd !== 'enemy'; } },
+    { t: '火力に効きますが、攻撃力ではないもの',
+      f: function (b) {
+        return b.sd !== 'enemy' && !b.cc &&
+          /^(CriticalDamageRate|CriticalPoint|AttackSpeed|DamageRatio2|EnhanceExDamageRate|EnhanceBasicsDamageRate|DefensePenetration|Range|AccuracyPoint|IgnoreDelayCount)$/.test(b.root);
+      } },
+    /* **召喚は敵にかけているものではない。**`Target` が無い効果を `data.js` が
+       まとめて `enemy` にしているので、種別で先に抜いておく。 */
+    { t: '召喚したものに付く効果（Summon）',
+      f: function (b) { return b.ty === 'Summon'; } },
+    { t: '敵にかけているもの',
+      f: function (b) { return b.sd === 'enemy'; } },
+  ];
+
+  function atkItem(b, n) {
+    var who = [];
+    if (b.amp) {
+      who = members().filter(function (m) { return m.d.bt === b.bt; })
+                     .map(function (m) { return m.d.n; });
+    }
+    return '<div class="tlx-item"><div class="h">' +
+      esc(b.who) + (b.skn ? '「' + esc(b.skn) + '」' : '') + '　' + esc(b.e) +
+      '<small>' + esc(b.kind || 'EX') + '／' + (SIDE_JA[b.sd] || b.sd) +
+      (n > 1 ? '／この TL で ' + n + ' 回' : '') + '</small></div>' +
+      '<div class="b">' +
+      /* **値を出せるのは `Stat` を持つものだけ。**CC は値ではなく長さで効くので
+         そもそも値が無く、継続回復・シールド・持続ダメージは単位が決められない。 */
+      (b.st ? '<b>' + valJa(b.st, b.v) + '</b>　<code>' + esc(b.st) + '</code>　'
+            : b.cc ? '' : '値は出せません（<code>Stat</code> を持たない効果です）　') +
+      n1(b.ms / 1000) + ' 秒' +
+      (b.iv ? '／' + nn(b.iv) + ' 秒ごと' : '') +
+      (b.tier ? '／段あり（1 段目で数えています）' : '') +
+      (b.grew ? '／固有武器で延長' : '') +
+      (b.ch < 10000 ? '／<b>確率 ' + nn(b.ch / 100) + '%</b>' : '') +
+      (b.amp ? '<br>この編成で ' + esc(BT_JA[b.bt] || b.bt) + ' 属性なのは ' +
+        (who.length ? '<b>' + esc(who.join('・')) + '</b> の ' + who.length + ' 人です。'
+                    : '<b>誰もいません。</b>') : '') +
+      '</div></div>';
+  }
+
+  function drawAtk(span, W, L, R, bars, hasTl) {
+    var box = el('atk'), lead = el('atk-lead'), more = el('atk-more');
+    var model = atkRows(bars, span);
+    if (!model) {
+      box.innerHTML = '';
+      lead.textContent = !members().length
+        ? '編成を決めると、攻撃力が何倍になっているかがここに出ます。'
+        : (hasTl ? '掛け算の攻撃力バフ（AttackPower_Coefficient）が、この編成には効いていません。'
+                 : 'いまはノーマル・パッシブぶんだけを見ています。EX を並べると、EX の攻撃力バフもここに入ります。');
+    } else {
+      var ROW = 30, T = 6, B = 22, H = T + ROW * model.rows.length + B;
+      var x = function (t) { return L + (W - L - R) * (Math.min(Math.max(t, 0), span) / span); };
+      var step = span <= 30 ? 5 : span <= 90 ? 15 : 30;
+      var g = '';
+      for (var t = 0; t <= span; t += step) {
+        g += '<line class="grid" x1="' + x(t).toFixed(1) + '" y1="' + T + '" x2="' + x(t).toFixed(1) +
+             '" y2="' + (H - B).toFixed(1) + '"></line>' +
+             '<text x="' + x(t).toFixed(1) + '" y="' + (H - 6) + '" text-anchor="middle">' + t + '秒</text>';
+      }
+      var rows = model.rows.map(function (r, i) {
+        var y = T + ROW * i;
+        var out = '<text class="lb" x="' + (L + 2) + '" y="' + (y + 11) + '">' + esc(r.n) + '</text>';
+        r.segs.forEach(function (s) {
+          if (!s.hi) return;
+          var x0 = x(s.t0), x1 = x(s.t1), w = Math.max(2, x1 - x0);
+          var lo = 1 + s.lo / 10000, hi = 1 + s.hi / 10000;
+          var tx = lo === hi ? '×' + n2(hi) : '×' + n2(lo) + '〜' + n2(hi);
+          out += '<rect class="bar atk" x="' + x0.toFixed(1) + '" y="' + (y + 15) +
+            '" width="' + w.toFixed(1) + '" height="10" rx="3"><title>' +
+            n1(s.t0) + '〜' + n1(s.t1) + ' 秒　' + tx + '</title></rect>';
+          if (w >= 56) {
+            out += '<text class="at2" text-anchor="middle" x="' + ((x0 + x1) / 2).toFixed(1) +
+              '" y="' + (y + 11) + '">' + tx + '</text>';
+          }
+        });
+        return out;
+      }).join('');
+      box.innerHTML = '<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="攻撃力の倍率">' +
+        g + rows + goalMark(goal, x, T, H - B, span) + '</svg>';
+      lead.textContent = '素の攻撃力を 1 としたときの倍率です。' +
+        '幅で出しているのは、data.js が「誰にかかるか」を本人／味方／敵の 3 つでしか持っておらず、' +
+        '味方のバフが 1 人に付くのか全員に付くのかが分からないためです——' +
+        '左が本人ぶんだけ、右が味方ぶんも全部乗せた場合。' +
+        '足し算の攻撃力（AttackPower_Base）と特効は、ここには入れていません。';
+    }
+    // 内訳。**攻撃力に入れたものと、入れなかったものを分けて出す。**
+    var seen = {}, html = '';
+    ATK_GRP.forEach(function (grp) {
+      var list = bars.filter(function (b) { return !seen[b.key] && b.key && grp.f(b); });
+      list.forEach(function (b) { seen[b.key] = true; });
+      if (!list.length) return;
+      /* **同じ効果を何度も撃つと、同じ札が並ぶ。**帯は 1 回ずつ出すのが正しいが、
+         こちらは中身の一覧なので**ひとつにまとめて回数を書く**（2026-08-30、
+         10 人編成で EX を 30 発並べたときに同じ札が 3 枚並んだ）。 */
+      var uniq = [], cnt = {};
+      list.forEach(function (b) {
+        var k = [b.who, b.skn, b.e, b.st, b.v, Math.round(b.ms), b.sd, b.iv].join('|');
+        if (cnt[k]) { cnt[k].n++; return; }
+        cnt[k] = { b: b, n: 1 };
+        uniq.push(cnt[k]);
+      });
+      html += '<p class="tlx-h3">' + esc(grp.t) + '（' + uniq.length + ' 種・' + list.length + ' 本）</p>' +
+        '<div class="tlx-list">' +
+        uniq.map(function (u) { return atkItem(u.b, u.n); }).join('') + '</div>';
+    });
+    more.innerHTML = html;
+  }
+
+  /* ---------- 条件で発動するもの
+
+     `iv`（「N秒毎に」）が読めなかったスキル。**時刻が決められないので帯にしない。**
+     引き金の原文をそのまま出して、手で補ってもらう。 */
+  function drawCond() {
+    var box = el('cond'), lead = el('cond-lead'), ms = members(), items = [];
+    ms.forEach(function (m) {
+      condOf(m.d).forEach(function (c) {
+        var efs = (c.sk.bf || []).map(function (b) {
+          var cc = b.ty === 'CrowdControl';
+          var msec = cc ? atLv(b.sc || [], m.s, false) : b.du;
+          return esc(b.n) +
+            (b.st ? ' <b>' + valJa(b.st, atLv(bfRow(b), m.s, false)) + '</b>' : '') +
+            (msec ? '／' + n1(msec / 1000) + ' 秒' : '') +
+            '／' + (SIDE_JA[b.sd] || b.sd) +
+            (bfTiered(b) ? '／段あり（1 段目）' : '') +
+            (cc && b.ch < 10000 ? '／確率 ' + nn(b.ch / 100) + '%' : '');
+        });
+        if (c.sk.r && c.sk.r.length) efs.push('コスト回復力（左の「コスト回復力の内訳」で数えています）');
+        items.push('<div class="tlx-item"><div class="h">' + esc(m.d.n) +
+          '「' + esc(c.sk.n) + '」<small>' + esc(c.ja) + '</small></div>' +
+          (c.sk.cond ? '<div class="q">' + esc(c.sk.cond) + '</div>' : '') +
+          (efs.length ? '<div class="b">' + efs.join('<br>') + '</div>' : '') + '</div>');
+      });
+    });
+    box.innerHTML = items.length ? '<div class="tlx-list">' + items.join('') + '</div>' : '';
+    lead.textContent = items.length
+      ? items.length + ' 件。スキル文に「N秒毎に」と書かれていないので、いつ発動するかがデータから決まりません。' +
+        '引き金はゲームの書きぶりのまま出しています（<?1> や <b:Shield> はゲーム側の差し込み記号で、' +
+        '意味が変わらないよう直していません）。時間軸には乗せていないので、手で補ってください。'
+      : (ms.length ? '条件で発動するスキルを持った子は、この編成にはいません。'
+                   : '編成を決めると、時刻を置けないスキルがここに出ます。');
   }
 
   function drawRefList() {
@@ -1328,7 +1748,7 @@
       y += 22;
     });
     y += 10;
-    ['chart', 'bars'].forEach(function (id) {
+    ['chart', 'bars', 'atk'].forEach(function (id) {
       var g = svgInner(id);
       if (!g) return;
       var sc = (W - pad * 2) / g.w;
@@ -1348,6 +1768,10 @@
       'text.n{fill:' + c.fg + ';font-weight:700}text.lb{fill:' + c.fg + ';font-weight:600}' +
       '.bar{fill:' + c.acc + '}.bar.self{fill:' + c.acc + ';fill-opacity:.78}' +
       '.bar.ally{fill:' + c.acc + ';fill-opacity:.46}.bar.enemy{fill:' + c.mute + ';fill-opacity:.3}' +
+      '.bar.ns.self{fill:' + c.acc + ';fill-opacity:.56}.bar.ns.ally{fill:' + c.acc + ';fill-opacity:.3}' +
+      '.bar.ns.enemy{fill:' + c.mute + ';fill-opacity:.2}' +
+      '.bar.cc{fill:' + c.mute + ';fill-opacity:.48}.bar.atk{fill:' + c.accTx + ';fill-opacity:.3}' +
+      'text.at2{fill:' + c.fg + ';font-weight:700}' +
       '.bar.gim{fill:' + c.accTx + ';fill-opacity:.34}.bar.over{fill:' + c.accTx + ';fill-opacity:.2}' +
       '.bar.amp{stroke:' + c.accTx + ';stroke-width:1;stroke-dasharray:3 2}' +
       '.out{stroke:' + c.accTx + ';stroke-width:2}' +
@@ -1386,9 +1810,18 @@
     });
     drawParty();
     drawSetup();
+    syncShow();
     var p = drawStats();
     drawTimeline(p);
     save();
+  }
+
+  /** 出し分けのチェックを、いまの値に合わせる（URL や保存から入ることがある）。 */
+  function syncShow() {
+    ['ex', 'ns', 'pv'].forEach(function (k) {
+      var e = el('c-' + k);
+      if (e) e.checked = !!show[k];
+    });
   }
 
   function findByName(name, sq, slot) {
@@ -1466,6 +1899,8 @@
       var j2 = +t.dataset.j;
       if (order[j2]) order[j2].t = Math.max(0, parseFloat(t.value) || 0);
       draw();
+    } else if (k === 'show') {
+      show[t.dataset.s] = t.checked; draw();
     } else if (t.id === 'i-start' || t.id === 'i-gb' || t.id === 'i-gc') {
       draw();
     } else if (t.id === 'i-goal') {
