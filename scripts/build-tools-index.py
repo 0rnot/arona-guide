@@ -22,12 +22,13 @@ ARROW = ('<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">'
 def esc(s):
     return html.escape(s, quote=True)
 
-def icon(t, prefix=""):
-    """カードの差し色になるゲーム内アイコン。**無ければ何も置かない。**"""
+def icon(t, prefix="", size=66):
+    """カードの差し色になるゲーム内アイコン。**無ければ何も置かない。**
+    width/height は CSS と揃える（ずれると読み込み中に行がガタつく）。"""
     if not t.get("img"):
         return ""
     return (f'<img class="ticon" src="{prefix}img/{esc(t["img"])}.webp" alt="" '
-            f'width="56" height="56" loading="lazy">')
+            f'width="{size}" height="{size}" loading="lazy">')
 
 def card(t):
     cats = "|".join(t["cat"])
@@ -49,7 +50,7 @@ def soon(s):
 def band(t):
     """本編に置く帯のカード。**一覧のカードとは別の形。**"""
     return f'''        <a class="toolband-card" href="tools/{esc(t['slug'])}/">
-          {icon(t, "tools/")}
+          {icon(t, "tools/", 54)}
           <div class="cat">{esc(' · '.join(t['cat']))}</div>
           <h3>{esc(t['name'])}</h3>
           <p>{esc(t['desc'])}</p>
