@@ -532,6 +532,20 @@ def build_equipment():
         # "EquipmentMaxLevel": [10, 10, 10] と言っている
         raise SystemExit(f"最大 Tier が 10 でない部位がある: {max_tier}")
 
+    # **数え上げの検査。**設計図は 9 部位 × T2〜T10 で 81 種、万能設計図は
+    # 部位ごとに 1 つで 9 種。**足りないぶんは黙って 0 枚として落ちる**ので、
+    # 数が合わなければここで止める。Charm / Watch / Necklace の T10 が
+    # `IsReleased` の読み違いで消えたときも、この検査があれば気づけた（2026-08-30）
+    want_pieces = {(c, t) for c in CATS for t in range(2, 11)}
+    got_pieces = set(piece.values())
+    if got_pieces != want_pieces:
+        raise SystemExit(f"設計図が 81 種そろわない。欠け: {sorted(want_pieces - got_pieces)}／"
+                         f"余り: {sorted(got_pieces - want_pieces)}")
+    if sorted(univ.values()) != sorted(CATS):
+        raise SystemExit(f"万能設計図が 9 部位そろわない: {sorted(univ.values())}")
+    if len(names) != 90:
+        raise SystemExit(f"設計図の名前が 90 個にならない: {len(names)} 個")
+
     # ティアアップのレシピ。**SchaleDB の `Recipe` は「その装備を作る」手順**で、
     # 中身は `[[設計図の Id, 枚数], …]`、クレジットは `RecipeCost`。
     # ba-data は「Tier N の装備が N→N+1 を持つ」形だったので、添字が 1 段ずれる
@@ -558,6 +572,10 @@ def build_equipment():
         per_set[cat] = tot
     ref_set = {2: 40, 3: 45, 4: 50, 5: 55, 6: 65, 7: 65, 8: 60, 9: 50, 10: 60}
     for cat in CATS:
+        # **レシピは T2〜T10 の 9 段ぶんそろっていること。**1 段抜けても
+        # per_set の合計だけは近い値になりうるので、段数を別に数える
+        if sorted(recipes[cat]) != list(range(2, 11)):
+            raise SystemExit(f"{cat} のレシピが T2〜T10 でそろわない: {sorted(recipes[cat])}")
         if per_set[cat] != ref_set:
             raise SystemExit(f"{cat} の 1 セットぶんが参考元と食い違う: {per_set[cat]}")
 
@@ -635,6 +653,27 @@ def build_equipment():
     if unknown_box:
         raise SystemExit(f"中身の分からない箱がステージに出た: {sorted(unknown_box)}。"
                          "ba-data の GachaElementExcelTable が追いついていない")
+
+    # **数え上げの検査（ステージ側）。**2026-08-30 の実測は
+    # ノーマル 90 本・ハード 54 本の 144 本。**増えるぶんには止めない**が、
+    # **減ったら止める。**設計図の判定が壊れると、ステージがまるごと
+    # `acc` 空で落ちて静かに消える（Area 29 の T10 がそうだった）
+    n_normal = sum(1 for x in out if not x["h"])
+    n_hard = len(out) - n_normal
+    if n_normal < 90 or n_hard < 54:
+        raise SystemExit(f"周回できるステージが減った: ノーマル {n_normal} 本"
+                         f"（90 本以上のはず）／ハード {n_hard} 本（54 本以上のはず）")
+    if any(x["ap"] <= 0 for x in out):
+        raise SystemExit("AP が 0 のステージがある: "
+                         + str([x["id"] for x in out if x["ap"] <= 0]))
+    # **どの設計図も、どこかのステージから出ること。**出ないものがあると
+    # 希少価値が 100 の固定値になり、その部位ばかり推される
+    dropped = {(c, t) for x in out for c, t, _ in x["d"]}
+    missing = sorted(want_pieces - dropped)
+    if missing:
+        raise SystemExit(f"どのステージからも出ない設計図がある: {missing}")
+    if {c for x in out for c, _ in x["b"]} != set(CATS):
+        raise SystemExit("万能設計図が出ない部位がある")
 
     n = 0
     for cat in CATS:

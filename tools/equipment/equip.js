@@ -53,6 +53,11 @@
     });
   }
   function n1(v) { return (Math.round(v * 10) / 10).toFixed(1); }
+  /* **画面に出す点数は 10 倍する。**内側では参考元と同じく「期待枚数 × 限界効用 ÷ 10」を
+     足しているが、参考元は画面に出すところで 10 を掛け戻している
+     （あちらの `label: \`スコア: ${(10*s).toFixed(1)}\``）。同じ入力で同じ数字が
+     出るように、こちらも掛け戻す（2026-08-30 にバンドルを読んで合わせた） */
+  function pts(v) { return n1(v * 10); }
   function fmt(v) { return Math.round(v).toLocaleString('ja-JP'); }
   function key(c, t) { return c + ':' + t; }
   function pieceImg(c, t) {
@@ -269,20 +274,24 @@
   }
 
   /* ---------- 画面 ---------------------------------------------- */
+  /* **部位は `<details>`。**開いたまま作るが、畳んだ部位は畳んだまま描き直す */
+  var folded = {};
   function drawInventory() {
     el('inv').innerHTML = CATS.map(function (c) {
       var done = setsDone(c), goal = targets[c] || 0;
       var pct = goal > 0 ? Math.min(100, done / goal * 100) : 0;
-      return '<section class="cat" data-c="' + c + '">' +
-        '<div class="cat-h">' +
-          '<b>' + esc(E.catJa[c]) + '</b>' +
-          '<span class="cat-n">' + n1(done) + ' / ' + goal + ' セット</span>' +
-          '<button type="button" class="btn tiny" data-a="zero">0 に戻す</button>' +
-        '</div>' +
-        '<div class="bar"><i style="width:' + pct.toFixed(1) + '%"></i></div>' +
+      return '<details class="cat" data-c="' + c + '"' + (folded[c] ? '' : ' open') + '>' +
+        '<summary>' +
+          '<div class="cat-h">' +
+            '<b>' + esc(E.catJa[c]) + '</b>' +
+            '<span class="cat-n">' + n1(done) + ' / ' + goal + ' セット</span>' +
+            '<button type="button" class="btn tiny" data-a="zero">0 に戻す</button>' +
+          '</div>' +
+          '<div class="bar"><i style="width:' + pct.toFixed(1) + '%"></i></div>' +
+        '</summary>' +
         '<div class="pgrid">' +
           TIERS.map(function (t) { return cell(c, t); }).join('') + cell(c, 0) +
-        '</div></section>';
+        '</div></details>';
     }).join('');
   }
   function cell(c, t) {
@@ -374,7 +383,7 @@
       best.s.n + '／AP ' + best.s.ap;
     el('o-runs').textContent = '〜' + runs + ' 周';
     el('o-runs-sub').textContent = 'AP ' + fmt(best.s.ap * runs) + ' ぶん（点数 ' +
-      n1(best.sc.total) + '）';
+      pts(best.sc.total) + '）';
 
     // 内訳
     var tot = best.sc.total || 1;
@@ -431,10 +440,10 @@
           var a = p.k.split(':'), t = +a[1];
           lbl = E.catJa[a[0]] + ' ' + (t === 0 ? '万能' : 'T' + t);
         }
-        var per = r.s.ap > 0 ? r.sc.total / r.s.ap : 0;
+        var per = r.s.ap > 0 ? r.sc.total * 10 / r.s.ap : 0;
         return '<tr' + (i === 0 ? ' class="here"' : '') + '><td>' + r.s.a + '-' + r.s.s +
           ' <small>' + esc(r.s.n) + '</small></td><td>' + (r.s.h ? 'ハード' : 'ノーマル') +
-          '</td><td>' + r.s.ap + '</td><td>' + n1(r.sc.total) + '</td><td>' +
+          '</td><td>' + r.s.ap + '</td><td>' + pts(r.sc.total) + '</td><td>' +
           (Math.round(per * 100) / 100).toFixed(2) + '</td><td>' + esc(lbl) + '</td></tr>';
       }).join('') + '</tbody></table></div>';
   }
@@ -536,14 +545,100 @@
   el('inv').addEventListener('click', function (e) {
     var b = e.target.closest('[data-a="zero"]');
     if (!b) return;
+    // **`<summary>` の中のボタン。**止めないと押すたびに部位が畳まれる
+    e.preventDefault();
     var c = b.closest('.cat').dataset.c;
     stock[key(c, 0)] = 0;
     TIERS.forEach(function (t) { stock[key(c, t)] = 0; });
     save(); drawAll(); say(E.catJa[c] + ' の在庫を 0 にしました');
   });
+  // **`toggle` は上がってこない。**捕捉相で拾う
+  el('inv').addEventListener('toggle', function (e) {
+    var d = e.target;
+    if (d.classList && d.classList.contains('cat')) folded[d.dataset.c] = !d.open;
+  }, true);
+
+  /* **欄に入ったら数字を選ぶ。**0 が入っているので、選ばないと "10" が "010" になる */
+  el('inv').addEventListener('focusin', function (e) {
+    if (e.target.tagName === 'INPUT') { try { e.target.select(); } catch (er) { /* 選べない実装は放っておく */ } }
+  });
+  /* **Enter で次の欄へ。**90 個を続けて打てるようにする（畳んだ部位は飛ばす） */
+  el('inv').addEventListener('keydown', function (e) {
+    if (e.key !== 'Enter' || e.target.tagName !== 'INPUT') return;
+    e.preventDefault();
+    var all = Array.prototype.filter.call(el('inv').querySelectorAll('input'), function (i) {
+      return i.offsetParent !== null;
+    });
+    var i = all.indexOf(e.target);
+    if (i >= 0 && i + 1 < all.length) all[i + 1].focus();
+    else e.target.blur();
+  });
+
+  el('fold-all').addEventListener('click', function () {
+    var open = CATS.some(function (c) { return !folded[c]; });
+    CATS.forEach(function (c) { folded[c] = open; });
+    drawInventory();
+    el('fold-all').textContent = open ? 'ぜんぶ開く' : 'ぜんぶ畳む';
+  });
+  el('go-plan').addEventListener('click', function () {
+    el('p-plan').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
   el('zero-all').addEventListener('click', function () {
     if (!window.confirm('入力した在庫をぜんぶ 0 に戻します。よろしいですか。')) return;
     blank(); save(); drawAll(); say('在庫を 0 にしました');
+  });
+
+  /* ---------- まとめて入れる・書き出す --------------------------- */
+  /* **並びは参考元「シャーレ装備管理室」と同じ。**部位 9 つ × T2〜T10 を
+     部位ごとに並べて 81 個、そのあと万能設計図を部位の順に 9 個。合わせて 90 個。
+     あちらの `U`（`[...Qt, ...Jt]`）と同じ順なので、数字がそのまま行き来できる */
+  function bulkOrder() {
+    var out = [];
+    CATS.forEach(function (c) { TIERS.forEach(function (t) { out.push(key(c, t)); }); });
+    CATS.forEach(function (c) { out.push(key(c, 0)); });
+    return out;
+  }
+  function bulkNums(tx) {
+    return String(tx).replace(/[０-９]/g, function (ch) {
+      return String.fromCharCode(ch.charCodeAt(0) - 0xFEE0);
+    }).split(/[^0-9]+/).filter(function (x) { return x.length; }).map(Number);
+  }
+  function bulkCount() {
+    var n = bulkNums(el('bulk-tx').value).length;
+    var lab = el('bulk-n');
+    lab.textContent = 'いま ' + n + ' / 90 個' +
+      (n === 0 ? '' : (n === 90 ? '（そろいました）' : '（90 個ちょうどにしてください）'));
+    lab.className = 'bulk-n' + (n && n !== 90 ? ' ng' : '');
+    return n;
+  }
+  el('bulk-tx').addEventListener('input', bulkCount);
+  el('bulk-in').addEventListener('click', function () {
+    var v = bulkNums(el('bulk-tx').value);
+    if (v.length !== 90) { say('数字が ' + v.length + ' 個です。90 個ちょうど貼ってください'); return; }
+    bulkOrder().forEach(function (k, i) { stock[k] = v[i]; });
+    save(); drawAll(); bulkCount(); say('90 個を在庫に入れました');
+  });
+  el('bulk-out').addEventListener('click', function () {
+    var s = bulkOrder().map(function (k) { return stock[k] || 0; }).join(',');
+    el('bulk-tx').value = s; bulkCount();
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(s).then(function () { say('いまの在庫をコピーしました'); },
+        function () { say('枠に書き出しました'); });
+    } else { say('枠に書き出しました'); }
+  });
+  el('bulk-ai').addEventListener('click', function () {
+    var p = 'ブルーアーカイブの「所持品」画面のスクリーンショットから、装備設計図の所持数を'
+      + '読み取ってください。\n下の順番どおりに、数字だけをカンマ区切りで 90 個、1 行で'
+      + '出力してください。\n持っていない（0 個の）ものは 0 と書いてください。\n\n順番\n'
+      + '1. 部位ごとの設計図（T2 から T10 まで各 9 種）\n'
+      + CATS.map(function (c, i) { return '   ' + (i + 1) + '. ' + E.catJa[c]; }).join('\n')
+      + '\n2. 万能設計図（部位ごとに 1 種、計 9 種）\n   順序: '
+      + CATS.map(function (c) { return E.catJa[c]; }).join('、')
+      + '\n\n出力の例\n10,2,5,0,32,100,5,3,0,1,5,10…（以下 90 個続く）';
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(p).then(function () { say('読み取り用の指示をコピーしました'); },
+        function () { window.prompt('コピーしてお使いください', p); });
+    } else { window.prompt('コピーしてお使いください', p); }
   });
 
   el('plan').addEventListener('click', function (e) {

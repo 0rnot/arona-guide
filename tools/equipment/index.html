@@ -23,6 +23,23 @@
   .cat:last-child { margin-bottom: 0; }
   .cat-h { display: flex; flex-wrap: wrap; gap: .5em .7em; align-items: baseline; }
   .cat-h b { font-size: .95rem; }
+  /* **部位は畳める。**入れ終わった部位を閉じておけば、9 部位ぶんの
+     スクロールを抜けずに②③へ行ける。既定は開いたまま */
+  details.cat > summary { cursor: pointer; list-style: none; }
+  details.cat > summary::-webkit-details-marker { display: none; }
+  details.cat > summary .cat-h b::before { content: "▾ "; font-size: .8em; color: var(--fg-mute); }
+  details.cat:not([open]) > summary .cat-h b::before { content: "▸ "; }
+  details.cat:not([open]) .bar { margin-bottom: 0; }
+
+  /* まとめて入れる欄。**`details.src` の上罫線と余白は打ち消す** */
+  details.src.bulk { margin: 0 0 12px; border-top: 0; padding-top: 0; }
+  .bulk textarea { width: 100%; box-sizing: border-box; margin: .4em 0 .2em;
+                   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+                   font-size: .8rem; line-height: 1.6; padding: .5em .6em;
+                   border: 1px solid var(--line); border-radius: 9px;
+                   background: var(--bg-sub); color: var(--fg); resize: vertical; }
+  .bulk .bulk-n { margin: 0 0 .6em; font-variant-numeric: tabular-nums; }
+  .bulk .bulk-n.ng { color: var(--accent-tx); font-weight: 700; }
   .cat-n { font-size: .82rem; font-weight: 800; color: var(--accent-tx);
            font-variant-numeric: tabular-nums; margin-left: auto; }
   .btn.tiny { padding: .2em .7em; font-size: .7rem; }
@@ -33,6 +50,9 @@
   .bar.sm { height: 4px; margin: 0; min-width: 40px; }
 
   .pgrid { display: grid; gap: 6px; grid-template-columns: repeat(auto-fill, minmax(74px, 1fr)); }
+  /* **広い画面では 10 列ちょうどに。**`auto-fill` のままだと 14 列ぶんの枠ができて、
+     10 個の札が左に寄り、右が 3 割ほど空く（1280px で実測） */
+  @media (min-width: 900px) { .pgrid { grid-template-columns: repeat(10, minmax(0, 1fr)); } }
   /* **狭い画面では枠を詰めて 5 列に。**74px のままだと 3 列にしかならず、
      9 部位で 4,500px 近く縦に伸びて、入力欄にたどり着く前に力尽きる */
   @media (max-width: 560px) {
@@ -235,10 +255,33 @@
     <div class="panel" id="p-inv">
       <div class="panel-h"><h2>① いま持っている設計図</h2></div>
       <p class="lead">部位ごとに、<b>T2 から T10 までの設計図と万能設計図</b>の枚数を入れてください。
+        <b>持っていない段は 0 のままで大丈夫です。</b>欄に入ると数字が選ばれ、<b>Enter で次の欄</b>へ進みます。
+        90 個まとめて貼りたいときは下の<b>「まとめて入れる・書き出す」</b>から。
         右上の数字は<b>「T1 から T10 まで上げきれる装備が何個ぶんあるか」</b>で、万能設計図を
         いちばん足りない段に配ったものとして数えています。</p>
-      <div class="btnrow" style="margin-bottom:12px">
+
+      <details class="src bulk" id="bulk">
+        <summary>まとめて入れる・書き出す</summary>
+        <p><b>90 個の数字をカンマ区切りで貼ると、そのまま在庫になります。</b>並びは
+          <b>帽子 T2〜T10 → 手袋 T2〜T10 →（9 部位ぶん）→ 最後に万能設計図を 9 部位ぶん</b>。
+          <a href="https://st-blue-archive.gitlab.io/equipment-controller/" target="_blank" rel="noopener noreferrer">シャーレ装備管理室</a>と<b>同じ並びなので、あちらとこちらで数字をそのまま行き来できます。</b></p>
+        <textarea id="bulk-tx" rows="4" placeholder="10, 2, 5, 0, 32, 100, ...（90 個）"
+                  aria-label="設計図の枚数を 90 個、カンマ区切りで"></textarea>
+        <p class="bulk-n" id="bulk-n">いま 0 / 90 個</p>
+        <div class="btnrow">
+          <button type="button" class="btn pri" id="bulk-in">この数字を在庫にする</button>
+          <button type="button" class="btn" id="bulk-out">いまの在庫を書き出す</button>
+          <button type="button" class="btn" id="bulk-ai">読み取り用の指示をコピー</button>
+        </div>
+        <p><b>「読み取り用の指示」</b>は、ゲームの在庫画面のスクリーンショットと一緒に
+          生成 AI へ渡すための文です。返ってきた数字の列を上の枠に貼ってください。
+          <b>合っているかは必ずご自分で見比べてください。</b></p>
+      </details>
+
+      <div class="btnrow" style="margin:12px 0">
+        <button type="button" class="btn" id="fold-all">ぜんぶ畳む</button>
         <button type="button" class="btn" id="zero-all">ぜんぶ 0 に戻す</button>
+        <button type="button" class="btn" id="go-plan">周回先へ移動</button>
       </div>
       <div id="inv"></div>
     </div>
@@ -327,7 +370,23 @@
           ⑤推奨周回数は、回すたびに在庫が増えるものとして点数を計算し直し、
           2 番目のステージに追い抜かれる手前までを出しています。
           <b>AP では割っていません。</b>点数は「1 周でどれだけ満足度が上がるか」なので、
-          AP が違うステージ同士を並べるときはご注意ください。</p>
+          AP が違うステージ同士を並べるときはご注意ください。
+          <b>画面に出す点数は 10 倍したものです</b>——参考元も画面に出すところで
+          10 を掛け戻している（<code>スコア: ${(10*s).toFixed(1)}</code>）ので、
+          <b>同じ在庫なら、こちらとあちらで同じ数字が出ます</b>（2026-08-30 に合わせました）。</p>
+
+        <p><b>同じ入力を入れて、答えが合うことを確かめました。</b>参考元が配っている
+          <code>optimizer.worker</code> をそのまま動かして、こちらの画面と 15 通りの入力で
+          突き合わせています——在庫ぜんぶ 0・低い段だけ潤沢・万能設計図あり・完遂重視と
+          備蓄重視・推奨周回数のつまみ 0 と 10・ドロップ 3 倍・乱数 8 通り。
+          <b>15 通りすべてで、推したステージ・推奨周回数・点数が一致しました。</b>
+          たとえば在庫ぜんぶ 0・目標セット数は初期値のままだと、どちらも
+          <b>Area 28-1（点数 137.7）</b>を推します。
+          係数（κ＝3・α＝9・maxRuns＝99・inertia の既定 0.99）と目標セット数の初期値、
+          1 セットぶんの枚数（40 / 45 / 50 / 55 / 65 / 65 / 60 / 50 / 60）、
+          万能設計図の交換レート（2 / 3 / 5 / 7 / 10 / 15 / 20 / 30 / 50）も
+          あちらのバンドルの値と 1 つ残らず同じです。
+          <b>ノーマル 90 本のドロップは 930 件すべてが一致</b>し、ステージ名も違いはありません。</p>
 
         <p><b>ステージとドロップは SchaleDB の本番データそのままです。</b>
           <code>stages.min.json</code> の <code>Category: "Campaign"</code> のうち、
@@ -369,8 +428,13 @@
 
         <p><b>このページはドロップ率を推定していません。</b>確率はすべてゲームのデータに
           書いてある値で、書いていないものは出していません。
-          <b>ステージの並びが参考元と食い違わないことも確かめました</b>——ノーマル 90 本すべてで、
-          ステージ名も 1 周あたりの期待枚数も一致しています（2026-08-30）。</p>
+          <b>ハードの 54 本だけは、参考元に突き合わせる相手がいません</b>——あちらは
+          ノーマル 90 本しか持っていないためです。こちらは
+          <code>stages.min.json</code> から別に数え直して 144 本ぶんが 1 件も違わないことを
+          確かめました。<b>ハードに出る 1 周あたりの期待枚数は 16 通りしかなく、
+          その 16 通りは、ノーマルに出る 16 通りをちょうど 2 倍にしたものと過不足なく
+          同じです</b>（万能設計図も 18 通り対 18 通りで同じ。AP も 10 → 20）。
+          たとえばネックレス T10 は、ノーマル 0.344 に対してハード 0.688 です（2026-08-30）。</p>
 
         <p>出典 — <a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a>、
           <a href="https://github.com/electricgoat/ba-data" target="_blank" rel="noopener">electricgoat/ba-data</a>、
@@ -382,7 +446,7 @@
   </div>
 </div>
 
-<script>window.TOUR = {"key": "equipment", "steps": [{"sel": "#inv", "t": "持っている設計図を入れます", "d": "部位ごとに T2〜T10 と万能設計図の枚数を。ここが入口です。右上の数字は「T1 から T10 まで上げきれる装備が何個ぶんあるか」です。"}, {"sel": "#p-short", "t": "足りないものが出ます", "d": "目標セット数に対して何がどれだけ足りないかを、多い順に並べます。"}, {"sel": "#p-plan", "t": "周回先が 1 本に決まります", "d": "足りないものがいちばん早く埋まるステージです。点数の内訳で「何目当てで選ばれたか」も出します。"}, {"sel": "#stages", "t": "ほかの候補も見られます", "d": "点数の高い順に 12 本。回ったら、上の欄に実際に出た枚数を入れて「在庫に足す」を押してください。次の 1 本が出ます。"}, {"sel": "#p-set", "t": "方針はここで変えられます", "d": "ドロップ 2 倍・3 倍、ハードを混ぜるか、足りないもの優先か備蓄重視か、そして目標セット数。"}, {"sel": "#sharebar", "t": "入力ごと URL になります", "d": "在庫も設定も URL に入るので、リンクを送れば別の端末でも同じ状態が開きます。"}]};</script>
+<script>window.TOUR = {"key": "equipment", "steps": [{"sel": "#inv", "t": "持っている設計図を入れます", "d": "部位ごとに T2〜T10 と万能設計図の枚数を。持っていない段は 0 のままで大丈夫です。Enter で次の欄へ進み、欄に入ると数字が選ばれるので続けて打てます。90 個をまとめて貼りたいときは、上の「まとめて入れる・書き出す」から。右上の数字は「T1 から T10 まで上げきれる装備が何個ぶんあるか」です。"}, {"sel": "#p-short", "t": "足りないものが出ます", "d": "目標セット数に対して何がどれだけ足りないかを、多い順に並べます。"}, {"sel": "#p-plan", "t": "周回先が 1 本に決まります", "d": "足りないものがいちばん早く埋まるステージです。点数の内訳で「何目当てで選ばれたか」も出します。"}, {"sel": "#stages", "t": "ほかの候補も見られます", "d": "点数の高い順に 12 本。回ったら、上の欄に実際に出た枚数を入れて「在庫に足す」を押してください。次の 1 本が出ます。"}, {"sel": "#p-set", "t": "方針はここで変えられます", "d": "ドロップ 2 倍・3 倍、ハードを混ぜるか、足りないもの優先か備蓄重視か、そして目標セット数。"}, {"sel": "#sharebar", "t": "入力ごと URL になります", "d": "在庫も設定も URL に入るので、リンクを送れば別の端末でも同じ状態が開きます。"}]};</script>
 <script src="../tour.js?v=1"></script>
 
 <script src="../share.js?v=1"></script>
