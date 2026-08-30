@@ -993,9 +993,80 @@ def build_treasure():
     }, header="/* scripts/build-tool-data.py が吐く。**手で直さない。** */\n")
 
 
+# ------------------------------------------------------------ TL のコスト計算機
+
+# コスト回復力に触るスキルのうち、**値が段になっているもの**（Value が 2 行以上）は
+# 条件で段が変わる。段の決まり方はスキル文にしか書いていないので、ここだけ表で持つ。
+# 表に無い生徒は、ページ側で段を手で選ばせる（黙って 1 段目を使わない）。
+COST_COND = {
+    10017: "redwinter",   # チェリノ — 同部隊のレッドウィンター生徒 1 人毎（自身を除き最大 3 人）
+    10126: "heavymain",   # カノエ  — 同部隊の重装甲ストライカー 1 人毎（自身を除き最大 3 人）
+}
+
+
+def build_cost_timeline():
+    print("TL のコスト計算機")
+    students = as_list(get_json(SD.format("students")))
+    loc = get_json(SD.format("localization"))
+
+    stu = []
+    for s in students:
+        ex = s.get("Skills", {}).get("Ex")
+        if not s.get("Name") or not isinstance(ex, dict):
+            continue
+        rec = {
+            "id": s["Id"], "n": s["Name"],
+            "sq": s.get("SquadType", ""), "ro": s.get("TacticRole", ""),
+            "sc": s.get("School", "ETC"), "at": s.get("ArmorType", ""),
+            "bt": s.get("BulletType", ""), "st": s.get("StarGrade", 0),
+            "en": ex.get("Name", ""),
+            "c": ex.get("Cost") or [],
+            # **Duration はフレーム。**ゲームは 30fps なので、秒にするには 30 で割る
+            "d": ex.get("Duration") or 0,
+        }
+        reg = []
+        for slot, sk in (s.get("Skills") or {}).items():
+            if not isinstance(sk, dict):
+                continue
+            for e in sk.get("Effects") or []:
+                stat = e.get("Stat") or ""
+                if "RegenCost" not in stat:
+                    continue
+                tgt = e.get("Target") or []
+                reg.append({
+                    "sl": slot, "sn": sk.get("Name", ""),
+                    "k": "c" if stat.endswith("_Coefficient") else "b",
+                    "p": "party" if len(tgt) > 1 else "self",
+                    "v": e.get("Value") or [],
+                    "du": int(e.get("Duration") or 0),
+                    "cond": COST_COND.get(s["Id"], "") if len(e.get("Value") or []) > 1 else "",
+                })
+        if reg:
+            rec["r"] = reg
+        stu.append(rec)
+    stu.sort(key=lambda x: (-x["st"], x["n"]))
+
+    n = 0
+    for s in stu:
+        n += fetch_portrait(f"student_{s['id']}", f"https://schaledb.com/images/student/collection/{s['id']}.webp")
+    holders = [s for s in stu if "r" in s]
+    print(f"  生徒 {len(stu)} 人、コスト回復力に触る子 {len(holders)} 人、アイコン {n} 枚を追加")
+    if len(holders) < 15:
+        raise SystemExit(f"コスト回復力持ちが {len(holders)} 人しか取れていない。データの形が変わった疑い")
+
+    keep = ("School", "TacticRole", "BulletType", "ArmorType", "SquadType")
+    return write_js("tools/cost-timeline/data.js", "TL", {
+        "students": stu,
+        "labels": {k: loc.get(k, {}) for k in keep},
+        # 素の 700 は全 274 人で同じ値。**確かめたうえで定数にしている**
+        "base": 700,
+        "version": "SchaleDB jp",
+    }, header="/* scripts/build-tool-data.py が吐く。**手で直さない。** */\n")
+
 BUILDERS = {"bond": build_bond, "teacher-level": build_teacher_level,
             "equipment": build_equipment, "tier": build_tier, "raid": build_raid,
             "student-cost": build_student_cost, "treasure": build_treasure,
+            "cost-timeline": build_cost_timeline,
             "ui": build_ui}
 
 if __name__ == "__main__":

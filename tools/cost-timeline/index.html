@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TL のコスト計算機｜AronaBot</title>
+<meta name="description" content="編成した 6 人からコスト回復力を計算して、EX スキルを撃つ順番を並べると、それぞれが何秒目に撃てるかを出します。総力戦の TL 作りに。">
+<meta name="theme-color" content="#c8892e">
+<link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<meta property="og:title" content="TL のコスト計算機">
+<meta property="og:description" content="この編成なら、その EX は何秒目に撃てるのか。">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://arona-bot.com/tools/cost-timeline/">
+<meta property="og:image" content="https://arona-bot.com/images/hero-night.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="stylesheet" href="../../style.css?v=15">
+<link rel="stylesheet" href="../tool.css?v=7">
+<style>
+  /* 編成の 6 枠 */
+  .party { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+  .party.sp { grid-template-columns: repeat(2, 1fr); max-width: 50%; margin-top: 12px; }
+  @media (max-width: 620px) {
+    .party { grid-template-columns: repeat(2, 1fr); }
+    .party.sp { grid-template-columns: repeat(2, 1fr); max-width: 100%; }
+  }
+  .slot {
+    border: 1px solid var(--line); border-radius: 13px; background: var(--bg-sub);
+    padding: 9px; display: grid; gap: 7px;
+  }
+  .slot.empty { border-style: dashed; }
+  .slot .face {
+    width: 100%; aspect-ratio: 1; border-radius: 10px; overflow: hidden;
+    background: var(--card); border: 1px solid var(--line); display: grid; place-items: center;
+  }
+  .slot .face img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .slot .face .ph { font-size: .68rem; color: var(--fg-mute); font-weight: 700; letter-spacing: .06em; }
+  .slot .nm { font-size: .82rem; font-weight: 700; line-height: 1.3; word-break: auto-phrase; }
+  .slot .nm small { display: block; font-weight: 500; color: var(--fg-mute); font-size: .72rem; margin-top: .15em; }
+  .slot input[type="search"] { width: 100%; padding: .35em .5em; font-size: .82rem; }
+  .slot .lv { display: grid; grid-template-columns: auto 1fr; gap: .4em; align-items: center; font-size: .74rem; color: var(--fg-mute); }
+  .slot .lv select { width: 100%; padding: .3em 2em .3em .45em; font-size: .8rem; }
+  .slot .rmv { justify-self: start; font-size: .72rem; padding: .2em .6em; }
+
+  /* コスト回復力の内訳 */
+  .ledger .row .tag2 { display: inline-block; font-size: .68rem; padding: .1em .45em; border-radius: 5px;
+                       background: var(--card); border: 1px solid var(--line); color: var(--fg-mute); margin-left: .4em; }
+
+  /* タイムライン */
+  .tlrow {
+    display: grid; grid-template-columns: 34px 40px 1fr auto auto; gap: .6em;
+    align-items: center; padding: 8px 0; border-bottom: 1px solid var(--line);
+  }
+  .tlrow:last-child { border-bottom: 0; }
+  .tlrow .no { font-size: .78rem; color: var(--fg-mute); font-variant-numeric: tabular-nums; }
+  .tlrow img { width: 40px; height: 40px; border-radius: 8px; background: var(--card); }
+  .tlrow .tx { min-width: 0; font-size: .86rem; }
+  .tlrow .tx b { display: block; font-size: .9rem; }
+  .tlrow .tx small { color: var(--fg-mute); font-size: .74rem; }
+  .tlrow .at { font-weight: 800; font-size: 1.02rem; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .tlrow .at small { display: block; font-weight: 500; font-size: .7rem; color: var(--fg-mute); text-align: right; }
+  .tlrow.bad .at { color: var(--accent-tx); }
+  .tlrow .ops { display: flex; gap: .25em; }
+  .tlrow .ops button { padding: .18em .5em; font-size: .78rem; }
+  @media (max-width: 480px) {
+    .tlrow { grid-template-columns: 26px 34px 1fr auto; row-gap: .3em; }
+    .tlrow .ops { grid-column: 1 / -1; justify-content: flex-end; }
+  }
+
+  /* 打ち込みボタン */
+  .addrow { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+  .addrow button {
+    display: flex; align-items: center; gap: .45em; padding: .35em .7em .35em .35em;
+    font-size: .82rem; border-radius: 999px;
+  }
+  .addrow button img { width: 26px; height: 26px; border-radius: 50%; }
+
+  /* コスト回復力を上げる生徒 */
+  .rlist { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; }
+  .rcard { display: grid; grid-template-columns: 46px 1fr; gap: .6em; align-items: start;
+           padding: 9px 10px; border: 1px solid var(--line); border-radius: 12px; background: var(--bg-sub); }
+  .rcard img { width: 46px; height: 46px; border-radius: 9px; background: var(--card); }
+  .rcard .nm { font-weight: 700; font-size: .86rem; }
+  .rcard .ef { font-size: .74rem; color: var(--fg-mute); line-height: 1.55; margin-top: .2em; }
+  .rcard .ef b { color: var(--fg); font-variant-numeric: tabular-nums; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-inner">
+    <a class="topbar-name" href="../../">AronaBotの使い方</a>
+    <a class="topbar-tools" href="../">
+      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <path d="M21.7 18.3l-6-6a5.5 5.5 0 0 0-7-7l3.1 3.1-2.1 2.1L6.6 7.3a5.5 5.5 0 0 0 7 7l6 6a1 1 0 0 0 1.4 0l.7-.7a1 1 0 0 0 0-1.3z"/>
+      </svg>
+      ツール一覧
+    </a>
+    <nav class="topbar-nav">
+      <a href="../../#can">機能</a>
+      <a href="../../#start">つかいはじめる</a>
+      <a href="../../#message">メッセージから</a>
+      <a href="../../#faq">よくある質問</a>
+    </nav>
+    <!-- 共有。**AronaBot 本体と同じ位置に置く。**押した先は環境で変える -->
+    <span class="share-nudge" aria-hidden="true">使えそうな人に、ぜひ</span>
+    <a class="share" id="share-page" target="_blank" rel="noopener" aria-label="このページを共有する"
+       href="https://x.com/intent/post?url=https%3A%2F%2Farona-bot.com%2Ftools%2F">
+      <svg class="share-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <path d="M14 9V5l7 7-7 7v-4.1c-5 0-8.5 1.6-11 5.1 1-5 4-10 11-11z"/>
+      </svg>
+      <span class="share-label">共有</span>
+    </a>
+  </div>
+</div>
+<div class="toast" id="toast-page" role="status" aria-live="polite"></div>
+<script>
+/* 共有ボタン。**そのページ自身の URL を配る。**
+   1. スマホ（navigator.share）→ OS の共有シート
+   2. PC（クリップボード）→ URL をコピーして帯で伝える
+   3. どちらも無い → <a href> のまま X の共有ページへ */
+(function () {
+  var btn = document.getElementById('share-page'), toast = document.getElementById('toast-page');
+  if (!btn) return;
+  var url = location.href.split('#')[0];
+  var name = document.title.split('｜')[0];
+  var text = name + '（AronaBot のツール）';
+  btn.href = 'https://x.com/intent/post?text=' + encodeURIComponent(text) +
+             '&url=' + encodeURIComponent(url);
+  var timer = null;
+  function say(t) {
+    if (!toast) return;
+    toast.textContent = t; toast.classList.add('shown');
+    clearTimeout(timer); timer = setTimeout(function () { toast.classList.remove('shown'); }, 2000);
+  }
+  btn.addEventListener('click', function (e) {
+    if (navigator.share) {
+      e.preventDefault();
+      navigator.share({ title: name, text: text, url: url }).catch(function () {});
+      return;
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      e.preventDefault();
+      navigator.clipboard.writeText(url).then(function () { say('リンクをコピーしました'); },
+        function () { window.open(btn.href, '_blank', 'noopener'); });
+    }
+  });
+})();
+</script>
+
+
+<header class="thero">
+  <div class="thero-media" aria-hidden="true">
+    <picture>
+      <source srcset="../../images/hero-day.jpg" media="(prefers-color-scheme: dark)">
+      <img src="../../images/hero-night.jpg" alt="" width="1600" height="400" fetchpriority="high">
+    </picture>
+  </div>
+  <div class="thero-body">
+    <h1>TL のコスト計算機</h1>
+    <p class="thero-lead">編成した 6 人からコスト回復力を計算して、EX スキルを撃つ順番を並べると、それぞれが何秒目に撃てるかを出します。総力戦の TL を組み立てるときの下地に。</p>
+  </div>
+</header>
+
+<div class="twrap">
+  <p class="tcrumb"><a href="../../">AronaBotの使い方</a><span class="sl">/</span><a href="../">ツール</a><span class="sl">/</span>TL のコスト計算機</p>
+
+  <div class="note-box" style="margin-top:20px">
+    <b>このツールが見ているのはコストだけです。</b>
+    実際の TL は、手札の並び・敵の位置・ノックバック・遮蔽で結果が変わります。
+    ここで出るのは「コストの都合では最短で何秒目に撃てるか」で、
+    <b>そのとおりに撃てることを保証するものではありません。</b>
+    手札は使ったカードが山札に戻って引き直されるので、順番は運が絡みます。
+  </div>
+
+  <div class="tcols lean" style="margin-top:20px">
+
+    <div class="tcol">
+      <div class="panel">
+        <div class="panel-h"><h2>編成</h2></div>
+        <p class="lead">ストライカー 4 人とスペシャル 2 人。<b>コスト回復力は 6 人の合計で決まります</b>ので、EX を撃たない子も入れてください。</p>
+        <p class="lead" style="margin-top:.6em"><b>ストライカー</b></p>
+        <div class="party" id="party-main"></div>
+        <p class="lead" style="margin-top:1em"><b>スペシャル</b></p>
+        <div class="party sp" id="party-sup"></div>
+        <datalist id="dl-main"></datalist>
+        <datalist id="dl-sup"></datalist>
+        <div class="btnrow" style="margin-top:14px">
+          <div class="seg" id="preset" role="group" aria-label="よくある編成">
+            <button type="button" data-p="himari">ヒマリ入り</button>
+            <button type="button" data-p="clear">空にする</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-h"><h2>戦闘のはじまり</h2></div>
+        <div class="numrow">
+          <span class="nm">開始時のコスト<small>総力戦は 0 から始まります</small></span>
+          <input id="i-start" type="number" min="0" max="10" step="0.1" value="0">
+        </div>
+        <div class="numrow">
+          <span class="nm">コストの上限<small>固有 4 でスペシャルだけ +0.5 になります</small></span>
+          <input id="i-cap" type="number" min="1" max="20" step="0.5" value="10">
+        </div>
+        <p class="err" id="err" hidden></p>
+      </div>
+    </div>
+
+    <div class="tcol">
+      <div class="stats c3">
+        <div class="stat hero">
+          <div class="k">1 コスト貯まるまで</div>
+          <div class="v" id="o-sec">—</div>
+          <div class="sub" id="o-sec-sub"></div>
+        </div>
+        <div class="stat">
+          <div class="k">コスト回復力</div>
+          <div class="v" id="o-pool">—</div>
+          <div class="sub" id="o-pool-sub"></div>
+        </div>
+        <div class="stat">
+          <div class="k">コスト／秒</div>
+          <div class="v" id="o-rate">—</div>
+          <div class="sub" id="o-rate-sub"></div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-h"><h2>コスト回復力の内訳</h2></div>
+        <div class="ledger" id="ledger"></div>
+      </div>
+    </div>
+
+    <div class="tfull">
+      <div class="panel">
+        <div class="panel-h"><h2>撃つ順番</h2></div>
+        <p class="lead">下のボタンで EX を後ろに足していきます。<b>同じ子を続けて足しても構いません</b>——コストの上では何回でも撃てます。</p>
+        <div class="addrow" id="add"></div>
+        <div id="timeline" style="margin-top:14px"></div>
+        <p class="lead" id="tl-lead" style="margin-top:12px">まだ何も並んでいません。</p>
+        <div class="btnrow" style="margin-top:10px">
+          <button type="button" class="btn" id="clear-tl">並びを消す</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="tfull">
+      <div class="panel">
+        <div class="panel-h"><h2>コスト回復力を上げる生徒</h2></div>
+        <p class="lead" id="rlist-lead">—</p>
+        <div class="rlist" id="rlist"></div>
+      </div>
+    </div>
+
+    <div class="tfull">
+      <details class="src">
+        <summary>数字の出どころ</summary>
+        <p><b>コスト回復速度 ＝（6 人のコスト回復力の合計）÷ 10000 ［コスト／秒］。</b>
+          素のコスト回復力は<b>全 274 人が 700 で同じ</b>です（SchaleDB の <code>RegenCost</code> を全員ぶん数えて確かめました）。
+          6 人ぶんで 4200、割ると <b>0.42 コスト／秒</b>——1 コストに 2.38 秒かかります。
+          この式は
+          <a href="https://ultimitarchive.seesaa.net/article/costspeed.html" target="_blank" rel="noopener">Ultimit Archive「ブルアカのコスト回復速度を科学する」</a>と
+          <a href="https://bluerec.kayagrv.com/entry/Tips%EF%BC%9A%E3%82%B3%E3%82%B9%E3%83%88%E9%96%A2%E9%80%A3%E3%82%B9%E3%82%AD%E3%83%AB%E5%8B%89%E5%BC%B7" target="_blank" rel="noopener">Blue Rec.「コスト回復、コスト回復加速、コスト削減のまとめ」</a>に載っています。</p>
+        <p><b>実数と % の重ねかたは、ゲームの他のステータスと同じで「足してから掛ける」です。</b>
+          <code>（700 ＋ 実数の合計）×（1 ＋ % の合計）</code>。データ側では
+          <code>RegenCost_Base</code> が実数、<code>RegenCost_Coefficient</code> が % で、
+          後者は 10000 分率です（ヒマリ Lv10 の <code>2029</code> が +20.29%）。
+          <b>この計算で 1 コスト 1.98 秒になり</b>、上の Ultimit Archive の「ヒマリで 1.98秒/C」と一致します。
+          重複については同記事に「EX/NS/PS/SS のスキル種別が異なれば重複可能、また同じスキル種別でも加算と乗算は重複可能」とあります。</p>
+        <p><b>コストの上限は 10 です</b>（Blue Rec. の「最大コスト10まで溜まります」）。
+          固有 4 でスペシャルのコスト上限が +0.5 になりますが、
+          データ側の <code>Unlock</code> がまだ <code>false</code> なので初期値には入れていません。手で書き換えてください。</p>
+        <p><b>開始時のコストはゲームのデータに入っていませんでした。</b>
+          <code>Excel/</code> にも <code>DB/</code> にも戦闘の定数表が無く、攻略サイトにも記載を見つけられなかったので、
+          <b>入力にしてあります</b>（既定は 0）。総力戦は 0 から始まるという前提です。</p>
+        <p><b>EX を撃っている間の秒数は、スキルの <code>Duration</code>（フレーム）を 30 で割った値です。</b>
+          ブルアカは 30fps なので、229 フレームなら 7.63 秒。
+          この計算では、<b>撃っている間もコストは貯まり続ける</b>ものとして扱い、
+          <b>次の EX はその演出が終わるまで撃てない</b>ものとしています。</p>
+        <p><b>条件で値が変わるスキルがあります。</b>チェリノは同じ部隊のレッドウィンター生徒の人数、
+          カノエは同じ部隊の重装甲ストライカーの人数（どちらも自身を除いて最大 3 人）で段が変わるので、
+          編成から自動で数えています。それ以外の段のあるスキルは、段を選ぶ欄が出ます。</p>
+        <p><b>持続時間のあるバフ（セイアの EX、クルミの戦術シールド中など）は、初期状態では数えていません。</b>
+          「効いている間」に切り替えると合計に入ります。何秒間かは内訳に出ます。</p>
+        <p>出典 —
+          <a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a>（生徒・EX スキルのコストと演出時間・コスト回復力のスキル）。
+          取得は <span id="ver">—</span>。</p>
+      </details>
+    </div>
+
+  </div>
+</div>
+
+<footer>
+  <div class="foot-inner">
+    <p class="foot-name">AronaBotの使い方</p>
+    <p class="foot-links">
+      <a href="../../">AronaBot のページ</a>
+      <span class="sep">/</span>
+      <a href="../">ツール一覧</a>
+      <span class="sep">/</span>
+      <a href="https://x.com/pe6cak" target="_blank" rel="noopener">制作者の X（@pe6cak）</a>
+      <span class="sep">/</span>
+      <span>不具合・要望は <b>@0r.not</b> まで</span>
+    </p>
+    <p class="disclaimer">
+      <b>このサイトはファンが作った非公式のものです。</b>運営とは関係ありません。
+      <small>掲載しているゲーム内の画像・アイコン・名称・数値は、Nexon Games / Yostar の
+      「ブルーアーカイブ」から引用したもので、著作権はすべて権利者に帰属します。
+      ツールの計算に使うデータは <a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a> と
+      <a href="https://github.com/electricgoat/ba-data" target="_blank" rel="noopener">ba-data</a> から取得しています。
+      権利者の方でご指摘があれば <b>@0r.not</b> までご連絡ください。</small>
+    </p>
+  </div>
+</footer>
+
+<script src="data.js"></script>
+<script src="tl.js"></script>
+</body>
+</html>
