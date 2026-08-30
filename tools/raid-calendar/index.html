@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>総力戦の開催カレンダー｜AronaBot</title>
+<meta name="description" content="総力戦と大決戦が、いつ・どのボスで・どの地形で開かれたかの全記録。ボスごとの登場回数と前回、開催の間隔も出します。">
+<meta name="theme-color" content="#c8892e">
+<link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<meta property="og:title" content="総力戦の開催カレンダー">
+<meta property="og:description" content="このボスは前回いつだったか。次はいつごろか。">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://arona-bot.com/tools/raid-calendar/">
+<meta property="og:image" content="https://arona-bot.com/images/hero-night.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="stylesheet" href="../../style.css?v=15">
+<link rel="stylesheet" href="../tool.css?v=7">
+<style>
+  /* ボスの一覧 */
+  .bosses { display: grid; grid-template-columns: repeat(auto-fill, minmax(168px, 1fr)); gap: 10px; }
+  .bcard {
+    display: grid; grid-template-columns: 52px 1fr; gap: .6em; align-items: center;
+    padding: 9px 10px; border: 1px solid var(--line); border-radius: 12px;
+    background: var(--bg-sub); text-align: left; font: inherit; cursor: pointer;
+  }
+  .bcard[aria-pressed="true"] {
+    border-color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, var(--bg-sub));
+  }
+  .bcard img { width: 52px; height: 52px; border-radius: 10px; background: var(--card); }
+  .bcard .nm { font-weight: 700; font-size: .88rem; line-height: 1.3; word-break: auto-phrase; }
+  .bcard .sub { display: block; font-weight: 500; font-size: .72rem; color: var(--fg-mute); margin-top: .2em; line-height: 1.5; }
+
+  /* 開催の記録 */
+  .season {
+    display: grid; grid-template-columns: 44px 84px 1fr auto; gap: .7em;
+    align-items: center; padding: 10px 0; border-bottom: 1px solid var(--line);
+  }
+  .season:last-child { border-bottom: 0; }
+  .season img { width: 44px; height: 44px; border-radius: 9px; background: var(--card); }
+  .season .dt { font-size: .8rem; font-variant-numeric: tabular-nums; line-height: 1.45; }
+  .season .dt small { display: block; color: var(--fg-mute); font-size: .72rem; }
+  .season .tx { min-width: 0; font-size: .88rem; }
+  .season .tx b { display: block; }
+  .season .tx small { color: var(--fg-mute); font-size: .74rem; line-height: 1.5; }
+  .season .rd { text-align: right; white-space: nowrap; line-height: 1.25; }
+  .season .rd b { display: block; font-size: 1.05rem; font-variant-numeric: tabular-nums; }
+  .season .rd small { display: block; font-size: .7rem; color: var(--fg-mute); }
+  .season.now { background: color-mix(in srgb, var(--accent) 10%, transparent); }
+  @media (max-width: 520px) {
+    .season { grid-template-columns: 38px 1fr auto; row-gap: .2em; }
+    .season .dt { grid-column: 2 / -1; order: 3; }
+    .season img { grid-row: span 2; }
+  }
+
+  /* 間隔の帯 */
+  .gaps { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+  .gap {
+    padding: .3em .6em; border-radius: 999px; font-size: .76rem;
+    border: 1px solid var(--line); background: var(--bg-sub);
+    font-variant-numeric: tabular-nums;
+  }
+  .gap b { font-weight: 800; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-inner">
+    <a class="topbar-name" href="../../">AronaBotの使い方</a>
+    <a class="topbar-tools" href="../">
+      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <path d="M21.7 18.3l-6-6a5.5 5.5 0 0 0-7-7l3.1 3.1-2.1 2.1L6.6 7.3a5.5 5.5 0 0 0 7 7l6 6a1 1 0 0 0 1.4 0l.7-.7a1 1 0 0 0 0-1.3z"/>
+      </svg>
+      ツール一覧
+    </a>
+    <nav class="topbar-nav">
+      <a href="../../#can">機能</a>
+      <a href="../../#start">つかいはじめる</a>
+      <a href="../../#message">メッセージから</a>
+      <a href="../../#faq">よくある質問</a>
+    </nav>
+    <!-- 共有。**AronaBot 本体と同じ位置に置く。**押した先は環境で変える -->
+    <span class="share-nudge" aria-hidden="true">使えそうな人に、ぜひ</span>
+    <a class="share" id="share-page" target="_blank" rel="noopener" aria-label="このページを共有する"
+       href="https://x.com/intent/post?url=https%3A%2F%2Farona-bot.com%2Ftools%2F">
+      <svg class="share-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <path d="M14 9V5l7 7-7 7v-4.1c-5 0-8.5 1.6-11 5.1 1-5 4-10 11-11z"/>
+      </svg>
+      <span class="share-label">共有</span>
+    </a>
+  </div>
+</div>
+<div class="toast" id="toast-page" role="status" aria-live="polite"></div>
+<script>
+/* 共有ボタン。**そのページ自身の URL を配る。**
+   1. スマホ（navigator.share）→ OS の共有シート
+   2. PC（クリップボード）→ URL をコピーして帯で伝える
+   3. どちらも無い → <a href> のまま X の共有ページへ */
+(function () {
+  var btn = document.getElementById('share-page'), toast = document.getElementById('toast-page');
+  if (!btn) return;
+  var url = location.href.split('#')[0];
+  var name = document.title.split('｜')[0];
+  var text = name + '（AronaBot のツール）';
+  btn.href = 'https://x.com/intent/post?text=' + encodeURIComponent(text) +
+             '&url=' + encodeURIComponent(url);
+  var timer = null;
+  function say(t) {
+    if (!toast) return;
+    toast.textContent = t; toast.classList.add('shown');
+    clearTimeout(timer); timer = setTimeout(function () { toast.classList.remove('shown'); }, 2000);
+  }
+  btn.addEventListener('click', function (e) {
+    if (navigator.share) {
+      e.preventDefault();
+      navigator.share({ title: name, text: text, url: url }).catch(function () {});
+      return;
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      e.preventDefault();
+      navigator.clipboard.writeText(url).then(function () { say('リンクをコピーしました'); },
+        function () { window.open(btn.href, '_blank', 'noopener'); });
+    }
+  });
+})();
+</script>
+
+
+<header class="thero">
+  <div class="thero-media" aria-hidden="true">
+    <picture>
+      <source srcset="../../images/hero-day.jpg" media="(prefers-color-scheme: dark)">
+      <img src="../../images/hero-night.jpg" alt="" width="1600" height="400" fetchpriority="high">
+    </picture>
+  </div>
+  <div class="thero-body">
+    <h1>総力戦の開催カレンダー</h1>
+    <p class="thero-lead">総力戦と大決戦が、いつ・どのボスで・どの地形で開かれたかの全記録です。ボスごとの登場回数と前回、開催の間隔も出します。</p>
+  </div>
+</header>
+
+<div class="twrap">
+  <p class="tcrumb"><a href="../../">AronaBotの使い方</a><span class="sl">/</span><a href="../">ツール</a><span class="sl">/</span>総力戦の開催カレンダー</p>
+
+  <div class="stats c3" style="margin-top:20px">
+    <div class="stat hero">
+      <div class="k">次の総力戦の目安</div>
+      <div class="v" id="o-next">—</div>
+      <div class="sub" id="o-next-sub"></div>
+    </div>
+    <div class="stat">
+      <div class="k">総力戦</div>
+      <div class="v" id="o-raid">—</div>
+      <div class="sub" id="o-raid-sub"></div>
+    </div>
+    <div class="stat">
+      <div class="k">大決戦</div>
+      <div class="v" id="o-elim">—</div>
+      <div class="sub" id="o-elim-sub"></div>
+    </div>
+  </div>
+
+  <div class="note-box" style="margin-top:16px">
+    <b>「次の目安」は予定表ではありません。</b>
+    これまでの開催間隔を並べただけの見積もりで、ゲームのデータには次回の日付が入っていません。
+    <b>正しい日付は公式のお知らせを見てください。</b>ボスと地形にいたっては、これまでの並びからは決まりません。
+  </div>
+
+  <div class="tfull" style="margin-top:20px">
+    <div class="panel">
+      <div class="panel-h"><h2>ボス</h2></div>
+      <p class="lead" id="boss-lead">押すと、そのボスの回だけ下に並びます。もう一度押すと戻ります。</p>
+      <div class="bosses" id="bosses"></div>
+    </div>
+  </div>
+
+  <div class="tfull">
+    <div class="panel">
+      <div class="panel-h"><h2>開催の記録</h2></div>
+      <div class="btnrow">
+        <div class="seg" id="kind" role="group" aria-label="どちらを見るか">
+          <button type="button" data-k="all" aria-pressed="true">両方</button>
+          <button type="button" data-k="raid" aria-pressed="false">総力戦</button>
+          <button type="button" data-k="elim" aria-pressed="false">大決戦</button>
+        </div>
+        <div class="seg" id="terrain" role="group" aria-label="地形">
+          <button type="button" data-t="" aria-pressed="true">全部</button>
+          <button type="button" data-t="Street" aria-pressed="false"><span class="gi gi-terrain-street" aria-hidden="true"></span>市街地</button>
+          <button type="button" data-t="Outdoor" aria-pressed="false"><span class="gi gi-terrain-outdoor" aria-hidden="true"></span>屋外</button>
+          <button type="button" data-t="Indoor" aria-pressed="false"><span class="gi gi-terrain-indoor" aria-hidden="true"></span>屋内</button>
+        </div>
+      </div>
+      <p class="lead" id="list-lead" style="margin-top:12px">—</p>
+      <div id="list"></div>
+      <div class="btnrow" style="margin-top:12px">
+        <button type="button" class="btn" id="more">もっと見る</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="tfull">
+    <div class="panel">
+      <div class="panel-h"><h2>開催の間隔</h2></div>
+      <p class="lead" id="gap-lead">—</p>
+      <div class="gaps" id="gaps"></div>
+    </div>
+  </div>
+
+  <div class="tfull">
+    <details class="src">
+      <summary>数字の出どころ</summary>
+      <p><b>開催の日付・ボス・地形は、ゲームのデータそのままです。</b>
+        <code>raids.min.json</code> の <code>RaidSeasons</code> にある
+        <code>Seasons</code>（総力戦）と <code>EliminateSeasons</code>（大決戦）を、
+        <code>Start</code> / <code>End</code>（どちらも UNIX 秒）で並べています。
+        <b>時刻はすべて日本時間で出しています。</b>見ている端末の時計に合わせると、
+        海外から見たときに日付がずれるためです。</p>
+      <p><b><code>RaidSeasons</code> はサーバーごとに 3 本入っていて、先頭が日本です。</b>
+        先頭の最後のシーズンが日本の開催日と合うことを確かめて使っています。</p>
+      <p><b>大決戦の「Torment に挑戦できる防御タイプ」は <code>OpenDifficulty</code> です。</b>
+        防御タイプごとに、その回で開く難易度の番号が入っています。番号は
+        Normal・Hard・VeryHard・Hardcore・Extreme・Insane・Torment・Lunatic の順で、
+        <b>6 なら Torment まで</b>、5 なら Insane までです。</p>
+      <p><b>「次の目安」は、直近 6 回の間隔の中央値を最後の開始日に足しただけです。</b>
+        ゲームのデータに次回の予定は入っていません。実際の告知は公式 X の
+        「総力戦＆大決戦スケジュール」と「予告」で出ます。</p>
+      <p>ボスの装甲と攻撃属性は <code>Raid</code> の <code>ArmorType</code> /
+        <code>BulletType</code> / <code>BulletTypeInsane</code> です。
+        Insane 以上では攻撃属性が変わるボスがいるので、両方を出しています。
+        相性の詳細は<a href="../raid/">総力戦の相性チェッカー</a>にあります。</p>
+      <p>出典 — <a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a>。
+        取得は <span id="ver">—</span>。</p>
+    </details>
+  </div>
+
+</div>
+
+<footer>
+  <div class="foot-inner">
+    <p class="foot-name">AronaBotの使い方</p>
+    <p class="foot-links">
+      <a href="../../">AronaBot のページ</a>
+      <span class="sep">/</span>
+      <a href="../">ツール一覧</a>
+      <span class="sep">/</span>
+      <a href="https://x.com/pe6cak" target="_blank" rel="noopener">制作者の X（@pe6cak）</a>
+      <span class="sep">/</span>
+      <span>不具合・要望は <b>@0r.not</b> まで</span>
+    </p>
+    <p class="disclaimer">
+      <b>このサイトはファンが作った非公式のものです。</b>運営とは関係ありません。
+      <small>掲載しているゲーム内の画像・アイコン・名称・数値は、Nexon Games / Yostar の
+      「ブルーアーカイブ」から引用したもので、著作権はすべて権利者に帰属します。
+      ツールの計算に使うデータは <a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a> と
+      <a href="https://github.com/electricgoat/ba-data" target="_blank" rel="noopener">ba-data</a> から取得しています。
+      権利者の方でご指摘があれば <b>@0r.not</b> までご連絡ください。</small>
+    </p>
+  </div>
+</footer>
+
+<script src="data.js"></script>
+<script src="cal.js"></script>
+</body>
+</html>

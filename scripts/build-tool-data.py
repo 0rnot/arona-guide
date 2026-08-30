@@ -201,7 +201,10 @@ def fetch_icon(name, url, force=False):
     except Exception as e:
         print(f"    落とせない {name}: {e}", file=sys.stderr)
         return False
-    if len(raw) < 2000:          # SchaleDB は無い画像に小さなプレースホルダを返す
+    # **中身が画像かどうかで見る。**SchaleDB は無い画像に HTML を返すので、
+    # 先頭の魔法数で弾ける。バイト数で切ると、本当に小さい絵まで一緒に捨てる
+    # （buff/Buff_CostRegen.webp が 1,614 バイトだった。2026-08-30）
+    if not (raw[:8] == b"\x89PNG\r\n\x1a\n" or raw[:4] == b"RIFF" or raw[:3] == b"\xff\xd8\xff"):
         print(f"    実体が無い {name}（{len(raw)} バイト）", file=sys.stderr)
         return False
     IMG.mkdir(parents=True, exist_ok=True)
@@ -1067,10 +1070,79 @@ def build_cost_timeline():
         "version": "SchaleDB jp",
     }, header="/* scripts/build-tool-data.py が吐く。**手で直さない。** */\n")
 
+
+# ------------------------------------------------------------ 総力戦の開催カレンダー
+
+def build_raid_calendar():
+    print("総力戦・大決戦の開催カレンダー")
+    raids = get_json(SD.format("raids"))
+    loc = get_json(SD.format("localization"))
+
+    bosses = {}
+    for r in raids.get("Raid") or []:
+        bosses[r["Id"]] = {
+            "n": r.get("Name", ""), "p": r.get("PathName", ""), "dev": r.get("DevName", ""),
+            "at": r.get("ArmorType", ""), "bt": r.get("BulletType", ""),
+            "bi": r.get("BulletTypeInsane", ""),
+            "tr": r.get("Terrain") or [], "md": (r.get("MaxDifficulty") or [0])[0],
+            "du": (r.get("BattleDuration") or [0])[0],
+        }
+    # **RaidSeasons は サーバー別の 3 本。先頭が日本。**
+    # 総力戦の最終シーズンが日本の開催日と合うことを確かめてから使っている
+    seasons = (raids.get("RaidSeasons") or [{}])[0]
+
+    def rows(key):
+        out = []
+        for s in seasons.get(key) or []:
+            rid = s.get("RaidId")
+            if rid not in bosses:
+                continue
+            out.append({
+                "s": s.get("SeasonId"), "d": s.get("SeasonDisplay"),
+                "b": rid, "t": s.get("Terrain", ""),
+                "o": s.get("Start"), "c": s.get("End"),
+                "od": s.get("OpenDifficulty") or None,
+            })
+        out.sort(key=lambda x: x["o"], reverse=True)
+        return out
+
+    raid_rows, elim_rows = rows("Seasons"), rows("EliminateSeasons")
+    if len(raid_rows) < 50:
+        raise SystemExit(f"総力戦の履歴が {len(raid_rows)} 回しか取れない。データの形が変わった疑い")
+
+    used = {r["b"] for r in raid_rows} | {r["b"] for r in elim_rows}
+    n = 0
+    for bid in sorted(used):
+        b = bosses[bid]
+        n += fetch_icon("bossicon_" + b["p"],
+                        f"https://schaledb.com/images/raid/icon/Icon_{b['dev']}.png")
+        # **新しいボスはアイコンがまだ無い。**（ドラム缶ガニ＝EN0022 が
+        # 2026-08-30 の時点でそう）。無いときは立ち絵のほうを使う
+        if (IMG / f"bossicon_{b['p']}.webp").exists():
+            b["ic"] = "bossicon_" + b["p"]
+        else:
+            n += fetch_portrait(f"boss_{b['p']}",
+                                f"https://schaledb.com/images/raid/Boss_Portrait_{b['dev']}_Lobby.png")
+            b["ic"] = "boss_" + b["p"]
+    print(f"  総力戦 {len(raid_rows)} 回、大決戦 {len(elim_rows)} 回、ボス {len(used)} 体、絵 {n} 枚を追加")
+
+    keep = ("ArmorType", "BulletType", "RaidDifficulty")
+    # **難易度は並び順そのものが意味を持つ。**大決戦の OpenDifficulty は
+    # この並びの添字で、6 なら Torment まで挑める
+    diffs = ["Normal", "Hard", "VeryHard", "HardCore", "Extreme", "Insane", "Torment", "Lunatic"]
+    return write_js("tools/raid-calendar/data.js", "CAL", {
+        "bosses": {str(k): v for k, v in bosses.items() if k in used},
+        "raid": raid_rows, "elim": elim_rows, "diffs": diffs,
+        "labels": {k: loc.get(k, {}) for k in keep},
+        "version": "SchaleDB jp（raids.min.json の RaidSeasons）",
+    }, header="/* scripts/build-tool-data.py が吐く。**手で直さない。** */\n")
+
+
 BUILDERS = {"bond": build_bond, "teacher-level": build_teacher_level,
             "equipment": build_equipment, "tier": build_tier, "raid": build_raid,
             "student-cost": build_student_cost, "treasure": build_treasure,
             "cost-timeline": build_cost_timeline,
+            "raid-calendar": build_raid_calendar,
             "ui": build_ui}
 
 if __name__ == "__main__":
