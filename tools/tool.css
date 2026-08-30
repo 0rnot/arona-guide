@@ -219,6 +219,7 @@ select {
   transition: background .14s ease, color .14s ease;
 }
 .seg button:hover { color: var(--fg); }
+.seg button .gi { margin-right: .35em; }
 .seg button[aria-pressed="true"] { background: var(--accent); color: var(--accent-in); }
 .seg button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
@@ -424,6 +425,58 @@ a.tcard:hover .ticon { transform: scale(1.09) rotate(-4deg); }
 /* **style.css が img { display: block } を掛けている。**そのままだと文中の
    アイコンが 1 行を独り占めして、見出しの上や文の途中で改行が入る（2026-08-30 に発見）。
    inline-block に戻すのは必須。 */
+/* ゲーム内 UI のアイコン。**中身は白い単色のグリフ**なので、そのまま <img> で
+   置くとクリーム色の地に白で消える。mask で切り抜いて文字色を敷く。
+   こうしておくと暗いテーマでも勝手に反転する（2026-08-30） */
+.gi {
+  display: inline-block; width: 1.15em; height: 1.15em; vertical-align: -.2em;
+  background: currentColor; flex: none;
+  /* **ショートハンドに var() を混ぜない。**`var(--gi) center / contain` は
+     パースに失敗して丸ごと落ちる。個別指定なら通る（2026-08-30 に実測） */
+  -webkit-mask-image: var(--gi);          mask-image: var(--gi);
+  -webkit-mask-size: contain;             mask-size: contain;
+  -webkit-mask-repeat: no-repeat;         mask-repeat: no-repeat;
+  -webkit-mask-position: center;          mask-position: center;
+}
+.gi.lg { width: 1.6em; height: 1.6em; vertical-align: -.35em; }
+
+/* 絵は class で持たせる。**インラインの --gi に相対パスを書くと壊れる** ——
+   カスタムプロパティの url() は「var() を使っている側の CSS」を基準に
+   解決されるので、tools/raid/index.html に ../img/ と書いても
+   tools/tool.css から見た ../img/（＝サイト直下の /img/）になってしまう
+   （2026-08-30 に実測）。ここに書けば基準は tools/ で揃う。
+   **1 行はビルドが吐いたもの。増やすときは scripts/build-tool-data.py の UI_ICONS へ** */
+.gi-cafe-icon-interaction { --gi: url(img/ui_cafe_icon_interaction.webp); }
+.gi-common-icon-formation-star-r1 { --gi: url(img/ui_common_icon_formation_star_r1.webp); }
+.gi-common-icon-time { --gi: url(img/ui_common_icon_time.webp); }
+.gi-craftnode-credit { --gi: url(img/ui_craftnode_credit.webp); }
+.gi-craftnode-favor { --gi: url(img/ui_craftnode_favor.webp); }
+.gi-craftnode-item { --gi: url(img/ui_craftnode_item.webp); }
+.gi-craftnode-secretstone { --gi: url(img/ui_craftnode_secretstone.webp); }
+.gi-craftnode-ultimateskill { --gi: url(img/ui_craftnode_ultimateskill.webp); }
+.gi-icon-inven-badge { --gi: url(img/ui_icon_inven_badge.webp); }
+.gi-icon-inven-bag { --gi: url(img/ui_icon_inven_bag.webp); }
+.gi-icon-inven-charm { --gi: url(img/ui_icon_inven_charm.webp); }
+.gi-icon-inven-gloves { --gi: url(img/ui_icon_inven_gloves.webp); }
+.gi-icon-inven-hairpin { --gi: url(img/ui_icon_inven_hairpin.webp); }
+.gi-icon-inven-hat { --gi: url(img/ui_icon_inven_hat.webp); }
+.gi-icon-inven-necklace { --gi: url(img/ui_icon_inven_necklace.webp); }
+.gi-icon-inven-shoes { --gi: url(img/ui_icon_inven_shoes.webp); }
+.gi-icon-inven-watch { --gi: url(img/ui_icon_inven_watch.webp); }
+.gi-image-compare { --gi: url(img/ui_image_compare.webp); }
+.gi-role-damagedealer { --gi: url(img/ui_role_damagedealer.webp); }
+.gi-role-healer { --gi: url(img/ui_role_healer.webp); }
+.gi-role-supporter { --gi: url(img/ui_role_supporter.webp); }
+.gi-role-tanker { --gi: url(img/ui_role_tanker.webp); }
+.gi-role-vehicle { --gi: url(img/ui_role_vehicle.webp); }
+.gi-terrain-indoor { --gi: url(img/ui_terrain_indoor.webp); }
+.gi-terrain-outdoor { --gi: url(img/ui_terrain_outdoor.webp); }
+.gi-terrain-street { --gi: url(img/ui_terrain_street.webp); }
+.gi-type-attack { --gi: url(img/ui_type_attack.webp); }
+.gi-type-defense { --gi: url(img/ui_type_defense.webp); }
+.gi.mute { color: var(--fg-mute); }
+.gi.acc { color: var(--accent-tx); }
+
 .ico { display: inline-block; width: 1.7em; height: 1.7em; vertical-align: -.45em; border-radius: 5px; }
 .ico.sm { width: 1.35em; height: 1.35em; vertical-align: -.3em; }
 .stat .k .ico { width: 1.9em; height: 1.9em; vertical-align: -.6em; margin-right: .3em; }

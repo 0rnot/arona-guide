@@ -85,6 +85,74 @@ def fetch_raw(name, url, force=False):
     return True
 
 
+# ゲーム内 UI のアイコン。**SchaleDB の本番サイトには置かれていない**ものが多く、
+# GitHub のリポジトリ（images/ui/）から取る。data と違ってこちらは画像なので
+# 2024-08 で止まっていても問題にならない。
+# **大半は白い単色のグリフ**なので、ページ側では mask-image で文字色に染める
+# （そのまま <img> で置くと、クリーム色の地に白で見えなくなる）。
+SD_UI = "https://raw.githubusercontent.com/SchaleDB/SchaleDB/main/images/ui/{}.png"
+
+# 落としてくる UI アイコン。**増やすときはここに 1 行足す**
+UI_ICONS = [
+    # 装備の部位
+    "Icon_Inven_Hat", "Icon_Inven_Gloves", "Icon_Inven_Shoes", "Icon_Inven_Bag",
+    "Icon_Inven_Badge", "Icon_Inven_Hairpin", "Icon_Inven_Charm",
+    "Icon_Inven_Watch", "Icon_Inven_Necklace",
+    # 地形と属性
+    "Terrain_Indoor", "Terrain_Outdoor", "Terrain_Street",
+    "Type_Attack", "Type_Defense",
+    # 役割
+    "Role_DamageDealer", "Role_Healer", "Role_Supporter", "Role_Tanker", "Role_Vehicle",
+    # そのほか
+    "Cafe_Icon_Interaction", "Common_Icon_Time", "Image_Compare",
+    "CraftNode_Credit", "CraftNode_Favor", "CraftNode_Item",
+    "CraftNode_SecretStone", "CraftNode_UltimateSkill",
+    # **これだけは色付き**（金の星に数字）。mask ではなく <img> で置く
+    "Common_Icon_Formation_Star_R1",
+]
+
+
+def fetch_ui(name, force=False, size=96):
+    """ゲーム内 UI のアイコン。透過を残したまま webp にするだけで、切り抜かない。"""
+    out = IMG / ("ui_" + name.lower() + ".webp")
+    if out.exists() and not force:
+        return False
+    try:
+        raw = get(SD_UI.format(name))
+    except Exception as e:
+        print(f"    落とせない {name}: {e}", file=sys.stderr)
+        return False
+    if len(raw) < 200 or raw[:4] != b"\x89PNG":
+        print(f"    PNG でない {name}（{len(raw)} バイト）", file=sys.stderr)
+        return False
+    IMG.mkdir(parents=True, exist_ok=True)
+    try:
+        from PIL import Image
+        im = Image.open(io.BytesIO(raw)).convert("RGBA")
+        if max(im.size) > size:
+            im.thumbnail((size, size), Image.LANCZOS)
+        im.save(out, "WEBP", quality=92, method=6, lossless=True)
+    except ImportError:
+        import subprocess, shutil, tempfile
+        exe = shutil.which("magick") or shutil.which("convert")
+        if not exe:
+            raise SystemExit("Pillow も ImageMagick も無い")
+        with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as t:
+            t.write(raw); tmp = t.name
+        # **透過を残す。**-resize の > は「大きいときだけ縮める」
+        subprocess.run([exe, tmp, "-resize", f"{size}x{size}>", "-define",
+                        "webp:lossless=true", str(out)], check=True)
+        pathlib.Path(tmp).unlink(missing_ok=True)
+    return True
+
+
+def build_ui():
+    print("ゲーム内 UI のアイコン")
+    n = sum(fetch_ui(x) for x in UI_ICONS)
+    print(f"  {n} 枚を追加（全 {len(UI_ICONS)} 種）")
+    return bool(n)
+
+
 def fetch_portrait(name, url, force=False, size=200):
     """生徒の顔。**icon（120×120）ではなく collection（200×226）を使う。**
     icon は小さくて、Tier 表のように大きく出すと粗い。collection のほうが
@@ -896,7 +964,8 @@ def build_treasure():
 
 BUILDERS = {"bond": build_bond, "teacher-level": build_teacher_level,
             "equipment": build_equipment, "tier": build_tier, "raid": build_raid,
-            "student-cost": build_student_cost, "treasure": build_treasure}
+            "student-cost": build_student_cost, "treasure": build_treasure,
+            "ui": build_ui}
 
 if __name__ == "__main__":
     want = sys.argv[1:] or list(BUILDERS)

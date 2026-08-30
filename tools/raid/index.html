@@ -197,9 +197,9 @@
       <img id="now-img" src="" alt="" width="520" height="160">
       <div>
         <div class="stats c3" style="margin:0 0 16px">
-          <div class="stat hero"><div class="k">ボスの装甲</div><div class="v" id="o-at">—</div><div class="sub" id="o-at-sub">&nbsp;</div></div>
-          <div class="stat"><div class="k">ボスの攻撃属性</div><div class="v" id="o-bt">—</div><div class="sub" id="o-bt-sub">&nbsp;</div></div>
-          <div class="stat"><div class="k">地形</div><div class="v" id="o-tr">—</div><div class="sub">適性が高い子ほど当たる</div></div>
+          <div class="stat hero"><div class="k"><i class="gi gi-type-defense"></i> ボスの装甲</div><div class="v" id="o-at">—</div><div class="sub" id="o-at-sub">&nbsp;</div></div>
+          <div class="stat"><div class="k"><i class="gi gi-type-attack"></i> ボスの攻撃属性</div><div class="v" id="o-bt">—</div><div class="sub" id="o-bt-sub">&nbsp;</div></div>
+          <div class="stat"><div class="k"><i class="gi" id="o-tr-ico"></i> 地形</div><div class="v" id="o-tr">—</div><div class="sub">適性が高い子ほど当たる</div></div>
         </div>
         <p class="lead" style="margin:0 0 8px"><b>こちらの攻撃がどれだけ通るか。</b>数字はゲームのデータの倍率そのままです。</p>
         <div class="chart" id="atk"></div>
@@ -274,6 +274,8 @@
 (function () {
   'use strict';
   var R = window.RAID, el = function (id) { return document.getElementById(id); };
+  // 地形のアイコン。**ゲーム内 UI の白い単色グリフ**なので .gi（mask）で文字色に染める
+  var TERRAIN_ICON = { Indoor: 'indoor', Outdoor: 'outdoor', Street: 'street' };
   var L = R.labels;
 
   var DIFF = ['Normal', 'Hard', 'VeryHard', 'HardCore', 'Extreme', 'Insane', 'Torment', 'Lunatic'];
@@ -365,7 +367,9 @@
       }).join('');
     }
     el('terrain').innerHTML = b.tr.map(function (t) {
+      var ic = TERRAIN_ICON[t];
       return '<button type="button" data-t="' + t + '" aria-pressed="' + (t === terrain) + '">' +
+        (ic ? '<i class="gi gi-terrain-' + ic + '"></i>' : '') +
         ja('AdaptationType', t) + '</button>';
     }).join('');
 
@@ -420,6 +424,8 @@
       : 'Insane 以上では ' + (b.bti ? ja('BulletType', b.bti) : '—') + ' に変わります';
 
     el('o-tr').textContent = ja('AdaptationType', terrain);
+    // 見出しのアイコンも、いま選んでいる地形に合わせる
+    el('o-tr-ico').className = 'gi gi-terrain-' + (TERRAIN_ICON[terrain] || 'outdoor');
 
     drawStats(b);
 
