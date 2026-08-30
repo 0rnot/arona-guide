@@ -777,6 +777,22 @@
     fromHash();
     draw();
 
-    return { hash: hash, refresh: draw, count: function () { return items.length; } };
+    /** **外から絞り込みを差し込む。**同じページに同居している相性チェッカーが、
+        選んでいるボスと地形をそのまま渡してくる（2026-08-30 の先生の指示——
+        「相性チェッカーからボスごとに TL 検索」）。
+        ボスの合言葉は総力戦・大決戦が `b<Id>`、制約解除決戦が `m<Id>`。 */
+    function setFilter(f) {
+      if (!f) return false;
+      var hit = false;
+      if (f.b && bossBy[f.b]) { q('tls-f-boss').value = f.b; hit = true; }
+      if (f.tr) { q('tls-f-terr').value = f.tr; hit = true; }
+      if (!hit) return false;
+      syncHash();
+      draw();
+      return true;
+    }
+
+    return { hash: hash, refresh: draw, setFilter: setFilter,
+             count: function () { return items.length; } };
   };
 })();

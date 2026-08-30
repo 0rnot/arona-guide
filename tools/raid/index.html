@@ -158,6 +158,13 @@
   .tls-ext small { display: block; margin-top: .28em; font-size: .73rem; color: var(--fg-mute);
                    line-height: 1.6; overflow-wrap: anywhere; }
 
+  /* **相性チェッカーから TL 検索へ渡すボタン。**2 つの機能をつなぐ唯一の道なので、
+     見出しの中でも押せると分かる色にする（`.btn.tone` は共有バーと案内の中でしか
+     色が付いていない。`tools/tool.css` の 505 行と 548 行） */
+  #to-tls { background: var(--accent); border-color: var(--accent);
+            color: var(--on-accent, #fff); font-weight: 700; margin-left: auto; }
+  #to-tls:hover { filter: brightness(1.06); }
+
   /* おまけの相性チェッカー。**閉じてある状態が既定。** */
   .subtool { border: 1px solid var(--line); border-radius: 14px;
              background: var(--bg-sub); margin-top: 18px; }
@@ -285,7 +292,11 @@
   </div>
 
   <div class="panel">
-    <div class="panel-h"><h2 id="now-h">いまの相手</h2></div>
+    <div class="panel-h"><h2 id="now-h">いまの相手</h2>
+      <!-- **選んでいるボスと地形を、上の TL 検索にそのまま渡す。**
+           2026-08-30 の先生の指示（相性チェッカーからボスごとに TL 検索） -->
+      <button type="button" class="btn tone" id="to-tls">このボスの TL を探す</button>
+    </div>
     <div class="now">
       <img id="now-img" src="" alt="" width="520" height="160">
       <div>
@@ -406,6 +417,22 @@
   // `&` で割ったうえで自分の区画だけを差し替える作りになっている
   if (api) window.shareUrl = function () { return '#' + api.hash(); };
 
+  /* **相性チェッカーで選んでいる相手を、上の TL 検索に渡す。**
+     相性チェッカー側は自分の状態を `window.RAID_PICK()` で返す（下のスクリプト） */
+  var jump = document.getElementById('to-tls');
+  if (jump && api && api.setFilter) {
+    jump.addEventListener('click', function () {
+      var pick = window.RAID_PICK && window.RAID_PICK();
+      if (!pick) return;
+      api.setFilter(pick);
+      var box = document.getElementById('tls-vault') || root;
+      var bar = document.querySelector('.topbar');
+      var off = (bar ? bar.getBoundingClientRect().height : 0) + 14;
+      window.scrollTo({ top: Math.max(0, box.getBoundingClientRect().top + window.pageYOffset - off),
+                        behavior: 'smooth' });
+    });
+  }
+
   var R = window.RAID;
   if (!R) return;
   var stu = document.getElementById('tls-src-stu');
@@ -444,6 +471,13 @@
     for (var i = 0; i < R.bosses.length; i++) if (R.bosses[i].id === bossId) return R.bosses[i];
     return R.bosses[0];
   }
+  /** **いま選んでいる相手を、上の TL 検索が読める形で返す。**
+      ボスの合言葉は総力戦・大決戦が `b<Id>`、制約解除決戦が `m<Id>`
+      （`tl-search.js` の `BOSS` の作り方に合わせてある）。 */
+  window.RAID_PICK = function () {
+    return { b: (mode === 'multi' ? 'm' + multiId : 'b' + bossId), tr: terrain };
+  };
+
   /** 制約解除決戦の枠。**同じボスに装甲違いの枠がある**ので、枠ごとに選ぶ */
   function mBoss() {
     for (var i = 0; i < R.multi.length; i++) if (R.multi[i].id === multiId) return R.multi[i];
