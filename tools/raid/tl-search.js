@@ -26,6 +26,26 @@
       あとからボスや使った生徒で絞り込んで、コスト計算機に戻せるようにする。
    ② **よそへ条件ごと飛ばす。**選んだ条件から、TL 動画を集めている
       よそのサイトと YouTube の検索 URL を組み立てる。**外部であることは明示する。**
+      **ここは補助。**畳んだ面に入れてあり、ページの主役にはしない
+      （2026-08-30 の先生の指示——「サイト内で完結させたい」）。
+
+   ---------------------------------------------------------------
+   相手はページのボス選択が持つ
+
+   2026-08-30 に、ボス・地形・難易度・種類の選択を**ページの先頭のボス選択**へ
+   一本化した。このファイルはもうボスの `<select>` を持たない。外から
+
+       var api = TLSEARCH_MOUNT(root);
+       api.bindPicker(window.RAID_PICKER);
+
+   と渡してもらい、以後は選ばれている相手を
+
+       P.get()  → { kind, b, tr, d }        // b は 'b4' / 'm1000000'
+       P.set(o) // 黙って選び直す（通知しない）
+       P.on(fn) // 選び直されたら fn(state)
+
+   でやりとりする。**ピッカーが無くても落ちない。**そのときは保管庫の
+   絞り込みが効かないだけで、保存も検索も動く。
 
    ---------------------------------------------------------------
    読むデータ
@@ -130,9 +150,22 @@
     });
 
     /* ボスの絵。**`boss_<p>.webp` は 20 体ぶん全部そろっている**（`bossicon_` は
-       ドラム缶ガニと制約解除決戦のぶんが無く、404 になる）。相性チェッカーと同じ絵 */
+       ドラム缶ガニと制約解除決戦のぶんが無く、404 になる）。ボス選択と同じ絵 */
     function bossImg(p) { return '../img/boss_' + p + '.webp'; }
     function face(id) { return '../img/student_' + id + '.webp'; }
+
+    /** 難易度の合言葉を日本語に。制約解除決戦は `1-24` のような階層の区間 */
+    function diffLabel(d) {
+      if (!d) return '';
+      if (MDIFFS.indexOf(d) >= 0) return d.replace('-', '〜') + 'F';
+      return diffJa[d] || d;
+    }
+
+    /* ---------- いま選ばれている相手 ------------------------------
+       ページ先頭のボス選択が正。ここは写しを持っているだけ。 */
+    var picker = null;
+    var pk = { kind: 'raid', b: '', tr: '', d: '' };   // ピッカーの写し
+    var useTgt = false;                                // 保管庫を相手で絞るか
 
     /* ---------- 保管庫の中身 -------------------------------------- */
     var items = [];
@@ -228,91 +261,76 @@
     }
 
     /* ---------- 画面を組む ---------------------------------------- */
-    function opts(list, sel) {
-      return list.map(function (o) {
-        return '<option value="' + esc(o[0]) + '"' +
-               (o[0] === sel ? ' selected' : '') + '>' + esc(o[1]) + '</option>';
-      }).join('');
-    }
-    function bossOpts(kind) {
-      var g = [];
-      ['raid', 'elim', 'multi'].forEach(function (k) {
-        if (kind && k !== kind) return;
-        var rows = BOSS.filter(function (b) { return b.kinds[k]; });
-        if (!rows.length) return;
-        // 総力戦と大決戦は同じボスなので、絞っていないときは 1 度だけ出す
-        if (!kind && k === 'elim') return;
-        g.push('<optgroup label="' + esc(k === 'multi' ? '制約解除決戦' : '総力戦・大決戦') + '">' +
-          rows.map(function (b) {
-            return '<option value="' + b.key + '">' + esc(b.n) + '</option>';
-          }).join('') + '</optgroup>');
-      });
-      return g.join('');
-    }
-    function diffOpts(kind) {
-      if (kind === 'multi') {
-        return MDIFFS.map(function (d) { return '<option value="' + d + '">' + d + '</option>'; }).join('');
-      }
-      var a = '<optgroup label="総力戦・大決戦">' + DIFFS.map(function (d) {
-        return '<option value="' + d + '">' + esc(diffJa[d] || d) + '</option>';
-      }).join('') + '</optgroup>';
-      if (kind) return a;
-      return a + '<optgroup label="制約解除決戦">' + MDIFFS.map(function (d) {
-        return '<option value="' + d + '">' + d + '</option>';
+    function diffFilterOpts() {
+      return '<optgroup label="総力戦・大決戦">' + DIFFS.map(function (d) {
+        return '<option value="' + esc(d) + '">' + esc(diffJa[d] || d) + '</option>';
+      }).join('') + '</optgroup>' +
+      '<optgroup label="制約解除決戦">' + MDIFFS.map(function (d) {
+        return '<option value="' + esc(d) + '">' + esc(d.replace('-', '〜')) + 'F</option>';
       }).join('') + '</optgroup>';
     }
-    var terrOpts = TERR.map(function (t) {
-      return '<option value="' + t[0] + '">' + t[1] + '</option>';
-    }).join('');
 
     root.innerHTML =
-      '<div class="stats c3" id="tls-stats">' +
-        '<div class="stat hero"><div class="k">保管庫の TL</div>' +
-          '<div class="v" id="tls-o-n">—</div><div class="sub" id="tls-o-n-sub">まだ 1 本もありません</div></div>' +
-        '<div class="stat"><div class="k">ボスの種類</div>' +
-          '<div class="v" id="tls-o-b">—</div><div class="sub" id="tls-o-b-sub"></div></div>' +
-        '<div class="stat"><div class="k">いちばん多い生徒</div>' +
-          '<div class="v" id="tls-o-s">—</div><div class="sub" id="tls-o-s-sub"></div></div>' +
+      /* ============ ① 選んだ相手の TL（このページの主役） ============ */
+      '<div class="panel" id="tls-vault">' +
+        '<div class="panel-h"><h2 id="tls-vault-h">保管庫の TL</h2>' +
+          '<span class="tls-count" id="tls-count">—</span></div>' +
+
+        '<div class="note-box tls-honest">' +
+          '<p><b>TL そのものは、まだこのサイトに集めていません。</b>ここに出るのは、' +
+            '<b>あなたがこの端末に保存した TL だけ</b>です。' +
+            'このサイトは GitHub Pages の静的配信で、サーバーもデータベースもありません。' +
+            '他人の投稿を受け取る仕組みが作れないので、<b>中身の分からない TL を並べることはしません。</b></p>' +
+          '<p>他の人の TL を見たいときは、いちばん下の<b>「よそのサイトでも探す」</b>を開いてください。' +
+            '上で選んでいる相手を、そのまま先方の検索条件に組み立てて渡します。</p>' +
+        '</div>' +
+
+        '<label class="tls-scope" id="tls-scope">' +
+          '<input type="checkbox" id="tls-scope-on">' +
+          '<span id="tls-scope-tx">上で選んだ相手で絞る</span>' +
+        '</label>' +
+
+        '<div class="fields c3 tls-more-f">' +
+          '<div class="field"><label for="tls-f-diff">難易度でさらに絞る</label>' +
+            '<select id="tls-f-diff"><option value="">ぜんぶ</option>' + diffFilterOpts() + '</select></div>' +
+          '<div class="field"><label for="tls-f-stu">使っている生徒</label>' +
+            '<select id="tls-f-stu"><option value="">ぜんぶ</option>' +
+              stuSorted.map(function (s) {
+                return '<option value="' + s.id + '">' + esc(s.n) + '</option>';
+              }).join('') + '</select></div>' +
+          '<div class="field"><label for="tls-f-q">名前とメモから探す</label>' +
+            '<input id="tls-f-q" type="search" autocomplete="off" placeholder="削り、2部隊目、Torment…"></div>' +
+        '</div>' +
+        '<div class="btnrow" style="margin:14px 0">' +
+          '<button type="button" class="btn" id="tls-clear">絞り込みを外す</button>' +
+          '<button type="button" class="btn" id="tls-export">書き出す（JSON）</button>' +
+          '<button type="button" class="btn" id="tls-import">読み込む（JSON）</button>' +
+          '<input type="file" id="tls-file" accept="application/json,.json" hidden>' +
+        '</div>' +
+        '<div id="tls-list"></div>' +
       '</div>' +
 
-      '<div class="note-box" style="margin-top:16px">' +
-        '<b>保管庫はこの端末のブラウザの中だけです。</b>このサイトにはサーバーもデータベースも無いので、' +
-        '保存した TL がどこかへ送られることはありません。<b>裏を返すと、別の端末やブラウザには出てきません。</b>' +
-        '持ち出したいときは下の「書き出す」で JSON にしてください。閲覧履歴を消すと保管庫も消えます。' +
-      '</div>' +
-
-      '<div class="panel" id="tls-add" style="margin-top:16px">' +
-        '<div class="panel-h"><h2>TL を取り込む</h2></div>' +
+      /* ============ ② 保管庫に貯める ============ */
+      '<div class="panel" id="tls-add">' +
+        '<div class="panel-h"><h2>この相手の TL を保管庫に入れる</h2></div>' +
         '<p class="lead"><b>コスト計算機で組んだ TL の URL を貼ってください。</b>' +
           '<a href="../cost-timeline/">TL のコスト計算機</a>は編成と撃つ順番をぜんぶ URL に入れるので、' +
-          'この 1 本さえ控えておけば、あとから同じ盤面を開き直せます。</p>' +
+          'この 1 本さえ控えておけば、あとから同じ盤面を開き直せます。' +
+          '<b>保存先の相手は、上で選んでいるものになります。</b></p>' +
+        '<div class="tls-tgt" id="tls-tgt"></div>' +
         '<div class="btnrow" style="margin-bottom:12px">' +
           '<button type="button" class="btn" id="tls-pull">いまコスト計算機で開いている TL を取り込む</button>' +
         '</div>' +
-        '<p class="lead" style="margin-top:-4px"><b>取りこぼしなく写したいときは URL を貼ってください。</b>' + 'このボタンは同じブラウザに残っている盤面から組み直しているので、' + 'コスト計算機に新しい項目が増えた直後は、その項目が落ちることがあります。</p>' +
+        '<p class="lead" style="margin-top:-4px"><b>取りこぼしなく写したいときは URL を貼ってください。</b>' +
+          'このボタンは同じブラウザに残っている盤面から組み直しているので、' +
+          'コスト計算機に新しい項目が増えた直後は、その項目が落ちることがあります。</p>' +
         '<div class="field">' +
           '<label for="tls-hash">コスト計算機の URL、または <code>#</code> のあとの部分</label>' +
           '<textarea class="tls-paste" id="tls-hash" spellcheck="false" ' +
             'placeholder="https://arona-bot.com/tools/cost-timeline/#6|10008.5.10,…"></textarea>' +
         '</div>' +
         '<div class="tls-prev bad" id="tls-prev"></div>' +
-        '<div class="btnrow" style="margin-top:14px">' +
-          '<div class="seg" id="tls-kind" role="group" aria-label="どれの TL か">' +
-            KIND.map(function (k, i) {
-              return '<button type="button" data-k="' + k[0] + '" aria-pressed="' +
-                     (i === 0) + '">' + k[1] + '</button>';
-            }).join('') +
-          '</div>' +
-        '</div>' +
-        '<div class="fields c3" style="margin-top:12px">' +
-          '<div class="field"><label for="tls-boss">ボス</label>' +
-            '<select id="tls-boss"><option value="">選ばない</option>' + bossOpts('raid') + '</select></div>' +
-          '<div class="field"><label for="tls-diff">難易度</label>' +
-            '<select id="tls-diff"><option value="">選ばない</option>' + diffOpts('raid') + '</select></div>' +
-          '<div class="field"><label for="tls-terr">地形</label>' +
-            '<select id="tls-terr"><option value="">選ばない</option>' + terrOpts + '</select></div>' +
-        '</div>' +
-        '<div class="fields c2">' +
+        '<div class="fields c2" style="margin-top:14px">' +
           '<div class="field"><label for="tls-name">この TL の名前</label>' +
             '<input id="tls-name" type="text" autocomplete="off" placeholder="空ならボス名で付けます"></div>' +
           '<div class="field"><label for="tls-time">タイム・スコアなど</label>' +
@@ -327,41 +345,28 @@
         '</div>' +
       '</div>' +
 
-      '<div class="panel" id="tls-vault">' +
-        '<div class="panel-h"><h2>保管庫から探す</h2></div>' +
-        '<p class="lead">条件で絞り込みます。<b>「コスト計算機で開く」を押すと、そのときの編成と撃つ順番がそのまま復元されます。</b></p>' +
-        '<div class="fields c3">' +
-          '<div class="field"><label for="tls-f-boss">ボス</label>' +
-            '<select id="tls-f-boss"><option value="">ぜんぶ</option>' + bossOpts('') + '</select></div>' +
-          '<div class="field"><label for="tls-f-diff">難易度</label>' +
-            '<select id="tls-f-diff"><option value="">ぜんぶ</option>' + diffOpts('') + '</select></div>' +
-          '<div class="field"><label for="tls-f-terr">地形</label>' +
-            '<select id="tls-f-terr"><option value="">ぜんぶ</option>' + terrOpts + '</select></div>' +
-        '</div>' +
-        '<div class="fields c2">' +
-          '<div class="field"><label for="tls-f-stu">使っている生徒</label>' +
-            '<select id="tls-f-stu"><option value="">ぜんぶ</option>' +
-              stuSorted.map(function (s) {
-                return '<option value="' + s.id + '">' + esc(s.n) + '</option>';
-              }).join('') + '</select></div>' +
-          '<div class="field"><label for="tls-f-q">名前とメモから探す</label>' +
-            '<input id="tls-f-q" type="search" autocomplete="off" placeholder="削り、2部隊目、Torment…"></div>' +
-        '</div>' +
-        '<div class="btnrow" style="margin:12px 0">' +
-          '<button type="button" class="btn" id="tls-clear">絞り込みを外す</button>' +
-          '<button type="button" class="btn" id="tls-export">書き出す（JSON）</button>' +
-          '<button type="button" class="btn" id="tls-import">読み込む（JSON）</button>' +
-          '<input type="file" id="tls-file" accept="application/json,.json" hidden>' +
-        '</div>' +
-        '<div id="tls-list"></div>' +
+      /* ============ ③ 保管庫のようす ============ */
+      '<div class="stats c3" id="tls-stats">' +
+        '<div class="stat hero"><div class="k">保管庫の TL</div>' +
+          '<div class="v" id="tls-o-n">—</div><div class="sub" id="tls-o-n-sub">まだ 1 本もありません</div></div>' +
+        '<div class="stat"><div class="k">ボスの種類</div>' +
+          '<div class="v" id="tls-o-b">—</div><div class="sub" id="tls-o-b-sub"></div></div>' +
+        '<div class="stat"><div class="k">いちばん多い生徒</div>' +
+          '<div class="v" id="tls-o-s">—</div><div class="sub" id="tls-o-s-sub"></div></div>' +
       '</div>' +
 
-      '<div class="panel" id="tls-ext">' +
-        '<div class="panel-h"><h2>よそのサイトで探す</h2></div>' +
-        '<p class="lead"><b>ここから先は外部のサイトです。</b>上で選んでいる絞り込みの条件を、' +
-          'そのまま検索の URL に組み立てて渡します。<b>このサイトが他人の TL を持っているわけではありません。</b></p>' +
-        '<div class="tls-exts" id="tls-exts"></div>' +
-      '</div>';
+      /* ============ ④ よそのサイト（補助。畳んである） ============ */
+      '<details class="tls-more" id="tls-ext-wrap">' +
+        '<summary>よそのサイトでも探す' +
+          '<small>他の人が作った TL は、当サイトの外にあります。上で選んでいる相手を検索条件にして渡します。</small>' +
+        '</summary>' +
+        '<div class="tls-more-b" id="tls-ext">' +
+          '<p class="tls-empty" style="margin-bottom:12px"><b>ここから先は外部のサイトです。</b>' +
+            '中身の正しさや掲載の可否は、それぞれの運営者に帰属します。' +
+            '<b>当サイトが他人の TL を持っているわけではありません。</b></p>' +
+          '<div class="tls-exts" id="tls-exts"></div>' +
+        '</div>' +
+      '</details>';
 
     var q = function (id) { return root.querySelector('#' + id); };
 
@@ -410,43 +415,46 @@
       return tl;
     }
 
-    function kindNow() {
-      var b = q('tls-kind').querySelector('[aria-pressed="true"]');
-      return b ? b.dataset.k : 'raid';
-    }
-    function refillAdd(kind) {
-      var b = q('tls-boss'), d = q('tls-diff');
-      var bv = b.value, dv = d.value;
-      b.innerHTML = '<option value="">選ばない</option>' + bossOpts(kind);
-      d.innerHTML = '<option value="">選ばない</option>' + diffOpts(kind);
-      b.value = bv; d.value = dv;
+    /** 「保存先の相手」の帯。**上のボス選択の写しをそのまま見せる。** */
+    function drawTgt() {
+      var b = bossBy[pk.b];
+      if (!b) {
+        q('tls-tgt').innerHTML = '<p class="ph">ページの上でボスを選ぶと、ここに保存先が出ます。</p>';
+        return;
+      }
+      var bits = [kindJa[pk.kind] || '総力戦'];
+      if (pk.tr) bits.push(terrJa[pk.tr] || pk.tr);
+      if (pk.d) bits.push(diffLabel(pk.d));
+      q('tls-tgt').innerHTML =
+        '<img src="' + bossImg(b.p) + '" alt="" width="104" height="32" loading="lazy">' +
+        '<span class="tls-tgt-t"><b>' + esc(b.n) + '</b>' +
+          '<small>' + esc(bits.join('　')) + '</small></span>' +
+        '<span class="tls-tgt-h">上のボス選択で変えられます</span>';
     }
 
     function fillForm(it) {
       q('tls-hash').value = it ? it.h : '';
-      var kind = (it && it.k) || 'raid';
-      Array.prototype.forEach.call(q('tls-kind').children, function (b) {
-        b.setAttribute('aria-pressed', String(b.dataset.k === kind));
-      });
-      refillAdd(kind);
-      q('tls-boss').value = (it && it.b) || '';
-      q('tls-diff').value = (it && it.d) || '';
-      q('tls-terr').value = (it && it.tr) || '';
       q('tls-name').value = (it && it.t) || '';
       q('tls-time').value = (it && it.tm) || '';
       q('tls-memo').value = (it && it.m) || '';
       q('tls-save').textContent = it ? 'この TL を上書きする' : '保管庫に入れる';
       q('tls-cancel').hidden = !it;
+      // **直すときは、上のボス選択もその TL の相手に戻す。**
+      // 保存する条件はピッカーから読むので、ここを合わせないと相手が変わってしまう
+      if (it && picker && it.b && bossBy[it.b]) {
+        picker.set({ kind: it.k || 'raid', b: it.b, tr: it.tr || '', d: it.d || '' });
+        pk = picker.get();
+      }
+      drawTgt();
       drawPrev();
     }
 
     function autoName() {
-      var b = bossBy[q('tls-boss').value];
-      var d = q('tls-diff').value;
+      var b = bossBy[pk.b];
       var parts = [];
       if (b) parts.push(b.n);
-      if (d) parts.push(diffJa[d] || d);
-      if (!parts.length) parts.push(kindJa[kindNow()] + ' の TL');
+      if (pk.d) parts.push(diffLabel(pk.d));
+      if (!parts.length) parts.push((kindJa[pk.kind] || '総力戦') + ' の TL');
       return parts.join(' ');
     }
 
@@ -457,10 +465,10 @@
       var rec = {
         id: editing || nowId(),
         t: (q('tls-name').value || '').trim() || autoName(),
-        k: kindNow(),
-        b: q('tls-boss').value,
-        d: q('tls-diff').value,
-        tr: q('tls-terr').value,
+        k: kindJa[pk.kind] ? pk.kind : 'raid',
+        b: bossBy[pk.b] ? pk.b : '',
+        d: pk.d || '',
+        tr: terrJa[pk.tr] ? pk.tr : '',
         tm: (q('tls-time').value || '').trim(),
         m: (q('tls-memo').value || '').trim(),
         h: tl.hash,
@@ -476,14 +484,17 @@
       if (!persist()) return;
       editing = null;
       fillForm(null);
+      // **入れたものが見えるところに残るように、相手での絞り込みは掛けたままにする。**
       draw();
       say(rec.t + ' を保管庫に入れました');
     }
 
     /* ---------- 保管庫の一覧 -------------------------------------- */
     function filters() {
-      return { b: q('tls-f-boss').value, d: q('tls-f-diff').value, tr: q('tls-f-terr').value,
-               s: q('tls-f-stu').value, q: (q('tls-f-q').value || '').trim().toLowerCase() };
+      return { b: useTgt ? pk.b : '', tr: useTgt ? pk.tr : '',
+               d: q('tls-f-diff').value,
+               s: q('tls-f-stu').value,
+               q: (q('tls-f-q').value || '').trim().toLowerCase() };
     }
     function matched() {
       var f = filters();
@@ -495,7 +506,7 @@
         if (f.s && (!tl || tl.ids.indexOf(+f.s) < 0)) return false;
         if (f.q) {
           var hay = (it.t || '') + ' ' + (it.m || '') + ' ' + (it.tm || '') + ' ' +
-            (bossBy[it.b] ? bossBy[it.b].n : '') + ' ' + (diffJa[it.d] || it.d || '') + ' ' +
+            (bossBy[it.b] ? bossBy[it.b].n : '') + ' ' + diffLabel(it.d) + ' ' +
             (terrJa[it.tr] || '') + ' ' +
             (tl ? tl.ids.map(function (id) { return stuBy[id] ? stuBy[id].n : ''; }).join(' ') : '');
           if (hay.toLowerCase().indexOf(f.q) < 0) return false;
@@ -508,7 +519,7 @@
       var b = bossBy[it.b], tl = readTL(it.h);
       var tags = [];
       tags.push('<span class="tg hot">' + esc(kindJa[it.k] || '総力戦') + '</span>');
-      if (it.d) tags.push('<span class="tg">' + esc(diffJa[it.d] || it.d) + '</span>');
+      if (it.d) tags.push('<span class="tg">' + esc(diffLabel(it.d)) + '</span>');
       if (it.tr) tags.push('<span class="tg">' + esc(terrJa[it.tr] || it.tr) + '</span>');
       if (tl) tags.push('<span class="tg">' + (tl.mode === 10 ? '10 人' : '6 人') +
                         '／EX ' + tl.ex + ' 本</span>');
@@ -535,16 +546,40 @@
         '</div></article>';
     }
 
+    /** 相手の呼び名。「ビナー／屋外」。
+        **制約解除決戦のボス名は既に「（弾力装甲）」を抱えている**ので、
+        地形まで丸かっこにすると「ティファレト（弾力装甲）（屋内）」になる */
+    function tgtName() {
+      var b = bossBy[pk.b];
+      if (!b) return '';
+      return b.n + (pk.tr ? '／' + (terrJa[pk.tr] || pk.tr) : '');
+    }
+
     function draw() {
       var rows = matched();
+      var narrowed = useTgt && !!bossBy[pk.b];
+
+      q('tls-vault-h').textContent = narrowed ? tgtName() + 'の TL' : '保管庫の TL';
+      q('tls-scope-tx').textContent = bossBy[pk.b]
+        ? '上で選んだ ' + tgtName() + ' だけを見る'
+        : '上で選んだ相手だけを見る';
+      q('tls-scope-on').checked = useTgt;
+      q('tls-count').textContent = items.length
+        ? rows.length + ' 本 / ' + items.length + ' 本'
+        : '0 本';
+
       q('tls-list').innerHTML = rows.length
         ? rows.map(cardHtml).join('')
-        : '<p class="tls-empty">' + (items.length
-            ? 'その条件に当てはまる TL はありません。<b>「絞り込みを外す」</b>で戻せます。'
-            : 'まだ 1 本も入っていません。<b>上の欄にコスト計算機の URL を貼る</b>ところから始めてください。') +
-          '</p>';
+        : '<p class="tls-empty">' + (
+            !items.length
+              ? 'まだ 1 本も入っていません。<b>下の欄にコスト計算機の URL を貼る</b>ところから始めてください。'
+              : narrowed
+              ? '<b>' + esc(tgtName()) + '</b>の TL はまだ入っていません。' +
+                'ほかの相手のぶんも見るときは、上のチェックを外すか<b>「絞り込みを外す」</b>を押してください。'
+              : 'その条件に当てはまる TL はありません。<b>「絞り込みを外す」</b>で戻せます。'
+          ) + '</p>';
 
-      // 上の 3 つ
+      // 下の 3 つ
       q('tls-o-n').textContent = items.length + ' 本';
       q('tls-o-n-sub').textContent = items.length
         ? (rows.length === items.length ? '絞り込みなし' : 'いまの絞り込みで ' + rows.length + ' 本')
@@ -567,6 +602,7 @@
       q('tls-o-s').textContent = top && stuBy[top] ? stuBy[top].n : '—';
       q('tls-o-s-sub').textContent = top ? cnt[top] + ' 本に入っています' : '保存すると出ます';
 
+      drawTgt();
       drawExt();
       syncHash();
     }
@@ -587,20 +623,23 @@
     var KINA_TERR = { Street: 1, Outdoor: 2, Indoor: 3 };
     var KINA_ARMOR = { ElasticArmor: 1, Unarmed: 2, HeavyArmor: 3, LightArmor: 4, CompositeArmor: 5 };
 
+    /** よそへ渡す条件。**保管庫の絞り込みと違って、こちらは常に
+        「上で選んでいる相手」を使う。**チェックを外していても、
+        画面に映っている相手を渡すほうが素直（2026-08-30）。 */
     function drawExt() {
-      var f = filters();
-      var b = bossBy[f.b], s = stuBy[f.s];
+      var b = bossBy[pk.b], s = stuBy[q('tls-f-stu').value];
+      var d = q('tls-f-diff').value || pk.d;
       var words = ['ブルアカ'];
       if (b) words.push(b.n.replace(/（.*/, ''));
-      if (f.d) words.push(diffJa[f.d] || f.d);
-      if (f.tr) words.push(terrJa[f.tr]);
+      if (d) words.push(diffLabel(d));
+      if (pk.tr) words.push(terrJa[pk.tr]);
       if (s) words.push(s.n.replace(/（.*/, ''));
       words.push('TL');
       var kw = words.join(' ');
       var cond = [];
       if (b) cond.push(b.n);
-      if (f.d) cond.push(diffJa[f.d] || f.d);
-      if (f.tr) cond.push(terrJa[f.tr]);
+      if (d) cond.push(diffLabel(d));
+      if (pk.tr) cond.push(terrJa[pk.tr]);
       if (s) cond.push(s.n);
       var condTx = cond.length ? cond.join('／') : '条件なし';
 
@@ -608,22 +647,22 @@
       var kina = 'https://kina-ko-m-ochi.net/tlsearch/';
       var kq = [];
       if (b && KINA_BOSS[b.p]) kq.push('boss_id=' + KINA_BOSS[b.p]);
-      if (f.tr && KINA_TERR[f.tr]) kq.push('battle_field_id=' + KINA_TERR[f.tr]);
+      if (pk.tr && KINA_TERR[pk.tr]) kq.push('battle_field_id=' + KINA_TERR[pk.tr]);
       if (b && b.kinds.multi) {
         if (KINA_ARMOR[b.at]) kq.push('armor_id=' + KINA_ARMOR[b.at]);
         // 制約解除決戦の難易度は先方も「階層の区間」で持っている
-        if (f.d && MDIFFS.indexOf(f.d) >= 0) kq.push('difficulty=' + encodeURIComponent(f.d));
+        if (d && MDIFFS.indexOf(d) >= 0) kq.push('difficulty=' + encodeURIComponent(d));
       }
       var kinaUrl = kina + (kq.length ? '?' + kq.join('&') : '');
 
       var list = [
-        { u: 'https://www.youtube.com/results?search_query=' + encodeURIComponent(kw),
-          t: 'YouTube で探す', d: '検索語「' + kw + '」' },
         { u: kinaUrl, t: 'TLサーチ（きなこもち）',
           d: kq.length ? 'ボスと地形を URL で渡します — ' + condTx
                        : '有志が集めた TL 動画のデータベース。ボスを選ぶと絞って渡せます' },
         { u: 'https://bluearchive.tools/tl/search', t: 'BlueArchive Tools の TL 検索',
           d: '利用者が投稿した TL をシーズンごとに見られます。条件は先方の画面で選んでください' },
+        { u: 'https://www.youtube.com/results?search_query=' + encodeURIComponent(kw),
+          t: 'YouTube で探す', d: '検索語「' + kw + '」' },
         { u: 'https://x.com/search?q=' + encodeURIComponent(kw) + '&f=live',
           t: 'X で探す', d: '検索語「' + kw + '」' }
       ];
@@ -635,7 +674,9 @@
 
     /* ---------- URL のハッシュ ------------------------------------ */
     /* **`tls=` を付けて載せる。**同じページに別のツールの状態が同居しても
-       ぶつからないように、`&` で区切った 1 区画だけを読み書きする */
+       ぶつからないように、`&` で区切った 1 区画だけを読み書きする。
+       **並びは `ボス~難易度~地形~生徒~語句` の 5 つで、`#tls=b4~~Indoor~~` の形は
+       2026-08-30 の作り直しでも変えていない**（他のページから飛んでくる入口）。 */
     function hash() {
       var f = filters();
       return HK + '=' + [f.b, f.d, f.tr, f.s, encodeURIComponent(f.q)].join('~');
@@ -658,9 +699,15 @@
       })[0];
       if (!seg) return;
       var p = seg.slice(HK.length + 1).split('~');
-      if (p[0]) q('tls-f-boss').value = p[0];
+      // ボスと地形はピッカーが持つ。ここでは写しに入れておいて、
+      // `bindPicker()` のときにピッカーへ渡す
+      if (p[0] && bossBy[p[0]]) {
+        pk.b = p[0];
+        pk.kind = p[0].charAt(0) === 'm' ? 'multi' : 'raid';
+        useTgt = true;
+      }
       if (p[1]) q('tls-f-diff').value = p[1];
-      if (p[2]) q('tls-f-terr').value = p[2];
+      if (p[2] && terrJa[p[2]]) pk.tr = p[2];
       if (p[3]) q('tls-f-stu').value = p[3];
       if (p[4]) { try { q('tls-f-q').value = decodeURIComponent(p[4]); } catch (e) { /* 壊れた URL は無視 */ } }
     }
@@ -713,32 +760,24 @@
       if (!h || !readTL(h)) { say('コスト計算機に保存された盤面が見つかりません'); return; }
       q('tls-hash').value = h;
       var tl = drawPrev();
-      if (tl && tl.mode === 10) {
-        Array.prototype.forEach.call(q('tls-kind').children, function (b) {
-          b.setAttribute('aria-pressed', String(b.dataset.k === 'multi'));
-        });
-        refillAdd('multi');
-      }
-      say('取り込みました。ボスと難易度を選んで保存してください');
-    });
-    q('tls-kind').addEventListener('click', function (e) {
-      var b = e.target.closest('button'); if (!b) return;
-      Array.prototype.forEach.call(q('tls-kind').children, function (x) {
-        x.setAttribute('aria-pressed', String(x === b));
-      });
-      refillAdd(b.dataset.k);
+      say(tl && tl.mode === 10
+        ? '取り込みました。制約解除決戦の編成です。上で相手を選んでから保存してください'
+        : '取り込みました。上で相手を選んでから保存してください');
     });
     q('tls-save').addEventListener('click', doSave);
     q('tls-cancel').addEventListener('click', function () { editing = null; fillForm(null); draw(); });
 
-    ['tls-f-boss', 'tls-f-diff', 'tls-f-terr', 'tls-f-stu'].forEach(function (id) {
+    q('tls-scope-on').addEventListener('change', function () {
+      useTgt = q('tls-scope-on').checked;
+      draw();
+    });
+    ['tls-f-diff', 'tls-f-stu'].forEach(function (id) {
       q(id).addEventListener('change', draw);
     });
     q('tls-f-q').addEventListener('input', draw);
     q('tls-clear').addEventListener('click', function () {
-      ['tls-f-boss', 'tls-f-diff', 'tls-f-terr', 'tls-f-stu', 'tls-f-q'].forEach(function (id) {
-        q(id).value = '';
-      });
+      useTgt = false;
+      ['tls-f-diff', 'tls-f-stu', 'tls-f-q'].forEach(function (id) { q(id).value = ''; });
       draw();
     });
     q('tls-export').addEventListener('click', doExport);
@@ -773,26 +812,43 @@
     });
 
     load();
-    fillForm(null);
     fromHash();
+    fillForm(null);
     draw();
 
-    /** **外から絞り込みを差し込む。**同じページに同居している相性チェッカーが、
-        選んでいるボスと地形をそのまま渡してくる（2026-08-30 の先生の指示——
-        「相性チェッカーからボスごとに TL 検索」）。
-        ボスの合言葉は総力戦・大決戦が `b<Id>`、制約解除決戦が `m<Id>`。 */
-    function setFilter(f) {
-      if (!f) return false;
-      var hit = false;
-      if (f.b && bossBy[f.b]) { q('tls-f-boss').value = f.b; hit = true; }
-      if (f.tr) { q('tls-f-terr').value = f.tr; hit = true; }
-      if (!hit) return false;
-      syncHash();
+    /** **ページ先頭のボス選択をつなぐ。**呼ばれるまでは、保管庫は
+        ハッシュから読んだ相手（あれば）のまま動く。 */
+    function bindPicker(P) {
+      if (!P || typeof P.get !== 'function') return false;
+      picker = P;
+      // ハッシュで相手が指定されていたら、それをピッカーに反映する（通知しない）
+      if (pk.b) P.set({ kind: pk.kind, b: pk.b, tr: pk.tr, d: q('tls-f-diff').value });
+      pk = P.get();
+      /* **相手が変わったときだけ絞り込みを立てる。**難易度をいじっただけで
+         チェックが戻ってくると、外した人の手を引っぱることになる（2026-08-30） */
+      P.on(function (st) {
+        var moved = (st.b !== pk.b) || (st.tr !== pk.tr);
+        pk = st;
+        if (moved) useTgt = true;
+        draw();
+      });
       draw();
       return true;
     }
 
-    return { hash: hash, refresh: draw, setFilter: setFilter,
+    /** 外から相手を差し込む。**ピッカーがあればそちらへ回す。** */
+    function setFilter(f) {
+      if (!f || !f.b || !bossBy[f.b]) return false;
+      if (picker) { picker.set(f); pk = picker.get(); }
+      else { pk = { kind: f.kind || (f.b.charAt(0) === 'm' ? 'multi' : 'raid'),
+                    b: f.b, tr: f.tr || '', d: f.d || '' }; }
+      useTgt = true;
+      draw();
+      return true;
+    }
+
+    return { hash: hash, refresh: draw, bindPicker: bindPicker, setFilter: setFilter,
+             target: function () { return { kind: pk.kind, b: pk.b, tr: pk.tr, d: pk.d, on: useTgt }; },
              count: function () { return items.length; } };
   };
 })();

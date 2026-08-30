@@ -4,36 +4,64 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>総力戦・大決戦の TL 検索｜AronaBot</title>
-<meta name="description" content="総力戦・大決戦・制約解除決戦のボスと地形を選ぶと、有効な攻撃属性と、連れて行くべき生徒が並びます。専用武器で上がる地形適性も込みで見られます。">
+<meta name="description" content="総力戦・大決戦・制約解除決戦のボスを絵から選ぶと、その相手の TL 保管庫・有効な攻撃属性・連れて行く生徒がまとめて出ます。TL は自分の端末に貯めて、ボスや使った生徒で引き直せます。">
 <meta name="theme-color" content="#c8892e">
 <link rel="icon" href="../../favicon.svg" type="image/svg+xml">
 <meta property="og:title" content="総力戦・大決戦の TL 検索">
-<meta property="og:description" content="ボスと地形を選ぶと、有効な攻撃属性と連れて行くべき生徒が並びます。">
+<meta property="og:description" content="ボスを絵から選ぶと、その相手の TL・有効な攻撃属性・連れて行く生徒が出ます。">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://arona-bot.com/tools/raid/">
 <meta property="og:image" content="https://arona-bot.com/images/hero-night.jpg">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="stylesheet" href="../../style.css?v=15">
-<link rel="stylesheet" href="../tool.css?v=7">
+<link rel="stylesheet" href="../tool.css?v=8">
 <style>
-  .bosses { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; }
+  /* ===== ① ボスを絵から選ぶ。**ページの導入で、ここが全体の相手を決める。**
+     2026-08-30 に、畳んであった相性チェッカーの中から先頭へ引き上げた
+     （先生の指示——「ボスは画像から選びたい」「相手を選ぶ UI を最初に」） ===== */
+  .bosses {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px;
+  }
+  /* **390px でも 2 列。**横スクロールを出さない */
+  @media (max-width: 430px) { .bosses { grid-template-columns: 1fr 1fr; gap: 8px; } }
   .boss {
     padding: 0; border: 1px solid var(--line); border-radius: 12px; overflow: hidden;
     background: var(--card); cursor: pointer; font: inherit; color: inherit; text-align: left;
+    display: block; width: 100%; min-width: 0;
     transition: border-color .14s ease, transform .14s ease, box-shadow .14s ease;
   }
   .boss:hover { border-color: var(--accent); transform: translateY(-2px); box-shadow: var(--shadow); }
   .boss:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   .boss img { display: block; width: 100%; aspect-ratio: 13 / 4; object-fit: cover; background: var(--bg-sub); }
-  .boss .cap { display: block; padding: .5em .7em; font-size: .84rem; font-weight: 700; }
-  .boss .cap small { display: block; font-weight: 400; font-size: .72rem; color: var(--fg-mute); margin-top: .15em; }
-  .boss[aria-pressed="true"] { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 30%, transparent); }
+  /* **絵が取れなかったボスは、名前だけのカードとして残す。**落とさない */
+  .boss.noimg img { display: none; }
+  .boss .cap { display: block; padding: .5em .7em; font-size: .84rem; font-weight: 700;
+               line-height: 1.35; overflow-wrap: anywhere; }
+  .boss .cap small { display: block; font-weight: 400; font-size: .72rem; color: var(--fg-mute);
+                     margin-top: .15em; }
+  .boss[aria-pressed="true"] { border-color: var(--accent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 30%, transparent); }
   .boss[aria-pressed="true"] .cap { background: var(--accent); color: var(--accent-in); }
+  .boss[aria-pressed="true"] .cap::before { content: '✓ '; }
   .boss[aria-pressed="true"] .cap small { color: color-mix(in srgb, var(--accent-in) 78%, transparent); }
 
   .pick-row { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; margin-top: 16px; }
   .pick-row > .lb { font-size: .8rem; font-weight: 700; color: var(--fg-mute); }
 
+  /* 選んだ相手の 1 行。**ここから下がぜんぶこの相手のもの**だと分かるようにする */
+  .pick-sum {
+    display: flex; align-items: center; gap: 12px; margin-top: 18px; padding: 10px 12px;
+    border: 1px solid var(--accent); border-radius: 12px;
+    background: color-mix(in srgb, var(--accent) 9%, var(--card));
+  }
+  .pick-sum img { width: 104px; height: 32px; object-fit: cover; border-radius: 7px;
+                  background: var(--bg-sub); flex: 0 0 auto; }
+  .pick-sum .t { min-width: 0; font-size: .9rem; font-weight: 800; line-height: 1.4;
+                 overflow-wrap: anywhere; }
+  .pick-sum .t small { display: block; font-size: .74rem; font-weight: 500; color: var(--fg-mute);
+                       margin-top: .1em; }
+
+  /* ===== ② 生徒の並び（相性チェッカーの中身） ===== */
   .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(186px, 1fr)); gap: 10px; }
   /* **274 人ぶん並ぶと本文が押し出される。**中でスクロールさせる */
   .gwrap { max-height: 62vh; overflow-y: auto; padding: 2px; -webkit-overflow-scrolling: touch; }
@@ -87,8 +115,9 @@
   .now { display: grid; grid-template-columns: 200px 1fr; gap: 16px; align-items: start; }
   .now img { display: block; width: 100%; border-radius: 12px; }
   @media (max-width: 560px) { .now { grid-template-columns: 1fr; } }
-  /* ===== TL の保管庫と検索。**このかたまりごと移せる。**
-     `tools/tl-search/tl-search.js` が作る画面の見た目で、
+
+  /* ===== ③ TL の保管庫と検索。**このかたまりごと移せる。**
+     `tools/raid/tl-search.js` が作る画面の見た目で、
      クラスはすべて `.tls-` で始めてある。土台（`.panel` / `.field` /
      `.btn` / `.seg` / `.stat` / `.note-box`）は `tools/tool.css` のもの ===== */
   .tls-paste { width: 100%; box-sizing: border-box; min-height: 72px; resize: vertical;
@@ -96,6 +125,32 @@
                border: 1px solid var(--line); border-radius: 10px;
                background: var(--card); color: var(--fg); overflow-wrap: anywhere; }
   .tls-paste:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  /* 板の見出しの右にいまの本数 */
+  .tls-count { margin-left: auto; font-size: .8rem; font-weight: 800; color: var(--fg-mute);
+               font-variant-numeric: tabular-nums; }
+  /* **持っていないものを持っているように見せない。**この断り書きは畳まない */
+  .note-box.tls-honest { margin: 14px 0 16px; }
+
+  /* 「上で選んだ相手で絞る」 */
+  .tls-scope { display: inline-flex; align-items: center; gap: .55em; cursor: pointer;
+               font-size: .84rem; font-weight: 700; padding: .5em .95em; border-radius: 999px;
+               border: 1px solid var(--line); background: var(--bg-sub); color: var(--fg-mute); }
+  .tls-scope:has(input:checked) { border-color: var(--accent); color: var(--fg);
+                                  background: color-mix(in srgb, var(--accent) 12%, var(--card)); }
+  .tls-scope input { margin: 0; }
+  .tls-more-f { margin-top: 16px; }
+
+  /* 保存先の相手 */
+  .tls-tgt { display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+             margin: 0 0 14px; padding: 10px 12px; border: 1px solid var(--line);
+             border-radius: 12px; background: var(--bg-sub); }
+  .tls-tgt img { width: 104px; height: 32px; object-fit: cover; border-radius: 7px;
+                 background: var(--card); flex: 0 0 auto; }
+  .tls-tgt .tls-tgt-t { min-width: 0; font-size: .88rem; line-height: 1.4; }
+  .tls-tgt .tls-tgt-t small { display: block; font-size: .74rem; color: var(--fg-mute); }
+  .tls-tgt .tls-tgt-h { margin-left: auto; font-size: .74rem; color: var(--fg-mute); }
+  .tls-tgt .ph { margin: 0; font-size: .81rem; color: var(--fg-mute); }
 
   .tls-prev { margin-top: 12px; padding: 12px; border-radius: 12px;
               border: 1px solid var(--line); background: var(--bg-sub); }
@@ -146,11 +201,22 @@
   .tls-tl .btnrow .btn { font-size: .78rem; padding: .4em .85em; }
 
   .tls-empty { font-size: .82rem; color: var(--fg-mute); line-height: 1.8; margin: 0; }
+  .tls-empty b { color: var(--fg); }
 
-  /* よそのサイトへ。**外に出ることが見て分かるように矢印を付ける** */
+  /* よそのサイトへ。**畳んである補助。**外に出ることが見て分かるように矢印を付ける */
+  .tls-more { border: 1px solid var(--line); border-radius: 14px;
+              background: var(--bg-sub); margin: 26px 0; }
+  .tls-more > summary { cursor: pointer; padding: 14px 16px; font-weight: 800;
+                        font-size: 1rem; list-style: none; }
+  .tls-more > summary::-webkit-details-marker { display: none; }
+  .tls-more > summary::before { content: '▸'; margin-right: .5em; color: var(--fg-mute); }
+  .tls-more[open] > summary::before { content: '▾'; }
+  .tls-more > summary small { display: block; font-weight: 400; font-size: .78rem;
+                              color: var(--fg-mute); margin-top: .3em; }
+  .tls-more-b { padding: 0 16px 16px; }
   .tls-exts { display: grid; grid-template-columns: repeat(auto-fill, minmax(226px, 1fr)); gap: 9px; }
   .tls-ext { display: block; padding: 11px 13px; border: 1px solid var(--line);
-             border-radius: 12px; background: var(--bg-sub); text-decoration: none;
+             border-radius: 12px; background: var(--card); text-decoration: none;
              color: inherit; min-width: 0; }
   .tls-ext:hover { border-color: var(--accent); }
   .tls-ext b { display: block; font-size: .87rem; line-height: 1.4; }
@@ -158,14 +224,8 @@
   .tls-ext small { display: block; margin-top: .28em; font-size: .73rem; color: var(--fg-mute);
                    line-height: 1.6; overflow-wrap: anywhere; }
 
-  /* **相性チェッカーから TL 検索へ渡すボタン。**2 つの機能をつなぐ唯一の道なので、
-     見出しの中でも押せると分かる色にする（`.btn.tone` は共有バーと案内の中でしか
-     色が付いていない。`tools/tool.css` の 505 行と 548 行） */
-  #to-tls { background: var(--accent); border-color: var(--accent);
-            color: var(--on-accent, #fff); font-weight: 700; margin-left: auto; }
-  #to-tls:hover { filter: brightness(1.06); }
-
-  /* おまけの相性チェッカー。**閉じてある状態が既定。** */
+  /* おまけの相性チェッカー。**閉じてある状態が既定。**
+     ボスの選択はページ先頭に移したので、ここに残るのは結果だけ */
   .subtool { border: 1px solid var(--line); border-radius: 14px;
              background: var(--bg-sub); margin-top: 18px; }
   .subtool > summary { cursor: pointer; padding: 14px 16px; font-weight: 800;
@@ -252,30 +312,25 @@
   </div>
   <div class="thero-body wide">
     <h1>総力戦・大決戦の TL 検索</h1>
-    <p class="thero-lead">作った TL をこの端末に貯めて、ボス・難易度・地形・使った生徒で引き直せます。押せばコスト計算機に編成と撃つ順番がそのまま復元。よその TL 検索サイトへのリンクも条件から組み立てます。おまけで相性チェッカーも付いています。</p>
+    <p class="thero-lead">まず相手を絵から選びます。選ぶと、その相手のために貯めた TL、有効な攻撃属性、連れて行く生徒がまとめて出ます。<b>TL はこの端末に貯まります。</b>他の人の TL はこのサイトには入っていないので、そちらはいちばん下から外部のサイトへ渡します。</p>
   </div>
 </header>
 
 <div class="twrap wide">
   <p class="tcrumb"><a href="../../">AronaBotの使い方</a><span class="sl">/</span><a href="../">ツール</a><span class="sl">/</span>総力戦・大決戦の TL 検索</p>
 
-  <!-- ここから下は tl-search.js が組み立てる。**この 1 枚を貼れば動く。** -->
-  <div id="tlsearch-root" style="margin-top:20px"></div>
-
-  <details class="subtool" id="raid-extra">
-    <summary>おまけ — 総力戦の相性チェッカー
-      <small>ボスと地形を選ぶと、有効な攻撃属性と連れて行く生徒が並びます。専用武器で上がる地形適性も込みです。</small>
-    </summary>
-    <div class="subbody">
-
-  <div class="panel" style="margin-top:8px">
-    <div class="panel-h"><h2>相手を選ぶ</h2></div>
+  <!-- ===== ① 相手を選ぶ。**ページ全体のボス選択。**
+       ここで選んだものが、下の TL 保管庫の絞り込み・保存先・相性チェッカーの
+       ぜんぶに効く（2026-08-30 の作り直し） ===== -->
+  <div class="panel" id="pick" style="margin-top:20px">
+    <div class="panel-h"><h2>まず、相手を選びます</h2></div>
+    <p class="lead">絵を押すとその相手に切り替わります。<b>ここで選んだ相手が、下のぜんぶに効きます。</b></p>
     <div class="seg" id="mode" role="group" aria-label="種類" style="margin-bottom:14px">
       <button type="button" data-m="raid" aria-pressed="true">総力戦</button>
       <button type="button" data-m="elim" aria-pressed="false">大決戦</button>
       <button type="button" data-m="multi" aria-pressed="false">制約解除決戦</button>
     </div>
-    <div class="bosses" id="bosses"></div>
+    <div class="bosses" id="bosses" role="group" aria-label="ボス"></div>
     <div class="pick-row">
       <span class="lb">地形</span><div class="seg" id="terrain" role="group" aria-label="地形"></div>
     </div>
@@ -289,14 +344,21 @@
       <span class="lb">ボスの装甲</span><div class="seg" id="armor" role="group" aria-label="ボスの装甲"></div>
     </div>
     <p class="lead" id="armor-note" style="margin:12px 0 0" hidden></p>
+    <div class="pick-sum" id="pick-sum" aria-live="polite"></div>
   </div>
 
+  <!-- ===== ② TL の保管庫と検索。tl-search.js が組み立てる ===== -->
+  <div id="tlsearch-root"></div>
+
+  <!-- ===== ③ おまけの相性チェッカー。**相手は上で選んだものを使う** ===== -->
+  <details class="subtool" id="raid-extra">
+    <summary>おまけ — 相性チェッカー
+      <small>上で選んだ相手に有効な攻撃属性と、連れて行く生徒が並びます。専用武器で上がる地形適性も込みです。</small>
+    </summary>
+    <div class="subbody">
+
   <div class="panel">
-    <div class="panel-h"><h2 id="now-h">いまの相手</h2>
-      <!-- **選んでいるボスと地形を、上の TL 検索にそのまま渡す。**
-           2026-08-30 の先生の指示（相性チェッカーからボスごとに TL 検索） -->
-      <button type="button" class="btn tone" id="to-tls">このボスの TL を探す</button>
-    </div>
+    <div class="panel-h"><h2 id="now-h">いまの相手</h2></div>
     <div class="now">
       <img id="now-img" src="" alt="" width="520" height="160">
       <div>
@@ -333,7 +395,7 @@
 
   <div class="note-box">
     <p><b>並び順には地形適性も入れています。</b>適性は専用武器で上がるので、武器を持たせた前提の順番です。上のチェックを外すと、武器なしの素の適性で並べ直します。</p>
-    <p><b>大決戦の装甲は開催ごとに変わります。</b>3 つの装甲が同時に立ち、Torment だけ別の装甲になります。ここでは自分で選んでください。直近 3 回にどの組み合わせが来たかは上に出しています。</p>
+    <p><b>大決戦の装甲は開催ごとに変わります。</b>3 つの装甲が同時に立ち、Torment だけ別の装甲になります。ここでは自分で選んでください。直近 3 回にどの組み合わせが来たかは、いちばん上のボス選択に出しています。</p>
   </div>
 
     </div>
@@ -353,7 +415,11 @@
 
         <p><b>「いまコスト計算機で開いている TL を取り込む」は、あちらが同じブラウザに置いている <code>arona-cost-timeline</code> を読んで組み直しています。</b>組んだハッシュは、保存する前に必ずこちらの読み取りに通しています。読めなければ保存させません。</p>
 
+        <p><b>保存するときのボス・種類・地形・難易度は、ページ先頭のボス選択から取っています。</b>取り込み欄に同じ選択肢を並べても迷うだけなので、2026-08-30 に一本化しました。<b>URL のハッシュ（<code>#tls=ボス~難易度~地形~生徒~語句</code>）の形は変えていません。</b>他のページから <code>#tls=b4~~Indoor~~</code> のような形で飛んできたときは、そのボスと地形が選ばれた状態で開きます。</p>
+
         <p><b>ボス・生徒・難易度の名前は <code>data.js</code>（このツール自身）（<code>window.RAID</code>）から読んでいます。</b>総力戦・大決戦のボス 14 体は <code>bosses</code>、制約解除決戦の 6 体は <code>multi</code>、生徒 <span id="tls-src-stu">—</span> 人は <code>students</code> です。<b>大決戦にも出るボスかどうかは、開催の記録（<code>elim</code>）に載っているかで決めています。</b>難易度の並び（Normal・Hard・VeryHard・Hardcore・Extreme・Insane・Torment・Lunatic）は <code>labels.RaidDifficulty</code> のままで、制約解除決戦の <span id="tls-src-md">—</span> という区切りは <code>multi</code> の <code>secs</code> にある階層の区間そのものです。<b>このツールは戦闘の計算を一切していません。</b>ここに数字を作る場所はありません。</p>
+
+        <p><b>ボスの絵は <code>tools/img/boss_&lt;パス名&gt;.webp</code>（520×160）です。</b>パス名は <code>data.js</code> の <code>p</code> で、総力戦の 14 体と制約解除決戦の 6 枠、あわせて 20 枚がそろっています。<b>取れなかったときは名前だけのカードにして、そのボスを一覧から落とさない作りです。</b></p>
 
         <p><b>よそのサイトへのリンクは、検索の URL を組み立てているだけです。</b>
           <a href="https://kina-ko-m-ochi.net/tlsearch/" target="_blank" rel="noopener noreferrer">TLサーチ（きなこもち）</a>の検索フォームは <code>GET</code> で、<code>boss_id</code> / <code>battle_field_id</code> / <code>armor_id</code> / <code>difficulty</code> という項目を持っています。<b>ボスと地形と装甲の番号は、先方のフォームの <code>&lt;option value&gt;</code> をそのまま写したものです</b>（2026-08-30 に実物で確認。<code>battle_field_id</code> は 市街地 1・屋外 2・屋内 3）。<b>先方が番号を振り直せば、このリンクは外れます。</b>難易度は先方が「階層の区間」で持っているため、制約解除決戦のときだけ渡しています。</p>
@@ -375,7 +441,7 @@
   </details>
 </div>
 
-<script>window.TOUR = {"key": "raid", "steps": [{"sel": "#tls-add", "t": "コスト計算機の URL を貼ります", "d": "TL のコスト計算機は編成と撃つ順番をぜんぶ URL に入れます。その URL を貼って、ボス・難易度・地形とメモを付けて保存します。"}, {"sel": "#tls-pull", "t": "開きっぱなしなら押すだけです", "d": "同じブラウザでコスト計算機を使っていれば、いまの盤面をそのまま取り込めます。"}, {"sel": "#tls-vault", "t": "ボスや生徒で引き直せます", "d": "ボス・難易度・地形・使った生徒・メモの語句で絞れます。「コスト計算機で開く」を押すと、その編成と順番が復元されます。"}, {"sel": "#tls-ext", "t": "他人の TL はよそで探します", "d": "このサイトには投稿を集める仕組みがありません。選んだ条件で、TL 動画を集めている外部サイトと YouTube の検索 URL を組み立てます。"}, {"sel": "#bosses", "pre": "#raid-extra > summary", "t": "おまけの相性チェッカー", "d": "下の「おまけ」を開くと、ボスと地形から有効な攻撃属性と連れて行く生徒を出せます。総力戦・大決戦・制約解除決戦の 3 つに対応しています。"}, {"sel": "#sharebar", "t": "絞り込みはそのまま渡せます", "d": "URL には絞り込みの条件だけが入ります。保管庫の中身は端末の外に出ません。"}]};</script>
+<script>window.TOUR = {"key": "raid", "steps": [{"sel": "#bosses", "t": "まず相手を絵から選びます", "d": "総力戦・大決戦・制約解除決戦のボスが並びます。押すと、下の TL・攻撃属性・生徒がぜんぶその相手のものに切り替わります。地形と難易度もここで選びます。"}, {"sel": "#tls-vault", "t": "選んだ相手の TL が出ます", "d": "ここに出るのは、あなたがこの端末に保存した TL だけです。他人の TL はこのサイトには入っていません。難易度・使った生徒・メモの語句でさらに絞れます。"}, {"sel": "#tls-add", "t": "コスト計算機の URL を貼って貯めます", "d": "TL のコスト計算機は編成と撃つ順番をぜんぶ URL に入れます。その URL を貼って保存すると、あとから「コスト計算機で開く」で盤面ごと戻せます。保存先の相手は上で選んだものです。"}, {"sel": "#tls-exts", "pre": "#tls-ext-wrap > summary", "t": "他人の TL はよそで探します", "d": "このサイトには投稿を集める仕組みがありません。選んでいる相手を、TL 動画を集めている外部サイトと YouTube の検索 URL に組み立てて渡します。"}, {"sel": "#atk", "pre": "#raid-extra > summary", "t": "おまけの相性チェッカー", "d": "有効な攻撃属性と、連れて行く生徒の並びが出ます。相手は上で選んだものがそのまま入ります。"}, {"sel": "#sharebar", "t": "選んだ相手はそのまま渡せます", "d": "URL には選んだボスと絞り込みの条件だけが入ります。保管庫の中身は端末の外に出ません。"}]};</script>
 <script src="../tour.js?v=1"></script>
 
 <script src="../share.js?v=1"></script>
@@ -404,51 +470,30 @@
 </footer>
 
 <script src="data.js?v=1"></script>
-<script src="tl-search.js?v=1"></script>
-<script>
-/* TL の保管庫と検索。**画面はぜんぶ tl-search.js が組む。**
-   ここは置き場所を渡して、共有バーの行き先を差し替えるだけ。 */
-(function () {
-  'use strict';
-  var root = document.getElementById('tlsearch-root');
-  if (!root || !window.TLSEARCH_MOUNT) return;
-  var api = window.TLSEARCH_MOUNT(root);
-  // **`tls=` 付きで返す。**相性チェッカー側も同じハッシュに区画を持つので、
-  // `&` で割ったうえで自分の区画だけを差し替える作りになっている
-  if (api) window.shareUrl = function () { return '#' + api.hash(); };
+<script src="tl-search.js?v=2"></script>
 
-  /* **相性チェッカーで選んでいる相手を、上の TL 検索に渡す。**
-     相性チェッカー側は自分の状態を `window.RAID_PICK()` で返す（下のスクリプト） */
-  var jump = document.getElementById('to-tls');
-  if (jump && api && api.setFilter) {
-    jump.addEventListener('click', function () {
-      var pick = window.RAID_PICK && window.RAID_PICK();
-      if (!pick) return;
-      api.setFilter(pick);
-      var box = document.getElementById('tls-vault') || root;
-      var bar = document.querySelector('.topbar');
-      var off = (bar ? bar.getBoundingClientRect().height : 0) + 14;
-      window.scrollTo({ top: Math.max(0, box.getBoundingClientRect().top + window.pageYOffset - off),
-                        behavior: 'smooth' });
-    });
-  }
-
-  var R = window.RAID;
-  if (!R) return;
-  var stu = document.getElementById('tls-src-stu');
-  if (stu) stu.textContent = R.students.length;
-  var md = document.getElementById('tls-src-md');
-  if (md && R.multi && R.multi[0]) {
-    md.textContent = R.multi[0].secs.map(function (x) { return x.lo + '-' + x.hi; }).join('・');
-  }
-  var ver = document.getElementById('tls-ver');
-  if (ver) ver.textContent = R.version;
-})();
-</script>
 <script>
+/* ============================================================
+   ページ全体のボス選択。**このページの唯一の「相手」。**
+
+   2026-08-30 に、畳んであった相性チェッカーの中から先頭へ引き上げた
+   （先生の指示——「ボスは画像から選びたい」「相手を選ぶ UI を最初に持ってきていい」）。
+   ここが決めた相手が、下の 3 つにそのまま流れる。
+
+     1. TL の保管庫の絞り込み（`tl-search.js`）
+     2. TL を保存するときのボス・種類・地形・難易度
+     3. 相性チェッカーの計算
+
+   外へは `window.RAID_PICKER` で出す。
+
+     get()  → { kind, b, tr, d }     kind は raid / elim / multi、b は 'b4' / 'm1000000'
+     set(o) → 黙って選び直す（`on` の受け手には通知しない）
+     on(fn) → 人が選び直したときだけ fn(get()) を呼ぶ
+   ============================================================ */
 (function () {
   'use strict';
   var R = window.RAID, el = function (id) { return document.getElementById(id); };
+  if (!R) return;
   // 地形のアイコン。**ゲーム内 UI の白い単色グリフ**なので .gi（mask）で文字色に染める
   var TERRAIN_ICON = { Indoor: 'indoor', Outdoor: 'outdoor', Street: 'street' };
   var L = R.labels;
@@ -465,24 +510,70 @@
   var armor = null;    // 大決戦のときだけ使う
   var filters = { q: '', ro: '', sq: '', sc: '', st: '' };
   var withWeapon = true, onlyGood = false;
+  var subs = [];
 
   function boss() {
     if (mode === 'multi') return mBoss();
     for (var i = 0; i < R.bosses.length; i++) if (R.bosses[i].id === bossId) return R.bosses[i];
     return R.bosses[0];
   }
-  /** **いま選んでいる相手を、上の TL 検索が読める形で返す。**
-      ボスの合言葉は総力戦・大決戦が `b<Id>`、制約解除決戦が `m<Id>`
-      （`tl-search.js` の `BOSS` の作り方に合わせてある）。 */
-  window.RAID_PICK = function () {
-    return { b: (mode === 'multi' ? 'm' + multiId : 'b' + bossId), tr: terrain };
-  };
-
   /** 制約解除決戦の枠。**同じボスに装甲違いの枠がある**ので、枠ごとに選ぶ */
   function mBoss() {
     for (var i = 0; i < R.multi.length; i++) if (R.multi[i].id === multiId) return R.multi[i];
     return R.multi[0];
   }
+  /** 制約解除決戦の、いまの階層区間 */
+  function mSec() { var b = mBoss(); return (b.secs || [])[sec] || (b.secs || [])[0] || { bt: 'Normal' }; }
+
+  /** いま選んでいる相手。**外へ出す形。**
+      ボスの合言葉は総力戦・大決戦が `b<Id>`、制約解除決戦が `m<Id>`
+      （`tl-search.js` の `BOSS` の作り方に合わせてある）。 */
+  function state() {
+    return { kind: mode,
+             b: (mode === 'multi' ? 'm' + multiId : 'b' + bossId),
+             tr: terrain,
+             d: (mode === 'multi' ? (mSec().lo + '-' + mSec().hi) : DIFF[diff]) };
+  }
+  function notify() {
+    var st = state();
+    for (var i = 0; i < subs.length; i++) { try { subs[i](st); } catch (e) { /* 受け手が転んでも進む */ } }
+  }
+  /** 外から選び直す。**通知しない。**ハッシュから戻すときと、
+      保管庫の「直す」で相手を合わせるときに呼ばれる */
+  function apply(o) {
+    if (!o) return;
+    if (o.b && String(o.b).charAt(0) === 'm') {
+      var mid = +String(o.b).slice(1);
+      for (var i = 0; i < R.multi.length; i++) if (R.multi[i].id === mid) { multiId = mid; mode = 'multi'; }
+    } else if (o.b) {
+      var bid = +String(o.b).slice(1);
+      for (var j = 0; j < R.bosses.length; j++) if (R.bosses[j].id === bid) { bossId = bid; }
+      mode = (o.kind === 'elim') ? 'elim' : 'raid';
+    } else if (o.kind) {
+      mode = o.kind;
+    }
+    var b = boss();
+    if (o.tr && b.tr.indexOf(o.tr) >= 0) terrain = o.tr;
+    if (b.tr.indexOf(terrain) < 0) terrain = b.tr[0];
+    if (o.d) {
+      if (mode === 'multi') {
+        var secs = b.secs || [];
+        for (var k = 0; k < secs.length; k++) if (secs[k].lo + '-' + secs[k].hi === o.d) sec = k;
+      } else {
+        var n = DIFF.indexOf(o.d);
+        if (n >= 0) diff = Math.min(n, b.mx);
+      }
+    }
+    draw();
+  }
+  window.RAID_PICKER = {
+    get: state,
+    set: apply,
+    on: function (fn) { if (typeof fn === 'function') subs.push(fn); }
+  };
+  /** 旧い呼び名。**外したくないので残してある**（返すのはボスと地形だけ） */
+  window.RAID_PICK = function () { var s = state(); return { b: s.b, tr: s.tr }; };
+
   function ymd(t) {
     var d = new Date(t * 1000);
     return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2);
@@ -498,8 +589,6 @@
 
   /** いまの条件でのボスの装甲。大決戦は自分で選ぶ */
   function bossArmor() { return mode === 'elim' ? (armor || ARMORS[0]) : boss().at; }
-  /** 制約解除決戦の、いまの階層区間 */
-  function mSec() { var b = mBoss(); return (b.secs || [])[sec] || (b.secs || [])[0] || { bt: 'Normal' }; }
   /** いまの条件でのボスの攻撃属性。Insane 以上は別のものになる */
   function bossBullet() {
     if (mode === 'multi') return mSec().bt;
@@ -514,24 +603,28 @@
   }
 
   // ---- 描画
+  /** ボスの絵カード。**押せるボタン**にして `aria-pressed` を付ける。
+      絵が取れなかったものは `.noimg` を付けて名前だけのカードにする */
+  function bossCard(b, on) {
+    return '<button type="button" class="boss" data-b="' + b.id + '" aria-pressed="' + on + '">' +
+      '<img src="../img/boss_' + b.p + '.webp" alt="" width="520" height="160" loading="lazy">' +
+      '<span class="cap">' + b.n +
+        '<small>' + b.tr.map(function (t) { return ja('AdaptationType', t); }).join(' / ') +
+        '　' + ja('ArmorType', b.at) + '</small></span></button>';
+  }
   function drawBosses() {
-    if (mode === 'multi') {
-      el('bosses').innerHTML = R.multi.map(function (b) {
-        return '<button type="button" class="boss" data-b="' + b.id + '" aria-pressed="' + (b.id === multiId) + '">' +
-          '<img src="../img/boss_' + b.p + '.webp" alt="" width="520" height="160" loading="lazy">' +
-          '<span class="cap">' + b.n +
-            '<small>' + b.tr.map(function (t) { return ja('AdaptationType', t); }).join(' / ') +
-            '　' + ja('ArmorType', b.at) + '</small></span></button>';
-      }).join('');
-      return;
-    }
-    el('bosses').innerHTML = R.bosses.map(function (b) {
-      return '<button type="button" class="boss" data-b="' + b.id + '" aria-pressed="' + (b.id === bossId) + '">' +
-        '<img src="../img/boss_' + b.p + '.webp" alt="" width="520" height="160" loading="lazy">' +
-        '<span class="cap">' + b.n +
-          '<small>' + b.tr.map(function (t) { return ja('AdaptationType', t); }).join(' / ') +
-          '　' + ja('ArmorType', b.at) + '</small></span></button>';
-    }).join('');
+    var rows = (mode === 'multi') ? R.multi : R.bosses;
+    var cur = (mode === 'multi') ? multiId : bossId;
+    el('bosses').innerHTML = rows.map(function (b) { return bossCard(b, b.id === cur); }).join('');
+  }
+
+  /** 種類のボタン。**`apply()` で外から切り替えられたときも合わせる**
+      （2026-08-30、`#tls=m1000004~~Indoor~~` で開くと中身は制約解除決戦なのに
+       ボタンが「総力戦」のまま光っていた） */
+  function drawMode() {
+    [].forEach.call(el('mode').querySelectorAll('button'), function (x) {
+      x.setAttribute('aria-pressed', String(x.dataset.m === mode));
+    });
   }
 
   function drawPickers() {
@@ -585,6 +678,20 @@
           }).join('<br>')
         : '<b>' + b.n + 'は、まだ大決戦での実績がデータにありません。</b>いま立っている装甲を選んでください。';
     }
+  }
+
+  /** 選んだ相手の 1 行。**ここから下がこの相手のものだと分かるように出す。** */
+  var KIND_JA = { raid: '総力戦', elim: '大決戦', multi: '制約解除決戦' };
+  function drawSum() {
+    var b = boss();
+    var bits = [KIND_JA[mode], ja('AdaptationType', terrain)];
+    bits.push(mode === 'multi'
+      ? (mSec().lo + '〜' + (mSec().hi || '') + 'F')
+      : ja('RaidDifficulty', DIFF[diff]));
+    bits.push(ja('ArmorType', bossArmor()) + '／' + ja('BulletType', bossBullet()) + 'で攻撃してくる');
+    el('pick-sum').innerHTML =
+      '<img src="../img/boss_' + b.p + '.webp" alt="" width="104" height="32" loading="lazy">' +
+      '<span class="t">' + b.n + '<small>' + bits.join('　') + '</small></span>';
   }
 
   function drawNow() {
@@ -700,37 +807,41 @@
     }).join('') || '<p style="color:var(--fg-mute);font-size:.86rem;margin:0">あてはまる生徒がいません。</p>';
   }
 
-  function draw() { drawBosses(); drawPickers(); drawNow(); drawList(); }
+  function draw() { drawMode(); drawBosses(); drawPickers(); drawSum(); drawNow(); drawList(); }
+  /** 人が選び直したとき。**描いてから外へ知らせる。** */
+  function pick() { draw(); notify(); }
 
   // ---- 操作
   el('mode').addEventListener('click', function (ev) {
     var b = ev.target.closest('button'); if (!b) return;
     mode = b.dataset.m;
-    [].forEach.call(el('mode').querySelectorAll('button'), function (x) {
-      x.setAttribute('aria-pressed', String(x.dataset.m === mode));
-    });
-    draw();
+    pick();
   });
   el('bosses').addEventListener('click', function (ev) {
     var b = ev.target.closest('.boss'); if (!b) return;
     if (mode === 'multi') { multiId = +b.dataset.b; } else { bossId = +b.dataset.b; }
-    draw();
+    pick();
   });
+  /* **絵が取れなかったカードは名前だけにする。**`error` は泡立たないので capture で拾う */
+  el('bosses').addEventListener('error', function (ev) {
+    var img = ev.target;
+    if (img && img.tagName === 'IMG' && img.closest('.boss')) img.closest('.boss').classList.add('noimg');
+  }, true);
   el('floor').addEventListener('click', function (ev) {
     var b = ev.target.closest('button'); if (!b) return;
-    sec = +b.dataset.s; draw();
+    sec = +b.dataset.s; pick();
   });
   el('terrain').addEventListener('click', function (ev) {
     var b = ev.target.closest('button'); if (!b) return;
-    terrain = b.dataset.t; draw();
+    terrain = b.dataset.t; pick();
   });
   el('diff').addEventListener('click', function (ev) {
     var b = ev.target.closest('button'); if (!b) return;
-    diff = +b.dataset.d; draw();
+    diff = +b.dataset.d; pick();
   });
   el('armor').addEventListener('click', function (ev) {
     var b = ev.target.closest('button'); if (!b) return;
-    armor = b.dataset.a; draw();
+    armor = b.dataset.a; draw();   // 装甲は相性チェッカーの中だけの話。外へは知らせない
   });
   el('wep').addEventListener('change', function () { withWeapon = el('wep').checked; drawList(); });
   el('only').addEventListener('change', function () { onlyGood = el('only').checked; drawList(); });
@@ -753,6 +864,35 @@
   bindFilter('f-st', 'st');
 
   draw();
+})();
+</script>
+
+<script>
+/* TL の保管庫と検索を組み立てて、上のボス選択とつなぐ。 */
+(function () {
+  'use strict';
+  var root = document.getElementById('tlsearch-root');
+  if (!root || !window.TLSEARCH_MOUNT) return;
+  var api = window.TLSEARCH_MOUNT(root);
+  if (api) {
+    // **ボス選択が「相手」を持つ。**ハッシュに相手が入っていれば、
+    // ここでボス選択側へ戻す（`bindPicker` の中でやっている）
+    api.bindPicker(window.RAID_PICKER);
+    // **`tls=` 付きで返す。**ボス選択も同じハッシュに区画を持つので、
+    // `&` で割ったうえで自分の区画だけを差し替える作りになっている
+    window.shareUrl = function () { return '#' + api.hash(); };
+  }
+
+  var R = window.RAID;
+  if (!R) return;
+  var stu = document.getElementById('tls-src-stu');
+  if (stu) stu.textContent = R.students.length;
+  var md = document.getElementById('tls-src-md');
+  if (md && R.multi && R.multi[0]) {
+    md.textContent = R.multi[0].secs.map(function (x) { return x.lo + '-' + x.hi; }).join('・');
+  }
+  var ver = document.getElementById('tls-ver');
+  if (ver) ver.textContent = R.version;
 })();
 </script>
 </body>
