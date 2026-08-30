@@ -21,7 +21,7 @@
 <meta name="twitter:title" content="宝探しの確率計算機">
 <meta name="twitter:description" content="開けた結果を入れると、残りのマスに何がある確率かが分かります。近似ではなく、置き方を全部数え上げた値です。">
 <meta name="twitter:image" content="https://arona-bot.com/images/og/treasure.jpg">
-<link rel="stylesheet" href="../../style.css?v=16">
+<link rel="stylesheet" href="../../style.css?v=17">
 <link rel="stylesheet" href="../tool.css?v=11">
 <style>
   /* **スマホでは 1 列になる。**そのとき盤面が先に来ると、備品の型を決める前に
@@ -136,6 +136,15 @@
   .item .shape { display: flex; gap: 6px; align-items: center; margin-top: 6px; font-size: .72rem; color: var(--fg-mute); }
   .item .shape .mini { display: grid; gap: 1px; }
   .item .shape .mini i { width: 7px; height: 7px; border-radius: 1px; background: currentColor; }
+  /* **狙うかどうか。**外した備品は確率に数えない（2026-08-31 の先生の指示）。
+     狙いを絞ると盤の数字が「なにかある確率」から「狙っているものがある確率」に
+     変わるので、次に開けるべきマスも変わる */
+  .item .aim { display: inline-flex; align-items: center; gap: .35em; margin-top: 7px;
+               font-size: .76rem; color: var(--fg); cursor: pointer; user-select: none; }
+  .item .aim input { width: 15px; height: 15px; margin: 0; accent-color: var(--accent); }
+  .item.off .nm, .item.off .dims, .item.off .shape, .item.off .sw { opacity: .4; }
+  .item.off .aim { color: var(--fg-mute); }
+
   /* 当てるともらえるもの。**畳んである状態が既定。** */
   .item .rw { margin-top: .45em; font-size: .74rem; }
   .item .rw > summary { cursor: pointer; color: var(--fg-mute); }
@@ -235,7 +244,7 @@
         <div class="panel-h"><h2>盤面</h2></div>
         <p class="lead"><b>なにが出たかを選んでから、そのマスを押します。</b>もう一度押すと消えます。<button type="button" class="qm" data-hint="備品の一部が見えただけで大丈夫です(端でも真ん中でも構いません)。マスの上に指を置くと、その備品が届きうる範囲が枠で出ます。"></button></p>
         <div class="seg" id="view" role="group" aria-label="表示の切り替え" style="margin-bottom:14px">
-          <button type="button" data-v="any" aria-pressed="true">なにかある確率</button>
+          <button type="button" data-v="any" aria-pressed="true" id="v-any">なにかある確率</button>
           <button type="button" data-v="rev" aria-pressed="false">当たる備品の大きさ</button>
         </div>
         <div class="palrow">
@@ -259,9 +268,9 @@
           <div class="sub" id="o-best-sub">&nbsp;</div>
         </div>
         <div class="stat">
-          <div class="k">当たる確率</div>
+          <div class="k" id="o-p-k">当たる確率</div>
           <div class="v" id="o-p">—</div>
-          <div class="sub">そのマスに備品がある見込み</div>
+          <div class="sub" id="o-p-sub">そのマスに備品がある見込み</div>
         </div>
         <div class="stat">
           <div class="k"><i class="gi gi-craftnode-item"></i> あり得る置き方</div>
@@ -272,7 +281,7 @@
 
       <div class="panel">
         <div class="panel-h"><h2>おすすめのマス</h2></div>
-        <p class="lead">上から順に、<b>当たる確率</b>が高いマスです。<button type="button" class="qm" data-hint="「当たる備品の大きさ」は、そこに何かあったときそれが何マスの備品かの期待値です。大きいものほど、見つけたときの手がかりが増えます。"></button></p>
+        <p class="lead">上から順に、<b id="picks-k">当たる確率</b>が高いマスです。<button type="button" class="qm" data-hint="「当たる備品の大きさ」は、そこに何かあったときそれが何マスの備品かの期待値です。大きいものほど、見つけたときの手がかりが増えます。"></button></p>
         <div class="picks" id="picks"></div>
       </div>
     </div>
@@ -280,7 +289,7 @@
     <div class="tcol">
       <div class="panel">
         <div class="panel-h"><h2>備品の型</h2></div>
-        <p class="lead">名前・よこ・たて・個数は、ゲーム内の表示に合わせて書き換えられます。</p>
+        <p class="lead">名前・よこ・たて・個数は書き換えられます。<b>「狙う」を外すと確率に数えません。</b><button type="button" class="qm" data-hint="狙うものを絞ると、マスの数字が「なにかある確率」から「狙っているものがある確率」に変わります。盤の置き方の数え上げは変わらないので、外した備品もちゃんと場所を取ったまま計算します。周を切り替えると「狙う」は全部に戻ります。"></button></p>
         <div class="field" style="margin-bottom:14px">
           <label for="event">イベント</label>
           <select id="event"></select>
@@ -334,7 +343,7 @@
   </div>
 </div>
 
-<script>window.TOUR = {"key": "treasure", "steps": [{"sel": "#board", "t": "盤面を写します", "d": "開けたマスの結果を、上の色を選んでから盤面に置いていきます。間違えたら「ひとつ戻す」で戻せます。"}, {"sel": "#picks", "t": "次に開けるマスが出ます", "d": "残りの置き方をぜんぶ数えて、当たりが入っている確率がいちばん高いマスを出しています。"}, {"sel": "#items", "t": "備品の型を確かめます", "d": "周ごとに入っている備品の形と数が変わります。今どの周かをここで合わせてください。"}]};</script>
+<script>window.TOUR = {"key": "treasure", "steps": [{"sel": "#board", "t": "盤面を写します", "d": "開けたマスの結果を、上の色を選んでから盤面に置いていきます。間違えたら「ひとつ戻す」で戻せます。"}, {"sel": "#picks", "t": "次に開けるマスが出ます", "d": "残りの置き方をぜんぶ数えて、当たりが入っている確率がいちばん高いマスを出しています。"}, {"sel": "#items", "t": "備品の型を確かめます", "d": "周ごとに入っている備品の形と数が変わります。今どの周かをここで合わせてください。「狙う」を外した備品は確率に数えません。"}]};</script>
 <script src="../tour.js?v=2"></script>
 
 <script src="../share.js?v=2"></script>
@@ -408,7 +417,7 @@
 
   function loadDefault() {
     week = -1;
-    items = DEFAULT.map(function (d) { return { n: d.n, w: d.w, h: d.h, count: d.count, rw: [] }; });
+    items = DEFAULT.map(function (d) { return { n: d.n, w: d.w, h: d.h, count: d.count, rw: [], want: true }; });
     clearBoard();
   }
 
@@ -425,7 +434,9 @@
   function loadWeek(i) {
     week = i;
     items = WEEKS()[i].map(function (m) {
-      return { n: m.n, w: m.w, h: m.h, count: m.c, rw: m.rw || [] };
+      // **狙うかどうかは周を替えると戻す。**前の周の狙いを引き継ぐと、
+      // 名前も大きさも違う備品に古い印が付いたままになる
+      return { n: m.n, w: m.w, h: m.h, count: m.c, rw: m.rw || [], want: true };
     });
     clearBoard();
   }
@@ -507,7 +518,7 @@
 
   function drawItems() {
     el('items').innerHTML = items.map(function (it, k) {
-      return '<div class="item">' +
+      return '<div class="item ' + (it.want ? 'on' : 'off') + '">' +
         '<span class="sw" style="background:' + COLOR[k] + '"></span>' +
         '<div>' +
           '<input class="nm" type="text" maxlength="12" value="' + it.n.replace(/"/g, '&quot;') +
@@ -518,6 +529,8 @@
             '<span><label for="c' + k + '">個数</label><input id="c' + k + '" type="number" inputmode="numeric" min="0" max="6" step="1" value="' + it.count + '" data-k="' + k + '" data-f="count"></span>' +
           '</div>' +
           '<div class="shape">' + mini(it.w, it.h) + '<span>' + it.w + ' × ' + it.h + ' を ' + it.count + ' 個</span></div>' +
+          '<label class="aim"><input type="checkbox" data-k="' + k + '" data-f="want"' +
+            (it.want ? ' checked' : '') + '>狙う</label>' +
           rewards(it) +
         '</div></div>';
     }).join('');
@@ -539,9 +552,15 @@
     el('pal').innerHTML = h;
   }
 
-  function drawLegend() {
-    // **上のパレットと同じものを 2 度出さない。**大きさはそちらに書いてある
-    el('legend').innerHTML = '<span class="lg">マスの数字は「なにかある確率」です</span>';
+  /** 盤の下の一行。**上のパレットと同じものを 2 度出さない**（大きさはそちらに書いてある）。
+      狙いを絞っているときは、数字の意味が変わったことをここで言う */
+  function drawLegend(allWant, names) {
+    var what = allWant ? 'なにかある' : (names + 'がある');
+    el('legend').innerHTML = '<span class="lg">マスの数字は「' + esc(what) + '確率」です</span>';
+  }
+
+  function esc(x) {
+    return String(x).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   }
 
   function pct(x) { return (x * 100).toFixed(x >= 0.995 ? 0 : 1).replace(/\.0$/, '') + '%'; }
@@ -552,20 +571,49 @@
     var K = items.length;
     var bad = !res || res.total <= 0;
 
-    el('err').hidden = !bad;
-    if (bad) el('err').textContent = (res && res.error) ||
-      'いまの入力に合う置き方が 1 通りもありません。備品の数か、付けた印を見直してください。';
+    /* **狙っている備品だけを数える。**ぜんぶに印が付いていれば
+       `1 - empty` と一致する（solver の prob は種類ごとの被覆確率で、
+       全種類ぶんと empty を足すと 1 になる）。絞ると分母ではなく
+       中身が変わるので、次に開けるべきマスの順番そのものが変わる */
+    var wantK = [];
+    for (var kw = 0; kw < K; kw++) if (items[kw].want) wantK.push(kw);
+    var allWant = wantK.length === K, noWant = wantK.length === 0;
 
     var pAny = new Array(N).fill(0), pSize = new Array(N).fill(0);
-    if (!bad) {
+    if (!bad && !noWant) {
       for (var i = 0; i < N; i++) {
-        pAny[i] = 1 - res.empty[i];
-        var sz = 0;
-        for (var k = 0; k < K; k++) sz += res.prob[i * K + k] * items[k].w * items[k].h;
-        // 「そこに何かあったとき、それが何マスの備品か」の期待値
-        pSize[i] = pAny[i] > 1e-9 ? sz / pAny[i] : 0;
+        var hit = 0, sz = 0;
+        for (var wi = 0; wi < wantK.length; wi++) {
+          var k = wantK[wi], pk = res.prob[i * K + k];
+          hit += pk; sz += pk * items[k].w * items[k].h;
+        }
+        pAny[i] = hit;
+        // 「そこに狙っているものがあったとき、それが何マスの備品か」の期待値
+        pSize[i] = hit > 1e-9 ? sz / hit : 0;
       }
     }
+    if (noWant) bad = true;
+
+    /* 狙っているものの呼び名。**3 つとも狙っているときは名前を並べない**
+       ——「なにかある確率」のままのほうが短くて意味も同じ */
+    var wantName = wantK.map(function (k) {
+      return items[k].n || ((k + 1) + ' 番目');
+    }).join('・');
+
+    el('v-any').textContent = allWant ? 'なにかある確率' : '狙いが当たる確率';
+    el('o-p-k').textContent = el('picks-k').textContent =
+      allWant ? '当たる確率' : '狙いが当たる確率';
+    // **1 つも狙っていないときは既定の言い方に戻す。**名前が空なので
+    // 「そのマスにがある見込み」になってしまう
+    el('o-p-sub').textContent = (allWant || noWant) ? 'そのマスに備品がある見込み'
+                                                    : 'そのマスに' + wantName + 'がある見込み';
+
+    el('err').hidden = !bad;
+    if (bad) el('err').textContent = noWant
+      ? '狙う備品を 1 つ以上選んでください。'
+      : ((res && res.error) ||
+         'いまの入力に合う置き方が 1 通りもありません。備品の数か、付けた印を見直してください。');
+
     var metric = view === 'any' ? pAny : pSize;
 
     var open = 0, list = [];
@@ -623,7 +671,9 @@
     } else {
       var b0 = list[0];
       el('o-best').innerHTML = '左' + (b0.c + 1) + '<small>・</small>上' + (b0.r + 1);
-      el('o-best-sub').textContent = view === 'any' ? 'いちばん当たりやすいマス' : '大きい備品が当たりやすいマス';
+      el('o-best-sub').textContent = view === 'any'
+        ? (allWant ? 'いちばん当たりやすいマス' : '狙いがいちばん当たりやすいマス')
+        : '大きい備品が当たりやすいマス';
       el('o-p').innerHTML = pct(b0.any);
       el('o-total').innerHTML = res.total.toLocaleString('ja-JP') + '<small>通り</small>';
 
@@ -632,7 +682,9 @@
           '<span>左から ' + (o.c + 1) + ' 番目・上から ' + (o.r + 1) + ' 番目' +
           '<small style="display:block;color:var(--fg-mute);font-size:.76rem">' +
             items.map(function (it, k) {
-              return (it.n || (k + 1) + ' 番目') + ' ' + pct(res.prob[o.i * items.length + k]);
+              var t = esc(it.n || ((k + 1) + ' 番目')) + ' ' + pct(res.prob[o.i * items.length + k]);
+              // 狙っていないものも数字は出す（盤には居るので）が、薄くして区別する
+              return it.want ? t : '<span style="opacity:.45">' + t + '</span>';
             }).join('・') +
           '</small></span>' +
           '<span class="v">' + pct(o.any) + '<small>' + o.size.toFixed(1) + ' マスの備品</small></span></div>';
@@ -640,7 +692,7 @@
     }
 
     drawPal();
-    drawLegend();
+    drawLegend(allWant, wantName);
   }
 
   // ---- 操作
@@ -695,6 +747,15 @@
     var t = ev.target, k = t.dataset.k, f = t.dataset.f;
     if (k == null || !f) return;
     k = +k;
+    /* **狙うかどうかは盤の数え上げを変えない。**外した備品もマスは取るので、
+       置き方の総数はそのまま。変わるのは「そのマスの数字が何の確率か」だけ */
+    if (f === 'want') {
+      items[k].want = t.checked;
+      t.closest('.item').classList.toggle('off', !t.checked);
+      t.closest('.item').classList.toggle('on', t.checked);
+      draw();
+      return;
+    }
     if (f === 'n') { items[k].n = t.value; }
     else {
       var lim = f === 'w' ? T.MAX_W : (f === 'h' ? H : 6);

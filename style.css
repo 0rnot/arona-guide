@@ -985,8 +985,10 @@ a.toolband-card:hover .ticon { transform: scale(1.09) rotate(-4deg); }
   transition: color .14s ease, border-color .14s ease;
 }
 /* **丸の中の字は CSS で出す。**JS が組み直した場所にも同じものが出るように。
-   字は「!」（2026-08-31 の先生の指示。「i」にするならここ 1 行） */
-.qm::before { content: "!"; font-family: Georgia, "Times New Roman", serif; }
+   **字は「i」。**「!」も試したが、小さい丸の中では点と棒が離れて散って見え、
+   開いて色が付くと警告に見えた。ここは注意書きではなく補足なので「i」
+   （2026-08-31 に両方を並べて先生が選んだ。変えるならここ 1 行） */
+.qm::before { content: "i"; font-family: Georgia, "Times New Roman", serif; }
 /* **押せる範囲は見た目より広く。**丸そのものは 14px ほどしかなく、
    指では狙えない。見た目を変えずに 30px 角の的を重ねる（2026-08-31） */
 .qm::after { content: ""; position: absolute; inset: -8px; }
