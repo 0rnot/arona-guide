@@ -331,10 +331,13 @@
 
     // ★3 の内訳
     el('th-n').textContent = pulls + ' 連で出る人数';
-    el('tb-b').innerHTML = B.parts.map(function (row) {
+    el('tb-b').innerHTML = B.parts.map(function (row, i) {
       var n = pulls * row[1];
-      // 100 カウント目の確定★3 は、内訳の比率どおりに割り振る
-      if (hit100) n += (1 - rate3) * (row[1] / rate3);
+      /* **100 カウント目だけは、いつもの割合では割れない。**そこは★3 が確定して
+         「50% がピックアップ」なので、比率どおりに配ると本来より低く出る。
+         その 1 回ぶんを、普通に引いたぶんと差し替える（2026-08-30 に直した。
+         通常募集でピックアップが 1.91 人と出ていたのが、正しくは 2.17 人）。 */
+      if (hit100) n += (B.at100 ? B.at100[i] : row[1] / rate3) - row[1];
       return '<tr><td>' + row[0] + '</td><td>' + (row[1] * 100).toFixed(1) + ' %</td><td>' + n.toFixed(2) + ' 人</td></tr>';
     }).join('') +
       '<tr class="here"><td>★3 の合計</td><td>' + (rate3 * 100).toFixed(1) + ' %</td><td>' + e3.toFixed(2) + ' 人</td></tr>';

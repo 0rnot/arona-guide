@@ -248,8 +248,9 @@
           <li>生徒には <code>FavorItemTags</code>（好み）と <code>FavorItemUniqueTags</code>（とくに好き）が付いています</li>
           <li>贈り物には <code>Tags</code> と <code>ExpValue</code>（基本の絆経験値。紫は 20、橙は 60（初音ミクのフォトカードときらめきの花束の 2 種だけ、橙でも 20））が付いています</li>
           <li>さらに<b>誰にでも効く共通タグ</b>があります（<code>CommonFavorItemTags</code>: <code id="gen">—</code>）</li>
-          <li>絆経験値 ＝ <b><code>ExpValue ×（一致したタグの数 ＋ 1）</code></b></li>
+          <li>絆経験値 ＝ <b><code>ExpValue ×（一致したタグの数 ＋ 1）</code></b>。<b>一致数は 3 で頭打ち</b>なので、倍率は ×4 が上限です</li>
         </ul>
+        <p><b>2026 年 8 月 30 日まで、この式のうち <code>FavorItemUniqueTags</code> を数えていませんでした。</b>文章にはこう書いてあったのに、実際の計算は <code>FavorItemTags</code> だけを見ていて、<b>237 人ぶん・411 組の倍率が本来より低く出ていました。</b>直したあと、SchaleDB の <code>common.js</code> と同じ式を組み直して <b>274 人 × 52 種＝14,248 組</b>を 1 組ずつ突き合わせ、食い違いが 0 であることを確かめています。上限を入れないと ×5 が 106 組出ますが、<b>ゲームに ×5 はありません</b>（SchaleDB も <code>Math.min(commonTags.length, 3)</code> としています）。</p>
         <p>この式だと「美しい花束」は<b><span id="src-n">—</span> 人ぜんぶに対して ×4</b>になります（ゲーム内で誰に渡しても最大効果になるのと同じです）。<b>どの生徒にも ×4 の贈り物が最低 1 つあります。</b></p>
         <p><b>絆ランクの必要経験値は <code>Excel/FavorLevelExcelTable.json</code> そのままです。</b>
           Lv1 から Lv100 までの合計は <b>240,225</b>、Lv1 から Lv20 までは <b>1,845</b>、Lv1 から Lv50 までは <b>29,175</b> です。</p>
@@ -317,11 +318,21 @@
 
   function fmt(n) { return Math.round(n).toLocaleString('ja-JP'); }
 
-  /** その生徒に対する贈り物の絆経験値。**ExpValue ×（一致したタグの数 ＋ 1）** */
+  /** その生徒に対する贈り物の絆経験値。**ExpValue ×（一致したタグの数 ＋ 1）。**
+
+      数えるタグは 3 本を足したもの——「好き」（`t`）、ゲーム内の「とくに好き」
+      （`u`）、誰にでも効く共通タグ（`GEN`）。**一致数は 3 で頭打ち**なので
+      倍率の上限は ×4 で、ゲームに ×5 は無い。SchaleDB の `common.js` も
+      `const favorGrade = Math.min(commonTags.length, 3)` としている。
+
+      **2026-08-30 まで `u` を数えていなかった**（データにも入れていなかった）ので、
+      237 人ぶん・411 組の倍率が本来より低く出ていた。 */
+  var MAX_MATCH = 3;
   function expOf(g, s) {
-    var all = s.t.concat(GEN);
+    var all = (s.t || []).concat(s.u || [], GEN);
     var m = 0;
     g.t.forEach(function (t) { if (all.indexOf(t) >= 0) m++; });
+    m = Math.min(m, MAX_MATCH);
     return { exp: g.e * (m + 1), mult: m + 1 };
   }
 
@@ -360,8 +371,9 @@
     if (by[3]) chips.push('<span class="tag">×3 が ' + by[3] + ' 種類</span>');
     if (by[2]) chips.push('<span class="tag">×2 が ' + by[2] + ' 種類</span>');
     el('stu-tags').innerHTML = chips.join('');
-    el('stu-note').textContent = '好みのタグ ' + student.t.length + ' 個に、' +
-      '誰にでも効く ' + GEN.length + ' 個を足したものが下の倍率です。';
+    el('stu-note').textContent = '好みのタグ ' + (student.t || []).length + ' 個と' +
+      'とくに好きなタグ ' + (student.u || []).length + ' 個に、' +
+      '誰にでも効く ' + GEN.length + ' 個を足して数えます。一致は 3 つまでで、倍率は ×4 が上限です。';
   }
 
   function giftList() {

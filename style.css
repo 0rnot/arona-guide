@@ -124,6 +124,14 @@ code {
    スマホでこそ見えていてほしい。 */
 @media (max-width: 560px) { .topbar-nav { display: none; } }
 
+/* **細い画面で名前が 2 行に折れていた。**「AronaBotの使い方」が 140px 要るのに
+   余白と隙間で押し出されて、バーの高さが 57px → 77px に膨らむ
+   （2026-08-30 に 360〜480px を測って見つけた）。折らずに、隙間と余白のほうを詰める */
+@media (max-width: 400px) {
+  .topbar-inner { gap: .55em; padding-left: 12px; padding-right: 12px; }
+  .topbar-name { white-space: nowrap; font-size: .92rem; }
+}
+
 /* ------------------------------------------------------------ 共有ボタン */
 
 /* 共有を促す一言。**節のリンクを畳む幅より前に消す。**

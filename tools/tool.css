@@ -280,6 +280,9 @@ input[type="range"]::-moz-range-thumb {
                             .stats.c4 { grid-template-columns: repeat(4, 1fr); } }
 /* 2 段組みの中に入ったら、狭いので必ず 1〜2 列に落とす */
 .tcol .stats.c3, .tcol .stats.c4 { grid-template-columns: 1fr 1fr; }
+/* **3 つを 2 列に置くと、最後の 1 つの隣が空く。**横に伸ばして穴を埋める
+   （2026-08-30 に 9 ツールで実測した。1280px で 247px ぶん空いていた） */
+.tcol .stats.c3 > .stat:nth-child(3):last-child { grid-column: 1 / -1; }
 @media (max-width: 480px) { .tcol .stats.c3, .tcol .stats.c4 { grid-template-columns: 1fr; } }
 .stat {
   border: 1px solid var(--line); border-radius: 12px; padding: 17px 19px;

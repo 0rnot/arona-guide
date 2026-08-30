@@ -299,7 +299,17 @@ def build_bond():
     for s in students:
         if not s.get("Name"):
             continue
-        stu.append({"id": s["Id"], "n": s["Name"], "t": s.get("FavorItemTags", []) or []})
+        # **好みのタグは 2 本ある。**`FavorItemTags` が「好き」、
+        # `FavorItemUniqueTags` がゲーム内の「とくに好き」で、倍率を数えるときは
+        # 両方を足す。SchaleDB の `common.js` も
+        # `[...FavorItemTags, ...FavorItemUniqueTags, ...genericTags]` としている。
+        # **`FavorItemUniqueTags` を落としていて、237 人の倍率がずれていた**
+        # （2026-08-30 に気づいた。274 人全員が持っている列）
+        stu.append({"id": s["Id"], "n": s["Name"],
+                    "t": s.get("FavorItemTags", []) or [],
+                    "u": s.get("FavorItemUniqueTags", []) or []})
+    if not any(x["u"] for x in stu):
+        raise SystemExit("FavorItemUniqueTags が 1 人も取れない。列名が変わった疑い")
     stu.sort(key=lambda s: s["n"])
 
     # need[L-1] = 絆 L から L+1 へ上がるのに要る経験値。**列の名前は ExpType。**
