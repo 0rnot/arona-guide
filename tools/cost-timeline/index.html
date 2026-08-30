@@ -146,6 +146,10 @@
   .tlx-gimadd { display: flex; flex-wrap: wrap; gap: 8px; align-items: end; margin-top: 10px; }
   .tlx-gimadd label { font-size: .74rem; color: var(--fg-mute); display: grid; gap: .25em; }
   .tlx-gimadd input { width: 6.4em; padding: .35em .5em; font-size: .84rem; text-align: right; }
+  .imp-ex { margin: 0 0 .8em; padding-left: 1.2em; }
+  .imp-ex li { margin: .2em 0; }
+  .imp-ex code { font-size: .92em; }
+  #in-note { color: var(--accent-tx); }
   .tlx-imp { margin-top: 14px; }
   .tlx-imp > summary { cursor: pointer; font-size: .86rem; font-weight: 700; }
   /* 目標時刻の赤い縦線 */
@@ -402,12 +406,21 @@
         <p class="lead" style="margin-top:14px">書き出したもの。<b>そのまま動画の説明や記事に貼れます。</b>1 行目の <code>#</code> に共有 URL が入っているので、<b>これをまるごと貼り戻すと編成ごと元に戻ります。</b></p>
         <textarea class="out" id="out" readonly aria-label="書き出した TL"></textarea>
         <details class="tlx-imp">
-          <summary>書いたものを取り込む</summary>
-          <p class="lead" style="margin:.8em 0">上の形（時刻・名前・EX・コストをタブ区切り）で貼ってください。<b><code>#</code> の行があればそれが正本</b>で、無いときは名前から編成を組み直します。書かれていない子は編成に入らないので回復力が変わります。<b>その場合、貼った秒より早く撃てない行は「この秒に」で留めます。</b></p>
-          <textarea class="out" id="in" placeholder="0:16.3&#9;ホシノ&#9;EX5&#9;4コスト" aria-label="取り込む TL"></textarea>
+          <summary>よそで書かれた TL を取り込む</summary>
+          <p class="lead" style="margin:.8em 0"><b><code>#</code> の行があればそれが正本</b>で、無いときは名前から編成を組み直します。書かれていない子は編成に入らないので回復力が変わります。<b>その場合、貼った秒より早く撃てない行は「この秒に」で留めます。</b></p>
+          <p class="lead" style="margin:.8em 0">動画の説明や記事に貼ってある書き方も読めます。<b>読めるのはこの形です。</b></p>
+          <ul class="lead imp-ex">
+            <li><code>3:21.2 セイア</code> — 時刻。<b>数字が減っていく書き方なら残り時間</b>として読みます（上で「ボスの戦闘時間」を選んでおいてください）</li>
+            <li><code>即セイア</code> <code>最速ヒマリ</code> <code>AUTO ホシノ</code> — 最短で撃つ</li>
+            <li><code>8コタマ</code> <code>❸ヒマリ</code> <code>③ヒマリ</code> — コスト指定。<b>このツールは時刻で並べるので、最短で撃つ扱いにして、そう伝えます</b></li>
+            <li><code>セイア→コタマ</code> <code>セイア［コタマ］</code> — 「→」から後ろは対象なので落とします</li>
+            <li><code>※メモ</code> <code>～フェーズ2～</code> <code>移動</code> <code>〆</code> — 読み飛ばします</li>
+          </ul>
+          <textarea class="out" id="in" placeholder="即セイア&#10;3:21.2 コタマ&#10;8ヒマリ&#10;AUTO ホシノ" aria-label="取り込む TL"></textarea>
           <div class="btnrow" style="margin-top:10px">
             <button type="button" class="btn" id="load-text">読み込む</button>
           </div>
+          <p class="lead" id="in-note" style="margin:.8em 0 0" hidden></p>
         </details>
       </div>
     </div>

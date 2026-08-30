@@ -290,7 +290,7 @@
            https://note.com/takoyakiak47/n/nfe0f914f730d ）と合う */
         var lag = b.af || 0;
         one.segs = [[r.at + lag, r.at + lag + one.ms / 1000]];
-        one.iv = 0; one.lag = lag;
+        one.iv = 0; one.lag = lag; one.afu = !!b.afu;
         out.push(one);
       });
     });
@@ -326,6 +326,7 @@
              ホシノがそれで、274 人のうち 1 人だけ。0 秒から引くが、
              **「いつ始まるかは条件しだい」と見出しに出す**（黙って 0 秒に置かない） */
           one.cond = t.sk.cond || ''; one.hasSt = t.sk.st != null;
+          one.afu = !!b.afu;
           out.push(one);
         });
       });
@@ -1366,6 +1367,7 @@
       (b.iv ? (b.cond ? '（' + b.cond + '・' + nn(b.iv) + '秒ごと）'
                       : '（初回 ' + nn(b.st0) + '秒／' + nn(b.iv) + '秒ごと）')
             : b.once ? '（' + nn(b.st0) + '秒に 1 回だけ）' : '') +
+      (b.afu ? '（着弾の時刻はデータに無い）' : '') +
       (b.ch < 10000 ? '（' + nn(b.ch / 100) + '%）' : '') +
       (b.dup ? '（' + (SIDE_JA[b.sd] || b.sd) + '）' : '') +
       (b.tier ? '（段あり・1段目）' : '') +
@@ -1379,6 +1381,7 @@
                       : '　初回 ' + nn(b.st0) + ' 秒、以降 ' + nn(b.iv) + ' 秒ごと') : '') +
       (b.once ? '　' + nn(b.st0) + ' 秒に 1 回だけ' : '') +
       (b.lag ? '　着弾まで ' + nn(b.lag) + ' 秒' : '') +
+      (b.afu ? '　着弾までの時間がデータに無い（撃った瞬間から引いています）' : '') +
       (b.ch < 10000 ? '　確率 ' + nn(b.ch / 100) + '%' : '');
   }
 
@@ -1583,6 +1586,7 @@
                       : '／初回 ' + nn(b.st0) + ' 秒、以降 ' + nn(b.iv) + ' 秒ごと') : '') +
       (b.once ? '／' + nn(b.st0) + ' 秒に 1 回だけ' : '') +
       (b.lag ? '／着弾まで ' + nn(b.lag) + ' 秒' : '') +
+      (b.afu ? '／<b>着弾までの時間がデータに無い</b>（撃った瞬間から引いています）' : '') +
       (b.tier ? '／段あり（1 段目で数えています）' : '') +
       (b.grew ? '／固有武器で延長' : '') +
       (b.ch < 10000 ? '／<b>確率 ' + nn(b.ch / 100) + '%</b>' : '') +
@@ -1730,6 +1734,146 @@
      無ければ 4 列（時刻・名前・EX・コスト）から編成と並びを組み直す。
      本体だけの場合、**撃たない子は書かれていないので回復力が変わる**。そのぶん
      時刻がずれるので、ずれた行は「この秒に」で貼られた時刻に留める。 */
+
+  /* ---------- よそで書かれた TL を読む
+
+     **動画の説明や記事に貼ってある TL は、4 列のタブ区切りではない。**
+     「即セイア→コタマ」「8コタマ」「❸ヒマリ」「3:21.2 ミカ」のような書き方が
+     混ざる（2026-08-30、先生に教わった「ブルアカTLメーカー」
+     https://ba-timeline.vercel.app/ が同じ記法を受けているのを見て合わせた。
+     **向こうのコードは写していない。**受ける記法だけを見て、こちらで書いた）。
+
+     **読めなかった行は黙って捨てない。**何行を何の理由で飛ばしたかを返して、
+     画面に出す。 */
+
+  // 丸数字。**コスト指定として使われる。**こちらは「いつ撃つか」を秒で持つので、
+  // コストの数はそのまま置けない——最短で撃つ扱いにして、読み飛ばしたと伝える
+  var CIRCLED = '❶❷❸❹❺❻❼❽❾❿';
+  var CIRCLED2 = '①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮⑯⑰⑱⑲⑳';
+  // その行ぜんぶを読み飛ばす合図。**TL の中の指示で、EX ではない**
+  var SKIP_LINE = /^(移動|フェーズ移行|移行|〆|AUTOをON|AUTOをOFF|オート(ON|OFF)|待機)$/;
+  // 見出し。`～フェーズ2～` のように囲ってある
+  // **全角チルダは 2 種類ある。**`〜`(U+301C) と `～`(U+FF5E) で、
+  // 記事に貼られるのはたいてい後ろのほう（2026-08-30 に実物で踏んだ）
+  // **`ー`（長音）は仕切りに使わない。**入れると「フェーズ」の途中で切れる
+  var HEAD_LINE = /^[―─—〜～~=＝-]+.{1,30}?[―─—〜～~=＝-]+$/;
+  // 最短で撃つ合図
+  var ASAP = /^(即|最速|すぐ|AUTO|auto|Auto|┃|┗)\s*/;
+
+  /** 名前を突き合わせるための正規化。**全角と半角の括弧・空白・中黒を均す。** */
+  function nkey(s) {
+    return String(s || '')
+      .replace(/[（(]/g, '(').replace(/[）)]/g, ')')
+      .replace(/[\s　・･]/g, '')
+      .toLowerCase();
+  }
+  var nameIx = null;
+  function nameIndex() {
+    if (nameIx) return nameIx;
+    nameIx = {};
+    D.students.forEach(function (s) {
+      var k = nkey(s.n);
+      (nameIx[k] = nameIx[k] || []).push(s);
+    });
+    return nameIx;
+  }
+  /** 名前から生徒を 1 人。**決められないときは理由を返す。** */
+  function findStu(raw) {
+    var k = nkey(raw);
+    if (!k) return { why: '名前が空' };
+    var ix = nameIndex();
+    if (ix[k] && ix[k].length === 1) return { s: ix[k][0] };
+    if (ix[k]) return { why: '同じ名前が ' + ix[k].length + ' 人' };
+    // 前方一致 →含む、の順。**1 人に決まったときだけ採る**
+    var pre = D.students.filter(function (s) { return nkey(s.n).indexOf(k) === 0; });
+    if (pre.length === 1) return { s: pre[0] };
+    if (pre.length > 1) return { why: '「' + raw + '」で始まる子が ' + pre.length + ' 人' };
+    var has = D.students.filter(function (s) { return nkey(s.n).indexOf(k) >= 0; });
+    if (has.length === 1) return { s: has[0] };
+    if (has.length > 1) return { why: '「' + raw + '」を含む子が ' + has.length + ' 人' };
+    return { why: 'この名前の子がいません' };
+  }
+
+  /** 貼られた行を読む。**戻りは { rows, lost, note }。** */
+  function parseTL(lines, back) {
+    var rows = [], lost = [], costOnly = 0, times = [], raw = [];
+    lines.forEach(function (ln0) {
+      var ln = String(ln0 || '').replace(/　/g, ' ').trim();
+      if (!ln || ln.charAt(0) === '#') return;
+      if (ln.charAt(0) === '※' || /^備考[:：]/.test(ln)) return;   // メモの行
+      if (HEAD_LINE.test(ln)) return;                              // 見出しの行
+      ln = ln.replace(/〆\s*$/, '').trim();
+      if (SKIP_LINE.test(ln)) return;
+      // 行の後ろのメモを落とす
+      ln = ln.split('※')[0].trim();
+      if (!ln) return;
+
+      // タブ区切り（こちらの書き出し）はそのまま 4 列で読む
+      var tab = ln0.indexOf('\t') >= 0 ? ln0.split('\t') : null;
+      var head = '', body = '', ex = 5, at = null, kind = '';
+      if (tab) {
+        head = (tab[0] || '').trim(); body = (tab[1] || '').trim();
+        var mx0 = /EX\s*(\d)/i.exec(tab[2] || '');
+        if (mx0) ex = +mx0[1];
+        at = parseClock(head);
+        kind = at == null ? '' : 'time';
+      } else {
+        // 先頭の合図を見る
+        var m;
+        if (ASAP.test(ln)) { ln = ln.replace(ASAP, '').trim(); kind = 'asap'; }
+        else if ((m = /^(\d{1,2}):(\d{2})(?:\.(\d+))?\s*/.exec(ln))) {
+          at = parseClock(m[0].trim()); kind = 'time'; ln = ln.slice(m[0].length).trim();
+        } else if (CIRCLED.indexOf(ln.charAt(0)) >= 0 || CIRCLED2.indexOf(ln.charAt(0)) >= 0) {
+          ln = ln.slice(1).trim(); kind = 'cost';
+        } else if ((m = /^(\d{1,2}(?:\.\d)?)\s*(?:～|~|-|−)?\s*(?:\d{1,2}(?:\.\d)?)?\s*(?:コスト)?\s*/.exec(ln))
+                   && /[^\d\s.]/.test(ln.slice(m[0].length))) {
+          /* **数字だけの先頭はコスト。**TL の慣習で「8コタマ」は 8 コストの意味。
+             秒なら `0:08` のように区切りが入る（2026-08-30 に記法を数えて決めた） */
+          ln = ln.slice(m[0].length).trim(); kind = 'cost';
+        }
+        body = ln;
+      }
+      // 対象の指定を落とす。**名前の突き合わせの邪魔になる**
+      body = body.split(/→|⇒|➡|＞|\[|［/)[0].trim();
+      body = body.replace(/[\])］]/g, '').trim();
+      // 「〜後」「〜次第」のような引き金は時刻にできない。名前だけ残す
+      body = body.replace(/^.*?(?:後|次第|確認後)\s*/, '').trim() || body;
+      if (!body) return;
+      var mx = /EX\s*(\d)/i.exec(body);
+      if (mx) { ex = +mx[1]; body = body.replace(/EX\s*\d/i, '').trim(); }
+      body = body.replace(/\s*\d+\s*コスト\s*$/, '').trim();
+      if (!body) return;
+
+      var f = findStu(body);
+      if (!f.s) { lost.push(body + '（' + f.why + '）'); return; }
+      if (kind === 'cost') costOnly++;
+      if (kind === 'time' && at != null) times.push(at);
+      rows.push({ id: f.s.id, n: f.s.n, ex: ex, at: kind === 'time' ? at : null });
+      raw.push(ln0);
+    });
+
+    /* **時刻が減っていくなら残り時間。**TL の動画はカウントダウンで書くので、
+       「3:21 → 2:40 → 1:12」のように下がる。戦闘時間が要るので、
+       選んでいなければ**読み替えずに、そう伝える。** */
+    var down = times.length > 1 && times.every(function (v, i) { return i === 0 || v <= times[i - 1]; });
+    var note = [];
+    var base = back || (down ? dur : 0);
+    if (down && !base) {
+      note.push('時刻が減っていくので残り時間で書かれた TL のようです。'
+              + '「ボスの戦闘時間」を選んでから読み込むと、経過時間に直します。'
+              + '（いまは書かれた数字をそのまま経過時間として置いています）');
+    }
+    if (base) {
+      rows.forEach(function (r) { if (r.at != null) r.at = Math.max(0, base - r.at); });
+      note.push('残り時間として読み、' + clockIn(base) + ' から数え直しました。');
+    }
+    if (costOnly) {
+      note.push('コストで指定された ' + costOnly + ' 行は、最短で撃つ扱いにしました。'
+              + 'このツールは時刻で並べるので、コストの数はそのまま置けません。');
+    }
+    return { rows: rows, lost: lost, note: note.join(' ') };
+  }
+
   function importText(text) {
     var lines = String(text || '').split(/\r?\n/);
     var hash = null;
@@ -1757,42 +1901,33 @@
       if (el('i-dur')) el('i-dur').value = String(dur);
       durNote();
     }
-    var want = [], lost = [];
-    lines.forEach(function (ln) {
-      if (!ln.trim() || ln.trim().charAt(0) === '#') return;
-      var f = ln.split('\t');
-      if (f.length < 2) f = ln.trim().split(/[\s,]+/);
-      var at = parseClock(f[0]), nm = (f[1] || '').trim();
-      if (at == null || !nm) return;
-      if (back) at = Math.max(0, back - at);
-      var mx = /EX\s*(\d)/i.exec(f[2] || '');
-      want.push({ at: at, n: nm, ex: mx ? +mx[1] : 5 });
-    });
-    if (!want.length) return { n: 0, way: 'none' };
+    var r = parseTL(lines, back);
+    var want = r.rows, lost = r.lost.slice();
+    if (!want.length) return { n: 0, way: 'none', lost: lost, note: r.note };
 
     // いま編成に入っている子で足りるなら、編成はそのままにする
     var here = {};
-    slots.forEach(function (x, i) { if (x.id && live(i)) here[byId[x.id].n] = i; });
-    var allHere = want.every(function (w) { return here[w.n] != null; });
+    slots.forEach(function (x, i) { if (x.id && live(i)) here[x.id] = i; });
+    var allHere = want.every(function (w) { return here[w.id] != null; });
     if (!allHere) {
       slots = [];
       for (var z = 0; z < MAIN_MAX + SUP_MAX; z++) slots.push(emptySlot());
       here = {};
       want.forEach(function (w) {
-        if (here[w.n] != null) return;
-        var d = D.students.filter(function (x) { return x.n === w.n; })[0];
+        if (here[w.id] != null) return;
+        var d = byId[w.id];
         if (!d) { if (lost.indexOf(w.n) < 0) lost.push(w.n); return; }
         var from = d.sq === 'Main' ? 0 : MAIN_MAX;
         var to = d.sq === 'Main' ? LAYOUT[mode].main : MAIN_MAX + LAYOUT[mode].sup;
         for (var i = from; i < to; i++) {
-          if (!slots[i].id) { slots[i] = emptySlot(); slots[i].id = d.id; slots[i].ex = w.ex; here[w.n] = i; return; }
+          if (!slots[i].id) { slots[i] = emptySlot(); slots[i].id = d.id; slots[i].ex = w.ex; here[w.id] = i; return; }
         }
         if (lost.indexOf(w.n) < 0) lost.push(w.n + '（枠が足りません）');
       });
     }
     order = [];
     want.forEach(function (w) {
-      var i = here[w.n];
+      var i = here[w.id];
       if (i == null) return;
       slots[i].ex = w.ex;
       order.push({ i: i, t: null, to: null, ov: null, f: null });
@@ -1801,13 +1936,13 @@
     // **貼られた時刻より遅くしか撃てない行だけ、時刻を留める。**
     var fix = 0;
     if (lastSim) {
-      lastSim.rows.forEach(function (r, j) {
-        if (!want[j] || r.at === null) return;
-        if (want[j].at > r.at + 0.15) { order[j].t = Math.round(want[j].at * 10) / 10; fix++; }
+      lastSim.rows.forEach(function (row, j) {
+        if (!want[j] || row.at === null || want[j].at == null) return;
+        if (want[j].at > row.at + 0.15) { order[j].t = Math.round(want[j].at * 10) / 10; fix++; }
       });
     }
     if (fix) draw();
-    return { n: order.length, way: 'tsv', lost: lost, fix: fix };
+    return { n: order.length, way: 'tsv', lost: lost, fix: fix, note: r.note };
   }
 
   /* ---------- 画像で保存
@@ -2066,6 +2201,17 @@
       else toast(r.n + ' 発を読み込みました' +
         (r.fix ? '（' + r.fix + ' 発は貼られた秒に留めました）' : '') +
         (r.lost && r.lost.length ? '／見つからない: ' + r.lost.join('・') : ''));
+      /* **読み替えたことと読めなかった行は、消える通知ではなく画面に残す。**
+         コストで書かれた TL は時刻が変わるので、黙って直すと嘘になる */
+      var note = el('in-note');
+      if (note) {
+        var msg = [];
+        if (r.note) msg.push(r.note);
+        if (r.lost && r.lost.length) msg.push('読めなかった行: ' + r.lost.join('／'));
+        if (r.way === 'none' && !msg.length) msg.push('読める行がありませんでした。');
+        note.textContent = msg.join('　');
+        note.hidden = !msg.length;
+      }
     } else if (b.id === 'png-white') {
       savePng('#ffffff');
     } else if (b.id === 'png-alpha') {

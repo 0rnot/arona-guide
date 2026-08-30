@@ -57,6 +57,68 @@ def as_list(d):
     return d
 
 
+# **JP には同じ `Name` の生徒が 2 組いる**（2026-08-30 に 274 人を数えて見つけた）。
+#
+#   10143 / 10144  どちらも「シュン（水着）」。`PersonalName` は シュン と シュエリン
+#   10098 / 10099  どちらも「ホシノ（臨戦）」。`TacticRole` が Tanker と DamageDealer
+#
+# 名前で選ばせる画面（生徒の一覧・datalist・TL の読み込み）で、そのまま出すと
+# **同じ名前が 2 つ並んで、どちらを選んだか分からない。**名前で引く実装は
+# 先に見つけたほうを返すので、静かに別人になる。
+# **勝手な呼び名は作らない。**ゲームのデータが持っている欄だけで割る。
+def disp_names(students, loc=None):
+    """`{Id: 画面に出す名前}`。ぶつかったときだけ、データにある欄で割る。"""
+    role_ja = (loc or {}).get("TacticRole") or {}
+    seen = {}
+    for s in students:
+        if s.get("Name"):
+            seen.setdefault(s["Name"], []).append(s)
+    out = {}
+    for nm, rows in seen.items():
+        if len(rows) == 1:
+            out[rows[0]["Id"]] = nm
+            continue
+        # 1) 個人名が違うならそれで割る（シュン / シュエリン）
+        pn = {r.get("PersonalName") or "" for r in rows}
+        if len(pn) == len(rows) and all(pn):
+            i = nm.find("（")
+            tail = nm[i:] if i >= 0 else ""      # 「（水着）」はそのまま残す
+            for r in rows:
+                out[r["Id"]] = r["PersonalName"] + tail
+            continue
+        # 2) 役割が違うならそれで割る（ホシノ（臨戦）のタンクとアタッカー）
+        rl = {r.get("TacticRole") or "" for r in rows}
+        if len(rl) == len(rows) and all(rl):
+            for r in rows:
+                out[r["Id"]] = nm + "／" + (role_ja.get(r["TacticRole"]) or r["TacticRole"])
+            continue
+        # 3) それでも割れないときは番号を添える。**黙って重ねない**
+        for r in rows:
+            out[r["Id"]] = f"{nm}（{r['Id']}）"
+    return out
+
+
+class _Names:
+    """`NAMES.get(id, 既定)` で画面に出す名前を引く。**初回だけ取りに行く。**
+
+    12 か所の builder が同じ表を要るので、ここで 1 回だけ作って配る。"""
+
+    def __init__(self):
+        self._m = None
+
+    def _load(self):
+        if self._m is None:
+            self._m = disp_names(as_list(get_json(SD.format("students"))),
+                                 get_json(SD.format("localization")))
+        return self._m
+
+    def get(self, sid, default=""):
+        return self._load().get(sid, default)
+
+
+NAMES = _Names()
+
+
 def fetch_raw(name, url, force=False):
     """切り直さずにそのまま置く（ボスの立ち絵など、正方形でない絵）。"""
     out = IMG / (name + ".webp")
@@ -112,6 +174,10 @@ UI_ICONS = [
     "Cafe_Interaction_Gift_03", "Cafe_Interaction_Gift_04",
     # 星（★1〜★3）。星上げの計算機で使う
     "Common_Icon_Formation_Star_R2", "Common_Icon_Formation_Star_R3",
+    # 順位の目印（赤い菱形 3 つ）。**これも色付き**なので mask ではなく <img>。
+    # 戦術対抗戦の順位経路で使う（2026-08-30 の先生の指摘——コインの絵が
+    # 2 本のツールで被らないように、コインは収支のほうへ渡した）
+    "Strategy_Icon_EnemyRank_3",
     # そのほか
     "Cafe_Icon_Interaction", "Cafe_Icon_Comfort", "School_Icon_Schedule_Favor",
     "Common_Icon_Time", "Image_Compare",
@@ -343,7 +409,7 @@ def build_bond():
         # `[...FavorItemTags, ...FavorItemUniqueTags, ...genericTags]` としている。
         # **`FavorItemUniqueTags` を落としていて、237 人の倍率がずれていた**
         # （2026-08-30 に気づいた。274 人全員が持っている列）
-        stu.append({"id": s["Id"], "n": s["Name"],
+        stu.append({"id": s["Id"], "n": NAMES.get(s["Id"], s["Name"]),
                     "t": s.get("FavorItemTags", []) or [],
                     "u": s.get("FavorItemUniqueTags", []) or []})
     if not any(x["u"] for x in stu):
@@ -726,7 +792,7 @@ def build_tier():
         if not s.get("Name"):
             continue
         stu.append({
-            "id": s["Id"], "n": s["Name"],
+            "id": s["Id"], "n": NAMES.get(s["Id"], s["Name"]),
             "sc": s.get("School", "ETC"), "ro": s.get("TacticRole", ""),
             "bt": s.get("BulletType", ""), "at": s.get("ArmorType", ""),
             "sq": s.get("SquadType", ""), "st": s.get("StarGrade", 0),
@@ -850,7 +916,7 @@ def build_raid():
             continue
         w = s.get("Weapon") or {}
         stu.append({
-            "id": s["Id"], "n": s["Name"],
+            "id": s["Id"], "n": NAMES.get(s["Id"], s["Name"]),
             "bt": s.get("BulletType", ""), "at": s.get("ArmorType", ""),
             "ro": s.get("TacticRole", ""), "sq": s.get("SquadType", ""),
             "st": s.get("StarGrade", 0), "sc": s.get("School", "ETC"),
@@ -1029,7 +1095,7 @@ def build_student_cost():
         gr = [[credit[(4, i)], mats(m, a)] for i, (m, a) in
               enumerate(zip(gear.get("TierUpMaterial") or [], gear.get("TierUpMaterialAmount") or []))]
 
-        stu.append({"id": cid, "n": s["Name"], "r": s.get("StarGrade", 1),
+        stu.append({"id": cid, "n": NAMES.get(s["Id"], s["Name"]), "r": s.get("StarGrade", 1),
                     "ex": ex, "sk": sk, "tr": tr, "wp": wp, "gr": gr})
     stu.sort(key=lambda x: x["n"])
 
@@ -1289,9 +1355,17 @@ def build_cost_timeline():
         # （「バフは基礎スペシャル2前提 1秒は30フレーム換算」
         #   https://note.com/takoyakiak47/n/nfe0f914f730d ）。
         # **持たない効果もある**ので、無いときは付けない
+        # **欄が無いことと 0 であることは違う。**274 人のうち 7 人
+        # （ケイ・ウタハ・エイミ（水着）・シロコ＊テラー・シロコ（ライディング）・
+        #  キキョウ（水着）・レイサ（マジカル））は `ApplyFrame` を持っていない。
+        # そこを 0 として扱うと「撃った瞬間に乗る」と嘘をつくので、
+        # **分からないことを分からないまま渡す**（2026-08-30、先駆者の
+        # 「ブルアカTLメーカー」が同じ 7 人に実測値を持っているのを見て気づいた）
         def apply_sec(e):
             af = e.get("ApplyFrame")
-            return round(int(af) / 30.0, 2) if af else 0
+            if af is None:
+                return None
+            return round(int(af) / 30.0, 2)
 
         bf = []
         for e in sk.get("Effects") or []:
@@ -1302,15 +1376,25 @@ def build_cost_timeline():
                 sc = e.get("Scale") or []
                 if not sc:
                     continue
-                bf.append({"n": eff_name(e), "du": 0, "sd": eff_side(e),
-                           "ty": "CrowdControl", "cc": e.get("Icon") or "",
-                           "sc": sc, "ch": int(e.get("Chance") or 10000),
-                           "af": apply_sec(e)})
+                one = {"n": eff_name(e), "du": 0, "sd": eff_side(e),
+                       "ty": "CrowdControl", "cc": e.get("Icon") or "",
+                       "sc": sc, "ch": int(e.get("Chance") or 10000)}
+                a_ = apply_sec(e)
+                if a_ is None:
+                    one["afu"] = 1          # 着弾までの時間がデータに無い
+                elif a_:
+                    one["af"] = a_
+                bf.append(one)
                 continue
             if du <= 0:
                 continue
             item = {"n": eff_name(e), "du": du, "sd": eff_side(e),
-                    "ty": e.get("Type") or "", "af": apply_sec(e)}
+                    "ty": e.get("Type") or ""}
+            a_ = apply_sec(e)
+            if a_ is None:
+                item["afu"] = 1
+            elif a_:
+                item["af"] = a_
             st = e.get("Stat") or ""
             if st:
                 # **末尾で足し算か掛け算かが決まる。**そのまま渡して、判断は使う側で
@@ -1331,8 +1415,12 @@ def build_cost_timeline():
                 continue
             cc = {"u": int(e.get("Uses") or 1),
                   "vt": "coef" if e.get("ValueType") == "Coefficient" else "flat",
-                  "sc": e.get("Scale") or [], "sd": eff_side(e),
-                  "af": apply_sec(e)}
+                  "sc": e.get("Scale") or [], "sd": eff_side(e)}
+            a_ = apply_sec(e)
+            if a_ is None:
+                cc["afu"] = 1
+            elif a_:
+                cc["af"] = a_
             # **効く回数が EX のレベルで変わる子がいる。**`Uses` は最大値しか
             # 持っていないので、スキル文のパラメータ側（「1回 / … / 2回」）を拾う。
             # 2026-08-30 時点でこれに当たるのはセイアだけ
@@ -1483,7 +1571,7 @@ def build_cost_timeline():
         if not s.get("Name") or not isinstance(ex, dict):
             continue
         rec = {
-            "id": s["Id"], "n": s["Name"],
+            "id": s["Id"], "n": NAMES.get(s["Id"], s["Name"]),
             "sq": s.get("SquadType", ""), "ro": s.get("TacticRole", ""),
             "sc": s.get("School", "ETC"), "at": s.get("ArmorType", ""),
             "bt": s.get("BulletType", ""), "st": s.get("StarGrade", 0),
@@ -1753,7 +1841,7 @@ def build_gear_stats():
             continue
         w = s.get("Weapon") or {}
         weap.append({
-            "id": s["Id"], "n": s["Name"], "sq": s.get("SquadType", ""),
+            "id": s["Id"], "n": NAMES.get(s["Id"], s["Name"]), "sq": s.get("SquadType", ""),
             # **絵の名前は生徒の Id と一致しない。**衣装違いは元の子の武器を使い回す
             # （アズサ（水着）10021 の絵は `weapon_icon_10019`）。SchaleDB の
             # `WeaponImg` をそのまま持つ（2026-08-30。Id で組み立てて 206 人ぶん落ちた）
@@ -1772,7 +1860,7 @@ def build_gear_stats():
         g = s.get("Gear") or {}
         if g.get("Name"):
             gear.append({
-                "id": s["Id"], "n": s["Name"], "gn": g["Name"],
+                "id": s["Id"], "n": NAMES.get(s["Id"], s["Name"]), "gn": g["Name"],
                 "st": g.get("StatType") or [], "sv": g.get("StatValue") or [],
             })
     if len(gear) < 40:
@@ -2033,7 +2121,7 @@ def build_eleph():
                tuple(t["StatBonusRateHeal"]))] += 1
         favors.setdefault(tuple(t["MaxFavorLevel"]), 0)
         favors[tuple(t["MaxFavorLevel"])] += 1
-        stu.append({"id": cid, "n": s_["Name"], "s": s_.get("StarGrade", 1),
+        stu.append({"id": cid, "n": NAMES.get(s_["Id"], s_["Name"]), "s": s_.get("StarGrade", 1),
                     "e": st[0][1], "en": iname.get(st[0][1], ""),
                     "si": iicon.get(st[0][1], "")})
 
@@ -2189,7 +2277,7 @@ def build_gift_search():
     role = loc.get("TacticRole", {})
     stu = []
     for s_ in students:
-        stu.append({"id": s_["Id"], "n": s_["Name"],
+        stu.append({"id": s_["Id"], "n": NAMES.get(s_["Id"], s_["Name"]),
                     "t": s_.get("FavorItemTags", []) or [],
                     "u": s_.get("FavorItemUniqueTags", []) or [],
                     "sc": school.get(s_.get("School", ""), s_.get("School", "")),
@@ -2283,7 +2371,7 @@ def build_matchup():
     school, role = loc.get("School", {}), loc.get("TacticRole", {})
     stu = []
     for s_ in students:
-        stu.append({"id": s_["Id"], "n": s_["Name"],
+        stu.append({"id": s_["Id"], "n": NAMES.get(s_["Id"], s_["Name"]),
                     "b": s_.get("BulletType", ""), "a": s_.get("ArmorType", ""),
                     "ro": role.get(s_.get("TacticRole", ""), s_.get("TacticRole", "")),
                     "sc": school.get(s_.get("School", ""), s_.get("School", "")),
@@ -2452,7 +2540,7 @@ def build_potential():
             raise SystemExit(f"生徒 {cid} のオーパーツが食い違う: "
                              f"ba-data {base} / SchaleDB {s_.get('PotentialMaterial')}")
         stu.append({
-            "id": cid, "n": s_["Name"], "a": base, "st": s_.get("StarGrade", 1),
+            "id": cid, "n": NAMES.get(s_["Id"], s_["Name"]), "a": base, "st": s_.get("StarGrade", 1),
             "sc": school.get(s_.get("School", ""), s_.get("School", "")),
             "ro": role.get(s_.get("TacticRole", ""), s_.get("TacticRole", "")),
             # **要らない枠**（治癒力を使わない子など）。ゲームのデータが持っている
@@ -2684,7 +2772,7 @@ def build_weapon():
         for t_, v_ in zip(raw_w.get("StatType") or [], raw_w.get("StatValue") or []):
             if t_ and t_ != "None":
                 av = v_
-        stu.append({"id": s_["Id"], "n": s_["Name"], "wt": wt,
+        stu.append({"id": s_["Id"], "n": NAMES.get(s_["Id"], s_["Name"]), "wt": wt,
                     "wn": w.get("Name", ""), "wi": s_.get("WeaponImg", ""),
                     "st": s_.get("StarGrade", 1),
                     # **神名文字の持ち主。**ふつうは自分だが 1 人だけ例外がいる
