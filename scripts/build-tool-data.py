@@ -3487,7 +3487,6 @@ def build_cafe_layout():
     const = as_list(get_json(BA.format("ConstCommonExcelTable")))
     tpl = as_list(get_json(BA.format("FurnitureTemplateExcelTable")))
     tel = as_list(get_json(BA.format("FurnitureTemplateElementExcelTable")))
-    bfu = {x["Id"]: x for x in as_list(get_json(BA.format("FurnitureExcelTable")))}
     etc = {x["Key"]: x for x in as_list(get_json(BADB.format("LocalizeEtcExcelTable")))}
 
     fl_all = list(furn.values()) if isinstance(furn, dict) else furn
@@ -3538,6 +3537,7 @@ def build_cafe_layout():
 
     half = []          # 左上が半端なマスに来る行。**丸めて載せるが、数は出す**
     out_tpl, cells, overlaps, oob = [], 0, 0, 0
+    rows_n = 0         # マス目に乗せた行の数（床材・壁紙・背景を除く）
     for t in sorted(tpl, key=lambda x: x["FurnitureTemplateId"]):
         tid = t["FurnitureTemplateId"]
         # **左の壁と右の壁は別の面。**1 つの集合にまとめると、同じ (x, y) が
@@ -3575,6 +3575,7 @@ def build_cafe_layout():
                             overlaps += 1
                         occ[side].add(c)
             rows.append([e["FurnitureId"], side, x0, y0, rot])
+            rows_n += 1
         if len(room) != 3:
             raise SystemExit(f"テンプレート {tid} の床材・壁紙・背景がそろっていない: {sorted(room)}")
         out_tpl.append({"id": tid, "nm": title_of(t["FunitureTemplateTitle"]),
@@ -3660,7 +3661,7 @@ def build_cafe_layout():
         "sets": sets, "furn": fl, "tpl": out_tpl,
         "subJa": sub_ja,
         "half": [{"t": t, "id": i, "nm": nm} for t, i, nm in half],
-        "cells": cells,
+        "cells": cells, "rows": rows_n,
         "version": "SchaleDB jp（家具 %d 個・サイズ・快適度・セット名）／ "
                    "electricgoat/ba-data jp（FurnitureTemplate・FurnitureTemplateElement・"
                    "Furniture・FurnitureGroup・CafeRank・ConstCommon／DB の LocalizeEtc）"
