@@ -5,8 +5,10 @@
      T10 の 60 枚だけ数えると丸ごと足りなくなる
    - **お守り・腕時計・ネックレスは T9 が上限。** データ上 T10 の装備もレシピも無い
    - ドロップの期待値は `StageRewardProb ÷ 10000 × StageRewardAmount` の和
-   - **「2 つの Tier のどちらか」が出る枠**（GachaGroup）がある。中身の比率は
-     公開されていないので、半分ずつとして数えている
+   - **箱（GachaGroup）で出る枠がある。**中身と比率は GachaElement に出ているので、
+     推測せずそのまま使って期待値に畳んである（data.js を作る時点で済ませている）
+   - **「T◯装備設計図選択ボックス」（通称 万能設計図）は部位を選ばない。**
+     その Tier の不足なら、どの部位にも充てられる。T2〜T8 しか無い
    ------------------------------------------------------------ */
 (function () {
   'use strict';
@@ -16,6 +18,8 @@
 
   var state = {};    // state[cat] = {from, to, n}
   var have = {};     // have[cat][tier] = 枚数
+  var uni = {};      // uni[tier] = T◯装備設計図選択ボックス（万能設計図）の個数
+  var UNI_MIN = 2, UNI_MAX = 8;   // 選択ボックスは T2〜T8 しか存在しない
   var bpCat = CATS[0];
   var diff = 'all';
 
@@ -36,7 +40,7 @@
       for (var t = 1; t <= mx; t++) from += '<option value="' + t + '">T' + t + '</option>';
       for (var t2 = 2; t2 <= mx; t2++) to += '<option value="' + t2 + '"' + (t2 === mx ? ' selected' : '') + '>T' + t2 + '</option>';
       return '<div class="goalrow">' +
-        '<img src="' + icon(c, mx) + '" alt="" width="32" height="32" loading="lazy">' +
+        '<img src="' + icon(c, mx) + '" alt="" width="42" height="42" loading="lazy">' +
         '<span class="nm">' + JA[c] + '<br><small style="color:var(--fg-mute);font-size:.72rem">上限 T' + mx + '</small></span>' +
         '<select data-c="' + c + '" data-k="from" aria-label="' + JA[c] + 'の今の Tier">' + from + '</select>' +
         '<select data-c="' + c + '" data-k="to" aria-label="' + JA[c] + 'の目標 Tier">' + to + '</select>' +
@@ -66,17 +70,18 @@
   }
 
   function drawBp() {
-    var need = totalNeed();
+    var need = totalNeed(), sh = shortfall(need);
     var mx = MAXT[bpCat];
     var h = '';
     for (var t = 2; t <= mx; t++) {
       var nd = (need[bpCat] && need[bpCat][t]) || 0;
       var hv = have[bpCat][t] || 0;
-      var cls = nd === 0 ? ' done' : (hv >= nd ? ' done' : ' short');
+      var lack = (sh[bpCat] && sh[bpCat][t]) || 0;
+      var cls = lack > 0 ? ' short' : ' done';
       h += '<div class="bp' + cls + '" title="' + bpName(bpCat, t) + '">' +
-        '<img src="' + icon(bpCat, t) + '" alt="" width="34" height="34" loading="lazy">' +
+        '<img src="' + icon(bpCat, t) + '" alt="" width="46" height="46" loading="lazy">' +
         '<div class="t">T' + t + '</div>' +
-        '<div class="v">' + fmt(Math.max(0, nd - hv)) + '</div>' +
+        '<div class="v">' + fmt(lack) + '</div>' +
         '<div class="have">必要 ' + fmt(nd) + '</div>' +
         '<input type="number" inputmode="numeric" min="0" step="1" value="' + hv + '" data-t="' + t + '" aria-label="' + bpName(bpCat, t) + 'の所持数">' +
         '</div>';
@@ -88,6 +93,27 @@
     have[bpCat][parseInt(t.dataset.t, 10)] = Math.max(0, parseInt(t.value, 10) || 0);
     calc(true);
   });
+
+  // ---- 万能設計図（T◯装備設計図選択ボックス）
+  function uniIcon(t) { return '../img/equipment_icon_selection_tier' + t + '_piece.webp'; }
+
+  function buildUni() {
+    var h = '';
+    for (var t = UNI_MIN; t <= UNI_MAX; t++) {
+      h += '<div class="uni">' +
+        '<img src="' + uniIcon(t) + '" alt="" width="56" height="56" loading="lazy">' +
+        '<div class="t">T' + t + '</div>' +
+        '<input type="number" inputmode="numeric" min="0" max="999" step="1" value="0" ' +
+          'data-t="' + t + '" aria-label="T' + t + '装備設計図選択ボックスの所持数">' +
+        '</div>';
+    }
+    el('unigrid').innerHTML = h;
+    el('unigrid').addEventListener('input', function (e) {
+      var n = e.target; if (!n.dataset.t) return;
+      uni[parseInt(n.dataset.t, 10)] = Math.max(0, Math.min(999, parseInt(n.value, 10) || 0));
+      calc();
+    });
+  }
 
   // ---- 必要量
   function totalNeed() {
@@ -118,22 +144,48 @@
         if (d > 0) { sh[c][t] = d; total += d; }
       });
     });
+
+    /* **万能設計図は部位を選ばない。**同じ Tier なら、どの部位の不足にも充てられる。
+       どこに使うかは持ち主が決められるので、**不足がいちばん多い部位から 1 枚ずつ**
+       充てていく（＝残る不足がなるべく平らになる配り方）。 */
+    for (var t = UNI_MIN; t <= UNI_MAX; t++) {
+      var box = uni[t] || 0;
+      while (box > 0) {
+        var bc = null, bv = 0;
+        for (var i = 0; i < CATS.length; i++) {
+          var v = sh[CATS[i]][t] || 0;
+          if (v > bv) { bv = v; bc = CATS[i]; }
+        }
+        if (!bc) break;
+        sh[bc][t] -= 1;
+        if (sh[bc][t] <= 0) delete sh[bc][t];
+        box--; total--;
+      }
+    }
+
     sh.__total = total;
     return sh;
   }
 
-  /**
-   * ステージ 1 周でもらえる設計図を (部位, Tier) ごとに畳む。
-   * **「2 つの Tier のどちらか」の枠は等分**（中身の比率が公開されていないため）。
-   */
+  /** 万能設計図が実際に何枚ぶん埋めたか（余ったぶんは数えない） */
+  function uniUsed(need) {
+    var raw = 0, cut = 0;
+    CATS.forEach(function (c) {
+      Object.keys(need[c] || {}).forEach(function (t) {
+        var d = need[c][t] - (have[c][t] || 0);
+        if (d > 0) raw += d;
+      });
+    });
+    var sh = shortfall(need);
+    cut = raw - sh.__total;
+    return cut;
+  }
+
+  /** ステージ 1 周でもらえる設計図を (部位, Tier) ごとに畳む。 */
   function dropsOf(s) {
     var m = {};
     function add(c, t, v) { m[c + '|' + t] = (m[c + '|' + t] || 0) + v; }
     s.d.forEach(function (r) { add(r[0], r[1], r[2]); });
-    s.b.forEach(function (r) {
-      var per = r[2] / r[1].length;
-      r[1].forEach(function (t) { add(r[0], t, per); });
-    });
     return m;
   }
 
@@ -208,7 +260,9 @@
     el('o-short').innerHTML = fmt(sh.__total) + '<small>枚</small>';
     var kinds = 0;
     CATS.forEach(function (c) { kinds += Object.keys(sh[c]).length; });
-    el('o-short-sub').textContent = kinds > 0 ? (kinds + ' 種類が足りていません') : '足りています';
+    var cut = uniUsed(need);
+    el('o-short-sub').textContent = (kinds > 0 ? (kinds + ' 種類が足りていません') : '足りています') +
+      (cut > 0 ? '（万能設計図 ' + fmt(cut) + ' 枚ぶんを差し引き済み）' : '');
 
     el('o-credit').innerHTML = fmt(credit) + '<small></small>';
 
@@ -308,7 +362,7 @@
     calc();
   });
 
-  buildGoals(); buildBpTabs();
+  buildGoals(); buildBpTabs(); buildUni();
   el('ver').textContent = E.version;
   // 最初から何か見えているように、T9 まで 1 個ずつを入れておく
   CATS.forEach(function (c) { state[c].from = 1; state[c].to = Math.min(9, MAXT[c]); state[c].n = 1; });

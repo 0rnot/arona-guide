@@ -1,0 +1,52 @@
+name: tool-data
+
+# ツールが読む data.js と tools/img/ のアイコンを作り直す。
+#
+# **生徒も贈り物も装備もステージも増える。**増えたときに手で data.js を書き換えていると
+# 必ず古いまま放置されるので、毎日ここで作り直して、変わったときだけ commit する。
+#
+# 出どころ: electricgoat/ba-data（jp）と SchaleDB。どちらも公開データで、鍵は要らない。
+
+on:
+  schedule:
+    - cron: "41 3 * * *"   # 毎日 1 回（UTC 3:41 ＝ JST 12:41）
+  workflow_dispatch:
+  push:
+    paths:
+      - "scripts/build-tool-data.py"
+      - ".github/workflows/tool-data.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tool-data
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Pillow
+        run: python3 -m pip install --quiet Pillow
+
+      - name: data.js とアイコンを作り直す
+        run: python3 scripts/build-tool-data.py
+
+      - name: 変わっていれば commit
+        run: |
+          if git diff --quiet -- tools/ && [ -z "$(git status --porcelain tools/)" ]; then
+            echo "変化なし"
+            exit 0
+          fi
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add tools/
+          git commit -m "tool-data: ゲームのデータを取り直した"
+          git push

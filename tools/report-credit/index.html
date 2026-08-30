@@ -20,7 +20,7 @@
   .mat { display: grid; grid-template-columns: 34px 1fr 110px; gap: .8em; align-items: center;
          padding: .55em 0; border-bottom: 1px solid var(--line); }
   .mat:last-of-type { border-bottom: 0; }
-  .mat img { width: 34px; height: 34px; border-radius: 7px; background: var(--bg-sub); }
+  .mat img { width: 46px; height: 46px; border-radius: 7px; background: var(--bg-sub); }
   .mat .nm { font-size: .88rem; line-height: 1.4; }
   .mat .nm small { display: block; color: var(--fg-mute); font-size: .74rem; }
   .mat input { text-align: right; padding: .42em .6em; font-size: .95rem; }
@@ -150,9 +150,10 @@
             <b>足すとちょうど 246,680</b> で、これが装備 1 個を Tier1 Lv1 から Tier10 Lv70 まで上げるのに要る経験値です</li>
         </ul>
         <p><b>強化珠の経験値（90 / 360 / 1,440 / 5,760）だけは、ゲームのデータの中に見つけられませんでした。</b>
-          有志ツールが使っている値をそのまま置いています。ただし裏付けはあって、
-          246,680 ÷ 5,760 = 42.8 で「最上級強化珠 43 個ぶん」になり、これは攻略サイトの記載と一致します。
-          同じく 1,249,185 ÷ 10,000 = 124.9 で「最上級レポート 125 個ぶん」も一致します。</p>
+          有志ツールが使っている値をそのまま置いています。
+          246,680 ÷ 5,760 = 42.8 で「最上級強化珠 43 個ぶん」、
+          1,249,185 ÷ 10,000 = 124.9 で「最上級レポート 125 個ぶん」——
+          どちらも攻略サイトに載っている数字と同じです。</p>
         <p><b>1 人を仕上げるクレジット（55,000,000）は目安です。</b>
           ゲームのデータからは出せませんでした。レベル上げ・スキル 4 種・装備 3 個をぜんぶ最大にした場合のおおよその額で、
           <b>星上げ（神名文字）は入っていません。</b>自分の育て方に合わせて書き換えてください。</p>
@@ -212,7 +213,7 @@
   function rows(list, into, base) {
     into.innerHTML = list.map(function (m) {
       return '<div class="mat">' +
-        '<img src="../img/' + m.icon + '.webp" alt="" width="34" height="34" loading="lazy">' +
+        '<img src="../img/' + m.icon + '.webp" alt="" width="46" height="46" loading="lazy">' +
         '<span class="nm">' + m.name + '<small>1 個 ' + m.exp.toLocaleString('ja-JP') + '</small></span>' +
         '<input id="i-' + m.id + '" type="number" inputmode="numeric" min="0" step="1" value="' + (m.def || 0) + '" aria-label="' + m.name + 'の個数">' +
         '</div>';

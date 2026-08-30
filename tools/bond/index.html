@@ -16,10 +16,10 @@
 <link rel="stylesheet" href="../../style.css?v=15">
 <link rel="stylesheet" href="../tool.css?v=6">
 <style>
-  .gift { display: grid; grid-template-columns: 40px 1fr 66px 96px; gap: .7em; align-items: center;
+  .gift { display: grid; grid-template-columns: 50px 1fr 66px 96px; gap: .7em; align-items: center;
           padding: .5em 0; border-bottom: 1px solid var(--line); }
   .gift:last-of-type { border-bottom: 0; }
-  .gift img { width: 40px; height: 40px; border-radius: 8px; background: var(--bg-sub); }
+  .gift img { width: 50px; height: 50px; border-radius: 8px; background: var(--bg-sub); }
   .gift .nm { font-size: .86rem; line-height: 1.45; }
   .gift .nm small { display: block; color: var(--fg-mute); font-size: .74rem; }
   .gift .ex { text-align: right; font-variant-numeric: tabular-nums; font-weight: 800; font-size: .95rem; }
@@ -28,12 +28,36 @@
   .gift.m4 { background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 10%, transparent), transparent 60%); }
   .gift.m4 .ex { color: var(--accent-tx); }
   @media (max-width: 520px) {
-    .gift { grid-template-columns: 34px 1fr 56px 74px; gap: .5em; }
-    .gift img { width: 34px; height: 34px; }
+    .gift { grid-template-columns: 42px 1fr 56px 74px; gap: .5em; }
+    .gift img { width: 42px; height: 42px; }
   }
   .mtag { display: inline-block; font-size: .66rem; font-weight: 700; padding: .1em .5em;
           border-radius: 999px; background: var(--bg-sub); border: 1px solid var(--line); margin-left: .4em; }
   .mtag.on { background: var(--accent); color: var(--accent-in); border-color: transparent; }
+
+  /* 選んだ生徒。**選ぶ前は none。**顔が出るまでは枠だけ置いておく */
+  .stucard {
+    display: grid; grid-template-columns: 96px 1fr; gap: 16px; align-items: center;
+    padding: 14px; margin-bottom: 16px;
+    border: 1px solid var(--line); border-radius: 14px; background: var(--bg-sub);
+  }
+  .stucard.none { border-style: dashed; }
+  .stuimg {
+    width: 96px; height: 96px; border-radius: 12px; overflow: hidden;
+    background: var(--card); border: 1px solid var(--line);
+    display: grid; place-items: center;
+  }
+  .stuimg img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .stuimg .ph { font-size: .72rem; color: var(--fg-mute); font-weight: 700; letter-spacing: .08em; }
+  .stuname { font-size: 1.15rem; font-weight: 800; margin: 0 0 .3em; }
+  .stucard.none .stuname { color: var(--fg-mute); font-size: .95rem; }
+  .stutags { display: flex; flex-wrap: wrap; gap: 5px; }
+  .stutags .tag { font-size: .68rem; }
+  .stunote { font-size: .78rem; color: var(--fg-mute); margin: .35em 0 0; line-height: 1.6; }
+  @media (max-width: 460px) {
+    .stucard { grid-template-columns: 72px 1fr; gap: 12px; }
+    .stuimg { width: 72px; height: 72px; }
+  }
 </style>
 </head>
 <body>
@@ -78,6 +102,14 @@
     <div class="tcol">
       <div class="panel">
         <div class="panel-h"><span class="n">01</span><h2>だれの絆を上げますか</h2></div>
+        <div class="stucard none" id="stucard">
+          <div class="stuimg" id="stu-img"><span class="ph">none</span></div>
+          <div>
+            <p class="stuname" id="stu-name">まだ誰も選んでいません</p>
+            <div class="stutags" id="stu-tags"></div>
+            <p class="stunote" id="stu-note">名前を入れると、その子の好みに合わせて贈り物を並べ替えます。</p>
+          </div>
+        </div>
         <div class="fields c3">
           <div class="field">
             <label for="i-student">生徒</label>
@@ -171,9 +203,9 @@
           <li>さらに<b>誰にでも効く共通タグ</b>があります（<code>CommonFavorItemTags</code>: <code id="gen">—</code>）</li>
           <li>絆経験値 ＝ <b><code>ExpValue ×（一致したタグの数 ＋ 1）</code></b></li>
         </ul>
-        <p><b>検算しています。</b>この式で計算すると「美しい花束」は<b>194 人ぜんぶに対して ×4</b>になり、
-          ゲーム内で誰に渡しても最大効果になるのと一致します。
-          また、どの生徒にも ×4 の贈り物が最低 1 つあることも確かめました。</p>
+        <p>この式だと「美しい花束」は<b>194 人ぜんぶに対して ×4</b>になります
+          （ゲーム内で誰に渡しても最大効果になるのと同じです）。
+          <b>どの生徒にも ×4 の贈り物が最低 1 つあります。</b></p>
         <p><b>絆ランクの必要経験値は <code>Excel/FavorLevelExcelTable.json</code> そのままです。</b>
           Lv1 から Lv100 までの合計は <b>240,225</b>、Lv1 から Lv20 までは <b>1,845</b>、Lv1 から Lv50 までは <b>29,175</b> です。</p>
         <p><b>カフェタッチは 1 回 15 の絆経験値。</b>これはデータではなく攻略サイトの記載です
@@ -227,7 +259,11 @@
   var TOUCH = 15;                       // カフェタッチ 1 回
   var GEN = B.gen;                      // 誰にでも効く共通タグ
   var have = {};                        // have[giftId] = 個数
-  var student = B.students[0];
+  /* **最初は誰も選んでいない。**顔の枠は none のまま置いておく。
+     この状態でも贈り物は出す——共通タグのぶんだけは誰にでも効くので、
+     「まず何を配ればいいか」は生徒を決める前から分かる */
+  var NONE = { id: 0, n: '', t: [] };
+  var student = NONE;
   // **既定は「効くものだけ」。** 贈り物は 51 種あって、ぜんぶ出すと
   // 左の柱が縦に伸びきってしまう。×1 のものは実質どれも同じなので畳む
   var filter = 'good';
@@ -252,8 +288,40 @@
     el('students').innerHTML = B.students.map(function (s) {
       return '<option value="' + s.n.replace(/"/g, '&quot;') + '">';
     }).join('');
-    el('i-student').value = student.n;
   })();
+
+  /** 選んだ生徒の顔と好みのタグ。**選ぶ前は none。** */
+  function drawStudent() {
+    var card = el('stucard');
+    if (!student.id) {
+      card.classList.add('none');
+      el('stu-img').innerHTML = '<span class="ph">none</span>';
+      el('stu-name').textContent = 'まだ誰も選んでいません';
+      el('stu-tags').innerHTML = '';
+      el('stu-note').textContent = '名前を入れると、その子の好みに合わせて贈り物を並べ替えます。'
+        + '今は誰にでも効くぶんだけで並べています。';
+      return;
+    }
+    card.classList.remove('none');
+    el('stu-img').innerHTML = '<img src="../img/student_' + student.id + '.webp" alt="' +
+      student.n + '" width="96" height="96" loading="lazy">';
+    el('stu-name').textContent = student.n;
+
+    /* **タグそのものは出さない。**データ上の中身は "aV" のような符号で、
+       見えても何も分からない。代わりに、その子に効く贈り物の数を出す */
+    var by = { 4: 0, 3: 0, 2: 0 };
+    B.gifts.forEach(function (g) {
+      var m = expOf(g, student).mult;
+      if (m >= 4) by[4]++; else if (m === 3) by[3]++; else if (m === 2) by[2]++;
+    });
+    var chips = [];
+    if (by[4]) chips.push('<span class="tag on">×4 が ' + by[4] + ' 種類</span>');
+    if (by[3]) chips.push('<span class="tag">×3 が ' + by[3] + ' 種類</span>');
+    if (by[2]) chips.push('<span class="tag">×2 が ' + by[2] + ' 種類</span>');
+    el('stu-tags').innerHTML = chips.join('');
+    el('stu-note').textContent = '好みのタグ ' + student.t.length + ' 個に、' +
+      '誰にでも効く ' + GEN.length + ' 個を足したものが下の倍率です。';
+  }
 
   function giftList() {
     return B.gifts.map(function (g) {
@@ -263,13 +331,13 @@
   }
 
   function drawGifts(list) {
-    el('gift-h').textContent = student.n + ' に効く贈り物';
+    el('gift-h').textContent = student.id ? (student.n + ' に効く贈り物') : '誰にでも効く贈り物';
     var shown = filter === 'all' ? list : list.filter(function (x) { return x.mult >= 2; });
     if (!shown.length) shown = list.slice(0, 6);
     el('filter-n').textContent = shown.length + ' / ' + list.length + ' 種類';
     el('gifts').innerHTML = shown.map(function (x) {
       return '<div class="gift' + (x.mult >= 4 ? ' m4' : '') + '">' +
-        '<img src="../img/' + x.g.i + '.webp" alt="" width="40" height="40" loading="lazy">' +
+        '<img src="../img/' + x.g.i + '.webp" alt="" width="50" height="50" loading="lazy">' +
         '<span class="nm">' + x.g.n +
           '<small>基本 ' + x.g.e + '<span class="mtag' + (x.mult >= 3 ? ' on' : '') + '">×' + x.mult + '</span></small></span>' +
         '<span class="ex">' + x.exp + '<small>絆経験値</small></span>' +
@@ -287,7 +355,8 @@
     var name = el('i-student').value.trim();
     var found = null;
     for (var i = 0; i < B.students.length; i++) if (B.students[i].n === name) { found = B.students[i]; break; }
-    if (found) student = found;
+    student = found || NONE;
+    drawStudent();
 
     var from = parseInt(el('i-from').value, 10);
     var to = parseInt(el('i-to').value, 10);

@@ -401,6 +401,14 @@ a.tcard:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 a.tcard:hover .go svg { transform: translateX(3px); }
 
 .tcard.soon { border-style: dashed; background: transparent; }
+.tcard .ticon {
+  position: absolute; top: 14px; right: 16px; width: 66px; height: 66px;
+  border-radius: 13px; pointer-events: none;
+  transition: transform .2s cubic-bezier(.22,.61,.36,1);
+}
+.tcard .cat, .tcard h2 { padding-right: 74px; }
+a.tcard:hover .ticon { transform: scale(1.09) rotate(-4deg); }
+
 .tcard.soon .cat { color: var(--fg-mute); }
 .tcard.soon h2, .tcard.soon h3 { color: var(--fg-mute); }
 
@@ -410,7 +418,13 @@ a.tcard:hover .go svg { transform: translateX(3px); }
 /* ------------------------------------------------------------ ゲーム内のアイコン
    **1 ツールにつき最低 1 か所は実物のアイコンを出す**（2026-08-30 の先生の指示）。
    出どころは SchaleDB。画像の権利は Nexon Games / Yostar にある——footer に明記した。 */
-.ico { width: 1.35em; height: 1.35em; vertical-align: -.35em; border-radius: 4px; }
-.ico.sm { width: 1.1em; height: 1.1em; vertical-align: -.22em; }
-.stat .k .ico { width: 1.5em; height: 1.5em; vertical-align: -.45em; margin-right: .25em; }
-.panel-h .ico { width: 1.5em; height: 1.5em; vertical-align: -.4em; margin-right: .1em; }
+/* **SchaleDB の画像は 146×116 の横長。**正方形の枠に入れると 2 割ほど横に潰れる。
+   tools/img/ の 155 枚は 122×122 に切り直してあるので、そのまま入れて崩れない。 */
+/* **style.css が img { display: block } を掛けている。**そのままだと文中の
+   アイコンが 1 行を独り占めして、見出しの上や文の途中で改行が入る（2026-08-30 に発見）。
+   inline-block に戻すのは必須。 */
+.ico { display: inline-block; width: 1.7em; height: 1.7em; vertical-align: -.45em; border-radius: 5px; }
+.ico.sm { width: 1.35em; height: 1.35em; vertical-align: -.3em; }
+.stat .k .ico { width: 1.9em; height: 1.9em; vertical-align: -.6em; margin-right: .3em; }
+.panel-h .ico { width: 1.9em; height: 1.9em; vertical-align: -.55em; margin-right: .15em; }
+table.dt th .ico, table.dt td .ico { width: 1.5em; height: 1.5em; vertical-align: -.4em; }

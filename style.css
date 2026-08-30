@@ -943,6 +943,16 @@ a.toolband-card {
 }
 a.toolband-card:hover { border-color: var(--accent); transform: translateY(-2px); box-shadow: var(--shadow); }
 a.toolband-card:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+/* ゲーム内アイコンの差し色（2026-08-30）。**カードの右上に置く。**
+   文字と重ならないよう、見出しと分類にだけ右の余白を足している */
+.toolband-card { position: relative; overflow: hidden; }
+.toolband-card .ticon {
+  position: absolute; top: 12px; right: 14px; width: 54px; height: 54px;
+  border-radius: 10px; pointer-events: none;
+  transition: transform .2s cubic-bezier(.22,.61,.36,1);
+}
+.toolband-card .cat, .toolband-card h3 { padding-right: 62px; }
+a.toolband-card:hover .ticon { transform: scale(1.09) rotate(-4deg); }
 .toolband-card .cat { font-size: .68rem; letter-spacing: .1em; color: var(--accent-tx); font-weight: 700; }
 .toolband-card h3 { font-size: .98rem; margin: .3em 0 .3em; font-weight: 800; }
 .toolband-card p { font-size: .82rem; color: var(--fg-mute); margin: 0; line-height: 1.75; word-break: auto-phrase; }

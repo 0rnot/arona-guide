@@ -18,23 +18,23 @@
 <style>
   /* 目標の行。アイコン・名前・今の Tier・目標 Tier・個数 */
   .goalrow {
-    display: grid; grid-template-columns: 32px 1fr 76px 76px 66px; gap: .6em; align-items: center;
+    display: grid; grid-template-columns: 42px 1fr 76px 76px 66px; gap: .6em; align-items: center;
     padding: .5em 0; border-bottom: 1px solid var(--line);
   }
   .goalrow:last-of-type { border-bottom: 0; }
-  .goalrow img { width: 32px; height: 32px; border-radius: 6px; background: var(--bg-sub); }
+  .goalrow img { width: 42px; height: 42px; border-radius: 6px; background: var(--bg-sub); }
   .goalrow .nm { font-size: .86rem; }
   .goalrow select, .goalrow input { padding: .34em .4em; font-size: .88rem; text-align: center; }
   .goalrow select { background-position: calc(100% - 12px) calc(50% + 1px), calc(100% - 8px) calc(50% + 1px); padding-right: 1.6em; }
   .goalhead {
-    display: grid; grid-template-columns: 32px 1fr 76px 76px 66px; gap: .6em;
+    display: grid; grid-template-columns: 42px 1fr 76px 76px 66px; gap: .6em;
     font-size: .72rem; color: var(--fg-mute); padding-bottom: .4em;
   }
   .goalhead span { text-align: center; }
   .goalhead span:nth-child(2) { text-align: left; }
   @media (max-width: 560px) {
-    .goalrow, .goalhead { grid-template-columns: 28px 1fr 64px 64px 56px; gap: .4em; font-size: .8rem; }
-    .goalrow img { width: 28px; height: 28px; }
+    .goalrow, .goalhead { grid-template-columns: 36px 1fr 64px 64px 56px; gap: .4em; font-size: .8rem; }
+    .goalrow img { width: 36px; height: 36px; }
   }
 
   /* 必要な設計図のマス目 */
@@ -43,7 +43,7 @@
     border: 1px solid var(--line); border-radius: 10px; padding: 8px; text-align: center;
     background: var(--card);
   }
-  .bp img { width: 34px; height: 34px; margin: 0 auto 3px; }
+  .bp img { width: 46px; height: 46px; margin: 0 auto 3px; }
   .bp .t { font-size: .68rem; color: var(--fg-mute); }
   .bp .v { font-size: .95rem; font-weight: 800; font-variant-numeric: tabular-nums; }
   .bp .have { font-size: .68rem; color: var(--fg-mute); }
@@ -58,6 +58,14 @@
   .stagerow .n { color: var(--fg-mute); font-size: .74rem; font-variant-numeric: tabular-nums; }
   .stagerow .dt2 { display: block; color: var(--fg-mute); font-size: .74rem; margin-top: .15em; }
   .stagerow .sc { font-variant-numeric: tabular-nums; font-weight: 800; color: var(--accent-tx); white-space: nowrap; }
+  .unigrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 10px; }
+  .uni {
+    border: 1px solid var(--line); border-radius: 12px; background: var(--bg-sub);
+    padding: 10px 8px 9px; text-align: center;
+  }
+  .uni img { width: 56px; height: 56px; display: block; margin: 0 auto 2px; }
+  .uni .t { font-size: .74rem; font-weight: 800; color: var(--fg-mute); margin-bottom: .35em; }
+  .uni input { width: 100%; text-align: center; padding: .3em .2em; font-size: .9rem; }
 </style>
 </head>
 <body>
@@ -118,6 +126,15 @@
         <div class="seg" id="bpcat" role="group" aria-label="部位" style="margin-bottom:14px"></div>
         <div class="bpgrid" id="bpgrid"></div>
       </div>
+
+      <div class="panel">
+        <div class="panel-h">
+          <span class="n">03</span>
+          <h2><img class="ico" src="../img/equipment_icon_selection_tier7_piece.webp" alt="" width="24" height="24">万能設計図</h2>
+        </div>
+        <p class="lead">「<b>T◯装備設計図選択ボックス</b>」のことです。部位を選ばないので、<b>同じ Tier の足りないところならどこにでも充てられます</b>。入れた数は、不足がいちばん多い部位から順に差し引きます。<b>T2 から T8 までしかありません。</b></p>
+        <div class="unigrid" id="unigrid"></div>
+      </div>
     </div>
 
     <div class="tcol">
@@ -140,7 +157,7 @@
       </div>
 
       <div class="panel">
-        <div class="panel-h"><span class="n">03</span><h2>いま回るならここ</h2></div>
+        <div class="panel-h"><span class="n">04</span><h2>いま回るならここ</h2></div>
         <p class="lead"><b>足りない設計図が 1 AP あたり何個手に入るか</b>で並べています。足りている部位のドロップは数えていません。</p>
         <div class="btnrow" style="margin-bottom:12px">
           <div class="seg" id="diff" role="group" aria-label="難易度">
@@ -155,7 +172,7 @@
 
     <div class="tfull">
       <div class="panel">
-        <div class="panel-h"><span class="n">04</span><h2>必要な設計図</h2></div>
+        <div class="panel-h"><span class="n">05</span><h2>必要な設計図</h2></div>
         <p class="lead">目標に届くまでに要る枚数です。<b>橙色は足りていないもの</b>で、薄いのは足りているものです。</p>
         <div class="tscroll">
           <table class="dt">
@@ -170,10 +187,9 @@
         <p><b>ティアアップの材料とクレジットは、ゲームのデータそのままです。</b>
           <code>Excel/EquipmentExcelTable.json</code> の <code>RecipeId</code> から
           <code>Excel/RecipeIngredientExcelTable.json</code> を引いています。</p>
-        <p><b>検算しています。</b>帽子を T1 から T10 まで上げると、設計図が
-          T2 40 ／ T3 45 ／ T4 50 ／ T5 55 ／ T6 65 ／ T7 65 ／ T8 60 ／ T9 50 ／ T10 60、
-          クレジットが 711,500。これはブルアカ攻略 Wiki の「装備一覧」に載っている合計と一致します。
-          9 部位すべてで同じ表になることも確かめました。</p>
+        <p><b>1 部位を T1 から T10 まで上げると、設計図は T2 40 ／ T3 45 ／ T4 50 ／ T5 55 ／
+          T6 65 ／ T7 65 ／ T8 60 ／ T9 50 ／ T10 60 枚、クレジットは 711,500 です。</b>
+          T10 まである 6 部位はどれも同じ表になります。</p>
         <p><b>お守り・腕時計・ネックレスは T9 が上限です。</b>データ上、この 3 部位には T10 の装備もレシピも存在しません
           （帽子・手袋・靴・カバン・バッジ・ヘアピンは T10 まであります）。
           そのぶん T1 から上げ切るのに要るクレジットも 536,500 で、T10 まである部位の 711,500 より少なくなります。</p>
@@ -182,16 +198,23 @@
           たとえば Area 4-1 の帽子 T2 設計図は「確定 1 個」＋「20% でもう 1 個」なので 1.2 個です。
           Hard は Normal のちょうど 2 倍落ちますが、AP も 2 倍（10 → 20）なので、<b>AP あたりの効率は同じ</b>です。
           違うのは<b>組み合わさる部位</b>なので、狙いによってどちらが良いかが変わります。</p>
-        <p><b>「2 つの Tier のどちらか」が出る枠があります。</b>
-          データ上は箱（<code>GachaGroup</code>）で、中身の比率は公開されていません。
-          このツールは<b>半分ずつとして数えています</b>。表では「T7〜T8」のように書いてあります。</p>
+        <p><b>万能設計図は「T◯装備設計図選択ボックス」です。</b>ゲームのデータ上は
+          <code>150028</code>（T2）から <code>150033</code>（T7）と <code>150041</code>（T8）で、
+          <b>T9・T10 のものはありません。</b>部位を選ばないので、このツールでは
+          「同じ Tier で不足がいちばん多い部位」から 1 枚ずつ充てています。</p>
+        <p><b>箱（<code>GachaGroup</code>）で出る枠も数えています。</b>
+          中身と比率は <code>Excel/GachaElementExcelTable.json</code> にそのまま入っているので、
+          <b>推測せずにその比率で期待値へ畳んでいます。</b>
+          ここで出る「T1 の装備そのもの」は設計図ではないので数えていません。</p>
+        <p><b>data.js は <code>scripts/build-tool-data.py</code> が作っています。</b>
+          GitHub Actions が毎日回しているので、<b>生徒・装備・ステージが増えれば自動で追いつきます。</b></p>
         <p><b>Area 28 まで入っています。</b>SchaleDB のステージ表は Area 26 までなので、
           そこだけ見ていると T10 の設計図が落ちる場所を丸ごと見落とします。
           このツールは ba-data の <code>CampaignStageExcelTable</code> から作っているので、Area 28 も入っています
           （Area 28 のステージ名だけ日本語が取れていないので「Area 28-1」と出ます）。</p>
         <p>出典 — <a href="https://github.com/electricgoat/ba-data" target="_blank" rel="noopener">electricgoat/ba-data</a>（jp、
           <span id="ver">—</span>）、<a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a>（ステージ名とアイコン）、
-          <a href="https://bluearchive.wikiru.jp/?%E8%A3%85%E5%82%99%E4%B8%80%E8%A6%A7" target="_blank" rel="noopener">ブルアカ攻略 Wiki「装備一覧」</a>（合計の検算）。</p>
+          <a href="https://bluearchive.wikiru.jp/?%E8%A3%85%E5%82%99%E4%B8%80%E8%A6%A7" target="_blank" rel="noopener">ブルアカ攻略 Wiki「装備一覧」</a>（ティアアップの合計）。</p>
       </details>
     </div>
 
