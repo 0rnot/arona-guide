@@ -23,8 +23,8 @@
     { k: 'sk2', nm: 'パッシブスキル', sub: 'ノーマルと同じ表',               min: 1, slot: 'sk' },
     { k: 'sk3', nm: 'サブスキル',     sub: 'ノーマルと同じ表',               min: 1, slot: 'sk' },
     { k: 'tr',  nm: '星（神秘開放）',  sub: 'その子の初期★から★5 まで',      min: 1, slot: 'tr', star: true },
-    { k: 'wp',  nm: '固有武器',       sub: '★3 で手に入り、★3 まで上がる',   min: 1, slot: 'wp', weapon: true },
-    { k: 'gr',  nm: '愛用品',         sub: 'T1 で手に入り、T2 まで上がる',    min: 1, slot: 'gr', gear: true }
+    { k: 'wp',  nm: '固有武器',       sub: '★3 で手に入り、★—',             min: 1, slot: 'wp', weapon: true },
+    { k: 'gr',  nm: '愛用品',         sub: 'T1 で手に入り、T—',              min: 1, slot: 'gr', gear: true }
   ];
 
   var state = {};                  // state[k] = { f: 今, t: 目標 }
@@ -84,7 +84,13 @@
         }
         return s + '</select>';
       };
+      /* **上限はデータから書く。**「★3 まで上がる」と手で書いていたころ、
+         日本が★4 になっても文だけ残って気づけなかった（2026-08-31 の先生の
+         指摘）。段の数から出せば、データが増えた日に勝手に追いつく */
       var sub = r.sub;
+      if (r.weapon || r.gear) {
+        sub = (r.weapon ? '★3 で手に入り、★' : 'T1 で手に入り、T') + b + ' まで上がる';
+      }
       if (!ok) {
         sub = !student ? '先に生徒を選んでください'
             : (r.weapon ? 'この子には固有武器がありません'

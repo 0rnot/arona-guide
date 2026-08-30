@@ -173,11 +173,11 @@
             <datalist id="students"></datalist>
           </div>
           <div class="field" id="f-from">
-            <label for="i-from">今の絆ランク<span class="hint">1 〜 100</span></label>
+            <label for="i-from">今の絆ランク<span class="hint" id="h-from">1 〜 —</span></label>
             <input id="i-from" type="number" inputmode="numeric" min="1" max="100" step="1" value="1">
           </div>
           <div class="field" id="f-to">
-            <label for="i-to">目標の絆ランク<span class="hint">1 〜 100</span></label>
+            <label for="i-to">目標の絆ランク<span class="hint" id="h-to">1 〜 —</span></label>
             <input id="i-to" type="number" inputmode="numeric" min="2" max="100" step="1" value="20">
           </div>
         </div>
@@ -332,6 +332,15 @@
   var filter = 'good';
 
   // 絆ランク L から L+1 へ上がるのに要る量。need[L-1]
+  /* 絆ランクの上限。**`FavorLevelExcelTable` の行数がそのまま上限**（いまは 100）。
+     100 と手で書いていると、上限が上がった日に入力欄と検査だけ古いまま残る
+     （2026-08-31 の先生の指摘で、固有武器と同じ壊れ方だと分かった） */
+  var MAXR = B.need.length;
+  el('i-from').max = MAXR;
+  el('i-to').max = MAXR;
+  el('h-from').textContent = '1 〜 ' + MAXR;
+  el('h-to').textContent = '1 〜 ' + MAXR;
+
   function needAt(L) { return (L >= 1 && L <= B.need.length) ? B.need[L - 1] : 0; }
   var cum = [0];
   for (var i = 0; i < B.need.length; i++) cum.push(cum[i] + B.need[i]);
@@ -442,8 +451,8 @@
     if (!skipGifts) drawGifts(list);
 
     var e = el('err');
-    if (!(from >= 1 && from <= 100)) { e.textContent = '今の絆ランクは 1 〜 100 で入れてください。'; e.hidden = false; return; }
-    if (!(to >= 1 && to <= 100)) { e.textContent = '目標の絆ランクは 1 〜 100 で入れてください。'; e.hidden = false; return; }
+    if (!(from >= 1 && from <= MAXR)) { e.textContent = '今の絆ランクは 1 〜 ' + MAXR + ' で入れてください。'; e.hidden = false; return; }
+    if (!(to >= 1 && to <= MAXR)) { e.textContent = '目標の絆ランクは 1 〜 ' + MAXR + ' で入れてください。'; e.hidden = false; return; }
     if (to <= from) { e.textContent = '目標は今のランクより上にしてください。'; e.hidden = false; return; }
     e.hidden = true;
 
@@ -500,7 +509,7 @@
       }
     }
 
-    var rows = '', a = Math.max(1, from - 1), b = Math.min(100, Math.max(to, from + 8));
+    var rows = '', a = Math.max(1, from - 1), b = Math.min(MAXR, Math.max(to, from + 8));
     for (var L = a; L <= b && L - a < 14; L++) {
       rows += '<tr' + (L === from ? ' class="here"' : '') + '><td>絆 ' + L + '</td>' +
         '<td>' + (L >= 100 ? '—' : fmt(needAt(L))) + '</td>' +

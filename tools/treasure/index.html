@@ -510,6 +510,19 @@
       }).join('') + '</ul></details>';
   }
 
+  /** 個数の上限。**盤に入りきる数を超えては置けない**ので、マスの総数を
+      1 個ぶんの面積で割った数がそのまま上限になる。
+
+      **6 と手で書いていたせいで抜けていた**（2026-08-31 の先生の指摘）。
+      「シャーレの総決算（復刻）」の 2・4 周目に 2×1 の高級万年筆が 7 個あり、
+      欄が `value="7" max="6"` という置けない状態になっていた。計算そのものは
+      7 で合っていたが、欄を一度触ると 6 に切り詰められて数字が変わっていた。
+      **これなら新しいイベントで何個来ても追いつく。**大きすぎる組み合わせは
+      solver が「数え上げが大きすぎます」で断る。 */
+  function cmax(w, h) {
+    return Math.max(1, Math.floor(N / (Math.max(1, w) * Math.max(1, h))));
+  }
+
   function mini(w, h) {
     var cells = '';
     for (var i = 0; i < w * h; i++) cells += '<i></i>';
@@ -526,7 +539,7 @@
           '<div class="dims">' +
             '<span><label for="w' + k + '">よこ</label><input id="w' + k + '" type="number" inputmode="numeric" min="1" max="' + T.MAX_W + '" step="1" value="' + it.w + '" data-k="' + k + '" data-f="w"></span>' +
             '<span><label for="h' + k + '">たて</label><input id="h' + k + '" type="number" inputmode="numeric" min="1" max="' + H + '" step="1" value="' + it.h + '" data-k="' + k + '" data-f="h"></span>' +
-            '<span><label for="c' + k + '">個数</label><input id="c' + k + '" type="number" inputmode="numeric" min="0" max="6" step="1" value="' + it.count + '" data-k="' + k + '" data-f="count"></span>' +
+            '<span><label for="c' + k + '">個数</label><input id="c' + k + '" type="number" inputmode="numeric" min="0" max="' + cmax(it.w, it.h) + '" step="1" value="' + it.count + '" data-k="' + k + '" data-f="count"></span>' +
           '</div>' +
           '<div class="shape">' + mini(it.w, it.h) + '<span>' + it.w + ' × ' + it.h + ' を ' + it.count + ' 個</span></div>' +
           '<label class="aim"><input type="checkbox" data-k="' + k + '" data-f="want"' +
@@ -758,7 +771,7 @@
     }
     if (f === 'n') { items[k].n = t.value; }
     else {
-      var lim = f === 'w' ? T.MAX_W : (f === 'h' ? H : 6);
+      var lim = f === 'w' ? T.MAX_W : (f === 'h' ? H : cmax(items[k].w, items[k].h));
       var v = Math.max(f === 'count' ? 0 : 1, Math.min(lim, parseInt(t.value, 10) || 0));
       items[k][f] = v;
       // 大きさが変わったら、その備品の印は当てにならないので落とす
@@ -766,9 +779,13 @@
         for (var i = 0; i < N; i++) if (marks[i] === k) marks[i] = U;
       }
     }
-    var shp = t.closest('.item').querySelector('.shape');
+    var box = t.closest('.item');
+    var shp = box.querySelector('.shape');
     if (shp) shp.innerHTML = mini(items[k].w, items[k].h) +
       '<span>' + items[k].w + ' × ' + items[k].h + ' を ' + items[k].count + ' 個</span>';
+    // 大きさが変われば入る数も変わる。**欄の上限を付け替える**
+    var cin = box.querySelector('[data-f="count"]');
+    if (cin) cin.max = cmax(items[k].w, items[k].h);
     draw();
   });
   el('undo').addEventListener('click', function () {

@@ -124,7 +124,7 @@
         <p class="lead">経験値が分からなければ 0 のままで構いません。</p>
         <div class="fields c3">
           <div class="field" id="f-level">
-            <label for="i-level">今の先生レベル<span class="hint">1 〜 90</span></label>
+            <label for="i-level">今の先生レベル<span class="hint" id="h-level">1 〜 —</span></label>
             <input id="i-level" type="number" inputmode="numeric" min="1" max="90" step="1" value="80">
           </div>
           <div class="field" id="f-exp">
@@ -132,7 +132,7 @@
             <input id="i-exp" type="number" inputmode="numeric" min="0" step="1" value="0">
           </div>
           <div class="field" id="f-target">
-            <label for="i-target">目標のレベル<span class="hint">上限は 90</span></label>
+            <label for="i-target">目標のレベル<span class="hint" id="h-target">上限は —</span></label>
             <input id="i-target" type="number" inputmode="numeric" min="2" max="90" step="1" value="90">
           </div>
         </div>
@@ -351,7 +351,8 @@
 (function () {
   'use strict';
   var D = window.TEACHER_LEVEL;
-  var MAX = D.maxLevel;                 // 90
+  var MAX = D.maxLevel;                 // ConstCommon の AccountMaxLevel（いまは 90）
+
   var NEED = D.expToNext;               // NEED[L-1] = Lv L から Lv L+1 へ上がるのに要る量（89 個）
   var CAP = D.apCap;                    // CAP[L-1] = Lv L のときの AP 上限（90 個）
 
@@ -401,13 +402,23 @@
 
   var el = function (id) { return document.getElementById(id); };
   var iLevel = el('i-level'), iExp = el('i-exp'), iTarget = el('i-target');
+
+  /* **上限は画面にも書き込む。**HTML に `max="90"` と手で書いていると、
+     ゲーム側が上限を上げた日に入力欄だけ古いまま残る。固有武器が★3 のまま
+     取り残されていたのと同じ壊れ方（2026-08-31 の先生の指摘） */
+  iLevel.max = MAX;
+  iTarget.max = MAX;
+  el('h-level').textContent = '1 〜 ' + MAX;
+  el('h-target').textContent = '上限は ' + MAX;
   var cafeSel = el('a-cafe-rank'), drinkSel = el('a-drink'), gemSel = el('a-gem');
   var cDaily = el('a-daily'), cClan = el('a-clan'), cPack = el('a-pack'), iEtc = el('a-etc');
 
   // 選択肢を組み立てる
   (function build() {
     var h = '';
-    for (var r = 1; r <= 10; r++) h += '<option value="' + r + '"' + (r === 10 ? ' selected' : '') + '>ランク ' + r + '</option>';
+    // **段の数は表から取る。**10 と手で書くと、行を足したときに選べない段ができる
+    for (var r = 1; r <= CAFE.length; r++)
+      h += '<option value="' + r + '"' + (r === CAFE.length ? ' selected' : '') + '>ランク ' + r + '</option>';
     cafeSel.innerHTML = h;
     h = '<option value="0" selected>使わない</option>';
     for (var n = 1; n <= GEM_MAX; n++) h += '<option value="' + n + '">' + n + ' 回</option>';

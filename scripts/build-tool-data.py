@@ -1068,6 +1068,31 @@ def build_student_cost():
         raise SystemExit(f"共通レシピ {SC_LAST_SKILL}（Lv9→Lv10）が無い")
     credit[(2, 8)] = last["CostAmount"][0]
 
+    # 日本で開いている固有武器の段。**`CharacterWeaponExcelTable` の `Unlock` は
+    # 使わない**（224 本すべて `[true,true,true,false,false]` のままで★3 に見える）。
+    # SchaleDB の `config.json` の `Regions[Jp].WeaponMaxLevel` が 60 ＝★4。
+    # 固有武器の強化計算機（`build_weapon`）と同じ出どころに揃えてある
+    cfg = get_json(SD_CFG)
+    jp = next((r for r in cfg.get("Regions", []) if r.get("Name") == "Jp"), None)
+    if not jp:
+        raise SystemExit("config.json に Jp の Regions が無い")
+    jp_wstar = jp["WeaponMaxLevel"] // 10 - 2
+    if not 2 <= jp_wstar <= 5:
+        raise SystemExit(f"日本の固有武器の段が {jp_wstar} になっている")
+
+    def wp_stone(step):
+        """★(step+1) → ★(step+2) の神名文字。
+
+        **★3→★4 だけ、ゲームのデータが仮置きのまま。**224 本すべてが
+        `IngredientAmount = 1` で、クレジット `2000000` だけ実数が入っている。
+        実数は game8 から補う（`WP_STAR4_STONE`。固有武器の強化計算機と同じ値）。
+        **表の値が 1 でなくなったら、この差し替えを外す。**
+        """
+        v = stones[(3, step)]
+        if step == 2 and v == 1:
+            return WP_STAR4_STONE
+        return v
+
     used = set()
 
     def mats(ids, amts):
@@ -1092,9 +1117,11 @@ def build_student_cost():
             sk.append([credit[(2, 8)], mats(last["IngredientId"], last["IngredientAmount"])])
 
         tr = [[credit[(0, i)], [[cid, stones[(0, i)]]]] for i in range(4)]
-        # 固有武器は★3 まで。データには★4・★5 の段もあるが、中身が
-        # 「神名文字 1 個」の仮置きなので数えない
-        wp = ([[credit[(3, i)], [[cid, stones[(3, i)]]]] for i in range(2)]
+        # 固有武器は日本で開いている段まで。**`Unlock` を信じない**
+        # （224 本すべて `[T,T,T,F,F]` のままで★3 に見えるが、日本はもう★4。
+        # 2026-08-31 の先生の指摘で気づいた——固有武器の強化計算機と
+        # 星上げの計算機は先に直していて、ここだけ取り残されていた）
+        wp = ([[credit[(3, i)], [[cid, wp_stone(i)]]] for i in range(jp_wstar - 1)]
               if s.get("Weapon") else [])
 
         gear = s.get("Gear") or {}

@@ -248,9 +248,13 @@
         <p>ノーマル・パッシブ・サブの 3 つは<b>どれも枠 2 の同じ表を使います</b>。ゲームの中でも、この 3 つは同じ素材と同じクレジットで上がります。</p>
         <p><b>スキルの ◎ と「キリのいい Lv まで」はデータではなく攻略サイトの記載です。</b><a href="https://bluearchive.wikiru.jp/?%E3%82%B9%E3%82%AD%E3%83%AB" target="_blank" rel="noopener">ブルアカ Wiki「スキル」</a>に「EXスキルはLv3とLv5になった際に数値が大きく伸びる」「EX以外のスキルはLv4、Lv7、Lv10になった際に数値が大きく伸びる」「最大まで育成する余裕がない場合は数値が大きく上がるキリのいいLvを目指すと効率がいい」とあります。ボタンはこれに沿って <b>Lv90・EX Lv5・ほかのスキル Lv7</b> を入れます。
           Lv10 まで行かないのは、その 1 段だけで<b>秘伝ノート 1 冊と 400 万クレジット</b>が要るからです。<b>どの生徒でもこれが正解、という話ではありません。</b>手で書き換えてください。</p>
-        <p><b>固有武器は開放されている段までしか出しません。</b>
-          <code>CharacterWeaponExcelTable</code> の <code>Unlock</code> が
-          <code>[true, true, true, false, false]</code> なので、今は★3 までです。データには★4・★5 の行もありますが、中身が「神名文字 1 個」の仮置きなので数えていません。</p>
+        <p><b>固有武器は★4 までです。</b><code>CharacterWeaponExcelTable</code> の <code>Unlock</code> は 224 本すべて
+          <code>[true, true, true, false, false]</code> のままで★3 に見えますが、<b>これは古い値です。</b>日本で開いている段は
+          <a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a> の <code>config.json</code> の
+          <code>Regions[Jp].WeaponMaxLevel</code>（60 ＝★4）から取っています。<b>★3→★4 の神名文字だけ、レシピの値が「1 個」の仮置きのままです</b>——
+          クレジットは <code>2000000</code> と実数が入っているので、個数だけ
+          <a href="https://game8.jp/blue-archive/706922" target="_blank" rel="noopener">ゲームエイト</a>の<b>200 個</b>で補っています（<a href="../weapon/">固有武器の強化計算機</a>・<a href="../eleph/">星上げの計算機</a>と同じ値）。
+          <b>2026-08-31 まで★3 で止めていました。</b><button type="button" class="qm" data-hint="★1→★2 が 120 個・100万クレジット、★2→★3 が 180 個・150万、★3→★4 が 200 個・200万です。累計は 500 個・450万。"></button></p>
         <p><b>レベルの必要経験値は <code>Excel/CharacterLevelExcelTable.json</code> そのままです。</b>
           Lv1 から Lv90 までの合計は <b id="src-total">—</b>。レポートの経験値は<b>初級 50 ／ 中級 500 ／ 上級 2,000 ／ 最上級 10,000</b> で、これもデータの値です。</p>
         <p><b>レベル上げのクレジットは 1 経験値につき 7 で計算しています。この 7 は <code>Excel/ConstCommonExcelTable.json</code> の <code>CharacterLvUpCoefficient</code> です。</b><a href="https://bluearchive.wikiru.jp/?%E7%B5%8C%E9%A8%93%E5%80%A4%E8%A1%A8" target="_blank" rel="noopener">ブルアカ Wiki「経験値表」</a>の「育成にはレポートとクレジットが必要で、1EXPあたり7クレジットのコストが掛かる」という記載によります。
@@ -259,7 +263,7 @@
         <p>絆ランクの贈り物と、装備の設計図はこのツールでは数えていません。<a href="../bond/">絆ランク計算機</a>と<a href="../equipment/">装備設計図の周回計算機</a>にあります。</p>
         <p>出典 —
           <a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a>（生徒・素材の名前とアイコン）、
-          <a href="https://github.com/electricgoat/ba-data" target="_blank" rel="noopener">electricgoat/ba-data</a>（レシピ・経験値表・固有武器の開放状況）。取得は <span id="ver">—</span>。</p>
+          <a href="https://github.com/electricgoat/ba-data" target="_blank" rel="noopener">electricgoat/ba-data</a>（レシピ・経験値表）、<a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB config.json</a>（日本で開いている固有武器の段）、<a href="https://game8.jp/blue-archive/706922" target="_blank" rel="noopener">ゲームエイト</a>（★3→★4 の神名文字 200 個）。取得は <span id="ver">—</span>。</p>
       </details>
     </div>
 
