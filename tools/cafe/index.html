@@ -212,11 +212,11 @@
         <div class="ledger" id="need"></div>
         <div class="tscroll">
           <table class="dt">
-            <thead><tr><th>同じセットを</th><th>ボーナス</th><th>1 個あたり</th></tr></thead>
+            <thead><tr><th>同じセットを</th><th>その段で</th><th>そこまでの合計</th><th>1 個あたり</th></tr></thead>
             <tbody id="settb"></tbody>
           </table>
         </div>
-        <p class="barnote">セットボーナスは<b>同時に <span id="n-setmax">3</span> セットまで</b>効きます。7 個そろえたセットを <span id="n-setmax2">3</span> つ置くと <b id="n-setsum">＋2,250</b> です。</p>
+        <p class="barnote"><b>段のボーナスは足し上がります。</b>7 個そろえると ＋100 ＋200 ＋450 ＋750 で <b>＋1,500</b> です（2026-08-30 に外の 2 つと突き合わせて直しました。<a href="https://kamigame.jp/bluearchive/page/143084388039553700.html" target="_blank" rel="noopener">神ゲー攻略</a>が「2個 100／3個 300／5個 750／7個 1500」と積み上げで出していて、<a href="https://game8.jp/blue-archive/645032" target="_blank" rel="noopener">ゲームエイト</a>も「合計：1500」です）。セットボーナスは<b>同時に <span id="n-setmax">3</span> セットまで</b>効くので、7 個そろえたセットを <span id="n-setmax2">3</span> つ置くと <b id="n-setsum">＋4,500</b> です。</p>
       </div>
     </div>
 
@@ -319,7 +319,10 @@
             ランク 10 の行にもレシピがありますが、上限が 10 なので使いません。
             <b>1 号店と 2 号店でクレジットが同額であることを確かめています</b></li>
           <li>セットボーナスは <code>Excel/FurnitureGroupExcelTable.json</code>。
-            <b>2 / 3 / 5 / 7 個で ＋100 / 200 / 450 / 750</b> で、
+            <b>2 / 3 / 5 / 7 個で ＋100 / 200 / 450 / 750</b>（<b>足し上がるので 7 個で合計 ＋1,500</b>。
+            データは段ごとの数しか持たないので、
+            <a href="https://kamigame.jp/bluearchive/page/143084388039553700.html" target="_blank" rel="noopener">神ゲー攻略</a>と
+            <a href="https://game8.jp/blue-archive/645032" target="_blank" rel="noopener">ゲームエイト</a>で確かめました）で、
             <b>20 セットすべて同じ値</b>でした（1 つでも違えばセットごとに持つ形へ直します）。
             同時に効く数は <code>ConstCommonExcelTable.CafeSetGroupApplyCount</code> の
             <b><span id="src-setmax">—</span></b></li>
@@ -431,13 +434,22 @@
       return '<option value="' + s.id + '">' + s.nm + '（' + s.n + '）</option>';
     }).join('');
 
+  /* **段のボーナスは足し上がる。**`FurnitureGroupExcelTable` は段ごとの数しか
+     持たないので、データだけでは累積かどうか決められない。外の 2 つが
+     どちらも「7 個で合計 1,500」と書いていたので、積み上げで出す
+     （2026-08-30。それまで「7 個 ＋750」と非累積で書いていて、
+      同じ日に作った家具配置のツールと食い違っていた）。 */
+  var setCum = 0;
   el('settb').innerHTML = C.setStep.map(function (n, i) {
-    return '<tr><td>' + n + ' 個</td><td><b>＋' + num(C.setBonus[i]) + '</b></td><td>' +
-           num(C.setBonus[i] / n, 1) + '</td></tr>';
+    setCum += C.setBonus[i];
+    return '<tr><td>' + n + ' 個</td><td>＋' + num(C.setBonus[i]) + '</td><td><b>＋' +
+           num(setCum) + '</b></td><td>' + num(setCum / n, 1) + '</td></tr>';
   }).join('');
   el('n-setmax').textContent = String(C.setMax);
   el('n-setmax2').textContent = String(C.setMax);
-  el('n-setsum').textContent = '＋' + num(C.setBonus[C.setBonus.length - 1] * C.setMax);
+  var setAll = 0;
+  C.setBonus.forEach(function (v) { setAll += v; });
+  el('n-setsum').textContent = '＋' + num(setAll * C.setMax);
   el('n-furn').textContent = num(C.furn.length);
   el('n-sets').textContent = num(C.sets.length);
   el('src-furn').textContent = num(C.furn.length);
