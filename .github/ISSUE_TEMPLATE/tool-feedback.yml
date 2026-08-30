@@ -1,0 +1,48 @@
+name: ツールへの要望・不具合
+description: 計算が合わない、使いにくい、こういう機能がほしい — なんでもどうぞ
+title: "[ツール] "
+labels: ["tool"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        このサイトのツールはまだ **β テスト中**です。おかしいところを見つけたら遠慮なく書いてください。
+        GitHub のアカウントが無いときは、Discord の **@0r.not** へどうぞ。
+  - type: input
+    id: tool
+    attributes:
+      label: どのツールですか
+      description: ページの「つかう」から入ったツールの名前、または URL
+      placeholder: 例）TL のコスト計算機 / https://arona-bot.com/tools/cost-timeline/
+    validations:
+      required: true
+  - type: dropdown
+    id: kind
+    attributes:
+      label: 種類
+      options:
+        - 計算が合わない
+        - 表示が崩れている
+        - 使いにくい
+        - こういう機能がほしい
+        - データが古い・足りない
+        - その他
+    validations:
+      required: true
+  - type: textarea
+    id: body
+    attributes:
+      label: 中身
+      description: |
+        「何をしたら」「何が出て」「どうなってほしいか」の 3 つがあると直しやすいです。
+        画面の写真を貼ってもらえると、いちばん早く分かります。
+      placeholder: |
+        例）ホシノを入れて EX を 3 発並べたら、2 発目の時刻が 0 秒のままになる。
+        1 発目のあとに撃てる最短の時刻が出てほしい。
+    validations:
+      required: true
+  - type: input
+    id: env
+    attributes:
+      label: 使っている環境（分かれば）
+      placeholder: 例）iPhone の Safari / Windows の Chrome

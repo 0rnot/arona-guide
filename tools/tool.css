@@ -87,7 +87,11 @@
 .thero-lead {
   margin: 0;
   max-width: 62ch;
-  color: var(--fg);
+  /* **見出しより一段落とす。**本編の `.hero-sub` と `.panel > .lead` は
+     どちらも `--fg-mute` で、ここだけ真っ白だった（2026-08-30 の先生の指摘
+     ——「ツール一覧の　ブルアカで手が止まりがちな計算　表記の色が白に戻ってるな」）。
+     強調だけ `--fg` に上げる。 */
+  color: var(--fg-mute);
   font-size: clamp(.98rem, 2.4vw, 1.12rem);
   line-height: 1.85;
   /* **手で改行を入れない。** <br> を挟むと、幅が変わったときに
@@ -99,7 +103,7 @@
 }
 /* **強調に色は付けない。**1 段落に 2 つも 3 つも色が付くと、
    どれが大事なのか分からなくなる（2026-08-30 の先生の指摘） */
-.thero-lead b { font-weight: 700; }
+.thero-lead b { font-weight: 700; color: var(--fg); }
 
 @media (prefers-reduced-motion: no-preference) {
   .thero h1, .thero-lead {
@@ -317,7 +321,24 @@ input[type="range"]::-moz-range-thumb {
 .ledger .row .subnote { display: block; color: var(--fg-mute); font-size: .78rem; }
 
 /* 表 */
-.tscroll { overflow-x: auto; margin-top: 10px; -webkit-overflow-scrolling: touch; }
+/* **横に送る箱。**中身がはみ出すときだけ棒を出す。
+   既定の太い棒は表の下に居座って目障りなので細くする
+   （2026-08-30 の先生の指摘——「このスクロールキモいな」）。
+   スマホの棒は触っている間しか出ないので、そちらは元のまま */
+.tscroll {
+  overflow-x: auto; margin-top: 10px; -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--fg-mute) 45%, transparent) transparent;
+}
+.tscroll::-webkit-scrollbar { height: 6px; }
+.tscroll::-webkit-scrollbar-track { background: transparent; }
+.tscroll::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--fg-mute) 40%, transparent);
+  border-radius: 999px;
+}
+.tscroll:hover::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--fg-mute) 65%, transparent);
+}
 table.dt { border-collapse: collapse; width: 100%; font-size: .85rem; }
 table.dt th, table.dt td {
   padding: .55em .75em; border-bottom: 1px solid var(--line);

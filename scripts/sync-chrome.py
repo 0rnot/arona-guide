@@ -85,7 +85,26 @@ def topbar(up: str, tools_href: str, current: bool) -> str:
 }})();
 </script>'''
 
-def footer(up: str, tools_href: str) -> str:
+# **要望と不具合の投げ口。**`0rnot/arona-guide` は Public でリポジトリの Issues も
+# 有効なので、サーバーを持たずに誰でも投げられる（2026-08-30 の先生の指示——
+# 「各ツールページに要望・修正依頼[Issue]が誰でも投げられるようにできる？？？」）。
+# **フォームの `id` にそのまま値を入れられる**ので、ツール名を埋めた状態で開く。
+# GitHub のアカウントが無い人向けに、Discord も並べたままにしておく
+ISSUE_NEW = "https://github.com/0rnot/arona-guide/issues/new"
+
+
+def issue_link(tool_name: str) -> str:
+    from urllib.parse import quote
+    q = ("template=tool-feedback.yml"
+         f"&title={quote('[' + tool_name + '] ')}"
+         f"&tool={quote(tool_name)}")
+    return f"{ISSUE_NEW}?{q}"
+
+
+def footer(up: str, tools_href: str, tool_name: str = "") -> str:
+    fb = (f'''<a href="{issue_link(tool_name)}" target="_blank" rel="noopener">このツールへの要望・不具合</a>
+      <span class="sep">/</span>
+      ''' if tool_name else "")
     return f'''<footer>
   <div class="foot-inner">
     <p class="foot-name">AronaBotの使い方</p>
@@ -96,7 +115,7 @@ def footer(up: str, tools_href: str) -> str:
       <span class="sep">/</span>
       <a href="https://x.com/pe6cak" target="_blank" rel="noopener">制作者の X（@pe6cak）</a>
       <span class="sep">/</span>
-      <span>不具合・要望は <b>@0r.not</b> まで</span>
+      {fb}<span>Discord なら <b>@0r.not</b> まで</span>
     </p>
     <p class="disclaimer">
       <b>このサイトはファンが作った非公式のものです。</b>運営とは関係ありません。
@@ -117,7 +136,8 @@ TOPBAR_RE = re.compile(
     r'(?:\n<script>\n/\* 共有ボタン。.*?\n</script>)?', re.S)
 FOOTER_RE = re.compile(r'<footer>.*?\n</footer>', re.S)
 
-def sync(path: pathlib.Path, up: str, tools_href: str, current: bool) -> bool:
+def sync(path: pathlib.Path, up: str, tools_href: str, current: bool,
+         tool_name: str = "") -> bool:
     s = path.read_text(encoding="utf-8")
     out = s
     m = TOPBAR_RE.search(out)
@@ -132,7 +152,7 @@ def sync(path: pathlib.Path, up: str, tools_href: str, current: bool) -> bool:
     else:
         print(f"  !! topbar が見つからない: {path}", file=sys.stderr)
     if FOOTER_RE.search(out):
-        out = FOOTER_RE.sub(lambda m: footer(up, tools_href), out, count=1)
+        out = FOOTER_RE.sub(lambda m: footer(up, tools_href, tool_name), out, count=1)
     else:
         print(f"  !! footer が見つからない: {path}", file=sys.stderr)
     if out != s:
@@ -141,17 +161,25 @@ def sync(path: pathlib.Path, up: str, tools_href: str, current: bool) -> bool:
     return False
 
 def main() -> int:
+    # ツール名は tools.json が正本。**slug から引く**
+    names = {}
+    tj = ROOT / "tools" / "tools.json"
+    if tj.exists():
+        import json
+        for t in json.loads(tj.read_text(encoding="utf-8")).get("tools", []):
+            names[t["slug"]] = t["name"]
+
     targets = []
     idx = ROOT / "tools" / "index.html"
     if idx.exists():
-        targets.append((idx, "../", "./", True))
+        targets.append((idx, "../", "./", True, ""))
     for p in sorted((ROOT / "tools").glob("*/index.html")):
-        targets.append((p, "../../", "../", False))
+        targets.append((p, "../../", "../", False, names.get(p.parent.name, p.parent.name)))
 
     changed = 0
-    for path, up, href, cur in targets:
+    for path, up, href, cur, nm in targets:
         rel = path.relative_to(ROOT)
-        if sync(path, up, href, cur):
+        if sync(path, up, href, cur, nm):
             print(f"  更新 {rel}")
             changed += 1
         else:

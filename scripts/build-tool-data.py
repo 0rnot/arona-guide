@@ -1033,8 +1033,13 @@ def build_student_cost():
                     "ex": ex, "sk": sk, "tr": tr, "wp": wp, "gr": gr})
     stu.sort(key=lambda x: x["n"])
 
-    # 素材の名前とアイコン。**神名文字だけは生徒ごとに 274 種ある**ので、
-    # 絵は共通の item_icon_secretstone を使い回して名前だけ持たせる
+    # 素材の名前とアイコン。
+    #
+    # **`item_icon_secretstone` は「神名のカケラ」（Id 23）の絵で、神名文字ではない。**
+    # 神名文字は生徒ごとに 272 種あって、`item_icon_secretstone_hoshino` のように
+    # **その子の顔が入った絵が 1 人ずつ用意されている。**
+    # 以前はここで共通の絵に差し替えていたが、**カケラの絵が「神名文字」として出て
+    # 分かりづらかった**（2026-08-30 の先生の指摘）。その子の絵を使う。
     by_name = {s["id"]: s["n"] for s in stu}
     mat = {}
     for iid in sorted(used):
@@ -1053,7 +1058,7 @@ def build_student_cost():
         # 「オーパーツはレアリティの色の枠があるとわかりやすいかも」）。
         # オーパーツ・ノート・BD はどれも欠片 N → 壊れた R → 摩耗した SR → 完全な SSR
         mat[str(iid)] = {"n": it["Name"].replace("\n", ""),
-                         "i": "item_icon_secretstone" if stone else it["Icon"],
+                         "i": it["Icon"],
                          "s": 1 if stone else 0,
                          "k": mat_kind(it, stone), "t": mat_tier(it),
                          "r": it.get("Rarity") or "N"}
@@ -1279,6 +1284,15 @@ def build_cost_timeline():
         # `_Base` は足し算、`_Coefficient` は 10000 分率の掛け算で、
         # **この 2 つを混ぜると答えが変わる**ので、加工せずそのまま渡す。
         # `v` はスキルのレベルぶんの配列（EX は 5 段、NS などは 10 段）。
+        # **効果が乗るまでの遅れは `ApplyFrame` に入っている。**発動そのものではなく
+        # 「着弾」までの時間で、30 フレーム = 1 秒。TL を書く人たちも同じ数え方をしている
+        # （「バフは基礎スペシャル2前提 1秒は30フレーム換算」
+        #   https://note.com/takoyakiak47/n/nfe0f914f730d ）。
+        # **持たない効果もある**ので、無いときは付けない
+        def apply_sec(e):
+            af = e.get("ApplyFrame")
+            return round(int(af) / 30.0, 2) if af else 0
+
         bf = []
         for e in sk.get("Effects") or []:
             du = int(e.get("Duration") or 0)
@@ -1290,12 +1304,13 @@ def build_cost_timeline():
                     continue
                 bf.append({"n": eff_name(e), "du": 0, "sd": eff_side(e),
                            "ty": "CrowdControl", "cc": e.get("Icon") or "",
-                           "sc": sc, "ch": int(e.get("Chance") or 10000)})
+                           "sc": sc, "ch": int(e.get("Chance") or 10000),
+                           "af": apply_sec(e)})
                 continue
             if du <= 0:
                 continue
             item = {"n": eff_name(e), "du": du, "sd": eff_side(e),
-                    "ty": e.get("Type") or ""}
+                    "ty": e.get("Type") or "", "af": apply_sec(e)}
             st = e.get("Stat") or ""
             if st:
                 # **末尾で足し算か掛け算かが決まる。**そのまま渡して、判断は使う側で
@@ -1316,7 +1331,8 @@ def build_cost_timeline():
                 continue
             cc = {"u": int(e.get("Uses") or 1),
                   "vt": "coef" if e.get("ValueType") == "Coefficient" else "flat",
-                  "sc": e.get("Scale") or [], "sd": eff_side(e)}
+                  "sc": e.get("Scale") or [], "sd": eff_side(e),
+                  "af": apply_sec(e)}
             # **効く回数が EX のレベルで変わる子がいる。**`Uses` は最大値しか
             # 持っていないので、スキル文のパラメータ側（「1回 / … / 2回」）を拾う。
             # 2026-08-30 時点でこれに当たるのはセイアだけ
@@ -1358,6 +1374,19 @@ def build_cost_timeline():
     NS_IV = re.compile(r"(\d+(?:\.\d+)?)\s*秒毎に")
     # 引き金の書き出し。文の最初の読点までを原文のまま持つ
     NS_COND = re.compile(r"^([^、。\n]{2,28}?(?:時|場合|とき))[、,]")
+    # **初回が戦闘開始と同時かどうかは、スキル文が書き分けている。**
+    # 274 人を数えたところ「戦闘開始時とそれ以降、40秒毎に」と書く子が 2 人だけ
+    # いる（レンゲ（水着）と マコト（水着））。**わざわざ書き分けているので、
+    # ただの「40秒毎に」は初回も 40 秒後**と読む（2026-08-30 の先生の指摘
+    # 「NS だけど、戦闘開始から何秒で発動するかは決まってる」を受けて数えた）。
+    NS_AT0 = re.compile(r"戦闘開始時とそれ以降")
+    # 1 回きり型。「戦闘開始時、…（戦闘中に1回のみ）」で 5 人
+    NS_ONCE_AT0 = re.compile(r"戦闘開始時[、,]")
+    NS_ONCE = re.compile(r"戦闘中に1回のみ")
+    # **間隔の手前に条件が付く子がいる。**「HPが30%以下の時、4秒毎に」のホシノで、
+    # 274 人のうちこの 1 人だけ。**初回の時刻を決められない**ので `st` を持たせず、
+    # 引き金の原文を添える（数えて確かめたうえで、そう扱っている）
+    NS_PRE_COND = re.compile(r"([^、。\n]{2,40}?(?:時|場合|とき))[、,]\s*$")
 
     def timed_skill(sk):
         """EX 以外のスキル 1 本を、時間軸に置ける形にする。
@@ -1369,14 +1398,29 @@ def build_cost_timeline():
         de = str(sk.get("Desc") or "")
         out = {"n": sk.get("Name", ""), "ei": sk.get("Icon", "")}
         m = NS_IV.search(de)
+        flat = de.replace("\n", "")
         if m:
             out["iv"] = float(m.group(1))
+            pre = NS_PRE_COND.search(flat[:m.start()])
+            if pre and not NS_AT0.search(flat):
+                # 引き金が先にある。初回の時刻は置けない
+                out["cond"] = pre.group(1)
+            else:
+                # `st` = 戦闘開始から初めて発動するまでの秒数
+                out["st"] = 0.0 if NS_AT0.search(flat) else out["iv"]
+        elif NS_ONCE_AT0.match(flat):
+            out["iv"] = 0
+            out["st"] = 0.0
+            out["once"] = 1
+            out["cond"] = "戦闘開始時"
         else:
             out["iv"] = 0
             c = NS_COND.match(de.replace("\n", ""))
             # 条件が読めないものもある。**読めなかったことを黙って隠さない。**
             # 途中で切らない——画面にそのまま出す文なので、切ると意味が変わる
             out["cond"] = c.group(1) if c else de.split("\n")[0]
+        if NS_ONCE.search(flat):
+            out["once"] = 1
         out.update(skill_extras(sk))
         # 何も乗らないなら時間軸に出す意味がない
         if not (out.get("bf") or out.get("cc") or out.get("r")):
@@ -1570,10 +1614,39 @@ def build_cost_timeline():
     if len(draws) < 6:
         raise SystemExit(f"カードを引く子が {len(draws)} 人しか取れていない。スキル文の書きぶりが変わった疑い")
 
+    # **戦闘時間はボスごとに違う。**3 分・4 分だけではなく、イェソドと
+    # ドラム缶ガニとセトの憤怒が 270 秒、コクマーとティファレトが 300 秒
+    # （2026-08-30 の先生の指摘「戦闘時間は3m4m以外にもある」を受けて数えた）。
+    # SchaleDB の `raids.min.json` が `BattleDuration` を難易度ごとに持っている
+    raids = get_json(SD.format("raids"))
+    dur, seen = [], set()
+    for key, kind in (("Raid", "総力戦"), ("MultiFloorRaid", "制約解除決戦"),
+                      ("WorldRaid", "大決戦")):
+        for r in as_list(raids.get(key) or []):
+            if not (r.get("IsReleased") or [False])[0]:
+                continue
+            bd = r.get("BattleDuration")
+            secs = sorted({int(x) for x in (bd if isinstance(bd, list) else [bd]) if x})
+            if not secs:
+                continue
+            nm = r.get("Name") or r.get("DevName") or str(r.get("Id"))
+            for v in secs:
+                k = (nm, v)
+                if k in seen:
+                    continue
+                seen.add(k)
+                dur.append({"n": nm, "k": kind, "s": v})
+    if not dur:
+        raise SystemExit("戦闘時間が 1 件も取れない。raids.min.json の形が変わった疑い")
+    secs = sorted({d["s"] for d in dur})
+    print(f"  戦闘時間は {len(dur)} 通り（{secs} 秒）")
+
     keep = ("School", "TacticRole", "BulletType", "ArmorType", "SquadType")
     return write_js("tools/cost-timeline/data.js", "TL", {
         "students": stu,
         "labels": {k: loc.get(k, {}) for k in keep},
+        # ボスごとの戦闘時間。**残り時間で TL を書くときの分母**
+        "dur": dur,
         # 素の 700 は全 274 人で同じ値。**確かめたうえで定数にしている**
         "base": 700,
         "version": "SchaleDB jp",
@@ -1925,6 +1998,10 @@ def build_eleph():
     rec = {x["Id"]: x for x in as_list(get_json(BA.format("RecipeExcelTable")))}
     ing = {x["Id"]: x for x in as_list(get_json(BA.format("RecipeIngredientExcelTable")))}
     iname = {int(i["Id"]): i.get("Name", "") for i in items if i.get("Id")}
+    # **神名文字の絵は生徒ごとに違う。**`item_icon_secretstone` は
+    # 「神名のカケラ」（Id 23）の絵で、神名文字ではない
+    # （2026-08-30 の先生の指摘——「神名文字なのに画像が神名の欠片 分かりづらい」）
+    iicon = {int(i["Id"]): i.get("Icon", "") for i in items if i.get("Id")}
 
     def steps_of(cid):
         """★1→2, 2→3, 3→4, 4→5 の 4 段。**中身は (クレジット, 神名文字の Id, 個数)**"""
@@ -1957,7 +2034,8 @@ def build_eleph():
         favors.setdefault(tuple(t["MaxFavorLevel"]), 0)
         favors[tuple(t["MaxFavorLevel"])] += 1
         stu.append({"id": cid, "n": s_["Name"], "s": s_.get("StarGrade", 1),
-                    "e": st[0][1], "en": iname.get(st[0][1], "")})
+                    "e": st[0][1], "en": iname.get(st[0][1], ""),
+                    "si": iicon.get(st[0][1], "")})
 
     if not stu:
         raise SystemExit("星上げのレシピが 1 人も取れない。列名が変わった疑い")
@@ -2060,6 +2138,11 @@ def build_eleph():
     for r in stu:
         if r.get("ad"):
             adapt[(r["ad"], r["av"])] = adapt.get((r["ad"], r["av"]), 0) + 1
+    n = 0
+    for r in stu:
+        if r.get("si"):
+            n += fetch_icon(r["si"], f"https://schaledb.com/images/item/icon/{r['si']}.webp")
+    print(f"  神名文字の絵 {n} 枚を追加")
     print(f"  {len(stu)} 人ぶん、必要な神名文字は {[x['el'] for x in steps]}、"
           f"クレジットは {[x['cr'] for x in steps]}")
     print(f"  限界解放は {[x['el'] for x in wsteps]} 文字 / {[x['cr'] for x in wsteps]} クレジット、"
@@ -2224,6 +2307,11 @@ def build_matchup():
         "bJa": loc.get("BulletType", {}), "aJa": loc.get("ArmorType", {}),
         "grades": grades, "terr": trows,
         "trJa": loc.get("AdaptationType", {}),
+        # **効き方の呼び名はゲームの表記に合わせる。**日本のゲーム内でも
+        # `Weak` / `Effective` / `Resist` / `Normal` と英語のまま出る
+        # （SchaleDB の `localization` の `DamageAttribute` も訳していない。
+        # 2026-08-30 の先生の指示——「weak とかでいい、弱点じゃなくて／ゲーム内表記に合わせて」）
+        "dJa": loc.get("DamageAttribute", {}),
         "stu": sorted(stu, key=lambda x: x["id"]),
         "checked": checked,
         "version": "SchaleDB config.json（TypeEffectiveness）／ electricgoat/ba-data jp（BulletArmorDamageFactor・TerrainAdaptationFactor）",
@@ -2442,6 +2530,7 @@ def build_weapon():
     cfg = get_json(SD_CFG)
     students = as_list(get_json(SD.format("students")))
     equip = as_list(get_json(SD.format("equipment")))
+    items = as_list(get_json(SD.format("items")))
     loc = get_json(SD.format("localization"))
     lv_tbl = as_list(get_json(BA.format("CharacterWeaponLevelExcelTable")))
     bonus_tbl = as_list(get_json(BA.format("CharacterWeaponExpBonusExcelTable")))
@@ -2492,6 +2581,10 @@ def build_weapon():
     # 2026-08-30 に 224 本すべてを数えて見つけた）。どの子の神名文字かは
     # 生徒ごとに持たせる
     sd_ids = {x["Id"] for x in students if x.get("Name")}
+    # **神名文字の絵は 1 人ずつ違う。**共通の `item_icon_secretstone` は
+    # 「神名のカケラ」（Id 23）の絵なので、そちらを出すと別物になる
+    # （2026-08-30 の先生の指摘——「神名文字なのに画像が神名の欠片 分かりづらい」）
+    stone_icon = {int(i["Id"]): i.get("Icon", "") for i in items if i.get("Id")}
     sets, stone_of = set(), {}
     for w in weapons:
         row = []
@@ -2596,6 +2689,9 @@ def build_weapon():
                     "st": s_.get("StarGrade", 1),
                     # **神名文字の持ち主。**ふつうは自分だが 1 人だけ例外がいる
                     "es": stone_of.get(s_["Id"], s_["Id"]),
+                    # **その神名文字の絵。**共通の `item_icon_secretstone` は
+                    # 「神名のカケラ」の絵なので使わない（2026-08-30 の先生の指摘）
+                    "si": stone_icon.get(stone_of.get(s_["Id"], s_["Id"]), ""),
                     "sc": school.get(s_.get("School", ""), s_.get("School", "")),
                     "ad": ad_ja.get(ad, ad),
                     "av": w.get("AdaptationValue", av)})
@@ -2612,7 +2708,9 @@ def build_weapon():
     n = 0
     for p in parts:
         n += fetch_icon(p["i"], f"https://schaledb.com/images/equipment/icon/{p['i']}.webp")
-    fetch_icon("item_icon_secretstone", "https://schaledb.com/images/item/icon/item_icon_secretstone.webp")
+    for r in stu:
+        if r.get("si"):
+            n += fetch_icon(r["si"], f"https://schaledb.com/images/item/icon/{r['si']}.webp")
     fetch_icon("currency_icon_gold", "https://schaledb.com/images/item/icon/currency_icon_gold.webp")
     for s_ in stu:
         n += fetch_portrait(f"student_{s_['id']}",

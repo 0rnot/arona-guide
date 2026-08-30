@@ -1,0 +1,627 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>スケジュールの期待値｜AronaBot</title>
+<meta name="description" content="どの場所にスケジュールを送ると絆経験値と神名文字がいちばん多いかを、確率込みの期待値で出します。ランクを上げるのに何回要るか、チケットが 1 枚増えるのはどこかも。">
+<meta name="theme-color" content="#c8892e">
+<link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<meta property="og:title" content="スケジュールの期待値">
+<meta property="og:description" content="どの場所にスケジュールを送ると絆経験値と神名文字がいちばん多いかを、確率込みの期待値で出します。ランクを上げるのに何回要るか、チケットが 1 枚増えるのはどこかも。">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://arona-bot.com/tools/schedule/">
+<meta property="og:image" content="https://arona-bot.com/images/hero-night.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="stylesheet" href="../../style.css?v=15">
+<link rel="stylesheet" href="../tool.css?v=9">
+<style>
+  /* ロケーションのランク。**左に名前、右に段。** */
+  .lrow { display: grid; grid-template-columns: 1fr 96px; gap: 10px; align-items: center;
+          padding: 9px 0; border-bottom: 1px solid var(--line); }
+  .lrow:last-of-type { border-bottom: 0; }
+  .lrow .nm { font-size: .92rem; font-weight: 700; line-height: 1.45; min-width: 0;
+              word-break: auto-phrase; }
+  .lrow .nm small { display: block; font-weight: 400; color: var(--fg-mute);
+                    font-size: .72rem; margin-top: .1em; }
+  .lrow select { padding: .42em .5em; font-size: .92rem; padding-right: 1.9em;
+                 background-position: calc(100% - 13px) calc(50% + 1px), calc(100% - 8px) calc(50% + 1px); }
+  .lrow.off .nm { color: var(--fg-mute); }
+  .lhead { display: grid; grid-template-columns: 1fr 96px; gap: 10px;
+           font-size: .74rem; color: var(--fg-mute); padding-bottom: 4px; }
+  .lhead span:last-child { text-align: center; }
+
+  /* 場所を選ぶ札 */
+  .chips { display: flex; flex-wrap: wrap; gap: 7px; }
+  .chip { border: 1px solid var(--line); border-radius: 999px; background: var(--card);
+          font: inherit; font-size: .78rem; color: var(--fg); padding: .38em .85em;
+          cursor: pointer; line-height: 1.3; }
+  .chip:hover { border-color: var(--accent); }
+  .chip[aria-pressed="true"] { background: var(--accent); color: var(--accent-in);
+                               border-color: transparent; font-weight: 700; }
+  .chip small { opacity: .75; margin-left: .35em; }
+
+  /* 表の中の道具 */
+  .mt { display: inline-flex; align-items: center; gap: .3em; margin: .12em .5em .12em 0;
+        white-space: nowrap; font-size: .8rem; }
+  .mt img { width: 20px; height: 20px; border-radius: 4px; flex: none; }
+  .mt b { font-weight: 700; }
+  /* エリアの一覧。**表にしない。**`table.dt td` は nowrap なので、
+     390px だと肝心の報酬が画面の外へ出てしまう（実測して差し替えた） */
+  .zrow { padding: 11px 0; border-bottom: 1px solid var(--line); }
+  .zrow:last-child { border-bottom: 0; }
+  .zh { display: flex; flex-wrap: wrap; align-items: baseline; gap: .5em;
+        font-size: .95rem; font-weight: 700; }
+  .zh .tag { font-weight: 700; }
+  .zm { margin-top: .3em; }
+  .zsep { color: var(--fg-mute); font-weight: 400; margin: 0 .1em; }
+  .zrow.off .zh { color: var(--fg-mute); }
+  /* **細い柱では詰める。**既定の padding だといちばん右の列が画面の外に出る */
+  @media (max-width: 460px) {
+    table.dt th, table.dt td { padding: .5em .42em; }
+    table.dt { font-size: .82rem; }
+    table.dt td.nmc { max-width: 8.5em; }
+  }
+  table.dt td.nmc { white-space: normal; word-break: auto-phrase; min-width: 7.5em; }
+  table.dt td.nmc small { display: block; font-size: .72rem; color: var(--fg-mute);
+                          font-weight: 400; margin-top: .1em; }
+  .lock { color: var(--fg-mute); font-size: .78rem; }
+  .rowbest td { background: color-mix(in srgb, var(--accent) 10%, transparent); }
+  .rowbest td:first-child::after { content: "いちばん多い"; display: inline-block;
+        font-size: .64rem; font-weight: 700; padding: .1em .5em; margin-left: .45em;
+        border-radius: 999px; background: var(--accent); color: var(--accent-in);
+        vertical-align: .1em; }
+  .barnote { font-size: .78rem; color: var(--fg-mute); margin: .6em 0 0; line-height: 1.7; }
+</style>
+</head>
+<body>
+
+<!-- 上のバーと footer は scripts/sync-chrome.py が流し込む。
+     **閉じタグの前に改行を入れておくこと。**あちらの正規表現は閉じタグの直前の
+     改行を目印にしているので、1 行に畳むと本文まで食われる。
+     **この注記に目印そのものを書かないこと。**書くと注記の中から当たる -->
+<div class="topbar">
+  <div class="topbar-inner">
+    <a class="topbar-name" href="../../">AronaBotの使い方</a>
+    <a class="topbar-tools" href="../">
+      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <path d="M21.7 18.3l-6-6a5.5 5.5 0 0 0-7-7l3.1 3.1-2.1 2.1L6.6 7.3a5.5 5.5 0 0 0 7 7l6 6a1 1 0 0 0 1.4 0l.7-.7a1 1 0 0 0 0-1.3z"/>
+      </svg>
+      ツール一覧
+    </a>
+    <nav class="topbar-nav">
+      <a href="../../#can">機能</a>
+      <a href="../../#start">つかいはじめる</a>
+      <a href="../../#message">メッセージから</a>
+      <a href="../../#faq">よくある質問</a>
+    </nav>
+    <!-- 共有。**AronaBot 本体と同じ位置に置く。**押した先は環境で変える -->
+    <span class="share-nudge" aria-hidden="true">使えそうな人に、ぜひ</span>
+    <a class="share" id="share-page" target="_blank" rel="noopener" aria-label="このページを共有する"
+       href="https://x.com/intent/post?url=https%3A%2F%2Farona-bot.com%2Ftools%2F">
+      <svg class="share-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <path d="M14 9V5l7 7-7 7v-4.1c-5 0-8.5 1.6-11 5.1 1-5 4-10 11-11z"/>
+      </svg>
+      <span class="share-label">共有</span>
+    </a>
+  </div>
+</div>
+<div class="toast" id="toast-page" role="status" aria-live="polite"></div>
+<script>
+/* 共有ボタン。**そのページ自身の URL を配る。**
+   1. スマホ（navigator.share）→ OS の共有シート
+   2. PC（クリップボード）→ URL をコピーして帯で伝える
+   3. どちらも無い → <a href> のまま X の共有ページへ */
+(function () {
+  var btn = document.getElementById('share-page'), toast = document.getElementById('toast-page');
+  if (!btn) return;
+  // **`#` を落とさない。**TL のように状態をハッシュに入れているツールでは、
+  // ここを削ると相手の画面に同じ結果が出ない（2026-08-30）
+  var url = location.href;
+  var name = document.title.split('｜')[0];
+  var text = name + '（AronaBot のツール）';
+  btn.href = 'https://x.com/intent/post?text=' + encodeURIComponent(text) +
+             '&url=' + encodeURIComponent(url);
+  var timer = null;
+  function say(t) {
+    if (!toast) return;
+    toast.textContent = t; toast.classList.add('shown');
+    clearTimeout(timer); timer = setTimeout(function () { toast.classList.remove('shown'); }, 2000);
+  }
+  btn.addEventListener('click', function (e) {
+    if (navigator.share) {
+      e.preventDefault();
+      navigator.share({ title: name, text: text, url: url }).catch(function () {});
+      return;
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      e.preventDefault();
+      navigator.clipboard.writeText(url).then(function () { say('リンクをコピーしました'); },
+        function () { window.open(btn.href, '_blank', 'noopener'); });
+    }
+  });
+})();
+</script>
+
+<header class="thero">
+  <div class="thero-media" aria-hidden="true">
+    <picture>
+      <source srcset="../../images/hero-day.jpg" media="(prefers-color-scheme: dark)">
+      <img src="../../images/hero-night.jpg" alt="" width="1600" height="400" fetchpriority="high">
+    </picture>
+  </div>
+  <div class="thero-body">
+    <h1>スケジュールの期待値</h1>
+    <p class="thero-lead">どの場所にスケジュールを送ると絆経験値と神名文字がいちばん多いかを、確率込みの期待値で出します。ランクを上げるのに何回要るか、チケットが 1 枚増えるのはどこかも。</p>
+  </div>
+</header>
+
+<div class="twrap">
+  <p class="tcrumb"><a href="../../">AronaBotの使い方</a><span class="sl">/</span><a href="../">ツール</a><span class="sl">/</span>スケジュールの期待値</p>
+
+  <div class="tcols lean" style="margin-top:20px">
+
+    <div class="tcol">
+      <div class="panel" id="p-rank">
+        <div class="panel-h"><h2>今のロケーションランク</h2></div>
+        <p class="lead">11 か所それぞれのランクを入れてください。<b>まだ開いていない場所は「—」のまま</b>にします。合計ランクでチケットの枚数が決まります。</p>
+        <div class="lhead"><span></span><span>ランク</span></div>
+        <div id="ranks"></div>
+        <div class="btnrow" style="margin-top:14px">
+          <button type="button" class="btn" id="b-all1">ぜんぶ 1</button>
+          <button type="button" class="btn" id="b-allmax">ぜんぶ最大</button>
+          <button type="button" class="btn" id="b-reset">ぜんぶ —</button>
+        </div>
+      </div>
+
+      <div class="panel" id="p-up">
+        <div class="panel-h"><h2>ランクを上げるのに何回</h2></div>
+        <p class="lead">スケジュールは<b>成否にかかわらず 1 回で <span id="lead-run">100</span> 経験値</b>が入ります。増える量は場所によって変わりません。</p>
+        <div class="field">
+          <label for="i-goal">目標ランク<span class="hint">開いている場所を全部そこまで上げたとき</span></label>
+          <select id="i-goal"></select>
+        </div>
+        <div class="ledger" id="up"></div>
+        <p class="barnote" id="upnote">—</p>
+      </div>
+    </div>
+
+    <div class="tcol">
+      <div class="stats c3">
+        <div class="stat hero">
+          <div class="k">いちばん多い場所</div>
+          <div class="v" id="o-best">—</div>
+          <div class="sub" id="o-best-sub">ランクを入れると出ます</div>
+        </div>
+        <div class="stat">
+          <div class="k"><span class="gi gi-school-icon-schedule-favor" aria-hidden="true"></span> スケジュールチケット</div>
+          <div class="v" id="o-tic">—</div>
+          <div class="sub" id="o-tic-sub">合計ランクで決まります</div>
+        </div>
+        <div class="stat">
+          <div class="k">チケットぶんの神名文字</div>
+          <div class="v" id="o-ss">—</div>
+          <div class="sub">いちばん多い場所で使い切ったとき</div>
+        </div>
+      </div>
+
+      <div class="panel" id="p-tic">
+        <div class="panel-h"><h2>次にチケットが増えるのは</h2></div>
+        <p class="lead">合計ランクが節目を越えると、1 日に持てるチケットが 1 枚増えます。<b>いちばん安く越える上げ方</b>を出しています。</p>
+        <div class="ledger" id="tic"></div>
+        <p class="barnote" id="ticnote">—</p>
+      </div>
+    </div>
+
+    <div class="tfull">
+      <div class="panel" id="p-loc">
+        <div class="panel-h"><h2>今のランクで 1 回あたり</h2></div>
+        <p class="lead"><b>絆経験値と神名文字は、場所ではなくランクだけで決まります。</b>同じランクならどこへ送っても同じで、変わるのは追加でもらえる素材だけです。</p>
+        <div class="tscroll">
+          <table class="dt">
+            <thead><tr><th>場所</th><th>ランク</th><th>絆経験値</th><th>神名文字</th></tr></thead>
+            <tbody id="loctb"></tbody>
+          </table>
+        </div>
+        <p class="barnote">絆経験値は<b>本体ぶん ＋ 追加ぶん × 確率</b>、神名文字は<b>1 個 × 確率</b>です。追加ぶんは本体と同じ量が乗ります。</p>
+      </div>
+
+      <div class="panel" id="p-zone">
+        <div class="panel-h"><h2>エリアごとの追加報酬</h2></div>
+        <p class="lead">場所を選ぶと、その中のエリアが並びます。<b>エリアによって素材の等級が違います</b>——初級・中級・上級・最上級の順に、開放ランクが上がるほど良いものになります。数字は<b>1 回あたりの期待個数</b>です。</p>
+        <div class="chips" id="zpick"></div>
+        <div id="zonetb" style="margin-top:12px"></div>
+      </div>
+
+      <div class="panel" id="p-tier">
+        <div class="panel-h"><h2>ランクごとの早見</h2></div>
+        <p class="lead"><b>段は 6 つしかありません。</b>ランク 1〜3 は同じ、4〜6 も同じ……という並びで、11 と 12 だけ絆経験値そのものが増えます。</p>
+        <div class="tscroll">
+          <table class="dt">
+            <thead><tr><th>ランク</th><th>絆の期待値</th><th>神名文字</th><th>本体</th><th>追加の確率</th><th>そこに入るまで</th></tr></thead>
+            <tbody id="tiertb"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="sharebar" id="sharebar"></div>
+
+      <details class="src">
+        <summary>数字の出どころ</summary>
+        <p><b>ゲームのデータをそのまま読んでいます。</b>推測した数字はありません。</p>
+        <ul>
+          <li>報酬は <code>Excel/AcademyRewardExcelTable.json</code>。<b><span id="src-rows">—</span> 行</b>あって、
+            <b>86 のエリア × 6 段</b>ちょうどです。段は <code>LocationRank</code> の
+            <b>1 / 4 / 7 / 10 / 11 / 12</b> の 6 つだけなので、ランク 5 なら 4 の段、
+            ランク 9 なら 7 の段が効きます</li>
+          <li>絆経験値は <code>FavorExp</code> ＋ <code>ExtraFavorExp × ExtraFavorExpProb / 10000</code>、
+            神名文字は <code>SecretStoneAmount × SecretStoneProb / 10000</code>。
+            <b>確率が 10000 分率であることは、86 エリアすべてで同じ段に同じ値が入っていること</b>で
+            確かめています（段ごとに値が割れていたらデータを作る側で止まります）。
+            <code>SecretStoneAmount</code> は 516 行すべて 1 です</li>
+          <li>ランク上げの <b>1 回 100 経験値</b>は <code>RewardParcelType</code> が
+            516 行すべて <code>["LocationExp"]</code>、<code>RewardAmount</code> が
+            516 行すべて <code>[100]</code> であることから。
+            <b>外の記事とも合いました</b> ——
+            <a href="https://gameranbu.jp/bluearchive/b32fa904198c01c0d130" target="_blank" rel="noopener">ゲーム乱舞</a>の
+            「スケジュールを行うことでもらえるロケーションの経験値は1回で100ポイント」</li>
+          <li>ランクごとの必要経験値は <code>Excel/AcademyLocationRankExcelTable.json</code> の
+            <code>TotalExp</code>。<b>ランク 12 が上限</b>で、そこまでの累計は
+            <b><span id="src-tot">—</span> 経験値 ＝ <span id="src-run">—</span> 回</b>です。
+            <code>RankExp</code> の累計が <code>TotalExp</code> と全段一致することを確かめています</li>
+          <li>チケットの枚数は <code>Excel/AcademyTicketExcelTable.json</code>
+            （<b>列名の綴りが <code>ScheduleTicktetMax</code></b>。データ側の誤字をそのまま読んでいます）。
+            合計ランク <b>1 / 10 / 25 / 50 / 80</b> で <b>3 / 4 / 5 / 6 / 7 枚</b>。
+            <a href="https://kamigame.jp/bluearchive/page/143091843515583937.html" target="_blank" rel="noopener">神ゲー攻略</a>と
+            <a href="https://gameranbu.jp/bluearchive/b32fa904198c01c0d130" target="_blank" rel="noopener">ゲーム乱舞</a>の
+            表と<b>5 段とも一致</b>しました</li>
+          <li>場所とエリアの名前は <code>DB/LocalizeEtcExcelTable.json</code> の <code>NameJp</code>。
+            <b><code>AcademyReward</code> の <code>Location</code> 列は韓国語のまま</b>（<code>"샬레 업무관"</code>）で、
+            <code>Excel/</code> 側に日本語はありません。<b><span id="src-zn">—</span> 個ぜんぶ引けなければ
+            データを作る側で止まります</b></li>
+          <li>追加報酬で<b>同じ道具が 2 行に分かれている</b>ことがあります。学校のエリアの
+            ランク 11・12 が <code>[BD, ノート, ノート]</code> の 3 本立てで、2 本目が 100% に
+            達したぶんの上乗せが 3 本目です。<b>期待個数は道具ごとに足し合わせています</b></li>
+          <li>スケジュールを送れないエリアが 1 つだけあります（シャーレオフィスの執務室）。
+            <code>RewardGroupId</code> が 0 で、<code>ConstCommonExcelTable</code> の
+            <code>AcademyFavorZoneId</code> と同じ番号でした。一覧から外しています</li>
+        </ul>
+        <p><b>出していないもの。</b><code>AcademyZoneExcelTable</code> の <code>StudentVisitProb</code>
+          （<code>[10000, 7500, 7500]</code> のような配列）が何の確率なのか特定できませんでした。
+          <code>AcademyLocationExcelTable</code> の <code>OpenCondition</code>
+          （<code>["Gehenna"], [8]</code> など）も、何を 8 個そろえるのかが分かりません。
+          <b>裏が取れないものは書かない</b>ことにしています。
+          チケットが何時間で 1 枚戻るかもデータに無いので、<b>「1 日」ではなく「チケット N 枚ぶん」</b>と書いています。</p>
+        <p>神名文字は<b>その場所にいる、すでに持っている生徒のもの</b>が出ます。
+          誰のものが出るかはデータからは決められないので、ここでは<b>個数だけ</b>を出しています。</p>
+        <p>出典 —
+          <a href="https://github.com/electricgoat/ba-data" target="_blank" rel="noopener">electricgoat/ba-data</a>（報酬・エリア・ランク・チケット・名前）、
+          <a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a>（道具の絵）。
+          裏取りに <a href="https://gameranbu.jp/bluearchive/b32fa904198c01c0d130" target="_blank" rel="noopener">ゲーム乱舞</a>、
+          <a href="https://kamigame.jp/bluearchive/page/143091843515583937.html" target="_blank" rel="noopener">神ゲー攻略</a>。
+          データは <span id="ver">—</span>。</p>
+      </details>
+    </div>
+
+  </div>
+</div>
+
+<script>window.TOUR = {"key": "schedule", "steps": [
+  {"sel": "#ranks", "t": "まず今のランクを入れます", "d": "11 か所それぞれのランクです。まだ開いていない場所は「—」のままにしてください。"},
+  {"sel": "#o-best", "t": "いちばん多い場所が出ます", "d": "絆経験値と神名文字はランクだけで決まるので、いちばんランクの高い場所がそのまま答えになります。"},
+  {"sel": "#tic", "t": "チケットが増えるところ", "d": "合計ランクが節目を越えると 1 枚増えます。いちばん安く越える上げ方を出しています。"},
+  {"sel": "#zpick", "t": "素材はエリアで変わります", "d": "場所を選ぶと、その中のエリアと 1 回あたりの期待個数が並びます。奥のエリアほど良い等級です。"},
+  {"sel": "#sharebar", "t": "結果はそのまま渡せます", "d": "入れたランクごと URL になるので、リンクを送れば相手の画面にも同じ結果が出ます。"}
+]};</script>
+<script src="../tour.js?v=1"></script>
+
+<script src="../share.js?v=1"></script>
+
+<footer>
+  <div class="foot-inner">
+    <p class="foot-name">AronaBotの使い方</p>
+    <p class="foot-links">
+      <a href="../../">AronaBot のページ</a>
+      <span class="sep">/</span>
+      <a href="../">ツール一覧</a>
+      <span class="sep">/</span>
+      <a href="https://x.com/pe6cak" target="_blank" rel="noopener">制作者の X（@pe6cak）</a>
+      <span class="sep">/</span>
+      <a href="https://github.com/0rnot/arona-guide/issues/new?template=tool-feedback.yml&title=%5B%E3%82%B9%E3%82%B1%E3%82%B8%E3%83%A5%E3%83%BC%E3%83%AB%E3%81%AE%E6%9C%9F%E5%BE%85%E5%80%A4%5D%20&tool=%E3%82%B9%E3%82%B1%E3%82%B8%E3%83%A5%E3%83%BC%E3%83%AB%E3%81%AE%E6%9C%9F%E5%BE%85%E5%80%A4" target="_blank" rel="noopener">このツールへの要望・不具合</a>
+      <span class="sep">/</span>
+      <span>Discord なら <b>@0r.not</b> まで</span>
+    </p>
+    <p class="disclaimer">
+      <b>このサイトはファンが作った非公式のものです。</b>運営とは関係ありません。
+      <small>掲載しているゲーム内の画像・アイコン・名称・数値は、Nexon Games / Yostar の
+      「ブルーアーカイブ」から引用したもので、著作権はすべて権利者に帰属します。
+      ツールの計算に使うデータは <a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a> と
+      <a href="https://github.com/electricgoat/ba-data" target="_blank" rel="noopener">ba-data</a> から取得しています。
+      権利者の方でご指摘があれば <b>@0r.not</b> までご連絡ください。</small>
+    </p>
+  </div>
+</footer>
+
+<script src="data.js"></script>
+<script>
+(function () {
+  'use strict';
+  var S = window.SCH;
+  var el = function (id) { return document.getElementById(id); };
+  var MAXR = S.rank[S.rank.length - 1].r;
+
+  /* ---- 引きもの ------------------------------------------------------- */
+
+  /** そのランクで効いている段の番号。**「そのランク以上でいちばん大きい段」。** */
+  function tierIx(r) {
+    var ix = 0;
+    for (var i = 0; i < S.tiers.length; i++) if (r >= S.tiers[i]) ix = i;
+    return ix;
+  }
+  function favorEV(r) { var b = S.base[tierIx(r)]; return b.favor + b.exFavor * b.exProb / 10000; }
+  function ssEV(r) { return S.base[tierIx(r)].ssProb / 10000; }
+  /** ランク r に居るときの累計経験値。**ちょうど上がった直後とみなす。** */
+  function totAt(r) { return r <= 1 ? 0 : S.rank[r - 2].tot; }
+  /** a から b へ上げるのに要る回数。**余りは次のランクへ持ち越す。** */
+  function runsFor(a, b) {
+    if (b <= a) return 0;
+    return Math.ceil((totAt(b) - totAt(a)) / S.runExp);
+  }
+  function tickets(sum) {
+    var n = 0;
+    for (var i = 0; i < S.ticket.length; i++) if (sum >= S.ticket[i][0]) n = S.ticket[i][1];
+    return n;
+  }
+  function nextStep(sum) {
+    for (var i = 0; i < S.ticket.length; i++) if (sum < S.ticket[i][0]) return S.ticket[i];
+    return null;
+  }
+
+  function fmt(n, d) {
+    return n.toLocaleString('ja-JP', { minimumFractionDigits: d, maximumFractionDigits: d });
+  }
+  function itemTag(id, ev) {
+    var it = S.item[String(id)];
+    if (!it) return '';
+    return '<span class="mt"><img src="../img/' + it.ic + '.webp" alt="" width="20" height="20" loading="lazy">' +
+           it.nm + ' <b>' + fmt(ev, 2) + '</b></span>';
+  }
+
+  /* ---- 状態 ----------------------------------------------------------- */
+
+  var rk = {};       // ロケーション id → ランク（0 = 未開放）
+  S.loc.forEach(function (l) { rk[l.id] = 1; });
+  var pick = S.loc[0].id;
+  var goal = MAXR;
+
+  /* ---- 組み立て ------------------------------------------------------- */
+
+  // **入れ物は一度だけ作る。**中身を毎回組み直すと、選んでいる途中で
+  // <select> が作り直されて焦点が飛ぶ
+  var opts = '<option value="0">—</option>';
+  for (var r = 1; r <= MAXR; r++) opts += '<option value="' + r + '">' + r + '</option>';
+  el('ranks').innerHTML = S.loc.map(function (l) {
+    return '<div class="lrow" data-l="' + l.id + '">' +
+             '<span class="nm">' + l.nm + '<small>エリア ' + l.z.length + ' か所</small></span>' +
+             '<select data-l="' + l.id + '" aria-label="' + l.nm + 'のランク">' + opts + '</select>' +
+           '</div>';
+  }).join('');
+  el('ranks').addEventListener('change', function (e) {
+    var t = e.target;
+    if (!t || !t.dataset || !t.dataset.l) return;
+    rk[+t.dataset.l] = +t.value;
+    draw();
+  });
+
+  var gsel = '';
+  for (var g = 2; g <= MAXR; g++) gsel += '<option value="' + g + '">ランク ' + g + ' まで</option>';
+  el('i-goal').innerHTML = gsel;
+  el('i-goal').value = String(MAXR);
+  el('i-goal').addEventListener('change', function () { goal = +this.value; draw(); });
+
+  el('zpick').innerHTML = S.loc.map(function (l) {
+    return '<button type="button" class="chip" data-l="' + l.id + '">' + l.nm +
+           '<small>' + l.z.length + '</small></button>';
+  }).join('');
+  el('zpick').addEventListener('click', function (e) {
+    var b = e.target.closest ? e.target.closest('.chip') : null;
+    if (!b) return;
+    pick = +b.dataset.l;
+    draw();
+  });
+
+  el('b-all1').addEventListener('click', function () {
+    S.loc.forEach(function (l) { rk[l.id] = 1; }); sync(); draw();
+  });
+  el('b-allmax').addEventListener('click', function () {
+    S.loc.forEach(function (l) { rk[l.id] = MAXR; }); sync(); draw();
+  });
+  el('b-reset').addEventListener('click', function () {
+    S.loc.forEach(function (l) { rk[l.id] = 0; }); sync(); draw();
+  });
+
+  function sync() {
+    var sels = el('ranks').querySelectorAll('select');
+    for (var i = 0; i < sels.length; i++) sels[i].value = String(rk[+sels[i].dataset.l]);
+  }
+
+  /* ---- 早見の表は 1 回だけ ------------------------------------------- */
+  el('tiertb').innerHTML = S.base.map(function (b, i) {
+    var to = i + 1 < S.tiers.length ? S.tiers[i + 1] - 1 : MAXR;
+    var label = b.r === to ? String(b.r) : b.r + '〜' + to;
+    return '<tr><td>ランク ' + label + '</td><td><b>' +
+           fmt(b.favor + b.exFavor * b.exProb / 10000, 2) + '</b></td><td>' +
+           fmt(b.ssProb / 10000, 3) + '</td><td>' + b.favor + '</td><td>' +
+           fmt(b.exProb / 100, 0) + '%</td><td>' + runsFor(1, b.r) + ' 回</td></tr>';
+  }).join('');
+
+  el('lead-run').textContent = String(S.runExp);
+  el('src-rows').textContent = String(S.loc.reduce(function (a, l) { return a + l.z.length; }, 0) * S.tiers.length);
+  el('src-zn').textContent = String(S.loc.length + S.loc.reduce(function (a, l) { return a + l.z.length; }, 0));
+  el('src-tot').textContent = S.rank[S.rank.length - 1].tot.toLocaleString('ja-JP');
+  el('src-run').textContent = String(runsFor(1, MAXR));
+  el('ver').textContent = S.version;
+
+  /* ---- 書き出し ------------------------------------------------------- */
+
+  function draw() {
+    var open = S.loc.filter(function (l) { return rk[l.id] > 0; });
+    var sum = open.reduce(function (a, l) { return a + rk[l.id]; }, 0);
+    var tic = open.length ? tickets(sum) : 0;
+
+    // いちばん多い場所
+    var best = null;
+    open.forEach(function (l) { if (!best || rk[l.id] > rk[best.id]) best = l; });
+    if (best) {
+      el('o-best').textContent = best.nm;
+      el('o-best-sub').textContent = 'ランク ' + rk[best.id] + '｜1 回で 絆経験値 ' +
+        fmt(favorEV(rk[best.id]), 2) + '・神名文字 ' + fmt(ssEV(rk[best.id]), 3);
+    } else {
+      el('o-best').textContent = '—';
+      el('o-best-sub').textContent = 'ランクを 1 か所でも入れてください';
+    }
+    el('o-tic').innerHTML = open.length ? tic + ' <small>枚</small>' : '—';
+    el('o-tic-sub').textContent = open.length ? '合計ランク ' + sum : '合計ランクで決まります';
+    el('o-ss').textContent = best ? fmt(ssEV(rk[best.id]) * tic, 2) + ' 個' : '—';
+
+    // 場所ごとの 1 回あたり
+    var rows = open.slice().sort(function (a, b) { return rk[b.id] - rk[a.id] || a.id - b.id; });
+    el('loctb').innerHTML = rows.length ? rows.map(function (l) {
+      var r = rk[l.id];
+      var n = l.z.filter(function (z) { return z.u <= r; }).length;
+      return '<tr' + (best && l.id === best.id ? ' class="rowbest"' : '') + '><td class="nmc">' +
+             l.nm + '<small>エリア ' + n + ' / ' + l.z.length + ' か所</small></td><td>' + r +
+             '</td><td><b>' + fmt(favorEV(r), 2) + '</b></td><td>' + fmt(ssEV(r), 3) + '</td></tr>';
+    }).join('') : '<tr><td colspan="4" class="lock">まだ 1 か所も開いていません。上でランクを入れてください。</td></tr>';
+
+    // 次のチケット
+    var step = nextStep(sum);
+    if (!open.length) {
+      el('tic').innerHTML = '';
+      el('ticnote').textContent = 'ランクを入れると出ます。';
+    } else if (!step) {
+      el('tic').innerHTML = '<div class="row total"><span>チケット</span><span>' + tic + ' 枚（上限）</span></div>';
+      el('ticnote').textContent = '合計ランク ' + sum + '。もう増えません。';
+    } else {
+      // **安いところから上げる。**どの場所も同じ経験値表なので、
+      // 「いまいちばんランクの低い場所」を上げるのがいつでも最安になる
+      var cur = {}, plan = {};
+      open.forEach(function (l) { cur[l.id] = rk[l.id]; });
+      var need = step[0] - sum, guard = 0;
+      while (need > 0 && guard++ < 400) {
+        var pickL = null;
+        open.forEach(function (l) {
+          if (cur[l.id] >= MAXR) return;
+          if (!pickL || cur[l.id] < cur[pickL.id]) pickL = l;
+        });
+        if (!pickL) break;
+        cur[pickL.id]++; plan[pickL.id] = cur[pickL.id]; need--;
+      }
+      var total = 0, lines = [];
+      open.forEach(function (l) {
+        if (!plan[l.id]) return;
+        var n = runsFor(rk[l.id], plan[l.id]);
+        total += n;
+        lines.push('<div class="row"><span>' + l.nm + '<span class="subnote">ランク ' +
+                   rk[l.id] + ' → ' + plan[l.id] + '</span></span><span>' + n + ' 回</span></div>');
+      });
+      if (need > 0) {
+        el('tic').innerHTML = '';
+        el('ticnote').innerHTML = '<b>今の場所だけでは ' + step[0] +
+          ' に届きません。</b>まだ開いていない場所を開けば合計ランクが伸びます。';
+      } else {
+        lines.push('<div class="row total"><span>合わせて</span><span>' + total + ' 回</span></div>');
+        el('tic').innerHTML = lines.join('');
+        el('ticnote').innerHTML = '合計ランク <b>' + sum + ' → ' + step[0] + '</b> で、チケットが <b>' +
+          tic + ' 枚 → ' + step[1] + ' 枚</b>になります。チケット ' + tic + ' 枚ずつ使うと <b>' +
+          Math.ceil(total / Math.max(tic, 1)) + ' 日</b>ぶんです。';
+      }
+    }
+
+    // ランク上げ
+    if (!open.length) {
+      el('up').innerHTML = '';
+      el('upnote').textContent = 'ランクを入れると出ます。';
+    } else {
+      var tot = 0, ln = [];
+      open.forEach(function (l) {
+        var n = runsFor(rk[l.id], goal);
+        tot += n;
+        ln.push('<div class="row"><span>' + l.nm + '<span class="subnote">ランク ' + rk[l.id] +
+                (rk[l.id] >= goal ? '（もう届いています）' : ' → ' + goal) + '</span></span><span>' +
+                n + ' 回</span></div>');
+      });
+      ln.push('<div class="row total"><span>合わせて</span><span>' + tot.toLocaleString('ja-JP') + ' 回</span></div>');
+      el('up').innerHTML = ln.join('');
+      el('upnote').innerHTML = tot
+        ? 'チケット <b>' + tic + ' 枚</b>ずつ使うと <b>' +
+          Math.ceil(tot / Math.max(tic, 1)).toLocaleString('ja-JP') + ' 日</b>ぶん。' +
+          '上げていくとチケットも増えるので、実際はこれより短くなります。'
+        : '開いている場所はもう全部そのランクに届いています。';
+    }
+
+    // エリア
+    var pl = null;
+    S.loc.forEach(function (l) { if (l.id === pick) pl = l; });
+    var chips = el('zpick').querySelectorAll('.chip');
+    for (var i = 0; i < chips.length; i++) {
+      chips[i].setAttribute('aria-pressed', +chips[i].dataset.l === pick ? 'true' : 'false');
+    }
+    var pr = rk[pick] || 0;
+    var ix = tierIx(pr > 0 ? pr : 1);
+    // **中身が同じエリアはまとめる。**どの場所も「初級 2 か所・中級 2 か所・
+    // 上級 2 か所・最上級 1〜2 か所」で、そのまま並べると画面 3 枚ぶんになる
+    var packs = [], last = null;
+    pl.z.forEach(function (z) {
+      var key = JSON.stringify(z.rw[ix]);
+      if (!last || last.key !== key) { last = { key: key, rw: z.rw[ix], z: [] }; packs.push(last); }
+      last.z.push(z);
+    });
+    el('zonetb').innerHTML = packs.map(function (pk) {
+      var any = pk.z.some(function (z) { return pr >= z.u; });
+      var head = pk.z.map(function (z) {
+        var o = pr >= z.u;
+        return z.nm + '<span class="tag' + (o ? ' on' : '') + '">ランク ' + z.u +
+               (o ? '' : ' で開く') + '</span>';
+      }).join('<span class="zsep">/</span>');
+      var mats = pk.rw.map(function (q) { return itemTag(q[0], q[1]); }).join('');
+      return '<div class="zrow' + (any ? '' : ' off') + '">' +
+               '<div class="zh">' + head + '</div>' +
+               '<div class="zm">' + (any ? mats :
+                 '<span class="lock">まだ開いていません</span>') + '</div>' +
+             '</div>';
+    }).join('');
+
+    writeHash();
+  }
+
+  /* ---- URL ------------------------------------------------------------ */
+
+  function writeHash() {
+    hash = '#r=' + S.loc.map(function (l) { return rk[l.id]; }).join('.') + '&g=' + goal + '&p=' + pick;
+  }
+  var hash = '';
+  window.shareUrl = function () { return hash; };
+
+  (function readHash() {
+    var m = /[#&]r=([0-9.]+)/.exec(location.hash);
+    if (m) {
+      var v = m[1].split('.');
+      S.loc.forEach(function (l, i) {
+        var n = parseInt(v[i], 10);
+        if (isFinite(n) && n >= 0 && n <= MAXR) rk[l.id] = n;
+      });
+    }
+    var g = /[#&]g=(\d+)/.exec(location.hash);
+    if (g && +g[1] >= 2 && +g[1] <= MAXR) { goal = +g[1]; }
+    var p = /[#&]p=(\d+)/.exec(location.hash);
+    if (p) S.loc.forEach(function (l) { if (l.id === +p[1]) pick = l.id; });
+  })();
+
+  sync();
+  el('i-goal').value = String(goal);
+  draw();
+})();
+</script>
+</body>
+</html>

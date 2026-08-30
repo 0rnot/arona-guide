@@ -222,7 +222,12 @@
   /** その子の、時間軸に置けるスキル（`iv` を持つもの）。 */
   function timedOf(d) {
     var out = [];
-    if (d.ns && d.ns.iv) out.push({ g: 'ns', key: 'ns', ja: 'ノーマル', sk: d.ns });
+    /* **「戦闘開始時、…（戦闘中に1回のみ）」型も時間軸に置く。**間隔は無いが
+       発動する時刻（0 秒）が決まっているので、1 本だけ帯を引ける
+       （2026-08-30 の先生の指示——「戦闘開始から何秒で発動するかは決まってる」） */
+    if (d.ns && (d.ns.iv || (d.ns.once && d.ns.st != null))) {
+      out.push({ g: 'ns', key: 'ns', ja: 'ノーマル', sk: d.ns });
+    }
     (d.pv || []).forEach(function (p, i) {
       if (p.iv) out.push({ g: 'pv', key: 'pv' + i, ja: SKJA[p.sl] || 'パッシブ', sk: p });
     });
@@ -231,7 +236,7 @@
   /** 時刻を置けないスキル。**引き金の原文をそのまま持って出す。** */
   function condOf(d) {
     var out = [];
-    if (d.ns && !d.ns.iv) out.push({ ja: 'ノーマル', sk: d.ns });
+    if (d.ns && !d.ns.iv && !(d.ns.once && d.ns.st != null)) out.push({ ja: 'ノーマル', sk: d.ns });
     (d.pv || []).forEach(function (p) {
       if (!p.iv) out.push({ ja: SKJA[p.sl] || 'パッシブ', sk: p });
     });
@@ -278,8 +283,14 @@
       r.sk.bf.forEach(function (b, bi) {
         var one = mkBar(r.d, r.s, b, true, 'ex' + r.idx + '.' + bi, r.e.i, 'EX', r.sk.n);
         if (!one) return;
-        one.segs = [[r.at, r.at + one.ms / 1000]];
-        one.iv = 0;
+        /* **効果が乗るのは撃った瞬間ではない。**`ApplyFrame` が着弾までの
+           フレーム数で、30 フレーム = 1 秒（`build-tool-data.py` が `af` に
+           秒で入れてある）。ヒマリの攻撃力バフが 1.00 秒、リオが 3.77 秒で、
+           TL を作っている人の実測（リオ 3.800 秒 / ヒマリ 1.000 秒。
+           https://note.com/takoyakiak47/n/nfe0f914f730d ）と合う */
+        var lag = b.af || 0;
+        one.segs = [[r.at + lag, r.at + lag + one.ms / 1000]];
+        one.iv = 0; one.lag = lag;
         out.push(one);
       });
     });
@@ -289,16 +300,32 @@
         (t.sk.bf || []).forEach(function (b, bi) {
           var one = mkBar(m.d, m.s, b, false, m.i + '.' + t.key + '.' + bi, m.i, t.ja, t.sk.n);
           if (!one) return;
-          /* **0 秒から `iv` 秒ごと。**初回のずれ（ディレイ）はデータに無いので
-             置いていない。実際の 1 回目はここより後ろにずれる。 */
+          /* **初回は 0 秒とは限らない。**スキル文が
+             「戦闘開始時とそれ以降、40秒毎に」と「40秒毎に」を書き分けていて、
+             後者は 1 回目も 40 秒後（`build-tool-data.py` が `st` に入れてある。
+             274 人を数えて、書き分けている子はレンゲ（水着）と マコト（水着）の
+             2 人だけだと確かめた。2026-08-30 の先生の指摘を受けて調べた）。
+             そこから更に `af`（着弾までの秒）だけ後ろへずれる。 */
+          var lag = b.af || 0;
+          var st0 = (t.sk.st == null ? 0 : t.sk.st) + lag;
           var segs = [], cut = false;
-          for (var k = 0; ; k++) {
-            var at = k * t.sk.iv;
-            if (at > span) break;
-            if (segs.length >= TICK_MAX) { cut = true; break; }
-            segs.push([at, at + one.ms / 1000]);
+          if (!t.sk.iv) {
+            // 1 回きり型。戦闘中に 1 回しか出ない
+            segs.push([st0, st0 + one.ms / 1000]);
+          } else {
+            for (var k = 0; ; k++) {
+              var at = st0 + k * t.sk.iv;
+              if (at > span) break;
+              if (segs.length >= TICK_MAX) { cut = true; break; }
+              segs.push([at, at + one.ms / 1000]);
+            }
           }
           one.segs = segs; one.iv = t.sk.iv; one.cut = cut;
+          one.st0 = st0; one.lag = lag; one.once = !!t.sk.once;
+          /* **引き金が先にあると初回の時刻を置けない。**「HPが30%以下の時、4秒毎に」の
+             ホシノがそれで、274 人のうち 1 人だけ。0 秒から引くが、
+             **「いつ始まるかは条件しだい」と見出しに出す**（黙って 0 秒に置かない） */
+          one.cond = t.sk.cond || ''; one.hasSt = t.sk.st != null;
           out.push(one);
         });
       });
@@ -348,8 +375,45 @@
                       .map(function (m) { return m.d.n; }) };
   }
 
+  /* ---------- ボスの戦闘時間 -------------------------------------
+
+     **3 分・4 分だけではない。**イェソド・ドラム缶ガニ・セトの憤怒が 270 秒、
+     コクマーとティファレトが 300 秒（2026-08-30 の先生の指摘
+     「戦闘時間は3m4m以外にもある、調べて実装よろ」を受けて数え直した）。
+     出どころは SchaleDB の `raids.min.json` の `BattleDuration` で、
+     `data.js` の `dur` に「ボス名・種別・秒」で入っている。**ボスが増えれば
+     毎日の自動更新で選択肢も増える。** */
+  var dur = 0;               // 0 ＝ 選んでいない（今までどおり経過時間で出す）
+
+  function drawDurOpts() {
+    var sel = el('i-dur');
+    if (!sel) return;
+    var secs = {}, order2 = [];
+    (D.dur || []).forEach(function (x) {
+      if (!secs[x.s]) { secs[x.s] = []; order2.push(x.s); }
+      if (secs[x.s].indexOf(x.n) < 0) secs[x.s].push(x.n);
+    });
+    order2.sort(function (a2, b2) { return a2 - b2; });
+    sel.innerHTML = '<option value="0">選ばない（経過時間で出す）</option>' +
+      order2.map(function (v) {
+        return '<option value="' + v + '">' + clockIn(v) + '（' +
+          esc(secs[v].join('・')) + '）</option>';
+      }).join('');
+  }
+
+  /** 書き出しと画面に出す時刻。**戦闘時間を選んでいれば残り時間。** */
+  function tclock(sec) { return dur ? clock(Math.max(0, dur - sec)) : clock(sec); }
+
+  function durNote() {
+    var n = el('o-durnote');
+    if (!n) return;
+    n.textContent = dur
+      ? '書き出しの時刻は「残り ' + clockIn(dur) + ' から数えた残り時間」で出ます'
+      : '選ぶと、書き出しの時刻が「残り時間」になります';
+  }
+
   function state() {
-    return { m: mode, s: slots, o: order, gk: gims, gl: goal,
+    return { m: mode, s: slots, o: order, gk: gims, gl: goal, dr: dur,
              st: el('i-start').value, cp: capNow(),
              gb: el('i-gb').value, gc: el('i-gc').value, sw: showKey() };
   }
@@ -387,6 +451,11 @@
     if (d.gl !== undefined) {
       goal = (d.gl == null || d.gl === '') ? null : Math.max(0, +d.gl || 0);
       el('i-goal').value = goal == null ? '' : clockIn(goal);
+    }
+    if (d.dr !== undefined) {
+      dur = Math.max(0, +d.dr || 0);
+      if (el('i-dur')) el('i-dur').value = String(dur);
+      durNote();
     }
     if (d.st != null) el('i-start').value = d.st;
     /* **上限は数で持たなくなった。**2026-08-30 より前に配ったリンクと保存には
@@ -449,7 +518,8 @@
                   .filter(Boolean).join('!');
     var sw = showKey();
     var tail = [el('i-start').value, capNow(), el('i-gb').value, el('i-gc').value,
-                goal == null ? '' : n1x(goal), gk, ov, fm, sw === '111' ? '' : sw];
+                goal == null ? '' : n1x(goal), gk, ov, fm, sw === '111' ? '' : sw,
+                dur ? String(dur) : ''];
     while (tail.length && tail[tail.length - 1] === '') tail.pop();
     return '#' + mode + '|' + ps + '|' + os + '|' + tail.join('/');
   }
@@ -509,6 +579,7 @@
       });
     }
     if (g[8]) d.sw = g[8];
+    if (g[9]) d.dr = g[9];
     apply(d);
     return true;
   }
@@ -1155,7 +1226,8 @@
         (r.d.id === NAGISA_SW && partyFull() ? ovSel(r, i) : '') +
         (r.fl.length > 1 ? formSel(r, i) : '') +
         '</span></span>' +
-        '<span class="at">' + (r.at === null ? '撃てない' : n1(r.at) + ' 秒') +
+        '<span class="at">' + (r.at === null ? '撃てない'
+          : dur ? '残り ' + clock(Math.max(0, dur - r.at)) : n1(r.at) + ' 秒') +
         '<small>' + (r.why ? esc(r.why)
           : r.over ? 'オーバーコスト 残り ' + neg(n1(r.left)) + ' コスト'
           : '残り ' + n1(r.left) + ' コスト') + '</small></span>' +
@@ -1182,11 +1254,15 @@
     /* 書き出し。**4 列の本体は今までと同じ形。**上に `#` で始まる 2 行を足した。
        1 行目に共有 URL が入っているので、**これをそのまま貼り戻すと編成ごと戻る。**
        `#` の行を消して本体だけ貼っても、名前から編成を組み直して読める。 */
+    var durLine = dur
+      ? '# 戦闘時間　' + clockIn(dur) + '（時刻は残り時間）\n'
+      : '';
     el('out').value = '# TL のコスト計算機　' + shareLink() + '\n' +
       '# 編成　' + members().map(function (m) { return m.d.n; }).join('・') + '\n' +
+      durLine +
       sim.rows.filter(function (r) { return r.d && r.at !== null; })
       .map(function (r) {
-        return clock(r.at) + '\t' + r.d.n + '\tEX' + r.s.ex + '\t' + r.need + 'コスト';
+        return tclock(r.at) + '\t' + r.d.n + '\tEX' + r.s.ex + '\t' + r.need + 'コスト';
       }).join('\n');
 
     drawChart(sim);
@@ -1287,7 +1363,9 @@
   function barLabel(b) {
     return (b.kind === 'EX' || !b.kind ? '' : '〈' + b.kind + '〉') + b.who + '／' + b.e +
       ' ' + n1(b.ms / 1000) + '秒' +
-      (b.iv ? '（' + nn(b.iv) + '秒ごと）' : '') +
+      (b.iv ? (b.cond ? '（' + b.cond + '・' + nn(b.iv) + '秒ごと）'
+                      : '（初回 ' + nn(b.st0) + '秒／' + nn(b.iv) + '秒ごと）')
+            : b.once ? '（' + nn(b.st0) + '秒に 1 回だけ）' : '') +
       (b.ch < 10000 ? '（' + nn(b.ch / 100) + '%）' : '') +
       (b.dup ? '（' + (SIDE_JA[b.sd] || b.sd) + '）' : '') +
       (b.tier ? '（段あり・1段目）' : '') +
@@ -1297,7 +1375,10 @@
     return b.who + '　' + (b.skn ? '「' + b.skn + '」' : '') + b.e +
       (b.st ? '（' + b.st + (b.v ? ' ' + b.v : '') + '）' : '') +
       '　' + n1(b.ms / 1000) + ' 秒　' + (SIDE_JA[b.sd] || '') +
-      (b.iv ? '　' + nn(b.iv) + ' 秒ごと' : '') +
+      (b.iv ? (b.cond ? '　' + b.cond + '、' + nn(b.iv) + ' 秒ごと'
+                      : '　初回 ' + nn(b.st0) + ' 秒、以降 ' + nn(b.iv) + ' 秒ごと') : '') +
+      (b.once ? '　' + nn(b.st0) + ' 秒に 1 回だけ' : '') +
+      (b.lag ? '　着弾まで ' + nn(b.lag) + ' 秒' : '') +
       (b.ch < 10000 ? '　確率 ' + nn(b.ch / 100) + '%' : '');
   }
 
@@ -1498,7 +1579,10 @@
       (b.st ? '<b>' + valJa(b.st, b.v) + '</b>　<code>' + esc(b.st) + '</code>　'
             : b.cc ? '' : '値は出せません（<code>Stat</code> を持たない効果です）　') +
       n1(b.ms / 1000) + ' 秒' +
-      (b.iv ? '／' + nn(b.iv) + ' 秒ごと' : '') +
+      (b.iv ? (b.cond ? '／' + esc(b.cond) + '、' + nn(b.iv) + ' 秒ごと'
+                      : '／初回 ' + nn(b.st0) + ' 秒、以降 ' + nn(b.iv) + ' 秒ごと') : '') +
+      (b.once ? '／' + nn(b.st0) + ' 秒に 1 回だけ' : '') +
+      (b.lag ? '／着弾まで ' + nn(b.lag) + ' 秒' : '') +
       (b.tier ? '／段あり（1 段目で数えています）' : '') +
       (b.grew ? '／固有武器で延長' : '') +
       (b.ch < 10000 ? '／<b>確率 ' + nn(b.ch / 100) + '%</b>' : '') +
@@ -1657,6 +1741,22 @@
       history.replaceState(null, '', hash);
       if (fromHash()) { draw(); return { n: order.length, way: 'url' }; }
     }
+    /* **残り時間で書き出したものを貼り戻せるようにする。**書き出しの 3 行目に
+       `# 戦闘時間　4:00（時刻は残り時間）` が入っているので、それを見つけたら
+       経過時間へ戻す（2026-08-30 の先生の指示で残り時間の書き出しを足した） */
+    var back = 0;
+    lines.forEach(function (ln) {
+      var m2 = /^#\s*戦闘時間\s*(\d+:\d+(?:\.\d+)?)/.exec(ln.trim());
+      if (!back && m2 && /残り時間/.test(ln)) {
+        var v = parseClock(m2[1]);
+        if (v) back = v;
+      }
+    });
+    if (back) {
+      dur = back;
+      if (el('i-dur')) el('i-dur').value = String(dur);
+      durNote();
+    }
     var want = [], lost = [];
     lines.forEach(function (ln) {
       if (!ln.trim() || ln.trim().charAt(0) === '#') return;
@@ -1664,6 +1764,7 @@
       if (f.length < 2) f = ln.trim().split(/[\s,]+/);
       var at = parseClock(f[0]), nm = (f[1] || '').trim();
       if (at == null || !nm) return;
+      if (back) at = Math.max(0, back - at);
       var mx = /EX\s*(\d)/i.exec(f[2] || '');
       want.push({ at: at, n: nm, ex: mx ? +mx[1] : 5 });
     });
@@ -1738,7 +1839,7 @@
     rows.forEach(function (r, i) {
       var yy = y + 16;
       parts.push('<text class="mn" x="' + pad + '" y="' + yy + '">' + (i + 1) + '</text>' +
-        '<text class="tm" x="' + (pad + 26) + '" y="' + yy + '">' + clock(r.at) + '</text>' +
+        '<text class="tm" x="' + (pad + 26) + '" y="' + yy + '">' + tclock(r.at) + '</text>' +
         '<text class="nm" x="' + (pad + 96) + '" y="' + yy + '">' + esc(r.d.n) + '</text>' +
         '<text class="mn" x="' + (pad + 290) + '" y="' + yy + '">EX' + r.s.ex +
           (r.fl && r.fl.length > 1 ? '・' + (r.fi + 1) + ' 形態目' : '') + '</text>' +
@@ -1903,6 +2004,10 @@
       show[t.dataset.s] = t.checked; draw();
     } else if (t.id === 'i-start' || t.id === 'i-gb' || t.id === 'i-gc') {
       draw();
+    } else if (t.id === 'i-dur') {
+      dur = Math.max(0, parseFloat(t.value) || 0);
+      durNote();
+      draw();
     } else if (t.id === 'i-goal') {
       goal = parseClock(t.value);
       if (t.value.trim() && goal == null) say('目標時間は 3:00 のように入れてください。');
@@ -1988,8 +2093,11 @@
   });
 
   el('ver').textContent = D.version;
+  // **選択肢を先に作る。**空の `<select>` に値を入れても付かない
+  drawDurOpts();
   // **URL が先、保存はそのあと。**人からもらったリンクを開いたときに上書きされない
   if (!fromHash()) load();
+  durNote();
   drawRefList();
   draw();
 })();

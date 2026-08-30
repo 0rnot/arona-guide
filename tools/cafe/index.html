@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>カフェの収入計算機｜AronaBot</title>
+<meta name="description" content="快適度を入れると 1 時間あたりのクレジットと AP、倉庫が満杯になるまでの時間が出ます。ランクごとの快適度上限と招待人数、ランクアップに要るクレジットも一緒に。">
+<meta name="theme-color" content="#c8892e">
+<link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<meta property="og:title" content="カフェの収入計算機">
+<meta property="og:description" content="快適度を入れると 1 時間あたりのクレジットと AP、倉庫が満杯になるまでの時間が出ます。ランクごとの快適度上限と招待人数、ランクアップに要るクレジットも一緒に。">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://arona-bot.com/tools/cafe/">
+<meta property="og:image" content="https://arona-bot.com/images/hero-night.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="stylesheet" href="../../style.css?v=15">
+<link rel="stylesheet" href="../tool.css?v=9">
+<style>
+  /* 快適度のつまみ */
+  .cf { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: center; }
+  .cf input[type="number"] { width: 100%; }
+  .cf .cap { font-size: .8rem; color: var(--fg-mute); white-space: nowrap; }
+  input[type="range"] { width: 100%; margin: 12px 0 2px; accent-color: var(--accent); }
+  .bar { height: 12px; border-radius: 999px; background: var(--bg-sub);
+         border: 1px solid var(--line); overflow: hidden; margin: .55em 0 .35em; }
+  .bar > i { display: block; height: 100%; background: var(--accent); }
+  .barnote { font-size: .78rem; color: var(--fg-mute); margin: .5em 0 0; line-height: 1.75; }
+  .barnote b { color: var(--fg); }
+
+  /* 絞り込みの札 */
+  .chips { display: flex; flex-wrap: wrap; gap: 7px; }
+  .chip { border: 1px solid var(--line); border-radius: 999px; background: var(--card);
+          font: inherit; font-size: .78rem; color: var(--fg); padding: .38em .85em;
+          cursor: pointer; line-height: 1.3; }
+  .chip:hover { border-color: var(--accent); }
+  .chip[aria-pressed="true"] { background: var(--accent); color: var(--accent-in);
+                               border-color: transparent; font-weight: 700; }
+  .chip small { opacity: .75; margin-left: .35em; }
+
+  table.dt td.nmc { white-space: normal; word-break: auto-phrase; min-width: 8em; }
+  table.dt td.nmc small { display: block; font-size: .72rem; color: var(--fg-mute); margin-top: .1em; }
+  .mt { display: inline-flex; align-items: center; gap: .3em; white-space: nowrap; }
+  .mt img { width: 20px; height: 20px; border-radius: 4px; flex: none; }
+  .warn { border: 1px dashed var(--line); border-radius: 12px; padding: .7em .9em;
+          font-size: .82rem; color: var(--fg-mute); line-height: 1.75; margin-top: 12px; }
+  .warn b { color: var(--fg); }
+  .rowhere td { background: var(--bg-sub); font-weight: 800; }
+
+  /* 細い柱では表を詰める。**そうしないと右の列が画面の外に出る** */
+  @media (max-width: 460px) {
+    table.dt th, table.dt td { padding: .5em .42em; }
+    table.dt { font-size: .82rem; }
+    /* **家具の名前を伸ばさない。**伸ばすと「マスあたり」が画面の外へ出る */
+    table.dt td.nmc { min-width: 0; max-width: 10.5em; }
+  }
+</style>
+</head>
+<body>
+
+<!-- 上のバーと footer は scripts/sync-chrome.py が流し込む。
+     **閉じタグの前に改行を入れておくこと。**あちらの正規表現は閉じタグの直前の
+     改行を目印にしているので、1 行に畳むと本文まで食われる。
+     **この注記に目印そのものを書かないこと。**書くと注記の中から当たる -->
+<div class="topbar">
+  <div class="topbar-inner">
+    <a class="topbar-name" href="../../">AronaBotの使い方</a>
+    <a class="topbar-tools" href="../">
+      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <path d="M21.7 18.3l-6-6a5.5 5.5 0 0 0-7-7l3.1 3.1-2.1 2.1L6.6 7.3a5.5 5.5 0 0 0 7 7l6 6a1 1 0 0 0 1.4 0l.7-.7a1 1 0 0 0 0-1.3z"/>
+      </svg>
+      ツール一覧
+    </a>
+    <nav class="topbar-nav">
+      <a href="../../#can">機能</a>
+      <a href="../../#start">つかいはじめる</a>
+      <a href="../../#message">メッセージから</a>
+      <a href="../../#faq">よくある質問</a>
+    </nav>
+    <!-- 共有。**AronaBot 本体と同じ位置に置く。**押した先は環境で変える -->
+    <span class="share-nudge" aria-hidden="true">使えそうな人に、ぜひ</span>
+    <a class="share" id="share-page" target="_blank" rel="noopener" aria-label="このページを共有する"
+       href="https://x.com/intent/post?url=https%3A%2F%2Farona-bot.com%2Ftools%2F">
+      <svg class="share-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <path d="M14 9V5l7 7-7 7v-4.1c-5 0-8.5 1.6-11 5.1 1-5 4-10 11-11z"/>
+      </svg>
+      <span class="share-label">共有</span>
+    </a>
+  </div>
+</div>
+<div class="toast" id="toast-page" role="status" aria-live="polite"></div>
+<script>
+/* 共有ボタン。**そのページ自身の URL を配る。**
+   1. スマホ（navigator.share）→ OS の共有シート
+   2. PC（クリップボード）→ URL をコピーして帯で伝える
+   3. どちらも無い → <a href> のまま X の共有ページへ */
+(function () {
+  var btn = document.getElementById('share-page'), toast = document.getElementById('toast-page');
+  if (!btn) return;
+  // **`#` を落とさない。**TL のように状態をハッシュに入れているツールでは、
+  // ここを削ると相手の画面に同じ結果が出ない（2026-08-30）
+  var url = location.href;
+  var name = document.title.split('｜')[0];
+  var text = name + '（AronaBot のツール）';
+  btn.href = 'https://x.com/intent/post?text=' + encodeURIComponent(text) +
+             '&url=' + encodeURIComponent(url);
+  var timer = null;
+  function say(t) {
+    if (!toast) return;
+    toast.textContent = t; toast.classList.add('shown');
+    clearTimeout(timer); timer = setTimeout(function () { toast.classList.remove('shown'); }, 2000);
+  }
+  btn.addEventListener('click', function (e) {
+    if (navigator.share) {
+      e.preventDefault();
+      navigator.share({ title: name, text: text, url: url }).catch(function () {});
+      return;
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      e.preventDefault();
+      navigator.clipboard.writeText(url).then(function () { say('リンクをコピーしました'); },
+        function () { window.open(btn.href, '_blank', 'noopener'); });
+    }
+  });
+})();
+</script>
+
+<header class="thero">
+  <div class="thero-media" aria-hidden="true">
+    <picture>
+      <source srcset="../../images/hero-day.jpg" media="(prefers-color-scheme: dark)">
+      <img src="../../images/hero-night.jpg" alt="" width="1600" height="400" fetchpriority="high">
+    </picture>
+  </div>
+  <div class="thero-body">
+    <h1>カフェの収入計算機</h1>
+    <p class="thero-lead">快適度を入れると 1 時間あたりのクレジットと AP、倉庫が満杯になるまでの時間が出ます。ランクごとの快適度上限と招待人数、ランクアップに要るクレジットも一緒に。</p>
+  </div>
+</header>
+
+<div class="twrap">
+  <p class="tcrumb"><a href="../../">AronaBotの使い方</a><span class="sl">/</span><a href="../">ツール</a><span class="sl">/</span>カフェの収入計算機</p>
+
+  <div class="tcols lean" style="margin-top:20px">
+
+    <div class="tcol">
+      <div class="panel" id="p-in">
+        <div class="panel-h"><h2>どちらのカフェですか</h2></div>
+        <div class="seg" id="segcafe" role="group" aria-label="カフェを選ぶ">
+          <button type="button" data-c="1" aria-pressed="true">1 号店</button>
+          <button type="button" data-c="2" aria-pressed="false">2 号店</button>
+        </div>
+        <div class="fields c2" style="margin-top:14px">
+          <div class="field">
+            <label for="i-rank">ランク</label>
+            <select id="i-rank"></select>
+          </div>
+          <div class="field">
+            <label for="i-comfort">快適度<span class="hint" id="hint-cap">上限 —</span></label>
+            <input id="i-comfort" type="number" min="0" step="10" inputmode="numeric">
+          </div>
+        </div>
+        <input type="range" id="i-slider" min="0" step="10" aria-label="快適度">
+        <div class="bar"><i id="bar" style="width:0%"></i></div>
+        <p class="barnote" id="capnote">—</p>
+        <div class="btnrow" style="margin-top:12px">
+          <button type="button" class="btn" id="b-cap">このランクの上限まで</button>
+          <button type="button" class="btn" id="b-max">最大ランクの上限まで</button>
+        </div>
+      </div>
+
+      <div class="panel" id="p-up">
+        <div class="panel-h"><h2>ランクを 1 つ上げると</h2></div>
+        <p class="lead"><b>快適度はそのまま</b>で、ランクだけ 1 つ上げたときの差です。上限も 500 上がるので、家具を足せばさらに伸びます。</p>
+        <div class="ledger" id="up"></div>
+        <p class="barnote" id="upnote">—</p>
+      </div>
+
+      <div class="panel" id="p-cost">
+        <div class="panel-h"><h2>ランク 10 までに要るもの</h2></div>
+        <div class="ledger" id="cost"></div>
+        <p class="barnote">ランクアップに要るクレジットは<b>1 号店と 2 号店で同額</b>です。違うのは設備コアの種類だけでした。</p>
+      </div>
+    </div>
+
+    <div class="tcol">
+      <div class="stats c4">
+        <div class="stat hero">
+          <div class="k"><img class="ico" src="../img/currency_icon_gold.webp" alt="" width="18" height="18" loading="lazy"> 1 時間のクレジット</div>
+          <div class="v" id="o-ch">—</div>
+          <div class="sub" id="o-ch-sub">快適度を入れると出ます</div>
+        </div>
+        <div class="stat">
+          <div class="k">1 日のクレジット</div>
+          <div class="v" id="o-cd">—</div>
+          <div class="sub">24 時間ぶん</div>
+        </div>
+        <div class="stat">
+          <div class="k"><img class="ico" src="../img/currency_icon_ap.webp" alt="" width="18" height="18" loading="lazy"> 1 時間の AP</div>
+          <div class="v" id="o-ah">—</div>
+          <div class="sub" id="o-ah-sub">1 号店だけ</div>
+        </div>
+        <div class="stat">
+          <div class="k">倉庫が満杯になるまで</div>
+          <div class="v" id="o-fill">—</div>
+          <div class="sub" id="o-fill-sub">受け取らないと止まります</div>
+        </div>
+      </div>
+
+      <div class="panel" id="p-comfort">
+        <div class="panel-h"><h2>快適度をどう作るか</h2></div>
+        <p class="lead">快適度は<b>置いた家具の快適度の合計 ＋ セットボーナス</b>で、<b>ランクの上限で頭打ち</b>になります。</p>
+        <div class="ledger" id="need"></div>
+        <div class="tscroll">
+          <table class="dt">
+            <thead><tr><th>同じセットを</th><th>ボーナス</th><th>1 個あたり</th></tr></thead>
+            <tbody id="settb"></tbody>
+          </table>
+        </div>
+        <p class="barnote">セットボーナスは<b>同時に <span id="n-setmax">3</span> セットまで</b>効きます。7 個そろえたセットを <span id="n-setmax2">3</span> つ置くと <b id="n-setsum">＋2,250</b> です。</p>
+      </div>
+    </div>
+
+    <div class="tfull">
+      <div class="panel" id="p-tb">
+        <div class="panel-h"><h2>ランクごとの一覧</h2></div>
+        <p class="lead">クレジットと AP は<b>その快適度上限まで埋めたとき</b>の 1 時間あたりです。<b>倉庫はクレジットならちょうど 24 時間ぶん</b>で、AP だけは丸められています。</p>
+        <div class="tscroll">
+          <table class="dt">
+            <thead><tr><th>ランク</th><th>快適度の上限</th><th>クレジット/時</th><th>AP/時</th><th>倉庫</th><th>招待</th><th>タグ</th><th>次へ上げる費用</th></tr></thead>
+            <tbody id="ranktb"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="panel" id="p-furn">
+        <div class="panel-h"><h2>家具の快適度</h2></div>
+        <p class="lead"><b><span id="n-furn">—</span> 個</b>あります。快適度は <b>20 / 50 / 120 / 180 / 350 / 500</b> の 6 段階しかありません。<b>マスあたり</b>は快適度をサイズ（縦 × 横）で割ったものです。</p>
+        <div class="fields c3">
+          <div class="field">
+            <label for="f-set">セット</label>
+            <select id="f-set"></select>
+          </div>
+          <div class="field">
+            <label for="f-rr">レア度</label>
+            <select id="f-rr">
+              <option value="">ぜんぶ</option>
+              <option value="SSR">SSR</option>
+              <option value="SR">SR</option>
+              <option value="R">R</option>
+              <option value="N">N</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="f-sort">並べ方</label>
+            <select id="f-sort">
+              <option value="c">快適度が高い順</option>
+              <option value="e">マスあたりが高い順</option>
+            </select>
+          </div>
+        </div>
+        <div class="tscroll">
+          <table class="dt">
+            <thead><tr><th>家具</th><th>快適度</th><th>サイズ</th><th>マスあたり</th></tr></thead>
+            <tbody id="furntb"></tbody>
+          </table>
+        </div>
+        <div class="btnrow" style="margin-top:12px">
+          <button type="button" class="btn" id="b-more">もっと見る</button>
+          <span class="barnote" id="fcount" style="margin:0;align-self:center">—</span>
+        </div>
+      </div>
+
+      <div class="panel" id="p-sets">
+        <div class="panel-h"><h2>セットの一覧</h2></div>
+        <p class="lead"><b><span id="n-sets">—</span> セット</b>あります。押すと上の一覧がそのセットだけになります。</p>
+        <div class="chips" id="setchips"></div>
+        <div class="warn" id="setwarn"></div>
+      </div>
+
+      <div class="sharebar" id="sharebar"></div>
+
+      <details class="src">
+        <summary>数字の出どころ</summary>
+        <p><b>時給の式はゲームのデータそのままです。</b>それが正しいことを、データの中だけで確かめられました。</p>
+        <ul>
+          <li>1 時間あたりの生産量は
+            <code>(ParcelProductionCoefficient × 快適度 + ParcelProductionCorrectionValue) / 10000</code>。
+            <code>Excel/CafeProductionExcelTable.json</code> の 30 行から引いています。
+            <b>10000 で割り忘れるとランク 1 で 1,875 万クレジット/時になります。</b></li>
+          <li><b>10000 で割るのが正しいことの裏取り。</b>快適度を各ランクの
+            <code>ComfortMax</code> に置くと、<code>ParcelStorageMax ÷ 時給</code> が
+            <b>クレジットの 20 行すべてで 24.000</b>（23.998〜24.000）になります。
+            倉庫がちょうど 24 時間ぶんという形で、
+            <code>Excel/ConstCommonExcelTable.json</code> の
+            <code>CafeAutoChargePeriodInMsc = 3600000</code>（1 時間）とも合います。
+            <b>1 行でも 0.01 以上ずれたら、データを作る側で止まります。</b></li>
+          <li><b>AP は 24 時間ぶんちょうどではありません。</b>倉庫の上限が
+            90 / 150 / 220 … と丸められていて、23.45〜24.02 に散ります。
+            この画面では AP の倉庫に「24 時間ぶん」と書いていません</li>
+          <li><b>外の表とも突き合わせました。</b>
+            <a href="https://gamerch.com/bluearchive/222609" target="_blank" rel="noopener">ブルアカ攻略wiki（Gamerch）</a>の
+            「快適度による収入表」と比べると、<b>1 号店のランク 6〜10 はクレジットが 5 行とも一致</b>
+            （15833.1 / 18750.8 / 21250.65 / 24167 / 27083.6。こちらは 15,833.15 と 2 桁目まで出しています）。
+            AP も <b>19.49 / 22.32 / 25.15 / 27.97 / 30.8</b> と並んでいて、
+            こちらの 19.49 / 22.32 / 25.15 / 27.98 / 30.81 と<b>末尾の丸め方が違うだけ</b>です。
+            <b>2 号店はランク 1・2・4〜8 の 7 行が小数点まで完全に一致</b>しました
+            （1250.05 / 2291.85 / 5000 / 6771.05 / 7916.65 / 9375.6 / 10625.55）。
+            ランク 3 だけ向こうが <code>3541</code> と桁を落としていて、こちらは 3,541.85 です。
+            1 号店のランク 2〜5 だけ向こうが「倉庫 ÷ 24」の概数を載せているぶんずれます</li>
+          <li>快適度の上限・招待人数・タグ数は <code>Excel/CafeRankExcelTable.json</code>。
+            <b>1000 から 500 きざみで 5500 まで</b>で、これが並んでいない場合はデータを作る側で止まります。
+            上限 5500 は
+            <a href="https://game8.jp/blue-archive/645032" target="_blank" rel="noopener">ゲームエイト</a>の
+            「1号店2号店ともに5500が最大値」と一致します</li>
+          <li>ランクアップの費用は <code>CafeRankExcelTable.RecipeId</code> →
+            <code>Excel/RecipeExcelTable.json</code>（<code>RecipeType</code> が
+            <code>CafeRankUp</code>）→ <code>Excel/RecipeIngredientExcelTable.json</code>。
+            <b>ランク N の行に付くレシピは「N から N+1 へ」</b>です。
+            ランク 10 の行にもレシピがありますが、上限が 10 なので使いません。
+            <b>1 号店と 2 号店でクレジットが同額であることを確かめています</b></li>
+          <li>セットボーナスは <code>Excel/FurnitureGroupExcelTable.json</code>。
+            <b>2 / 3 / 5 / 7 個で ＋100 / 200 / 450 / 750</b> で、
+            <b>20 セットすべて同じ値</b>でした（1 つでも違えばセットごとに持つ形へ直します）。
+            同時に効く数は <code>ConstCommonExcelTable.CafeSetGroupApplyCount</code> の
+            <b><span id="src-setmax">—</span></b></li>
+          <li>家具 <b><span id="src-furn">—</span> 個</b>とセット名は
+            <a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a> の
+            <code>furniture</code>。<b>ba-data の <code>FurnitureGroupExcelTable</code> は
+            20 セットしか無く、SchaleDB は 25 セット持っています。</b>
+            足りない 5 セットは名前だけ SchaleDB から借りていて、
+            <b>ボーナスの段はそちらでは裏が取れていません</b>（一覧に印を付けています）</li>
+        </ul>
+        <p><b>出していないもの。</b>家具をカフェの床に詰める配置は作っていません。
+          家具の <code>Size</code> はデータにありますが、<b>床の広さと置ける形がデータのどこにも無い</b>ので、
+          「マスあたりの快適度」までにしています。
+          招待できる生徒の当選確率（<code>CafeVisitWeightBase</code> ほか）も式が分からないので、
+          <b><code>CharacterVisitMin</code> 〜 <code>CharacterVisitMax</code> の幅だけ</b>を出しています。
+          <code>CafeRandomVisitMinComfortBonus = 1000</code> の意味も分かりませんでした。
+          <b>裏が取れないものは書かない</b>ことにしています。</p>
+        <p>出典 —
+          <a href="https://github.com/electricgoat/ba-data" target="_blank" rel="noopener">electricgoat/ba-data</a>（生産・ランク・レシピ・セットボーナス・道具の名前）、
+          <a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a>（家具・セット名・絵）。
+          裏取りに <a href="https://gamerch.com/bluearchive/222609" target="_blank" rel="noopener">ブルアカ攻略wiki（Gamerch）</a>、
+          <a href="https://game8.jp/blue-archive/645032" target="_blank" rel="noopener">ゲームエイト</a>。
+          データは <span id="ver">—</span>。</p>
+      </details>
+    </div>
+
+  </div>
+</div>
+
+<script>window.TOUR = {"key": "cafe", "steps": [
+  {"sel": "#p-in", "t": "カフェとランクと快適度", "d": "今の快適度を入れてください。上限はランクで決まります。2 号店は AP を作りません。"},
+  {"sel": "#o-ch", "t": "1 時間あたりが出ます", "d": "倉庫はクレジットならちょうど 24 時間ぶんです。放っておくと満杯で止まります。"},
+  {"sel": "#p-up", "t": "ランクを 1 つ上げたときの差", "d": "上げるのに要るクレジットと、それが何日で戻ってくるかを出しています。"},
+  {"sel": "#p-comfort", "t": "快適度の作り方", "d": "上限まであと何個の家具が要るかと、セットボーナスの段です。"},
+  {"sel": "#sharebar", "t": "結果はそのまま渡せます", "d": "入れた状態ごと URL になるので、リンクを送れば相手の画面にも同じ結果が出ます。"}
+]};</script>
+<script src="../tour.js?v=1"></script>
+
+<script src="../share.js?v=1"></script>
+
+<footer>
+  <div class="foot-inner">
+    <p class="foot-name">AronaBotの使い方</p>
+    <p class="foot-links">
+      <a href="../../">AronaBot のページ</a>
+      <span class="sep">/</span>
+      <a href="../">ツール一覧</a>
+      <span class="sep">/</span>
+      <a href="https://x.com/pe6cak" target="_blank" rel="noopener">制作者の X（@pe6cak）</a>
+      <span class="sep">/</span>
+      <a href="https://github.com/0rnot/arona-guide/issues/new?template=tool-feedback.yml&title=%5B%E3%82%AB%E3%83%95%E3%82%A7%E3%81%AE%E5%8F%8E%E5%85%A5%E8%A8%88%E7%AE%97%E6%A9%9F%5D%20&tool=%E3%82%AB%E3%83%95%E3%82%A7%E3%81%AE%E5%8F%8E%E5%85%A5%E8%A8%88%E7%AE%97%E6%A9%9F" target="_blank" rel="noopener">このツールへの要望・不具合</a>
+      <span class="sep">/</span>
+      <span>Discord なら <b>@0r.not</b> まで</span>
+    </p>
+    <p class="disclaimer">
+      <b>このサイトはファンが作った非公式のものです。</b>運営とは関係ありません。
+      <small>掲載しているゲーム内の画像・アイコン・名称・数値は、Nexon Games / Yostar の
+      「ブルーアーカイブ」から引用したもので、著作権はすべて権利者に帰属します。
+      ツールの計算に使うデータは <a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a> と
+      <a href="https://github.com/electricgoat/ba-data" target="_blank" rel="noopener">ba-data</a> から取得しています。
+      権利者の方でご指摘があれば <b>@0r.not</b> までご連絡ください。</small>
+    </p>
+  </div>
+</footer>
+
+<script src="data.js"></script>
+<script>
+(function () {
+  'use strict';
+  var C = window.CAFE;
+  var el = function (id) { return document.getElementById(id); };
+  var MAXR = 10;
+  var CRED = '1', AP = '5';
+
+  var rankOf = {};
+  C.rank.forEach(function (r) { rankOf[r.c + ':' + r.r] = r; });
+  function capOf(c, r) { return rankOf[c + ':' + r].cm; }
+  /** 1 時間あたり。**10000 で割る。** */
+  function hour(c, parcel, r, comfort) {
+    var t = C.prod[String(c)][parcel];
+    if (!t) return null;
+    var p = t[r - 1];
+    return (p.co * comfort + p.cv) / 10000;
+  }
+  function store(c, parcel, r) {
+    var t = C.prod[String(c)][parcel];
+    return t ? t[r - 1].st : null;
+  }
+  function num(n, d) {
+    return n.toLocaleString('ja-JP', { minimumFractionDigits: d || 0, maximumFractionDigits: d || 0 });
+  }
+  function hm(h) {
+    var m = Math.round(h * 60);
+    return Math.floor(m / 60) + ' 時間 ' + (m % 60) + ' 分';
+  }
+
+  /* ---- 状態 ---- */
+  var cafe = 1, rank = 1, comfort = capOf(1, 1), shown = 25;
+  var fset = '', frr = '', fsort = 'c';
+
+  /* ---- 一度だけ組む ---- */
+  var ro = '';
+  for (var i = 1; i <= MAXR; i++) ro += '<option value="' + i + '">ランク ' + i + '</option>';
+  el('i-rank').innerHTML = ro;
+
+  el('f-set').innerHTML = '<option value="">ぜんぶ</option>' +
+    '<option value="0">セットに属さない家具</option>' +
+    C.sets.map(function (s) {
+      return '<option value="' + s.id + '">' + s.nm + '（' + s.n + '）</option>';
+    }).join('');
+
+  el('settb').innerHTML = C.setStep.map(function (n, i) {
+    return '<tr><td>' + n + ' 個</td><td><b>＋' + num(C.setBonus[i]) + '</b></td><td>' +
+           num(C.setBonus[i] / n, 1) + '</td></tr>';
+  }).join('');
+  el('n-setmax').textContent = String(C.setMax);
+  el('n-setmax2').textContent = String(C.setMax);
+  el('n-setsum').textContent = '＋' + num(C.setBonus[C.setBonus.length - 1] * C.setMax);
+  el('n-furn').textContent = num(C.furn.length);
+  el('n-sets').textContent = num(C.sets.length);
+  el('src-furn').textContent = num(C.furn.length);
+  el('src-setmax').textContent = String(C.setMax);
+  el('ver').textContent = C.version;
+
+  el('setchips').innerHTML = C.sets.map(function (s) {
+    return '<button type="button" class="chip" data-s="' + s.id + '">' + s.nm +
+           '<small>' + s.n + '</small>' + (s.ok ? '' : ' ※') + '</button>';
+  }).join('');
+  var nook = C.sets.filter(function (s) { return !s.ok; });
+  el('setwarn').innerHTML = nook.length
+    ? '<b>※ の ' + nook.length + ' セットは ba-data 側にまだ載っていません</b>（' +
+      nook.map(function (s) { return s.nm; }).join('、') +
+      '）。名前は SchaleDB から借りていて、<b>ボーナスの段は他の ' +
+      (C.sets.length - nook.length) + ' セットと同じと決めつけずに、確かめられていないものとして扱ってください。</b>'
+    : '<b>25 セットすべて ba-data 側でボーナスの段を確かめられています。</b>';
+
+  /* ---- 出来事 ---- */
+  el('segcafe').addEventListener('click', function (e) {
+    var b = e.target.closest ? e.target.closest('button') : null;
+    if (!b || !b.dataset.c) return;
+    cafe = +b.dataset.c;
+    if (comfort > capOf(cafe, rank)) comfort = capOf(cafe, rank);
+    sync(); draw();
+  });
+  el('i-rank').addEventListener('change', function () {
+    rank = +this.value;
+    if (comfort > capOf(cafe, rank)) comfort = capOf(cafe, rank);
+    sync(); draw();
+  });
+  function onComfort(v) {
+    var n = parseInt(v, 10);
+    if (!isFinite(n)) return;
+    comfort = Math.max(0, Math.min(capOf(cafe, MAXR), n));
+    draw();
+  }
+  // **入力欄そのものは作り直さない。**打っている途中で値と焦点が飛ぶ
+  el('i-comfort').addEventListener('input', function () {
+    onComfort(this.value);
+    el('i-slider').value = String(comfort);
+  });
+  el('i-slider').addEventListener('input', function () {
+    onComfort(this.value);
+    el('i-comfort').value = String(comfort);
+  });
+  el('b-cap').addEventListener('click', function () { comfort = capOf(cafe, rank); sync(); draw(); });
+  el('b-max').addEventListener('click', function () {
+    rank = MAXR; comfort = capOf(cafe, MAXR); sync(); draw();
+  });
+  el('f-set').addEventListener('change', function () { fset = this.value; shown = 25; drawFurn(); });
+  el('f-rr').addEventListener('change', function () { frr = this.value; shown = 25; drawFurn(); });
+  el('f-sort').addEventListener('change', function () { fsort = this.value; shown = 25; drawFurn(); });
+  el('b-more').addEventListener('click', function () { shown += 60; drawFurn(); });
+  el('setchips').addEventListener('click', function (e) {
+    var b = e.target.closest ? e.target.closest('.chip') : null;
+    if (!b) return;
+    fset = fset === b.dataset.s ? '' : b.dataset.s;
+    el('f-set').value = fset;
+    shown = 25; drawFurn();
+    el('p-furn').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+
+  function sync() {
+    el('i-rank').value = String(rank);
+    el('i-comfort').value = String(comfort);
+    el('i-slider').max = String(capOf(cafe, MAXR));
+    el('i-slider').value = String(comfort);
+    var bs = el('segcafe').querySelectorAll('button');
+    for (var i = 0; i < bs.length; i++) {
+      bs[i].setAttribute('aria-pressed', +bs[i].dataset.c === cafe ? 'true' : 'false');
+    }
+  }
+
+  /* ---- 書き出し ---- */
+  function draw() {
+    var cap = capOf(cafe, rank), hard = capOf(cafe, MAXR);
+    var eff = Math.min(comfort, cap);          // 上限で頭打ち
+    var ch = hour(cafe, CRED, rank, eff);
+    var ah = hour(cafe, AP, rank, eff);
+    var cs = store(cafe, CRED, rank), as = store(cafe, AP, rank);
+
+    el('hint-cap').textContent = '上限 ' + num(cap);
+    el('i-slider').max = String(hard);
+    el('bar').style.width = Math.min(100, comfort / cap * 100) + '%';
+    el('capnote').innerHTML = comfort > cap
+      ? '<b>ランク ' + rank + ' の上限は ' + num(cap) + ' です。</b>' + num(comfort) +
+        ' 入っていますが、超えたぶんは収入に効きません。'
+      : '上限 <b>' + num(cap) + '</b> まであと <b>' + num(cap - comfort) + '</b>。' +
+        (cafe === 2 ? '<b>2 号店は AP を作りません。</b>' : '');
+
+    // **単位を .v に入れない。**幅が足りないと「クレジ／ット」で割れる（実測）
+    el('o-ch').textContent = num(ch, 2);
+    el('o-ch-sub').textContent = 'ランク ' + rank + '・快適度 ' + num(eff);
+    el('o-cd').textContent = num(ch * 24);
+    el('o-ah').textContent = ah === null ? '—' : num(ah, 2);
+    el('o-ah-sub').textContent = ah === null ? '2 号店は AP を作りません'
+      : '1 日で ' + num(ah * 24, 1) + ' AP';
+    el('o-fill').textContent = hm(cs / ch);
+    el('o-fill-sub').innerHTML = '倉庫 ' + num(cs) + ' クレジット' +
+      (as !== null ? '／AP は ' + num(as) + '（' + hm(as / ah) + '）' : '');
+
+    // ランクを 1 つ上げると
+    if (rank >= MAXR) {
+      el('up').innerHTML = '';
+      el('upnote').innerHTML = '<b>もう最大ランクです。</b>';
+    } else {
+      var up = C.up[String(cafe)][rank - 1];
+      var ch2 = hour(cafe, CRED, rank + 1, eff), ah2 = hour(cafe, AP, rank + 1, eff);
+      var dg = (ch2 - ch) * 24;
+      var rows = [
+        '<div class="row"><span>クレジット<span class="subnote">1 時間あたり</span></span><span>' +
+          num(ch, 2) + ' → ' + num(ch2, 2) + '（＋' + num(ch2 - ch, 2) + '）</span></div>',
+        '<div class="row"><span>1 日ぶん</span><span>＋' + num(dg) + '</span></div>'
+      ];
+      if (ah !== null) {
+        rows.push('<div class="row"><span>AP<span class="subnote">1 時間あたり</span></span><span>' +
+          num(ah, 2) + ' → ' + num(ah2, 2) + '（＋' + num(ah2 - ah, 2) + '）</span></div>');
+      }
+      rows.push('<div class="row"><span>快適度の上限</span><span>' + num(cap) + ' → ' +
+        num(capOf(cafe, rank + 1)) + '</span></div>');
+      rows.push('<div class="row minus"><span>かかるクレジット</span><span>−' + num(up.cr) + '</span></div>');
+      up.mat.forEach(function (m) {
+        rows.push('<div class="row minus"><span><span class="mt"><img src="../img/' + m.ic +
+          '.webp" alt="" width="20" height="20" loading="lazy">' + m.nm +
+          '</span></span><span>−' + m.n + '</span></div>');
+      });
+      rows.push('<div class="row total"><span>元が取れるまで</span><span>' +
+        (dg > 0 ? Math.ceil(up.cr / dg) + ' 日' : '—') + '</span></div>');
+      el('up').innerHTML = rows.join('');
+      el('upnote').innerHTML = '毎日きちんと受け取ったときの日数です。' +
+        '<b>上限が ' + num(capOf(cafe, rank + 1) - cap) + ' 上がる</b>ので、家具を足せばもっと早く戻ります。';
+    }
+
+    // ランク 10 まで
+    var tot = 0, mats = {};
+    for (var r = rank; r < MAXR; r++) {
+      var u = C.up[String(cafe)][r - 1];
+      tot += u.cr;
+      u.mat.forEach(function (m) {
+        var k = m.nm + '|' + m.ic;
+        mats[k] = (mats[k] || 0) + m.n;
+      });
+    }
+    var cl = [];
+    if (rank >= MAXR) {
+      cl.push('<div class="row total"><span>もう最大です</span><span>—</span></div>');
+    } else {
+      cl.push('<div class="row"><span>クレジット<span class="subnote">ランク ' + rank +
+        ' → ' + MAXR + '</span></span><span>' + num(tot) + '</span></div>');
+      Object.keys(mats).forEach(function (k) {
+        var pp = k.split('|');
+        cl.push('<div class="row"><span><span class="mt"><img src="../img/' + pp[1] +
+          '.webp" alt="" width="20" height="20" loading="lazy">' + pp[0] +
+          '</span></span><span>' + mats[k] + ' 個</span></div>');
+      });
+      var chMax = hour(cafe, CRED, MAXR, capOf(cafe, MAXR));
+      cl.push('<div class="row total"><span>ランク ' + MAXR + '・上限まで埋めたときの 1 日</span><span>' +
+        num(chMax * 24) + ' クレジット</span></div>');
+    }
+    el('cost').innerHTML = cl.join('');
+
+    // 快適度をどう作るか
+    var lack = Math.max(0, cap - comfort);
+    var nl = ['<div class="row"><span>ランク ' + rank + ' の上限</span><span>' + num(cap) + '</span></div>',
+              '<div class="row"><span>いま入れた快適度</span><span>' + num(comfort) + '</span></div>',
+              '<div class="row total"><span>あと</span><span>' + num(lack) + '</span></div>'];
+    if (lack > 0) {
+      [500, 350, 120, 50].forEach(function (v) {
+        nl.push('<div class="row"><span>快適度 ' + v + ' の家具なら<span class="subnote">' +
+          C.furn.filter(function (f) { return f.c === v; }).length + ' 個あります</span></span><span>' +
+          Math.ceil(lack / v) + ' 個</span></div>');
+      });
+      var seven = C.setBonus[C.setBonus.length - 1];
+      nl.push('<div class="row"><span>7 個そろえたセット 1 つ<span class="subnote">' +
+        '家具そのものの快適度は別に乗ります</span></span><span>＋' + num(seven) + '</span></div>');
+    }
+    el('need').innerHTML = nl.join('');
+
+    // ランクごとの一覧
+    el('ranktb').innerHTML = (function () {
+      var out = [];
+      for (var r = 1; r <= MAXR; r++) {
+        var cc = capOf(cafe, r);
+        var h1 = hour(cafe, CRED, r, cc), h5 = hour(cafe, AP, r, cc);
+        var q = rankOf[cafe + ':' + r];
+        var u = r < MAXR ? C.up[String(cafe)][r - 1] : null;
+        out.push('<tr' + (r === rank ? ' class="rowhere"' : '') + '><td>ランク ' + r + '</td><td>' +
+          num(cc) + '</td><td><b>' + num(h1, 2) + '</b></td><td>' +
+          (h5 === null ? '—' : num(h5, 2)) + '</td><td>' + num(store(cafe, CRED, r)) + '</td><td>' +
+          q.vmin + '〜' + q.vmax + ' 人</td><td>' + q.tag + '</td><td>' +
+          (u ? num(u.cr) : '—') + '</td></tr>');
+      }
+      return out.join('');
+    })();
+
+    drawFurn();
+    hash = '#c=' + cafe + '&r=' + rank + '&v=' + comfort;
+  }
+
+  function drawFurn() {
+    var list = C.furn.filter(function (f) {
+      if (fset !== '' && String(f.g) !== fset) return false;
+      if (frr && f.rr !== frr) return false;
+      return true;
+    });
+    if (fsort === 'e') {
+      list = list.slice().sort(function (a, b) {
+        return (b.c / (b.w * b.h)) - (a.c / (a.w * a.h)) || b.c - a.c;
+      });
+    }
+    var setnm = {};
+    C.sets.forEach(function (s) { setnm[s.id] = s.nm; });
+    el('furntb').innerHTML = list.slice(0, shown).map(function (f) {
+      return '<tr><td class="nmc">' + f.nm + ' <span class="tag">' + f.rr + '</span>' +
+             (f.g ? '<small>' + setnm[f.g] + '</small>' : '') + '</td><td><b>' + f.c +
+             '</b></td><td>' + f.w + ' × ' + f.h + '</td><td>' +
+             num(f.c / (f.w * f.h), 1) + '</td></tr>';
+    }).join('') || '<tr><td colspan="4">あてはまる家具がありません。</td></tr>';
+    el('fcount').textContent = list.length
+      ? num(Math.min(shown, list.length)) + ' / ' + num(list.length) + ' 個'
+      : '0 個';
+    el('b-more').disabled = shown >= list.length;
+  }
+
+  /* ---- URL ---- */
+  var hash = '';
+  window.shareUrl = function () { return hash; };
+
+  (function readHash() {
+    var m = /[#&]c=(\d)/.exec(location.hash);
+    if (m && (+m[1] === 1 || +m[1] === 2)) cafe = +m[1];
+    var r = /[#&]r=(\d+)/.exec(location.hash);
+    if (r && +r[1] >= 1 && +r[1] <= MAXR) rank = +r[1];
+    var v = /[#&]v=(\d+)/.exec(location.hash);
+    comfort = v ? Math.min(capOf(cafe, MAXR), +v[1]) : capOf(cafe, rank);
+  })();
+
+  sync();
+  draw();
+})();
+</script>
+</body>
+</html>

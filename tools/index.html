@@ -14,7 +14,7 @@
 <meta property="og:image" content="https://arona-bot.com/images/hero-night.jpg">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="stylesheet" href="../style.css?v=15">
-<link rel="stylesheet" href="tool.css?v=6">
+<link rel="stylesheet" href="tool.css?v=9">
 <style>
   /* 一覧だけの見た目 */
   .filters {
@@ -35,6 +35,30 @@
   .filters button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   .tcard[hidden] { display: none; }
   .count { font-size: .78rem; color: var(--fg-mute); margin: 18px 0 0; }
+  /* β テスト中の告知。**帯にして、要望の投げ口をその場に置く**
+     （2026-08-30 の先生の指示——「一覧にβテスト中であることと、
+     ツール毎のIssueについて依頼しといて」） */
+  .beta {
+    margin: 26px 0 0;
+    padding: 14px 16px;
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--accent);
+    border-radius: 10px;
+    background: var(--bg-sub);
+    font-size: .87rem;
+    line-height: 1.85;
+    color: var(--fg-mute);
+    word-break: auto-phrase;
+    text-wrap: pretty;
+  }
+  .beta b { color: var(--fg); }
+  .beta .tag {
+    display: inline-block; margin-right: .6em;
+    padding: .1em .6em; border-radius: 999px;
+    background: var(--accent); color: var(--accent-in);
+    font-size: .76rem; font-weight: 700; letter-spacing: .04em;
+  }
+  .beta a { color: var(--accent); }
 </style>
 </head>
 <body>
@@ -118,6 +142,14 @@
 </header>
 
 <div class="twrap wide">
+
+  <p class="beta">
+    <span class="tag">β</span><b>まだテスト中です。</b>
+    数字が合わない、表示が崩れる、使いにくい、こういう機能がほしい —— 見つけたら教えてください。
+    各ツールのページのいちばん下に「このツールへの要望・不具合」があります。
+    <a href="https://github.com/0rnot/arona-guide/issues" target="_blank" rel="noopener">これまでに届いたもの</a>も見られます。
+    GitHub のアカウントが無ければ、Discord の <b>@0r.not</b> へどうぞ。
+  </p>
 
   <div class="filters" id="filters" role="group" aria-label="種類でしぼりこむ">
     <span class="lb">種類</span>
@@ -310,6 +342,22 @@
       <span class="go">つかう <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M13.5 5.5 12.1 6.9l4.1 4.1H4v2h12.2l-4.1 4.1 1.4 1.4 6.5-6.5z"/></svg></span>
     </a>
 
+    <a class="tcard" href="schedule/" data-cat="育成" data-group="育てる">
+      <img class="ticon" src="img/ui_school_icon_schedule_favor.webp" alt="" width="66" height="66" loading="lazy">
+      <div class="cat">育成</div>
+      <h2>スケジュールの期待値</h2>
+      <p>どの場所にスケジュールを送ると絆経験値と神名文字がいちばん多いかを、確率込みの期待値で出します。ランクを上げるのに何回要るか、チケットが 1 枚増えるのはどこかも。</p>
+      <span class="go">つかう <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M13.5 5.5 12.1 6.9l4.1 4.1H4v2h12.2l-4.1 4.1 1.4 1.4 6.5-6.5z"/></svg></span>
+    </a>
+
+    <a class="tcard" href="cafe/" data-cat="育成・計画" data-group="育てる">
+      <img class="ticon" src="img/ui_cafe_icon_comfort.webp" alt="" width="66" height="66" loading="lazy">
+      <div class="cat">育成・計画</div>
+      <h2>カフェの収入計算機</h2>
+      <p>快適度を入れると 1 時間あたりのクレジットと AP、倉庫が満杯になるまでの時間が出ます。ランクごとの快適度上限と招待人数、ランクアップに要るクレジットも一緒に。</p>
+      <span class="go">つかう <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M13.5 5.5 12.1 6.9l4.1 4.1H4v2h12.2l-4.1 4.1 1.4 1.4 6.5-6.5z"/></svg></span>
+    </a>
+
     <div class="tcard soon" data-cat="つくっている途中" data-group="">
       <div class="cat">つくっている途中</div>
       <h2>まだ増えます</h2>
@@ -337,7 +385,7 @@
       <span class="sep">/</span>
       <a href="https://x.com/pe6cak" target="_blank" rel="noopener">制作者の X（@pe6cak）</a>
       <span class="sep">/</span>
-      <span>不具合・要望は <b>@0r.not</b> まで</span>
+      <span>Discord なら <b>@0r.not</b> まで</span>
     </p>
     <p class="disclaimer">
       <b>このサイトはファンが作った非公式のものです。</b>運営とは関係ありません。

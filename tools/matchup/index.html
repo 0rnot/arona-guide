@@ -14,7 +14,7 @@
 <meta property="og:image" content="https://arona-bot.com/images/hero-night.jpg">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="stylesheet" href="../../style.css?v=15">
-<link rel="stylesheet" href="../tool.css?v=7">
+<link rel="stylesheet" href="../tool.css?v=9">
 <style>
   /* 倍率の表。**升に色を付けて、強い・弱いが一目で分かるように。** */
   .mx { width: 100%; border-collapse: collapse; font-size: .82rem; min-width: 520px; }
@@ -228,17 +228,6 @@
       </div>
 
       <div class="panel">
-        <div class="panel-h"><h2>攻撃属性と装甲の倍率</h2></div>
-        <div class="tscroll"><table class="mx" id="mx"></table></div>
-        <div class="leg">
-          <span><i class="w2"></i>×2.0（弱点）</span>
-          <span><i class="w15"></i>×1.5（効果的）</span>
-          <span><i class="w1"></i>×1.0</span>
-          <span><i class="w05"></i>×0.5（抵抗）</span>
-        </div>
-      </div>
-
-      <div class="panel">
         <div class="panel-h"><h2>地形適性の 6 段</h2></div>
         <p class="lead" style="margin:0 0 12px"><b>3 つの地形（市街地・屋外・屋内）で値は同じです。</b>変わるのは段だけです。</p>
         <div class="tscroll">
@@ -263,6 +252,21 @@
             <div class="tags" id="stu-tags"></div>
             <p class="ad" id="stu-ad">名前を入れると、その子の攻撃属性・装甲・3 つの地形の適性が出ます。</p>
           </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="tfull">
+      <!-- **8 列あるので幅いっぱいの段に置く。**細い柱（430px）に入れていたころは
+           画面が 1280px でも横棒が出ていた（2026-08-30 の先生の指摘） -->
+      <div class="panel">
+        <div class="panel-h"><h2>攻撃属性と装甲の倍率</h2></div>
+        <div class="tscroll"><table class="mx" id="mx"></table></div>
+        <div class="leg">
+          <span><i class="w2"></i>×2.0（Weak）</span>
+          <span><i class="w15"></i>×1.5（Effective）</span>
+          <span><i class="w1"></i>×1.0</span>
+          <span><i class="w05"></i>×0.5（Resist）</span>
         </div>
       </div>
     </div>
@@ -299,7 +303,7 @@
   {"sel": "#i-armor", "t": "相手の装甲と地形を選びます", "d": "この 2 つで、連れて行きたい生徒が決まります。ボスの装甲が分からないときは総力戦の相性チェッカーへ。"},
   {"sel": "#o-best", "t": "いちばん効く属性が出ます", "d": "地形の攻撃力倍率も一緒に。SS で ×1.3、D で ×0.8 です。"},
   {"sel": "#groups", "t": "生徒が倍率ごとに並びます", "d": "顔の下の SS / S / A が、その地形での適性です。役割や枠で絞れます。"},
-  {"sel": "#mx", "t": "倍率表はそのまま置いてあります", "d": "×2.0 が弱点、×1.5 が効果的、×0.5 が抵抗。振動→特殊装甲と分解→重装甲だけが ×1.5 です。"},
+  {"sel": "#mx", "t": "倍率表はそのまま置いてあります", "d": "ゲームと同じ呼び方で、×2.0 が Weak、×1.5 が Effective、×0.5 が Resist です。振動→特殊装甲と分解→重装甲だけが ×1.5 です。"},
   {"sel": "#sharebar", "t": "結果はそのまま渡せます", "d": "選んだ条件ごと URL になるので、リンクを送れば相手の画面にも同じ結果が出ます。"}
 ]};</script>
 <script src="../tour.js?v=1"></script>
@@ -316,7 +320,9 @@
       <span class="sep">/</span>
       <a href="https://x.com/pe6cak" target="_blank" rel="noopener">制作者の X（@pe6cak）</a>
       <span class="sep">/</span>
-      <span>不具合・要望は <b>@0r.not</b> まで</span>
+      <a href="https://github.com/0rnot/arona-guide/issues/new?template=tool-feedback.yml&title=%5B%E5%B1%9E%E6%80%A7%E3%81%A8%E5%9C%B0%E5%BD%A2%E3%81%AE%E6%97%A9%E8%A6%8B%5D%20&tool=%E5%B1%9E%E6%80%A7%E3%81%A8%E5%9C%B0%E5%BD%A2%E3%81%AE%E6%97%A9%E8%A6%8B" target="_blank" rel="noopener">このツールへの要望・不具合</a>
+      <span class="sep">/</span>
+      <span>Discord なら <b>@0r.not</b> まで</span>
     </p>
     <p class="disclaimer">
       <b>このサイトはファンが作った非公式のものです。</b>運営とは関係ありません。
@@ -334,6 +340,17 @@
 (function () {
   'use strict';
   var M = window.MATCH;
+  /** **効き方の呼び名。**ゲームの中でも英語のまま出るので訳さない
+      （`localization` の `DamageAttribute` がそのまま `Weak` / `Effective` /
+      `Resist` / `Normal`。2026-08-30 の先生の指示）。 */
+  function dmgJa(v) {
+    var d = M.dJa || {};
+    if (v >= 20000) return d.Weak || 'Weak';
+    if (v >= 15000) return d.Effective || 'Effective';
+    if (v <= 5000) return d.Resist || 'Resist';
+    return d.Normal || 'Normal';
+  }
+
   var el = function (id) { return document.getElementById(id); };
   function esc(t) {
     return String(t).replace(/[&<>"]/g, function (c) {
@@ -442,7 +459,7 @@
     el('o-best-sub').textContent = best > 10000
       ? (esc(M.aJa[armor] || armor) + 'に ' + x(best) +
          (none.length ? '（' + none.join('・') + 'の生徒はまだ居ません）' : ''))
-      : esc(M.aJa[armor] || armor) + 'に弱点はありません';
+      : esc(M.aJa[armor] || armor) + 'に Weak はありません';
     el('o-terr').textContent = '×1.3 〜 ×0.8';
     el('o-terr-sub').textContent = 'SS で ×1.3、B で ±0、D で ×0.8';
 
@@ -463,7 +480,7 @@
         return (b.ad[ti] - a.ad[ti]) || a.n.localeCompare(b.n, 'ja');
       });
       return '<div class="mgroup"><p class="mhead">' + x(v) +
-        '<span class="ex">' + (v >= 20000 ? '弱点' : v >= 15000 ? '効果的' : v <= 5000 ? '抵抗される' : '等倍') + '</span>' +
+        '<span class="ex">' + dmgJa(v) + '</span>' +
         '<span class="n">' + list.length + ' 人</span></p><div class="faces">' +
         list.map(function (s) {
           var g = gradeOf(s, ti);
