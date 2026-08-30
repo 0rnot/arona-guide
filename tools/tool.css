@@ -506,3 +506,43 @@ table.dt th .ico, table.dt td .ico { width: 1.5em; height: 1.5em; vertical-align
   .sharebar-btns { justify-content: stretch; }
   .sharebar-btns .btn { flex: 1 1 auto; text-align: center; }
 }
+
+/* ---------- はじめての案内（tour.js が中身を入れる）
+
+   **先生の指示（2026-08-30）。**初回だけ自動で出て、スキップが必ず要る。
+   枠は「開けた穴」ではなく輪郭線。穴を開ける方式（巨大な box-shadow）は
+   スクロールのたびにずれるので、輪郭 ＋ 全体の薄い覆いにした。 */
+.tour { position: fixed; inset: 0; z-index: 90; }
+.tour[hidden] { display: none; }
+body.tour-on { overflow: hidden; }
+/* **暗くするのは枠のほう。**外側へ伸ばした影で「そこだけ明るい」を作る。
+   覆いを別に敷くと、見てほしい場所まで一緒に暗くなる（2026-08-30 に直した）。
+   覆いは押して閉じるためだけに残す（透明） */
+.tour-veil { position: absolute; inset: 0; background: transparent; }
+.tour.nospot .tour-veil { background: rgba(0, 0, 0, .55); }
+.tour-ring {
+  position: fixed; border-radius: 14px; pointer-events: none;
+  border: 2px solid var(--accent);
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, .55),
+              0 0 0 3px color-mix(in srgb, var(--accent) 45%, transparent);
+  transition: top .18s ease, left .18s ease, width .18s ease, height .18s ease;
+}
+.tour-card {
+  position: fixed; width: min(340px, calc(100vw - 24px));
+  padding: 16px 18px; border-radius: 16px;
+  background: var(--card); border: 1px solid var(--line);
+  box-shadow: 0 18px 44px rgba(0, 0, 0, .34);
+}
+.tour-card.mid { top: 50%; left: 50%; transform: translate(-50%, -50%); }
+.tour-step { margin: 0 0 6px; font-size: .74rem; color: var(--fg-mute);
+             font-variant-numeric: tabular-nums; letter-spacing: .06em; }
+.tour-t { margin: 0 0 8px; font-size: 1.02rem; line-height: 1.4; }
+.tour-d { margin: 0 0 14px; font-size: .88rem; line-height: 1.7; color: var(--fg); }
+.tour-btns { display: flex; align-items: center; gap: 8px; }
+.tour-sp { flex: 1 1 auto; }
+.tour-btns .btn.tone {
+  background: var(--accent); border-color: var(--accent);
+  color: var(--on-accent, #fff); font-weight: 700;
+}
+.tour-open { margin-top: 14px; }
+@media (prefers-reduced-motion: reduce) { .tour-ring { transition: none; } }
