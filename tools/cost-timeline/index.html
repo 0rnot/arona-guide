@@ -56,6 +56,7 @@
   .tlrow .tx { min-width: 0; font-size: .86rem; }
   .tlrow .tx b { display: block; font-size: .9rem; }
   .tlrow .tx small { color: var(--fg-mute); font-size: .74rem; }
+  .tlrow .tx small .me { color: var(--fg); font-weight: 700; }
   .tlrow .at { font-weight: 800; font-size: 1.02rem; font-variant-numeric: tabular-nums; white-space: nowrap; }
   .tlrow .at small { display: block; font-weight: 500; font-size: .7rem; color: var(--fg-mute); text-align: right; }
   .tlrow.bad .at { color: var(--accent-tx); }
@@ -70,6 +71,8 @@
   .cut { display: flex; align-items: center; gap: .8em; padding: 6px 0 2px; }
   .cut::before, .cut::after { content: ""; flex: 1; height: 1px; background: var(--line); }
   .cut span { font-size: .72rem; color: var(--fg-mute); white-space: nowrap; }
+  .cut.bad span { color: var(--accent-tx); font-weight: 700; white-space: normal; }
+  .cut.bad::before, .cut.bad::after { background: var(--accent); }
 
   /* 打ち込みボタン */
   .addrow { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
@@ -189,7 +192,7 @@
 <div class="twrap">
   <p class="tcrumb"><a href="../../">AronaBotの使い方</a><span class="sl">/</span><a href="../">ツール</a><span class="sl">/</span>TL のコスト計算機</p>
 
-  <div class="note-box" style="margin-top:20px"><b>最初の何発かは、順番をそのまま指定できます。</b>2026 年 5 月 27 日のアップデートで開始スキルの設定上限が増え、<b>通常編成は 5 人、制約解除決戦は 9 人</b>になりました。そこまでは並べたとおりに撃てます。<b>それより後ろは手札しだいです。</b>使ったカードは山札に戻って引き直されるので、狙った子がすぐ来るとは限りません。あわせて、このツールが見ているのは<b>コストだけ</b>です。敵の位置・ノックバック・遮蔽で実際の結果は変わります。</div>
+  <div class="note-box" style="margin-top:20px"><b>スキルの順番は運では決まりません。</b>山札はパーティの人数ぶん、手札は 3 枚で、使ったカードは山札の一番下に回ります。<b>最初の並びさえ決めれば、そこから先はずっと同じ順で回ります。</b>その最初の並びが「開始スキル」で、2026 年 5 月 27 日のアップデートから通常編成は 5 人、制約解除決戦は 9 人まで指定できます。残り 1 人は自動で決まるので、<b>実質どちらも並びは全部決まります。</b>下の一覧では、そのとき手札に何があるかも一緒に出しています。なお、このツールが見ているのは<b>コストと手札だけ</b>です。敵の位置・ノックバック・遮蔽で実際の結果は変わります。</div>
 
   <div class="tcols lean" style="margin-top:20px">
 
@@ -264,7 +267,7 @@
     <div class="tfull">
       <div class="panel">
         <div class="panel-h"><h2>撃つ順番</h2></div>
-        <p class="lead">下のボタンで EX を後ろに足していきます。<b>同じ子を続けて足しても構いません</b>——コストの上では何回でも撃てます。</p>
+        <p class="lead">下のボタンで EX を後ろに足していきます。<b>そのとき手札に無い子を並べると、赤い帯で知らせます。</b>山札は編成の人数ぶんで、1 枚使うと一番下に回ります。</p>
         <div class="addrow" id="add"></div>
         <div id="timeline" style="margin-top:14px"></div>
         <p class="lead" id="tl-lead" style="margin-top:12px">まだ何も並んでいません。</p>
@@ -304,7 +307,8 @@
         <p><b>実数と % の重ねかたは、ゲームの他のステータスと同じで「足してから掛ける」です。</b><code>（700 ＋ 実数の合計）×（1 ＋ % の合計）</code>。データ側では
           <code>RegenCost_Base</code> が実数、<code>RegenCost_Coefficient</code> が % で、後者は 10000 分率です（ヒマリ Lv10 の <code>2029</code> が +20.29%）。<b>この計算で 1 コスト 1.98 秒になり</b>、上の Ultimit Archive の「ヒマリで 1.98秒/C」と一致します。重複については同記事に「EX/NS/PS/SS のスキル種別が異なれば重複可能、また同じスキル種別でも加算と乗算は重複可能」とあります。</p>
         <p><b>コストの上限は 10 です</b>（Blue Rec. の「最大コスト10まで溜まります」）。固有 4 でスペシャルのコスト上限が +0.5 になりますが、データ側の <code>Unlock</code> がまだ <code>false</code> なので初期値には入れていません。手で書き換えてください。</p>
-        <p><b>開始スキルで指定できる人数は、通常編成 5 人・制約解除決戦 9 人です。</b>2026 年 5 月 27 日のアップデートで、それぞれ 3 人・5 人から増えました。神ゲー攻略の告知に「<a href="https://x.com/BlueArchive_kg2/status/2059154172373836095" target="_blank" rel="noopener">5月27日のアプデ以降、開始スキルの設定上限が増えます 通常戦闘：3→5 制約解除決戦：5→9</a>」とあります。並びの何発目までが指定できる範囲かは、下の一覧に線で出しています。</p>
+        <p><b>山札はパーティの人数ぶん、手札は 3 枚です。</b><a href="https://syoyougame.jp/bluearchive/3220602622" target="_blank" rel="noopener">ブルーアーカイブ攻略wiki「スキル回しの効率的な方法」</a>に「手札のスキルカードは、1度に3枚まで表示されます」「使用したスキルカードは山札の一番下にいきます」「残り3枚のスキルカードは、手札を使用すると順番に引いてきます」「スキルカードの枚数は、パーティのキャラ数と同じです」とあります。<b>使ったカードが一番下に回るだけなので、最初の並びが決まれば以降は運が入りません。</b>6 人編成なら 6 発でひと回りして、手札も山札も最初の状態に戻ります。このツールは山札の並びを「TL に出てきた順」として、手札を同じ規則で回しています。</p>
+        <p><b>開始スキルで指定できる人数は、通常編成 5 人・制約解除決戦 9 人です。</b>2026 年 5 月 27 日のアップデートで、それぞれ 3 人・5 人から増えました。神ゲー攻略の告知に「<a href="https://x.com/BlueArchive_kg2/status/2059154172373836095" target="_blank" rel="noopener">5月27日のアプデ以降、開始スキルの設定上限が増えます 通常戦闘：3→5 制約解除決戦：5→9</a>」とあります。<b>指定できないのは最後の 1 人だけで、それは残り物なので自動的に決まります。</b>つまり山札の並びは全部決められます。</p>
         <p><b>制約解除決戦はストライカー 6 人・スペシャル 4 人の 10 人編成で、コストの上限は 20 です。</b>
           <a href="https://game8.jp/blue-archive/680052" target="_blank" rel="noopener">Game8「制約解除決戦の攻略とおすすめ編成」</a>に「ストライカー生徒6人とスペシャル生徒4人を編成することができます」「コストの最大値も20まで増加しており」とあります。コスト回復力の素は 700 × 10 人で 7000、1 コスト 1.43 秒です。</p>
         <p><b>開始時のコストはゲームのデータに入っていませんでした。</b>

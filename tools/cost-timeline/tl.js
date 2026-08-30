@@ -1,11 +1,15 @@
 /* TL のコスト計算機。
 
-   見ているのは 2 つだけ。
+   見ているのは 3 つ。
    ① 編成した 6 人（制約解除決戦なら 10 人）からコスト回復力を出す
    ② 並べた EX を上から順に置いて、コストの都合で撃てる時刻を出す
+   ③ **その順番が手札の上で成り立つかを確かめる**
 
-   **手札の並びは扱っていない。** ブルアカのカードは使うと山札に戻って引き直されるので、
-   撃ちたい順に撃てるとは限らない。ここで出るのは下限であって、TL そのものではない。 */
+   ③ について。ブルアカのスキルカードは **山札 ＝ 編成人数、手札 ＝ 3 枚**で、
+   使ったカードは山札の一番下に戻り、次のカードが順に引かれる。
+   **並びが決まれば、そこから先は運が入らない。**開始スキルで最初の並びを
+   指定できるので（通常編成 5 人・制約解除決戦 9 人。残り 1 人は自動で決まる）、
+   TL は最後まで再現できる。撃ちたい子が手札に無ければ、そこで詰まる。 */
 (function () {
   'use strict';
   var D = window.TL;
@@ -290,11 +294,43 @@
     return p;
   }
 
+  /* ---------- 手札
+
+     山札は編成人数ぶん。手札はその先頭 3 枚。1 枚使うと、そのカードは山札の
+     一番下へ回り、山札の先頭から 1 枚引いて手札に加わる。**並びが決まれば
+     そのあとはずっと決まる**ので、TL は毎回同じように再現できる。 */
+  var HAND = 3;
+  function deckOrder() {
+    // 山札の並びは「TL に出てくる順」。開始スキルで指定するのがこれにあたる
+    var seen = {}, deck = [];
+    order.forEach(function (e) {
+      if (!seen[e.i] && slots[e.i] && slots[e.i].id) { seen[e.i] = true; deck.push(e.i); }
+    });
+    members().forEach(function (m) { if (!seen[m.i]) { seen[m.i] = true; deck.push(m.i); } });
+    return deck;
+  }
+
+  function playHand(deck) {
+    var hand = deck.slice(0, HAND), rest = deck.slice(HAND);
+    return {
+      hand: function () { return hand.slice(); },
+      /** 撃てたら true。撃てなければ手札を変えずに false */
+      use: function (i) {
+        var at = hand.indexOf(i);
+        if (at < 0) return false;
+        rest.push(i);                 // 使ったカードは山札の一番下へ
+        hand[at] = rest.shift();      // 空いた枠に山札の先頭を引く
+        return true;
+      },
+    };
+  }
+
   /* コストの都合だけで、上から順に置いていく。
      撃っている間もコストは貯まり、次の EX はその演出が終わるまで撃てない。
      時刻を指定した行は、その時刻に足りているかを見て、足りなければ最短へずらす。 */
   function simulate(rate, cap, start) {
     var t = 0, cost = Math.min(cap, start), lock = 0, out = [], segs = [{ t: 0, c: cost }];
+    var deck = deckOrder(), play = playHand(deck);
     order.forEach(function (e, idx) {
       var s = slots[e.i], d = byId[s.id];
       if (!d || !live(e.i)) { out.push({ e: e, d: null }); return; }
@@ -315,10 +351,13 @@
         cost = cAt - need; t = at; lock = at + (d.d || 0) / FPS;
         segs.push({ t: at, c: cost });
       }
+      var hand = play.hand();
+      var drawn = play.use(e.i);
       out.push({ e: e, d: d, s: s, need: need, at: at, soon: soon, why: why,
-                 left: at === null ? 0 : cost, idx: idx });
+                 left: at === null ? 0 : cost, idx: idx,
+                 hand: hand, inHand: drawn });
     });
-    return { rows: out, segs: segs, end: t, cap: cap, rate: rate };
+    return { rows: out, segs: segs, end: t, cap: cap, rate: rate, deck: deck };
   }
 
   function drawTimeline(p) {
@@ -344,16 +383,25 @@
     var sim = simulate(rate, cap, start);
     lastSim = sim;
 
-    var startN = LAYOUT[mode].start;
     el('timeline').innerHTML = sim.rows.map(function (r, i) {
       var fixed = r.e.t != null;
-      // **指定できるのはここまで、という線。**これより後ろは手札しだい
-      var mark = (i === startN) ? '<div class="cut"><span>ここから先は手札しだい</span></div>' : '';
-      return mark + '<div class="tlrow' + (r.why ? ' bad' : '') + '">' +
+      // **`<b>` は使わない。**`.tlrow .tx b` が display: block なので、
+      // 手札の中で太字にすると、そこで行が折れて「手札 ホシノ／・ハナコ」になる
+      var names = r.hand.map(function (k) {
+        var d = byId[slots[k].id], nm = esc(d ? d.n : '？');
+        return k === r.e.i ? '<span class="me">' + nm + '</span>' : nm;
+      }).join('・');
+      var mark = '';
+      if (!r.inHand) {
+        mark = '<div class="cut bad"><span>' + esc(r.d.n) +
+          ' はこのとき手札にありません（手札は ' + r.hand.map(function (k) {
+            var d = byId[slots[k].id]; return d ? d.n : '？'; }).join('・') + '）</span></div>';
+      }
+      return mark + '<div class="tlrow' + (r.why || !r.inHand ? ' bad' : '') + '">' +
         '<span class="no">' + (i + 1) + '</span>' +
         '<img src="' + face(r.d.id) + '" alt="" width="40" height="40" loading="lazy">' +
         '<span class="tx"><b>' + esc(r.d.n) + '</b><small>' + esc(r.d.en) + '／' + r.need + ' コスト' +
-        (r.d.d ? '／演出 ' + n1(r.d.d / FPS) + ' 秒' : '') + '</small>' +
+        (r.d.d ? '／演出 ' + n1(r.d.d / FPS) + ' 秒' : '') + '<br>手札 ' + names + '</small>' +
         '<span class="when"><select data-k="mode-at" data-j="' + i + '">' +
         '<option value="auto"' + (fixed ? '' : ' selected') + '>最短で</option>' +
         '<option value="fix"' + (fixed ? ' selected' : '') + '>この秒に</option></select>' +
@@ -367,11 +415,19 @@
 
     var ok = sim.rows.filter(function (r) { return r.d && r.at !== null; });
     var ng = sim.rows.filter(function (r) { return r.d && r.why; });
-    var over = order.length > startN ? '順番をそのまま指定できるのは ' + startN + ' 発目までです。' : '';
-    el('tl-lead').textContent = (ng.length
-      ? ng.length + ' 発、指定どおりには撃てません。'
-      : ok.length + ' 発ぜんぶ撃つのに、コストの都合では最短 ' +
-        n1(ok.length ? ok[ok.length - 1].at : 0) + ' 秒かかります。') + over;
+    var miss = sim.rows.filter(function (r) { return !r.inHand; });
+    var pin = Math.min(LAYOUT[mode].start, sim.deck.length);
+    var full = pin >= sim.deck.length - 1;
+    el('tl-lead').textContent = (miss.length
+      ? miss.length + ' 発、そのとき手札にありません。並べ直してください。'
+      : ng.length
+        ? ng.length + ' 発、指定した秒には撃てません。'
+        : ok.length + ' 発ぜんぶ撃つのに、コストの都合では最短 ' +
+          n1(ok.length ? ok[ok.length - 1].at : 0) + ' 秒かかります。') +
+      (miss.length || !sim.deck.length ? ''
+        : '山札は ' + sim.deck.length + ' 枚で、開始スキルで指定できるのは ' + pin + ' 人。' +
+          (full ? '残りは自動で決まるので、この並びは最後まで再現できます。'
+                : '指定できない ' + (sim.deck.length - pin) + ' 人ぶんは山札の順しだいです。'));
 
     el('out').value = sim.rows.filter(function (r) { return r.d && r.at !== null; })
       .map(function (r) {
