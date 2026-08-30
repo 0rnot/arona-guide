@@ -16,10 +16,16 @@ import sys
 import pathlib
 
 CJK = "、-〿぀-ヿ㐀-鿿！-｠一-鿿"
+# **文の切れ目。**タグをまたいで畳んでよいのは、ここで切れているときだけ
+END = "。、）」』】〉》・！？…"
 INLINE = "b|i|em|strong|code|a|span|small|sup|sub|u|s|kbd|abbr|time|mark"
 TAGS = f"(?:</?(?:{INLINE})\\b[^>]*>\\s*)*"
-BREAK = re.compile(f"([{CJK}])({TAGS})[ \t]*\n[ \t]*({TAGS})([{CJK}])")
-SKIP = re.compile(r"(<script\b.*?</script>|<style\b.*?</style>)", re.S | re.I)
+# タグを挟まない改行は、両側が CJK なら畳んでよい
+PLAIN = re.compile(f"([{CJK}])[ \t]*\n[ \t]*([{CJK}])")
+# **タグをまたぐときは条件を厳しくする。**`データの出どころ⏎<a>そうりきボーダー</a>` の
+# ような「並べるための空白」まで消してしまうため（2026-08-30 に 2 箇所やってしまった）
+TAGGED = re.compile(f"([{END}])({TAGS})[ \t]*\n[ \t]*({TAGS})([{CJK}])")
+SKIP = re.compile(r"(<script\b.*?</script>|<style\b.*?</style>|<!--.*?-->)", re.S | re.I)
 
 
 def fix(text):
@@ -32,7 +38,8 @@ def fix(text):
         # 畳んだ結果また隣り合うことがあるので、変化しなくなるまで回す
         while part != prev:
             prev = part
-            part = BREAK.sub(lambda m: m.group(1) + m.group(2).rstrip() + m.group(3).rstrip() + m.group(4), part)
+            part = PLAIN.sub(lambda m: m.group(1) + m.group(2), part)
+            part = TAGGED.sub(lambda m: m.group(1) + m.group(2).rstrip() + m.group(3).rstrip() + m.group(4), part)
         out.append(part)
     return "".join(out)
 

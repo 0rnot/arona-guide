@@ -704,7 +704,10 @@ footer {
   /* 手順の番号を少し小さく */
   .step-n { width: 1.8em; height: 1.8em; font-size: .86rem; }
 
-  .invite { border-radius: 0; margin-left: -18px; margin-right: -18px; }
+  /* **端まで伸ばすのに負の余白は要らない。**親（main）に横の余白が無いので、
+     -18px を入れると左右に 18px ずつはみ出して横スクロールが出る
+     （2026-08-30 に 390px で 18px の横スクロールを実測）。角を落とすだけでよい */
+  .invite { border-radius: 0; }
 }
 
 /* 指で押したときの青い箱を消す（枠は :focus-visible が出す） */
