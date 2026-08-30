@@ -446,7 +446,9 @@ a.tcard:hover .ticon { transform: scale(1.09) rotate(-4deg); }
    tools/tool.css から見た ../img/（＝サイト直下の /img/）になってしまう
    （2026-08-30 に実測）。ここに書けば基準は tools/ で揃う。
    **1 行はビルドが吐いたもの。増やすときは scripts/build-tool-data.py の UI_ICONS へ** */
+.gi-cafe-icon-comfort { --gi: url(img/ui_cafe_icon_comfort.webp); }
 .gi-cafe-icon-interaction { --gi: url(img/ui_cafe_icon_interaction.webp); }
+.gi-school-icon-schedule-favor { --gi: url(img/ui_school_icon_schedule_favor.webp); }
 .gi-common-icon-formation-star-r1 { --gi: url(img/ui_common_icon_formation_star_r1.webp); }
 .gi-common-icon-time { --gi: url(img/ui_common_icon_time.webp); }
 .gi-craftnode-credit { --gi: url(img/ui_craftnode_credit.webp); }
@@ -546,3 +548,7 @@ body.tour-on { overflow: hidden; }
 }
 .tour-open { margin-top: 14px; }
 @media (prefers-reduced-motion: reduce) { .tour-ring { transition: none; } }
+
+/* 贈り物の効き目の絵。**色が付いているので mask ではなく <img>。**
+   `.gi` の仕掛け（currentColor を型抜き）に通すと真っ黒になる */
+.mtag .gico { width: 16px; height: 16px; vertical-align: -.24em; margin-right: .2em; }

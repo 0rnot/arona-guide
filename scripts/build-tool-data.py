@@ -103,8 +103,13 @@ UI_ICONS = [
     "Type_Attack", "Type_Defense",
     # 役割
     "Role_DamageDealer", "Role_Healer", "Role_Supporter", "Role_Tanker", "Role_Vehicle",
+    # 贈り物の効き目（×1〜×4）。**ゲームの中の絵と同じもの。**
+    # SchaleDB も `Cafe_Interaction_Gift_0{一致タグ数+1}.png` で出している
+    "Cafe_Interaction_Gift_01", "Cafe_Interaction_Gift_02",
+    "Cafe_Interaction_Gift_03", "Cafe_Interaction_Gift_04",
     # そのほか
-    "Cafe_Icon_Interaction", "Common_Icon_Time", "Image_Compare",
+    "Cafe_Icon_Interaction", "Cafe_Icon_Comfort", "School_Icon_Schedule_Favor",
+    "Common_Icon_Time", "Image_Compare",
     "CraftNode_Credit", "CraftNode_Favor", "CraftNode_Item",
     "CraftNode_SecretStone", "CraftNode_UltimateSkill",
     # **これだけは色付き**（金の星に数字）。mask ではなく <img> で置く

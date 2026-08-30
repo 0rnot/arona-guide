@@ -20,6 +20,10 @@
           padding: .5em 0; border-bottom: 1px solid var(--line); }
   .gift:last-of-type { border-bottom: 0; }
   .gift img { width: 50px; height: 50px; border-radius: 8px; background: var(--bg-sub); }
+  /* **効き目の絵は小さく。**上の `.gift img` に負けるので、ここで指定し直す
+     （width 属性は CSS に勝てない。2026-08-30 に 50px で出て気づいた） */
+  .gift .mtag .gico { width: 16px; height: 16px; border-radius: 0; background: none;
+                      vertical-align: -.24em; margin-right: .2em; }
   .gift .nm { font-size: .86rem; line-height: 1.45; }
   .gift .nm small { display: block; color: var(--fg-mute); font-size: .74rem; }
   .gift .ex { text-align: right; font-variant-numeric: tabular-nums; font-weight: 800; font-size: .95rem; }
@@ -194,7 +198,7 @@
     <div class="tcol">
       <div class="stats c3">
         <div class="stat hero">
-          <div class="k">必要な絆経験値</div>
+          <div class="k"><i class="gi gi-school-icon-schedule-favor"></i> 必要な絆経験値</div>
           <div class="v" id="o-need">—</div>
           <div class="sub" id="o-need-sub"></div>
         </div>
@@ -376,7 +380,12 @@
       return '<div class="gift' + (x.mult >= 4 ? ' m4' : '') + '">' +
         '<img src="../img/' + x.g.i + '.webp" alt="" width="50" height="50" loading="lazy">' +
         '<span class="nm">' + x.g.n +
-          '<small>基本 ' + x.g.e + '<span class="mtag' + (x.mult >= 3 ? ' on' : '') + '">×' + x.mult + '</span></small></span>' +
+          '<small>基本 ' + x.g.e +
+          '<span class="mtag' + (x.mult >= 3 ? ' on' : '') + '">' +
+            // **ゲームの中と同じ絵。**一致したタグの数で贈り物の箱が変わる
+            '<img class="gico" src="../img/ui_cafe_interaction_gift_0' + x.mult +
+            '.webp" alt="" width="18" height="18" loading="lazy">×' + x.mult +
+          '</span></small></span>' +
         '<span class="ex">' + x.exp + '<small>絆経験値</small></span>' +
         '<input type="number" inputmode="numeric" min="0" step="1" value="' + (have[x.g.id] || 0) + '" data-g="' + x.g.id + '" aria-label="' + x.g.n + 'の個数">' +
         '</div>';
