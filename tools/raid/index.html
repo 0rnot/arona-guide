@@ -35,6 +35,8 @@
   .pick-row > .lb { font-size: .8rem; font-weight: 700; color: var(--fg-mute); }
 
   .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(154px, 1fr)); gap: 10px; }
+  /* **274 人ぶん並ぶと本文が押し出される。**中でスクロールさせる */
+  .gwrap { max-height: 62vh; overflow-y: auto; padding: 2px; -webkit-overflow-scrolling: touch; }
   .card {
     display: grid; grid-template-columns: 54px 1fr; gap: 10px; align-items: center;
     padding: 8px; border: 1px solid var(--line); border-radius: 12px; background: var(--card);
@@ -162,7 +164,7 @@
       <label class="tag" style="cursor:pointer"><input type="checkbox" id="only" style="margin-right:.4em;vertical-align:-1px">通る子だけ</label>
       <span style="font-size:.8rem;color:var(--fg-mute)" id="n"></span>
     </div>
-    <div class="grid" id="list"></div>
+    <div class="gwrap"><div class="grid" id="list"></div></div>
   </div>
 
   <div class="note-box">

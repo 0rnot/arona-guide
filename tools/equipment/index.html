@@ -66,6 +66,18 @@
   .uni img { width: 56px; height: 56px; display: block; margin: 0 auto 2px; }
   .uni .t { font-size: .74rem; font-weight: 800; color: var(--fg-mute); margin-bottom: .35em; }
   .uni input { width: 100%; text-align: center; padding: .3em .2em; font-size: .9rem; }
+  .roster {
+    display: grid; gap: 12px; padding: 14px 16px; margin-bottom: 16px;
+    border: 1px solid var(--line); border-radius: 12px; background: var(--bg-sub);
+  }
+  .roster .rl b { font-size: .88rem; display: block; margin-bottom: .3em; }
+  .roster .rl small { font-size: .78rem; color: var(--fg-mute); line-height: 1.75; display: block; word-break: auto-phrase; }
+  .roster .ri { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; }
+  .roster .ri span { display: block; }
+  .roster label { display: block; font-size: .72rem; color: var(--fg-mute); margin-bottom: .25em; }
+  .roster input, .roster select { width: 110px; padding: .38em .55em; font-size: .9rem; text-align: center; }
+  .goalrow .imp { display: block; font-size: .68rem; color: var(--fg-mute); font-variant-numeric: tabular-nums; }
+  .goalhead small { display: block; font-size: .62rem; opacity: .8; }
 </style>
 </head>
 <body>
@@ -111,12 +123,20 @@
       <div class="panel">
         <div class="panel-h"><span class="n">01</span><h2>目標</h2></div>
         <p class="lead">部位ごとに、<b>今の Tier から目標の Tier まで、何個ぶん</b>上げたいかを入れます。<b>お守り・腕時計・ネックレスは T9 が上限</b>です。</p>
-        <div class="goalhead"><span></span><span>部位</span><span>今</span><span>目標</span><span>個数</span></div>
+        <div class="roster">
+          <div class="rl"><b>生徒の人数から入れる</b><small>生徒 1 人が装備欄を 3 つ持っていて、どの部位を使うかは決まっています。人数を入れると、部位ごとに要る個数を割り出します（全 <b id="r-n">—</b> 人の装備欄から）。</small></div>
+          <div class="ri">
+            <span><label for="i-people">人数</label><input id="i-people" type="number" inputmode="numeric" min="1" max="300" step="1" value="30"></span>
+            <span><label for="i-goal">目標 Tier</label><select id="i-goal"></select></span>
+            <button type="button" class="btn pri" id="b-people">入れる</button>
+          </div>
+        </div>
+        <div class="goalhead"><span></span><span>部位<small id="imp-note"></small></span><span>今</span><span>目標</span><span>個数</span></div>
         <div id="goals"></div>
         <div class="btnrow" style="margin-top:16px">
           <button type="button" class="btn" id="b-clear">ぜんぶ 0 に</button>
           <button type="button" class="btn" id="b-t9">みんな T9 まで 1 個</button>
-          <button type="button" class="btn pri" id="b-t10">上げられるだけ 1 個</button>
+          <button type="button" class="btn" id="b-t10">上げられるだけ 1 個</button>
         </div>
       </div>
 
@@ -160,6 +180,12 @@
         <div class="panel-h"><span class="n">04</span><h2>いま回るならここ</h2></div>
         <p class="lead"><b>足りない設計図が 1 AP あたり何個手に入るか</b>で並べています。足りている部位のドロップは数えていません。</p>
         <div class="btnrow" style="margin-bottom:12px">
+          <span style="font-size:.8rem;font-weight:700;color:var(--fg-mute)">ドロップ</span>
+          <div class="seg" id="mul" role="group" aria-label="ドロップ倍率">
+            <button type="button" data-m="1" aria-pressed="true">×1</button>
+            <button type="button" data-m="2">×2</button>
+            <button type="button" data-m="3">×3</button>
+          </div>
           <div class="seg" id="diff" role="group" aria-label="難易度">
             <button type="button" data-d="all" aria-pressed="true">両方</button>
             <button type="button" data-d="n">Normal</button>

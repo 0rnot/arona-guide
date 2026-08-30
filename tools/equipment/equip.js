@@ -9,6 +9,9 @@
      推測せずそのまま使って期待値に畳んである（data.js を作る時点で済ませている）
    - **「T◯装備設計図選択ボックス」（通称 万能設計図）は部位を選ばない。**
      その Tier の不足なら、どの部位にも充てられる。T2〜T8 しか無い
+   - **部位ごとに使う生徒の数がまるで違う。**ヘアピンは 274 人中 175 人、
+     お守りは 38 人。「9 部位を同じ数だけ」揃えるのは無駄が大きい
+   - **ドロップ 2 倍・3 倍のときは、期待値がそのまま倍になる。**AP は変わらない
    ------------------------------------------------------------ */
 (function () {
   'use strict';
@@ -22,6 +25,7 @@
   var UNI_MIN = 2, UNI_MAX = 8;   // 選択ボックスは T2〜T8 しか存在しない
   var bpCat = CATS[0];
   var diff = 'all';
+  var mul = 1;       // ドロップ倍率（2 倍・3 倍のとき）
 
   CATS.forEach(function (c) {
     state[c] = { from: 1, to: MAXT[c], n: 0 };
@@ -39,9 +43,12 @@
       var from = '', to = '';
       for (var t = 1; t <= mx; t++) from += '<option value="' + t + '">T' + t + '</option>';
       for (var t2 = 2; t2 <= mx; t2++) to += '<option value="' + t2 + '"' + (t2 === mx ? ' selected' : '') + '>T' + t2 + '</option>';
+      var used = (E.slots && E.slots[c]) || 0, ros = E.roster || 0;
+      var pct = ros ? Math.round(used / ros * 100) : 0;
       return '<div class="goalrow">' +
         '<img src="' + icon(c, mx) + '" alt="" width="42" height="42" loading="lazy">' +
-        '<span class="nm">' + JA[c] + '<br><small style="color:var(--fg-mute);font-size:.72rem">上限 T' + mx + '</small></span>' +
+        '<span class="nm">' + JA[c] +
+          '<span class="imp">上限 T' + mx + '　' + used + ' 人が使う（' + pct + '%）</span></span>' +
         '<select data-c="' + c + '" data-k="from" aria-label="' + JA[c] + 'の今の Tier">' + from + '</select>' +
         '<select data-c="' + c + '" data-k="to" aria-label="' + JA[c] + 'の目標 Tier">' + to + '</select>' +
         '<input type="number" inputmode="numeric" min="0" max="99" step="1" value="0" data-c="' + c + '" data-k="n" aria-label="' + JA[c] + 'の個数">' +
@@ -185,7 +192,8 @@
   function dropsOf(s) {
     var m = {};
     function add(c, t, v) { m[c + '|' + t] = (m[c + '|' + t] || 0) + v; }
-    s.d.forEach(function (r) { add(r[0], r[1], r[2]); });
+    // **2 倍・3 倍のときは落ちる枚数がそのまま倍になる。**AP は変わらない
+    s.d.forEach(function (r) { add(r[0], r[1], r[2] * mul); });
     return m;
   }
 
@@ -241,7 +249,17 @@
       });
       if (got <= 0) return;
       parts.sort(function (a, b) { return b.w - a.w; });
-      out.push({ s: s, got: got, per: got / s.ap, score: score / s.ap,
+      // **このステージで、いちばん詰まっている 1 種類を埋めるのに何周か。**
+      // 「不足の合計 ÷ 1 周の枚数」は、設計図が置き換えられるかのように
+      // 見えて嘘になる。1 種類でも足りなければ終わらない
+      var runs = 0;
+      Object.keys(m).forEach(function (k) {
+        var p2 = k.split('|'), lack2 = (sh[p2[0]] && sh[p2[0]][+p2[1]]) || 0;
+        if (!lack2 || !m[k]) return;
+        var need = Math.ceil(lack2 / m[k]);
+        if (need > runs) runs = need;
+      });
+      out.push({ s: s, got: got, per: got / s.ap, score: score / s.ap, runs: runs,
                  parts: parts.map(function (x) { return x.txt; }) });
     });
     out.sort(function (a, b) { return b.score - a.score || b.per - a.per; });
@@ -300,9 +318,10 @@
           return '<div class="stagerow">' +
             '<span class="n">' + (i + 1) + '</span>' +
             '<span><b>' + stageName(x.s) + '</b>' +
-            '<span class="dt2">AP ' + x.s.ap + '　' + x.parts.join('　') + '</span></span>' +
-            '<span class="sc">' + (x.score * 100).toFixed(1) +
-            '<small style="font-weight:400;color:var(--fg-mute)"> 点（' + (x.per * 100).toFixed(1) + ' 枚/100AP）</small></span>' +
+            '<span class="dt2">AP ' + x.s.ap + '　' + (x.per * 100).toFixed(1) + ' 枚/100AP　' +
+              x.parts.join('　') + '</span></span>' +
+            '<span class="sc">' + fmt(x.runs) + '<small style="font-weight:400;color:var(--fg-mute)"> 周' +
+              '<br>' + fmt(x.runs * x.s.ap) + ' AP</small></span>' +
             '</div>';
         }).join('');
 
@@ -333,6 +352,39 @@
     });
     el('need-body').innerHTML = body || '<tr><td colspan="11" style="text-align:left;color:var(--fg-mute)">目標を入れると、ここに必要な枚数が出ます。</td></tr>';
   }
+
+  // ---- 生徒の人数から部位ごとの個数を割り出す
+  // 生徒 1 人は装備欄 3 つ。**どの部位を使うかは生徒ごとに決まっている**ので、
+  // 人数 × その部位を使う生徒の割合が、そのまま要る個数になる
+  (function buildRoster() {
+    var mx = Math.max.apply(null, CATS.map(function (c) { return MAXT[c]; }));
+    var o = '';
+    for (var t = 2; t <= mx; t++) o += '<option value="' + t + '"' + (t === 9 ? ' selected' : '') + '>T' + t + '</option>';
+    el('i-goal').innerHTML = o;
+    el('r-n').textContent = E.roster || '—';
+    el('imp-note').textContent = '（何人が使うか）';
+  })();
+
+  el('b-people').addEventListener('click', function () {
+    var people = Math.max(1, parseInt(el('i-people').value, 10) || 0);
+    var goal = parseInt(el('i-goal').value, 10) || 9;
+    CATS.forEach(function (c) {
+      var used = (E.slots && E.slots[c]) || 0, ros = E.roster || 1;
+      state[c].from = 1;
+      state[c].to = Math.min(goal, MAXT[c]);
+      state[c].n = Math.round(people * used / ros);
+    });
+    syncInputs(); calc();
+  });
+
+  el('mul').addEventListener('click', function (ev) {
+    var b = ev.target.closest('button'); if (!b) return;
+    mul = +b.dataset.m;
+    [].forEach.call(el('mul').querySelectorAll('button'), function (x) {
+      x.setAttribute('aria-pressed', String(+x.dataset.m === mul));
+    });
+    calc(true);
+  });
 
   // ---- ボタン
   el('b-clear').addEventListener('click', function () {

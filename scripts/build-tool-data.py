@@ -296,6 +296,19 @@ def build_equipment():
     # 部位・Tier・レシピは ba-data を正本にして、名前だけ引く
     sd_name = {e["Id"]: e.get("Name", "") for e in as_list(get_json(SD.format("equipment"))) if e.get("Id")}
 
+    # **どの部位を何人が使うか。**生徒 1 人は装備欄を 3 つ持っていて、
+    # その組み合わせは生徒ごとに決まっている。ここから「部位の重み」が出る
+    # （帽子は多くの生徒が使い、お守りは少ない——必要数がまるで違う）
+    students = as_list(get_json(SD.format("students")))
+    slots, roster = {}, 0
+    for st_ in students:
+        eq = st_.get("Equipment") or []
+        if not st_.get("Name") or not eq:
+            continue
+        roster += 1
+        for cat in eq:
+            slots[cat] = slots.get(cat, 0) + 1
+
     def icon_of(e):
         # ba-data の Icon は "UIs/01_Common/02_Equipment/Equipment_Icon_Hat_Tier2_Piece"
         return str(e.get("Icon", "")).split("/")[-1].lower()
@@ -400,6 +413,7 @@ def build_equipment():
     return write_js("tools/equipment/data.js", "EQUIP", {
         "cats": CATS, "catJa": CAT_JA, "maxTier": max_tier,
         "recipes": recipes, "stages": out, "names": names,
+        "slots": slots, "roster": roster,
         "version": "electricgoat/ba-data jp（ドロップ・AP・箱の比率）／ SchaleDB jp（ステージ名・設計図の名前）",
     }, header="/* scripts/build-tool-data.py が吐く。**手で直さない。** */\n")
 
