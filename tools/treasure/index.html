@@ -142,10 +142,7 @@
       ツール一覧
     </a>
     <nav class="topbar-nav">
-      <a href="../../#can">機能</a>
-      <a href="../../#start">つかいはじめる</a>
-      <a href="../../#message">メッセージから</a>
-      <a href="../../#faq">よくある質問</a>
+      <a href="../../#can">機能</a><a href="../../#start">つかいはじめる</a><a href="../../#message">メッセージから</a><a href="../../#faq">よくある質問</a>
     </nav>
     <!-- 共有。**AronaBot 本体と同じ位置に置く。**押した先は環境で変える -->
     <span class="share-nudge" aria-hidden="true">使えそうな人に、ぜひ</span>
@@ -267,8 +264,7 @@
           <select id="event"></select>
           <p class="hintline" id="event-note"></p>
         </div>
-        <p class="wklabel">この周の中身を入れる
-          <small>押すと下の 3 つが入れ替わり、盤面も白紙に戻ります</small></p>
+        <p class="wklabel">この周の中身を入れる<small>押すと下の 3 つが入れ替わり、盤面も白紙に戻ります</small></p>
         <div class="wkrow" id="weeks"></div>
         <div style="margin-top:16px" id="items"></div>
       </div>
@@ -284,27 +280,19 @@
       <details class="src">
         <summary>数字の出どころと、計算のしくみ</summary>
         <p><b>盤は 9 × 5 の 45 マス。</b>備品は重ならずに置かれていて、種類ごとの個数は決まっています。ここから「条件に合う置き方」をすべて数え上げ、そのうち何通りでそのマスが備品に覆われているかを割ったものが確率です。<b>近似やサンプリングは使っていません。</b></p>
-        <p><b>備品は 90 度回して置かれることがあります。</b>3×1 の備品なら、横 3 マスだけでなく縦 3 マスの向きもあり得るということです。
-          <b>これを数に入れているので、見た目より確率が下がることがあります。</b>
-          たとえば横 3 マスの備品を左端の 2 マスぶん見つけたとき、「その右隣も必ず同じ備品」とは限りません。
-          縦向きの別の備品が 2 つ並んでいることもあるからです。
-          <a href="https://github.com/terry-u16/schale-inventory-management" target="_blank" rel="noopener">terry-u16 の在庫管理計算機</a>も、
-          置き方を「回した／回していない」の 2 通りで数えています。</p>
+        <p><b>備品は 90 度回して置かれることがあります。</b>3×1 の備品なら、横 3 マスだけでなく縦 3 マスの向きもあり得るということです。<b>これを数に入れているので、見た目より確率が下がることがあります。</b>たとえば横 3 マスの備品を左端の 2 マスぶん見つけたとき、「その右隣も必ず同じ備品」とは限りません。縦向きの別の備品が 2 つ並んでいることもあるからです。
+          <a href="https://github.com/terry-u16/schale-inventory-management" target="_blank" rel="noopener">terry-u16 の在庫管理計算機</a>も、置き方を「回した／回していない」の 2 通りで数えています。</p>
         <p><b>置いてある前提。</b>置き方はあり得る全通りから一様に選ばれていて、開ける前に決まっており、あとから変わらない。この 3 つを仮定しています。決まった型（絶対に出ない配置）があると、ここで出す数字はずれます。</p>
         <p><b>数え上げのやり方。</b>盤を左の列から順に見ていき、各行について「いまの列から先、あと何マスぶん埋まっているか」だけを持ち歩きます。前向きの数え上げと後ろ向きの数え上げを掛け合わせると、1 マスごとの確率が厳密に出ます。1 周目（タツノオトシゴ 4・海藻 3・ウニ 1）なら、置き方は <b>175,761,438 通り</b>あります。</p>
         <p><b>備品の大きさと個数は、ゲームのデータから毎日作り直しています。</b>
           <code>DB/EventContentTreasureRoundExcelTable.json</code> の <code>RewardID</code> と <code>RewardAmount</code> が周ごとの中身、
           <code>DB/EventContentTreasureRewardExcelTable.json</code> の <code>CellUnderImageWidth</code> / <code>CellUnderImageHeight</code> が備品の大きさ、
           <code>TreasureRoundSize</code> が盤の大きさです。備品の名前は <code>LocalizeCodeID</code> を
-          <b>XXHash32（seed 0）</b>にかけて <code>DB/LocalizeExcelTable.json</code> の <code>Key</code> と突き合わせて引いています。
-          <b>新しいイベントが来れば、翌日には選べるようになります。</b></p>
+          <b>XXHash32（seed 0）</b>にかけて <code>DB/LocalizeExcelTable.json</code> の <code>Key</code> と突き合わせて引いています。<b>新しいイベントが来れば、翌日には選べるようになります。</b></p>
         <p><b>2026-08-30 まではここに DIVE into OCEAN！の 13 周ぶんを手で書いていました。</b>
           <a href="https://github.com/terry-u16/schale-inventory-management" target="_blank" rel="noopener">terry-u16/schale-inventory-management</a>（MIT ライセンス）の
-          <code>src/components/MainArea.tsx</code> から写したものです。データから作り直した値と 1 つ残らず一致しました。
-          「周目」という呼び方も、ゲーム側の列名 <code>TreasureRound</code> と、同じリポジトリの日本語ロケール（1周目〜13周目以降）に合わせています。
-          解き方は同じ考え方の DP ですが、こちらは通り数がいくつでも厳密な値を出します。</p>
-        <p><b>過去のイベントもぜんぶ選べます。</b>在庫管理のミニゲームは名前と大きさを変えて何度も来ていて、今のところ 12 回ぶんが入っています。
-          載っていないものでも、備品は毎回 3 種類なので、上の欄を書き換えればそのまま使えます。</p>
+          <code>src/components/MainArea.tsx</code> から写したものです。データから作り直した値と 1 つ残らず一致しました。「周目」という呼び方も、ゲーム側の列名 <code>TreasureRound</code> と、同じリポジトリの日本語ロケール（1周目〜13周目以降）に合わせています。解き方は同じ考え方の DP ですが、こちらは通り数がいくつでも厳密な値を出します。</p>
+        <p><b>過去のイベントもぜんぶ選べます。</b>在庫管理のミニゲームは名前と大きさを変えて何度も来ていて、今のところ 12 回ぶんが入っています。載っていないものでも、備品は毎回 3 種類なので、上の欄を書き換えればそのまま使えます。</p>
         <p>取得は <span id="ver">—</span>。</p>
       </details>
     </div>
@@ -325,12 +313,8 @@
       <span>不具合・要望は <b>@0r.not</b> まで</span>
     </p>
     <p class="disclaimer">
-      <b>このサイトはファンが作った非公式のものです。</b>運営とは関係ありません。
-      <small>掲載しているゲーム内の画像・アイコン・名称・数値は、Nexon Games / Yostar の
-      「ブルーアーカイブ」から引用したもので、著作権はすべて権利者に帰属します。
-      ツールの計算に使うデータは <a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a> と
-      <a href="https://github.com/electricgoat/ba-data" target="_blank" rel="noopener">ba-data</a> から取得しています。
-      権利者の方でご指摘があれば <b>@0r.not</b> までご連絡ください。</small>
+      <b>このサイトはファンが作った非公式のものです。</b>運営とは関係ありません。<small>掲載しているゲーム内の画像・アイコン・名称・数値は、Nexon Games / Yostar の「ブルーアーカイブ」から引用したもので、著作権はすべて権利者に帰属します。ツールの計算に使うデータは <a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a> と
+      <a href="https://github.com/electricgoat/ba-data" target="_blank" rel="noopener">ba-data</a> から取得しています。権利者の方でご指摘があれば <b>@0r.not</b> までご連絡ください。</small>
     </p>
   </div>
 </footer>

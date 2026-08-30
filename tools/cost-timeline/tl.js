@@ -17,7 +17,10 @@
   /* 通常は ストライカー 4 ＋ スペシャル 2、制約解除決戦は 6 ＋ 4。
      枠の数はモードで変わるが、**slots の並びは常に「ストライカーが先」**にしておき、
      使わない後ろの枠は空のまま持っておく（モードを戻したときに編成が消えない）。 */
-  var LAYOUT = { 6: { main: 4, sup: 2, cap: 10 }, 10: { main: 6, sup: 4, cap: 20 } };
+  // **`start` は開始スキルで順番を指定できる人数。**2026-05-27 のアップデートで
+  // 通常編成 3→5、制約解除決戦 5→9 に増えた。ここまでは並べたとおりに撃てる
+  var LAYOUT = { 6: { main: 4, sup: 2, cap: 10, start: 5 },
+                 10: { main: 6, sup: 4, cap: 20, start: 9 } };
   var MAIN_MAX = 6, SUP_MAX = 4;
 
   function n1(v) { return (Math.round(v * 10) / 10).toLocaleString('ja-JP', { minimumFractionDigits: 1, maximumFractionDigits: 1 }); }
@@ -341,9 +344,12 @@
     var sim = simulate(rate, cap, start);
     lastSim = sim;
 
+    var startN = LAYOUT[mode].start;
     el('timeline').innerHTML = sim.rows.map(function (r, i) {
       var fixed = r.e.t != null;
-      return '<div class="tlrow' + (r.why ? ' bad' : '') + '">' +
+      // **指定できるのはここまで、という線。**これより後ろは手札しだい
+      var mark = (i === startN) ? '<div class="cut"><span>ここから先は手札しだい</span></div>' : '';
+      return mark + '<div class="tlrow' + (r.why ? ' bad' : '') + '">' +
         '<span class="no">' + (i + 1) + '</span>' +
         '<img src="' + face(r.d.id) + '" alt="" width="40" height="40" loading="lazy">' +
         '<span class="tx"><b>' + esc(r.d.n) + '</b><small>' + esc(r.d.en) + '／' + r.need + ' コスト' +
@@ -361,10 +367,11 @@
 
     var ok = sim.rows.filter(function (r) { return r.d && r.at !== null; });
     var ng = sim.rows.filter(function (r) { return r.d && r.why; });
-    el('tl-lead').textContent = ng.length
+    var over = order.length > startN ? '順番をそのまま指定できるのは ' + startN + ' 発目までです。' : '';
+    el('tl-lead').textContent = (ng.length
       ? ng.length + ' 発、指定どおりには撃てません。'
       : ok.length + ' 発ぜんぶ撃つのに、コストの都合では最短 ' +
-        n1(ok.length ? ok[ok.length - 1].at : 0) + ' 秒かかります。';
+        n1(ok.length ? ok[ok.length - 1].at : 0) + ' 秒かかります。') + over;
 
     el('out').value = sim.rows.filter(function (r) { return r.d && r.at !== null; })
       .map(function (r) {

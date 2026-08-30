@@ -16,8 +16,7 @@
 <meta property="og:description" content="AronaBot — ブルーアーカイブの公式 X を見張って、開催の予定を Discord のイベントに自動で登録します。">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://arona-bot.com/">
-<!-- **ドメインを変えたらここも直すこと。** OGP の画像は絶対 URL でしか指定できず、
-     クローラは JS を動かさないので、自動で追随させる手段が無い。 -->
+<!-- **ドメインを変えたらここも直すこと。** OGP の画像は絶対 URL でしか指定できず、クローラは JS を動かさないので、自動で追随させる手段が無い。 -->
 <meta property="og:image" content="https://arona-bot.com/images/hero-day.jpg">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="stylesheet" href="style.css?v=15">
@@ -27,9 +26,7 @@
 <div class="topbar">
   <div class="topbar-inner">
     <a class="topbar-name" href="#top">AronaBotの使い方</a>
-    <!-- **ツールは別ページなので、節の並びに混ぜない。** 同じ見た目で並べると
-         「使い方の中の一節」に見える（2026-08-30 の先生の指摘）。
-         塗った丸ボタンにして、名前のすぐ隣に出す。狭い画面でも畳まない。 -->
+    <!-- **ツールは別ページなので、節の並びに混ぜない。** 同じ見た目で並べると「使い方の中の一節」に見える（2026-08-30 の先生の指摘）。塗った丸ボタンにして、名前のすぐ隣に出す。狭い画面でも畳まない。 -->
     <a class="topbar-tools" href="tools/">
       <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
         <path d="M21.7 18.3l-6-6a5.5 5.5 0 0 0-7-7l3.1 3.1-2.1 2.1L6.6 7.3a5.5 5.5 0 0 0 7 7l6 6a1 1 0 0 0 1.4 0l.7-.7a1 1 0 0 0 0-1.3z"/>
@@ -37,17 +34,12 @@
       ツール
     </a>
     <nav class="topbar-nav">
-      <a href="#can">機能</a>
-      <a href="#start">つかいはじめる</a>
-      <a href="#message">メッセージから</a>
-      <a href="#faq">よくある質問</a>
+      <a href="#can">機能</a><a href="#start">つかいはじめる</a><a href="#message">メッセージから</a><a href="#faq">よくある質問</a>
     </nav>
     <!-- 共有を促す一言。**広い画面でだけ出す。**
-         狭い画面では節のリンクを畳んで名前と共有ボタンだけにしてあるので、
-         ここに字を足すと窮屈になる。ボタン単体でも意味は伝わる。 -->
+         狭い画面では節のリンクを畳んで名前と共有ボタンだけにしてあるので、ここに字を足すと窮屈になる。ボタン単体でも意味は伝わる。 -->
     <span class="share-nudge" aria-hidden="true">先生のサーバーにも、ぜひ</span>
-    <!-- 共有ボタン。**JS が動かない環境では X の共有ページへ飛ぶ <a> のまま**なので、
-         押しても何も起きないということにはならない。 -->
+    <!-- 共有ボタン。**JS が動かない環境では X の共有ページへ飛ぶ <a> のまま**なので、押しても何も起きないということにはならない。 -->
     <a class="share" id="share" target="_blank" rel="noopener" aria-label="このページを共有する"
        href="https://x.com/intent/post?text=%E3%83%96%E3%83%AB%E3%82%A2%E3%82%AB%E3%81%AE%E9%96%8B%E5%82%AC%E4%BA%88%E5%AE%9A%E3%82%92%20Discord%20%E3%81%AE%E3%82%A4%E3%83%99%E3%83%B3%E3%83%88%E3%81%AB%E8%87%AA%E5%8B%95%E3%81%A7%E5%85%A5%E3%82%8C%E3%81%A6%E3%81%8F%E3%82%8C%E3%82%8B%20Bot&url=https%3A%2F%2Farona-bot.com%2F">
       <svg class="share-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -71,8 +63,7 @@
   <div class="hero-body">
     <h1>AronaBotの使い方</h1>
     <!-- キャッチコピー。**説明より前に、目に入る大きさで。**
-         「シッテムの箱」はアロナが住んでいるところなので、
-         「アロナを招く ＝ サーバーがシッテムの箱になる」という言い方にしてある。 -->
+         「シッテムの箱」はアロナが住んでいるところなので、「アロナを招く ＝ サーバーがシッテムの箱になる」という言い方にしてある。 -->
     <p class="hero-catch">あなたのサーバーを、シッテムの箱に。</p>
     <p class="hero-lead">ブルーアーカイブの公式 X を見張って、<br class="br-sp">
       <b>開催の予定を Discord のイベントに自動で登録</b>します。</p>
@@ -84,18 +75,12 @@
     </p>
     <a class="cta" href="https://discord.com/oauth2/authorize?client_id=1534362868072321094&permissions=17875654003712&integration_type=0&scope=bot" target="_blank" rel="noopener">サーバーに招待する</a>
     <nav class="toc">
-      <!-- **上部バーと同じ並びにする。** 節の間に混ぜると「使い方の一節」に見えるし、
-           バーとここで順番が違うのも落ち着かない（2026-08-30 の先生の指摘） -->
+      <!-- **上部バーと同じ並びにする。** 節の間に混ぜると「使い方の一節」に見えるし、バーとここで順番が違うのも落ち着かない（2026-08-30 の先生の指摘） -->
       <a class="toc-tools" href="tools/">
         <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
           <path d="M21.7 18.3l-6-6a5.5 5.5 0 0 0-7-7l3.1 3.1-2.1 2.1L6.6 7.3a5.5 5.5 0 0 0 7 7l6 6a1 1 0 0 0 1.4 0l.7-.7a1 1 0 0 0 0-1.3z"/>
         </svg>
-        ツール
-      </a>
-      <a href="#can">機能</a>
-      <a href="#start">つかいはじめる</a>
-      <a href="#message">メッセージから</a>
-      <a href="#faq">よくある質問</a>
+        ツール</a><a href="#can">機能</a><a href="#start">つかいはじめる</a><a href="#message">メッセージから</a><a href="#faq">よくある質問</a>
     </nav>
   </div>
 </header>
@@ -117,9 +102,7 @@
       <div class="main-feat">
         <p class="tag">主な機能</p>
         <h3>イベントの自動登録</h3>
-        <p>公式の告知を拾って、<b>Discord のイベントに予定を登録します。</b>
-          総力戦・合同火力演習・キャンペーン。
-          期間と告知画像つきで並ぶので、<b>いつ始まっていつ終わるかが一目で分かります。</b></p>
+        <p>公式の告知を拾って、<b>Discord のイベントに予定を登録します。</b>総力戦・合同火力演習・キャンペーン。期間と告知画像つきで並ぶので、<b>いつ始まっていつ終わるかが一目で分かります。</b></p>
         <figure class="main-feat-shot">
           <a class="zoom" href="images/event-list.webp"><img src="images/event-list.webp"
             alt="サーバーのイベント一覧にアロナが登録した予定が 2 件並んでいる画面"
@@ -129,9 +112,7 @@
       <div class="main-feat">
         <p class="tag">主な機能</p>
         <h3>公式 X の通知</h3>
-        <p>公式アカウントの投稿を拾って、<b>選んだチャンネルへ流します。</b>
-          開催の知らせやメンテナンスの開始・延長・終了も、
-          告知を読み取って<b>そのつどお伝えします。</b></p>
+        <p>公式アカウントの投稿を拾って、<b>選んだチャンネルへ流します。</b>開催の知らせやメンテナンスの開始・延長・終了も、告知を読み取って<b>そのつどお伝えします。</b></p>
         <figure class="main-feat-shot">
           <a class="zoom" href="images/notice-x.webp"><img src="images/notice-x.webp"
             alt="公式 X の投稿がアロナ経由でチャンネルに流れている画面。本文と告知画像とリンクが並んでいる"
@@ -155,12 +136,9 @@
       <div class="feature-text">
         <p class="cmd">/st</p>
         <h4>総力戦・大決戦を調べる</h4>
-        <p>コンテンツとボスを選ぶと、<b>攻略情報</b>（推奨属性・地形・編成の考え方・ギミック）か
-          <b>ボーダー情報</b>（プラチナ / ゴールド / シルバー）を出します。
-          開催中は定期的に数字を取り直します。</p>
+        <p>コンテンツとボスを選ぶと、<b>攻略情報</b>（推奨属性・地形・編成の考え方・ギミック）か<b>ボーダー情報</b>（プラチナ / ゴールド / シルバー）を出します。開催中は定期的に数字を取り直します。</p>
       </div>
-      <!-- **3 枚で 1 本の流れを見せる。** コンテンツを選ぶ → ボスを選ぶ → 結果。
-           途中を飛ばすと「選ぶだけ」がどれくらい手軽なのか伝わらない。 -->
+      <!-- **3 枚で 1 本の流れを見せる。** コンテンツを選ぶ → ボスを選ぶ → 結果。途中を飛ばすと「選ぶだけ」がどれくらい手軽なのか伝わらない。 -->
       <div class="shots shots-3">
         <figure><a class="zoom" href="images/st-menu.webp"><img src="images/st-menu.webp" alt="/st で総力戦か大決戦かを選ぶ画面" loading="lazy" width="530" height="232"></a>
           <figcaption>まずコンテンツを選びます</figcaption></figure>
@@ -175,12 +153,9 @@
       <div class="feature-text">
         <p class="cmd">/g</p>
         <h4>開催中の募集を 10 連引く</h4>
-        <p><b>今やっている募集から選んで引けます。</b>公式 X の告知を読んで、
-          ピックアップ生徒も提供割合も自動で合わせます。
-          <b>周年記念募集なら★3 は 6%、すり抜けには周年の生徒も混ざります。</b>
+        <p><b>今やっている募集から選んで引けます。</b>公式 X の告知を読んで、ピックアップ生徒も提供割合も自動で合わせます。<b>周年記念募集なら★3 は 6%、すり抜けには周年の生徒も混ざります。</b>
           10 回目は★2以上が確定。ボタンからそのまま引き直せます。</p>
-        <p class="mini">開催中のものが分からないときは、2026 年 7 月 29 日に廃止された
-          「通常募集」の確率で引きます。</p>
+        <p class="mini">開催中のものが分からないときは、2026 年 7 月 29 日に廃止された「通常募集」の確率で引きます。</p>
       </div>
       <div class="feature-text">
         <p class="cmd">/h</p>
@@ -204,8 +179,7 @@
     <div class="feature feature-wide is-flipped">
       <div class="feature-text">
         <h4>公式 X の投稿は、そのまま流れます</h4>
-        <p>公式アカウントが投稿すると、<b>本文と画像をそのまま選んだチャンネルへ出します。</b>
-          元の投稿へのリンクも付くので、<b>X を開かなくても中身が読めます。</b></p>
+        <p>公式アカウントが投稿すると、<b>本文と画像をそのまま選んだチャンネルへ出します。</b>元の投稿へのリンクも付くので、<b>X を開かなくても中身が読めます。</b></p>
       </div>
       <div class="shots shots-narrow">
         <figure><a class="zoom" href="images/notice-x.webp"><img src="images/notice-x.webp" alt="公式 X の投稿がアロナ経由でチャンネルに流れている画面。本文と告知画像とリンクが並んでいる" loading="lazy" width="480" height="675"></a>
@@ -216,9 +190,7 @@
     <div class="feature feature-wide">
       <div class="feature-text">
         <h4>始まるときも、終わる前にも届きます</h4>
-        <p>告知を読み取って<b>「何が始まったか」を一言で伝えます。</b>
-          総力戦は終了の前日にもう一度出て、ボーダーの数字を続けて出します。
-          下に付くカードは登録された予定そのもので、<b>押すと期間と場所が開きます。</b></p>
+        <p>告知を読み取って<b>「何が始まったか」を一言で伝えます。</b>総力戦は終了の前日にもう一度出て、ボーダーの数字を続けて出します。下に付くカードは登録された予定そのもので、<b>押すと期間と場所が開きます。</b></p>
       </div>
       <div class="shots">
         <figure><a class="zoom" href="images/notice-event.webp"><img src="images/notice-event.webp" alt="終了前日のお知らせと、その下に登録された予定のカードが並んでいる画面" loading="lazy" width="610" height="432"></a>
@@ -229,8 +201,7 @@
     <div class="feature feature-wide is-flipped">
       <div class="feature-text">
         <h4>予定はサーバーの「イベント」に並びます</h4>
-        <p>チャンネルへの投稿ではありません。<b>サーバー名の下にある「イベント」</b>に、
-          期間と告知画像つきで登録されます。開催通知に貼られるリンクからも飛べます。</p>
+        <p>チャンネルへの投稿ではありません。<b>サーバー名の下にある「イベント」</b>に、期間と告知画像つきで登録されます。開催通知に貼られるリンクからも飛べます。</p>
       </div>
       <div class="shots shots-2">
         <figure><a class="zoom" href="images/event-list.webp"><img src="images/event-list.webp" alt="サーバーのイベント一覧にアロナが登録した予定が 2 件並んでいる画面" loading="lazy" width="595" height="715"></a>
@@ -241,8 +212,7 @@
     </div>
   </section>
 
-  <!-- ============================================ ツールへの導線
-       中身は tools/tools.json から scripts/build-tools-index.py が書き込む。
+  <!-- ============================================ ツールへの導線中身は tools/tools.json から scripts/build-tools-index.py が書き込む。
        **手で書き足さない。** -->
   <!-- ============================================ 02 つかいはじめる -->
   <section class="chapter" id="start">
@@ -265,11 +235,9 @@
             <p>項目ごとのカードが出ます。使えるのは<b>「サーバー管理」の権限を持つ人</b>だけです。</p></div></li>
         <li><span class="step-n">3</span>
           <div><b>投稿先を選ぶ</b>
-            <p>メニューからチャンネルを選ぶと、<b>その項目は自動でオンになります。</b>
-              表示が🟢に変われば完了です。</p></div></li>
+            <p>メニューからチャンネルを選ぶと、<b>その項目は自動でオンになります。</b>表示が🟢に変われば完了です。</p></div></li>
       </ol>
-      <p class="note note-in">「開催予定のイベント登録」をオンにすると、<b>そのとき開催中のものもすぐ登録されます。</b>
-        次の告知を待つ必要はありません。</p>
+      <p class="note note-in">「開催予定のイベント登録」をオンにすると、<b>そのとき開催中のものもすぐ登録されます。</b>次の告知を待つ必要はありません。</p>
       </div>
       <div class="shots shots-narrow">
         <figure><a class="zoom" href="images/settings.webp"><img src="images/settings.webp" alt="/settings の設定画面。5 つの項目それぞれにオン・オフのボタンとチャンネル選択が並び、イベント登録には投稿しない旨の注記が付いている" loading="lazy" width="575" height="900"></a>
@@ -288,16 +256,12 @@
       </div>
     </div>
 
-    <!-- **ここだけ画像を置かない。** リマインダーは補助の機能で、
-         手順が 1 行で書ける（先生の判断、2026-08-11）。
+    <!-- **ここだけ画像を置かない。** リマインダーは補助の機能で、手順が 1 行で書ける（先生の判断、2026-08-11）。
          2 列の .feature のままだと右半分が空くので、1 列で持つ。 -->
     <div class="feature-text feature-solo">
       <h3>リマインダー設定</h3>
-      <p><b>スラッシュコマンドではありません。</b>忘れたくないメッセージを
-        長押し（スマホ）／右クリック（PC）して、
-        「アプリ」→ AronaBot → リマインダー設定と進みます。</p>
-      <p>時間が来ると、そのメッセージを引用してお知らせします。
-        予約したあとに出る「リマインダー解除」ボタンで取り消せます。</p>
+      <p><b>スラッシュコマンドではありません。</b>忘れたくないメッセージを長押し（スマホ）／右クリック（PC）して、「アプリ」→ AronaBot → リマインダー設定と進みます。</p>
+      <p>時間が来ると、そのメッセージを引用してお知らせします。予約したあとに出る「リマインダー解除」ボタンで取り消せます。</p>
     </div>
   </section>
 
@@ -322,27 +286,20 @@
         <p><b>スラッシュコマンドではありません。</b>対象のメッセージを長押し（スマホ）／右クリック（PC）して、「アプリ」の中から選びます。</p></details>
 
       <details class="qa"><summary><code>/g</code> のピックアップが古い気がします</summary>
-        <p>公式 X の<b>ピックアップ募集の告知を拾った時点</b>で切り替わります。
-          告知より前は、その回のピックアップを知る方法がありません。
-          <b>読み取れなかったときは、廃止された「通常募集」の形で引きます。</b></p></details>
+        <p>公式 X の<b>ピックアップ募集の告知を拾った時点</b>で切り替わります。告知より前は、その回のピックアップを知る方法がありません。<b>読み取れなかったときは、廃止された「通常募集」の形で引きます。</b></p></details>
 
       <details class="qa"><summary>リマインダーがこれ以上設定できません</summary>
-        <p>同時に持てるのは<b>3 件まで</b>です（「サーバー管理」の権限を持つ人は 15 件）。
-          届くのを待つか、予約したときに出る<b>「リマインダー解除」</b>で減らしてください。</p></details>
+        <p>同時に持てるのは<b>3 件まで</b>です（「サーバー管理」の権限を持つ人は 15 件）。届くのを待つか、予約したときに出る<b>「リマインダー解除」</b>で減らしてください。</p></details>
 
       <details class="qa"><summary>「イベント登録」はどこに出ますか</summary>
-        <p>サーバー名の下にある<b>「イベント」</b>です。チャンネルへは投稿しません。
-          <b>この項目だけはチャンネルを選ばなくてもオンにできます。</b>
-          選ぶと、そこが「イベントの場所」として表示されます。</p></details>
+        <p>サーバー名の下にある<b>「イベント」</b>です。チャンネルへは投稿しません。<b>この項目だけはチャンネルを選ばなくてもオンにできます。</b>選ぶと、そこが「イベントの場所」として表示されます。</p></details>
 
       <details class="qa"><summary>登録されたイベントの日付がずれています</summary>
         <p>告知の文面から読み取っているので、書かれ方によっては外すことがあります。
-          <code>/settings</code> の「開催予定のイベント登録」から<b>そのサーバーぶんだけ消せます。</b>
-          消したものは作り直しません。</p></details>
+          <code>/settings</code> の「開催予定のイベント登録」から<b>そのサーバーぶんだけ消せます。</b>消したものは作り直しません。</p></details>
 
       <details class="qa"><summary>メンテナンスの知らせが二重に届きます</summary>
-        <p><b>「公式 X の更新通知」と同じチャンネルにしている</b>と、公式の投稿そのものと
-          アロナの知らせが並びます。<code>/settings</code> で別のチャンネルに分けてください。</p></details>
+        <p><b>「公式 X の更新通知」と同じチャンネルにしている</b>と、公式の投稿そのものとアロナの知らせが並びます。<code>/settings</code> で別のチャンネルに分けてください。</p></details>
 
       <details class="qa"><summary>ボーダーの数字が変わりません</summary>
         <p>開催期間外は<b>前回の最終結果</b>を出します。開催中は定期的に取り直していますが、<b>元のデータが更新される間隔によります。</b></p></details>
@@ -412,22 +369,15 @@
       <span class="sep">/</span>
       <span>不具合・要望は <b>@0r.not</b> まで</span>
     </p>
-    <!-- **借りているものは名前を出す。** どちらも無ければこのボットは成り立たない。
-         ボーダーは そうりきボーダー の数字、開催予定は公式 X の告知が出どころ。 -->
+    <!-- **借りているものは名前を出す。** どちらも無ければこのボットは成り立たない。ボーダーは そうりきボーダー の数字、開催予定は公式 X の告知が出どころ。 -->
     <p class="credits">
-      データの出どころ
-      <a href="https://souriki-border.com/" target="_blank" rel="noopener">そうりきボーダー</a>（総力戦・大決戦のボーダー）
+      データの出どころ<a href="https://souriki-border.com/" target="_blank" rel="noopener">そうりきボーダー</a>（総力戦・大決戦のボーダー）
       <span class="sep">/</span>
       <a href="https://x.com/Blue_ArchiveJP" target="_blank" rel="noopener">ブルーアーカイブ公式 X（@Blue_ArchiveJP）</a>（開催の告知）
     </p>
     <p class="disclaimer">
-      <b>このサイトはファンが作った非公式のものです。</b>運営とは関係ありません。
-      <small>掲載しているボットの画面には公式が配布した告知画像が含まれます。
-      ツールで使っているゲーム内の画像・アイコン・名称・数値も、Nexon Games / Yostar の
-      「ブルーアーカイブ」から引用したもので、著作権はすべて権利者に帰属します。
-      計算に使うデータは <a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a> と
-      <a href="https://github.com/electricgoat/ba-data" target="_blank" rel="noopener">ba-data</a> から取得しています。
-      権利者の方でご指摘があれば <b>@0r.not</b> までご連絡ください。</small>
+      <b>このサイトはファンが作った非公式のものです。</b>運営とは関係ありません。<small>掲載しているボットの画面には公式が配布した告知画像が含まれます。ツールで使っているゲーム内の画像・アイコン・名称・数値も、Nexon Games / Yostar の「ブルーアーカイブ」から引用したもので、著作権はすべて権利者に帰属します。計算に使うデータは <a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a> と
+      <a href="https://github.com/electricgoat/ba-data" target="_blank" rel="noopener">ba-data</a> から取得しています。権利者の方でご指摘があれば <b>@0r.not</b> までご連絡ください。</small>
     </p>
   </div>
 </footer>

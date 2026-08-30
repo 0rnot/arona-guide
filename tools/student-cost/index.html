@@ -87,10 +87,7 @@
       ツール一覧
     </a>
     <nav class="topbar-nav">
-      <a href="../../#can">機能</a>
-      <a href="../../#start">つかいはじめる</a>
-      <a href="../../#message">メッセージから</a>
-      <a href="../../#faq">よくある質問</a>
+      <a href="../../#can">機能</a><a href="../../#start">つかいはじめる</a><a href="../../#message">メッセージから</a><a href="../../#faq">よくある質問</a>
     </nav>
     <!-- 共有。**AronaBot 本体と同じ位置に置く。**押した先は環境で変える -->
     <span class="share-nudge" aria-hidden="true">使えそうな人に、ぜひ</span>
@@ -183,8 +180,7 @@
 
       <div class="panel">
         <div class="panel-h"><h2>どこまで育てますか</h2></div>
-        <p class="lead">左が今、右が目標です。上げないところは同じ数字のままにしてください。
-          スキルの <b>◎</b> が付いた Lv は、そこで効果の伸びが大きくなるところです。</p>
+        <p class="lead">左が今、右が目標です。上げないところは同じ数字のままにしてください。スキルの <b>◎</b> が付いた Lv は、そこで効果の伸びが大きくなるところです。</p>
         <div id="goals"></div>
         <p class="err" id="err" hidden></p>
       </div>
@@ -232,39 +228,23 @@
     <div class="tfull">
       <details class="src">
         <summary>数字の出どころ</summary>
-        <p><b>素材とクレジットは、ゲームのレシピをそのまま読んでいます。</b>
-          レシピの Id は <code>生徒 Id × 1000 ＋ 枠 × 100 ＋ 段</code>で並んでいて、
-          枠 0 が星上げ、枠 1 が EX スキル、枠 2 がそれ以外のスキル、枠 3 が固有武器、枠 4 が愛用品です。
-          中身は <code>Excel/RecipeIngredientExcelTable.json</code> の
+        <p><b>素材とクレジットは、ゲームのレシピをそのまま読んでいます。</b>レシピの Id は <code>生徒 Id × 1000 ＋ 枠 × 100 ＋ 段</code>で並んでいて、枠 0 が星上げ、枠 1 が EX スキル、枠 2 がそれ以外のスキル、枠 3 が固有武器、枠 4 が愛用品です。中身は <code>Excel/RecipeIngredientExcelTable.json</code> の
           <code>CostAmount</code>（クレジット）と <code>IngredientId</code> / <code>IngredientAmount</code>（素材）です。</p>
-        <p>ノーマル・パッシブ・サブの 3 つは<b>どれも枠 2 の同じ表を使います</b>。
-          ゲームの中でも、この 3 つは同じ素材と同じクレジットで上がります。</p>
-        <p><b>スキルの ◎ と「キリのいい Lv まで」はデータではなく攻略サイトの記載です。</b>
-          <a href="https://bluearchive.wikiru.jp/?%E3%82%B9%E3%82%AD%E3%83%AB" target="_blank" rel="noopener">ブルアカ Wiki「スキル」</a>に
-          「EXスキルはLv3とLv5になった際に数値が大きく伸びる」「EX以外のスキルはLv4、Lv7、Lv10になった際に数値が大きく伸びる」
-          「最大まで育成する余裕がない場合は数値が大きく上がるキリのいいLvを目指すと効率がいい」とあります。
-          ボタンはこれに沿って <b>Lv90・EX Lv5・ほかのスキル Lv7</b> を入れます。
-          Lv10 まで行かないのは、その 1 段だけで<b>秘伝ノート 1 冊と 400 万クレジット</b>が要るからです。
-          <b>どの生徒でもこれが正解、という話ではありません。</b>手で書き換えてください。</p>
+        <p>ノーマル・パッシブ・サブの 3 つは<b>どれも枠 2 の同じ表を使います</b>。ゲームの中でも、この 3 つは同じ素材と同じクレジットで上がります。</p>
+        <p><b>スキルの ◎ と「キリのいい Lv まで」はデータではなく攻略サイトの記載です。</b><a href="https://bluearchive.wikiru.jp/?%E3%82%B9%E3%82%AD%E3%83%AB" target="_blank" rel="noopener">ブルアカ Wiki「スキル」</a>に「EXスキルはLv3とLv5になった際に数値が大きく伸びる」「EX以外のスキルはLv4、Lv7、Lv10になった際に数値が大きく伸びる」「最大まで育成する余裕がない場合は数値が大きく上がるキリのいいLvを目指すと効率がいい」とあります。ボタンはこれに沿って <b>Lv90・EX Lv5・ほかのスキル Lv7</b> を入れます。
+          Lv10 まで行かないのは、その 1 段だけで<b>秘伝ノート 1 冊と 400 万クレジット</b>が要るからです。<b>どの生徒でもこれが正解、という話ではありません。</b>手で書き換えてください。</p>
         <p><b>固有武器は開放されている段までしか出しません。</b>
           <code>CharacterWeaponExcelTable</code> の <code>Unlock</code> が
-          <code>[true, true, true, false, false]</code> なので、今は★3 までです。
-          データには★4・★5 の行もありますが、中身が「神名文字 1 個」の仮置きなので数えていません。</p>
+          <code>[true, true, true, false, false]</code> なので、今は★3 までです。データには★4・★5 の行もありますが、中身が「神名文字 1 個」の仮置きなので数えていません。</p>
         <p><b>レベルの必要経験値は <code>Excel/CharacterLevelExcelTable.json</code> そのままです。</b>
-          Lv1 から Lv90 までの合計は <b id="src-total">—</b>。
-          レポートの経験値は<b>初級 50 ／ 中級 500 ／ 上級 2,000 ／ 最上級 10,000</b> で、これもデータの値です。</p>
-        <p><b>レベル上げのクレジットは 1 経験値につき 7 で計算しています。この 7 だけはゲームのデータに入っていません。</b>
-          <a href="https://bluearchive.wikiru.jp/?%E7%B5%8C%E9%A8%93%E5%80%A4%E8%A1%A8" target="_blank" rel="noopener">ブルアカ Wiki「経験値表」</a>の
-          「育成にはレポートとクレジットが必要で、1EXPあたり7クレジットのコストが掛かる」という記載によります。
+          Lv1 から Lv90 までの合計は <b id="src-total">—</b>。レポートの経験値は<b>初級 50 ／ 中級 500 ／ 上級 2,000 ／ 最上級 10,000</b> で、これもデータの値です。</p>
+        <p><b>レベル上げのクレジットは 1 経験値につき 7 で計算しています。この 7 だけはゲームのデータに入っていません。</b><a href="https://bluearchive.wikiru.jp/?%E7%B5%8C%E9%A8%93%E5%80%A4%E8%A1%A8" target="_blank" rel="noopener">ブルアカ Wiki「経験値表」</a>の「育成にはレポートとクレジットが必要で、1EXPあたり7クレジットのコストが掛かる」という記載によります。
           Lv1 から Lv90 まででちょうど <b id="src-lvcost">—</b> になり、同ページの「約875万」と合います。</p>
-        <p><b>愛用品を持っている生徒は <b id="src-gear">—</b> 人です。</b>持っていない生徒では、その行を選べません。
-          固有武器も同じで、持っていない生徒では選べません。</p>
-        <p>絆ランクの贈り物と、装備の設計図はこのツールでは数えていません。
-          <a href="../bond/">絆ランク計算機</a>と<a href="../equipment/">装備設計図の周回計算機</a>にあります。</p>
+        <p><b>愛用品を持っている生徒は <b id="src-gear">—</b> 人です。</b>持っていない生徒では、その行を選べません。固有武器も同じで、持っていない生徒では選べません。</p>
+        <p>絆ランクの贈り物と、装備の設計図はこのツールでは数えていません。<a href="../bond/">絆ランク計算機</a>と<a href="../equipment/">装備設計図の周回計算機</a>にあります。</p>
         <p>出典 —
           <a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a>（生徒・素材の名前とアイコン）、
-          <a href="https://github.com/electricgoat/ba-data" target="_blank" rel="noopener">electricgoat/ba-data</a>（レシピ・経験値表・固有武器の開放状況）。
-          取得は <span id="ver">—</span>。</p>
+          <a href="https://github.com/electricgoat/ba-data" target="_blank" rel="noopener">electricgoat/ba-data</a>（レシピ・経験値表・固有武器の開放状況）。取得は <span id="ver">—</span>。</p>
       </details>
     </div>
 
@@ -284,12 +264,8 @@
       <span>不具合・要望は <b>@0r.not</b> まで</span>
     </p>
     <p class="disclaimer">
-      <b>このサイトはファンが作った非公式のものです。</b>運営とは関係ありません。
-      <small>掲載しているゲーム内の画像・アイコン・名称・数値は、Nexon Games / Yostar の
-      「ブルーアーカイブ」から引用したもので、著作権はすべて権利者に帰属します。
-      ツールの計算に使うデータは <a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a> と
-      <a href="https://github.com/electricgoat/ba-data" target="_blank" rel="noopener">ba-data</a> から取得しています。
-      権利者の方でご指摘があれば <b>@0r.not</b> までご連絡ください。</small>
+      <b>このサイトはファンが作った非公式のものです。</b>運営とは関係ありません。<small>掲載しているゲーム内の画像・アイコン・名称・数値は、Nexon Games / Yostar の「ブルーアーカイブ」から引用したもので、著作権はすべて権利者に帰属します。ツールの計算に使うデータは <a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a> と
+      <a href="https://github.com/electricgoat/ba-data" target="_blank" rel="noopener">ba-data</a> から取得しています。権利者の方でご指摘があれば <b>@0r.not</b> までご連絡ください。</small>
     </p>
   </div>
 </footer>

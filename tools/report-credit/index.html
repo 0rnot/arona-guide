@@ -45,10 +45,7 @@
       ツール一覧
     </a>
     <nav class="topbar-nav">
-      <a href="../../#can">機能</a>
-      <a href="../../#start">つかいはじめる</a>
-      <a href="../../#message">メッセージから</a>
-      <a href="../../#faq">よくある質問</a>
+      <a href="../../#can">機能</a><a href="../../#start">つかいはじめる</a><a href="../../#message">メッセージから</a><a href="../../#faq">よくある質問</a>
     </nav>
     <!-- 共有。**AronaBot 本体と同じ位置に置く。**押した先は環境で変える -->
     <span class="share-nudge" aria-hidden="true">使えそうな人に、ぜひ</span>
@@ -189,28 +186,17 @@
           <li><code>data/jp/equipment.min.json</code> の <code>Category: "Exp"</code> — 強化珠の <code>LevelUpFeedExp</code> が <code>90 / 360 / 1440 / 5760</code></li>
           <li><code>Excel/CharacterLevelExcelTable.json</code> — Lv90 の <code>TotalExp: 1249185</code></li>
           <li><code>Excel/EquipmentLevelExcelTable.json</code> — Lv70 の <code>TotalExp</code> が Tier1 から順に
-            <code>381 / 1841 / 5456 / 12326 / 17326 / 23551 / 31141 / 40231 / 50961 / 63466</code>。
-            <b>足すとちょうど 246,680</b> で、これが装備 1 個を Tier1 Lv1 から Tier10 Lv70 まで上げるのに要る経験値です</li>
+            <code>381 / 1841 / 5456 / 12326 / 17326 / 23551 / 31141 / 40231 / 50961 / 63466</code>。<b>足すとちょうど 246,680</b> で、これが装備 1 個を Tier1 Lv1 から Tier10 Lv70 まで上げるのに要る経験値です</li>
         </ul>
-        <p><b>強化珠の経験値もゲームのデータそのままです。</b>
-          レポートが <code>items</code> に入っているのに対して、強化珠は <code>equipment</code> のほうに
-          <code>Category: "Exp"</code> として入っていて、<code>LevelUpFeedExp</code> が
-          初級 <code>90</code>／中級 <code>360</code>／上級 <code>1440</code>／最上級 <code>5760</code> です。
+        <p><b>強化珠の経験値もゲームのデータそのままです。</b>レポートが <code>items</code> に入っているのに対して、強化珠は <code>equipment</code> のほうに
+          <code>Category: "Exp"</code> として入っていて、<code>LevelUpFeedExp</code> が初級 <code>90</code>／中級 <code>360</code>／上級 <code>1440</code>／最上級 <code>5760</code> です。
           246,680 ÷ 5,760 = 42.8 で「最上級強化珠 43 個ぶん」、
-          1,249,185 ÷ 10,000 = 124.9 で「最上級レポート 125 個ぶん」。
-          どちらも攻略サイトに載っている数字と同じでした。</p>
-        <p><b>1 人を仕上げるクレジット（50,896,295）は、次の 4 つを足したものです。</b>
-          レベル Lv1→Lv90 が 8,744,295（1,249,185 経験値 × 7）、
-          EX スキル Lv1→Lv5 が 13,580,000、
-          ノーマル・パッシブ・サブの 3 つを Lv1→Lv10 で 26,437,500、
-          装備 3 部位を T1→T10 で 2,134,500。
-          <b>星上げ（神名文字）・固有武器・愛用品は入っていません。</b>
-          生徒ごとの正確な額は<a href="../student-cost/">生徒 1 人の育成費用</a>で出せます。
-          自分の育て方に合わせて書き換えてください。</p>
+          1,249,185 ÷ 10,000 = 124.9 で「最上級レポート 125 個ぶん」。どちらも攻略サイトに載っている数字と同じでした。</p>
+        <p><b>1 人を仕上げるクレジット（50,896,295）は、次の 4 つを足したものです。</b>レベル Lv1→Lv90 が 8,744,295（1,249,185 経験値 × 7）、
+          EX スキル Lv1→Lv5 が 13,580,000、ノーマル・パッシブ・サブの 3 つを Lv1→Lv10 で 26,437,500、装備 3 部位を T1→T10 で 2,134,500。<b>星上げ（神名文字）・固有武器・愛用品は入っていません。</b>生徒ごとの正確な額は<a href="../student-cost/">生徒 1 人の育成費用</a>で出せます。自分の育て方に合わせて書き換えてください。</p>
         <p>出典 —
           <a href="https://github.com/electricgoat/ba-data" target="_blank" rel="noopener">electricgoat/ba-data</a>（jp ブランチ）、
-          <a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a>、
-          <a href="https://game8.jp/blue-archive/639839" target="_blank" rel="noopener">ゲームエイト「生徒レベルの上げ方」</a>（Lv90 の累計経験値 1,249,185）。</p>
+          <a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a>、<a href="https://game8.jp/blue-archive/639839" target="_blank" rel="noopener">ゲームエイト「生徒レベルの上げ方」</a>（Lv90 の累計経験値 1,249,185）。</p>
       </details>
     </div>
 
@@ -230,12 +216,8 @@
       <span>不具合・要望は <b>@0r.not</b> まで</span>
     </p>
     <p class="disclaimer">
-      <b>このサイトはファンが作った非公式のものです。</b>運営とは関係ありません。
-      <small>掲載しているゲーム内の画像・アイコン・名称・数値は、Nexon Games / Yostar の
-      「ブルーアーカイブ」から引用したもので、著作権はすべて権利者に帰属します。
-      ツールの計算に使うデータは <a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a> と
-      <a href="https://github.com/electricgoat/ba-data" target="_blank" rel="noopener">ba-data</a> から取得しています。
-      権利者の方でご指摘があれば <b>@0r.not</b> までご連絡ください。</small>
+      <b>このサイトはファンが作った非公式のものです。</b>運営とは関係ありません。<small>掲載しているゲーム内の画像・アイコン・名称・数値は、Nexon Games / Yostar の「ブルーアーカイブ」から引用したもので、著作権はすべて権利者に帰属します。ツールの計算に使うデータは <a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a> と
+      <a href="https://github.com/electricgoat/ba-data" target="_blank" rel="noopener">ba-data</a> から取得しています。権利者の方でご指摘があれば <b>@0r.not</b> までご連絡ください。</small>
     </p>
   </div>
 </footer>

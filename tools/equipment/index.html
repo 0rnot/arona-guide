@@ -97,10 +97,7 @@
       ツール一覧
     </a>
     <nav class="topbar-nav">
-      <a href="../../#can">機能</a>
-      <a href="../../#start">つかいはじめる</a>
-      <a href="../../#message">メッセージから</a>
-      <a href="../../#faq">よくある質問</a>
+      <a href="../../#can">機能</a><a href="../../#start">つかいはじめる</a><a href="../../#message">メッセージから</a><a href="../../#faq">よくある質問</a>
     </nav>
     <!-- 共有。**AronaBot 本体と同じ位置に置く。**押した先は環境で変える -->
     <span class="share-nudge" aria-hidden="true">使えそうな人に、ぜひ</span>
@@ -272,51 +269,26 @@
         <p><b>1 部位を T1 から T10 まで上げると、設計図は T2 40 ／ T3 45 ／ T4 50 ／ T5 55 ／
           T6 65 ／ T7 65 ／ T8 60 ／ T9 50 ／ T10 60 枚、クレジットは 711,500 です。</b>
           T10 まである 6 部位はどれも同じ表になります。</p>
-        <p><b>お守り・腕時計・ネックレスは T9 が上限です。</b>データ上、この 3 部位には T10 の装備もレシピも存在しません
-          （帽子・手袋・靴・カバン・バッジ・ヘアピンは T10 まであります）。
-          そのぶん T1 から上げ切るのに要るクレジットも 536,500 で、T10 まである部位の 711,500 より少なくなります。</p>
+        <p><b>お守り・腕時計・ネックレスは T9 が上限です。</b>データ上、この 3 部位には T10 の装備もレシピも存在しません（帽子・手袋・靴・カバン・バッジ・ヘアピンは T10 まであります）。そのぶん T1 から上げ切るのに要るクレジットも 536,500 で、T10 まである部位の 711,500 より少なくなります。</p>
         <p><b>ドロップは <a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a> の
-          <code>data/jp/stages.min.json</code> から、<code>Amount × Chance</code> を足して期待値にしています。</b>
-          初回クリア報酬と星の報酬（<code>RewardType</code> が付いている行）は、周回では出ないので数えていません。
-          たとえば Area 4-1 の帽子 T2 設計図は「確定 1 個」＋「20% でもう 1 個」なので 1.2 個です。
-          Hard は Normal のちょうど 2 倍落ちますが、AP も 2 倍（10 → 20）なので、<b>AP あたりの効率は同じ</b>です。
-          違うのは<b>組み合わさる部位</b>なので、狙いによってどちらが良いかが変わります。</p>
+          <code>data/jp/stages.min.json</code> から、<code>Amount × Chance</code> を足して期待値にしています。</b>初回クリア報酬と星の報酬（<code>RewardType</code> が付いている行）は、周回では出ないので数えていません。たとえば Area 4-1 の帽子 T2 設計図は「確定 1 個」＋「20% でもう 1 個」なので 1.2 個です。
+          Hard は Normal のちょうど 2 倍落ちますが、AP も 2 倍（10 → 20）なので、<b>AP あたりの効率は同じ</b>です。違うのは<b>組み合わさる部位</b>なので、狙いによってどちらが良いかが変わります。</p>
         <p><b>ドロップだけ ba-data ではなく SchaleDB を見ています。</b>
           2026-04-21 に実装された万能設計図が ba-data の <code>jp</code> ブランチにまだ入っておらず、
-          <code>CampaignStageRewardExcelTable.json</code> を探しても <code>501000</code>〜<code>509000</code> が 1 件も出てこないためです。
-          レシピ・箱の比率は今までどおり ba-data から取っています。</p>
-        <p><b>「設計図選択ボックス」と「万能設計図」は別のものです。</b>
-          選択ボックス（<code>150028</code>〜<code>150033</code>、<code>150041</code>）は熟達証書ショップのもので、
-          Tier が決まっていて部位が自由、<b>T2 から T8 までしかありません</b>。
-          万能設計図（<code>501000</code>〜<code>509000</code>、<code>Tier: 0</code>）は任務で落ちるもので、
-          部位が決まっていて Tier が自由です。</p>
-        <p><b>部位ごとの需要は、生徒 <span id="src-roster">—</span> 人の装備欄から数えています。</b>
-          ヘアピン 175 ／ 腕時計 161 ／ 帽子 102 ／ 靴 99 ／ ネックレス 75 ／ 手袋 73 ／ カバン 56 ／ バッジ 43 ／ お守り 38。
-          ネックレスを 1 としたときの比は 2.33／2.15／1.36／1.32／1.00／0.97／0.75／0.57／0.51 で、
-          <a href="https://bluearchive.wikiru.jp/?%E8%A3%85%E5%82%99%E3%81%AB%E3%81%A4%E3%81%84%E3%81%A6" target="_blank" rel="noopener">ブルアカ Wiki が別に数えた比</a>
-          （260 人時点で 2.32／2.12／1.35／1.34／1／0.97／0.76／0.58／0.53）とほぼ一致します。
-          <b>ヘアピンと腕時計は、ふつうに集めるだけでは足りません。</b></p>
+          <code>CampaignStageRewardExcelTable.json</code> を探しても <code>501000</code>〜<code>509000</code> が 1 件も出てこないためです。レシピ・箱の比率は今までどおり ba-data から取っています。</p>
+        <p><b>「設計図選択ボックス」と「万能設計図」は別のものです。</b>選択ボックス（<code>150028</code>〜<code>150033</code>、<code>150041</code>）は熟達証書ショップのもので、
+          Tier が決まっていて部位が自由、<b>T2 から T8 までしかありません</b>。万能設計図（<code>501000</code>〜<code>509000</code>、<code>Tier: 0</code>）は任務で落ちるもので、部位が決まっていて Tier が自由です。</p>
+        <p><b>部位ごとの需要は、生徒 <span id="src-roster">—</span> 人の装備欄から数えています。</b>ヘアピン 175 ／ 腕時計 161 ／ 帽子 102 ／ 靴 99 ／ ネックレス 75 ／ 手袋 73 ／ カバン 56 ／ バッジ 43 ／ お守り 38。ネックレスを 1 としたときの比は 2.33／2.15／1.36／1.32／1.00／0.97／0.75／0.57／0.51 で、<a href="https://bluearchive.wikiru.jp/?%E8%A3%85%E5%82%99%E3%81%AB%E3%81%A4%E3%81%84%E3%81%A6" target="_blank" rel="noopener">ブルアカ Wiki が別に数えた比</a>（260 人時点で 2.32／2.12／1.35／1.34／1／0.97／0.76／0.58／0.53）とほぼ一致します。<b>ヘアピンと腕時計は、ふつうに集めるだけでは足りません。</b></p>
         <p><b>ドロップの期待値も Wiki の実測と合っています。</b>
-          Area 28〜29 を 3 倍期間に 200 周した記録では、T10 が 528 枚（1 周あたり 0.88）、T8 が 306 枚（0.51）、
-          万能設計図が 22,530 枚（1 周 37.6）。このツールが出す 1 周あたりは T10 0.86 ／ T8 0.50 ／ 万能設計図 37.5 です。</p>
-        <p><b>万能設計図の交換レート（T2 は 2 枚、T10 は 50 枚）だけ、ゲームのデータに見つかりませんでした。</b>
-          <a href="https://bluearchive.wikiru.jp/?%E8%A3%85%E5%82%99%E3%81%AB%E3%81%A4%E3%81%84%E3%81%A6" target="_blank" rel="noopener">ブルアカ Wiki の「装備について」</a>の表から取っています。
-          この表は「全て万能設計図で補う場合の各 Tier の必要数」も載せていて、
-          T2 80 ／ T3 135 ／ T4 250 ／ T5 385 ／ T6 650 ／ T7 975 ／ T8 1,200 ／ T9 1,500 ／ T10 3,000。
-          上のレシピの枚数（40 / 45 / 50 / 55 / 65 / 65 / 60 / 50 / 60）にレートを掛けた値と、9 つとも一致します。</p>
-        <p><b>箱（<code>GachaGroup</code>）で出る枠も数えています。</b>
-          中身と比率は <code>Excel/GachaElementExcelTable.json</code> にそのまま入っているので、
-          <b>推測せずにその比率で期待値へ畳んでいます。</b>
-          ここで出る「T1 の装備そのもの」は設計図ではないので数えていません。</p>
+          Area 28〜29 を 3 倍期間に 200 周した記録では、T10 が 528 枚（1 周あたり 0.88）、T8 が 306 枚（0.51）、万能設計図が 22,530 枚（1 周 37.6）。このツールが出す 1 周あたりは T10 0.86 ／ T8 0.50 ／ 万能設計図 37.5 です。</p>
+        <p><b>万能設計図の交換レート（T2 は 2 枚、T10 は 50 枚）だけ、ゲームのデータに見つかりませんでした。</b><a href="https://bluearchive.wikiru.jp/?%E8%A3%85%E5%82%99%E3%81%AB%E3%81%A4%E3%81%84%E3%81%A6" target="_blank" rel="noopener">ブルアカ Wiki の「装備について」</a>の表から取っています。この表は「全て万能設計図で補う場合の各 Tier の必要数」も載せていて、
+          T2 80 ／ T3 135 ／ T4 250 ／ T5 385 ／ T6 650 ／ T7 975 ／ T8 1,200 ／ T9 1,500 ／ T10 3,000。上のレシピの枚数（40 / 45 / 50 / 55 / 65 / 65 / 60 / 50 / 60）にレートを掛けた値と、9 つとも一致します。</p>
+        <p><b>箱（<code>GachaGroup</code>）で出る枠も数えています。</b>中身と比率は <code>Excel/GachaElementExcelTable.json</code> にそのまま入っているので、<b>推測せずにその比率で期待値へ畳んでいます。</b>ここで出る「T1 の装備そのもの」は設計図ではないので数えていません。</p>
         <p><b>data.js は <code>scripts/build-tool-data.py</code> が作っています。</b>
           GitHub Actions が毎日回しているので、<b>生徒・装備・ステージが増えれば自動で追いつきます。</b></p>
-        <p><b>Area 28 まで入っています。</b>SchaleDB のステージ表は Area 26 までなので、
-          そこだけ見ていると T10 の設計図が落ちる場所を丸ごと見落とします。
-          このツールは ba-data の <code>CampaignStageExcelTable</code> から作っているので、Area 28 も入っています
-          （Area 28 のステージ名だけ日本語が取れていないので「Area 28-1」と出ます）。</p>
+        <p><b>Area 28 まで入っています。</b>SchaleDB のステージ表は Area 26 までなので、そこだけ見ていると T10 の設計図が落ちる場所を丸ごと見落とします。このツールは ba-data の <code>CampaignStageExcelTable</code> から作っているので、Area 28 も入っています（Area 28 のステージ名だけ日本語が取れていないので「Area 28-1」と出ます）。</p>
         <p>出典 — <a href="https://github.com/electricgoat/ba-data" target="_blank" rel="noopener">electricgoat/ba-data</a>（jp、
-          <span id="ver">—</span>）、<a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a>（ステージ名とアイコン）、
-          <a href="https://bluearchive.wikiru.jp/?%E8%A3%85%E5%82%99%E4%B8%80%E8%A6%A7" target="_blank" rel="noopener">ブルアカ攻略 Wiki「装備一覧」</a>（ティアアップの合計）。</p>
+          <span id="ver">—</span>）、<a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a>（ステージ名とアイコン）、<a href="https://bluearchive.wikiru.jp/?%E8%A3%85%E5%82%99%E4%B8%80%E8%A6%A7" target="_blank" rel="noopener">ブルアカ攻略 Wiki「装備一覧」</a>（ティアアップの合計）。</p>
       </details>
     </div>
 
@@ -336,12 +308,8 @@
       <span>不具合・要望は <b>@0r.not</b> まで</span>
     </p>
     <p class="disclaimer">
-      <b>このサイトはファンが作った非公式のものです。</b>運営とは関係ありません。
-      <small>掲載しているゲーム内の画像・アイコン・名称・数値は、Nexon Games / Yostar の
-      「ブルーアーカイブ」から引用したもので、著作権はすべて権利者に帰属します。
-      ツールの計算に使うデータは <a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a> と
-      <a href="https://github.com/electricgoat/ba-data" target="_blank" rel="noopener">ba-data</a> から取得しています。
-      権利者の方でご指摘があれば <b>@0r.not</b> までご連絡ください。</small>
+      <b>このサイトはファンが作った非公式のものです。</b>運営とは関係ありません。<small>掲載しているゲーム内の画像・アイコン・名称・数値は、Nexon Games / Yostar の「ブルーアーカイブ」から引用したもので、著作権はすべて権利者に帰属します。ツールの計算に使うデータは <a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a> と
+      <a href="https://github.com/electricgoat/ba-data" target="_blank" rel="noopener">ba-data</a> から取得しています。権利者の方でご指摘があれば <b>@0r.not</b> までご連絡ください。</small>
     </p>
   </div>
 </footer>

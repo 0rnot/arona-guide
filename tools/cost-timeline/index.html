@@ -66,6 +66,11 @@
     .tlrow .ops { grid-column: 1 / -1; justify-content: flex-end; }
   }
 
+  /* 指定できる範囲の切れ目 */
+  .cut { display: flex; align-items: center; gap: .8em; padding: 6px 0 2px; }
+  .cut::before, .cut::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+  .cut span { font-size: .72rem; color: var(--fg-mute); white-space: nowrap; }
+
   /* 打ち込みボタン */
   .addrow { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
   .addrow button {
@@ -119,10 +124,7 @@
       ツール一覧
     </a>
     <nav class="topbar-nav">
-      <a href="../../#can">機能</a>
-      <a href="../../#start">つかいはじめる</a>
-      <a href="../../#message">メッセージから</a>
-      <a href="../../#faq">よくある質問</a>
+      <a href="../../#can">機能</a><a href="../../#start">つかいはじめる</a><a href="../../#message">メッセージから</a><a href="../../#faq">よくある質問</a>
     </nav>
     <!-- 共有。**AronaBot 本体と同じ位置に置く。**押した先は環境で変える -->
     <span class="share-nudge" aria-hidden="true">使えそうな人に、ぜひ</span>
@@ -187,13 +189,7 @@
 <div class="twrap">
   <p class="tcrumb"><a href="../../">AronaBotの使い方</a><span class="sl">/</span><a href="../">ツール</a><span class="sl">/</span>TL のコスト計算機</p>
 
-  <div class="note-box" style="margin-top:20px">
-    <b>このツールが見ているのはコストだけです。</b>
-    実際の TL は、手札の並び・敵の位置・ノックバック・遮蔽で結果が変わります。
-    ここで出るのは「コストの都合では最短で何秒目に撃てるか」で、
-    <b>そのとおりに撃てることを保証するものではありません。</b>
-    手札は使ったカードが山札に戻って引き直されるので、順番は運が絡みます。
-  </div>
+  <div class="note-box" style="margin-top:20px"><b>最初の何発かは、順番をそのまま指定できます。</b>2026 年 5 月 27 日のアップデートで開始スキルの設定上限が増え、<b>通常編成は 5 人、制約解除決戦は 9 人</b>になりました。そこまでは並べたとおりに撃てます。<b>それより後ろは手札しだいです。</b>使ったカードは山札に戻って引き直されるので、狙った子がすぐ来るとは限りません。あわせて、このツールが見ているのは<b>コストだけ</b>です。敵の位置・ノックバック・遮蔽で実際の結果は変わります。</div>
 
   <div class="tcols lean" style="margin-top:20px">
 
@@ -301,40 +297,23 @@
     <div class="tfull">
       <details class="src">
         <summary>数字の出どころ</summary>
-        <p><b>コスト回復速度 ＝（6 人のコスト回復力の合計）÷ 10000 ［コスト／秒］。</b>
-          素のコスト回復力は<b>全 274 人が 700 で同じ</b>です（SchaleDB の <code>RegenCost</code> を全員ぶん数えて確かめました）。
-          6 人ぶんで 4200、割ると <b>0.42 コスト／秒</b>——1 コストに 2.38 秒かかります。
-          この式は
+        <p><b>コスト回復速度 ＝（6 人のコスト回復力の合計）÷ 10000 ［コスト／秒］。</b>素のコスト回復力は<b>全 274 人が 700 で同じ</b>です（SchaleDB の <code>RegenCost</code> を全員ぶん数えて確かめました）。
+          6 人ぶんで 4200、割ると <b>0.42 コスト／秒</b>——1 コストに 2.38 秒かかります。この式は
           <a href="https://ultimitarchive.seesaa.net/article/costspeed.html" target="_blank" rel="noopener">Ultimit Archive「ブルアカのコスト回復速度を科学する」</a>と
           <a href="https://bluerec.kayagrv.com/entry/Tips%EF%BC%9A%E3%82%B3%E3%82%B9%E3%83%88%E9%96%A2%E9%80%A3%E3%82%B9%E3%82%AD%E3%83%AB%E5%8B%89%E5%BC%B7" target="_blank" rel="noopener">Blue Rec.「コスト回復、コスト回復加速、コスト削減のまとめ」</a>に載っています。</p>
-        <p><b>実数と % の重ねかたは、ゲームの他のステータスと同じで「足してから掛ける」です。</b>
-          <code>（700 ＋ 実数の合計）×（1 ＋ % の合計）</code>。データ側では
-          <code>RegenCost_Base</code> が実数、<code>RegenCost_Coefficient</code> が % で、
-          後者は 10000 分率です（ヒマリ Lv10 の <code>2029</code> が +20.29%）。
-          <b>この計算で 1 コスト 1.98 秒になり</b>、上の Ultimit Archive の「ヒマリで 1.98秒/C」と一致します。
-          重複については同記事に「EX/NS/PS/SS のスキル種別が異なれば重複可能、また同じスキル種別でも加算と乗算は重複可能」とあります。</p>
-        <p><b>コストの上限は 10 です</b>（Blue Rec. の「最大コスト10まで溜まります」）。
-          固有 4 でスペシャルのコスト上限が +0.5 になりますが、
-          データ側の <code>Unlock</code> がまだ <code>false</code> なので初期値には入れていません。手で書き換えてください。</p>
+        <p><b>実数と % の重ねかたは、ゲームの他のステータスと同じで「足してから掛ける」です。</b><code>（700 ＋ 実数の合計）×（1 ＋ % の合計）</code>。データ側では
+          <code>RegenCost_Base</code> が実数、<code>RegenCost_Coefficient</code> が % で、後者は 10000 分率です（ヒマリ Lv10 の <code>2029</code> が +20.29%）。<b>この計算で 1 コスト 1.98 秒になり</b>、上の Ultimit Archive の「ヒマリで 1.98秒/C」と一致します。重複については同記事に「EX/NS/PS/SS のスキル種別が異なれば重複可能、また同じスキル種別でも加算と乗算は重複可能」とあります。</p>
+        <p><b>コストの上限は 10 です</b>（Blue Rec. の「最大コスト10まで溜まります」）。固有 4 でスペシャルのコスト上限が +0.5 になりますが、データ側の <code>Unlock</code> がまだ <code>false</code> なので初期値には入れていません。手で書き換えてください。</p>
+        <p><b>開始スキルで指定できる人数は、通常編成 5 人・制約解除決戦 9 人です。</b>2026 年 5 月 27 日のアップデートで、それぞれ 3 人・5 人から増えました。神ゲー攻略の告知に「<a href="https://x.com/BlueArchive_kg2/status/2059154172373836095" target="_blank" rel="noopener">5月27日のアプデ以降、開始スキルの設定上限が増えます 通常戦闘：3→5 制約解除決戦：5→9</a>」とあります。並びの何発目までが指定できる範囲かは、下の一覧に線で出しています。</p>
         <p><b>制約解除決戦はストライカー 6 人・スペシャル 4 人の 10 人編成で、コストの上限は 20 です。</b>
-          <a href="https://game8.jp/blue-archive/680052" target="_blank" rel="noopener">Game8「制約解除決戦の攻略とおすすめ編成」</a>に
-          「ストライカー生徒6人とスペシャル生徒4人を編成することができます」「コストの最大値も20まで増加しており」とあります。
-          コスト回復力の素は 700 × 10 人で 7000、1 コスト 1.43 秒です。</p>
+          <a href="https://game8.jp/blue-archive/680052" target="_blank" rel="noopener">Game8「制約解除決戦の攻略とおすすめ編成」</a>に「ストライカー生徒6人とスペシャル生徒4人を編成することができます」「コストの最大値も20まで増加しており」とあります。コスト回復力の素は 700 × 10 人で 7000、1 コスト 1.43 秒です。</p>
         <p><b>開始時のコストはゲームのデータに入っていませんでした。</b>
-          <code>Excel/</code> にも <code>DB/</code> にも戦闘の定数表が無く、攻略サイトにも記載を見つけられなかったので、
-          <b>入力にしてあります</b>（既定は 0）。総力戦は 0 から始まるという前提です。</p>
-        <p><b>EX を撃っている間の秒数は、スキルの <code>Duration</code>（フレーム）を 30 で割った値です。</b>
-          ブルアカは 30fps なので、229 フレームなら 7.63 秒。
-          この計算では、<b>撃っている間もコストは貯まり続ける</b>ものとして扱い、
-          <b>次の EX はその演出が終わるまで撃てない</b>ものとしています。</p>
-        <p><b>条件で値が変わるスキルがあります。</b>チェリノは同じ部隊のレッドウィンター生徒の人数、
-          カノエは同じ部隊の重装甲ストライカーの人数（どちらも自身を除いて最大 3 人）で段が変わるので、
-          編成から自動で数えています。それ以外の段のあるスキルは、段を選ぶ欄が出ます。</p>
-        <p><b>持続時間のあるバフ（セイアの EX、クルミの戦術シールド中など）は、初期状態では数えていません。</b>
-          「効いている間」に切り替えると合計に入ります。何秒間かは内訳に出ます。</p>
+          <code>Excel/</code> にも <code>DB/</code> にも戦闘の定数表が無く、攻略サイトにも記載を見つけられなかったので、<b>入力にしてあります</b>（既定は 0）。総力戦は 0 から始まるという前提です。</p>
+        <p><b>EX を撃っている間の秒数は、スキルの <code>Duration</code>（フレーム）を 30 で割った値です。</b>ブルアカは 30fps なので、229 フレームなら 7.63 秒。この計算では、<b>撃っている間もコストは貯まり続ける</b>ものとして扱い、<b>次の EX はその演出が終わるまで撃てない</b>ものとしています。</p>
+        <p><b>条件で値が変わるスキルがあります。</b>チェリノは同じ部隊のレッドウィンター生徒の人数、カノエは同じ部隊の重装甲ストライカーの人数（どちらも自身を除いて最大 3 人）で段が変わるので、編成から自動で数えています。それ以外の段のあるスキルは、段を選ぶ欄が出ます。</p>
+        <p><b>持続時間のあるバフ（セイアの EX、クルミの戦術シールド中など）は、初期状態では数えていません。</b>「効いている間」に切り替えると合計に入ります。何秒間かは内訳に出ます。</p>
         <p>出典 —
-          <a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a>（生徒・EX スキルのコストと演出時間・コスト回復力のスキル）。
-          取得は <span id="ver">—</span>。</p>
+          <a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a>（生徒・EX スキルのコストと演出時間・コスト回復力のスキル）。取得は <span id="ver">—</span>。</p>
       </details>
     </div>
 
@@ -354,12 +333,8 @@
       <span>不具合・要望は <b>@0r.not</b> まで</span>
     </p>
     <p class="disclaimer">
-      <b>このサイトはファンが作った非公式のものです。</b>運営とは関係ありません。
-      <small>掲載しているゲーム内の画像・アイコン・名称・数値は、Nexon Games / Yostar の
-      「ブルーアーカイブ」から引用したもので、著作権はすべて権利者に帰属します。
-      ツールの計算に使うデータは <a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a> と
-      <a href="https://github.com/electricgoat/ba-data" target="_blank" rel="noopener">ba-data</a> から取得しています。
-      権利者の方でご指摘があれば <b>@0r.not</b> までご連絡ください。</small>
+      <b>このサイトはファンが作った非公式のものです。</b>運営とは関係ありません。<small>掲載しているゲーム内の画像・アイコン・名称・数値は、Nexon Games / Yostar の「ブルーアーカイブ」から引用したもので、著作権はすべて権利者に帰属します。ツールの計算に使うデータは <a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a> と
+      <a href="https://github.com/electricgoat/ba-data" target="_blank" rel="noopener">ba-data</a> から取得しています。権利者の方でご指摘があれば <b>@0r.not</b> までご連絡ください。</small>
     </p>
   </div>
 </footer>

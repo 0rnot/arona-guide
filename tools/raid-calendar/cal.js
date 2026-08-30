@@ -79,7 +79,7 @@
     starts.forEach(function (t) { var d = dow(t); cnt[d] = (cnt[d] || 0) + 1; });
     var byDay = Object.keys(cnt).sort(function (a, b) { return cnt[b] - cnt[a]; })
       .map(function (d) { return d + '曜 ' + cnt[d] + ' 回'; }).join('、');
-    el('gap-lead').textContent = '総力戦の始まりは ' + byDay + '。' +
+    el('gap-lead').textContent = '総力戦の始まりは' + byDay + '。' +
       '直近 12 回の間隔は下のとおりで、' + Math.min.apply(null, last12.map(function (g) { return days(g.a, g.b); })) +
       '〜' + Math.max.apply(null, last12.map(function (g) { return days(g.a, g.b); })) + ' 日でした。';
   }

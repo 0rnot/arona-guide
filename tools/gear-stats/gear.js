@@ -116,7 +116,7 @@
     G.weapon.forEach(function (w) { cnt[w.ad] = (cnt[w.ad] || 0) + 1; });
     var av = {};
     G.weapon.forEach(function (w) { av[w.av] = (av[w.av] || 0) + 1; });
-    el('wp-lead').textContent = '全 ' + G.weapon.length + ' 人ぶん。固有武器で上がる地形は ' +
+    el('wp-lead').textContent = '全 ' + G.weapon.length + ' 人ぶん。固有武器で上がる地形は' +
       Object.keys(TERRAIN).map(function (t) { return TERRAIN[t] + ' ' + (cnt[t] || 0) + ' 人'; }).join('、') +
       '。上がり幅は ' + Object.keys(av).sort().map(function (k) { return '＋' + k + ' が ' + av[k] + ' 人'; }).join('、') +
       'です。' + (q || adapt ? 'いまは ' + rows.length + ' 人。' : '');

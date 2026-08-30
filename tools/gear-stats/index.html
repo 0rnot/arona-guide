@@ -63,10 +63,7 @@
       ツール一覧
     </a>
     <nav class="topbar-nav">
-      <a href="../../#can">機能</a>
-      <a href="../../#start">つかいはじめる</a>
-      <a href="../../#message">メッセージから</a>
-      <a href="../../#faq">よくある質問</a>
+      <a href="../../#can">機能</a><a href="../../#start">つかいはじめる</a><a href="../../#message">メッセージから</a><a href="../../#faq">よくある質問</a>
     </nav>
     <!-- 共有。**AronaBot 本体と同じ位置に置く。**押した先は環境で変える -->
     <span class="share-nudge" aria-hidden="true">使えそうな人に、ぜひ</span>
@@ -187,27 +184,19 @@
       <summary>数字の出どころ</summary>
       <p><b>装備のステータスは <code>equipment.min.json</code> の
         <code>StatType</code> / <code>StatValue</code> です。</b>
-        <code>StatValue</code> は <b>［Lv1 のときの値, その段の最大 Lv のときの値］</b>で、
-        最大 Lv は <code>MaxLevel</code>（T1 は 10、T10 は 70）です。
-        末尾が <code>_Coefficient</code> のものと、名前が Rate・Ratio で終わるものは
+        <code>StatValue</code> は <b>［Lv1 のときの値, その段の最大 Lv のときの値］</b>で、最大 Lv は <code>MaxLevel</code>（T1 は 10、T10 は 70）です。末尾が <code>_Coefficient</code> のものと、名前が Rate・Ratio で終わるものは
         10000 分率なので 100 で割って % にしています。それ以外は実数です。</p>
       <p><b>「1 段上げると」は、その段の最大値から 1 つ下の段の最大値を引いたものです。</b>
         Lv を上げきった装備どうしを比べています。作るのに要る素材とクレジットは
-        <code>Recipe</code> / <code>RecipeCost</code> で、
-        周回して集める話は<a href="../equipment/">装備設計図の周回計算機</a>にあります。</p>
+        <code>Recipe</code> / <code>RecipeCost</code> で、周回して集める話は<a href="../equipment/">装備設計図の周回計算機</a>にあります。</p>
       <p><b>設計図と万能設計図は同じ表に混ざっていますが、ステータスを持たないので外しています。</b></p>
       <p><b>愛用品は <code>Gear</code> です。</b><span id="src-gear">—</span> 人が持っています。
         <code>StatValue</code> には数字が 2 つ入っていますが、
-        <b>66 人ぶんを全部見たところ、どの子も 2 つとも同じ値でした</b>ので 1 つだけ出しています。
-        <b>愛用品 T2 で効果がどう変わるかは、このデータからは分かりません。</b>
-        持っていない生徒はここに出ません。</p>
+        <b>66 人ぶんを全部見たところ、どの子も 2 つとも同じ値でした</b>ので 1 つだけ出しています。<b>愛用品 T2 で効果がどう変わるかは、このデータからは分かりません。</b>持っていない生徒はここに出ません。</p>
       <p><b>固有武器の「地形適性 +1」は <code>AdaptationType</code> と
-        <code>AdaptationValue</code> です。</b>固有武器の 3 段目で上がる地形がこれにあたります。
-        攻撃力・最大 HP・治癒力は <code>AttackPower1</code> /
-        <code>AttackPower100</code> のような形で、<b>Lv1 と Lv100 の 2 点だけが入っています</b>。
-        実際に上げられる上限は先生レベルで決まるので、ここでは 2 点をそのまま出しています。</p>
-      <p>出典 — <a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a>。
-        取得は <span id="ver">—</span>。</p>
+        <code>AdaptationValue</code> です。</b>固有武器の 3 段目で上がる地形がこれにあたります。攻撃力・最大 HP・治癒力は <code>AttackPower1</code> /
+        <code>AttackPower100</code> のような形で、<b>Lv1 と Lv100 の 2 点だけが入っています</b>。実際に上げられる上限は先生レベルで決まるので、ここでは 2 点をそのまま出しています。</p>
+      <p>出典 — <a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a>。取得は <span id="ver">—</span>。</p>
     </details>
   </div>
 
@@ -226,12 +215,8 @@
       <span>不具合・要望は <b>@0r.not</b> まで</span>
     </p>
     <p class="disclaimer">
-      <b>このサイトはファンが作った非公式のものです。</b>運営とは関係ありません。
-      <small>掲載しているゲーム内の画像・アイコン・名称・数値は、Nexon Games / Yostar の
-      「ブルーアーカイブ」から引用したもので、著作権はすべて権利者に帰属します。
-      ツールの計算に使うデータは <a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a> と
-      <a href="https://github.com/electricgoat/ba-data" target="_blank" rel="noopener">ba-data</a> から取得しています。
-      権利者の方でご指摘があれば <b>@0r.not</b> までご連絡ください。</small>
+      <b>このサイトはファンが作った非公式のものです。</b>運営とは関係ありません。<small>掲載しているゲーム内の画像・アイコン・名称・数値は、Nexon Games / Yostar の「ブルーアーカイブ」から引用したもので、著作権はすべて権利者に帰属します。ツールの計算に使うデータは <a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a> と
+      <a href="https://github.com/electricgoat/ba-data" target="_blank" rel="noopener">ba-data</a> から取得しています。権利者の方でご指摘があれば <b>@0r.not</b> までご連絡ください。</small>
     </p>
   </div>
 </footer>

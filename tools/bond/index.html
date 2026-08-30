@@ -72,10 +72,7 @@
       ツール一覧
     </a>
     <nav class="topbar-nav">
-      <a href="../../#can">機能</a>
-      <a href="../../#start">つかいはじめる</a>
-      <a href="../../#message">メッセージから</a>
-      <a href="../../#faq">よくある質問</a>
+      <a href="../../#can">機能</a><a href="../../#start">つかいはじめる</a><a href="../../#message">メッセージから</a><a href="../../#faq">よくある質問</a>
     </nav>
     <!-- 共有。**AronaBot 本体と同じ位置に置く。**押した先は環境で変える -->
     <span class="share-nudge" aria-hidden="true">使えそうな人に、ぜひ</span>
@@ -245,27 +242,17 @@
           <li>さらに<b>誰にでも効く共通タグ</b>があります（<code>CommonFavorItemTags</code>: <code id="gen">—</code>）</li>
           <li>絆経験値 ＝ <b><code>ExpValue ×（一致したタグの数 ＋ 1）</code></b></li>
         </ul>
-        <p>この式だと「美しい花束」は<b><span id="src-n">—</span> 人ぜんぶに対して ×4</b>になります
-          （ゲーム内で誰に渡しても最大効果になるのと同じです）。
-          <b>どの生徒にも ×4 の贈り物が最低 1 つあります。</b></p>
+        <p>この式だと「美しい花束」は<b><span id="src-n">—</span> 人ぜんぶに対して ×4</b>になります（ゲーム内で誰に渡しても最大効果になるのと同じです）。<b>どの生徒にも ×4 の贈り物が最低 1 つあります。</b></p>
         <p><b>絆ランクの必要経験値は <code>Excel/FavorLevelExcelTable.json</code> そのままです。</b>
           Lv1 から Lv100 までの合計は <b>240,225</b>、Lv1 から Lv20 までは <b>1,845</b>、Lv1 から Lv50 までは <b>29,175</b> です。</p>
-        <p><b>カフェタッチは 1 回 15 の絆経験値。</b>これはデータではなく攻略サイトの記載です
-          （「カフェでのタッチは1回15経験値で、4回タッチすれば上級効果大の贈り物を1個渡したのと同義」。
-          橙の贈り物の基本値 60 とちょうど合います）。
-          タッチできる回数は 3 時間ごとに回復し、カフェの訪問者は毎日 4 時と 16 時にリセットされます。
-          同じ生徒は 12 時間で最大 4 回までです（4 時／16 時をまたぐと別の生徒に入れ替わるので 5 回目はできません）。
-          これは <a href="https://bluearchive.wikiru.jp/?%E3%82%AB%E3%83%95%E3%82%A7" target="_blank" rel="noopener">ブルアカ Wiki「カフェ」</a>の記載です。
+        <p><b>カフェタッチは 1 回 15 の絆経験値。</b>これはデータではなく攻略サイトの記載です（「カフェでのタッチは1回15経験値で、4回タッチすれば上級効果大の贈り物を1個渡したのと同義」。橙の贈り物の基本値 60 とちょうど合います）。タッチできる回数は 3 時間ごとに回復し、カフェの訪問者は毎日 4 時と 16 時にリセットされます。同じ生徒は 12 時間で最大 4 回までです（4 時／16 時をまたぐと別の生徒に入れ替わるので 5 回目はできません）。これは <a href="https://bluearchive.wikiru.jp/?%E3%82%AB%E3%83%95%E3%82%A7" target="_blank" rel="noopener">ブルアカ Wiki「カフェ」</a>の記載です。
           1 号店と 2 号店があるので、招待券を使えば 1 人の生徒を 1 日じゅうカフェに置いておくこともできます。
           1 日に何回タッチできるかは環境で変わるので、入力にしてあります。</p>
-        <p><b>スケジュールの絆経験値は入れていません。</b>場所と生徒の組み合わせで変わり、
-          このツールの手持ちのデータからは決められないためです。分かるぶんは「その他」に入れてください。</p>
+        <p><b>スケジュールの絆経験値は入れていません。</b>場所と生徒の組み合わせで変わり、このツールの手持ちのデータからは決められないためです。分かるぶんは「その他」に入れてください。</p>
         <p>出典 —
           <a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a>（式そのもの。
           <code>ExpValue * (matchingTags + 1)</code> と共通タグ）、
-          <a href="https://github.com/electricgoat/ba-data" target="_blank" rel="noopener">electricgoat/ba-data</a>（絆ランクの必要経験値）、
-          <a href="https://game8.jp/blue-archive/639224" target="_blank" rel="noopener">ゲームエイト「絆ランク（好感度）の上げ方とメリット」</a>（カフェタッチ 15、リセット時刻）。
-          取得は <span id="ver">—</span>。</p>
+          <a href="https://github.com/electricgoat/ba-data" target="_blank" rel="noopener">electricgoat/ba-data</a>（絆ランクの必要経験値）、<a href="https://game8.jp/blue-archive/639224" target="_blank" rel="noopener">ゲームエイト「絆ランク（好感度）の上げ方とメリット」</a>（カフェタッチ 15、リセット時刻）。取得は <span id="ver">—</span>。</p>
       </details>
     </div>
 
@@ -285,12 +272,8 @@
       <span>不具合・要望は <b>@0r.not</b> まで</span>
     </p>
     <p class="disclaimer">
-      <b>このサイトはファンが作った非公式のものです。</b>運営とは関係ありません。
-      <small>掲載しているゲーム内の画像・アイコン・名称・数値は、Nexon Games / Yostar の
-      「ブルーアーカイブ」から引用したもので、著作権はすべて権利者に帰属します。
-      ツールの計算に使うデータは <a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a> と
-      <a href="https://github.com/electricgoat/ba-data" target="_blank" rel="noopener">ba-data</a> から取得しています。
-      権利者の方でご指摘があれば <b>@0r.not</b> までご連絡ください。</small>
+      <b>このサイトはファンが作った非公式のものです。</b>運営とは関係ありません。<small>掲載しているゲーム内の画像・アイコン・名称・数値は、Nexon Games / Yostar の「ブルーアーカイブ」から引用したもので、著作権はすべて権利者に帰属します。ツールの計算に使うデータは <a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a> と
+      <a href="https://github.com/electricgoat/ba-data" target="_blank" rel="noopener">ba-data</a> から取得しています。権利者の方でご指摘があれば <b>@0r.not</b> までご連絡ください。</small>
     </p>
   </div>
 </footer>
