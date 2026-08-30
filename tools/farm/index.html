@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>素材の掘り場｜AronaBot</title>
+<meta name="description" content="足りない素材を選ぶと、それが出る任務と指名手配が期待値の高い順に並びます。AP 10 あたり何個か、指名手配券 1 枚あたり何個かを分けて出すので、今日どこを回るかがすぐ決まります。">
+<meta name="theme-color" content="#c8892e">
+<link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<meta property="og:title" content="素材の掘り場">
+<meta property="og:description" content="足りない素材を選ぶと、それが出る任務と指名手配が期待値の高い順に並びます。AP 10 あたり何個か、指名手配券 1 枚あたり何個かを分けて出すので、今日どこを回るかがすぐ決まります。">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://arona-bot.com/tools/farm/">
+<meta property="og:image" content="https://arona-bot.com/images/hero-night.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="stylesheet" href="../../style.css?v=15">
+<link rel="stylesheet" href="../tool.css?v=7">
+<style>
+  /* 選んでいる素材。**選ぶ前は破線。** */
+  .matcard { display: grid; grid-template-columns: 62px 1fr; gap: 14px; align-items: center;
+             padding: 12px 14px; margin-bottom: 16px;
+             border: 1px solid var(--line); border-radius: 14px; background: var(--bg-sub); }
+  .matcard.none { border-style: dashed; }
+  .matcard .mi { width: 62px; height: 62px; border-radius: 11px; overflow: hidden;
+                 background: var(--card); border: 1px solid var(--line); display: grid; place-items: center; }
+  .matcard .mi img { width: 100%; height: 100%; object-fit: contain; display: block; }
+  .matcard .mn { font-size: 1.05rem; font-weight: 800; margin: 0 0 .3em; word-break: auto-phrase; }
+  .matcard .ms { font-size: .78rem; color: var(--fg-mute); margin: 0; line-height: 1.6; }
+  .matcard .ms b { color: var(--fg); }
+
+  /* 素材のボタン。**多いので囲いの中で縦に送る。** */
+  .matbox { max-height: 320px; -webkit-overflow-scrolling: touch; overflow-y: auto; padding: 8px; border: 1px solid var(--line);
+            border-radius: 12px; background: var(--card); }
+  .mats { display: grid; grid-template-columns: repeat(auto-fill, minmax(158px, 1fr)); gap: 6px; }
+  .matb { display: flex; align-items: center; gap: 7px; padding: .42em .5em; text-align: left;
+          border: 1px solid var(--line); border-radius: 10px; background: var(--bg-sub);
+          cursor: pointer; font: inherit; font-size: .76rem; color: var(--fg); line-height: 1.35; }
+  .matb:hover { border-color: var(--accent); }
+  .matb[aria-pressed="true"] { background: var(--accent); color: var(--accent-in); border-color: transparent; }
+  .matb img { width: 26px; height: 26px; border-radius: 5px; flex: none; }
+  .matb span { min-width: 0; word-break: auto-phrase; }
+  .matnone { font-size: .82rem; color: var(--fg-mute); padding: 10px 4px; margin: 0; }
+  .barnote { font-size: .76rem; color: var(--fg-mute); margin: .7em 0 0; }
+
+  /* 一番の場所を入場料ごとに */
+  .topline b { display: block; font-size: .95rem; }
+  .nowrap { white-space: nowrap; }
+
+  /* ステージの表。**いちばん見たい「1 あたり」を細い画面でも切らさない。** */
+  table.dt.farm { font-size: .82rem; }
+  table.dt.farm th, table.dt.farm td { padding: .5em .55em; }
+  table.dt.farm .stg { min-width: 0; }
+  table.dt.farm .stg b { display: block; font-weight: 700; }
+  table.dt.farm .stg small { color: var(--fg-mute); font-size: .74rem; }
+  table.dt.farm td.per { font-weight: 800; color: var(--accent-tx); white-space: nowrap; }
+  table.dt.farm td.num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  table.dt.farm th.num { text-align: right; }
+  table.dt.farm tr.done td.num { color: var(--fg-mute); }
+  @media (max-width: 560px) {
+    table.dt.farm { font-size: .78rem; }
+    table.dt.farm th, table.dt.farm td { padding: .45em .35em; }
+  }
+</style>
+</head>
+<body>
+
+<!-- 上のバーと footer は scripts/sync-chrome.py が流し込む。
+     **閉じタグの前に改行を入れておくこと。**あちらの正規表現は閉じタグの直前の
+     改行を目印にしているので、1 行に畳むと本文まで食われる。
+     **この注記に目印そのものを書かないこと。**書くと注記の中から当たる -->
+<div class="topbar">
+  <div class="topbar-inner">
+    <a class="topbar-name" href="../../">AronaBotの使い方</a>
+    <a class="topbar-tools" href="../">
+      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <path d="M21.7 18.3l-6-6a5.5 5.5 0 0 0-7-7l3.1 3.1-2.1 2.1L6.6 7.3a5.5 5.5 0 0 0 7 7l6 6a1 1 0 0 0 1.4 0l.7-.7a1 1 0 0 0 0-1.3z"/>
+      </svg>
+      ツール一覧
+    </a>
+    <nav class="topbar-nav">
+      <a href="../../#can">機能</a>
+      <a href="../../#start">つかいはじめる</a>
+      <a href="../../#message">メッセージから</a>
+      <a href="../../#faq">よくある質問</a>
+    </nav>
+    <!-- 共有。**AronaBot 本体と同じ位置に置く。**押した先は環境で変える -->
+    <span class="share-nudge" aria-hidden="true">使えそうな人に、ぜひ</span>
+    <a class="share" id="share-page" target="_blank" rel="noopener" aria-label="このページを共有する"
+       href="https://x.com/intent/post?url=https%3A%2F%2Farona-bot.com%2Ftools%2F">
+      <svg class="share-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <path d="M14 9V5l7 7-7 7v-4.1c-5 0-8.5 1.6-11 5.1 1-5 4-10 11-11z"/>
+      </svg>
+      <span class="share-label">共有</span>
+    </a>
+  </div>
+</div>
+<div class="toast" id="toast-page" role="status" aria-live="polite"></div>
+<script>
+/* 共有ボタン。**そのページ自身の URL を配る。**
+   1. スマホ（navigator.share）→ OS の共有シート
+   2. PC（クリップボード）→ URL をコピーして帯で伝える
+   3. どちらも無い → <a href> のまま X の共有ページへ */
+(function () {
+  var btn = document.getElementById('share-page'), toast = document.getElementById('toast-page');
+  if (!btn) return;
+  // **`#` を落とさない。**TL のように状態をハッシュに入れているツールでは、
+  // ここを削ると相手の画面に同じ結果が出ない（2026-08-30）
+  var url = location.href;
+  var name = document.title.split('｜')[0];
+  var text = name + '（AronaBot のツール）';
+  btn.href = 'https://x.com/intent/post?text=' + encodeURIComponent(text) +
+             '&url=' + encodeURIComponent(url);
+  var timer = null;
+  function say(t) {
+    if (!toast) return;
+    toast.textContent = t; toast.classList.add('shown');
+    clearTimeout(timer); timer = setTimeout(function () { toast.classList.remove('shown'); }, 2000);
+  }
+  btn.addEventListener('click', function (e) {
+    if (navigator.share) {
+      e.preventDefault();
+      navigator.share({ title: name, text: text, url: url }).catch(function () {});
+      return;
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      e.preventDefault();
+      navigator.clipboard.writeText(url).then(function () { say('リンクをコピーしました'); },
+        function () { window.open(btn.href, '_blank', 'noopener'); });
+    }
+  });
+})();
+</script>
+
+<header class="thero">
+  <div class="thero-media" aria-hidden="true">
+    <picture>
+      <source srcset="../../images/hero-day.jpg" media="(prefers-color-scheme: dark)">
+      <img src="../../images/hero-night.jpg" alt="" width="1600" height="400" fetchpriority="high">
+    </picture>
+  </div>
+  <div class="thero-body">
+    <h1>素材の掘り場</h1>
+    <p class="thero-lead">足りない素材を選ぶと、それが出る任務と指名手配が期待値の高い順に並びます。AP 10 あたり何個か、指名手配券 1 枚あたり何個かを分けて出すので、今日どこを回るかがすぐ決まります。</p>
+  </div>
+</header>
+
+<div class="twrap">
+  <p class="tcrumb"><a href="../../">AronaBotの使い方</a><span class="sl">/</span><a href="../">ツール</a><span class="sl">/</span>素材の掘り場</p>
+
+  <div class="tcols lean" style="margin-top:20px">
+
+    <div class="tcol">
+      <div class="panel">
+        <div class="panel-h"><h2>どの素材を掘りますか</h2></div>
+        <div class="matcard" id="matcard">
+          <div class="mi" id="m-img"></div>
+          <div>
+            <p class="mn" id="m-name">—</p>
+            <p class="ms" id="m-note">—</p>
+          </div>
+        </div>
+        <div class="field">
+          <label for="i-find">さがす<span class="hint">名前の一部で絞れます。「ノート」「ゲヘナ」「レポート」など</span></label>
+          <input id="i-find" type="search" placeholder="ネブラ／技術ノート／最上級…" autocomplete="off">
+        </div>
+        <div class="seg" id="mgroups" role="group" aria-label="素材の種類" style="margin:12px 0 10px"></div>
+        <div class="matbox" id="matbox"><div class="mats" id="mats"></div></div>
+        <p class="barnote" id="matcount">—</p>
+      </div>
+
+      <div class="panel">
+        <div class="panel-h"><h2>どれだけ要りますか</h2></div>
+        <div class="fields c2">
+          <div class="field">
+            <label for="i-need">目標の個数</label>
+            <input id="i-need" type="number" inputmode="numeric" min="0" step="1" value="30">
+          </div>
+          <div class="field">
+            <label for="i-have">手持ちの個数</label>
+            <input id="i-have" type="number" inputmode="numeric" min="0" step="1" value="0">
+          </div>
+        </div>
+        <div class="field" style="margin-top:16px">
+          <span class="lb">ドロップ倍率<span class="hint">2 倍・3 倍キャンペーンのあいだはこちら</span></span>
+          <div class="seg" id="mult" role="group" aria-label="ドロップ倍率">
+            <button type="button" data-m="1" aria-pressed="true">1 倍</button>
+            <button type="button" data-m="2" aria-pressed="false">2 倍</button>
+            <button type="button" data-m="3" aria-pressed="false">3 倍</button>
+          </div>
+        </div>
+        <p class="lead" style="margin:16px 0 0"><b>数字は 1 周あたりの期待個数です。</b>確率つきの報酬は「個数 × 確率」で、箱は中身の確率で割って足しています。<b>初回クリアと 3 つ星の報酬は数えていません</b>（周回では出ないため）。</p>
+      </div>
+    </div>
+
+    <div class="tcol">
+      <div class="stats c3">
+        <div class="stat hero">
+          <div class="k">いちばん効率のいい場所</div>
+          <div class="v" id="o-best">—</div>
+          <div class="sub" id="o-best-sub">素材を選ぶと出ます</div>
+        </div>
+        <div class="stat">
+          <div class="k">あと何周</div>
+          <div class="v" id="o-runs">—</div>
+          <div class="sub" id="o-runs-sub">目標まで足りないぶん</div>
+        </div>
+        <div class="stat">
+          <div class="k">そこまでの元手</div>
+          <div class="v" id="o-cost">—</div>
+          <div class="sub" id="o-cost-sub">入場料の合計</div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-h"><h2>入場料ごとの一番</h2></div>
+        <p class="lead"><b>AP と券は混ぜません。</b>指名手配券と学園交流会チケットは 1 日にもらえる枚数が決まっていて、AP と同じ物差しでは比べられないからです。</p>
+        <div class="ledger" id="tops"></div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-h"><h2>同じ仲間に切り替える</h2></div>
+        <p class="lead">初級から最上級まで、同じ絵柄のものを並べています。<b>段が違うと出る場所も変わります。</b></p>
+        <div class="mats" id="family"></div>
+      </div>
+    </div>
+
+    <div class="tfull">
+      <div id="tables"></div>
+
+      <div class="sharebar" id="sharebar"></div>
+
+      <details class="src">
+        <summary>数字の出どころ</summary>
+        <p><b>落ちる個数はゲームのデータをそのまま読んでいます。</b>周回してドロップを数えた値ではありません。</p>
+        <ul>
+          <li>ステージと報酬は <a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a> の
+            <code>data/jp/stages.min.json</code>。任務・指名手配・特別依頼・学園交流会の
+            <b>320 本</b>のうち、素材が落ちる <b><span id="src-stage">—</span> 本</b>を載せています</li>
+          <li>1 周あたりの期待個数は <code>個数 × Chance</code>。<code>AmountMin</code> /
+            <code>AmountMax</code> があるときはその平均、<code>Chance</code> が無ければ 1.0 です。
+            <b><code>Amount</code> と <code>AmountMin/Max</code> は掛け算です</b> ——
+            SchaleDB 本体の実装（<code>assets/ItemView-*.js</code>）も
+            <code>(Amount??1) * (AmountMin??1)</code> と掛けています</li>
+          <li><b>初回クリア報酬（<code>FirstClear</code>）と 3 つ星報酬（<code>ThreeStar</code>）は数えていません。</b>
+            周回では出ないからです</li>
+          <li>箱（<code>GachaGroup</code>）の中身は SchaleDB の
+            <code>data/groups.min.json</code>。中身ごとに <code>Chance</code> が入っているので、
+            期待個数は <code>箱の期待個数 × 中身の Chance × 中身の個数</code>です。
+            <b>ba-data の <code>GachaElementExcelTable</code> は使っていません。</b>
+            あちらは 2025-05-07 で止まっていて、たとえば箱 <code>10314</code> が
+            「百鬼夜行・トリニティ・アリウスの 3 種で各 1/3」になっています。
+            実際はオデュッセイアが加わった 4 種で各 0.25 で、<b>使うと期待個数が 1.33 倍に膨らみます。</b>
+            ステージが使う 100 個の箱を 1 つずつ突き合わせて、中身が同じ 83 個では
+            確率が 0.002 以内で一致し、残り 16 個は SchaleDB 側にだけ新しい学校が
+            入っていることを確かめました（2026-08-30）</li>
+          <li>箱 <code>500000</code> / <code>500001</code> / <code>500100</code> は数えていません。
+            <code>groups.min.json</code> の中身が<b>全部 <code>"Chance": 0</code></b> の空の箱で、
+            SchaleDB 本体も名指しで外しています（<code>assets/ItemView-*.js</code> の
+            <code>g=[5e5,500001,500100]</code>）</li>
+          <li>入場料は <code>EntryCost</code>。<b>通貨 5 が AP、22 が指名手配券、23 が学園交流会チケット</b>で、
+            出てくるのはこの 3 つだけです（4 つ目が出たらデータを作る側で止まります）。
+            <b>学園交流会はチケットと AP の 2 本立て</b>なので、券あたりと AP を別々に出しています</li>
+          <li>名前の無いステージ（指名手配・特別依頼・学園交流会の 70 本）は
+            <code>data/jp/localization.min.json</code> の <code>StageTitle</code> に番号を差し込んで作っています。
+            <code>"ChaserA": "ハイウェイ{0}"</code> のような形です。
+            <b><code>FindGift</code> は「贈り物」ではなくクレジット回収</b>で、これも同じところの
+            <code>StageType</code> が正本です</li>
+          <li>数えている素材は <b><span id="src-mat">—</span> 種</b>、
+            （素材, ステージ）の組は <b><span id="src-pair">—</span> 件</b>。
+            アイテムを落とすステージは <b><span id="src-istage">—</span> 本</b>で、
+            これを下回ったらデータを作る側で止まります</li>
+        </ul>
+        <p><b>イベントステージは入っていません。</b><code>stages.min.json</code> には
+          任務・指名手配・特別依頼・学園交流会の 320 本しか無く、イベントの周回効率は出せません。
+          <b>強化珠もこの一覧には出ません</b> —— 320 本の報酬を全部当たって、
+          <code>Equipment</code> の Id 1〜4（初級〜最上級強化珠）は 1 件も出てきませんでした。</p>
+        <p><b>ドロップ 2 倍・3 倍は、1 周あたりの期待個数をそのまま倍にしています。</b>
+          倍率が報酬のどの行に掛かるかまではデータに書かれていないので、そこは確かめられていません。</p>
+        <p>出典 —
+          <a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a>。
+          期待個数の出し方も、あちらの <code>assets/ItemView-*.js</code> に合わせています。
+          取得は <span id="ver">—</span>。</p>
+      </details>
+    </div>
+
+  </div>
+</div>
+
+<script>window.TOUR = {"key": "farm", "steps": [{"sel": "#matcard", "t": "まず素材を選びます", "d": "オーパーツ・技術ノート・戦術教育BD・レポート・武器パーツ・神名文字。名前の一部でも探せます。"}, {"sel": "#matbox", "t": "種類ごとに並んでいます", "d": "上のタブで群を切り替えるか、さがす欄に打ち込んでください。押すとその場で結果が入れ替わります。"}, {"sel": "#o-best", "t": "いちばん効率のいい場所が出ます", "d": "目標の個数と手持ちを入れると、あと何周・何 AP かかるかも出ます。"}, {"sel": "#tops", "t": "AP と券は混ぜません", "d": "指名手配券と学園交流会チケットは 1 日にもらえる枚数が決まっているので、AP と同じ物差しでは比べられません。"}, {"sel": "#tables .panel:first-child", "t": "下に全部のステージが並びます", "d": "入場料 1 あたりの多い順です。ドロップ 2 倍・3 倍のあいだは倍率を切り替えてください。"}, {"sel": "#sharebar", "t": "結果はそのまま渡せます", "d": "選んでいる素材と個数ごと URL になるので、リンクを送れば相手の画面にも同じ結果が出ます。"}]};</script>
+<script src="../tour.js?v=1"></script>
+
+<script src="../share.js?v=1"></script>
+
+<footer>
+  <div class="foot-inner">
+    <p class="foot-name">AronaBotの使い方</p>
+    <p class="foot-links">
+      <a href="../../">AronaBot のページ</a>
+      <span class="sep">/</span>
+      <a href="../">ツール一覧</a>
+      <span class="sep">/</span>
+      <a href="https://x.com/pe6cak" target="_blank" rel="noopener">制作者の X（@pe6cak）</a>
+      <span class="sep">/</span>
+      <span>不具合・要望は <b>@0r.not</b> まで</span>
+    </p>
+    <p class="disclaimer">
+      <b>このサイトはファンが作った非公式のものです。</b>運営とは関係ありません。
+      <small>掲載しているゲーム内の画像・アイコン・名称・数値は、Nexon Games / Yostar の
+      「ブルーアーカイブ」から引用したもので、著作権はすべて権利者に帰属します。
+      ツールの計算に使うデータは <a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a> と
+      <a href="https://github.com/electricgoat/ba-data" target="_blank" rel="noopener">ba-data</a> から取得しています。
+      権利者の方でご指摘があれば <b>@0r.not</b> までご連絡ください。</small>
+    </p>
+  </div>
+</footer>
+
+<script src="data.js"></script>
+<script>
+(function () {
+  'use strict';
+  var F = window.FARM;
+  var el = function (id) { return document.getElementById(id); };
+  function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;'); }
+  function fmt(n) { return Math.round(n).toLocaleString('ja-JP'); }
+  /** **小さい数を 0 と書かない。**1 周 0.0043 個のような段が普通にある。 */
+  function per(v) {
+    if (!v) return '0';
+    if (v >= 100) return fmt(v);
+    if (v >= 1) return (+v.toFixed(2)).toString();
+    if (v >= 0.01) return (+v.toFixed(3)).toString();
+    return (+v.toFixed(5)).toString();
+  }
+
+  var byKey = {};
+  F.mats.forEach(function (m) { byKey[m.k] = m; });
+  // **同じ絵柄のものを仲間にする。**`item_icon_material_nebra_0` の末尾の段を落とす
+  var family = {};
+  F.mats.forEach(function (m) {
+    m.f = String(m.i).replace(/_\d+$/, '');
+    (family[m.f] = family[m.f] || []).push(m);
+  });
+
+  // 入場料の 3 種。**AP・指名手配券・学園交流会チケットは別の物差し。**
+  var UNITS = [
+    { id: 0, t: 'AP で回るところ', u: 'AP', nm: 'AP', k: 'AP 10 あたり', n: 10 },
+    { id: 22, t: '指名手配券で回るところ', u: '枚', nm: '指名手配券', k: '券 1 枚あたり', n: 1 },
+    { id: 23, t: '学園交流会チケットで回るところ', u: '枚', nm: '交流会チケット', k: 'チケット 1 枚あたり', n: 1 }
+  ];
+  function unitOf(s) { return s.tk || 0; }
+  function costOf(s) { return s.tk ? s.tn : s.ap; }
+
+  var mat = byKey[F['def']] ? F['def'] : F.mats[0].k;
+  var group = byKey[mat].g, find = '', mult = 1, showAll = {};
+
+  function stageLabel(s) {
+    // 任務は「Hard 12-3」が通り名。指名手配などは作った題名をそのまま
+    if (s.c === 'Campaign') return (s.h ? 'Hard ' : 'Normal ') + s.a + '-' + s.s;
+    return s.n;
+  }
+  function stageSub(s) {
+    if (s.c === 'Campaign') return s.n;
+    return s.tj;
+  }
+
+  /** いま選んでいる素材の落ちる場所。**倍率を掛けたあとの 1 周あたり。** */
+  function rows() {
+    return (F.drops[mat] || []).map(function (p) {
+      var s = F.stages[p[0]];
+      var v = p[1] * mult;
+      return { s: s, v: v, c: costOf(s), r: v / (costOf(s) || 1) };
+    }).sort(function (a, b) { return b.r - a.r || b.v - a.v; });
+  }
+  function left() {
+    var need = Math.max(0, +el('i-need').value || 0);
+    var have = Math.max(0, +el('i-have').value || 0);
+    return Math.max(0, need - have);
+  }
+
+  /* ---- 素材を選ぶところ。**入れ物は組み直すが、入力欄は中に入れない。**
+     打ちながら絞り込むので、ここを作り直しても焦点は検索欄に残る */
+  (function fillGroups() {
+    el('mgroups').innerHTML = F.groups.map(function (g) {
+      return '<button type="button" data-g="' + esc(g) + '" aria-pressed="false">' + esc(g) + '</button>';
+    }).join('');
+  })();
+
+  function drawPick() {
+    [].forEach.call(el('mgroups').querySelectorAll('button'), function (b) {
+      b.setAttribute('aria-pressed', String(b.dataset.g === group));
+    });
+    var low = find.toLowerCase();
+    var list = F.mats.filter(function (m) {
+      if (low) return m.n.toLowerCase().indexOf(low) >= 0;
+      return m.g === group;
+    });
+    el('mats').innerHTML = list.length
+      ? list.map(function (m) {
+          return '<button type="button" class="matb" data-k="' + m.k + '" aria-pressed="' +
+            (m.k === mat) + '"><img src="../img/' + m.i + '.webp" alt="" width="26" height="26" loading="lazy">' +
+            '<span>' + esc(m.n) + '</span></button>';
+        }).join('')
+      : '<p class="matnone">その名前の素材は、どのステージからも出ていません。</p>';
+    // **枠の中が送れることを書いておく。**囲いの高さで切っているので、
+    // 何も言わないと下に続きがあることに気づけない（2026-08-30、390px で見て足した）
+    var more = list.length > 8 ? '枠の中を縦に送ると続きが出ます。' : '';
+    el('matcount').textContent = (low
+      ? '「' + find + '」に当てはまる素材 ' + list.length + ' 種。'
+      : group + ' は ' + list.length + ' 種。全部で ' + F.mats.length + ' 種あります。') + more;
+  }
+
+  function drawFamily() {
+    var m = byKey[mat], fam = (family[m.f] || []).slice().sort(function (a, b) { return a.q - b.q; });
+    el('family').innerHTML = fam.map(function (x) {
+      return '<button type="button" class="matb" data-k="' + x.k + '" aria-pressed="' +
+        (x.k === mat) + '"><img src="../img/' + x.i + '.webp" alt="" width="26" height="26" loading="lazy">' +
+        '<span>' + esc(x.n) + '</span></button>';
+    }).join('');
+  }
+
+  function drawCard(rs) {
+    var m = byKey[mat];
+    el('matcard').classList.remove('none');
+    el('m-img').innerHTML = '<img src="../img/' + m.i + '.webp" alt="" width="62" height="62">';
+    el('m-name').textContent = m.n;
+    var kinds = {};
+    rs.forEach(function (r) { kinds[unitOf(r.s)] = (kinds[unitOf(r.s)] || 0) + 1; });
+    var parts = UNITS.filter(function (u) { return kinds[u.id]; }).map(function (u) {
+      return u.nm + ' ' + kinds[u.id] + ' 本';
+    });
+    el('m-note').innerHTML = '<b>' + esc(m.g) + '</b>／落ちるのは <b>' + rs.length +
+      ' 本</b>のステージ' + (parts.length ? '（' + parts.join('・') + '）' : '') + '。';
+  }
+
+  function drawTops(rs) {
+    var h = '';
+    UNITS.forEach(function (u) {
+      var best = null;
+      for (var i = 0; i < rs.length; i++) { if (unitOf(rs[i].s) === u.id) { best = rs[i]; break; } }
+      h += '<div class="row"><span class="topline">' + esc(u.k) +
+        '<span class="subnote">' + (best ? esc(stageLabel(best.s)) + '｜' + esc(stageSub(best.s)) : 'ここでは出ません') + '</span></span>' +
+        '<span>' + (best ? '<b>' + per(best.r * u.n) + '</b> 個' : '—') + '</span></div>';
+    });
+    el('tops').innerHTML = h;
+  }
+
+  function drawStats(rs) {
+    var need = left();
+    if (!rs.length) {
+      el('o-best').textContent = '—';
+      el('o-best-sub').textContent = 'この素材が落ちるステージはありません。';
+      el('o-runs').textContent = '—'; el('o-cost').textContent = '—';
+      el('o-runs-sub').textContent = ''; el('o-cost-sub').textContent = '';
+      return;
+    }
+    var b = rs[0], u = UNITS.filter(function (x) { return x.id === unitOf(b.s); })[0];
+    el('o-best').textContent = stageLabel(b.s);
+    el('o-best-sub').innerHTML = esc(stageSub(b.s)) + '｜' + esc(u.k) + ' <b>' + per(b.r * u.n) + '</b> 個';
+    if (!need) {
+      el('o-runs').innerHTML = '0 <small>周</small>';
+      el('o-runs-sub').textContent = '手持ちで足りています。';
+      el('o-cost').innerHTML = '0';
+      el('o-cost-sub').textContent = '';
+      return;
+    }
+    var runs = b.v > 0 ? Math.ceil(need / b.v) : 0;
+    el('o-runs').innerHTML = fmt(runs) + ' <small>周</small>';
+    el('o-runs-sub').innerHTML = 'あと <b>' + fmt(need) + '</b> 個ぶん（1 周 ' + per(b.v) + ' 個）';
+    el('o-cost').innerHTML = fmt(runs * b.c) + ' <small>' + (u.id ? u.u : 'AP') + '</small>';
+    el('o-cost-sub').textContent = u.id === 22 ? '指名手配券のぶん'
+      : u.id === 23 ? '交流会チケットのぶん（AP は別に ' + fmt(runs * b.s.ap) + ' 要ります）' : 'AP のぶん';
+  }
+
+  var LIMIT = 10;
+  function drawTables(rs) {
+    var need = left(), h = '';
+    UNITS.forEach(function (u) {
+      var list = rs.filter(function (r) { return unitOf(r.s) === u.id; });
+      if (!list.length) return;
+      var all = showAll[u.id], view = all ? list : list.slice(0, LIMIT);
+      /* **入場料が全部 1 のときは列を 3 つに畳む。**指名手配は 1 周につき券 1 枚
+         なので「1 周」「券 1 枚あたり」「要る券」の 3 列が同じ数字になる。
+         そのまま 5 列で出すと、細い画面でいちばん見たい列が右へ押し出される
+         （2026-08-30、390px で実物を見て畳んだ） */
+      var flat = list.every(function (r) { return r.c === 1; });
+      h += '<div class="panel"><div class="panel-h"><h2>' + esc(u.t) + '</h2></div>' +
+        '<p class="lead">' + list.length + ' 本あります。<b>' + esc(u.k) +
+        'の多い順</b>に並べました。' +
+        (flat ? '1 周につき' + u.nm + ' 1 枚なので、<b>周回数がそのまま必要な枚数</b>です。' : '') +
+        (u.id === 23 ? '学園交流会はチケットのほかに AP も要ります（表の右に出しています）。' : '') +
+        '</p><div class="tscroll"><table class="dt farm"><thead><tr>' +
+        '<th>ステージ</th>' +
+        (flat ? '' : '<th class="num">1 周</th>') +
+        '<th class="num">' + esc(u.k) + '</th>' +
+        '<th class="num">あと何周</th>' +
+        (flat ? '' : '<th class="num">' + (u.id === 23 ? '券／AP' : u.id ? '要る券' : '要る AP') + '</th>') +
+        '</tr></thead><tbody>' +
+        view.map(function (r) {
+          var runs = need && r.v > 0 ? Math.ceil(need / r.v) : 0;
+          return '<tr' + (need ? '' : ' class="done"') + '><td class="stg"><b>' + esc(stageLabel(r.s)) +
+            '</b><small>' + esc(stageSub(r.s)) + '</small></td>' +
+            (flat ? '' : '<td class="num">' + per(r.v) + '</td>') +
+            '<td class="per num">' + per(r.r * u.n) + '</td>' +
+            '<td class="num">' + (need ? fmt(runs) + ' 周' : '—') + '</td>' +
+            (flat ? '' : '<td class="num">' + (need
+              ? (u.id === 23 ? fmt(runs * r.c) + ' ／ ' + fmt(runs * r.s.ap) : fmt(runs * r.c))
+              : '—') + '</td>') + '</tr>';
+        }).join('') +
+        '</tbody></table></div>' +
+        (list.length > LIMIT
+          ? '<div class="btnrow" style="margin-top:12px"><button type="button" class="btn" data-all="' +
+            u.id + '">' + (all ? '上位 ' + LIMIT + ' 本だけ' : '残り ' + (list.length - LIMIT) + ' 本も見る') + '</button></div>'
+          : '') +
+        '</div>';
+    });
+    el('tables').innerHTML = h ||
+      '<div class="panel"><p class="lead">この素材が落ちるステージは、任務・指名手配・特別依頼・学園交流会の中にはありません。</p></div>';
+  }
+
+  function draw() {
+    var rs = rows();
+    drawPick(); drawFamily(); drawCard(rs); drawTops(rs); drawStats(rs); drawTables(rs);
+    location.replace('#' + toHash());
+  }
+
+  function toHash() {
+    return mat + '|' + Math.max(0, +el('i-need').value || 0) + '|' +
+      Math.max(0, +el('i-have').value || 0) + '|' + mult;
+  }
+  window.shareUrl = function () { return '#' + toHash(); };
+
+  function pickMat(k) {
+    if (!byKey[k]) return;
+    mat = k; group = byKey[k].g;
+    draw();
+  }
+
+  el('mats').addEventListener('click', function (e) {
+    var b = e.target.closest('.matb'); if (b) pickMat(b.dataset.k);
+  });
+  el('family').addEventListener('click', function (e) {
+    var b = e.target.closest('.matb'); if (b) pickMat(b.dataset.k);
+  });
+  el('mgroups').addEventListener('click', function (e) {
+    var b = e.target.closest('button'); if (!b) return;
+    group = b.dataset.g; find = ''; el('i-find').value = '';
+    drawPick();
+  });
+  el('i-find').addEventListener('input', function () { find = this.value.trim(); drawPick(); });
+  el('mult').addEventListener('click', function (e) {
+    var b = e.target.closest('button'); if (!b) return;
+    mult = +b.dataset.m;
+    [].forEach.call(this.querySelectorAll('button'), function (x) {
+      x.setAttribute('aria-pressed', String(+x.dataset.m === mult));
+    });
+    draw();
+  });
+  el('tables').addEventListener('click', function (e) {
+    var b = e.target.closest('[data-all]'); if (!b) return;
+    showAll[b.dataset.all] = !showAll[b.dataset.all];
+    drawTables(rows());
+  });
+  ['i-need', 'i-have'].forEach(function (id) {
+    el(id).addEventListener('input', function () {
+      // **表の入れ物だけ描き直す。**入力欄は作り直さないので焦点は残る
+      var rs = rows();
+      drawStats(rs); drawTables(rs);
+      location.replace('#' + toHash());
+    });
+  });
+
+  (function fromHash() {
+    var h = decodeURIComponent(location.hash.replace(/^#/, ''));
+    if (!h) return;
+    var p = h.split('|');
+    if (p[0] && byKey[p[0]]) { mat = p[0]; group = byKey[mat].g; }
+    if (p[1] !== undefined && +p[1] >= 0) el('i-need').value = Math.floor(+p[1]) || 0;
+    if (p[2] !== undefined && +p[2] >= 0) el('i-have').value = Math.floor(+p[2]) || 0;
+    if (+p[3] >= 1 && +p[3] <= 3) {
+      mult = Math.floor(+p[3]);
+      [].forEach.call(el('mult').querySelectorAll('button'), function (x) {
+        x.setAttribute('aria-pressed', String(+x.dataset.m === mult));
+      });
+    }
+  })();
+
+  el('src-mat').textContent = F.mats.length;
+  el('src-stage').textContent = F.stages.length;
+  el('src-pair').textContent = Object.keys(F.drops).reduce(function (a, k) { return a + F.drops[k].length; }, 0);
+  el('src-istage').textContent = F.itemStages;
+  el('ver').textContent = F.version;
+
+  draw();
+})();
+</script>
+</body>
+</html>

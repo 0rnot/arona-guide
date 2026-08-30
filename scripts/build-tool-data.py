@@ -30,6 +30,9 @@ BADB = "https://raw.githubusercontent.com/electricgoat/ba-data/jp/DB/{}.json"
 # 本番サイトのほうは毎日更新されているので、そちらを見る（2026-08-30 に発見）。
 SD = "https://schaledb.com/data/jp/{}.min.json"
 SD_CFG = "https://schaledb.com/data/config.json"
+# **箱（GachaGroup）の中身。**言語に依らないので `data/jp/` ではなく直下にある。
+# 中身ごとに `Chance` が入っていて、ba-data の `Prob` 比を自分で割る必要がない
+SD_GROUPS = "https://schaledb.com/data/groups.min.json"
 
 CROP = (12, 0, 134, 116)      # 146×116 の中で、どの絵もはみ出さない横方向の枠
 SQUARE = 122
@@ -2633,6 +2636,628 @@ def build_weapon():
     }, header="/* scripts/build-tool-data.py が吐く。**手で直さない。** */\n")
 
 
+# ------------------------------------------------------------ スケジュール
+
+def build_schedule():
+    """**ランクの段は「そのランク以上」で引く。**`AcademyRewardExcelTable` の
+    `LocationRank` は 1 / 4 / 7 / 10 / 11 / 12 の 6 段しかなく、ランク 5 なら
+    4 の行、ランク 9 なら 7 の行が効く（86 群 × 6 段 = 516 行ちょうど）。
+
+    **`Location` 列は韓国語のまま**（`"샬레 업무관"`）。日本語名は
+    `DB/LocalizeEtcExcelTable` の `NameJp` を `LocalizeEtcId` で引く。
+    `Excel/` 側には `NameJp` が無い。
+
+    **追加報酬の同じ道具が 2 行に分かれることがある。**ランク 11 の学校ゾーンは
+    `[3030, 4030, 4030]` のように 3 本目が 2 本目の続き（2 本目が 100% で
+    頭打ちになったぶんの上乗せ）。期待値は道具ごとに足し合わせる。
+    """
+    print("スケジュールの期待値")
+    rw = as_list(get_json(BA.format("AcademyRewardExcelTable")))
+    zn = as_list(get_json(BA.format("AcademyZoneExcelTable")))
+    lc = as_list(get_json(BA.format("AcademyLocationExcelTable")))
+    lr = as_list(get_json(BA.format("AcademyLocationRankExcelTable")))
+    tk = as_list(get_json(BA.format("AcademyTicketExcelTable")))
+    const = as_list(get_json(BA.format("ConstCommonExcelTable")))
+    etc = {x["Key"]: x for x in as_list(get_json(BADB.format("LocalizeEtcExcelTable")))}
+    items = {x["Id"]: x for x in as_list(get_json(BADB.format("ItemExcelTable")))}
+
+    TIERS = [1, 4, 7, 10, 11, 12]
+    if len(rw) != 516:
+        raise SystemExit(f"AcademyReward が {len(rw)} 行（516 のはず）")
+    if sorted({x["LocationRank"] for x in rw}) != TIERS:
+        raise SystemExit(f"LocationRank の段が {sorted({x['LocationRank'] for x in rw})}")
+    if {tuple(x["RewardParcelType"]) for x in rw} != {("LocationExp",)}:
+        raise SystemExit("RewardParcelType が LocationExp だけではない")
+    amts = {tuple(x["RewardAmount"]) for x in rw}
+    if amts != {(100,)}:
+        raise SystemExit(f"RewardAmount が {amts}（(100,) のはず）。1 回 100 の前提が崩れた")
+    RUN_EXP = 100
+    if {x["SecretStoneAmount"] for x in rw} != {1}:
+        raise SystemExit("SecretStoneAmount が 1 で揃っていない")
+    for x in rw:
+        for p in [x["SecretStoneProb"], x["ExtraFavorExpProb"]] + list(x["ExtraRewardProb"]):
+            if not (0 < p <= 10000):
+                raise SystemExit(f"確率が 10000 分率に収まらない: {p}（群 {x['ScheduleGroupId']}）")
+
+    # 群 → 段
+    grp = {}
+    for x in rw:
+        grp.setdefault(x["ScheduleGroupId"], {})[x["LocationRank"]] = x
+    if len(grp) != 86:
+        raise SystemExit(f"ScheduleGroupId が {len(grp)} 種（86 のはず）")
+    for gid, tiers in grp.items():
+        if sorted(tiers) != TIERS:
+            raise SystemExit(f"群 {gid} の段が {sorted(tiers)}")
+
+    # **段ごとの絆経験値と神名文字は 86 群すべてで同じ。**違う群があれば止める
+    base = {}
+    for t in TIERS:
+        vals = {(g[t]["FavorExp"], g[t]["ExtraFavorExp"], g[t]["ExtraFavorExpProb"],
+                 g[t]["SecretStoneProb"]) for g in grp.values()}
+        if len(vals) != 1:
+            raise SystemExit(f"段 {t} の絆・神名文字が群ごとに違う: {sorted(vals)}")
+        f, ef, ep, sp = vals.pop()
+        base[t] = {"r": t, "favor": f, "exFavor": ef, "exProb": ep, "ssProb": sp}
+
+    # ゾーン。**RewardGroupId が 0 のものは執務室**（スケジュールを送れない）
+    fz = next((c.get("AcademyFavorZoneId") for c in const if c.get("AcademyFavorZoneId")), None)
+    zmap = {}
+    for z in zn:
+        if not z["RewardGroupId"]:
+            if z["Id"] != fz:
+                raise SystemExit(f"報酬群を持たないゾーンが {z['Id']}"
+                                 f"（AcademyFavorZoneId {fz} のはず）")
+            continue
+        zmap[z["RewardGroupId"]] = z
+    if set(zmap) != set(grp):
+        raise SystemExit(f"ゾーンと報酬群が 1 対 1 でない: {sorted(set(zmap) ^ set(grp))}")
+
+    def name_of(key):
+        v = etc.get(key)
+        if not v or not v.get("NameJp"):
+            raise SystemExit(f"LocalizeEtcId {key} の日本語名が引けない")
+        return v["NameJp"].replace("\n", "").strip()
+
+    # 追加報酬の道具
+    used_items = {}
+    for x in rw:
+        for i in x["ExtraRewardParcelId"]:
+            used_items[i] = None
+    for i in list(used_items):
+        v = items.get(i)
+        if not v:
+            raise SystemExit(f"追加報酬の道具 {i} が ItemExcelTable に無い")
+        used_items[i] = {"nm": name_of(v["LocalizeEtcId"]),
+                         "ic": v["Icon"].rsplit("/", 1)[-1].lower(),
+                         "rr": v.get("Rarity", "N")}
+
+    locs = []
+    for l_ in sorted(lc, key=lambda x: x["Id"]):
+        zs = []
+        for z in sorted([z for z in zn if z["LocationId"] == l_["Id"] and z["RewardGroupId"]],
+                        key=lambda x: (x["LocationRankForUnlock"], x["Id"])):
+            tiers = []
+            for t in TIERS:
+                x = grp[z["RewardGroupId"]][t]
+                # **同じ道具が 2 行に分かれる。**足し合わせて 1 本にする
+                merged, order = {}, []
+                for i, a, p in zip(x["ExtraRewardParcelId"], x["ExtraRewardAmount"],
+                                   x["ExtraRewardProb"]):
+                    if i not in merged:
+                        merged[i] = 0.0
+                        order.append(i)
+                    merged[i] += a * p / 10000.0
+                tiers.append([[i, round(merged[i], 4)] for i in order])
+            zs.append({"id": z["Id"], "nm": name_of(z["LocalizeEtcId"]),
+                       "u": z["LocationRankForUnlock"], "rw": tiers})
+        if not zs:
+            raise SystemExit(f"ロケーション {l_['Id']} にゾーンが無い")
+        locs.append({"id": l_["Id"], "nm": name_of(l_["LocalizeEtcId"]), "z": zs})
+    if len(locs) != 11:
+        raise SystemExit(f"ロケーションが {len(locs)} か所（11 のはず）")
+
+    rank = [{"r": x["Rank"], "exp": x["RankExp"], "tot": x["TotalExp"]}
+            for x in sorted(lr, key=lambda x: x["Rank"])]
+    if [x["r"] for x in rank] != list(range(1, len(rank) + 1)):
+        raise SystemExit("ランクが 1 から連番でない")
+    if rank[-1]["exp"] != 0:
+        raise SystemExit(f"最終ランク {rank[-1]['r']} の RankExp が {rank[-1]['exp']}（0 のはず）")
+    for i in range(len(rank)):
+        if rank[i]["tot"] != sum(x["exp"] for x in rank[:i + 1]):
+            raise SystemExit(f"TotalExp が RankExp の累計と合わない（ランク {rank[i]['r']}）")
+
+    tic = sorted([[x["LocationRankSum"], x["ScheduleTicktetMax"]] for x in tk])
+    if not tic or tic[0][0] != 1:
+        raise SystemExit(f"チケットの段が {tic}")
+
+    print(f"  {len(locs)} か所・{sum(len(x['z']) for x in locs)} エリア、"
+          f"段 {TIERS}、最大ランク {rank[-1]['r']}（累計 {rank[-1]['tot']:,} 経験値 ＝ "
+          f"{rank[-1]['tot'] // RUN_EXP} 回）")
+
+    n = 0
+    for v in used_items.values():
+        n += fetch_icon(v["ic"], f"https://schaledb.com/images/item/icon/{v['ic']}.webp")
+    n += fetch_icon("item_icon_secretstone",
+                    "https://schaledb.com/images/item/icon/item_icon_secretstone.webp")
+    n += fetch_icon("item_icon_favor_0",
+                    "https://schaledb.com/images/item/icon/item_icon_favor_0.webp")
+    if n:
+        print(f"  アイコンを {n} 枚追加")
+
+    return write_js("tools/schedule/data.js", "SCH", {
+        "tiers": TIERS,
+        "base": [base[t] for t in TIERS],
+        "rank": rank,
+        "ticket": tic,
+        "runExp": RUN_EXP,
+        "loc": locs,
+        "item": {str(k): v for k, v in used_items.items()},
+        "version": "electricgoat/ba-data jp（AcademyReward・AcademyZone・AcademyLocation・"
+                   "AcademyLocationRank・AcademyTicket・ConstCommon／DB の LocalizeEtc・Item）",
+    }, header="/* scripts/build-tool-data.py が吐く。**手で直さない。** */\n")
+
+
+# ------------------------------------------------------------ カフェ
+
+def build_cafe():
+    """**時給は 10000 で割る。**`(ParcelProductionCoefficient × 快適度
+    + ParcelProductionCorrectionValue) / 10000` が 1 時間ぶん。割り忘れると
+    ランク 1 で 1875 万クレジット/時になる。
+
+    **裏取り**: 快適度を各ランクの `ComfortMax` に置いたとき、クレジット 20 行
+    すべてで `ParcelStorageMax ÷ 時給` が 24.000（23.998〜24.000）。
+    `CafeAutoChargePeriodInMsc = 3600000`（1 時間）とも合う。
+    AP の 10 行は倉庫上限が丸められていて 23.45〜24.02 に散るので、
+    こちらには「倉庫 = 24 時間ぶん」と書かない。
+    """
+    print("カフェの収入計算機")
+    prod = as_list(get_json(BA.format("CafeProductionExcelTable")))
+    crank = as_list(get_json(BA.format("CafeRankExcelTable")))
+    info = as_list(get_json(BA.format("CafeInfoExcelTable")))
+    rec = {r["Id"]: r for r in as_list(get_json(BA.format("RecipeExcelTable")))}
+    ing = {r["Id"]: r for r in as_list(get_json(BA.format("RecipeIngredientExcelTable")))}
+    fgrp = as_list(get_json(BA.format("FurnitureGroupExcelTable")))
+    const = as_list(get_json(BA.format("ConstCommonExcelTable")))
+    etc = {x["Key"]: x for x in as_list(get_json(BADB.format("LocalizeEtcExcelTable")))}
+    items = {x["Id"]: x for x in as_list(get_json(BADB.format("ItemExcelTable")))}
+    furn = as_list(get_json(SD.format("furniture")))
+    loc = get_json(SD.format("localization"))
+
+    if len(prod) != 30:
+        raise SystemExit(f"CafeProduction が {len(prod)} 行（30 のはず）")
+    if len(crank) != 20:
+        raise SystemExit(f"CafeRank が {len(crank)} 行（20 のはず）")
+    cm = {(x["CafeId"], x["Rank"]): x for x in crank}
+    for cid in (1, 2):
+        got = [cm[(cid, r)]["ComfortMax"] for r in range(1, 11)]
+        if got != [1000 + 500 * i for i in range(10)]:
+            raise SystemExit(f"カフェ {cid} の ComfortMax が {got}")
+
+    # **これが決め手。**クレジット行 20 本で「倉庫 = 24 時間ぶん」を確かめる
+    checked = 0
+    for p in prod:
+        c = cm[(p["CafeId"], p["Rank"])]["ComfortMax"]
+        hour = (p["ParcelProductionCoefficient"] * c
+                + p["ParcelProductionCorrectionValue"]) / 10000.0
+        if hour <= 0:
+            raise SystemExit(f"時給が 0 以下: {p}")
+        if p["CafeProductionParcelId"] == 1:      # クレジット
+            h = p["ParcelStorageMax"] / hour
+            if abs(h - 24) > 0.01:
+                raise SystemExit(
+                    f"カフェ {p['CafeId']} ランク {p['Rank']} の倉庫が {h:.3f} 時間ぶん"
+                    "（24 のはず）。10000 の割り方が変わった合図")
+            checked += 1
+    if checked != 20:
+        raise SystemExit(f"クレジット行が {checked} 本（20 のはず）")
+
+    par = {}
+    for p in prod:
+        par.setdefault(p["CafeId"], {}).setdefault(p["CafeProductionParcelId"], {})[p["Rank"]] = {
+            "co": p["ParcelProductionCoefficient"],
+            "cv": p["ParcelProductionCorrectionValue"],
+            "st": p["ParcelStorageMax"],
+        }
+    if set(par[1]) != {1, 5} or set(par[2]) != {1}:
+        raise SystemExit(f"生産する物が {sorted(par[1])} / {sorted(par[2])}"
+                         "（1 号店 = クレジット + AP、2 号店 = クレジットのはず）")
+
+    def name_of(key):
+        v = etc.get(key)
+        if not v or not v.get("NameJp"):
+            raise SystemExit(f"LocalizeEtcId {key} の日本語名が引けない")
+        return v["NameJp"].replace("\n", "").strip()
+
+    # ランクアップ。**`CafeRank` の行 N に付く `RecipeId` は「N から N+1 へ」。**
+    # ランク 10 の行にもレシピが付いているが、上限が 10 なので使い道が無い
+    # （潜在能力の 25 段目と同じ形）
+    up = {}
+    for cid in (1, 2):
+        rows = []
+        for r in range(1, 10):
+            R = rec.get(cm[(cid, r)]["RecipeId"])
+            I_ = ing.get(R["RecipeIngredientId"]) if R else None
+            if not I_:
+                raise SystemExit(f"カフェ {cid} ランク {r} のレシピが引けない")
+            if R["RecipeType"] != "CafeRankUp":
+                raise SystemExit(f"レシピ {R['Id']} が CafeRankUp でない: {R['RecipeType']}")
+            if I_["CostParcelType"] != ["Currency"] or I_["CostId"] != [1]:
+                raise SystemExit(f"ランクアップの費用が クレジット でない: {I_['CostParcelType']}")
+            mats = [{"nm": name_of(items[i]["LocalizeEtcId"]),
+                     "ic": items[i]["Icon"].rsplit("/", 1)[-1].lower(), "n": a}
+                    for i, a in zip(I_["IngredientId"], I_["IngredientAmount"])]
+            rows.append({"to": r + 1, "cr": I_["CostAmount"][0], "mat": mats})
+        up[cid] = rows
+    if [x["cr"] for x in up[1]] != [x["cr"] for x in up[2]]:
+        raise SystemExit("ランクアップのクレジットが 1 号店と 2 号店で違う")
+
+    # セットボーナス。**20 セットすべて同じ段でなければ、セットごとに持つ形へ直す**
+    steps = {(tuple(g["RequiredFurnitureCount"]), tuple(g["ComfortBonus"])) for g in fgrp}
+    if len(steps) != 1:
+        raise SystemExit(f"セットボーナスの段がセットごとに違う: {sorted(steps)}")
+    need, bonus = steps.pop()
+    known = {g["Id"] for g in fgrp}
+
+    # 家具。**ba-data の FurnitureGroup は 20 セットしか無い**が、SchaleDB は
+    # 25 セット（100〜124）持っている。名前は SchaleDB から引き、ボーナスの段が
+    # ba-data で裏取りできているかは `ok` で持って画面で分ける
+    setname = loc.get("FurnitureSet", {})
+    fl, bysets = [], {}
+    for f in furn:
+        cb = f.get("ComfortBonus") or 0
+        if cb <= 0:
+            raise SystemExit(f"快適度 0 の家具がある: {f['Id']} {f.get('Name')}")
+        sg = f.get("SetGroupId") or 0
+        sz = f.get("Size") or [1, 1]
+        fl.append({"id": f["Id"], "nm": (f.get("Name") or "?").replace("\n", ""), "c": cb,
+                   "w": sz[0], "h": sz[1], "sc": f.get("SubCategory") or "",
+                   "ca": f.get("Category") or "", "rr": f.get("Rarity") or "N", "g": sg})
+        if sg:
+            bysets[sg] = bysets.get(sg, 0) + 1
+    sets = [{"id": g, "nm": setname.get(str(g), f"セット{g}"), "n": bysets[g],
+             "ok": g in known} for g in sorted(bysets)]
+    fl.sort(key=lambda x: (-x["c"], x["nm"]))
+
+    cc = next(iter(const))
+    apply_n = cc.get("CafeSetGroupApplyCount")
+    period = cc.get("CafeAutoChargePeriodInMsc")
+    if apply_n is None or period != 3600000:
+        raise SystemExit(f"CafeSetGroupApplyCount={apply_n} / "
+                         f"CafeAutoChargePeriodInMsc={period}")
+
+    print(f"  カフェ {len(info)} 店・ランク {len(crank) // len(info)} 段、家具 {len(fl)} 個、"
+          f"セット {len(sets)} 個（うち ba-data で段が確かめられたのは {sum(1 for s in sets if s['ok'])} 個）、"
+          f"倉庫 = 24 時間ぶんをクレジット {checked} 行で確認")
+
+    n = 0
+    for nm in ("currency_icon_gold", "currency_icon_ap", "ui_cafe_icon_comfort"):
+        n += fetch_icon(nm, f"https://schaledb.com/images/item/icon/{nm}.webp")
+    for cid in (1, 2):
+        for row in up[cid]:
+            for m in row["mat"]:
+                n += fetch_icon(m["ic"], f"https://schaledb.com/images/item/icon/{m['ic']}.webp")
+    if n:
+        print(f"  アイコンを {n} 枚追加")
+
+    return write_js("tools/cafe/data.js", "CAFE", {
+        "cafe": [{"id": x["CafeId"], "def": bool(x["IsDefault"])}
+                 for x in sorted(info, key=lambda x: x["CafeId"])],
+        "rank": [{"c": x["CafeId"], "r": x["Rank"], "cm": x["ComfortMax"],
+                  "tag": x["TagCountMax"], "vmin": x["CharacterVisitMin"],
+                  "vmax": x["CharacterVisitMax"]}
+                 for x in sorted(crank, key=lambda x: (x["CafeId"], x["Rank"]))],
+        "prod": {str(c): {str(p): [par[c][p][r] for r in range(1, 11)] for p in par[c]}
+                 for c in par},
+        "up": {str(c): up[c] for c in up},
+        "setStep": list(need), "setBonus": list(bonus), "setMax": apply_n,
+        "sets": sets, "furn": fl, "period": period,
+        "version": "electricgoat/ba-data jp（CafeProduction・CafeRank・CafeInfo・Recipe・"
+                   "RecipeIngredient・FurnitureGroup・ConstCommon／DB の LocalizeEtc・Item）"
+                   "／ SchaleDB jp（家具 1091 個・セット名）",
+    }, header="/* scripts/build-tool-data.py が吐く。**手で直さない。** */\n")
+
+
+# ------------------------------------------------------------ 素材の掘り場
+
+# **中身が空（Chance が全部 0）の箱。**SchaleDB 本体も名指しで外している
+# （`assets/ItemView-*.js` の `g=[5e5,500001,500100]`）。500100 は任務 250 本
+# すべてに 1 個ずつ付いていて、`groups.min.json` でも全項目 `"Chance": 0` かつ
+# `"Recursive": true`。数えると全ステージが同じだけ水増しされる（2026-08-30）
+BOX_EMPTY = {500000, 500001, 500100}
+
+# 素材の分け方。**キーは `SD/items` の `(Category, SubCategory)`。**
+MAT_GROUP = {
+    ("Material", "Artifact"): "オーパーツ",
+    ("Material", "BookItem"): "技術ノート",
+    ("Material", "CDItem"): "戦術教育BD",
+    ("CharacterExpGrowth", None): "レポート",
+    ("SecretStone", None): "神名文字",
+    ("Coin", None): "コイン",
+}
+MAT_ORDER = ["オーパーツ", "技術ノート", "戦術教育BD", "レポート",
+             "武器パーツ", "神名文字", "コイン"]
+
+
+def build_farm():
+    print("素材の掘り場")
+    # **箱の中身は SchaleDB の `groups.min.json` から取る。**
+    # ba-data の `GachaElementExcelTable`（2025-05-07）は **学校ごと 1 種類ずつ
+    # 足りない**。たとえば箱 10314 は ba-data では百鬼夜行・トリニティ・アリウスの
+    # 3 種で各 1/3 だが、実際はオデュッセイアが入って 4 種で各 0.25。
+    # ワイルドハント（箱 10318 ほか）も同じ。**素材の期待値が 1.33 倍に膨らむ。**
+    # 100 箱を突き合わせて、中身が同じ 83 箱では確率が 0.002 以内で一致し、
+    # 残り 16 箱は SchaleDB 側にだけ新しい学校が入っていた（2026-08-30 に実測）
+    stages = as_list(get_json(SD.format("stages")))
+    items = {x["Id"]: x for x in as_list(get_json(SD.format("items")))}
+    equips = {x["Id"]: x for x in as_list(get_json(SD.format("equipment")))}
+    groups = {int(k): v for k, v in get_json(SD_GROUPS).items()}
+    loc = get_json(SD.format("localization"))
+    st_type, st_title = loc.get("StageType") or {}, loc.get("StageTitle") or {}
+
+    def clean(s):
+        # **`SD/items` の名前には改行が入っている。**「初級戦術教育BD\n（百鬼夜行）」
+        return re.sub(r"\s+", "", str(s or ""))
+
+    def material(kind, pid):
+        """素材なら (キー, 表示名, アイコン, 群, 段) を返す。そうでなければ None。"""
+        if kind == "Item":
+            it = items.get(pid)
+            if not it:
+                return None
+            g = MAT_GROUP.get((it.get("Category"), it.get("SubCategory")))
+            if not g:
+                return None
+            return (f"I{pid}", clean(it.get("Name")), it.get("Icon"), g,
+                    it.get("Quality") or 0)
+        if kind == "Equipment":
+            e = equips.get(pid)
+            if e and str(e.get("Category") or "").startswith("WeaponExpGrowth"):
+                return (f"E{pid}", clean(e.get("Name")), e.get("Icon"), "武器パーツ",
+                        int(str(e.get("Icon"))[-1]) + 1)
+        return None
+
+    # ---- ステージ 1 本ぶんの期待個数
+    mats, drops, cur_ids = {}, {}, set()
+    st_out, unknown_box = [], set()
+    for s in stages:
+        acc = {}
+        for r in s.get("Rewards") or []:
+            # **FirstClear / ThreeStar は周回では出ない。**繰り返し出るぶんだけ数える
+            if r.get("RewardType"):
+                continue
+            kind, pid = r.get("Type"), r.get("Id")
+            # **`Amount` と `AmountMin/Max` は掛け算。**SchaleDB 本体も
+            # `(_.Amount??1)*(_.AmountMin??1)` と掛けている
+            n = r.get("Amount") or 1
+            if r.get("AmountMin") is not None and r.get("AmountMax") is not None:
+                n = n * (r["AmountMin"] + r["AmountMax"]) / 2.0
+            ev = n * (r["Chance"] if r.get("Chance") is not None else 1.0)
+            if kind == "GachaGroup":
+                if pid in BOX_EMPTY:
+                    continue
+                g = groups.get(pid)
+                if not g:
+                    unknown_box.add(pid)
+                    continue
+                for it in g.get("Items") or []:
+                    m = material(it.get("Type"), it.get("Id"))
+                    if not m:
+                        continue
+                    amt = ((it.get("AmountMin") or 1) + (it.get("AmountMax") or 1)) / 2.0
+                    acc[m[0]] = acc.get(m[0], 0) + ev * (it.get("Chance") or 0) * amt
+                    mats[m[0]] = m
+            else:
+                m = material(kind, pid)
+                if m:
+                    acc[m[0]] = acc.get(m[0], 0) + ev
+                    mats[m[0]] = m
+        if not acc:
+            continue
+
+        # **入場料は通貨ごとに分ける。**AP（5）・指名手配券（22）・交流会券（23）を
+        # 一列に並べると桁が変わる。学園交流会は券と AP の 2 本立て
+        ap, tk, tn = 0, 0, 0
+        for cost in s.get("EntryCost") or []:
+            if len(cost) != 2:
+                continue
+            cid, amt = cost
+            cur_ids.add(cid)
+            if cid == 5:
+                ap += amt
+            else:
+                tk, tn = cid, tn + amt
+        cat, ty = s.get("Category"), s.get("Type") or ""
+        name = s.get("Name") or ""
+        if not name:
+            tpl = st_title.get(ty)
+            if not tpl:
+                raise SystemExit(f"ステージ {s['Id']}（{cat}/{ty}）の名前が作れない。"
+                                 "localization の StageTitle にひな型が無い")
+            name = tpl.replace("{0}", str(s.get("Stage") or ""))
+        idx = len(st_out)
+        st_out.append({"i": s["Id"], "c": cat, "t": ty,
+                       "tj": st_type.get(ty) or st_type.get(cat) or cat,
+                       "n": name, "a": s.get("Area") or 0, "s": s.get("Stage") or 0,
+                       "h": 1 if (s.get("Difficulty") or 0) else 0,
+                       "ap": ap, "tk": tk, "tn": tn})
+        for k, v in acc.items():
+            drops.setdefault(k, []).append([idx, round(v, 5)])
+
+    # ---- 番人
+    if unknown_box:
+        raise SystemExit(f"中身の分からない箱がステージに出た: {sorted(unknown_box)}。"
+                         "SchaleDB の groups.min.json が追いついていない")
+    if cur_ids != {5, 22, 23}:
+        raise SystemExit(f"入場料の通貨が 5 / 22 / 23 以外に出た: {sorted(cur_ids)}。"
+                         "単位を取り違える前に止める")
+    item_st = {p[0] for k, v in drops.items() if k[0] == "I" for p in v}
+    item_pairs = sum(len(v) for k, v in drops.items() if k[0] == "I")
+    if len(item_st) < 190:
+        raise SystemExit(f"アイテムを落とすステージが {len(item_st)} 本しかない（190 本以上のはず）")
+    if item_pairs < 1400:
+        raise SystemExit(f"(素材, ステージ) の組が {item_pairs} 件しかない（1400 件以上のはず）")
+    n_camp = sum(1 for x in st_out if x["c"] == "Campaign")
+    if any(not x["n"] for x in st_out):
+        raise SystemExit("名前の付かないステージが残った")
+    if not n_camp:
+        raise SystemExit("任務のステージが 1 本も残らなかった")
+    for k, v in drops.items():
+        if not v:
+            raise SystemExit(f"{k} がどのステージからも出ない")
+    got = {m[3] for m in mats.values()}
+    if not got <= set(MAT_ORDER):
+        raise SystemExit(f"知らない素材の群が出た: {sorted(got - set(MAT_ORDER))}")
+
+    # ---- アイコン
+    n = 0
+    for k, (_, _, icon, g, _q) in mats.items():
+        base = ("https://schaledb.com/images/equipment/icon/" if k[0] == "E"
+                else "https://schaledb.com/images/item/icon/")
+        n += fetch_icon(icon, base + icon + ".webp")
+    print(f"  アイコン {n} 枚を追加、素材 {len(mats)} 種／ステージ {len(st_out)} 本／"
+          f"組 {sum(len(v) for v in drops.values())} 件")
+
+    # **初期表示の素材は「いちばん多くのステージから出るもの」。**
+    # 手で決めると、その素材が消えたときに空の画面になる
+    default = max(sorted(drops), key=lambda k: (len(drops[k]), k))
+
+    ml = [{"k": k, "n": m[1], "i": m[2], "g": m[3], "q": m[4]}
+          for k, m in sorted(mats.items(), key=lambda kv: (MAT_ORDER.index(kv[1][3]), kv[0]))]
+    return write_js("tools/farm/data.js", "FARM", {
+        "groups": [g for g in MAT_ORDER if g in got],
+        "mats": ml, "stages": st_out, "drops": drops, "def": default,
+        "itemStages": len(item_st), "itemPairs": item_pairs,
+        "version": "SchaleDB jp（ステージ・報酬・入場料・箱の中身・素材の名前とアイコン）",
+    }, header="/* scripts/build-tool-data.py が吐く。**手で直さない。** */\n")
+
+
+# ------------------------------------------------------------ 装備の強化珠
+
+def build_equip_level():
+    print("装備の強化珠計算機")
+    # **`TotalExp` は「その行のレベルから次へ上がるところまで」の累計。**
+    # 行 `Level: 9` の 381 が Lv1 → Lv10 ぶんで、`SD/equipment` の T1 の
+    # `MaxLevel = 10` と一致する。到達レベルで引くと 1 段ずれる
+    lv = sorted(as_list(get_json(BA.format("EquipmentLevelExcelTable"))),
+                key=lambda r: r["Level"])
+    sd_eq = as_list(get_json(SD.format("equipment")))
+    const = as_list(get_json(BA.format("ConstCommonExcelTable")))
+
+    if [r["Level"] for r in lv] != list(range(1, 71)):
+        raise SystemExit(f"装備レベルの表が Lv1〜70 でそろわない: {len(lv)} 行")
+    for r in lv:
+        if len(r["TotalExp"]) != 10 or len(r["TierLevelExp"]) != 10:
+            raise SystemExit(f"Lv{r['Level']} の TotalExp / TierLevelExp が 10 要素でない")
+
+    # 部位ごとの Tier 上限。**設計図（StatType が空）を混ぜない。**混ぜると 1 が出る
+    per_cat = {}
+    for e in sd_eq:
+        cat, tier = e.get("Category"), e.get("Tier")
+        if cat not in CAT_JA or not tier or not e.get("StatType"):
+            continue
+        per_cat.setdefault(cat, {})[tier] = e.get("MaxLevel")
+    if sorted(per_cat) != sorted(CATS):
+        raise SystemExit(f"部位が 9 つそろわない: {sorted(per_cat)}")
+    tiers = sorted(per_cat[CATS[0]])
+    if tiers != list(range(1, 11)):
+        raise SystemExit(f"Tier が 1〜10 でそろわない: {tiers}")
+    max_lv = [per_cat[CATS[0]][t] for t in tiers]
+    for cat in CATS:
+        if [per_cat[cat][t] for t in tiers] != max_lv:
+            raise SystemExit(f"{cat} のレベル上限が他の部位と違う: {per_cat[cat]}。"
+                             "部位ごとに持つ形へ直すこと")
+    if max_lv != [10, 20, 30, 40, 45, 50, 55, 60, 65, 70]:
+        raise SystemExit(f"レベル上限の並びが変わった: {max_lv}")
+
+    # `cum[T][L]` = その Tier で Lv1 から Lv L まで上げるのに要る累計経験値
+    cum = {}
+    for ti, t in enumerate(tiers):
+        c = [0] * 71
+        for l in range(2, 71):
+            c[l] = lv[l - 2]["TotalExp"][ti]
+        if any(c[i] > c[i + 1] for i in range(1, 70)):
+            raise SystemExit(f"T{t} の累計経験値が減る行がある")
+        m = max_lv[ti]
+        if len(set(c[m:71])) != 1:
+            raise SystemExit(f"T{t} は Lv{m} で頭打ちのはずだが、その先でも増えている。"
+                             "MaxLevel の読み方が間違っている")
+        if c[m] <= 0:
+            raise SystemExit(f"T{t} の必要経験値が 0")
+        cum[t] = c[:max_lv[ti] + 1]
+
+    # 強化珠 4 種と、その日替わりセット
+    gems = sorted([e for e in sd_eq if e.get("Category") == "Exp"], key=lambda e: e["Id"])
+    if [g["LevelUpFeedExp"] for g in gems] != [90, 360, 1440, 5760]:
+        raise SystemExit(f"強化珠が (90, 360, 1440, 5760) にならない: "
+                         f"{[(g['Id'], g.get('LevelUpFeedExp')) for g in gems]}")
+    # **セットは値段でまとまる。**「強化珠バンドルα」のように 2 種類が
+    # 1 つの値段に入っているものがあり、`Shops` はそれを種類ごとの行に割っている。
+    # 同じ `CostAmount` の行を集め直すと、ゲーム内の 12 個の品物に戻る
+    bundles = {}
+    for g in gems:
+        for sh in g.get("Shops") or []:
+            if sh.get("CostType") != "Currency" or sh.get("CostId") != 1:
+                raise SystemExit(f"クレジット払いでない強化珠のセットがある: {sh}")
+            bundles.setdefault(sh["CostAmount"], []).append([g["Id"], sh["Amount"]])
+    if not bundles:
+        raise SystemExit("強化珠のショップが 1 件も取れない")
+    exp_of = {g["Id"]: g["LevelUpFeedExp"] for g in gems}
+    bl = [{"c": c, "it": sorted(v), "e": sum(exp_of[i] * a for i, a in v)}
+          for c, v in sorted(bundles.items())]
+    day_credit = sum(b["c"] for b in bl)
+    day_exp = sum(b["e"] for b in bl)
+    # **参考元と突き合わせる。**ブルアカ Wiki「経験値表/装備」の
+    # 「通常アイテムショップで1日に購入可能な強化珠セット/バンドル」の合計が
+    # 「初級×30 中級×45 上級×23 最上級×7／2,052,000／92,340」（2026-08-30 に確認）
+    if len(bl) != 12 or day_credit != 2052000 or day_exp != 92340:
+        raise SystemExit(f"ショップの品ぞろえが参考元と食い違う: {len(bl)} 個／"
+                         f"{day_credit} クレジット／{day_exp} EXP。"
+                         "参考元 https://bluearchive.wikiru.jp/?経験値表/装備 は "
+                         "12 個／2,052,000／92,340")
+
+    # 設計図を溶かしたときの経験値。**端数を埋めるのに使う。**
+    pieces = []
+    for e in sd_eq:
+        icon = str(e.get("Icon") or "")
+        if e.get("LevelUpFeedExp") is None or e.get("Category") == "Exp":
+            continue
+        if icon.endswith("_useall_piece"):
+            pieces.append([0, e["LevelUpFeedExp"]])
+        elif icon.endswith("_piece"):
+            pieces.append([e.get("Tier"), e["LevelUpFeedExp"]])
+    pieces = sorted({tuple(p) for p in pieces})
+    if [p[0] for p in pieces] != [0] + list(range(2, 11)):
+        raise SystemExit(f"設計図の経験値が 万能 + T2〜T10 でそろわない: {pieces}")
+
+    coef = next((r["EquipmentLvUpCoefficient"] for r in const
+                 if r.get("EquipmentLvUpCoefficient")), None)
+    if coef != 4:
+        raise SystemExit(f"EquipmentLvUpCoefficient が 4 でない: {coef}。"
+                         "参考元（ブルアカ Wiki「経験値表/装備」）は「1EXPあたり4クレジット」")
+
+    # **T1 から T10 まで通しの合計。**参考元の「総経験値は246680」と突き合わせる
+    all_tiers = sum(cum[t][max_lv[i]] for i, t in enumerate(tiers))
+    if all_tiers != 246680:
+        raise SystemExit(f"T1→T10 の総経験値が参考元と食い違う: {all_tiers}（246680 のはず）")
+
+    n = 0
+    for g in gems:
+        n += fetch_icon(g["Icon"], f"https://schaledb.com/images/equipment/icon/{g['Icon']}.webp")
+    print(f"  アイコン {n} 枚を追加、T1→T10 通しで {all_tiers:,} EXP／"
+          f"ショップ {len(bl)} 個で 1 日 {day_exp:,} EXP")
+
+    return write_js("tools/equip-level/data.js", "EQLV", {
+        "cats": CATS, "catJa": CAT_JA, "tiers": tiers, "maxLv": max_lv,
+        "cum": {str(t): cum[t] for t in tiers},
+        "gems": [{"id": g["Id"], "n": g["Name"], "i": g["Icon"], "e": g["LevelUpFeedExp"]}
+                 for g in gems],
+        "bundles": bl, "dayCredit": day_credit, "dayExp": day_exp,
+        "pieces": [list(p) for p in pieces], "coef": coef, "allTiers": all_tiers,
+        "version": "electricgoat/ba-data jp（レベルごとの経験値・クレジット係数）／ "
+                   "SchaleDB jp（Tier ごとのレベル上限・強化珠・ショップ・設計図の経験値）",
+    }, header="/* scripts/build-tool-data.py が吐く。**手で直さない。** */\n")
+
+
 BUILDERS = {"bond": build_bond, "teacher-level": build_teacher_level,
             "equipment": build_equipment, "tier": build_tier, "raid": build_raid,
             "student-cost": build_student_cost, "treasure": build_treasure,
@@ -2645,6 +3270,10 @@ BUILDERS = {"bond": build_bond, "teacher-level": build_teacher_level,
             "matchup": build_matchup,
             "potential": build_potential,
             "weapon": build_weapon,
+            "farm": build_farm,
+            "equip-level": build_equip_level,
+            "schedule": build_schedule,
+            "cafe": build_cafe,
             "ui": build_ui}
 
 if __name__ == "__main__":

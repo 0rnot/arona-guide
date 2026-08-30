@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>装備の強化珠計算機｜AronaBot</title>
+<meta name="description" content="T1 から T10 まで、装備を目標のレベルまで上げるのに強化珠が何個要るかを出します。手持ちを入れれば足りない数と、ショップで買ったときのクレジットも一緒に出ます。">
+<meta name="theme-color" content="#c8892e">
+<link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<meta property="og:title" content="装備の強化珠計算機">
+<meta property="og:description" content="T1 から T10 まで、装備を目標のレベルまで上げるのに強化珠が何個要るかを出します。手持ちを入れれば足りない数と、ショップで買ったときのクレジットも一緒に出ます。">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://arona-bot.com/tools/equip-level/">
+<meta property="og:image" content="https://arona-bot.com/images/hero-night.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="stylesheet" href="../../style.css?v=15">
+<link rel="stylesheet" href="../tool.css?v=7">
+<style>
+  /* 1 行が「今 → 目標 × 個数」。**部位は選ばせない**（どの部位でも同じ表なので） */
+  .eqrow { display: grid; gap: 8px 10px; align-items: end;
+           grid-template-columns: 1fr 16px 1fr 74px 30px;
+           padding: 12px 0; border-bottom: 1px solid var(--line); }
+  .eqrow:last-of-type { border-bottom: 0; }
+  .eqrow .side { display: grid; grid-template-columns: 1fr 72px; gap: 6px; min-width: 0; }
+  .eqrow .lb { grid-column: 1 / -1; font-size: .76rem; font-weight: 700; color: var(--fg-mute); }
+  .eqrow select, .eqrow input { padding: .42em .5em; font-size: .92rem; min-width: 0; }
+  .eqrow select { padding-right: 1.9em;
+                  background-position: calc(100% - 13px) calc(50% + 1px), calc(100% - 8px) calc(50% + 1px); }
+  .eqrow input { text-align: right; }
+  .eqrow .arrow { color: var(--fg-mute); text-align: center; padding-bottom: .45em; }
+  .eqrow .cnt { display: grid; gap: 6px; }
+  .eqrow .del { border: 1px solid var(--line); background: var(--bg-sub); border-radius: 9px;
+                width: 30px; height: 34px; cursor: pointer; color: var(--fg-mute);
+                font: inherit; font-size: .9rem; line-height: 1; }
+  .eqrow .del:hover { border-color: #c0392b; color: #c0392b; }
+  .eqrow .over { grid-column: 1 / -1; font-size: .76rem; color: var(--fg-mute); margin: 0; }
+  .eqrow .over b { color: var(--fg); }
+  @media (max-width: 700px) {
+    .eqrow { grid-template-columns: 1fr 1fr; }
+    .eqrow .arrow { display: none; }
+    .eqrow .cnt { grid-column: 1; }
+    .eqrow .del { grid-column: 2; justify-self: end; }
+  }
+
+  /* 強化珠の入力と内訳 */
+  .gems { display: grid; gap: 10px; grid-template-columns: 1fr 1fr; }
+  .gem { display: grid; grid-template-columns: 34px 1fr; gap: 8px; align-items: center; }
+  .gem img { width: 34px; height: 34px; border-radius: 7px; }
+  .gem .gn { font-size: .78rem; font-weight: 700; line-height: 1.3; }
+  .gem .gn small { display: block; font-weight: 400; color: var(--fg-mute); font-size: .72rem; }
+  .gem input { width: 100%; text-align: right; padding: .35em .5em; font-size: .92rem; }
+  .ledger .row .ico { width: 20px; height: 20px; border-radius: 4px; vertical-align: -.3em; margin-right: .35em; }
+  .nowrap { white-space: nowrap; }
+  .bar { height: 12px; border-radius: 999px; background: var(--bg-sub);
+         border: 1px solid var(--line); overflow: hidden; margin: .5em 0 .3em; }
+  .bar > i { display: block; height: 100%; background: var(--accent); }
+  .barnote { font-size: .76rem; color: var(--fg-mute); margin: 0; }
+  table.dt .num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  table.dt th.num { text-align: right; }
+  table.dt tr.hi td { background: color-mix(in srgb, var(--accent) 10%, transparent); font-weight: 700; }
+</style>
+</head>
+<body>
+
+<!-- 上のバーと footer は scripts/sync-chrome.py が流し込む。
+     **閉じタグの前に改行を入れておくこと。**あちらの正規表現は閉じタグの直前の
+     改行を目印にしているので、1 行に畳むと本文まで食われる。
+     **この注記に目印そのものを書かないこと。**書くと注記の中から当たる -->
+<div class="topbar">
+  <div class="topbar-inner">
+    <a class="topbar-name" href="../../">AronaBotの使い方</a>
+    <a class="topbar-tools" href="../">
+      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <path d="M21.7 18.3l-6-6a5.5 5.5 0 0 0-7-7l3.1 3.1-2.1 2.1L6.6 7.3a5.5 5.5 0 0 0 7 7l6 6a1 1 0 0 0 1.4 0l.7-.7a1 1 0 0 0 0-1.3z"/>
+      </svg>
+      ツール一覧
+    </a>
+    <nav class="topbar-nav">
+      <a href="../../#can">機能</a>
+      <a href="../../#start">つかいはじめる</a>
+      <a href="../../#message">メッセージから</a>
+      <a href="../../#faq">よくある質問</a>
+    </nav>
+    <!-- 共有。**AronaBot 本体と同じ位置に置く。**押した先は環境で変える -->
+    <span class="share-nudge" aria-hidden="true">使えそうな人に、ぜひ</span>
+    <a class="share" id="share-page" target="_blank" rel="noopener" aria-label="このページを共有する"
+       href="https://x.com/intent/post?url=https%3A%2F%2Farona-bot.com%2Ftools%2F">
+      <svg class="share-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <path d="M14 9V5l7 7-7 7v-4.1c-5 0-8.5 1.6-11 5.1 1-5 4-10 11-11z"/>
+      </svg>
+      <span class="share-label">共有</span>
+    </a>
+  </div>
+</div>
+<div class="toast" id="toast-page" role="status" aria-live="polite"></div>
+<script>
+/* 共有ボタン。**そのページ自身の URL を配る。**
+   1. スマホ（navigator.share）→ OS の共有シート
+   2. PC（クリップボード）→ URL をコピーして帯で伝える
+   3. どちらも無い → <a href> のまま X の共有ページへ */
+(function () {
+  var btn = document.getElementById('share-page'), toast = document.getElementById('toast-page');
+  if (!btn) return;
+  // **`#` を落とさない。**TL のように状態をハッシュに入れているツールでは、
+  // ここを削ると相手の画面に同じ結果が出ない（2026-08-30）
+  var url = location.href;
+  var name = document.title.split('｜')[0];
+  var text = name + '（AronaBot のツール）';
+  btn.href = 'https://x.com/intent/post?text=' + encodeURIComponent(text) +
+             '&url=' + encodeURIComponent(url);
+  var timer = null;
+  function say(t) {
+    if (!toast) return;
+    toast.textContent = t; toast.classList.add('shown');
+    clearTimeout(timer); timer = setTimeout(function () { toast.classList.remove('shown'); }, 2000);
+  }
+  btn.addEventListener('click', function (e) {
+    if (navigator.share) {
+      e.preventDefault();
+      navigator.share({ title: name, text: text, url: url }).catch(function () {});
+      return;
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      e.preventDefault();
+      navigator.clipboard.writeText(url).then(function () { say('リンクをコピーしました'); },
+        function () { window.open(btn.href, '_blank', 'noopener'); });
+    }
+  });
+})();
+</script>
+
+<header class="thero">
+  <div class="thero-media" aria-hidden="true">
+    <picture>
+      <source srcset="../../images/hero-day.jpg" media="(prefers-color-scheme: dark)">
+      <img src="../../images/hero-night.jpg" alt="" width="1600" height="400" fetchpriority="high">
+    </picture>
+  </div>
+  <div class="thero-body">
+    <h1>装備の強化珠計算機</h1>
+    <p class="thero-lead">T1 から T10 まで、装備を目標のレベルまで上げるのに強化珠が何個要るかを出します。手持ちを入れれば足りない数と、ショップで買ったときのクレジットも一緒に出ます。</p>
+  </div>
+</header>
+
+<div class="twrap">
+  <p class="tcrumb"><a href="../../">AronaBotの使い方</a><span class="sl">/</span><a href="../">ツール</a><span class="sl">/</span>装備の強化珠計算機</p>
+
+  <div class="tcols lean" style="margin-top:20px">
+
+    <div class="tcol">
+      <div class="panel">
+        <div class="panel-h"><h2>どの装備を上げますか</h2></div>
+        <p class="lead"><b>部位は選びません。</b>帽子でもお守りでも、Tier ごとのレベル上限と必要経験値は 9 部位すべて同じだからです。<b>Tier が上がるとレベルは Lv1 に戻ります。</b></p>
+        <div id="rows"></div>
+        <div class="btnrow" style="margin-top:14px">
+          <button type="button" class="btn" id="b-add">行を足す</button>
+          <button type="button" class="btn" id="b-one">生徒 1 人ぶん（3 枠）</button>
+          <button type="button" class="btn" id="b-reset">戻す</button>
+        </div>
+        <p class="lead" style="margin:16px 0 0"><b>Tier 上げに要る設計図はここでは数えません。</b>そちらは<a href="../equipment/">装備設計図の周回計算機</a>にあります。</p>
+      </div>
+
+      <div class="panel">
+        <div class="panel-h"><h2>手持ちの強化珠</h2></div>
+        <div class="gems" id="own"></div>
+        <p class="lead" style="margin:16px 0 0">上の段から順に使い、<b>あふれるぶんがいちばん少なくなるように</b>詰めます。ゲーム内の「自動選択」と同じ詰め方です。</p>
+      </div>
+    </div>
+
+    <div class="tcol">
+      <div class="stats c3">
+        <div class="stat hero">
+          <div class="k">要る経験値</div>
+          <div class="v" id="o-exp">—</div>
+          <div class="sub" id="o-exp-sub">—</div>
+        </div>
+        <div class="stat">
+          <div class="k">買い足す強化珠</div>
+          <div class="v" id="o-buy">—</div>
+          <div class="sub" id="o-buy-sub">手持ちを引いたぶん</div>
+        </div>
+        <div class="stat">
+          <div class="k"><img class="ico" src="../img/currency_icon_gold.webp" alt="" width="18" height="18" loading="lazy"> クレジット</div>
+          <div class="v" id="o-credit">—</div>
+          <div class="sub" id="o-credit-sub">強化そのものにかかるぶん</div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-h"><h2>強化珠の内訳</h2></div>
+        <div class="bar"><i id="bar" style="width:0%"></i></div>
+        <p class="barnote" id="barnote">—</p>
+        <div class="ledger" id="plan"></div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-h"><h2>ショップで買うと</h2></div>
+        <p class="lead">通常アイテムショップの強化珠は、どれを買っても<b>経験値あたりの値段が同じ</b>です（<span id="rate">—</span> クレジット / 1 EXP）。1 日に買えるのは全部で <b><span id="dayexp">—</span> EXP</b>ぶんです。</p>
+        <div class="ledger" id="shop"></div>
+      </div>
+    </div>
+
+    <div class="tfull">
+      <div class="panel">
+        <div class="panel-h"><h2>Tier ごとの必要経験値</h2></div>
+        <p class="lead"><b>レベルは Tier が上がるたびに Lv1 からやり直しです。</b>下の「必要な経験値」は、その Tier で Lv1 からレベル上限まで上げるぶん。いちばん右は T1 から積み上げた累計です。<b>いま選んでいる段には色が付きます。</b></p>
+        <div class="tscroll" id="tier-scroll">
+          <table class="dt">
+            <thead><tr><th>Tier</th><th class="num">レベル上限</th><th class="num">必要な経験値</th><th class="num">最上級強化珠だけなら</th><th class="num">端数</th><th class="num">T1 からの累計</th></tr></thead>
+            <tbody id="tb-tier"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-h"><h2>あふれるぶんを設計図で埋める</h2></div>
+        <p class="lead">強化珠だけで詰めると、最後の初級強化珠でどうしても経験値があふれます。<b>設計図や余った装備も強化素材として食わせられる</b>ので、初級を 1 個減らしてこちらで埋めると無駄が消えます。</p>
+        <div class="ledger" id="waste"></div>
+        <div class="tscroll">
+          <table class="dt">
+            <thead><tr><th>溶かすもの</th><th class="num">入る経験値</th></tr></thead>
+            <tbody id="tb-feed"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-h"><h2>通常アイテムショップの品ぞろえ</h2></div>
+        <p class="lead">1 日に 1 回ずつ買えます。<b>全部買うと <span id="daycredit">—</span> クレジットで <span id="dayexp2">—</span> EXP</b>ぶんです。</p>
+        <div class="tscroll">
+          <table class="dt">
+            <thead><tr><th>値段</th><th>中身</th><th class="num">経験値</th><th class="num">1 EXP あたり</th></tr></thead>
+            <tbody id="tb-shop"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="sharebar" id="sharebar"></div>
+
+      <details class="src">
+        <summary>数字の出どころ</summary>
+        <p><b>経験値の表はゲームのデータをそのまま読み、参考元と 1 行ずつ突き合わせています。</b></p>
+        <ul>
+          <li>レベルごとの経験値は <code>Excel/EquipmentLevelExcelTable.json</code>（70 行）。
+            <code>TotalExp</code> は Tier ごとの 10 要素の配列で、<b>行 <code>Level: L</code> の値は
+            「Lv1 から Lv L+1 まで」の累計です。</b>到達レベルで引くと 1 段ずれます。
+            <b>行 <code>Level: 9</code> の 381 が T1 の Lv1 → Lv10 ぶん</b>で、これが
+            <a href="https://bluearchive.wikiru.jp/?%E7%B5%8C%E9%A8%93%E5%80%A4%E8%A1%A8%2F%E8%A3%85%E5%82%99" target="_blank" rel="noopener">ブルアカ Wiki「経験値表/装備」</a>の
+            「Tier 1／レベル上限 10／必要な経験値 381」と一致します。
+            <b>参考元の「経験値テーブル」（Lv1 の Total 0 から Lv70 の 63,466 まで）を
+            70 行すべて突き合わせて、1 行も食い違いませんでした。</b>
+            Tier 上限ごとの 10 段（381・1,841・5,456・12,326・17,326・23,551・31,141・40,231・50,961・63,466）も
+            そのまま一致し、合計 <span id="src-all">—</span> EXP は参考元の
+            「T1~T10まで上げる場合の総経験値は246680」と同じでした。
+            <b>10 の Tier は、上限が違うだけで経験値の曲線そのものは同一です</b>
+            （70 レベル × 10 Tier を全部数えて確かめました）</li>
+          <li><b>Tier の上限を超えた行は、前の値のまま平らに続きます。</b>T1 は Lv9 の行で 381 に
+            達したあと Lv70 まで 381 のままです。上限は SchaleDB の
+            <code>data/jp/equipment.min.json</code> の <code>MaxLevel</code>（T1=10, T2=20, T3=30,
+            T4=40, T5=45, T6=50, T7=55, T8=60, T9=65, T10=70）で切っています。
+            <b>「上限で頭打ちになること」を 10 Tier すべてで確かめています。</b>ずれていたら
+            データを作る側で止まります</li>
+          <li><b>部位を選ばせていないのは、9 部位すべてで上限が同じだったからです。</b>
+            帽子・手袋・靴・カバン・バッジ・ヘアピン・お守り・腕時計・ネックレスの
+            <span id="src-cats">—</span> 部位を数えて、Tier ごとの <code>MaxLevel</code> の並びが
+            1 つも違わないことを確かめました。違いが出たら、そこでも止まります
+            （設計図の行は <code>MaxLevel</code> が 1 なので、<code>StatType</code> の有無で外しています）</li>
+          <li>強化珠は同じファイルの <code>Category: "Exp"</code> の 4 件。
+            <b>初級 90 ／ 中級 360 ／ 上級 1,440 ／ 最上級 5,760</b>（<code>LevelUpFeedExp</code>）で、
+            参考元の「装備経験値」の表と同じです</li>
+          <li><b>クレジットは 1 EXP につき 4 です。</b><code>Excel/ConstCommonExcelTable.json</code> の
+            <code>EquipmentLvUpCoefficient = 4</code> と、参考元の
+            「装備のレベル上げには強化珠とクレジットが必要。クレジットは1EXPあたり4クレジット掛かる」が
+            一致しました。<b>同じファイルには <code>EquipLvUpCoefficient = 3</code> という
+            紛らわしい別の列もあります</b>が、参考元の数字と合うのは 4 のほうです</li>
+          <li>ショップの品ぞろえは <code>equipment.min.json</code> の <code>Shops</code>。
+            <b>同じ値段の行を集め直すと、ゲーム内の 12 個の品物に戻ります</b>（「強化珠バンドルα」の
+            ように 1 つの値段に 2 種類が入っているものを、SchaleDB は種類ごとの行に割っているため）。
+            <b>12 個・合計 <span id="src-daycredit">—</span> クレジット・<span id="src-day">—</span> EXP</b>
+            が参考元の「合計 初級×30 中級×45 上級×23 最上級×7／2,052,000／92,340」と
+            そっくり一致しました。<b>食い違ったらデータを作る側で止まります。</b></li>
+          <li>詰め方は<b>上の段から順に、あふれるぶんがいちばん少なくなるように</b>。
+            4 種類の経験値が 90 の 4 倍ずつ（90 / 360 / 1,440 / 5,760）なので、
+            大きいほうから詰めるだけで個数もあふれも最小になります。
+            参考元も「自動選択では強化珠のみを上位のものから優先的に、経験値があふれる分が
+            最小になるように使ってくれる」と書いています</li>
+          <li>設計図を溶かしたときの経験値も <code>equipment.min.json</code> の
+            <code>LevelUpFeedExp</code>。T2 が 15、T10 が 200、万能設計図が 1 で、
+            参考元の「強化素材」の表と一致します</li>
+        </ul>
+        <p><b>強化珠の入手先は出していません。</b>任務・指名手配・特別依頼・学園交流会の 320 本の報酬を
+          すべて当たりましたが、<code>Equipment</code> の Id 1〜4（初級〜最上級強化珠）は
+          <b>1 件も落ちてきませんでした</b>。ショップとイベントのぶんは <code>Shops</code> にしか無いので、
+          <b>裏が取れる範囲だけを出しています。</b></p>
+        <p><b>Tier 上げに要る設計図とクレジットは、ここには入っていません。</b>そちらは
+          <a href="../equipment/">装備設計図の周回計算機</a>で出しています。</p>
+        <p>出典 —
+          <a href="https://github.com/electricgoat/ba-data" target="_blank" rel="noopener">electricgoat/ba-data</a>、
+          <a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a>、
+          突き合わせ先は
+          <a href="https://bluearchive.wikiru.jp/?%E7%B5%8C%E9%A8%93%E5%80%A4%E8%A1%A8%2F%E8%A3%85%E5%82%99" target="_blank" rel="noopener">ブルアカ Wiki「経験値表/装備」</a>（2026-05-22 更新のものを 2026-08-30 に確認）。
+          取得は <span id="ver">—</span>。</p>
+      </details>
+    </div>
+
+  </div>
+</div>
+
+<script>window.TOUR = {"key": "equip-level", "steps": [{"sel": "#rows", "t": "今と目標を入れます", "d": "Tier が上がるとレベルは Lv1 に戻るので、T1 Lv1 から T10 Lv70 のように Tier をまたいで入れられます。部位は選びません。"}, {"sel": "#own", "t": "手持ちの強化珠を入れます", "d": "上の段から順に、あふれるぶんがいちばん少なくなるように詰めます。ゲーム内の自動選択と同じ詰め方です。"}, {"sel": "#o-exp", "t": "要る経験値とクレジットが出ます", "d": "クレジットは 1 EXP につき 4。買い足す強化珠のぶんは、その下の板に分けて出しています。"}, {"sel": "#plan", "t": "内訳は「手持ち／買う」で分けます", "d": "手持ちを使い切ったあと、足りないぶんを最上級から詰め直した数です。"}, {"sel": "#tier-scroll", "t": "Tier ごとの必要経験値", "d": "いま入れている段には色が付きます。いちばん右は T1 から積み上げた累計です。"}, {"sel": "#sharebar", "t": "結果はそのまま渡せます", "d": "入れている行と手持ちごと URL になるので、リンクを送れば相手の画面にも同じ結果が出ます。"}]};</script>
+<script src="../tour.js?v=1"></script>
+
+<script src="../share.js?v=1"></script>
+
+<footer>
+  <div class="foot-inner">
+    <p class="foot-name">AronaBotの使い方</p>
+    <p class="foot-links">
+      <a href="../../">AronaBot のページ</a>
+      <span class="sep">/</span>
+      <a href="../">ツール一覧</a>
+      <span class="sep">/</span>
+      <a href="https://x.com/pe6cak" target="_blank" rel="noopener">制作者の X（@pe6cak）</a>
+      <span class="sep">/</span>
+      <span>不具合・要望は <b>@0r.not</b> まで</span>
+    </p>
+    <p class="disclaimer">
+      <b>このサイトはファンが作った非公式のものです。</b>運営とは関係ありません。
+      <small>掲載しているゲーム内の画像・アイコン・名称・数値は、Nexon Games / Yostar の
+      「ブルーアーカイブ」から引用したもので、著作権はすべて権利者に帰属します。
+      ツールの計算に使うデータは <a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a> と
+      <a href="https://github.com/electricgoat/ba-data" target="_blank" rel="noopener">ba-data</a> から取得しています。
+      権利者の方でご指摘があれば <b>@0r.not</b> までご連絡ください。</small>
+    </p>
+  </div>
+</footer>
+
+<script src="data.js"></script>
+<script>
+(function () {
+  'use strict';
+  var E = window.EQLV;
+  var el = function (id) { return document.getElementById(id); };
+  function fmt(n) { return Math.round(n).toLocaleString('ja-JP'); }
+  function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;'); }
+
+  var TIERS = E.tiers;                       // [1..10]
+  var GEMS = E.gems;                         // 経験値の小さい順（90 / 360 / 1440 / 5760）
+  function maxLv(t) { return E.maxLv[t - 1]; }
+  /** その Tier で Lv1 から Lv l までに要る累計。**上限を超えたら上限で頭打ち。** */
+  function cum(t, l) {
+    var a = E.cum[String(t)];
+    return a[Math.max(1, Math.min(l, maxLv(t)))];
+  }
+
+  /** 1 行ぶんの必要経験値。**Tier をまたぐときはレベルが Lv1 に戻る。** */
+  function rowExp(r) {
+    if (r.t1 < r.t0 || (r.t1 === r.t0 && r.l1 <= r.l0)) return 0;
+    if (r.t1 === r.t0) return cum(r.t0, r.l1) - cum(r.t0, r.l0);
+    var e = cum(r.t0, maxLv(r.t0)) - cum(r.t0, r.l0);
+    for (var t = r.t0 + 1; t < r.t1; t++) e += cum(t, maxLv(t));
+    return e + cum(r.t1, r.l1);
+  }
+
+  /** 上から詰める。**端数は 1 段下で埋めるので、最後だけ切り上げ。** */
+  function pack(exp) {
+    var out = [0, 0, 0, 0], rem = exp;
+    for (var i = GEMS.length - 1; i >= 1; i--) {
+      out[i] = Math.floor(rem / GEMS[i].e); rem -= out[i] * GEMS[i].e;
+    }
+    out[0] = Math.ceil(rem / GEMS[0].e);
+    return out;
+  }
+  function expOf(n) { return n.reduce(function (a, v, i) { return a + v * GEMS[i].e; }, 0); }
+
+  /** 手持ちを使い切ってから買う。**あふれが最小になるように詰める。** */
+  function plan(exp, own) {
+    var use = [0, 0, 0, 0], left = own.slice(), rem = exp, i;
+    for (i = GEMS.length - 1; i >= 0; i--) {
+      var k = Math.min(left[i], Math.floor(rem / GEMS[i].e));
+      use[i] = k; rem -= k * GEMS[i].e; left[i] -= k;
+    }
+    // **端数は手持ちの小さいほうから埋める。**あふれてもここがいちばん少ない
+    for (i = 0; i < GEMS.length && rem > 0; i++) {
+      while (left[i] > 0 && rem > 0) { left[i]--; use[i]++; rem -= GEMS[i].e; }
+    }
+    var buy = rem > 0 ? pack(rem) : [0, 0, 0, 0];
+    return { use: use, buy: buy, left: left, need: Math.max(0, rem) };
+  }
+
+  var rows = [];
+  function blank() { return { t0: 1, l0: 1, t1: 10, l1: 70, n: 1 }; }
+  function own() {
+    return GEMS.map(function (g) { return Math.max(0, +el('own-' + g.id).value || 0); });
+  }
+
+  /* ---- 手持ちの欄。**一度だけ組む。**入力のたびに作り直すと焦点が飛ぶ */
+  (function buildOwn() {
+    el('own').innerHTML = GEMS.slice().reverse().map(function (g) {
+      return '<div class="gem"><img src="../img/' + g.i + '.webp" alt="" width="34" height="34" loading="lazy">' +
+        '<div><span class="gn">' + esc(g.n) + '<small>1 個 ' + fmt(g.e) + ' EXP</small></span>' +
+        '<input id="own-' + g.id + '" type="number" inputmode="numeric" min="0" step="1" value="0" ' +
+        'aria-label="' + esc(g.n) + 'の手持ち"></div></div>';
+    }).join('');
+    GEMS.forEach(function (g) { el('own-' + g.id).addEventListener('input', drawOut); });
+  })();
+
+  /* ---- 行。**行数が変わったときだけ組み直す。**中に入力欄があるので、
+     打っている最中に innerHTML を書き換えると数字も焦点も飛ぶ */
+  var built = -1;
+  function tierOpts() {
+    return TIERS.map(function (t) { return '<option value="' + t + '">T' + t + '</option>'; }).join('');
+  }
+  function drawRows() {
+    if (built !== rows.length) {
+      el('rows').innerHTML = rows.map(function (_, i) {
+        return '<div class="eqrow" data-i="' + i + '">' +
+          '<div class="side"><span class="lb">今</span>' +
+            '<select data-f="t0" aria-label="今の Tier">' + tierOpts() + '</select>' +
+            '<input data-f="l0" type="number" inputmode="numeric" min="1" step="1" aria-label="今のレベル"></div>' +
+          '<div class="arrow" aria-hidden="true">→</div>' +
+          '<div class="side"><span class="lb">目標</span>' +
+            '<select data-f="t1" aria-label="目標の Tier">' + tierOpts() + '</select>' +
+            '<input data-f="l1" type="number" inputmode="numeric" min="1" step="1" aria-label="目標のレベル"></div>' +
+          '<div class="cnt"><span class="lb">個数</span>' +
+            '<input data-f="n" type="number" inputmode="numeric" min="1" step="1" aria-label="同じ装備の個数"></div>' +
+          '<button type="button" class="del" aria-label="この行を消す"' +
+            (rows.length < 2 ? ' disabled' : '') + '>✕</button>' +
+          '<p class="over"></p></div>';
+      }).join('');
+      built = rows.length;
+    }
+    [].forEach.call(el('rows').children, function (box, i) {
+      var r = rows[i];
+      var q = function (f) { return box.querySelector('[data-f="' + f + '"]'); };
+      q('t0').value = r.t0; q('t1').value = r.t1;
+      q('l0').max = maxLv(r.t0); q('l1').max = maxLv(r.t1);
+      q('l0').value = r.l0; q('l1').value = r.l1;
+      q('n').value = r.n;
+      box.querySelector('.del').disabled = rows.length < 2;
+      var e = rowExp(r);
+      box.querySelector('.over').innerHTML = e
+        ? 'この行で <b>' + fmt(e * r.n) + '</b> EXP' +
+          (r.n > 1 ? '（1 個あたり ' + fmt(e) + '）' : '') +
+          '｜T' + r.t0 + ' の上限は Lv' + maxLv(r.t0) + '、T' + r.t1 + ' は Lv' + maxLv(r.t1)
+        : '<b>目標が今より下です。</b>この行は 0 EXP として数えます。';
+    });
+  }
+
+  function totalExp() {
+    return rows.reduce(function (a, r) { return a + rowExp(r) * Math.max(0, r.n); }, 0);
+  }
+
+  function drawOut() {
+    var exp = totalExp(), o = own(), p = plan(exp, o), pure = pack(exp);
+    var buyExp = expOf(p.buy), useExp = expOf(p.use);
+    var buyN = p.buy.reduce(function (a, v) { return a + v; }, 0);
+    var lvCredit = exp * E.coef;
+    var shopCredit = Math.round(buyExp * E.dayCredit / E.dayExp);
+
+    el('o-exp').innerHTML = fmt(exp) + ' <small>EXP</small>';
+    el('o-exp-sub').innerHTML = exp
+      ? '最上級強化珠だけなら <b>' + fmt(Math.ceil(exp / GEMS[3].e)) + '</b> 個ぶん'
+      : '今と目標が同じなので、何も要りません。';
+    el('o-buy').innerHTML = fmt(buyN) + ' <small>個</small>';
+    el('o-buy-sub').innerHTML = p.need
+      ? '足りない <b>' + fmt(p.need) + '</b> EXP ぶん'
+      : exp ? '手持ちで足りています。' : '—';
+    el('o-credit').textContent = fmt(lvCredit);
+    el('o-credit-sub').innerHTML = '1 EXP につき <b>' + E.coef + '</b> クレジット' +
+      (shopCredit ? '。強化珠を買うぶんを足すと <b>' + fmt(lvCredit + shopCredit) + '</b>' : '');
+
+    var pct = exp ? Math.min(100, useExp / exp * 100) : 100;
+    el('bar').style.width = pct.toFixed(1) + '%';
+    el('barnote').textContent = !exp
+      ? '行を足すと、ここに進み具合が出ます。'
+      : useExp >= exp
+        ? '手持ちだけで足ります（使うのは ' + fmt(useExp) + ' EXP ぶん）'
+        : '手持ちで ' + fmt(useExp) + ' EXP ぶん（要る ' + fmt(exp) + ' EXP の ' + pct.toFixed(0) + '%）';
+
+    el('plan').innerHTML = GEMS.slice().reverse().map(function (g) {
+      var i = GEMS.indexOf(g);
+      return '<div class="row"><span><img class="ico" src="../img/' + g.i + '.webp" alt="" width="20" height="20" loading="lazy">' +
+        esc(g.n) + '<span class="subnote">上から詰めるだけなら ' + fmt(pure[i]) + ' 個</span></span>' +
+        '<span class="nowrap">手持ち ' + fmt(p.use[i]) + ' ／ 買う <b>' + fmt(p.buy[i]) + '</b></span></div>';
+    }).join('') +
+      '<div class="row"><span>あふれる経験値<span class="subnote">詰め切れずに無駄になるぶん</span></span>' +
+      '<span class="nowrap">' + fmt(Math.max(0, useExp + buyExp - exp)) + ' EXP</span></div>' +
+      '<div class="row total"><span>合わせて</span><span class="nowrap">' +
+      fmt(p.use.reduce(function (a, v) { return a + v; }, 0)) + ' ／ <b>' + fmt(buyN) + '</b> 個</span></div>';
+
+    el('shop').innerHTML =
+      '<div class="row"><span>買う強化珠の経験値<span class="subnote">足りない ' + fmt(p.need) +
+        ' EXP ＋ あふれる ' + fmt(buyExp - p.need) + ' EXP</span></span><span>' + fmt(buyExp) + ' EXP</span></div>' +
+      '<div class="row"><span>ショップのクレジット<span class="subnote">' +
+        (E.dayCredit / E.dayExp).toFixed(2) + ' クレジット / 1 EXP</span></span><span>' + fmt(shopCredit) + '</span></div>' +
+      '<div class="row"><span>何日ぶん<span class="subnote">1 日 ' + fmt(E.dayExp) + ' EXP まで</span></span><span>' +
+        (buyExp ? (buyExp / E.dayExp).toFixed(1) + ' 日' : '0 日') + '</span></div>' +
+      '<div class="row total"><span>強化のぶんと合わせて</span><span>' + fmt(lvCredit + shopCredit) + '</span></div>';
+
+    // あふれるぶん
+    var over = expOf(pure) - exp;
+    el('waste').innerHTML =
+      '<div class="row"><span>上から詰めたときのあふれ<span class="subnote">初級強化珠 1 個ぶん未満に収まります</span></span><span>' +
+        fmt(over) + ' EXP</span></div>' +
+      '<div class="row"><span>初級を 1 個減らすと<span class="subnote">代わりに埋めたい経験値</span></span><span>' +
+        (pure[0] > 0 ? fmt(GEMS[0].e - over) + ' EXP' : '—') + '</span></div>';
+
+    // 表の色付け
+    [].forEach.call(el('tb-tier').children, function (tr) {
+      var t = +tr.dataset.t;
+      var on = rows.some(function (r) { return t >= r.t0 && t <= r.t1 && rowExp(r) > 0; });
+      tr.classList.toggle('hi', on);
+    });
+
+    location.replace('#' + toHash());
+  }
+
+  function draw() { drawRows(); drawOut(); }
+
+  /* ---- 動かない表 */
+  (function statics() {
+    var acc = 0;
+    el('tb-tier').innerHTML = TIERS.map(function (t) {
+      var e = cum(t, maxLv(t)); acc += e;
+      return '<tr data-t="' + t + '"><td class="nowrap">T' + t + '</td>' +
+        '<td class="num">Lv' + maxLv(t) + '</td>' +
+        '<td class="num">' + fmt(e) + '</td>' +
+        '<td class="num">' + Math.ceil(e / GEMS[3].e) + ' 個</td>' +
+        '<td class="num">' + (e % GEMS[0].e) + '</td>' +
+        '<td class="num">' + fmt(acc) + '</td></tr>';
+    }).join('');
+
+    var gname = {};
+    GEMS.forEach(function (g) { gname[g.id] = g.n; });
+    el('tb-shop').innerHTML = E.bundles.map(function (b) {
+      return '<tr><td class="nowrap">' + fmt(b.c) + '</td><td>' +
+        b.it.map(function (x) { return esc(gname[x[0]]) + ' × ' + x[1]; }).join('／') +
+        '</td><td class="num">' + fmt(b.e) + '</td>' +
+        '<td class="num">' + (b.c / b.e).toFixed(2) + '</td></tr>';
+    }).join('');
+
+    el('tb-feed').innerHTML = GEMS.slice().reverse().map(function (g) {
+      return '<tr><td>' + esc(g.n) + '</td><td class="num">' + fmt(g.e) + '</td></tr>';
+    }).join('') + E.pieces.slice().reverse().map(function (p) {
+      return '<tr><td>' + (p[0] ? 'T' + p[0] + '装備設計図' : '万能設計図') +
+        '</td><td class="num">' + fmt(p[1]) + '</td></tr>';
+    }).join('');
+
+    el('rate').textContent = (E.dayCredit / E.dayExp).toFixed(2);
+    el('dayexp').textContent = fmt(E.dayExp);
+    el('dayexp2').textContent = fmt(E.dayExp);
+    el('daycredit').textContent = fmt(E.dayCredit);
+    el('src-all').textContent = fmt(E.allTiers);
+    el('src-day').textContent = fmt(E.dayExp);
+    el('src-daycredit').textContent = fmt(E.dayCredit);
+    el('src-cats').textContent = E.cats.length;
+    el('ver').textContent = E.version;
+  })();
+
+  /* ---- 触ったとき */
+  el('rows').addEventListener('change', function (e) {
+    var f = e.target.dataset && e.target.dataset.f;
+    if (!f) return;
+    var i = +e.target.closest('.eqrow').dataset.i, r = rows[i], v = Math.floor(+e.target.value || 0);
+    if (f === 't0' || f === 't1') {
+      r[f] = Math.min(10, Math.max(1, v));
+      if (r.t1 < r.t0) r[f === 't0' ? 't1' : 't0'] = r[f];
+      r.l0 = Math.min(r.l0, maxLv(r.t0)); r.l1 = Math.min(r.l1, maxLv(r.t1));
+    } else if (f === 'l0') {
+      r.l0 = Math.min(Math.max(1, v), maxLv(r.t0));
+    } else if (f === 'l1') {
+      r.l1 = Math.min(Math.max(1, v), maxLv(r.t1));
+    } else {
+      r.n = Math.max(1, v);
+    }
+    draw();
+  });
+  // **打っている途中は組み直さない。**数字だけ拾って結果を出し直す
+  el('rows').addEventListener('input', function (e) {
+    var f = e.target.dataset && e.target.dataset.f;
+    if (!f || e.target.tagName !== 'INPUT') return;
+    var i = +e.target.closest('.eqrow').dataset.i, v = Math.floor(+e.target.value || 0);
+    if (f === 'n') rows[i].n = Math.max(0, v);
+    else if (f === 'l0') rows[i].l0 = Math.min(Math.max(1, v), maxLv(rows[i].t0));
+    else if (f === 'l1') rows[i].l1 = Math.min(Math.max(1, v), maxLv(rows[i].t1));
+    drawOut();
+  });
+  el('rows').addEventListener('click', function (e) {
+    var b = e.target.closest('.del'); if (!b || rows.length < 2) return;
+    rows.splice(+b.closest('.eqrow').dataset.i, 1);
+    draw();
+  });
+  el('b-add').addEventListener('click', function () { rows.push(blank()); draw(); });
+  el('b-one').addEventListener('click', function () {
+    rows = [{ t0: 1, l0: 1, t1: 10, l1: 70, n: 3 }]; draw();
+  });
+  el('b-reset').addEventListener('click', function () {
+    rows = [blank()];
+    GEMS.forEach(function (g) { el('own-' + g.id).value = 0; });
+    draw();
+  });
+
+  function toHash() {
+    return rows.map(function (r) { return [r.t0, r.l0, r.t1, r.l1, r.n].join('.'); }).join(',') +
+      '|' + own().join('.');
+  }
+  window.shareUrl = function () { return '#' + toHash(); };
+
+  (function fromHash() {
+    var h = decodeURIComponent(location.hash.replace(/^#/, ''));
+    var p = h.split('|');
+    (p[0] || '').split(',').forEach(function (s) {
+      var v = s.split('.').map(Number);
+      if (v.length !== 5 || v.some(isNaN)) return;
+      var t0 = Math.min(10, Math.max(1, v[0])), t1 = Math.min(10, Math.max(1, v[2]));
+      rows.push({ t0: t0, l0: Math.min(Math.max(1, v[1]), maxLv(t0)), t1: Math.max(t0, t1),
+                  l1: Math.min(Math.max(1, v[3]), maxLv(Math.max(t0, t1))), n: Math.max(0, v[4]) });
+    });
+    if (!rows.length) rows = [blank()];
+    (p[1] || '').split('.').forEach(function (s, i) {
+      var v = Math.floor(+s || 0);
+      if (GEMS[i] && v > 0) el('own-' + GEMS[i].id).value = v;
+    });
+  })();
+
+  draw();
+})();
+</script>
+</body>
+</html>
