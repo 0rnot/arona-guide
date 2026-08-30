@@ -26,6 +26,10 @@
   .slot {
     border: 1px solid var(--line); border-radius: 13px; background: var(--bg-sub);
     padding: 9px; display: grid; gap: 7px;
+    /* **中身は上から詰める。**枠の高さは 4 つのうち一番高いものに揃うので、
+       既定の stretch のままだと、空き枠の「空き」と「名前で探す」が上下に
+       引き離される（2026-08-30 に先生の画面で発覚）。 */
+    align-content: start;
   }
   .slot.empty { border-style: dashed; }
   .slot .face {
@@ -100,6 +104,17 @@
   .chart .fire { stroke: var(--accent-tx); stroke-width: 1; stroke-dasharray: 3 3; }
   .chart text { fill: var(--fg-mute); font-size: 11px; font-variant-numeric: tabular-nums; }
   .chart text.n { fill: var(--fg); font-weight: 700; }
+  /* バフの帯。**色は「誰にかかるか」。**本人が濃く、敵が薄い */
+  .chart .bar { fill: var(--accent); }
+  .chart .bar.self  { fill: color-mix(in srgb, var(--accent) 78%, transparent); }
+  .chart .bar.ally  { fill: color-mix(in srgb, var(--accent) 46%, transparent); }
+  .chart .bar.enemy { fill: color-mix(in srgb, var(--fg-mute) 30%, transparent); }
+  .chart .out { stroke: var(--accent-tx); stroke-width: 2; }
+  .chart text.lb { fill: var(--fg); font-size: 11px; font-weight: 600; }
+
+  /* コストが下がった発動 */
+  .tlrow .tx small .cut2 { color: var(--accent-tx); font-weight: 700; }
+  .tlrow .when select[data-k="give"] { max-width: 11em; }
 
   /* 書き出し */
   .out { width: 100%; min-height: 8em; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
@@ -291,6 +306,14 @@
 
     <div class="tfull">
       <div class="panel">
+        <div class="panel-h"><h2>バフの持続</h2></div>
+        <p class="lead" id="bars-lead">並べた EX に持続する効果があると、ここに帯が出ます。</p>
+        <div class="chart" id="bars"></div>
+      </div>
+    </div>
+
+    <div class="tfull">
+      <div class="panel">
         <div class="panel-h"><h2>コスト回復力を上げる生徒</h2></div>
         <p class="lead" id="rlist-lead">—</p>
         <div class="rlist" id="rlist"></div>
@@ -316,6 +339,9 @@
         <p><b>EX を撃っている間の秒数は、スキルの <code>Duration</code>（フレーム）を 30 で割った値です。</b>ブルアカは 30fps なので、229 フレームなら 7.63 秒。この計算では、<b>撃っている間もコストは貯まり続ける</b>ものとして扱い、<b>次の EX はその演出が終わるまで撃てない</b>ものとしています。</p>
         <p><b>条件で値が変わるスキルがあります。</b>チェリノは同じ部隊のレッドウィンター生徒の人数、カノエは同じ部隊の重装甲ストライカーの人数（どちらも自身を除いて最大 3 人）で段が変わるので、編成から自動で数えています。それ以外の段のあるスキルは、段を選ぶ欄が出ます。</p>
         <p><b>持続時間のあるバフ（セイアの EX、クルミの戦術シールド中など）は、初期状態では数えていません。</b>「効いている間」に切り替えると合計に入ります。何秒間かは内訳に出ます。</p>
+        <p><b>スキルコストを下げる効果に対応しています。</b>SchaleDB の <code>Skills.Ex.Effects[]</code> にある <code>Type: "CostChange"</code> がそれで、EX に持っているのは <b>6 人</b>（ウイ・セイア・フウカ（正月）・ユズ（臨戦）・キサキ（水着）・レイサ（マジカル））です。<code>ValueType: "Coefficient"</code> のときの <code>Scale: -5000</code> が 50% 引き、<code>"BaseAmount"</code> のときは引く数そのもの。<b>減る量のほうを切り捨てます</b>——スキル文の「ただし減少値は小数点以下切り捨て」がこれで、7 コストなら 7 − ⌊3.5⌋ ＝ <b>4 コスト</b>になります。効くのは時間ではなく <code>Uses</code> 回ぶんです。<b>セイアだけは EX のレベルで回数が変わります</b>（Lv1〜4 が 1 回、Lv5 で 2 回）ので、スキル文のパラメータから取っています。</p>
+        <p><b>誰に渡すかは、こちらでは決められません。</b>スキル文は「自身を除く味方 1 人」としか言わず、<b>ゲームがどう選ぶかはデータに入っていません。</b>なので選ぶ欄を出しています。既定は「渡さない」です。キサキ（水着）は「最も近い味方 3 人」なので、このツールでは 1 人ぶんしか数えられません。<b>ノーマルスキルや装備で下げる子（ジュンコ・サオリ・ココナ・コユキ・シロコ（水着）・キキョウ・マリー（アイドル）・レイ・ミチル（ドレス）・コノカ の 10 人）は、自動で出るスキルなので TL には組み込んでいません。</b></p>
+        <p><b>バフの帯は、EX の効果のうち持続時間があるものです。</b>同じ <code>Effects[]</code> の <code>Duration</code>（ミリ秒）から引いています。持続の無いもの（撃った瞬間のダメージや回復）は帯になりません。効果の名前は SchaleDB の <code>Stat</code> の訳語で、<code>Stat</code> を持たない 3 種（<code>Regen</code>・<code>Shield</code>・<code>DamageDebuff</code>）だけは種別から当てています。<b>着弾までの遅れ（<code>ApplyFrame</code>）は数えていません</b>ので、実際の効き始めは帯の左端より少し後ろです。</p>
         <p>出典 —
           <a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a>（生徒・EX スキルのコストと演出時間・コスト回復力のスキル）。取得は <span id="ver">—</span>。</p>
       </details>

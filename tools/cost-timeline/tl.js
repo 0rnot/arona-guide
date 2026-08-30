@@ -27,7 +27,8 @@
                  10: { main: 6, sup: 4, cap: 20, start: 9 } };
   var MAIN_MAX = 6, SUP_MAX = 4;
 
-  function n1(v) { return (Math.round(v * 10) / 10).toLocaleString('ja-JP', { minimumFractionDigits: 1, maximumFractionDigits: 1 }); }
+  // **`-0` を出さない。**丸めた結果が 0 なのに符号だけ残ると「残り -0.0 コスト」になる
+  function n1(v) { var r = Math.round(v * 10) / 10 || 0; return r.toLocaleString('ja-JP', { minimumFractionDigits: 1, maximumFractionDigits: 1 }); }
   function n2(v) { return (Math.round(v * 100) / 100).toLocaleString('ja-JP', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
   function fmt(v) { return Math.round(v).toLocaleString('ja-JP'); }
   function face(id) { return '../img/student_' + id + '.webp'; }
@@ -76,8 +77,9 @@
     }
     if (Array.isArray(d.o)) {
       order = d.o.map(function (e) {
-        return typeof e === 'number' ? { i: e, t: null }
-                                     : { i: e.i, t: (e.t == null ? null : +e.t) };
+        return typeof e === 'number' ? { i: e, t: null, to: null }
+                                     : { i: e.i, t: (e.t == null ? null : +e.t),
+                                         to: (e.to == null ? null : +e.to) };
       }).filter(function (e) { return e.i >= 0 && e.i < slots.length; });
     }
     if (d.st != null) el('i-start').value = d.st;
@@ -107,7 +109,9 @@
       var o = Object.keys(s.on).filter(function (k) { return s.on[k]; }).join('!');
       return s.id + '.' + s.ex + '.' + s.sk + (t || o ? '.' + t + '.' + o : '');
     }).join(',');
-    var os = order.map(function (e) { return e.t == null ? e.i : e.i + '@' + e.t; }).join(',');
+    var os = order.map(function (e) {
+      return (e.t == null ? String(e.i) : e.i + '@' + e.t) + (e.to == null ? '' : '>' + e.to);
+    }).join(',');
     return '#' + mode + '|' + ps + '|' + os + '|' +
       [el('i-start').value, el('i-cap').value, el('i-gb').value, el('i-gc').value].join('/');
   }
@@ -130,8 +134,10 @@
     if (p[2]) {
       p[2].split(',').forEach(function (x) {
         if (!x) return;
-        var a = x.split('@');
-        d.o.push({ i: +a[0], t: a.length > 1 ? +a[1] : null });
+        var to = null, y = x, gt = x.indexOf('>');
+        if (gt >= 0) { to = +x.slice(gt + 1); y = x.slice(0, gt); }
+        var a = y.split('@');
+        d.o.push({ i: +a[0], t: a.length > 1 ? +a[1] : null, to: isNaN(to) ? null : to });
       });
     }
     var g = (p[3] || '').split('/');
@@ -328,13 +334,36 @@
   /* コストの都合だけで、上から順に置いていく。
      撃っている間もコストは貯まり、次の EX はその演出が終わるまで撃てない。
      時刻を指定した行は、その時刻に足りているかを見て、足りなければ最短へずらす。 */
+  /** スキルコストを下げる効果。**時間ではなく「使用 N 回ぶん」で切れる。**
+      `coef` は 10000 分率（-5000 ＝ 50% 引き）で、**減る量のほうを切り捨てる**
+      （スキル文の「ただし減少値は小数点以下切り捨て」がこれ）。
+      `flat` は引く数そのもの。データは `Excel` ではなく SchaleDB の
+      `Skills.Ex.Effects[].Type === "CostChange"` から来ている。 */
+  function costAfter(need, cut) {
+    if (!cut) return need;
+    var down = cut.vt === 'coef' ? Math.floor(need * (-cut.sc / 10000)) : -cut.sc;
+    return Math.max(0, need - down);
+  }
+  /** その発動で配られるコスト減少。**EX のレベルで回数が変わる子がいる**（セイア）。 */
+  function grantOf(d, ex) {
+    var cc = d.cc;
+    if (!cc) return null;
+    var n = cc.up ? (cc.up[ex - 1] || 0) : cc.u;
+    if (!n) return null;
+    return { n: n, vt: cc.vt, sc: cc.sc[ex - 1] || 0, sd: cc.sd };
+  }
+
   function simulate(rate, cap, start) {
     var t = 0, cost = Math.min(cap, start), lock = 0, out = [], segs = [{ t: 0, c: cost }];
     var deck = deckOrder(), play = playHand(deck);
+    var cut = {};                       // cut[枠] = { n, vt, sc } 残り回数つき
     order.forEach(function (e, idx) {
       var s = slots[e.i], d = byId[s.id];
       if (!d || !live(e.i)) { out.push({ e: e, d: null }); return; }
-      var need = d.c[s.ex - 1] || 0;
+      var raw = d.c[s.ex - 1] || 0;
+      var mine = cut[e.i];
+      var need = costAfter(raw, mine);
+      if (mine) { mine.n--; if (mine.n <= 0) delete cut[e.i]; }
       var t0 = Math.max(t, lock);
       var c0 = Math.min(cap, cost + rate * (t0 - t));
       var soon = need > cap ? null
@@ -353,11 +382,42 @@
       }
       var hand = play.hand();
       var drawn = play.use(e.i);
-      out.push({ e: e, d: d, s: s, need: need, at: at, soon: soon, why: why,
+      // **撃ったあとに配る。**自分の発動ぶんには効かない
+      var gr = at === null ? null : grantOf(d, s.ex);
+      var to = null;
+      if (gr) {
+        to = gr.sd === 'self' ? e.i : (e.to == null ? null : e.to);
+        if (to != null && slots[to] && slots[to].id && live(to)) {
+          cut[to] = { n: gr.n, vt: gr.vt, sc: gr.sc };
+        } else { to = null; }
+      }
+      out.push({ e: e, d: d, s: s, need: need, raw: raw, cut: mine, at: at, soon: soon, why: why,
                  left: at === null ? 0 : cost, idx: idx,
-                 hand: hand, inHand: drawn });
+                 hand: hand, inHand: drawn, grant: gr, to: to });
     });
     return { rows: out, segs: segs, end: t, cap: cap, rate: rate, deck: deck };
+  }
+
+  /** コスト減少を「誰に渡すか」。**ゲームが自動で選ぶ相手はデータに無い**ので、
+      ここだけは手で決めてもらう。スキル文は「自身を除く味方1人」としか言わない。 */
+  function giveSel(r, i) {
+    var h = '<select data-k="give" data-j="' + i + '" aria-label="コスト減少を渡す先">' +
+      '<option value="">渡さない</option>';
+    members().forEach(function (m) {
+      if (m.i === r.e.i) return;        // 「自身を除く」
+      h += '<option value="' + m.i + '"' + (r.e.to === m.i ? ' selected' : '') + '>' +
+        esc(m.d.n) + ' へ</option>';
+    });
+    return h + '</select>';
+  }
+  function giveHtml(r, i) {
+    if (!r.grant) return '';
+    var g = r.grant;
+    var amt = g.vt === 'coef' ? Math.round(-g.sc / 100) + '%（切り捨て）' : g.sc * -1 + ' 引き';
+    if (g.sd === 'self') return '<br>このあと自分の ' + g.n + ' 発ぶん、コスト ' + amt;
+    if (r.to == null) return '<br><span class="cut2">コスト減少 ' + g.n + ' 発ぶんを誰にも渡していません</span>';
+    var d = byId[slots[r.to].id];
+    return '<br>' + esc(d ? d.n : '？') + ' の次の ' + g.n + ' 発ぶん、コスト ' + amt;
   }
 
   function drawTimeline(p) {
@@ -400,12 +460,14 @@
       return mark + '<div class="tlrow' + (r.why || !r.inHand ? ' bad' : '') + '">' +
         '<span class="no">' + (i + 1) + '</span>' +
         '<img src="' + face(r.d.id) + '" alt="" width="40" height="40" loading="lazy">' +
-        '<span class="tx"><b>' + esc(r.d.n) + '</b><small>' + esc(r.d.en) + '／' + r.need + ' コスト' +
-        (r.d.d ? '／演出 ' + n1(r.d.d / FPS) + ' 秒' : '') + '<br>手札 ' + names + '</small>' +
+        '<span class="tx"><b>' + esc(r.d.n) + '</b><small>' + esc(r.d.en) + '／' +
+        (r.cut ? '<span class="cut2">' + r.raw + ' → ' + r.need + '</span> コスト' : r.need + ' コスト') +
+        (r.d.d ? '／演出 ' + n1(r.d.d / FPS) + ' 秒' : '') + '<br>手札 ' + names + giveHtml(r, i) + '</small>' +
         '<span class="when"><select data-k="mode-at" data-j="' + i + '">' +
         '<option value="auto"' + (fixed ? '' : ' selected') + '>最短で</option>' +
         '<option value="fix"' + (fixed ? ' selected' : '') + '>この秒に</option></select>' +
         (fixed ? '<input type="number" step="0.1" min="0" data-k="at" data-j="' + i + '" value="' + r.e.t + '"> 秒' : '') +
+        (r.grant && r.grant.sd === 'ally' ? giveSel(r, i) : '') +
         '</span></span>' +
         '<span class="at">' + (r.at === null ? '撃てない' : n1(r.at) + ' 秒') +
         '<small>' + (r.why ? esc(r.why) : '残り ' + n1(r.left) + ' コスト') + '</small></span>' +
@@ -474,6 +536,57 @@
     el('chart').innerHTML = '<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="コストの動き">' +
       g + '<path class="area" d="' + area + '"></path><path class="line" d="' + line + '"></path>' + marks + '</svg>';
     el('chart-lead').textContent = '縦がコスト（上限 ' + n1(cap) + '）、横が秒です。破線は EX を撃ったところ。';
+    drawBars(sim, span, W, L, R);
+  }
+
+  /* バフの持続。**コストの図と横軸を揃えた帯。**
+     どの効果がいつ切れるか、次の一手がその中に入っているかを見るためのもの。
+     持続を持たない効果（撃った瞬間のダメージ・回復）は帯にならないので出さない。 */
+  var SIDE_JA = { self: '本人', ally: '味方', enemy: '敵' };
+  function drawBars(sim, span, W, L, R) {
+    var bars = [];
+    sim.rows.forEach(function (r) {
+      if (!r.d || r.at === null || !r.d.bf) return;
+      r.d.bf.forEach(function (b) {
+        bars.push({ at: r.at, end: r.at + b.du / 1000, n: r.d.n, e: b.n, sd: b.sd });
+      });
+    });
+    var box = el('bars'), lead = el('bars-lead');
+    if (!bars.length) {
+      box.innerHTML = '';
+      lead.textContent = '並べた EX に持続する効果があると、ここに帯が出ます。';
+      return;
+    }
+    var ROW = 22, T = 6, B = 22, H = T + ROW * bars.length + B;
+    var x = function (t) { return L + (W - L - R) * (Math.min(t, span) / span); };
+    var step = span <= 30 ? 5 : span <= 90 ? 15 : 30;
+    var g = '';
+    for (var t = 0; t <= span; t += step) {
+      g += '<line class="grid" x1="' + x(t).toFixed(1) + '" y1="' + T + '" x2="' + x(t).toFixed(1) +
+           '" y2="' + (H - B).toFixed(1) + '"></line>' +
+           '<text x="' + x(t).toFixed(1) + '" y="' + (H - 6) + '" text-anchor="middle">' + t + '秒</text>';
+    }
+    var over = 0;
+    var rows = bars.map(function (b, i) {
+      var y = T + ROW * i + 3, h = ROW - 7;
+      var x0 = x(b.at), x1 = x(b.end);
+      if (b.end > span) over++;
+      var w = Math.max(2, x1 - x0);
+      // **切れる位置に印を付ける。**帯が枠の外まで伸びるときは付けない
+      var endMark = b.end <= span
+        ? '<line class="out" x1="' + x1.toFixed(1) + '" y1="' + (y - 2) + '" x2="' + x1.toFixed(1) +
+          '" y2="' + (y + h + 2) + '"></line>' : '';
+      return '<rect class="bar ' + b.sd + '" x="' + x0.toFixed(1) + '" y="' + y +
+        '" width="' + w.toFixed(1) + '" height="' + h + '" rx="4"></rect>' + endMark +
+        '<text class="lb" x="' + (x0 + 6).toFixed(1) + '" y="' + (y + h - 3) + '">' +
+        esc(b.n) + '／' + esc(b.e) + ' ' + n1(b.end - b.at) + '秒</text>';
+    }).join('');
+
+    box.innerHTML = '<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="バフの持続">' +
+      g + rows + '</svg>';
+    lead.textContent = '帯 ' + bars.length + ' 本。左端が発動、右端の縦線で切れます。' +
+      (over ? over + ' 本は図の右端より先まで続きます。' : '') +
+      '色は本人（濃い）／味方（中）／敵（薄い）です。';
   }
 
   function drawRefList() {
@@ -527,17 +640,29 @@
     e.hidden = false; e.textContent = msg;
   }
 
-  /* ---------- 入力 */
+  /* ---------- 入力
+
+     **候補をクリックしたときに `change` が来ないことがある。**その場では何も
+     起きず、余所をクリックして初めて（＝ぼかしたときの `change` で）入る、
+     という挙動になっていた（2026-08-30 に先生の指摘で気づいた）。
+     `input` でも同じ処理を通す。ただし打っている途中で勝手に確定しないよう、
+     `input` 側は**名前がぴったり一致したときだけ**受ける。 */
+  function takePick(t, exactOnly) {
+    var i = +t.dataset.i, sq = isMain(i) ? 'Main' : 'Support';
+    var name = (t.value || '').trim();
+    if (exactOnly && !D.students.some(function (s) { return s.sq === sq && s.n === name; })) return;
+    var d = findByName(name, sq, i);
+    if (!d) { if (!exactOnly) say('その名前の生徒が見つかりません。'); return; }
+    if (d.dup) { say(d.n + ' はもう編成に入っています。同じ子は 1 人までです。'); return; }
+    say('');
+    slots[i] = { id: d.id, ex: 5, sk: 10, tier: {}, on: {} };
+    draw();
+  }
+
   document.addEventListener('change', function (ev) {
     var t = ev.target, k = t.dataset && t.dataset.k;
     if (k === 'pick') {
-      var i = +t.dataset.i;
-      var d = findByName(t.value, isMain(i) ? 'Main' : 'Support', i);
-      if (!d) { say('その名前の生徒が見つかりません。'); return; }
-      if (d.dup) { say(d.n + ' はもう編成に入っています。同じ子は 1 人までです。'); return; }
-      say('');
-      slots[i] = { id: d.id, ex: 5, sk: 10, tier: {}, on: {} };
-      draw();
+      takePick(t, false);
     } else if (k === 'ex' || k === 'sk') {
       slots[+t.dataset.i][k] = +t.value; draw();
     } else if (k === 'tier') {
@@ -554,6 +679,10 @@
         e2.t = cur == null ? 0 : Math.round(cur * 10) / 10;
       } else { e2.t = null; }
       draw();
+    } else if (k === 'give') {
+      var jg = +t.dataset.j;
+      if (order[jg]) order[jg].to = t.value === '' ? null : +t.value;
+      draw();
     } else if (k === 'at') {
       var j2 = +t.dataset.j;
       if (order[j2]) order[j2].t = Math.max(0, parseFloat(t.value) || 0);
@@ -563,7 +692,8 @@
     }
   });
   document.addEventListener('input', function (ev) {
-    var id = ev.target.id;
+    var t = ev.target, id = t.id;
+    if (t.dataset && t.dataset.k === 'pick') { takePick(t, true); return; }
     if (id === 'i-start' || id === 'i-cap' || id === 'i-gb' || id === 'i-gc') draw();
   });
 

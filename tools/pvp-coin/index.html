@@ -197,12 +197,12 @@
 
       <details class="src">
         <summary>数字の出どころ</summary>
-        <p><b>戦術対抗戦コインの枚数と交換のレートは</b><a href="https://game8.jp/blue-archive/654824" target="_blank" rel="noopener">ゲームエイト「戦術コインのおすすめ交換先と入手方法」</a>によります。日別報酬のリセットが毎日 14 時、防衛で勝つと 1 勝 3 枚で 1 日 10 回まで（最大 30 枚）、ショップの更新が 1 回 10 枚で 1 日 3 回まで、というのも同じ記事です。</p>
-        <p><b>交換所のレート。</b>AP ドリンク（初級）は 15 枚で AP30、（中級）は 30 枚で AP60。神名文字は 50 枚。</p>
-        <p><b>青輝石とコインの枚数は、<a href="https://bluearchive.wikiru.jp/?%E6%88%A6%E8%A1%93%E5%AF%BE%E6%8A%97%E6%88%A6" target="_blank" rel="noopener">ブルアカ攻略 Wiki「戦術対抗戦」</a>の「日別報酬」の表と一致しています。</b>
-          1 位 45＋125 ／ 2 位 40＋120 ／ 3〜10 位 35＋110 ／ 11〜100 位 30＋100 ／ 101〜200 位 25＋90 ／
+        <p><b>枚数はゲームのデータそのものです。</b><a href="https://github.com/electricgoat/ba-data" target="_blank" rel="noopener">ba-data</a> の <code>Excel/ArenaRewardExcelTable.json</code> に、順位帯ごとの日別報酬が 11 行あります。<b>11 〜 100 位なら <code>Gem_Bonus</code> 30 と <code>AreaCoin</code> 100</b>、というふうに。下に並べたのがその 11 行の中身で、ページの選択肢と 1 行ずつ突き合わせてあります。</p>
+        <p>1 位 45＋125 ／ 2 位 40＋120 ／ 3〜10 位 35＋110 ／ 11〜100 位 30＋100 ／ 101〜200 位 25＋90 ／
           201〜500 位 20＋80 ／ 501〜1000 位 18＋70 ／ 1001〜2000 位 16＋60 ／ 2001〜4000 位 14＋50 ／
-          4001〜8000 位 12＋40 ／ 8001〜15000 位 10＋30（左が青輝石、右が戦術対抗戦コイン）。有志ツール「<a href="https://github.com/kur-3dcg/Tactical-Battle-Stone-Accounting" target="_blank" rel="noopener">戦術対抗戦石割収支集計ツール</a>」の実装に載っていた値とも同じでした。</p>
+          4001〜8000 位 12＋40 ／ 8001〜15000 位 10＋30（左が青輝石、右が戦術対抗戦コイン）。</p>
+        <p><b>防衛で勝ったぶんと、リセットの時刻も同じデータから取りました。</b>同じ表の <code>DefenseVictory</code> が <code>ArenaCoin</code> 3 枚で、<code>Excel/ConstArenaExcelTable.json</code> の <code>DefenseVictoryRewardMaxCount: 10</code> が 1 日の上限、<code>DailyRewardResetTime: 14:00:00</code> がリセットの時刻です。<b>日別報酬は 1 日 1 回で、14 時のリセット時点の順位で決まります。</b>その時間に 11 〜 100 位に居れば、その日は 100 枚です。</p>
+        <p><b>交換所のレートだけはデータに無いので、記事によります。</b>AP ドリンク（初級）は 15 枚で AP30、（中級）は 30 枚で AP60、神名文字は 50 枚、ショップの更新は 1 回 10 枚で 1 日 3 回まで。<a href="https://game8.jp/blue-archive/654824" target="_blank" rel="noopener">ゲームエイト「戦術コインのおすすめ交換先と入手方法」</a>から取りました。</p>
       </details>
     </div>
 

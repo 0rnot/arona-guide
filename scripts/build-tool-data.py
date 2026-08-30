@@ -17,7 +17,7 @@
 落としたあと 122×122 に切り直してから置く（中身の一番外側は x 14〜134 / y 4〜116 に
 収まっているのを実測して決めた枠）。切り直しには Pillow を使う。
 """
-import io, json, pathlib, sys, urllib.request
+import io, json, pathlib, re, sys, urllib.request
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 IMG = ROOT / "tools" / "img"
@@ -1030,6 +1030,30 @@ def build_cost_timeline():
     students = as_list(get_json(SD.format("students")))
     loc = get_json(SD.format("localization"))
 
+    statja = loc.get("Stat") or {}
+
+    def eff_name(e):
+        """効果の見出し。**`Stat` があるものはそこから引ける。**
+           `Regen` / `Shield` / `DamageDebuff` の 3 つだけ `Stat` を持たないので、
+           そこは種別から名前を当てる（2026-08-30 に 29 種を数えて確かめた）。"""
+        st = e.get("Stat") or ""
+        if st:
+            return statja.get(st.rsplit("_", 1)[0], st)
+        return {"Regen": "継続回復", "Shield": "シールド",
+                "DamageDebuff": "持続ダメージ"}.get(e.get("Type") or "", e.get("Type") or "効果")
+
+    def eff_side(e):
+        """誰にかかるか。**Target は文字列のことも配列のこともある。**"""
+        tgt = e.get("Target")
+        names = [tgt] if isinstance(tgt, str) else list(tgt or [])
+        if not names:
+            return "enemy"          # Target が無いのは敵への設置・持続ダメージ
+        if "Enemy" in names:
+            return "enemy"
+        if names == ["Self"]:
+            return "self"
+        return "ally"
+
     stu = []
     for s in students:
         ex = s.get("Skills", {}).get("Ex")
@@ -1045,6 +1069,35 @@ def build_cost_timeline():
             # **Duration はフレーム。**ゲームは 30fps なので、秒にするには 30 で割る
             "d": ex.get("Duration") or 0,
         }
+        # EX が置いていく効果の持続。**タイムラインに帯で出すため。**
+        # 持続の無い効果（即時のダメージ・回復）は帯にならないので落とす
+        bf = []
+        for e in ex.get("Effects") or []:
+            du = int(e.get("Duration") or 0)
+            if du <= 0:
+                continue
+            bf.append({"n": eff_name(e), "du": du, "sd": eff_side(e)})
+        if bf:
+            rec["bf"] = bf
+        # スキルコストを下げる効果。**`Uses` 回ぶんだけ効いて、時間では切れない。**
+        # `Coefficient` は 10000 分率（-5000 = 50% 引き）、`BaseAmount` は引く数そのもの
+        for e in ex.get("Effects") or []:
+            if e.get("Type") != "CostChange":
+                continue
+            sc = e.get("Scale") or []
+            cc = {"u": int(e.get("Uses") or 1),
+                  "vt": "coef" if e.get("ValueType") == "Coefficient" else "flat",
+                  "sc": sc, "sd": eff_side(e)}
+            # **効く回数が EX のレベルで変わる子がいる。**`Uses` は最大値しか
+            # 持っていないので、スキル文のパラメータ側（「1回 / … / 2回」）を拾う。
+            # 2026-08-30 時点でこれに当たるのはセイアだけ
+            for row in ex.get("Parameters") or []:
+                m = [re.fullmatch(r"(\d+)回", str(x)) for x in row]
+                if row and all(m):
+                    cc["up"] = [int(x.group(1)) for x in m]
+                    break
+            rec["cc"] = cc
+            break
         reg = []
         for slot, sk in (s.get("Skills") or {}).items():
             if not isinstance(sk, dict):
