@@ -78,7 +78,7 @@
         "戦術対抗戦"
       ],
       "desc": "今の順位から 1 位まで、あと何回勝てばいいか。挑戦できる相手の範囲をそのまま辿るので、11 位から 10 位へ挑めない段差も込みです。",
-      "img": "ui_strategy_icon_enemyrank_3",
+      "img": "item_icon_material_atlantismedal_3",
       "group": "戦う"
     },
     {

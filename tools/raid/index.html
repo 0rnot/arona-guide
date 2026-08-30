@@ -48,19 +48,6 @@
   .pick-row { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; margin-top: 16px; }
   .pick-row > .lb { font-size: .8rem; font-weight: 700; color: var(--fg-mute); }
 
-  /* 選んだ相手の 1 行。**ここから下がぜんぶこの相手のもの**だと分かるようにする */
-  .pick-sum {
-    display: flex; align-items: center; gap: 12px; margin-top: 18px; padding: 10px 12px;
-    border: 1px solid var(--accent); border-radius: 12px;
-    background: color-mix(in srgb, var(--accent) 9%, var(--card));
-  }
-  .pick-sum img { width: 104px; height: 32px; object-fit: cover; border-radius: 7px;
-                  background: var(--bg-sub); flex: 0 0 auto; }
-  .pick-sum .t { min-width: 0; font-size: .9rem; font-weight: 800; line-height: 1.4;
-                 overflow-wrap: anywhere; }
-  .pick-sum .t small { display: block; font-size: .74rem; font-weight: 500; color: var(--fg-mute);
-                       margin-top: .1em; }
-
   /* ===== ② 生徒の並び（相性チェッカーの中身） ===== */
   .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(186px, 1fr)); gap: 10px; }
   /* **274 人ぶん並ぶと本文が押し出される。**中でスクロールさせる */
@@ -344,19 +331,12 @@
       <span class="lb">ボスの装甲</span><div class="seg" id="armor" role="group" aria-label="ボスの装甲"></div>
     </div>
     <p class="lead" id="armor-note" style="margin:12px 0 0" hidden></p>
-    <div class="pick-sum" id="pick-sum" aria-live="polite"></div>
   </div>
 
-  <!-- ===== ② TL の保管庫と検索。tl-search.js が組み立てる ===== -->
-  <div id="tlsearch-root"></div>
-
-  <!-- ===== ③ おまけの相性チェッカー。**相手は上で選んだものを使う** ===== -->
-  <details class="subtool" id="raid-extra">
-    <summary>おまけ — 相性チェッカー
-      <small>上で選んだ相手に有効な攻撃属性と、連れて行く生徒が並びます。専用武器で上がる地形適性も込みです。</small>
-    </summary>
-    <div class="subbody">
-
+  <!-- ===== ①' 選んだ相手の相性。**上で選んだ瞬間にここへ出る。**
+       2026-08-30 の先生の指示——「相手を選んだらこの位置に相性チェッカーと
+       同じ表記がされていい、下のおまけは不要」。おまけに残すのは
+       「連れて行く生徒」だけ（「連れて行く生徒だけおまけとして」） ===== -->
   <div class="panel">
     <div class="panel-h"><h2 id="now-h">いまの相手</h2></div>
     <div class="now">
@@ -376,6 +356,17 @@
       </div>
     </div>
   </div>
+
+
+  <!-- ===== ② TL の保管庫と検索。tl-search.js が組み立てる ===== -->
+  <div id="tlsearch-root"></div>
+
+  <!-- ===== ③ おまけの相性チェッカー。**相手は上で選んだものを使う** ===== -->
+  <details class="subtool" id="raid-extra">
+    <summary>おまけ — 連れて行く生徒
+      <small>上で選んだ相手に、攻撃が通る順で 274 人を並べます。専用武器で上がる地形適性も込みです。</small>
+    </summary>
+    <div class="subbody">
 
   <div class="panel">
     <div class="panel-h"><h2>連れて行く生徒</h2></div>
@@ -441,7 +432,7 @@
   </details>
 </div>
 
-<script>window.TOUR = {"key": "raid", "steps": [{"sel": "#bosses", "t": "まず相手を絵から選びます", "d": "総力戦・大決戦・制約解除決戦のボスが並びます。押すと、下の TL・攻撃属性・生徒がぜんぶその相手のものに切り替わります。地形と難易度もここで選びます。"}, {"sel": "#tls-vault", "t": "選んだ相手の TL が出ます", "d": "ここに出るのは、あなたがこの端末に保存した TL だけです。他人の TL はこのサイトには入っていません。難易度・使った生徒・メモの語句でさらに絞れます。"}, {"sel": "#tls-add", "t": "コスト計算機の URL を貼って貯めます", "d": "TL のコスト計算機は編成と撃つ順番をぜんぶ URL に入れます。その URL を貼って保存すると、あとから「コスト計算機で開く」で盤面ごと戻せます。保存先の相手は上で選んだものです。"}, {"sel": "#tls-exts", "pre": "#tls-ext-wrap > summary", "t": "他人の TL はよそで探します", "d": "このサイトには投稿を集める仕組みがありません。選んでいる相手を、TL 動画を集めている外部サイトと YouTube の検索 URL に組み立てて渡します。"}, {"sel": "#atk", "pre": "#raid-extra > summary", "t": "おまけの相性チェッカー", "d": "有効な攻撃属性と、連れて行く生徒の並びが出ます。相手は上で選んだものがそのまま入ります。"}, {"sel": "#sharebar", "t": "選んだ相手はそのまま渡せます", "d": "URL には選んだボスと絞り込みの条件だけが入ります。保管庫の中身は端末の外に出ません。"}]};</script>
+<script>window.TOUR = {"key": "raid", "steps": [{"sel": "#bosses", "t": "まず相手を絵から選びます", "d": "総力戦・大決戦・制約解除決戦のボスが並びます。押すと、下の TL・攻撃属性・生徒がぜんぶその相手のものに切り替わります。地形と難易度もここで選びます。"}, {"sel": "#tls-vault", "t": "選んだ相手の TL が出ます", "d": "ここに出るのは、あなたがこの端末に保存した TL だけです。他人の TL はこのサイトには入っていません。難易度・使った生徒・メモの語句でさらに絞れます。"}, {"sel": "#tls-add", "t": "コスト計算機の URL を貼って貯めます", "d": "TL のコスト計算機は編成と撃つ順番をぜんぶ URL に入れます。その URL を貼って保存すると、あとから「コスト計算機で開く」で盤面ごと戻せます。保存先の相手は上で選んだものです。"}, {"sel": "#tls-exts", "pre": "#tls-ext-wrap > summary", "t": "他人の TL はよそで探します", "d": "このサイトには投稿を集める仕組みがありません。選んでいる相手を、TL 動画を集めている外部サイトと YouTube の検索 URL に組み立てて渡します。"}, {"sel": "#atk", "t": "こちらの攻撃がどれだけ通るか", "d": "選んだ相手の装甲と地形から、攻撃属性ごとの倍率が出ます。下のおまけを開くと、連れて行く生徒が攻撃の通る順に並びます。"}, {"sel": "#sharebar", "t": "選んだ相手はそのまま渡せます", "d": "URL には選んだボスと絞り込みの条件だけが入ります。保管庫の中身は端末の外に出ません。"}]};</script>
 <script src="../tour.js?v=1"></script>
 
 <script src="../share.js?v=1"></script>
@@ -682,17 +673,9 @@
 
   /** 選んだ相手の 1 行。**ここから下がこの相手のものだと分かるように出す。** */
   var KIND_JA = { raid: '総力戦', elim: '大決戦', multi: '制約解除決戦' };
-  function drawSum() {
-    var b = boss();
-    var bits = [KIND_JA[mode], ja('AdaptationType', terrain)];
-    bits.push(mode === 'multi'
-      ? (mSec().lo + '〜' + (mSec().hi || '') + 'F')
-      : ja('RaidDifficulty', DIFF[diff]));
-    bits.push(ja('ArmorType', bossArmor()) + '／' + ja('BulletType', bossBullet()) + 'で攻撃してくる');
-    el('pick-sum').innerHTML =
-      '<img src="../img/boss_' + b.p + '.webp" alt="" width="104" height="32" loading="lazy">' +
-      '<span class="t">' + b.n + '<small>' + bits.join('　') + '</small></span>';
-  }
+  /* **選んだ相手の 1 行は置かなくなった。**すぐ下の「いまの相手」が同じことを
+     もっと詳しく出すので、2 段重ねになっていた（2026-08-30 の先生の指示——
+     「相手を選んだらこの位置に相性チェッカーと同じ表記がされていい」）。 */
 
   function drawNow() {
     var b = boss(), at = bossArmor(), bt = bossBullet();
@@ -807,7 +790,7 @@
     }).join('') || '<p style="color:var(--fg-mute);font-size:.86rem;margin:0">あてはまる生徒がいません。</p>';
   }
 
-  function draw() { drawMode(); drawBosses(); drawPickers(); drawSum(); drawNow(); drawList(); }
+  function draw() { drawMode(); drawBosses(); drawPickers(); drawNow(); drawList(); }
   /** 人が選び直したとき。**描いてから外へ知らせる。** */
   function pick() { draw(); notify(); }
 

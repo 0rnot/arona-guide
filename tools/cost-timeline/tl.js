@@ -1263,7 +1263,11 @@
       durLine +
       sim.rows.filter(function (r) { return r.d && r.at !== null; })
       .map(function (r) {
-        return tclock(r.at) + '\t' + r.d.n + '\tEX' + r.s.ex + '\t' + r.need + 'コスト';
+        /* **EX5 は書かない。**既定の値で、行が長くなるだけ
+           （2026-08-30 の先生の指摘——「EX5はいらない」）。
+           **5 以外のときだけ添える。**そこは書かないと情報が落ちる */
+        return tclock(r.at) + '\t' + r.d.n +
+          (r.s.ex === 5 ? '' : '\tEX' + r.s.ex) + '\t' + r.need + 'コスト';
       }).join('\n');
 
     drawChart(sim);
@@ -1279,6 +1283,14 @@
     // **目標時刻とステージギミックも枠の中に入れる。**外に置くと線が引けない
     var span = Math.max(5, last.t + 3, goal == null ? 0 : goal + 2);
     gims.forEach(function (g) { span = Math.max(span, g.t + g.du + 2); });
+    /* **ノーマルスキルの初回が図の外に落ちる。**初回が 0 秒でなくなったので
+       （「40秒毎に」は 1 回目も 40 秒後）、EX を 3 発だけ並べた 33 秒の図では
+       帯が 1 本も入らず、名札だけが宙に浮いていた
+       （2026-08-30 の先生の指摘——画像つきで「表示おかしい」）。
+       **いちばん遅い初回が切れるところまで枠を伸ばす。**
+       伸ばしすぎないように、戦闘時間を選んでいればそこで止める */
+    var ns1 = firstNsEnd();
+    if (ns1 > span) span = Math.min(ns1, dur || (span + 120));
     var cap = sim.cap;
     /* **下は 0 とは限らない。**ナギサ（水着）のオーバーコストでコストが沈むと
        マイナスまで下りるので、一番低いところまで軸を伸ばす */
@@ -1386,11 +1398,41 @@
   }
 
   /** 帯・攻撃力の倍率・条件で発動するもの。**3 つとも横軸をコストの図に揃える。** */
+  /** ノーマル・パッシブ・サブの帯で、**いちばん遅い「初回が切れる時刻」**。
+      図の横幅を決めるのに使う。 */
+  function firstNsEnd() {
+    var out = 0;
+    members().forEach(function (m) {
+      timedOf(m.d).forEach(function (t) {
+        if (!show[t.g]) return;
+        (t.sk.bf || []).forEach(function (b, bi) {
+          var one = mkBar(m.d, m.s, b, false, m.i + '.' + t.key + '.' + bi, m.i, t.ja, t.sk.n);
+          if (!one) return;
+          var st0 = (t.sk.st == null ? 0 : t.sk.st) + (b.af || 0);
+          out = Math.max(out, st0 + one.ms / 1000 + 2);
+        });
+      });
+    });
+    return out;
+  }
+
   function drawSide(sim, span, W, L, R) {
     var bars = collectBars(sim, span);
     drawBars(sim, span, W, L, R, bars);
     drawAtk(span, W, L, R, bars, !!sim);
     drawCond();
+  }
+
+  /** 札のおおよその幅（px）。**全角と半角で幅が倍ちがう。**
+      `.chart text.lb` は 11px なので、全角 11px・半角 6px で数える。 */
+  function labelPx(t) {
+    var w = 0;
+    for (var i = 0; i < t.length; i++) {
+      var c = t.charCodeAt(i);
+      // ASCII と半角は狭い。それ以外（かな・漢字・全角記号）は 1 文字ぶん
+      w += (c < 0x2e80 || (c >= 0xff61 && c <= 0xff9f)) ? 6 : 11;
+    }
+    return w;
   }
 
   function drawBars(sim, span, W, L, R, bars) {
@@ -1462,7 +1504,12 @@
       // **札が右端からはみ出さないようにする。**帯が後ろのほうにあるときは
       // 帯の左に置くと枠の外に出るので、右端に寄せて右揃えにする
       var x0 = b.segs.length ? x(b.segs[0][0]) : L;
-      var late = x0 > (W - R) * 0.62;
+      /* **札の長さで決める。**帯の位置だけで決めていたので、後ろから始まる
+         長い札（「〈ノーマル〉セイア／貫通特効 25.0秒（初回 36.43秒／35秒ごと）」）が
+         右へはみ出していた（2026-08-30 の先生の指摘——画像つきで「表示おかしい」）。
+         **全角は 11px、半角は 6px** で見積もる（`.chart text.lb` が 11px）。 */
+      var est = labelPx(barLabel(b));
+      var late = x0 + 6 + est > W - R - 4;
       return body + '<text class="lb" text-anchor="' + (late ? 'end' : 'start') + '" x="' +
         (late ? (W - R - 4) : (x0 + 6)).toFixed(1) + '" y="' + (y + h - 3) + '">' +
         esc(barLabel(b)) + '</text>';
@@ -1471,7 +1518,10 @@
     box.innerHTML = '<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="効果の持続">' +
       g + rows + goalMark(goal, x, T, H - B, span) + '</svg>';
     lead.textContent = '帯 ' + bars.length + ' 本。左端が発動、右端の縦線で切れます。' +
-      (ns ? (ns === bars.length ? '' : 'うち ') + ns + ' 本はノーマル・パッシブ・サブで、0 秒から発動間隔ごとに置いています（初回のずれはデータに無いので置いていません）。' : '') +
+      (ns ? (ns === bars.length ? '' : 'うち ') + ns +
+            ' 本はノーマル・パッシブ・サブです。初回はスキル文のとおりで、' +
+            '「40秒毎に」なら 1 回目も 40 秒後、' +
+            '「戦闘開始時とそれ以降、40秒毎に」なら 0 秒からです。' : '') +
       (over ? over + ' 本は図の右端より先まで続きます。' : '') +
       '色は本人（濃い）／味方（中）／敵（薄い）です。' +
       (cc ? 'CC（気絶・挑発など）は敵にかかる灰色の帯で、100% でないものは確率を書いています。' : '') +

@@ -174,10 +174,6 @@ UI_ICONS = [
     "Cafe_Interaction_Gift_03", "Cafe_Interaction_Gift_04",
     # 星（★1〜★3）。星上げの計算機で使う
     "Common_Icon_Formation_Star_R2", "Common_Icon_Formation_Star_R3",
-    # 順位の目印（赤い菱形 3 つ）。**これも色付き**なので mask ではなく <img>。
-    # 戦術対抗戦の順位経路で使う（2026-08-30 の先生の指摘——コインの絵が
-    # 2 本のツールで被らないように、コインは収支のほうへ渡した）
-    "Strategy_Icon_EnemyRank_3",
     # そのほか
     "Cafe_Icon_Interaction", "Cafe_Icon_Comfort", "School_Icon_Schedule_Favor",
     "Common_Icon_Time", "Image_Compare",
@@ -3444,6 +3440,233 @@ def build_equip_level():
     }, header="/* scripts/build-tool-data.py が吐く。**手で直さない。** */\n")
 
 
+# ------------------------------------------------------------ カフェの家具配置
+
+# **床と壁の広さは、家具そのもののサイズから読める。**`SubCategory` が
+# `Floor` の 26 個のうち 8 個が `Size: [20, 20]`、`Wallpaper` の 26 個のうち
+# 2 個が `Size: [20, 7]`。どちらも部屋いっぱいに敷く 1 枚物なので、
+# **その大きさが部屋の広さそのもの**になる（2026-08-30 に数えた）。
+#
+# 裏取りその 2。公式の家具テンプレート 20 個（`FurnitureTemplateElement`）を
+# この枠に置き直すと、**2,817 マスが 1 マスもはみ出さず、重なりも 0**。
+# 壁も 20 × 7 で 2,221 マスが同じく 0。
+CL_FLOOR = [20, 20]
+CL_WALL = [20, 7]
+
+# 置く面。**公式テンプレート 20 個の `Location` 欄から決めた。**
+# 下の検算で「この分け方から外れる行が 1 つでもあれば止まる」ようにしてある
+CL_PLANE = {
+    "Bed": "f", "Chair": "f", "Closet": "f", "FloorDecoration": "f",
+    "HomeAppliance": "f", "Prop": "f", "Table": "f",
+    "WallDecoration": "w",
+    "Floor": "fm", "Wallpaper": "wp", "Background": "bg",
+}
+# **テンプレートに 1 度も出てこない 2 種類。**置ける面が確かめられないので、
+# 盤には載せず、画面でも「確かめられていない」と書く
+CL_UNKNOWN = {"Trophy", "FurnitureEtc"}
+# 床の上では、カーペットの上に家具を置ける。**重なりの検査から外す唯一の種類**
+CL_UNDER = "FloorDecoration"
+
+
+def build_cafe_layout():
+    """**このツールだけは「床の広さ」を持っている。**カフェの収入計算機
+    （`build_cafe`）は「床の広さがデータのどこにも無い」と書いているが、
+    それは `CafeInfo` / `CafeRank` を見た話で、実際には
+    **家具の `Size` と公式テンプレートの座標**の 2 か所から読める。
+
+    **座標は家具の中心。**`FurnitureTemplateElement.PositionX/Y` は
+    左上ではなく中心で、幅が奇数なら .5 が付く。1,037 行のうち 1,034 行で
+    「幅が奇数 ⇔ 座標に .5 が付く」が成り立った（外れる 3 行は下で名指し）。
+    左上のマスは `round(Position − サイズ / 2)`。
+    """
+    print("カフェの家具配置")
+    furn = get_json(SD.format("furniture"))
+    loc = get_json(SD.format("localization"))
+    fgrp = as_list(get_json(BA.format("FurnitureGroupExcelTable")))
+    crank = as_list(get_json(BA.format("CafeRankExcelTable")))
+    const = as_list(get_json(BA.format("ConstCommonExcelTable")))
+    tpl = as_list(get_json(BA.format("FurnitureTemplateExcelTable")))
+    tel = as_list(get_json(BA.format("FurnitureTemplateElementExcelTable")))
+    bfu = {x["Id"]: x for x in as_list(get_json(BA.format("FurnitureExcelTable")))}
+    etc = {x["Key"]: x for x in as_list(get_json(BADB.format("LocalizeEtcExcelTable")))}
+
+    fl_all = list(furn.values()) if isinstance(furn, dict) else furn
+    fmap = {f["Id"]: f for f in fl_all}
+
+    # ---- 1. 部屋の広さ。**1 枚物の床材と壁紙のサイズから取る** ----
+    whole_floor = sorted(f["Id"] for f in fl_all
+                         if f.get("SubCategory") == "Floor" and list(f.get("Size") or []) == CL_FLOOR)
+    whole_wall = sorted(f["Id"] for f in fl_all
+                        if f.get("SubCategory") == "Wallpaper" and list(f.get("Size") or []) == CL_WALL)
+    if not whole_floor:
+        raise SystemExit(f"Size が {CL_FLOOR} の床材が 1 つも無い。床の広さの根拠が消えた")
+    if not whole_wall:
+        raise SystemExit(f"Size が {CL_WALL} の壁紙が 1 つも無い。壁の広さの根拠が消えた")
+    for f in fl_all:
+        sz = list(f.get("Size") or [1, 1])
+        if max(sz) > max(CL_FLOOR):
+            raise SystemExit(f"床より大きい家具がある: {f['Id']} {f.get('Name')} {sz}")
+
+    # ---- 2. 置く面。**テンプレートの Location と突き合わせる** ----
+    LOCP = {"Floor": "f", "WallLeft": "w", "WallRight": "w"}
+    for e in tel:
+        sc = fmap[e["FurnitureId"]]["SubCategory"]
+        want = CL_PLANE.get(sc)
+        if want is None:
+            raise SystemExit(f"面を決めていない SubCategory がテンプレートに出た: {sc}")
+        if want in ("fm", "wp", "bg"):
+            continue          # 部屋そのものの化粧。マス目には乗らない
+        if want != LOCP[e["Location"]]:
+            raise SystemExit(f"{sc} が {e['Location']} に置かれている"
+                             f"（面の分け方が変わった合図。家具 {e['FurnitureId']}）")
+    seen_sc = {f.get("SubCategory") for f in fl_all}
+    if seen_sc - set(CL_PLANE) - CL_UNKNOWN:
+        raise SystemExit(f"知らない SubCategory: {sorted(seen_sc - set(CL_PLANE) - CL_UNKNOWN)}")
+
+    # ---- 3. テンプレートを左上のマスへ直す。**はみ出しと重なりを 0 で確かめる** ----
+    def title_of(key):
+        v = etc.get(key)
+        if not v or not v.get("NameJp"):
+            raise SystemExit(f"テンプレートの題名 {key} が引けない")
+        return v["NameJp"].replace("\n", "").strip()
+
+    by_t = {}
+    for e in tel:
+        by_t.setdefault(e["FurnitureTemplateId"], []).append(e)
+    if len(tpl) != 20 or set(by_t) != {t["FurnitureTemplateId"] for t in tpl}:
+        raise SystemExit(f"テンプレートが {len(tpl)} 個／中身は {len(by_t)} 個ぶん")
+
+    half = []          # 左上が半端なマスに来る行。**丸めて載せるが、数は出す**
+    out_tpl, cells, overlaps, oob = [], 0, 0, 0
+    for t in sorted(tpl, key=lambda x: x["FurnitureTemplateId"]):
+        tid = t["FurnitureTemplateId"]
+        # **左の壁と右の壁は別の面。**1 つの集合にまとめると、同じ (x, y) が
+        # 両方の壁にあるだけで「重なり」に見える（実測 511 件）
+        rows, occ = [], {0: set(), 1: set(), 2: set()}
+        room = {}
+        for e in sorted(by_t[tid], key=lambda x: x["Order"]):
+            f = fmap[e["FurnitureId"]]
+            pl = CL_PLANE[f["SubCategory"]]
+            if pl in ("fm", "wp", "bg"):
+                if pl in room:
+                    raise SystemExit(f"テンプレート {tid} に {f['SubCategory']} が 2 枚ある")
+                room[pl] = e["FurnitureId"]
+                continue
+            w, h = (f.get("Size") or [1, 1])[0], (f.get("Size") or [1, 1])[1]
+            rot = int(e["Rotation"]) // 90 % 4
+            if rot % 2:
+                w, h = h, w
+            fx, fy = e["PositionX"] - w / 2.0, e["PositionY"] - h / 2.0
+            if abs(fx - round(fx)) > 1e-9 or abs(fy - round(fy)) > 1e-9:
+                half.append((tid, e["FurnitureId"], f.get("Name")))
+            x0, y0 = int(round(fx)), int(round(fy))
+            lim = CL_FLOOR if pl == "f" else CL_WALL
+            if x0 < 0 or y0 < 0 or x0 + w > lim[0] or y0 + h > lim[1]:
+                oob += 1
+            # 面の番号。0 = 床、1 = 左の壁、2 = 右の壁
+            side = 1 if e["Location"] == "WallLeft" else (2 if e["Location"] == "WallRight" else 0)
+            # **カーペットの上には家具を置ける。**重なりの検査から外す
+            if f["SubCategory"] != CL_UNDER:
+                for i in range(w):
+                    for j in range(h):
+                        c = (x0 + i, y0 + j)
+                        cells += 1
+                        if c in occ[side]:
+                            overlaps += 1
+                        occ[side].add(c)
+            rows.append([e["FurnitureId"], side, x0, y0, rot])
+        if len(room) != 3:
+            raise SystemExit(f"テンプレート {tid} の床材・壁紙・背景がそろっていない: {sorted(room)}")
+        out_tpl.append({"id": tid, "nm": title_of(t["FunitureTemplateTitle"]),
+                        "fm": room["fm"], "wp": room["wp"], "bg": room["bg"], "it": rows})
+    if oob:
+        raise SystemExit(f"公式テンプレートが {oob} 個はみ出した。20×20 / 20×7 の前提が崩れた")
+    if overlaps:
+        raise SystemExit(f"公式テンプレートに重なりが {overlaps} 個。中心座標の読み方が違う")
+    # **左上が半マスずれる行が 8 つある。**1,057 行のうち 8 行で、
+    # 「幅が奇数 ⇔ 座標に .5」から外れる。いちばん近いマスへ丸めて載せているが、
+    # **丸めても はみ出し 0・重なり 0 のまま**なので、置き場所は変わっていない。
+    # マッサージチェア（6200）は SchaleDB が 1×3、ba-data が 1×2 で食い違う
+    if len(half) > 12:
+        raise SystemExit(f"左上が半端になる行が {len(half)} 行（既知は 8 行）: {half[:8]}")
+
+    # ---- 4. セットボーナス ----
+    steps = {(tuple(g["RequiredFurnitureCount"]), tuple(g["ComfortBonus"])) for g in fgrp}
+    if len(steps) != 1:
+        raise SystemExit(f"セットボーナスの段がセットごとに違う: {sorted(steps)}")
+    need, bonus = steps.pop()
+    known = {g["Id"] for g in fgrp}
+    cc = next(iter(const))
+    apply_n = cc.get("CafeSetGroupApplyCount")
+    if not apply_n:
+        raise SystemExit(f"CafeSetGroupApplyCount が {apply_n}")
+
+    # ---- 5. 快適度の上限 ----
+    cm = {(x["CafeId"], x["Rank"]): x["ComfortMax"] for x in crank}
+    for cid in (1, 2):
+        got = [cm[(cid, r)] for r in range(1, 11)]
+        if got != [1000 + 500 * i for i in range(10)]:
+            raise SystemExit(f"カフェ {cid} の ComfortMax が {got}")
+
+    # ---- 6. 家具の一覧 ----
+    setname = loc.get("FurnitureSet", {})
+    fl, bysets = [], {}
+    for f in sorted(fl_all, key=lambda x: x["Id"]):
+        cb = f.get("ComfortBonus") or 0
+        if cb <= 0:
+            raise SystemExit(f"快適度 0 の家具がある: {f['Id']} {f.get('Name')}")
+        sc = f.get("SubCategory") or ""
+        sz = f.get("Size") or [1, 1]
+        sg = f.get("SetGroupId") or 0
+        fl.append({"id": f["Id"], "nm": (f.get("Name") or "?").replace("\n", ""),
+                   "c": cb, "w": sz[0], "h": sz[1], "sc": sc,
+                   "pl": CL_PLANE.get(sc, "?"), "rr": f.get("Rarity") or "N", "g": sg})
+        if sg:
+            bysets[sg] = bysets.get(sg, 0) + 1
+    sets = [{"id": g, "nm": setname.get(str(g), f"セット{g}"), "n": bysets[g],
+             "ok": g in known} for g in sorted(bysets)]
+    # **種類の日本語は `ItemCategory` にまとまっている。**`Category` と
+    # `SubCategory` の両方がここに入っている（"Prop": "小物" など）。
+    # 家具に出てくる語がすべて引けることを確かめてから渡す
+    item_ja = loc.get("ItemCategory", {}) or {}
+    want = {f.get("Category") or "" for f in fl_all} | {f.get("SubCategory") or "" for f in fl_all}
+    lack = sorted(w for w in want if w and w not in item_ja)
+    if lack:
+        raise SystemExit(f"日本語名が引けない種類: {lack}")
+    sub_ja = {k: v for k, v in item_ja.items() if k in want}
+
+    npl = {}
+    for f in fl:
+        npl[f["pl"]] = npl.get(f["pl"], 0) + 1
+    print(f"  家具 {len(fl)} 個（床 {npl.get('f', 0)}／壁 {npl.get('w', 0)}／"
+          f"床材 {npl.get('fm', 0)}・壁紙 {npl.get('wp', 0)}・背景 {npl.get('bg', 0)}／"
+          f"面が不明 {npl.get('?', 0)}）、セット {len(sets)} 個")
+    print(f"  床 {CL_FLOOR[0]}×{CL_FLOOR[1]}（1 枚物の床材 {len(whole_floor)} 個の Size）、"
+          f"壁 {CL_WALL[0]}×{CL_WALL[1]}（1 枚物の壁紙 {len(whole_wall)} 個の Size）")
+    print(f"  公式テンプレート {len(out_tpl)} 個・{cells:,} マスを置き直して、"
+          f"はみ出し {oob}・重なり {overlaps}・左上が半端 {len(half)}")
+
+    # 一覧に出すツールの絵。**他の 25 本と被らない色付きのもの**
+    n = int(fetch_icon("furniture_icon_sofaset",
+                    "https://schaledb.com/images/furniture/icon/my_gehennaparty_01_sofaset_01.webp"))
+    if n:
+        print(f"  絵を {n} 枚追加")
+
+    return write_js("tools/cafe-layout/data.js", "CLAY", {
+        "floor": CL_FLOOR, "wall": CL_WALL,
+        "wholeFloor": whole_floor, "wholeWall": whole_wall,
+        "rank": [{"c": c, "r": r, "cm": cm[(c, r)]} for c in (1, 2) for r in range(1, 11)],
+        "setStep": list(need), "setBonus": list(bonus), "setMax": apply_n,
+        "sets": sets, "furn": fl, "tpl": out_tpl,
+        "subJa": sub_ja,
+        "half": [{"t": t, "id": i, "nm": nm} for t, i, nm in half],
+        "cells": cells,
+        "version": "SchaleDB jp（家具 %d 個・サイズ・快適度・セット名）／ "
+                   "electricgoat/ba-data jp（FurnitureTemplate・FurnitureTemplateElement・"
+                   "Furniture・FurnitureGroup・CafeRank・ConstCommon／DB の LocalizeEtc）"
+                   % len(fl),
+    }, header="/* scripts/build-tool-data.py が吐く。**手で直さない。** */\n")
+
 BUILDERS = {"bond": build_bond, "teacher-level": build_teacher_level,
             "equipment": build_equipment, "tier": build_tier, "raid": build_raid,
             "student-cost": build_student_cost, "treasure": build_treasure,
@@ -3460,6 +3683,7 @@ BUILDERS = {"bond": build_bond, "teacher-level": build_teacher_level,
             "equip-level": build_equip_level,
             "schedule": build_schedule,
             "cafe": build_cafe,
+            "cafe-layout": build_cafe_layout,
             "ui": build_ui}
 
 if __name__ == "__main__":

@@ -433,13 +433,24 @@
       ' 本</b>のステージ' + (parts.length ? '（' + parts.join('・') + '）' : '') + '。';
   }
 
+  /** 同じ効率のステージを全部拾う。**神名文字は同率が普通。**
+      ツバキの神名文字は Hard 15-2 と Hard 23-2 のどちらも 1 周 0.4 個で、
+      片方だけ「いちばん効率のいい場所」に出すと、もう片方が無いように見える
+      （2026-08-30 の先生の指摘——「神名が落ちるハードが数か所あるキャラもいる」）。 */
+  function tied(rs, uid) {
+    var list = rs.filter(function (r) { return unitOf(r.s) === uid; });
+    if (!list.length) return [];
+    var top = list[0].r;
+    return list.filter(function (r) { return Math.abs(r.r - top) < 1e-9; });
+  }
+
   function drawTops(rs) {
     var h = '';
     UNITS.forEach(function (u) {
-      var best = null;
-      for (var i = 0; i < rs.length; i++) { if (unitOf(rs[i].s) === u.id) { best = rs[i]; break; } }
+      var ts = tied(rs, u.id), best = ts[0];
+      var where = ts.map(function (r) { return stageLabel(r.s) + '｜' + stageSub(r.s); }).join('　／　');
       h += '<div class="row"><span class="topline">' + esc(u.k) +
-        '<span class="subnote">' + (best ? esc(stageLabel(best.s)) + '｜' + esc(stageSub(best.s)) : 'ここでは出ません') + '</span></span>' +
+        '<span class="subnote">' + (best ? esc(where) : 'ここでは出ません') + '</span></span>' +
         '<span>' + (best ? '<b>' + per(best.r * u.n) + '</b> 個' : '—') + '</span></div>';
     });
     el('tops').innerHTML = h;
@@ -455,8 +466,16 @@
       return;
     }
     var b = rs[0], u = UNITS.filter(function (x) { return x.id === unitOf(b.s); })[0];
-    el('o-best').textContent = stageLabel(b.s);
-    el('o-best-sub').innerHTML = esc(stageSub(b.s)) + '｜' + esc(u.k) + ' <b>' + per(b.r * u.n) + '</b> 個';
+    /* **同じ効率が並ぶことがある。**神名文字はたいてい 2 本以上のハードに
+       同じ確率で入っていて、1 本だけ出すと他が無いように見える */
+    var ts = tied(rs, unitOf(b.s));
+    el('o-best').textContent = ts.length > 1
+      ? stageLabel(b.s) + ' ほか ' + (ts.length - 1) + ' 本'
+      : stageLabel(b.s);
+    el('o-best-sub').innerHTML = (ts.length > 1
+        ? esc(ts.map(function (r) { return stageLabel(r.s); }).join('・')) + '（同率）'
+        : esc(stageSub(b.s))) +
+      '｜' + esc(u.k) + ' <b>' + per(b.r * u.n) + '</b> 個';
     if (!need) {
       el('o-runs').innerHTML = '0 <small>周</small>';
       el('o-runs-sub').textContent = '手持ちで足りています。';
