@@ -193,7 +193,6 @@
     var ms = members(), out = [];
     ms.forEach(function (m) {
       (m.d.r || []).forEach(function (e, ei) {
-        if (e.du > 0 && !m.s.on[ei]) return;          // 持続バフは既定で数えない
         var row = 0;
         if (e.v.length > 1) {
           if (e.cond === 'redwinter') {
@@ -216,9 +215,14 @@
     return out;
   }
 
-  /* コスト回復力の合計。**1 人ごとに「（700 ＋ 実数）×（1 ＋ %）」を出して足す。** */
+  /* コスト回復力の合計。**1 人ごとに「（700 ＋ 実数）×（1 ＋ %）」を出して足す。**
+
+     ここで数えるのは**持続時間を持たない効果だけ**（パッシブと常時のもの）。
+     持続するバフは TL の中で、その子が EX を撃った瞬間から数える
+     （2026-08-30。それまでは手でチェックを入れる形で、入れると最初から
+     最後まで効いていることになっていた）。 */
   function pool() {
-    var ms = members(), efs = effects();
+    var ms = members(), efs = effects().filter(function (x) { return !x.e.du; });
     var gb = parseFloat(el('i-gb').value) || 0;
     var gc = parseFloat(el('i-gc').value) || 0;
     var per = {};
@@ -274,10 +278,11 @@
           }
           (d.r || []).forEach(function (e, ei) {
             if (e.du > 0) {
-              html += '<label class="lv" style="grid-template-columns:auto 1fr"><input type="checkbox" data-k="on" data-i="' +
-                i + '" data-e="' + ei + '"' + (s.on[ei] ? ' checked' : '') + '><span>' +
-                esc(e.sn) + ' が効いている間（' +
-                n1(extend(d, s, e.du, e.p === 'party' ? 'ally' : 'self') / 1000) + ' 秒）</span></label>';
+              // **持続するバフに手を入れる欄はもう要らない。**この子が EX を
+              // 撃った瞬間から自動で立って、時間で切れる（2026-08-30）
+              html += '<div class="lv"><span>効果</span><span class="lvnote">' +
+                esc(e.sn) + '／回復力 ' +
+                n1(extend(d, s, e.du, e.p === 'party' ? 'ally' : 'self') / 1000) + ' 秒</span></div>';
             } else if (e.v.length > 1 && !e.cond) {
               html += '<div class="lv"><span>段</span><select data-k="tier" data-i="' + i + '" data-e="' + ei + '">';
               for (var t = 0; t < e.v.length; t++) html += '<option value="' + t + '"' + (t === (s.tier[ei] || 0) ? ' selected' : '') + '>' + (t + 1) + ' 段目</option>';
@@ -395,8 +400,106 @@
     return { n: n, vt: cc.vt, sc: cc.sc[ex - 1] || 0, sd: cc.sd };
   }
 
-  function simulate(rate, cap, start) {
+  /** 回復力の入れもの。**1 人ごとに「（700 ＋ 実数）×（1 ＋ %）」を持って足す。**
+      持続バフはここに出し入れする。重ねがけはせず、効いている間に撃ち直したら
+      切れる時刻だけ延ばす（リフレッシュ）——これは kur-3dcg の TL 作成支援ツールと
+      同じ扱いで、あちらの `buildAllBuffEvents` が同じことをしている。 */
+  function Recovery(ms, base, gb, gc) {
+    var per = {}, live = {};
+    ms.forEach(function (m) { per[m.i] = { b: base + gb, c: gc * 100 }; });
+    function apply(x, sign) {
+      var targets = x.e.p === 'party' ? ms : [x.m];
+      targets.forEach(function (t) {
+        if (!per[t.i]) return;
+        if (x.e.k === 'b') per[t.i].b += sign * x.v; else per[t.i].c += sign * x.v;
+      });
+    }
+    return {
+      addStatic: function (x) { apply(x, 1); },
+      /** key はスロット番号と効果番号。同じ効果を二重に立てない */
+      start: function (key, x, end) {
+        if (live[key]) { live[key].end = Math.max(live[key].end, end); return false; }
+        live[key] = { end: end, x: x };
+        apply(x, 1);
+        return true;
+      },
+      next: function () {
+        var t = Infinity;
+        for (var k in live) if (live[k].end < t) t = live[k].end;
+        return t;
+      },
+      expire: function (t) {
+        for (var k in live) {
+          if (live[k].end <= t + 1e-9) { apply(live[k].x, -1); delete live[k]; }
+        }
+      },
+      /** 毎秒のコスト回復量 */
+      rate: function () {
+        var total = 0;
+        ms.forEach(function (m) { total += per[m.i].b * (1 + per[m.i].c / 10000); });
+        return total / 10000;
+      },
+    };
+  }
+
+  /* **戦闘が始まってすぐは貯まらない。**回復が動き出すのは 2.033 秒後。
+     この値は自分で測ったものではなく、kur-3dcg の TL 作成支援ツールの
+     `RECOVERY_DELAY_MS = 2033` に合わせている（2026-08-30）。 */
+  var REC_DELAY = 2.033;
+
+  function simulate(cap, start, base, gb, gc) {
+    var ms = members();
+    var rec = Recovery(ms, base, gb, gc);
+    var all = effects();
+    all.forEach(function (x) { if (!x.e.du) rec.addStatic(x); });
+    // 持続を持つ効果を、スロットごとに引けるようにしておく
+    var timed = {};
+    all.forEach(function (x) {
+      if (!x.e.du) return;
+      (timed[x.m.i] = timed[x.m.i] || []).push(x);
+    });
+
     var t = 0, cost = Math.min(cap, start), lock = 0, out = [], segs = [{ t: 0, c: cost }];
+
+    function boundary() {
+      var nx = rec.next();
+      if (t < REC_DELAY - 1e-9) nx = Math.min(nx, REC_DELAY);
+      return nx;
+    }
+    function rateNow() { return t < REC_DELAY - 1e-9 ? 0 : rec.rate(); }
+
+    /** target 秒まで進める。**途中でバフが切れたら、そこで率を切り替える。** */
+    function advance(target) {
+      var guard = 0;
+      while (t < target - 1e-9 && guard++ < 4000) {
+        var b = Math.min(target, boundary());
+        var r = rateNow();
+        cost = Math.min(cap, cost + r * (b - t));
+        t = b;
+        rec.expire(t);
+        segs.push({ t: t, c: cost });
+      }
+      if (t < target) t = target;
+    }
+
+    /** need コストに届く最短の時刻。**届かないなら null。** */
+    function reach(need, from) {
+      advance(from);
+      if (need > cap + 1e-9) return null;
+      var guard = 0;
+      while (guard++ < 4000) {
+        if (cost >= need - 1e-9) return t;
+        var r = rateNow(), b = boundary();
+        if (r > 0) {
+          var tt = t + (need - cost) / r;
+          if (tt <= b + 1e-9) { advance(tt); return t; }
+        }
+        if (!isFinite(b)) return null;     // 率が 0 のまま動かない
+        advance(b);
+      }
+      return null;
+    }
+
     var deck = deckOrder(), play = playHand(deck);
     var cut = {};                       // cut[枠] = { n, vt, sc } 残り回数つき
     order.forEach(function (e, idx) {
@@ -407,20 +510,25 @@
       var need = costAfter(raw, mine);
       if (mine) { mine.n--; if (mine.n <= 0) delete cut[e.i]; }
       var t0 = Math.max(t, lock);
-      var c0 = Math.min(cap, cost + rate * (t0 - t));
-      var soon = need > cap ? null
-               : (c0 >= need ? t0 : t0 + (need - c0) / rate);
+      var soon = reach(need, t0);
       var at = soon, why = '';
       if (soon === null) { why = 'コストの上限を超えています'; }
       else if (e.t != null) {
         if (e.t < soon - 1e-6) { why = '間に合いません（最短 ' + n1(soon) + ' 秒）'; at = soon; }
-        else { at = e.t; }
+        else { at = e.t; advance(at); }
       }
+      var rateAt = 0;
       if (at !== null) {
-        var cAt = Math.min(cap, cost + rate * (at - t));
-        segs.push({ t: at, c: cAt });
-        cost = cAt - need; t = at; lock = at + (d.d || 0) / FPS;
         segs.push({ t: at, c: cost });
+        cost = Math.max(0, cost - need);
+        segs.push({ t: at, c: cost });
+        lock = at + (d.d || 0) / FPS;
+        rateAt = rec.rate();
+        // **撃った瞬間からバフが立つ。**同じ効果が生きていたら切れる時刻だけ延ばす
+        (timed[e.i] || []).forEach(function (x) {
+          var du = extend(d, s, x.e.du, x.e.p === 'party' ? 'ally' : 'self');
+          rec.start(e.i + '/' + x.ei, x, at + du / 1000);
+        });
       }
       var hand = play.hand();
       var drawn = play.use(e.i);
@@ -434,10 +542,18 @@
         } else { to = null; }
       }
       out.push({ e: e, d: d, s: s, need: need, raw: raw, cut: mine, at: at, soon: soon, why: why,
-                 left: at === null ? 0 : cost, idx: idx,
+                 left: at === null ? 0 : cost, idx: idx, rate: rateAt,
                  hand: hand, inHand: drawn, grant: gr, to: to });
     });
-    return { rows: out, segs: segs, end: t, cap: cap, rate: rate, deck: deck };
+
+    // 最後の 1 発のあとも、バフが切れるところまでは線を伸ばしておく
+    var tailTo = t;
+    for (var q = 0; q < 60; q++) {
+      var nx = rec.next();
+      if (!isFinite(nx)) break;
+      if (nx > t) { advance(nx); tailTo = t; } else { rec.expire(t); }
+    }
+    return { rows: out, segs: segs, end: tailTo, cap: cap, rate: rec.rate(), deck: deck, timed: timed };
   }
 
   /** コスト減少を「誰に渡すか」。**ゲームが自動で選ぶ相手はデータに無い**ので、
@@ -481,10 +597,9 @@
       el('tl-lead').textContent = order.length ? '生徒を入れてください。' : 'まだ何も並んでいません。';
       return;
     }
-    var rate = p.total / 10000;
     var cap = parseFloat(el('i-cap').value) || LAYOUT[mode].cap;
     var start = parseFloat(el('i-start').value) || 0;
-    var sim = simulate(rate, cap, start);
+    var sim = simulate(cap, start, D.base, p.gb, p.gc);
     lastSim = sim;
 
     el('timeline').innerHTML = sim.rows.map(function (r, i) {
@@ -547,7 +662,10 @@
 
   /* コストの動き。**折れ線ひとつだけ。**軸は左に 1 本、EX を撃った点に縦の破線を引く */
   function drawChart(sim) {
-    var W = 760, H = 220, L = 34, R = 12, T = 14, B = 26;
+    // **上に名札 2 段ぶんの余白を取る。**T=14 のままだと札が折れ線に重なり、
+    // 名前を 4 文字で切っていたので「カンナ（」「ネル（制」になっていた
+    // （2026-08-30 の先生の指摘「見切れてる」）
+    var W = 760, H = 252, L = 34, R = 12, T = 48, B = 26;
     var last = sim.segs[sim.segs.length - 1];
     var span = Math.max(5, last.t + 3);
     var cap = sim.cap;
@@ -574,14 +692,28 @@
     for (var t = 0; t <= span; t += step) {
       g += '<text x="' + x(t).toFixed(1) + '" y="' + (H - 8) + '" text-anchor="middle">' + t + '秒</text>';
     }
-    var marks = sim.rows.filter(function (r) { return r.d && r.at !== null; }).map(function (r) {
-      return '<line class="fire" x1="' + x(r.at).toFixed(1) + '" y1="' + T + '" x2="' + x(r.at).toFixed(1) + '" y2="' + y(0).toFixed(1) + '"></line>' +
-        '<text class="n" x="' + x(r.at).toFixed(1) + '" y="' + (T + 10) + '" text-anchor="middle">' + esc(r.d.n.slice(0, 4)) + '</text>';
+    /* 撃った位置の名札。**名前は切らない。**「（水着）」のような括弧は 2 行目に回し、
+       隣とぶつからないように 1 つおきに段を下げる。全文は <title> に残す */
+    var fired = sim.rows.filter(function (r) { return r.d && r.at !== null; });
+    var marks = fired.map(function (r, i) {
+      var px = x(r.at), m = /^(.+?)[（(]([^）)]+)[）)]$/.exec(r.d.n);
+      var l1 = m ? m[1] : r.d.n, l2 = m ? m[2] : '';
+      // 端に寄った札は内側へ寄せる。真ん中揃えのままだと枠から出る
+      var anchor = px < L + 28 ? 'start' : px > W - R - 28 ? 'end' : 'middle';
+      var ty = 14 + (i % 2 ? 20 : 0);
+      return '<line class="fire" x1="' + px.toFixed(1) + '" y1="' + T + '" x2="' + px.toFixed(1) +
+        '" y2="' + y(0).toFixed(1) + '"></line>' +
+        '<text class="n" x="' + px.toFixed(1) + '" y="' + ty + '" text-anchor="' + anchor + '">' +
+        '<tspan x="' + px.toFixed(1) + '">' + esc(l1) + '</tspan>' +
+        (l2 ? '<tspan x="' + px.toFixed(1) + '" dy="10">' + esc(l2) + '</tspan>' : '') +
+        '<title>' + esc(r.d.n) + '　' + n1(r.at) + ' 秒</title></text>';
     }).join('');
 
     el('chart').innerHTML = '<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="コストの動き">' +
       g + '<path class="area" d="' + area + '"></path><path class="line" d="' + line + '"></path>' + marks + '</svg>';
-    el('chart-lead').textContent = '縦がコスト（上限 ' + n1(cap) + '）、横が秒です。破線は EX を撃ったところ。';
+    el('chart-lead').textContent = '縦がコスト（上限 ' + n1(cap) + '）、横が秒です。破線は EX を撃ったところ。'
+      + '戦闘開始から ' + REC_DELAY + ' 秒は貯まりません。傾きが変わるところは、'
+      + 'コスト回復力のバフが立ったか切れたところです。';
     drawBars(sim, span, W, L, R);
   }
 
@@ -626,9 +758,13 @@
       var endMark = b.end <= span
         ? '<line class="out" x1="' + x1.toFixed(1) + '" y1="' + (y - 2) + '" x2="' + x1.toFixed(1) +
           '" y2="' + (y + h + 2) + '"></line>' : '';
+      // **札が右端からはみ出さないようにする。**帯が後ろのほうにあるときは
+      // 帯の左に置くと枠の外に出るので、右端に寄せて右揃えにする
+      var late = x0 > (W - R) * 0.62;
       return '<rect class="bar ' + b.sd + '" x="' + x0.toFixed(1) + '" y="' + y +
         '" width="' + w.toFixed(1) + '" height="' + h + '" rx="4"></rect>' + endMark +
-        '<text class="lb" x="' + (x0 + 6).toFixed(1) + '" y="' + (y + h - 3) + '">' +
+        '<text class="lb" text-anchor="' + (late ? 'end' : 'start') + '" x="' +
+        (late ? (W - R - 4) : (x0 + 6)).toFixed(1) + '" y="' + (y + h - 3) + '">' +
         esc(b.n) + '／' + esc(b.e) + ' ' + n1(b.sec) + '秒' +
         (b.grew ? '（固有で延長）' : '') + '</text>';
     }).join('');
