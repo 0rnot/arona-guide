@@ -107,6 +107,8 @@ UI_ICONS = [
     # SchaleDB も `Cafe_Interaction_Gift_0{一致タグ数+1}.png` で出している
     "Cafe_Interaction_Gift_01", "Cafe_Interaction_Gift_02",
     "Cafe_Interaction_Gift_03", "Cafe_Interaction_Gift_04",
+    # 星（★1〜★3）。星上げの計算機で使う
+    "Common_Icon_Formation_Star_R2", "Common_Icon_Formation_Star_R3",
     # そのほか
     "Cafe_Icon_Interaction", "Cafe_Icon_Comfort", "School_Icon_Schedule_Favor",
     "Common_Icon_Time", "Image_Compare",
@@ -1543,6 +1545,80 @@ def build_raid_score():
     }, header="/* scripts/build-tool-data.py が吐く。**手で直さない。** */\n")
 
 
+# ------------------------------------------------------- 星上げ（神名文字）
+
+def build_eleph():
+    print("星上げ（神名文字）の計算機")
+    students = as_list(get_json(SD.format("students")))
+    items = as_list(get_json(SD.format("items")))
+    tr = {x["CharacterId"]: x for x in as_list(get_json(BA.format("CharacterTranscendenceExcelTable")))}
+    rec = {x["Id"]: x for x in as_list(get_json(BA.format("RecipeExcelTable")))}
+    ing = {x["Id"]: x for x in as_list(get_json(BA.format("RecipeIngredientExcelTable")))}
+    iname = {int(i["Id"]): i.get("Name", "") for i in items if i.get("Id")}
+
+    def steps_of(cid):
+        """★1→2, 2→3, 3→4, 4→5 の 4 段。**中身は (クレジット, 神名文字の Id, 個数)**"""
+        t = tr.get(cid)
+        if not t or not t.get("RecipeId"):
+            return None
+        out = []
+        for r in t["RecipeId"]:
+            R = rec.get(r)
+            I = ing.get(R["RecipeIngredientId"]) if R else None
+            if not I or not I.get("IngredientId") or not I.get("CostAmount"):
+                return None
+            out.append((I["CostAmount"][0], I["IngredientId"][0], I["IngredientAmount"][0]))
+        return out if len(out) == 4 else None
+
+    stu, pats, bonus, favors = [], {}, {}, {}
+    for s_ in students:
+        cid = s_["Id"]
+        st = steps_of(cid)
+        # **神名のカケラ（Id 23）を 999 個要求する行は仮置き。**中身が入っていない
+        if not st or st[0][1] == 23:
+            continue
+        t = tr[cid]
+        pats.setdefault(tuple((c, a) for c, _i, a in st), 0)
+        pats[tuple((c, a) for c, _i, a in st)] += 1
+        bonus.setdefault((tuple(t["StatBonusRateAttack"]), tuple(t["StatBonusRateHP"]),
+                          tuple(t["StatBonusRateHeal"])), 0)
+        bonus[(tuple(t["StatBonusRateAttack"]), tuple(t["StatBonusRateHP"]),
+               tuple(t["StatBonusRateHeal"]))] += 1
+        favors.setdefault(tuple(t["MaxFavorLevel"]), 0)
+        favors[tuple(t["MaxFavorLevel"])] += 1
+        stu.append({"id": cid, "n": s_["Name"], "s": s_.get("StarGrade", 1),
+                    "e": st[0][1], "en": iname.get(st[0][1], "")})
+
+    if not stu:
+        raise SystemExit("星上げのレシピが 1 人も取れない。列名が変わった疑い")
+    # **全員同じ値かどうかを毎回数える。**違う子が出たら、そのときは表を持つ形に直す
+    if len(pats) != 1:
+        raise SystemExit(f"必要数が生徒ごとに割れている: {sorted(pats.items())[:4]}")
+    if len(bonus) != 1:
+        raise SystemExit(f"星の上がり幅が生徒ごとに割れている: {len(bonus)} 通り")
+    if len(favors) != 1:
+        raise SystemExit(f"絆ランクの上限が生徒ごとに割れている: {len(favors)} 通り")
+    need = list(pats)[0]
+    atk, hp, heal = list(bonus)[0]
+    fav = list(favors)[0]
+
+    steps = []
+    for i in range(4):
+        steps.append({"to": i + 2, "cr": need[i][0], "el": need[i][1],
+                      # StatBonusRate は 10000 分率。**★1 のぶんは 0** なので 1 つずらす
+                      "atk": atk[i + 1], "hp": hp[i + 1], "heal": heal[i + 1],
+                      "fav": fav[i + 1]})
+
+    print(f"  {len(stu)} 人ぶん、必要な神名文字は {[x['el'] for x in steps]}、"
+          f"クレジットは {[x['cr'] for x in steps]}")
+    return write_js("tools/eleph/data.js", "ELEPH", {
+        "steps": steps,
+        "fav1": fav[0],
+        "stu": sorted(stu, key=lambda x: x["id"]),
+        "version": "electricgoat/ba-data jp（CharacterTranscendence・Recipe・RecipeIngredient）／ SchaleDB jp（生徒と道具の名前）",
+    }, header="/* scripts/build-tool-data.py が吐く。**手で直さない。** */\n")
+
+
 BUILDERS = {"bond": build_bond, "teacher-level": build_teacher_level,
             "equipment": build_equipment, "tier": build_tier, "raid": build_raid,
             "student-cost": build_student_cost, "treasure": build_treasure,
@@ -1550,6 +1626,7 @@ BUILDERS = {"bond": build_bond, "teacher-level": build_teacher_level,
             "raid-calendar": build_raid_calendar,
             "gear-stats": build_gear_stats,
             "raid-score": build_raid_score,
+            "eleph": build_eleph,
             "ui": build_ui}
 
 if __name__ == "__main__":
