@@ -17,18 +17,29 @@
 <link rel="stylesheet" href="../tool.css?v=7">
 <style>
   /* ボスの一覧 */
-  .bosses { display: grid; grid-template-columns: repeat(auto-fill, minmax(168px, 1fr)); gap: 10px; }
+  /* **札は広めに取る。**168px だと絵の 52px を引いて文字が 86px しか残らず、
+     「Insane 以上は貫通」が 1 語ずつ折り返して読めなかった（2026-08-30 の先生の指摘） */
+  .bosses { display: grid; grid-template-columns: repeat(auto-fill, minmax(236px, 1fr)); gap: 10px; }
   .bcard {
-    display: grid; grid-template-columns: 52px 1fr; gap: .6em; align-items: center;
-    padding: 9px 10px; border: 1px solid var(--line); border-radius: 12px;
+    display: grid; grid-template-columns: 48px 1fr; gap: .65em; align-items: center;
+    padding: 9px 11px; border: 1px solid var(--line); border-radius: 12px;
     background: var(--bg-sub); text-align: left; font: inherit; cursor: pointer;
   }
   .bcard[aria-pressed="true"] {
     border-color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, var(--bg-sub));
   }
-  .bcard img { width: 52px; height: 52px; border-radius: 10px; background: var(--card); }
-  .bcard .nm { font-weight: 700; font-size: .88rem; line-height: 1.3; word-break: auto-phrase; }
-  .bcard .sub { display: block; font-weight: 500; font-size: .72rem; color: var(--fg-mute); margin-top: .2em; line-height: 1.5; }
+  .bcard img { width: 48px; height: 48px; border-radius: 10px; background: var(--card); }
+  .bcard .bi { min-width: 0; }
+  .bcard .nm { display: block; font-weight: 700; font-size: .9rem; line-height: 1.25;
+               white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  /* 装甲と有効属性は札にする。**地の文に混ぜると折り返しの犠牲になる** */
+  .bcard .tags { display: flex; flex-wrap: wrap; gap: 4px; margin: .28em 0 .26em; }
+  .bcard .tg { font-size: .68rem; font-weight: 700; line-height: 1.5; padding: 0 .5em;
+               border-radius: 999px; border: 1px solid var(--line); background: var(--card);
+               color: var(--fg-mute); white-space: nowrap; }
+  .bcard .tg.hot { border-color: transparent; background: var(--accent); color: var(--accent-in); }
+  .bcard .sub { display: block; font-weight: 500; font-size: .71rem; color: var(--fg-mute);
+                line-height: 1.5; font-variant-numeric: tabular-nums; }
 
   /* 開催の記録 */
   .season {
@@ -169,7 +180,7 @@
   <div class="tfull" style="margin-top:20px">
     <div class="panel">
       <div class="panel-h"><h2>ボス</h2></div>
-      <p class="lead" id="boss-lead">押すと、そのボスの回だけ下に並びます。もう一度押すと戻ります。</p>
+      <p class="lead" id="boss-lead">押すと、そのボスの回だけ下に並びます。もう一度押すと戻ります。色の付いた札は、<b>Insane 以上でそのボスに有効な攻撃属性</b>です。</p>
       <div class="bosses" id="bosses"></div>
     </div>
   </div>

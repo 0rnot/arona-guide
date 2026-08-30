@@ -1619,6 +1619,163 @@ def build_eleph():
     }, header="/* scripts/build-tool-data.py が吐く。**手で直さない。** */\n")
 
 
+# ------------------------------------------------------- 贈り物の逆引き
+
+def build_gift_search():
+    """**絆ランク計算機の裏返し。**あちらは「生徒 → 効く贈り物」、こちらは
+    「贈り物 → 効く生徒」。式は同じ（`ExpValue ×（一致タグ数 ＋ 1）`、一致は 3 で頭打ち）
+    なので、データも同じところから作る。"""
+    print("贈り物の逆引き")
+    items = as_list(get_json(SD.format("items")))
+    students = as_list(get_json(SD.format("students")))
+    const = as_list(get_json(BA.format("ConstCommonExcelTable")))
+    loc = get_json(SD.format("localization"))
+
+    gen = []
+    for c in const:
+        if c.get("CommonFavorItemTags"):
+            gen = list(c["CommonFavorItemTags"])
+            break
+    if not gen:
+        raise SystemExit("CommonFavorItemTags が取れない")
+
+    gifts = []
+    for i in items:
+        if i.get("Category") != "Favor" or not i.get("Tags"):
+            continue
+        gifts.append({"id": i["Id"], "n": i.get("Name", ""), "e": i.get("ExpValue", 0),
+                      "t": list(i["Tags"]), "i": i.get("Icon", ""), "r": i.get("Rarity", "")})
+    if not gifts:
+        raise SystemExit("贈り物が 1 つも取れない")
+
+    school = loc.get("School", {})
+    role = loc.get("TacticRole", {})
+    stu = []
+    for s_ in students:
+        stu.append({"id": s_["Id"], "n": s_["Name"],
+                    "t": s_.get("FavorItemTags", []) or [],
+                    "u": s_.get("FavorItemUniqueTags", []) or [],
+                    "sc": school.get(s_.get("School", ""), s_.get("School", "")),
+                    "ro": role.get(s_.get("TacticRole", ""), s_.get("TacticRole", "")),
+                    "st": s_.get("StarGrade", 1)})
+    if not any(x["u"] for x in stu):
+        raise SystemExit("FavorItemUniqueTags が 1 人も取れない。列名が変わった疑い")
+
+    # **ここで一度数えておく。**ページ側でも同じ式で数えるが、
+    # 作る側で数えておかないと「本当に全員に ×4 の贈り物があるか」を確かめられない
+    def mult(g, s_):
+        allt = set(s_["t"]) | set(s_["u"]) | set(gen)
+        return min(sum(1 for t in g["t"] if t in allt), 3) + 1
+
+    best = {s_["id"]: max(mult(g, s_) for g in gifts) for s_ in stu}
+    if min(best.values()) < 4:
+        bad = [x["n"] for x in stu if best[x["id"]] < 4]
+        raise SystemExit(f"×4 の贈り物が無い生徒がいる: {bad[:5]}")
+    top = sorted(gifts, key=lambda g: -sum(1 for s_ in stu if mult(g, s_) == 4))
+    print(f"  贈り物 {len(gifts)} 種、生徒 {len(stu)} 人。"
+          f"いちばん広いのは「{top[0]['n']}」で ×4 が "
+          f"{sum(1 for s_ in stu if mult(top[0], s_) == 4)} 人")
+
+    n = 0
+    for g in gifts:
+        if g["i"]:
+            n += fetch_icon(g["i"], f"https://schaledb.com/images/item/icon/{g['i']}.webp")
+    print(f"  絵 {n} 枚を追加")
+
+    return write_js("tools/gift-search/data.js", "GIFTX", {
+        "gen": gen, "gifts": sorted(gifts, key=lambda g: (-g["e"], g["id"])),
+        "stu": sorted(stu, key=lambda x: x["id"]),
+        "version": "SchaleDB jp（贈り物・生徒・学校名）／ electricgoat/ba-data jp（共通タグ）",
+    }, header="/* scripts/build-tool-data.py が吐く。**手で直さない。** */\n")
+
+
+# --------------------------------------------- 攻撃属性・装甲・地形の倍率
+
+def build_matchup():
+    """**倍率表そのもの。**攻撃属性 × 装甲と、地形適性の 6 段。
+
+    表は 2 か所から取って突き合わせる。SchaleDB の `config.json` が
+    `TypeEffectiveness` を持っていて、**ba-data の jp ブランチより新しい**
+    （分解 / 複合装甲の行が ba-data には無い。2026-08-30 に確認）。
+    重なっている升は 1 つずつ照合して、食い違ったら止まる。"""
+    print("攻撃属性・装甲・地形の倍率")
+    cfg = get_json(SD_CFG)
+    loc = get_json(SD.format("localization"))
+    students = as_list(get_json(SD.format("students")))
+    fac = as_list(get_json(BA.format("BulletArmorDamageFactorExcelTable")))
+    terr = as_list(get_json(BA.format("TerrainAdaptationFactorExcelTable")))
+
+    eff = cfg.get("TypeEffectiveness")
+    if not eff:
+        raise SystemExit("config.json に TypeEffectiveness が無い")
+
+    # **重なっている升を 1 つずつ照合する。**ba-data には分解も複合装甲も無いので、
+    # 「無い」ぶんは飛ばして、あるぶんだけ数える
+    checked = 0
+    for r in fac:
+        b, a, v = r["BulletType"], r["ArmorType"], r["DamageRate"]
+        if b not in eff or a not in eff[b]:
+            continue
+        if eff[b][a] != v:
+            raise SystemExit(f"倍率が食い違う: {b}×{a} SchaleDB {eff[b][a]} / ba-data {v}")
+        checked += 1
+    missing = sorted({(b, a) for b in eff for a in eff[b]} -
+                     {(r["BulletType"], r["ArmorType"]) for r in fac})
+    print(f"  重なる {checked} 升は一致。ba-data 側に無いのは {len(missing)} 升"
+          f"（{', '.join(b + '×' + a for b, a in missing[:4])}…）")
+
+    # 地形適性。**3 つの地形で値が同じ**なら 1 本の表にできる
+    grades = ["SS", "S", "A", "B", "C", "D"]
+    tt = {}
+    for r in terr:
+        tt.setdefault(r["TerrainAdaptationStat"], set()).add(
+            (r["ShotFactor"], r["BlockFactor"], r["AccuracyFactor"],
+             r["DodgeFactor"], r["AttackPowerFactor"]))
+    for g, v in tt.items():
+        if len(v) != 1:
+            raise SystemExit(f"地形で値が割れている: {g} {v}")
+    if sorted(tt) != sorted(grades):
+        raise SystemExit(f"地形適性の段が想定と違う: {sorted(tt)}")
+    trows = []
+    for g in grades:
+        shot, block, acc, dodge, atk = list(tt[g])[0]
+        trows.append({"g": g, "shot": shot, "block": block, "atk": atk,
+                      "acc": acc, "dodge": dodge})
+
+    # 生徒。**地形適性は 0〜5 の数字**で、0 が D、5 が SS
+    school, role = loc.get("School", {}), loc.get("TacticRole", {})
+    stu = []
+    for s_ in students:
+        stu.append({"id": s_["Id"], "n": s_["Name"],
+                    "b": s_.get("BulletType", ""), "a": s_.get("ArmorType", ""),
+                    "ro": role.get(s_.get("TacticRole", ""), s_.get("TacticRole", "")),
+                    "sc": school.get(s_.get("School", ""), s_.get("School", "")),
+                    "sq": s_.get("SquadType", ""),
+                    "ad": [s_.get("StreetBattleAdaptation", 0),
+                           s_.get("OutdoorBattleAdaptation", 0),
+                           s_.get("IndoorBattleAdaptation", 0)]})
+    if max(max(x["ad"]) for x in stu) > 5 or min(min(x["ad"]) for x in stu) < 0:
+        raise SystemExit("地形適性が 0〜5 の外に出ている")
+
+    bullets = ["Explosion", "Pierce", "Mystic", "Sonic", "Chemical", "Normal"]
+    armors = ["LightArmor", "HeavyArmor", "Unarmed", "ElasticArmor",
+              "CompositeArmor", "Structure", "Normal"]
+    for b in bullets:
+        if b not in eff:
+            raise SystemExit(f"攻撃属性 {b} が表に無い")
+
+    return write_js("tools/matchup/data.js", "MATCH", {
+        "eff": {b: {a: eff[b].get(a) for a in armors if a in eff[b]} for b in bullets},
+        "bullets": bullets, "armors": armors,
+        "bJa": loc.get("BulletType", {}), "aJa": loc.get("ArmorType", {}),
+        "grades": grades, "terr": trows,
+        "trJa": loc.get("AdaptationType", {}),
+        "stu": sorted(stu, key=lambda x: x["id"]),
+        "checked": checked,
+        "version": "SchaleDB config.json（TypeEffectiveness）／ electricgoat/ba-data jp（BulletArmorDamageFactor・TerrainAdaptationFactor）",
+    }, header="/* scripts/build-tool-data.py が吐く。**手で直さない。** */\n")
+
+
 BUILDERS = {"bond": build_bond, "teacher-level": build_teacher_level,
             "equipment": build_equipment, "tier": build_tier, "raid": build_raid,
             "student-cost": build_student_cost, "treasure": build_treasure,
@@ -1627,6 +1784,8 @@ BUILDERS = {"bond": build_bond, "teacher-level": build_teacher_level,
             "gear-stats": build_gear_stats,
             "raid-score": build_raid_score,
             "eleph": build_eleph,
+            "gift-search": build_gift_search,
+            "matchup": build_matchup,
             "ui": build_ui}
 
 if __name__ == "__main__":

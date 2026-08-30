@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>贈り物の逆引き｜AronaBot</title>
+<meta name="description" content="贈り物を選ぶと、それが ×4 で効く生徒が顔つきで並びます。持て余している贈り物を誰に配ればいいかが一目で分かります。">
+<meta name="theme-color" content="#c8892e">
+<link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<meta property="og:title" content="贈り物の逆引き">
+<meta property="og:description" content="贈り物を選ぶと、それが ×4 で効く生徒が顔つきで並びます。持て余している贈り物を誰に配ればいいかが一目で分かります。">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://arona-bot.com/tools/gift-search/">
+<meta property="og:image" content="https://arona-bot.com/images/hero-night.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="stylesheet" href="../../style.css?v=15">
+<link rel="stylesheet" href="../tool.css?v=7">
+<style>
+  /* 贈り物の一覧。**押して選ぶ。**顔の一覧が右に出る */
+  .glist { display: grid; grid-template-columns: repeat(auto-fill, minmax(148px, 1fr)); gap: 8px; }
+  .gcard { display: grid; grid-template-columns: 42px 1fr; gap: .55em; align-items: center;
+           padding: .5em .6em; border: 1px solid var(--line); border-radius: 11px;
+           background: var(--card); cursor: pointer; text-align: left; font: inherit; }
+  .gcard:hover { border-color: color-mix(in srgb, var(--accent) 50%, var(--line)); }
+  .gcard[aria-pressed="true"] { border-color: transparent; background: var(--accent); color: var(--accent-in); }
+  .gcard[aria-pressed="true"] .sub { color: color-mix(in srgb, var(--accent-in) 78%, transparent); }
+  .gcard img { width: 42px; height: 42px; border-radius: 8px; background: var(--bg-sub); display: block; }
+  .gcard .nm { display: block; font-size: .8rem; font-weight: 700; line-height: 1.35; word-break: auto-phrase; }
+  .gcard .sub { display: block; font-size: .72rem; color: var(--fg-mute); font-variant-numeric: tabular-nums; margin-top: .15em; }
+
+  /* 選んだ贈り物 */
+  .pick { display: grid; grid-template-columns: 74px 1fr; gap: 14px; align-items: center;
+          padding: 14px; margin-bottom: 16px;
+          border: 1px solid var(--line); border-radius: 14px; background: var(--bg-sub); }
+  .pick.none { border-style: dashed; }
+  .pick img { width: 74px; height: 74px; border-radius: 12px; background: var(--card);
+              border: 1px solid var(--line); display: block; }
+  .pick .ph { width: 74px; height: 74px; border-radius: 12px; background: var(--card);
+              border: 1px solid var(--line); display: grid; place-items: center;
+              font-size: .72rem; color: var(--fg-mute); font-weight: 700; }
+  .pick .nm { font-size: 1.12rem; font-weight: 800; margin: 0 0 .3em; }
+  .pick.none .nm { color: var(--fg-mute); font-size: .95rem; }
+  .pick .note { font-size: .78rem; color: var(--fg-mute); margin: 0; line-height: 1.6; }
+
+  /* 生徒の顔。**倍率ごとにまとめる。** */
+  .mgroup { margin-bottom: 18px; }
+  .mgroup:last-child { margin-bottom: 0; }
+  .mhead { display: flex; align-items: baseline; gap: .5em; margin: 0 0 .6em;
+           font-size: .88rem; font-weight: 800; }
+  .mhead .n { font-size: .78rem; font-weight: 400; color: var(--fg-mute); }
+  .mhead .ex { font-size: .78rem; font-weight: 700; color: var(--accent-tx); }
+  .faces { display: grid; grid-template-columns: repeat(auto-fill, minmax(58px, 1fr)); gap: 6px; }
+  .face { text-align: center; }
+  .face img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 9px;
+              border: 1px solid var(--line); background: var(--bg-sub); display: block; }
+  .face span { display: block; font-size: .66rem; line-height: 1.3; margin-top: .2em;
+               color: var(--fg-mute); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .mgroup.m4 .face img { border-color: color-mix(in srgb, var(--accent) 62%, var(--line)); }
+  .empty { font-size: .82rem; color: var(--fg-mute); }
+</style>
+</head>
+<body>
+
+<!-- 上のバーと footer は scripts/sync-chrome.py が流し込む。
+     **閉じタグの前に改行を入れておくこと。**あちらの正規表現は閉じタグの直前の
+     改行を目印にしているので、1 行に畳むと本文まで食われる。
+     **この注記に目印そのものを書かないこと。**書くと注記の中から当たる -->
+<div class="topbar">
+  <div class="topbar-inner">
+    <a class="topbar-name" href="../../">AronaBotの使い方</a>
+    <a class="topbar-tools" href="../">
+      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <path d="M21.7 18.3l-6-6a5.5 5.5 0 0 0-7-7l3.1 3.1-2.1 2.1L6.6 7.3a5.5 5.5 0 0 0 7 7l6 6a1 1 0 0 0 1.4 0l.7-.7a1 1 0 0 0 0-1.3z"/>
+      </svg>
+      ツール一覧
+    </a>
+    <nav class="topbar-nav">
+      <a href="../../#can">機能</a>
+      <a href="../../#start">つかいはじめる</a>
+      <a href="../../#message">メッセージから</a>
+      <a href="../../#faq">よくある質問</a>
+    </nav>
+    <!-- 共有。**AronaBot 本体と同じ位置に置く。**押した先は環境で変える -->
+    <span class="share-nudge" aria-hidden="true">使えそうな人に、ぜひ</span>
+    <a class="share" id="share-page" target="_blank" rel="noopener" aria-label="このページを共有する"
+       href="https://x.com/intent/post?url=https%3A%2F%2Farona-bot.com%2Ftools%2F">
+      <svg class="share-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <path d="M14 9V5l7 7-7 7v-4.1c-5 0-8.5 1.6-11 5.1 1-5 4-10 11-11z"/>
+      </svg>
+      <span class="share-label">共有</span>
+    </a>
+  </div>
+</div>
+<div class="toast" id="toast-page" role="status" aria-live="polite"></div>
+<script>
+/* 共有ボタン。**そのページ自身の URL を配る。**
+   1. スマホ（navigator.share）→ OS の共有シート
+   2. PC（クリップボード）→ URL をコピーして帯で伝える
+   3. どちらも無い → <a href> のまま X の共有ページへ */
+(function () {
+  var btn = document.getElementById('share-page'), toast = document.getElementById('toast-page');
+  if (!btn) return;
+  // **`#` を落とさない。**TL のように状態をハッシュに入れているツールでは、
+  // ここを削ると相手の画面に同じ結果が出ない（2026-08-30）
+  var url = location.href;
+  var name = document.title.split('｜')[0];
+  var text = name + '（AronaBot のツール）';
+  btn.href = 'https://x.com/intent/post?text=' + encodeURIComponent(text) +
+             '&url=' + encodeURIComponent(url);
+  var timer = null;
+  function say(t) {
+    if (!toast) return;
+    toast.textContent = t; toast.classList.add('shown');
+    clearTimeout(timer); timer = setTimeout(function () { toast.classList.remove('shown'); }, 2000);
+  }
+  btn.addEventListener('click', function (e) {
+    if (navigator.share) {
+      e.preventDefault();
+      navigator.share({ title: name, text: text, url: url }).catch(function () {});
+      return;
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      e.preventDefault();
+      navigator.clipboard.writeText(url).then(function () { say('リンクをコピーしました'); },
+        function () { window.open(btn.href, '_blank', 'noopener'); });
+    }
+  });
+})();
+</script>
+
+<header class="thero">
+  <div class="thero-media" aria-hidden="true">
+    <picture>
+      <source srcset="../../images/hero-day.jpg" media="(prefers-color-scheme: dark)">
+      <img src="../../images/hero-night.jpg" alt="" width="1600" height="400" fetchpriority="high">
+    </picture>
+  </div>
+  <div class="thero-body">
+    <h1>贈り物の逆引き</h1>
+    <p class="thero-lead">贈り物を選ぶと、それが ×4 で効く生徒が顔つきで並びます。持て余している贈り物を誰に配ればいいかが一目で分かります。</p>
+  </div>
+</header>
+
+<div class="twrap">
+  <p class="tcrumb"><a href="../../">AronaBotの使い方</a><span class="sl">/</span><a href="../">ツール</a><span class="sl">/</span>贈り物の逆引き</p>
+
+  <div class="tcols lean" style="margin-top:20px">
+
+    <div class="tcol">
+      <div class="panel">
+        <div class="panel-h"><h2>どの贈り物ですか</h2></div>
+        <p class="lead"><b>数字は、その贈り物が ×4 で効く生徒の人数です。</b>多い順に並んでいます。押すと右に顔が出ます。</p>
+        <div class="fields c2">
+          <div class="field">
+            <label for="i-q">名前で絞る</label>
+            <input id="i-q" type="search" placeholder="花束、ぬいぐるみ…" autocomplete="off">
+          </div>
+          <div class="field">
+            <label for="i-rar">レア度</label>
+            <select id="i-rar">
+              <option value="">ぜんぶ</option>
+              <option value="SSR">橙（SSR）</option>
+              <option value="SR">紫（SR）</option>
+            </select>
+          </div>
+        </div>
+        <div class="glist" id="glist" role="group" aria-label="贈り物" style="margin-top:14px"></div>
+      </div>
+    </div>
+
+    <div class="tcol sticky">
+      <div class="pick none" id="pick">
+        <div class="ph" id="pick-img">none</div>
+        <div>
+          <p class="nm" id="pick-name">まだ選んでいません</p>
+          <p class="note" id="pick-note">左の一覧から贈り物を押すと、その贈り物が効く生徒がここに並びます。</p>
+        </div>
+      </div>
+
+      <div class="stats c3">
+        <div class="stat hero">
+          <div class="k"><img class="ico" src="../img/ui_cafe_interaction_gift_04.webp" alt="" width="18" height="18" loading="lazy"> ×4 になる生徒</div>
+          <div class="v" id="o-m4">—</div>
+          <div class="sub" id="o-m4-sub">絆経験値がいちばん伸びます</div>
+        </div>
+        <div class="stat">
+          <div class="k"><img class="ico" src="../img/ui_cafe_interaction_gift_03.webp" alt="" width="18" height="18" loading="lazy"> ×3</div>
+          <div class="v" id="o-m3">—</div>
+          <div class="sub" id="o-m3-sub"></div>
+        </div>
+        <div class="stat">
+          <div class="k"><img class="ico" src="../img/ui_cafe_interaction_gift_02.webp" alt="" width="18" height="18" loading="lazy"> ×2</div>
+          <div class="v" id="o-m2">—</div>
+          <div class="sub" id="o-m2-sub"></div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-h"><h2>効く生徒</h2></div>
+        <div class="fields c2">
+          <div class="field">
+            <label for="i-school">学校で絞る</label>
+            <select id="i-school"><option value="">ぜんぶ</option></select>
+          </div>
+          <div class="field">
+            <label for="i-min">出す倍率</label>
+            <select id="i-min">
+              <option value="4">×4 だけ</option>
+              <option value="3" selected>×3 以上</option>
+              <option value="2">×2 以上</option>
+              <option value="1">ぜんぶ</option>
+            </select>
+          </div>
+        </div>
+        <div id="groups" style="margin-top:14px"><p class="empty">まだ贈り物を選んでいません。</p></div>
+      </div>
+    </div>
+
+    <div class="tfull">
+      <div class="sharebar" id="sharebar"></div>
+
+      <details class="src">
+        <summary>数字の出どころ</summary>
+        <p><b>倍率は絆ランク計算機とまったく同じ式です。</b>生徒ごとの表を持っているわけではなく、毎回その場で数えています。</p>
+        <ul>
+          <li>生徒には <code>FavorItemTags</code>（好み）と <code>FavorItemUniqueTags</code>（とくに好き）が付いています</li>
+          <li>贈り物には <code>Tags</code> と <code>ExpValue</code>（基本の絆経験値。橙は 60、紫は 20）が付いています</li>
+          <li>さらに<b>誰にでも効く共通タグ</b>があります（<code>Excel/ConstCommonExcelTable.json</code> の <code>CommonFavorItemTags</code>: <code id="gen">—</code>）</li>
+          <li>絆経験値 ＝ <b><code>ExpValue ×（一致したタグの数 ＋ 1）</code></b>。<b>一致数は 3 で頭打ち</b>なので倍率の上限は ×4 です</li>
+        </ul>
+        <p><b>×4 が全員に効く贈り物は 2 つだけです。</b><b>美しい花束</b>と<b>さわやかな花束</b>が <span id="src-n">—</span> 人ぜんぶに ×4 で、
+          3 番目に広い<b>おしゃれなくし</b>でも <span id="src-3">—</span> 人まで落ちます。<b>花束は誰に渡しても最大効果</b>ということです。
+          逆に<b>どの生徒にも ×4 の贈り物が最低 1 つあります</b>——これはデータを作るときに 1 人ずつ数えて確かめていて、
+          1 人でも見つからなければ止まるようにしてあります。</p>
+        <p><b>「きらめきの花束」と初音ミクのフォトカードだけは、橙でも基本値が 20 です。</b>名前が似ていても中身が違うので、上の一覧では基本値も出しています。</p>
+        <p>出典 —
+          <a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a>（式そのもの、贈り物と生徒、学校名）、
+          <a href="https://github.com/electricgoat/ba-data" target="_blank" rel="noopener">electricgoat/ba-data</a>（共通タグ）。取得は <span id="ver">—</span>。</p>
+      </details>
+    </div>
+
+  </div>
+</div>
+
+<script>window.TOUR = {"key": "gift-search", "steps": [
+  {"sel": "#glist", "t": "贈り物を押します", "d": "×4 で効く生徒が多い順に並んでいます。名前やレア度で絞れます。"},
+  {"sel": "#o-m4", "t": "効く人数がここに出ます", "d": "×4・×3・×2 の人数です。×4 なら基本値の 4 倍の絆経験値になります。"},
+  {"sel": "#groups", "t": "顔で並びます", "d": "学校で絞れます。持て余している贈り物を誰に配ればいいかが、ここで決まります。"},
+  {"sel": "#sharebar", "t": "結果はそのまま渡せます", "d": "選んだ贈り物ごと URL になるので、リンクを送れば相手の画面にも同じ結果が出ます。"}
+]};</script>
+<script src="../tour.js?v=1"></script>
+
+<script src="../share.js?v=1"></script>
+
+<footer>
+  <div class="foot-inner">
+    <p class="foot-name">AronaBotの使い方</p>
+    <p class="foot-links">
+      <a href="../../">AronaBot のページ</a>
+      <span class="sep">/</span>
+      <a href="../">ツール一覧</a>
+      <span class="sep">/</span>
+      <a href="https://x.com/pe6cak" target="_blank" rel="noopener">制作者の X（@pe6cak）</a>
+      <span class="sep">/</span>
+      <span>不具合・要望は <b>@0r.not</b> まで</span>
+    </p>
+    <p class="disclaimer">
+      <b>このサイトはファンが作った非公式のものです。</b>運営とは関係ありません。
+      <small>掲載しているゲーム内の画像・アイコン・名称・数値は、Nexon Games / Yostar の
+      「ブルーアーカイブ」から引用したもので、著作権はすべて権利者に帰属します。
+      ツールの計算に使うデータは <a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a> と
+      <a href="https://github.com/electricgoat/ba-data" target="_blank" rel="noopener">ba-data</a> から取得しています。
+      権利者の方でご指摘があれば <b>@0r.not</b> までご連絡ください。</small>
+    </p>
+  </div>
+</footer>
+
+<script src="data.js"></script>
+<script>
+(function () {
+  'use strict';
+  var G = window.GIFTX;
+  var el = function (id) { return document.getElementById(id); };
+  var GEN = G.gen;
+  var MAX_MATCH = 3;                    // 一致数の頭打ち。×5 はゲームに無い
+
+  /** 贈り物 g をその生徒に渡したときの倍率。**絆ランク計算機と同じ式。** */
+  function mult(g, s) {
+    var all = (s.t || []).concat(s.u || [], GEN);
+    var m = 0;
+    for (var i = 0; i < g.t.length; i++) if (all.indexOf(g.t[i]) >= 0) m++;
+    return Math.min(m, MAX_MATCH) + 1;
+  }
+
+  // **人数は 52 × 274 = 14,248 組。**一度だけ数えて持っておく
+  var counts = {};
+  G.gifts.forEach(function (g) {
+    var c = [0, 0, 0, 0, 0];
+    G.stu.forEach(function (s) { c[mult(g, s)]++; });
+    counts[g.id] = c;
+  });
+  var order = G.gifts.slice().sort(function (a, b) {
+    return (counts[b.id][4] - counts[a.id][4]) || (b.e - a.e) || (a.id - b.id);
+  });
+
+  var picked = null;
+
+  (function schools() {
+    var seen = {}, out = [];
+    G.stu.forEach(function (s) { if (s.sc && !seen[s.sc]) { seen[s.sc] = 1; out.push(s.sc); } });
+    out.sort();
+    el('i-school').innerHTML = '<option value="">ぜんぶ</option>' +
+      out.map(function (x) { return '<option>' + x + '</option>'; }).join('');
+  })();
+
+  function drawList() {
+    var q = (el('i-q').value || '').trim().toLowerCase();
+    var rar = el('i-rar').value;
+    var rows = order.filter(function (g) {
+      if (rar && g.r !== rar) return false;
+      if (q && g.n.toLowerCase().indexOf(q) < 0) return false;
+      return true;
+    });
+    el('glist').innerHTML = rows.length ? rows.map(function (g) {
+      return '<button type="button" class="gcard" data-id="' + g.id + '"' +
+        ' aria-pressed="' + (picked && picked.id === g.id) + '">' +
+        '<img src="../img/' + g.i + '.webp" alt="" width="42" height="42" loading="lazy">' +
+        '<span><span class="nm">' + g.n + '</span>' +
+        '<span class="sub">×4 が ' + counts[g.id][4] + ' 人／基本 ' + g.e + '</span></span></button>';
+    }).join('') : '<p class="empty">その名前の贈り物は見つかりません。</p>';
+  }
+
+  function drawPick() {
+    var box = el('pick');
+    if (!picked) {
+      box.classList.add('none');
+      el('pick-img').outerHTML = '<div class="ph" id="pick-img">none</div>';
+      el('pick-name').textContent = 'まだ選んでいません';
+      el('pick-note').textContent = '左の一覧から贈り物を押すと、その贈り物が効く生徒がここに並びます。';
+      ['o-m4', 'o-m3', 'o-m2'].forEach(function (id) { el(id).textContent = '—'; });
+      el('o-m3-sub').textContent = ''; el('o-m2-sub').textContent = '';
+      el('groups').innerHTML = '<p class="empty">まだ贈り物を選んでいません。</p>';
+      return;
+    }
+    box.classList.remove('none');
+    el('pick-img').outerHTML = '<img id="pick-img" src="../img/' + picked.i +
+      '.webp" alt="" width="74" height="74">';
+    el('pick-name').textContent = picked.n;
+    var c = counts[picked.id];
+    el('pick-note').innerHTML = '基本の絆経験値は <b>' + picked.e + '</b>。' +
+      '×4 なら <b>' + picked.e * 4 + '</b>、×3 なら <b>' + picked.e * 3 + '</b> 入ります。';
+    el('o-m4').textContent = c[4] + ' 人';
+    el('o-m4-sub').textContent = '1 個で ' + picked.e * 4 + ' の絆経験値';
+    el('o-m3').textContent = c[3] + ' 人';
+    el('o-m3-sub').textContent = picked.e * 3 + ' の絆経験値';
+    el('o-m2').textContent = c[2] + ' 人';
+    el('o-m2-sub').textContent = picked.e * 2 + ' の絆経験値';
+
+    var school = el('i-school').value, min = +el('i-min').value;
+    var buckets = { 4: [], 3: [], 2: [], 1: [] };
+    G.stu.forEach(function (s) {
+      if (school && s.sc !== school) return;
+      buckets[mult(picked, s)].push(s);
+    });
+    var html = '';
+    [4, 3, 2, 1].forEach(function (m) {
+      if (m < min) return;
+      var list = buckets[m];
+      if (!list.length) return;
+      html += '<div class="mgroup m' + m + '"><p class="mhead">×' + m +
+        '<span class="ex">' + picked.e * m + ' の絆経験値</span>' +
+        '<span class="n">' + list.length + ' 人</span></p><div class="faces">' +
+        list.map(function (s) {
+          return '<span class="face"><img src="../img/student_' + s.id +
+            '.webp" alt="" width="58" height="58" loading="lazy" title="' + s.n +
+            '"><span>' + s.n + '</span></span>';
+        }).join('') + '</div></div>';
+    });
+    el('groups').innerHTML = html || '<p class="empty">その条件に当てはまる生徒はいません。</p>';
+    location.replace('#' + toHash());
+  }
+
+  function toHash() {
+    return (picked ? picked.id : '') + '|' + el('i-min').value + '|' +
+      encodeURIComponent(el('i-school').value);
+  }
+  window.shareUrl = function () { return '#' + toHash(); };
+
+  el('glist').addEventListener('click', function (e) {
+    var b = e.target.closest('.gcard'); if (!b) return;
+    var id = +b.dataset.id;
+    picked = (picked && picked.id === id) ? null : G.gifts.filter(function (g) { return g.id === id; })[0];
+    drawList(); drawPick();
+  });
+  ['i-q', 'i-rar'].forEach(function (id) { el(id).addEventListener('input', drawList); });
+  ['i-school', 'i-min'].forEach(function (id) { el(id).addEventListener('change', drawPick); });
+
+  (function fromHash() {
+    var h = decodeURIComponent(location.hash.replace(/^#/, ''));
+    if (!h) return;
+    var p = h.split('|');
+    var hit = G.gifts.filter(function (g) { return g.id === +p[0]; })[0];
+    if (hit) picked = hit;
+    if (p[1]) el('i-min').value = p[1];
+    if (p[2]) el('i-school').value = p[2];
+  })();
+
+  el('gen').textContent = GEN.join(' / ');
+  el('src-n').textContent = G.stu.length;
+  el('src-3').textContent = counts[order[2].id][4];
+  el('ver').textContent = G.version;
+  drawList(); drawPick();
+})();
+</script>
+</body>
+</html>

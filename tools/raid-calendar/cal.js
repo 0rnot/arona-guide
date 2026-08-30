@@ -100,12 +100,13 @@
       var b = bossOf(id), s = stat[id];
       var tr = Object.keys(s.t).sort(function (a, c) { return s.t[c] - s.t[a]; })
         .map(function (t) { return (TERRAIN[t] || t) + ' ' + s.t[t]; }).join('・');
-      return '<button type="button" class="bcard" data-b="' + id + '" aria-pressed="' + (boss === id) + '">' +
-        '<img src="' + img(b) + '" alt="" width="52" height="52" loading="lazy">' +
-        '<span class="nm">' + esc(b.n) +
-        '<span class="sub">' + esc(AR[b.at] || b.at) + '／Insane 以上は' + esc(BT[b.bi] || b.bi) + '<br>' +
-        '総力戦 ' + s.r + '・大決戦 ' + s.e + '<br>' + esc(tr) + '<br>前回 ' + ymd(s.last) +
-        '</span></span></button>';
+      return '<button type="button" class="bcard" data-b="' + id + '" aria-pressed="' + (boss === id) + '" title="' + esc(b.n) + '">' +
+        '<img src="' + img(b) + '" alt="" width="48" height="48" loading="lazy">' +
+        '<span class="bi"><span class="nm">' + esc(b.n) + '</span>' +
+        '<span class="tags"><span class="tg">' + esc(AR[b.at] || b.at) + '</span>' +
+        '<span class="tg hot">' + esc(BT[b.bi] || b.bi) + '</span></span>' +
+        '<span class="sub">総力戦 ' + s.r + '・大決戦 ' + s.e + '<br>' + esc(tr) +
+        '<br>前回 ' + ymd(s.last) + '</span></span></button>';
     }).join('');
   }
 
@@ -152,12 +153,24 @@
 
   function draw() { drawBosses(); drawList(); }
 
+  /** 記録の箱まで送る。**上のバーは `position: sticky` なので、その高さぶん
+      余計に上げないと見出しと絞り込みがバーの下に隠れる**（2026-08-30 の
+      先生の指摘——「スクロール位置が中途半端」）。`scrollIntoView` では
+      この差を引けないので、自分で座標を出す。 */
+  function scrollToList() {
+    var box = el('list').closest('.panel') || el('list');
+    var bar = document.querySelector('.topbar');
+    var off = (bar ? bar.getBoundingClientRect().height : 0) + 14;
+    var y = box.getBoundingClientRect().top + window.pageYOffset - off;
+    window.scrollTo({ top: Math.max(0, y), behavior: 'smooth' });
+  }
+
   el('bosses').addEventListener('click', function (ev) {
     var b = ev.target.closest('button'); if (!b) return;
     var id = +b.dataset.b;
     boss = (boss === id) ? null : id;
     shown = 20; draw();
-    el('list').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    scrollToList();
   });
   el('kind').addEventListener('click', function (ev) {
     var b = ev.target.closest('button'); if (!b) return;

@@ -47,6 +47,38 @@
   var ring = root.querySelector('.tour-ring');
   var card = root.querySelector('.tour-card');
 
+  /** **枠と札を、いま見えている位置に合わせる。**ここでは画面を動かさない。
+      動かすのは `place()` だけで、こちらはスクロールのたびに呼び直される
+      （2026-08-30 の先生の指摘——「開いてすぐスクロールするとずれる」。
+      枠は `position: fixed` なので、頁が動いた瞬間に目印から離れる。
+      スマホでは `body { overflow: hidden }` が指の操作を止めきれない）。 */
+  function position(snap) {
+    if (!target) return;
+    /* **指で動かしているあいだは滑らかにしない。**枠には 0.18 秒の遷移が
+       掛かっていて、そのままだとスクロール中ずっと目印に遅れて付いてくる。
+       段が変わったときだけ滑らかに動かす */
+    ring.style.transition = snap ? 'none' : '';
+    var r = target.getBoundingClientRect();
+    var pad = 8;
+    ring.style.display = '';
+    ring.style.top = (r.top - pad) + 'px';
+    ring.style.left = (r.left - pad) + 'px';
+    ring.style.width = (r.width + pad * 2) + 'px';
+    ring.style.height = (r.height + pad * 2) + 'px';
+
+    // **札は枠の下に。**下に入らないときだけ上へ回す。
+    // 高さは `getBoundingClientRect` で測る——`offsetHeight` は組み上がる前に
+    // 0 を返すことがあって、そのとき札が画面の下にはみ出す（2026-08-30）
+    var cr = card.getBoundingClientRect();
+    var ch = cr.height || 190, cw = cr.width || 320;
+    var below = r.bottom + 14;
+    var top = (below + ch + 12 <= innerHeight) ? below : (r.top - ch - 14);
+    // **どう転んでも画面の中に収める。**枠が画面いっぱいのときは上に重ねる
+    top = Math.min(Math.max(12, top), Math.max(12, innerHeight - ch - 12));
+    card.style.top = top + 'px';
+    card.style.left = Math.min(Math.max(12, r.left), Math.max(12, innerWidth - cw - 12)) + 'px';
+  }
+
   function place() {
     var s = T.steps[i];
     target = s.sel ? document.querySelector(s.sel) : null;
@@ -67,25 +99,12 @@
     he.style.scrollBehavior = 'auto';
     target.scrollIntoView({ block: 'center' });
     he.style.scrollBehavior = keep;
-    var r = target.getBoundingClientRect();
-    var pad = 8;
-    ring.style.display = '';
-    ring.style.top = (r.top - pad) + 'px';
-    ring.style.left = (r.left - pad) + 'px';
-    ring.style.width = (r.width + pad * 2) + 'px';
-    ring.style.height = (r.height + pad * 2) + 'px';
-
-    // **札は枠の下に。**下に入らないときだけ上へ回す。
-    // 高さは `getBoundingClientRect` で測る——`offsetHeight` は組み上がる前に
-    // 0 を返すことがあって、そのとき札が画面の下にはみ出す（2026-08-30）
-    var cr = card.getBoundingClientRect();
-    var ch = cr.height || 190, cw = cr.width || 320;
-    var below = r.bottom + 14;
-    var top = (below + ch + 12 <= innerHeight) ? below : (r.top - ch - 14);
-    // **どう転んでも画面の中に収める。**枠が画面いっぱいのときは上に重ねる
-    top = Math.min(Math.max(12, top), Math.max(12, innerHeight - ch - 12));
-    card.style.top = top + 'px';
-    card.style.left = Math.min(Math.max(12, r.left), Math.max(12, innerWidth - cw - 12)) + 'px';
+    position();
+    /* **指で動かしている途中に開くと、1 回測っただけでは合わない。**
+       慣性が残っていると `scrollIntoView` の直後に読んだ座標が古い。
+       次の描画と、少し置いてからもう一度合わせ直す */
+    requestAnimationFrame(position);
+    setTimeout(position, 140);
   }
 
   function draw() {
@@ -127,6 +146,10 @@
     else if (e.key === 'ArrowLeft') document.getElementById('tour-prev').click();
   });
   addEventListener('resize', function () { if (open) place(); });
+  /* **スクロールしたら枠だけ追う。**ここで `place()` を呼ぶと `scrollIntoView` が
+     指の操作と喧嘩するので、動かさずに位置だけ合わせる。
+     `capture: true` なのは、`.tscroll` のような中の箱が動いたときも拾うため */
+  addEventListener('scroll', function () { if (open) position(true); }, { passive: true, capture: true });
 
   // 見出しの下に「使い方」を出す。**何度でも開ける入口。**
   var body = document.querySelector('.thero-body');

@@ -259,6 +259,13 @@
           <li>星で上がるステータスは同じ表の <code>StatBonusRateAttack</code> / <code>StatBonusRateHP</code> / <code>StatBonusRateHeal</code>。
             10000 分率で、★2 から順に攻撃力 <code>1000 / 1200 / 1400 / 1700</code>、最大 HP <code>500 / 700 / 900 / 1400</code>、
             回復力 <code>750 / 1000 / 1200 / 1500</code> です。<b>段ごとの足し算</b>なので、★5 では攻撃力が ＋53%、最大 HP が ＋35%、回復力が ＋44.5% になります</li>
+          <li><b>「足し算」だという根拠は SchaleDB 本体の計算そのものです。</b>あちらの JavaScript が生徒のステータスを出すとき、
+            <code>1 + (StatBonusRate.slice(0, StarGrade).reduce((a, b) =&gt; a + b, 0)) / 1e4</code> を基礎値に掛けています。
+            <code>slice(0, 星)</code> で ★1 から今の星までを切り出して <code>reduce</code> で足しているので、★5 なら
+            <code>0 + 1000 + 1200 + 1400 + 1700 = 5300</code>、係数は <code>1.53</code> です。
+            既定値として書かれている配列も <code>[0, 1e3, 1200, 1400, 1700]</code> / <code>[0, 500, 700, 900, 1400]</code> /
+            <code>[0, 750, 1e3, 1200, 1500]</code> で、上のゲームデータと一致します
+            （<a href="https://schaledb.com/" target="_blank" rel="noopener">schaledb.com</a> の <code>assets/index-*.js</code>。2026-08-30 に読みました）</li>
           <li>絆ランクの上限は同じ表の <code>MaxFavorLevel</code>。<code>10 / 10 / 20 / 20 / 100</code> で、★3 で 20、★5 で 100 まで開きます</li>
         </ul>
         <p><b>データに星上げのレシピが入っていない生徒は、この一覧に出しません。</b>
