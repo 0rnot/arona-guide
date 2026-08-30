@@ -469,6 +469,7 @@
 
   buildGoals(); buildBpTabs(); buildSel(); buildUniv();
   el('ver').textContent = E.version;
+  el('src-roster').textContent = E.roster;   // **人数は増える。**出どころの文にも埋める
   // 最初から何か見えているように、T9 まで 1 個ずつを入れておく
   CATS.forEach(function (c) { state[c].from = 1; state[c].to = Math.min(9, MAXT[c]); state[c].n = 1; });
   syncInputs();

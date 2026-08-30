@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Tier表メーカー｜AronaBot</title>
-<meta name="description" content="ブルアカの生徒 194 人を並べて、自分の Tier 表を作れます。画像として保存でき、URL でそのまま共有できます。">
+<meta name="description" content="ブルアカの生徒をぜんぶ並べて、自分の Tier 表を作れます。画像として保存でき、URL でそのまま共有できます。">
 <meta name="theme-color" content="#c8892e">
 <link rel="icon" href="../../favicon.svg" type="image/svg+xml">
 <meta property="og:title" content="Tier表メーカー">
@@ -168,7 +168,8 @@
     <summary>数字と画像の出どころ</summary>
     <p>生徒の一覧・学校・役割・攻撃属性・防御属性・区分・レア度、それに顔のアイコンは
       <a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a> の <code>data/jp/students.min.json</code> と
-      <code>images/student/icon/</code> から取っています。日本語の呼び名も同じところの
+      <code>images/student/collection/</code> から取っています（<code>icon</code> は 120×120 で、
+      Tier 表のように大きく出すと粗いので、200×226 の <code>collection</code> を正方形に切って使っています）。日本語の呼び名も同じところの
       <code>data/jp/localization.min.json</code> です。</p>
     <p><b><code>data.js</code> は <code>scripts/build-tool-data.py</code> が作っています。</b>
       GitHub Actions が毎日回しているので、<b>生徒が増えれば自動でここにも並びます。</b>
