@@ -131,7 +131,15 @@
           </div>
           <label class="tag2"><input type="checkbox" id="i-boost"> 新米先生経験値ブーストを見込む</label>
         </div>
-        <p class="lead" style="margin:10px 0 0">周年やハーフアニバーサリーには先生経験値が 2 倍になる期間があります。<b>新米先生経験値ブースト</b>は始めたばかりのアカウントに付くもので、Lv90 までに要る経験値が <b>5 万ほど少なくて済む</b>と言われています。<b>この 5 万という数字だけはゲームのデータに入っていません</b>（出どころは下に書きました）。</p>
+        <div class="pick-row2">
+          <span class="lb2">月額商品ぶん</span>
+          <div class="seg" id="plus" role="group" aria-label="月額商品の経験値ボーナス">
+            <button type="button" data-p="0" aria-pressed="true">なし</button>
+            <button type="button" data-p="1" aria-pressed="false">＋30%</button>
+            <button type="button" data-p="2" aria-pressed="false">＋20%</button>
+          </div>
+        </div>
+        <p class="lead" style="margin:10px 0 0">周年やハーフアニバーサリーには先生経験値が 2 倍になる期間があります。<b>新米先生経験値ブーストは先生レベルで段が変わります</b>——Lv50 までが ＋250%、Lv70 までが ＋200%、Lv83 までが ＋150%、Lv85 までが ＋100%、Lv88 までが ＋50%、そこから先は付きません。<b>どれもゲームのデータそのままの値です。</b></p>
         <p class="err" id="err" hidden></p>
       </div>
 
@@ -183,7 +191,7 @@
         </div>
 
         <div class="numrow">
-          <div class="nm">月間パッケージ<small>スタミナパック 1 日 150</small></div>
+          <div class="nm">月額パス<small>30 日ぶん。スタミナパックで 1 日 150</small></div>
           <div class="checks"><label><input type="checkbox" id="a-pack"> 150</label></div>
         </div>
 
@@ -221,8 +229,8 @@
         <div class="ledger">
           <div class="row"><span id="l-span-k">必要な経験値</span><span id="l-span">—</span></div>
           <div class="row minus"><span>今の経験値ぶん</span><span id="l-exp">—</span></div>
-          <div class="row minus" hidden><span>新米先生経験値ブーストぶん</span><span id="l-boost">—</span></div>
-          <div class="row" hidden><span id="l-mul-k">経験値の倍率で割る</span><span id="l-mul">—</span></div>
+          <div class="row" hidden><span id="l-mul-k">倍率で割る</span><span id="l-mul">—</span></div>
+          <div class="row" id="l-boost-row" hidden><span>新米先生ブーストの効き方</span><span id="l-boost">—</span></div>
           <div class="row minus"><span id="l-refill-k">レベルアップの全回復ぶん</span><span id="l-refill">—</span></div>
           <div class="row total"><span>用意する AP</span><span id="l-net">—</span></div>
         </div>
@@ -232,11 +240,11 @@
 
       <div class="panel" id="mastery-panel">
         <div class="panel-h"><h2><img class="ico" src="../img/currency_icon_mastercoin.webp" alt="" width="24" height="24" loading="lazy"> Lv90 のあと</h2></div>
-        <p class="lead" style="margin:0"><b>Lv90 で経験値も上限に達すると、そのあと使った AP は「熟達証書」に変わります。</b>AP 1 につき 1 枚。ただし<b>週にもらえる枚数には上限</b>があって、素で <b id="m-cap1">—</b> 枚、月間パッケージ 2 種で <b id="m-cap2">—</b> 枚と <b id="m-cap3">—</b> 枚ぶん増えて、いちばん多くて <b id="m-cap4">—</b> 枚です。上限に当たったぶんの AP は捨てることになるので、Lv90 まで行ったら AP の使い道を見直してください。</p>
+        <p class="lead" style="margin:0"><b>Lv90 で経験値も上限に達すると、そのあと使った AP は「熟達証書」に変わります。</b>AP 1 につき 1 枚。ただし<b>週にもらえる枚数には上限</b>があって、素で <b id="m-cap1">—</b> 枚、月額パス 2 種（980 円のものと 490 円のもの）で <b id="m-cap2">—</b> 枚と <b id="m-cap3">—</b> 枚ぶん増えて、両方あるといちばん多くて <b id="m-cap4">—</b> 枚です。上限に当たったぶんの AP は捨てることになるので、Lv90 まで行ったら AP の使い道を見直してください。</p>
         <div class="mrow">
           <div class="mc"><div class="k">1 週間で使える AP</div><div class="v" id="m-week">—</div></div>
           <div class="mc"><div class="k">素の上限で受け取れる</div><div class="v" id="m-get1">—</div></div>
-          <div class="mc"><div class="k">月間パッケージありなら</div><div class="v" id="m-get2">—</div></div>
+          <div class="mc"><div class="k">月額パス 2 種ありなら</div><div class="v" id="m-get2">—</div></div>
           <div class="mc"><div class="k">1 か月（4 週）ぶん</div><div class="v" id="m-month">—</div></div>
         </div>
         <p class="lead" id="m-note" style="margin:14px 0 0"></p>
@@ -260,7 +268,8 @@
         <p>レベルの表はゲームのクライアントから取り出したデータをそのまま使っています。推測した値はありません。</p>
         <ul>
           <li><code>Excel/AccountLevelExcelTable.json</code> — レベルごとの必要経験値（<code>Exp</code>）と AP 上限（<code>APAutoChargeMax</code>）</li>
-          <li><code>Excel/ConstCommonExcelTable.json</code> — <code>AccountMaxLevel: 90</code>、<code>AccountExpRatio: 1</code>、熟達証書の週上限 <code>MaxApMasterCoinPerWeek: 12000</code> と、月間パッケージで増えるぶん
+          <li><code>DB/AccountLevelExcelTable.json</code> — 新米先生経験値ブーストの倍率（<code>NewbieExpRatio</code>）と、月額商品ぶんの <code>PlusExpRatio1</code> / <code>PlusExpRatio2</code></li>
+          <li><code>Excel/ConstCommonExcelTable.json</code> — <code>AccountMaxLevel: 90</code>、<code>AccountExpRatio: 1</code>、熟達証書の週上限 <code>MaxApMasterCoinPerWeek: 12000</code> と、月額パスで増えるぶん
             <code>PlusMaxApMasterCoinPerWeek1: 2000</code> / <code>PlusMaxApMasterCoinPerWeek2: 1000</code>
             （<code>PlusMaxApMasterCoinPerWeekProductMonthlyId1/2</code> にそれぞれの商品 ID が入っています）</li>
           <li><code>Excel/ClanRewardExcelTable.json</code> — サークルの出席報酬が 10（<code>ClanRewardType: Attendance</code>）</li>
@@ -268,9 +277,19 @@
         <p><b><code>AccountExpRatio</code> が 1 なので、消費した AP と得られる先生経験値は 1 対 1 です。</b>このツールが「必要経験値＝必要 AP」として扱っているのはそのためです。取得元は <a href="https://github.com/electricgoat/ba-data" target="_blank" rel="noopener">electricgoat/ba-data</a> の
           <code>jp</code> ブランチ、バージョン <code id="ver">—</code> 時点のもので、Lv1 から Lv90 までの合計は <b>294,782</b> でした。</p>
         <p><b>1 日の AP の内訳は攻略サイトの記載によります。</b>自然回復は 6 分に 1 で 1 日 240、デイリーミッションはログイン 100 ＋ スケジュール 2 回 50 の合計 150、サークルは 10。青輝石での回復は <b>1 回 120 AP</b> で、値段は 1〜3 回目 30 個、4〜6 回目 60 個、7〜9 回目 100 個、10〜12 回目 150 個、13〜15 回目 200 個、16〜20 回目 300 個。カフェはランク 1 から 10 まで 90 / 150 / 220 / 300 / 390 / 460 / 530 / 600 / 670 / 740。レベルアップで AP が全回復することもここの記載です。</p>
-        <p><b>「新米先生経験値ブースト」の 5 万だけは、ゲームのデータに入っていません。</b>
-          <code>AccountLevelExcelTable</code> にあるのは <code>Level</code> / <code>Exp</code> / <code>APAutoChargeMax</code> /
-          <code>NeedReportEvent</code> だけで、レベル帯ごとの倍率にあたる欄がありません。<a href="https://game8.jp/blue-archive/635782" target="_blank" rel="noopener">ゲームエイト「先生レベルの計算ツールと効率的な上げ方」</a>が「Lv90 までの総経験値は約 30 万、ブーストで約 5 万ほど少なく済む」と書いているので、チェックを入れたときだけその 50,000 を引いています。<b>切っておけば、ゲームのデータだけの計算になります。</b></p>
+        <p><b>「新米先生経験値ブースト」の倍率はゲームのデータに入っていました。</b><code>DB/AccountLevelExcelTable.json</code> の <code>NewbieExpRatio</code> がそれで、レベルごとに値が入っています（10000 分率。25000 なら ＋250%）。段はこうです。</p>
+        <ul>
+          <li>Lv1〜50 — <code>25000</code>（＋250%）</li>
+          <li>Lv51〜70 — <code>20000</code>（＋200%）</li>
+          <li>Lv71〜83 — <code>15000</code>（＋150%）</li>
+          <li>Lv84〜85 — <code>10000</code>（＋100%）</li>
+          <li>Lv86〜88 — <code>5000</code>（＋50%）</li>
+          <li>Lv89〜90 — <code>0</code>（付きません）</li>
+        </ul>
+        <p>同じ行の <code>CloseInterval</code> が段の終わりのレベル（50 / 70 / 83 / 85 / 88 / 90）と一致するので、この読み方で合っています。<b>この列は <code>Excel/</code> 側には無く、<code>DB/</code> 側にしかありません。</b>以前このツールが「データに入っていない」と書いて 50,000 という固定値を引いていたのは、<code>Excel/</code> しか見ていなかったためです（2026-08-30 に直しました）。</p>
+        <p><b>ブーストは「必要な経験値が減る」のではなく「もらえる経験値が増える」ものです。</b><a href="https://kamigame.jp/bluearchive/page/142932339821927927.html" target="_blank" rel="noopener">神ゲー攻略「先生レベルの効率的な上げ方」</a>に「取得経験値にボーナスが加わる」「新米先生経験値ブーストは、経験値2倍キャンペーンと同時に効果を受けられる」とあります。なので、このツールは<b>レベルごとに必要経験値を倍率で割って</b>足しています。まとめて掃討したときもレベルごとに計算し直されるという記載があるので、その読み方に合わせています。<b>ただし同記事の倍率表（1〜20 が ＋200%、21〜40 が ＋150%、41〜60 が ＋100%、61〜70 が ＋50%）は、今のゲームのデータと合いません。</b>レベル上限が 70 だった頃のものだと思われるので、データの側を採りました。</p>
+        <p><b>2 倍キャンペーンとブーストの掛け合わせ方だけは確かめられていません。</b>このツールは「2 倍したうえでブーストを掛ける」（×2 ×3.5）として計算しています。足し算（×(1＋1＋2.5)）かもしれません。<b>切っておけば、この不確かさは入りません。</b></p>
+        <p><b>月額商品ぶんの ＋30% / ＋20% も同じ表にあります。</b><code>PlusExpRatio1: 3000</code> と <code>PlusExpRatio2: 2000</code> で、<code>PlusExpProductMonthlyId1/2</code> に商品 ID が入っています。<b>2 つが重なるかどうかは分からない</b>ので、片方だけ選べるようにしてあります。</p>
         <p><b>経験値 2 倍のキャンペーンは、単純に倍で計算しています。</b>消費 AP と経験値が 1 対 1 なので、必要な経験値を倍率で割ったものが必要な AP です。レベルアップの全回復ぶんはそのあとに引いています（もらった AP も同じ倍率で経験値になるため）。</p>
         <p><b>気をつけていること。</b>AP の上限は先生レベルに連動していて、Lv1 では 24、Lv90 で 240 です。<b>「1 日 240 の自然回復」を取り切れるのは、上限に届く前に使っているとき</b>で、放っておくと上限で止まります。上の表の「上限まで貯まる時間」がその目安です。</p>
         <p>出典 —
@@ -312,7 +331,7 @@
   var NATURAL = 240;                    // 自然回復。6 分に 1、1 日で 240
   var DAILY_MISSION = 150;              // ログイン 100 ＋ スケジュール 2 回 50
   var CLAN = 10;                        // サークル参加
-  var PACK = 150;                       // 月間パッケージのスタミナパック
+  var PACK = 150;                       // 月額パスのスタミナパック
   var GEM_HEAL = 120;                   // 青輝石 1 回で回復する AP
   // 青輝石の値段。**回数で上がる。** [その回数まで, 1 回の値段]
   var GEM_PRICE = [[3, 30], [6, 60], [9, 100], [12, 150], [15, 200], [20, 300]];
@@ -430,11 +449,26 @@
     });
   }
 
-  /* **新米先生経験値ブーストは、ゲームのデータに倍率が入っていない。**
-     Lv90 までに要る経験値が 5 万ほど少なくて済む、というのが攻略サイトの実測。
-     推測を混ぜないように、切り替えにして、出どころもページ下に書いてある */
-  var BOOST = 50000;
-  var xpMul = 1;
+  /* **新米先生経験値ブーストはレベルごとに段が変わる。**
+     `DB/AccountLevelExcelTable` の `NewbieExpRatio`（10000 分率）がそれで、
+     Lv50 まで ＋250%、Lv70 まで ＋200%、Lv83 まで ＋150%、Lv85 まで ＋100%、
+     Lv88 まで ＋50%、そこから先は 0。**必要経験値が減るのではなく、
+     もらえる経験値が増える**ので、レベルごとに割って足す。 */
+  var xpMul = 1, plusPick = 0;
+
+  /** Lv `from`（`have` だけ稼いだ状態）から Lv `to` までに要る AP。
+      **レベルごとに倍率が違うので、まとめて割ってはいけない。** */
+  function apBetween(from, to, have, boostOn) {
+    var plus = plusPick ? (D.plusExp || [0, 0])[plusPick - 1] || 0 : 0;
+    var ap = 0;
+    for (var lv = from; lv < to; lv++) {
+      var need = (D.expToNext[lv - 1] || 0) - (lv === from ? have : 0);
+      if (need <= 0) continue;
+      var nb = boostOn ? ((D.newbie || [])[lv - 1] || 0) : 0;
+      ap += need / (xpMul * (1 + (nb + plus) / 10000));
+    }
+    return ap;
+  }
 
   function calc() {
     var daily = dailyAp();
@@ -468,8 +502,8 @@
       ? '<b>今の AP なら上限には届きません。</b>使った AP はぜんぶ熟達証書になります。'
       : (week <= capMax
         ? '<b>素の上限 ' + fmt(cap1) + ' 枚は超えます。</b>週に ' + fmt(week - cap1) +
-          ' AP ぶんが余るので、月間パッケージがあればそのぶんも受け取れます。'
-        : '<b>月間パッケージを入れても上限を超えます。</b>週に ' + fmt(week - capMax) +
+          ' AP ぶんが余るので、月額パスがあればそのぶんも受け取れます。'
+        : '<b>月額パスを入れても上限を超えます。</b>週に ' + fmt(week - capMax) +
           ' AP ぶんが熟達証書になりません。装備の周回など、別の使い道に回してください。');
 
     var level = parseInt(iLevel.value, 10);
@@ -501,16 +535,17 @@
     }
 
     var span = cumAt(target) - cumAt(level);      // 必要な経験値の総量
-    var boost = el('i-boost').checked ? Math.min(BOOST, Math.max(0, span - exp)) : 0;
+    var boostOn = el('i-boost').checked;
     var refill = refillBetween(level, target);    // レベルアップでもらえる AP
-    // **AP は倍率を掛けて経験値になる。**AP に直すのは倍率で割ってから
-    var apRaw = Math.ceil(Math.max(0, span - exp - boost) / xpMul);
+    // **AP は倍率を掛けて経験値になる。**倍率はレベルごとに違うので 1 段ずつ割る
+    var apRaw = Math.ceil(apBetween(level, target, exp, boostOn));
+    var plain = Math.ceil(apBetween(level, target, exp, false));
     var net = Math.max(0, apRaw - refill);        // 自分で用意する AP
 
     el('o-total').innerHTML = fmt(net) + '<small>AP</small>';
     el('o-total-sub').textContent = 'Lv' + level + ' → Lv' + target +
       '（全回復ぶん ' + fmt(refill) + ' を引いた後' + (xpMul > 1 ? '、経験値 ×' + xpMul : '') +
-      (boost ? '、ブースト ' + fmt(boost) + ' を差し引き' : '') + '）';
+      (boostOn ? '、新米先生ブーストあり' : '') + '）';
 
     var days = Math.ceil(net / daily);
     el('o-days').innerHTML = fmt(days) + '<small>日</small>';
@@ -522,10 +557,14 @@
     el('l-span-k').textContent = '必要な経験値（Lv' + level + ' → Lv' + target + '）';
     el('l-span').textContent = fmt(span);
     el('l-exp').textContent = '− ' + fmt(exp);
-    el('l-boost').parentNode.hidden = !boost;
-    el('l-boost').textContent = '− ' + fmt(boost);
-    el('l-mul-k').parentNode.hidden = xpMul <= 1;
-    el('l-mul').textContent = '÷ ' + xpMul + '　→　' + fmt(apRaw) + ' AP';
+    el('l-boost-row').hidden = !boostOn;
+    el('l-boost').textContent = fmt(plain) + ' AP　→　' + fmt(apRaw) + ' AP（' +
+      fmt(plain - apRaw) + ' AP ぶん軽くなります）';
+    el('l-mul-k').parentNode.hidden = xpMul <= 1 && !plusPick;
+    el('l-mul').textContent = (xpMul > 1 ? '×' + xpMul : '') +
+      (plusPick ? (xpMul > 1 ? '・' : '') + '月額 ＋' +
+        ((D.plusExp || [0, 0])[plusPick - 1] || 0) / 100 + '%' : '') +
+      '　→　' + fmt(apRaw) + ' AP';
     el('l-refill-k').textContent = 'レベルアップの全回復ぶん（' + (target - level) + ' 回）';
     el('l-refill').textContent = '− ' + fmt(refill);
     el('l-net').textContent = fmt(net);
@@ -557,6 +596,14 @@
     calc();
   });
   el('i-boost').addEventListener('change', calc);
+  el('plus').addEventListener('click', function (ev) {
+    var b = ev.target.closest('button'); if (!b) return;
+    plusPick = parseInt(b.dataset.p, 10) || 0;
+    [].forEach.call(el('plus').querySelectorAll('button'), function (x) {
+      x.setAttribute('aria-pressed', String(+x.dataset.p === plusPick));
+    });
+    calc();
+  });
   el('preset').addEventListener('click', function (e) {
     var b = e.target.closest('button');
     if (!b) return;

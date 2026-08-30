@@ -339,21 +339,39 @@ def build_teacher_level():
         if "PlusMaxApMasterCoinPerWeek2" in row:
             plus2 = row["PlusMaxApMasterCoinPerWeek2"]
 
+    # **新米先生経験値ブーストの倍率は `DB/` 側にしかない。**
+    # `Excel/AccountLevelExcelTable` の列は Id / Level / Exp / APAutoChargeMax /
+    # NeedReportEvent だけで、`NewbieExpRatio` が落ちている（2026-08-30 に気づいた）。
+    # 値は 10000 分率で、25000 なら「獲得経験値 +250%」。月額商品ぶんの
+    # PlusExpRatio1 / 2 も同じ表にある
+    accdb = {r["Level"]: r for r in as_list(get_json(BADB.format("AccountLevelExcelTable")))
+             if "Level" in r}
     rows = {r["Level"]: r for r in acc if "Level" in r}
-    exp_to_next, ap_cap = [], []
+    exp_to_next, ap_cap, newbie = [], [], []
     for lv in range(1, mx + 1):
         r = rows.get(lv, {})
         ap_cap.append(r.get("APAutoChargeMax", 0))
         if lv < mx:
             exp_to_next.append(r.get("Exp", 0))
+            newbie.append(accdb.get(lv, {}).get("NewbieExpRatio", 0))
+    if not any(newbie):
+        raise SystemExit("新米先生ブーストの倍率が 1 つも取れない。DB 側の列名が変わった疑い")
+    def one(key):
+        vals = {r.get(key, 0) for r in accdb.values() if r.get(key)}
+        if len(vals) != 1:
+            raise SystemExit(f"{key} が全レベルで同じでない: {sorted(vals)}")
+        return vals.pop()
+
+    p1, p2 = one("PlusExpRatio1"), one("PlusExpRatio2")
 
     fetch_icon("currency_icon_ap", "https://schaledb.com/images/item/icon/currency_icon_ap.webp")
     return write_js("tools/teacher-level/data.js", "TEACHER_LEVEL", {
         "maxLevel": mx, "accountExpRatio": ratio,
-        "expToNext": exp_to_next, "apCap": ap_cap,
+        "expToNext": exp_to_next, "apCap": ap_cap, "newbie": newbie,
+        "plusExp": [p1, p2],
         "coinWeek": coin_week, "coinPlus1": plus1, "coinPlus2": plus2,
         "source": "electricgoat/ba-data jp",
-        "version": "electricgoat/ba-data jp",
+        "version": "electricgoat/ba-data jp（DB/AccountLevelExcelTable ほか）",
     }, header="/* scripts/build-tool-data.py が吐く。**手で直さない。** */\n")
 
 
