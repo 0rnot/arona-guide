@@ -137,12 +137,15 @@
   }
 
   var adapt = '';
-  var wsort = 'name', wstar = WSTAR;
+  /** **`wstar` は絞り込みそのもの。**0 は「すべて」で、1〜4 はその段だけを出す。
+      並べ替えに使う数字は段が要るので、すべてのときは日本の上限（固有4）で代用する。 */
+  var wsort = 'name', wstar = 0;
+  function sortStar() { return wstar || WSTAR; }
   var WSORTS = [
     ['name', '名前', function (a, b) { return a.n.localeCompare(b.n, 'ja'); }],
-    ['atk', '攻撃力', function (a, b) { return wstats(b, wstar).a - wstats(a, wstar).a; }],
-    ['hp', '最大 HP', function (a, b) { return wstats(b, wstar).h - wstats(a, wstar).h; }],
-    ['heal', '治癒力', function (a, b) { return wstats(b, wstar).p - wstats(a, wstar).p; }],
+    ['atk', '攻撃力', function (a, b) { return wstats(b, sortStar()).a - wstats(a, sortStar()).a; }],
+    ['hp', '最大 HP', function (a, b) { return wstats(b, sortStar()).h - wstats(a, sortStar()).h; }],
+    ['heal', '治癒力', function (a, b) { return wstats(b, sortStar()).p - wstats(a, sortStar()).p; }],
     ['adapt', '適性の伸び', function (a, b) {
       return b.av - a.av || (TERRAIN[a.ad] || '').localeCompare(TERRAIN[b.ad] || '', 'ja')
              || a.n.localeCompare(b.n, 'ja');
@@ -173,38 +176,57 @@
       return '<button type="button" data-s="' + x[0] + '" aria-pressed="' + (x[0] === wsort) + '">' +
         x[1] + '</button>';
     }).join('');
-    // どの段の数字で並べるか
-    el('wstar').innerHTML = WLV.map(function (lv, i) {
-      return '<button type="button" data-n="' + (i + 1) + '" aria-pressed="' + (i + 1 === wstar) + '">' +
-        '固有' + (i + 1) + '</button>';
-    }).join('');
-    el('wstar-note').textContent = wsort === 'name' || wsort === 'adapt'
-      ? '並べ替えを攻撃力・最大 HP・治癒力にすると、この段の数字で並びます。'
-      : '固有' + wstar + '（Lv' + WLV[wstar - 1] + '）の数字で並べています。';
+    // 固有の段のしぼり込み。**「すべて」を先頭に置く**
+    el('wstar').innerHTML =
+      '<button type="button" data-n="0" aria-pressed="' + (wstar === 0) + '">すべて</button>' +
+      WLV.map(function (lv, i) {
+        return '<button type="button" data-n="' + (i + 1) + '" aria-pressed="' + (i + 1 === wstar) + '">' +
+          '固有' + (i + 1) + '</button>';
+      }).join('');
+    var byNum = wsort === 'atk' || wsort === 'hp' || wsort === 'heal';
+    el('wstar-note').textContent = (wstar
+      ? '固有' + wstar + '（Lv' + WLV[wstar - 1] + '）だけを出しています。効果は固有' + wstar +
+        ' までに手に入るものです。'
+      : '固有1 から固有' + WSTAR + ' まで並べています。段を選ぶと、その段だけに絞れます。') +
+      (byNum ? '並べ替えは固有' + sortStar() + '（Lv' + WLV[sortStar() - 1] + '）の数字です。'
+             : '並べ替えを攻撃力・最大 HP・治癒力にすると、その段の数字で並びます。');
 
     el('weapons').innerHTML = rows.map(function (w) {
       // **武器の絵は横長。**衣装違いは元の子の絵を使い回すので `wi` を見る
       var wimg = w.wi ? '<img class="wpic" src="../img/' + w.wi + '.webp" alt="" width="130" height="34" loading="lazy">' : '';
       var kinds = [['攻撃力', 'a'], ['最大HP', 'h'], ['治癒力', 'p']]
         .filter(function (x) { return w[x[1]] && w[x[1]][1]; });
-      var head = '<tr><th>段</th><th>Lv</th>' +
+      // **見出しに「固有」を出して、中身は数字だけにする。**
+      // 4 列に並ぶ 258px の札では「固有1」が 2 行に折れて、表の高さが札ごとにずれる
+      var head = '<tr><th>固有</th><th>Lv</th>' +
         kinds.map(function (x) { return '<th>' + x[0] + '</th>'; }).join('') + '</tr>';
       var body = WLV.map(function (lv, i) {
-        var n = i + 1, st = wstats(w, n);
-        return '<tr' + (n === wstar ? ' class="on"' : '') + '><th>固有' + n + '</th><td>' + st.lv + '</td>' +
+        var n = i + 1;
+        if (wstar && n !== wstar) return '';
+        var st = wstats(w, n);
+        // 全部出しているときだけ、並べ替えに使っている段に色を敷く
+        return '<tr' + (!wstar && n === sortStar() ? ' class="on"' : '') +
+          '><th>' + n + '</th><td>' + st.lv + '</td>' +
           kinds.map(function (x) {
             return '<td>' + num(st[x[1]]) + '</td>';
           }).join('') + '</tr>';
       }).join('');
+      // **効果は積み上がる。**固有3 の子は固有1・固有2 の効果も持っている
       var gains = WLV.map(function (lv, i) {
-        return '<li><b>固有' + (i + 1) + '</b> ' + esc(wgain(w, i + 1)) + '</li>';
+        var n = i + 1;
+        if (wstar && n > wstar) return '';
+        return '<li' + (wstar && n === wstar ? ' class="now"' : '') +
+          '><b>固有' + n + '</b> ' + esc(wgain(w, n)) + '</li>';
       }).join('');
       return '<div class="gcard"><img src="../img/student_' + w.id + '.webp" alt="" width="48" height="48" loading="lazy">' +
         '<div><div class="nm">' + esc(w.n) + '</div>' + wimg + '<div class="sub">' + esc(w.wn || '—') + '<br>' +
-        '<span class="ad">' + esc(TERRAIN[w.ad] || w.ad) + ' 適性 ＋' + w.av + '（固有3 から）</span></div>' +
+        // 固有2 までを見ているときは、地形適性はまだ乗らない
+        '<span class="ad' + (wstar && wstar < 3 ? ' off' : '') + '">' +
+        esc(TERRAIN[w.ad] || w.ad) + ' 適性 ＋' + w.av + '（固有3 から）</span></div>' +
         '<table class="wtb">' + head + body + '</table>' +
         '<ul class="wgain">' + gains + '</ul>' +
-        '<div class="sub">装備 ' + esc((w.eq || []).map(function (c) { return G.catJa[c] || c; }).join('・')) +
+        '<div class="sub wfoot">装備 ' +
+        esc((w.eq || []).map(function (c) { return G.catJa[c] || c; }).join('・')) +
         '</div></div></div>';
     }).join('') || '<p class="lead">見つかりませんでした。</p>';
   }

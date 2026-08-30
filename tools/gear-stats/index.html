@@ -14,7 +14,7 @@
 <meta property="og:image" content="https://arona-bot.com/images/hero-night.jpg">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="stylesheet" href="../../style.css?v=15">
-<link rel="stylesheet" href="../tool.css?v=7">
+<link rel="stylesheet" href="../tool.css?v=9">
 <style>
   /* 段の一覧 */
   .tier {
@@ -41,7 +41,8 @@
   }
 
   /* 生徒ごとの一覧 */
-  .glist { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px; }
+  .glist { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px;
+           align-items: stretch; }
   .gcard { display: grid; grid-template-columns: 48px 1fr; gap: .6em; align-items: start;
            padding: 9px 10px; border: 1px solid var(--line); border-radius: 12px; background: var(--bg-sub); }
   .gcard img { width: 48px; height: 48px; border-radius: 10px; background: var(--card); }
@@ -56,11 +57,24 @@
   .gcard .sub { font-size: .74rem; color: var(--fg-mute); line-height: 1.6; margin-top: .15em; }
   .gcard .sub b { color: var(--fg); font-variant-numeric: tabular-nums; }
   .gcard .sub .ad { color: var(--accent-tx); font-weight: 700; }
+  /* 固有2 までを見ているとき。**まだ乗らないので色を落とす** */
+  .gcard .sub .ad.off { color: var(--fg-mute); font-weight: 500; }
+
+  /* **固有武器の札は下端をそろえる。**中身の行数が生徒ごとに違うので、
+     文字の列を縦の flex にして、最後の「装備」だけを下に寄せる */
+  #weapons .gcard > div { display: flex; flex-direction: column; align-self: stretch; min-width: 0; }
+  /* 武器名と地形適性。**2 行ぶんを先に取る。**ここが 1 行の子と 2 行の子で
+     表の始まる高さがずれる（武器名が 15 文字を超えると折り返す） */
+  #weapons .gcard > div > .sub:not(.wfoot) { min-height: 3.2em; }
+  #weapons .gcard .wfoot { margin-top: auto; }
 
   /* 固有の段ごとの表。**行が 4 つしかないので、そのまま札の中に置く。** */
   .wtb { width: 100%; border-collapse: collapse; margin: .45em 0 .3em;
-         font-size: .72rem; font-variant-numeric: tabular-nums; }
-  .wtb th, .wtb td { padding: .18em .3em; text-align: right; border-bottom: 1px solid var(--line); }
+         font-size: .7rem; font-variant-numeric: tabular-nums; }
+  /* **折り返させない。**258px の札（1280px で 4 列）だと「攻撃力」も「固有1」も
+     2 行に折れて、治癒力を持つ子だけ表が 100px 以上のっぽくなる（2026-08-30） */
+  .wtb th, .wtb td { padding: .18em .2em; text-align: right; white-space: nowrap;
+                     border-bottom: 1px solid var(--line); }
   .wtb tr:first-child th { color: var(--fg-mute); font-weight: 400; }
   .wtb tr th:first-child { text-align: left; font-weight: 700; }
   .wtb tr:last-child th, .wtb tr:last-child td { border-bottom: 0; }
@@ -72,6 +86,9 @@
   .wgain { margin: .2em 0 .35em; padding-left: 1.1em; font-size: .72rem;
            color: var(--fg-mute); line-height: 1.65; }
   .wgain b { color: var(--fg); }
+  /* いま選んでいる段で増えるもの */
+  .wgain li.now { color: var(--fg); }
+  .wgain li.now b { color: var(--accent-tx); }
 
   .sortlb { font-size: .78rem; color: var(--fg-mute); align-self: center; }
 </style>
@@ -210,7 +227,7 @@
         <div class="seg" id="wsort" role="group" aria-label="並べ替え"></div>
       </div>
       <div class="btnrow" style="margin-top:8px">
-        <span class="sortlb">どの段の数字で</span>
+        <span class="sortlb">固有の段でしぼる</span>
         <div class="seg" id="wstar" role="group" aria-label="固有の段"></div>
       </div>
       <p class="lead" id="wstar-note" style="margin-top:8px">—</p>
@@ -289,7 +306,9 @@
       <span class="sep">/</span>
       <a href="https://x.com/pe6cak" target="_blank" rel="noopener">制作者の X（@pe6cak）</a>
       <span class="sep">/</span>
-      <span>不具合・要望は <b>@0r.not</b> まで</span>
+      <a href="https://github.com/0rnot/arona-guide/issues/new?template=tool-feedback.yml&title=%5B%E8%A3%85%E5%82%99%E3%81%AE%E5%8A%B9%E6%9E%9C%E6%97%A9%E8%A6%8B%5D%20&tool=%E8%A3%85%E5%82%99%E3%81%AE%E5%8A%B9%E6%9E%9C%E6%97%A9%E8%A6%8B" target="_blank" rel="noopener">このツールへの要望・不具合</a>
+      <span class="sep">/</span>
+      <span>Discord なら <b>@0r.not</b> まで</span>
     </p>
     <p class="disclaimer">
       <b>このサイトはファンが作った非公式のものです。</b>運営とは関係ありません。
