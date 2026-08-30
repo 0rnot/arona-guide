@@ -76,13 +76,6 @@
 .thero-body.wide   { max-width: 1320px; }
 .thero-body.narrow { max-width: 860px; }
 
-.thero-en {
-  margin: 0 0 .25em;
-  font-size: .74rem;
-  letter-spacing: .34em;
-  font-weight: 700;
-  color: var(--accent-tx);
-}
 .thero h1 {
   margin: 0 0 .4em;
   font-size: clamp(1.8rem, 5.2vw, 2.9rem);
@@ -104,13 +97,15 @@
   word-break: auto-phrase;
   text-wrap: pretty;
 }
-.thero-lead b { color: var(--accent-tx); }
+/* **強調に色は付けない。**1 段落に 2 つも 3 つも色が付くと、
+   どれが大事なのか分からなくなる（2026-08-30 の先生の指摘） */
+.thero-lead b { font-weight: 700; }
 
 @media (prefers-reduced-motion: no-preference) {
-  .thero-en, .thero h1, .thero-lead {
+  .thero h1, .thero-lead {
     animation: theroIn .6s cubic-bezier(.22,.61,.36,1) both;
   }
-  .thero h1 { animation-delay: .05s; }
+  .thero h1 { animation-delay: .04s; }
   .thero-lead { animation-delay: .1s; }
   @keyframes theroIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
 }
@@ -133,10 +128,6 @@
   margin: 0 0 .3em;
 }
 .panel-h h2 { font-size: 1rem; margin: 0; font-weight: 800; letter-spacing: .02em; }
-.panel-h .n {
-  font-size: .68rem; letter-spacing: .18em; font-weight: 700;
-  color: var(--accent-tx); font-variant-numeric: tabular-nums;
-}
 .panel > .lead { font-size: .87rem; color: var(--fg-mute); margin: 0 0 18px; line-height: 1.8;
                  word-break: auto-phrase; text-wrap: pretty; }
 .panel > .lead b { color: var(--fg); }

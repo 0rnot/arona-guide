@@ -211,14 +211,6 @@ code {
   position: relative;
 }
 
-.hero-en {
-  margin: 0 0 .2em;
-  font-size: .82rem;
-  letter-spacing: .38em;
-  font-weight: 700;
-  color: var(--accent-tx);
-}
-
 h1 {
   margin: 0 0 .35em;
   font-size: clamp(2rem, 6.2vw, 3.4rem);
@@ -320,14 +312,6 @@ h1 {
   width: clamp(56px, 9vw, 88px);
   height: auto;
   flex: none;
-}
-
-.chapter-n {
-  margin: 0;
-  font-size: .8rem;
-  letter-spacing: .3em;
-  font-weight: 700;
-  color: var(--accent-tx);
 }
 
 .chapter h2 {
@@ -832,7 +816,7 @@ a.zoom::after {
 }
 
 /* ヒーローは読み込んだ時点で見えている。**待たせない** */
-.hero-en, .hero h1, .hero-lead, .hero .cta, .toc {
+.hero h1, .hero-lead, .hero .cta, .toc {
   animation: heroIn .7s cubic-bezier(.22,.61,.36,1) both;
 }
 .hero h1    { animation-delay: .06s; }

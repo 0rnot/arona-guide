@@ -156,9 +156,8 @@
     </picture>
   </div>
   <div class="thero-body wide">
-    <p class="thero-en">EQUIPMENT</p>
     <h1>装備設計図の周回計算機</h1>
-    <p class="thero-lead">目標の Tier まで上げるのに要る<b>設計図とクレジット</b>を出して、足りないぶんを埋めるのに<b>いちばん効率のいい任務</b>を AP あたりで並べます。</p>
+    <p class="thero-lead">目標の Tier まで上げるのに要る設計図とクレジットを出して、足りないぶんを埋める任務を AP あたりで並べます。</p>
   </div>
 </header>
 
@@ -169,7 +168,7 @@
 
     <div class="tcol">
       <div class="panel">
-        <div class="panel-h"><span class="n">01</span><h2>目標</h2></div>
+        <div class="panel-h"><h2>目標</h2></div>
         <p class="lead">部位ごとに、<b>今の Tier から目標の Tier まで、何個ぶん</b>上げたいかを入れます。<b>お守り・腕時計・ネックレスは T9 が上限</b>です。</p>
         <div class="roster">
           <div class="rl"><b>生徒の人数から入れる</b><small>生徒 1 人が装備欄を 3 つ持っていて、どの部位を使うかは決まっています。人数を入れると、部位ごとに要る個数を割り出します（全 <b id="r-n">—</b> 人の装備欄から）。</small></div>
@@ -189,7 +188,7 @@
       </div>
 
       <div class="panel">
-        <div class="panel-h"><span class="n">02</span><h2>持っている設計図</h2></div>
+        <div class="panel-h"><h2>持っている設計図</h2></div>
         <p class="lead">分かるぶんだけ入れてください。<b>入れた数は必要量から引かれます。</b></p>
         <div class="seg" id="bpcat" role="group" aria-label="部位" style="margin-bottom:14px"></div>
         <div class="bpgrid" id="bpgrid"></div>
@@ -197,16 +196,14 @@
 
       <div class="panel">
         <div class="panel-h">
-          <span class="n">03</span>
           <h2><img class="ico" src="../img/equipment_icon_selection_tier7_piece.webp" alt="" width="24" height="24">設計図選択ボックス</h2>
         </div>
-        <p class="lead">熟達証書ショップの「<b>T◯装備設計図選択ボックス</b>」です。<b>Tier は決まっていて、部位が自由</b>。入れた数は、不足がいちばん多い部位から順に差し引きます。<b>T2 から T8 までしかありません。</b></p>
+        <p class="lead">熟達証書ショップの「T◯装備設計図選択ボックス」です。<b>Tier は決まっていて、部位が自由</b>。入れた数は、不足がいちばん多い部位から順に差し引きます。T2 から T8 までしかありません。</p>
         <div class="unigrid" id="unigrid"></div>
       </div>
 
       <div class="panel">
         <div class="panel-h">
-          <span class="n">04</span>
           <h2><img class="ico" src="../img/equipment_icon_hat_useall_piece.webp" alt="" width="24" height="24">万能設計図</h2>
         </div>
         <p class="lead">任務で落ちる「<b>◯◯の万能設計図</b>」です。選択ボックスとは逆で、<b>部位は決まっていて、Tier が自由</b>。ただし高い Tier ほど交換レートが悪くなります。</p>
@@ -236,8 +233,8 @@
       </div>
 
       <div class="panel">
-        <div class="panel-h"><span class="n">05</span><h2>いま回るならここ</h2></div>
-        <p class="lead"><b>足りない設計図が 1 AP あたり何個手に入るか</b>で並べています。足りている部位のドロップは数えていません。<b>その面で落ちる万能設計図も、設計図に換算して数に入れています</b>——高い Tier の面ほど大量に落ちるので、これを外すと低い Tier の面ばかりが上に来ます。</p>
+        <div class="panel-h"><h2>いま回るならここ</h2></div>
+        <p class="lead"><b>足りない設計図が 1 AP あたり何個手に入るか</b>で並べています。足りている部位のドロップは数えていません。その面で落ちる万能設計図も、設計図に換算して数に入れています。高い Tier の面ほど大量に落ちるので、これを外すと低い Tier の面ばかりが上に来ます。</p>
         <div class="btnrow" style="margin-bottom:12px">
           <span style="font-size:.8rem;font-weight:700;color:var(--fg-mute)">ドロップ</span>
           <div class="seg" id="mul" role="group" aria-label="ドロップ倍率">
@@ -257,7 +254,7 @@
 
     <div class="tfull">
       <div class="panel">
-        <div class="panel-h"><span class="n">06</span><h2>必要な設計図</h2></div>
+        <div class="panel-h"><h2>必要な設計図</h2></div>
         <p class="lead">目標に届くまでに要る枚数です。<b>橙色は足りていないもの</b>で、薄いのは足りているものです。</p>
         <div class="tscroll">
           <table class="dt">
