@@ -164,7 +164,9 @@
 (function () {
   var btn = document.getElementById('share-page'), toast = document.getElementById('toast-page');
   if (!btn) return;
-  var url = location.href.split('#')[0];
+  // **`#` を落とさない。**TL のように状態をハッシュに入れているツールでは、
+  // ここを削ると相手の画面に同じ結果が出ない（2026-08-30）
+  var url = location.href;
   var name = document.title.split('｜')[0];
   var text = name + '（AronaBot のツール）';
   btn.href = 'https://x.com/intent/post?text=' + encodeURIComponent(text) +
@@ -321,6 +323,8 @@
     </div>
 
     <div class="tfull">
+      <div class="sharebar" id="sharebar"></div>
+
       <details class="src">
         <summary>数字の出どころ</summary>
         <p><b>コスト回復速度 ＝（6 人のコスト回復力の合計）÷ 10000 ［コスト／秒］。</b>素のコスト回復力は<b>全 274 人が 700 で同じ</b>です（SchaleDB の <code>RegenCost</code> を全員ぶん数えて確かめました）。
@@ -334,8 +338,7 @@
         <p><b>開始スキルで指定できる人数は、通常編成 5 人・制約解除決戦 9 人です。</b>2026 年 5 月 27 日のアップデートで、それぞれ 3 人・5 人から増えました。神ゲー攻略の告知に「<a href="https://x.com/BlueArchive_kg2/status/2059154172373836095" target="_blank" rel="noopener">5月27日のアプデ以降、開始スキルの設定上限が増えます 通常戦闘：3→5 制約解除決戦：5→9</a>」とあります。<b>指定できないのは最後の 1 人だけで、それは残り物なので自動的に決まります。</b>つまり山札の並びは全部決められます。</p>
         <p><b>制約解除決戦はストライカー 6 人・スペシャル 4 人の 10 人編成で、コストの上限は 20 です。</b>
           <a href="https://game8.jp/blue-archive/680052" target="_blank" rel="noopener">Game8「制約解除決戦の攻略とおすすめ編成」</a>に「ストライカー生徒6人とスペシャル生徒4人を編成することができます」「コストの最大値も20まで増加しており」とあります。コスト回復力の素は 700 × 10 人で 7000、1 コスト 1.43 秒です。</p>
-        <p><b>開始時のコストはゲームのデータに入っていませんでした。</b>
-          <code>Excel/</code> にも <code>DB/</code> にも戦闘の定数表が無く、攻略サイトにも記載を見つけられなかったので、<b>入力にしてあります</b>（既定は 0）。総力戦は 0 から始まるという前提です。</p>
+        <p><b>開始時のコストは 0 です。</b><code>Excel/ConstCombatExcelTable.json</code> の <code>EchelonInitCommonCost: 0</code>（制約解除決戦は <code>EchelonExtensionEchelonInitCommonCost: 0</code>）。ただしステージやギミックで変わることがあるので、<b>入力にしてあります</b>。同じ表に <code>EchelonMaxCommonCost: 10</code> / <code>EchelonExtensionEchelonMaxCommonCost: 20</code>（上限）と <code>SkillHandCount: 3</code>（手札の枚数）も入っていて、下に書いた攻略サイト由来の値と一致します。</p>
         <p><b>EX を撃っている間の秒数は、スキルの <code>Duration</code>（フレーム）を 30 で割った値です。</b>ブルアカは 30fps なので、229 フレームなら 7.63 秒。この計算では、<b>撃っている間もコストは貯まり続ける</b>ものとして扱い、<b>次の EX はその演出が終わるまで撃てない</b>ものとしています。</p>
         <p><b>条件で値が変わるスキルがあります。</b>チェリノは同じ部隊のレッドウィンター生徒の人数、カノエは同じ部隊の重装甲ストライカーの人数（どちらも自身を除いて最大 3 人）で段が変わるので、編成から自動で数えています。それ以外の段のあるスキルは、段を選ぶ欄が出ます。</p>
         <p><b>持続時間のあるバフ（セイアの EX、クルミの戦術シールド中など）は、初期状態では数えていません。</b>「効いている間」に切り替えると合計に入ります。何秒間かは内訳に出ます。</p>
@@ -350,6 +353,8 @@
 
   </div>
 </div>
+
+<script src="../share.js?v=1"></script>
 
 <footer>
   <div class="foot-inner">

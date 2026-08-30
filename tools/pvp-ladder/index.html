@@ -74,7 +74,9 @@
 (function () {
   var btn = document.getElementById('share-page'), toast = document.getElementById('toast-page');
   if (!btn) return;
-  var url = location.href.split('#')[0];
+  // **`#` を落とさない。**TL のように状態をハッシュに入れているツールでは、
+  // ここを削ると相手の画面に同じ結果が出ない（2026-08-30）
+  var url = location.href;
   var name = document.title.split('｜')[0];
   var text = name + '（AronaBot のツール）';
   btn.href = 'https://x.com/intent/post?text=' + encodeURIComponent(text) +
@@ -198,6 +200,8 @@
         </div>
       </div>
 
+      <div class="sharebar" id="sharebar"></div>
+
       <details class="src">
         <summary>数字の出どころ</summary>
         <p><b>挑戦できる相手の範囲。</b>ブルアカ攻略 Wiki の記述をそのまま使っています。「自分の順位×0.7〜0.8(上段)、0.8〜0.9(中段)、0.9〜0.95(下段)となっており、同じ相手は同時には表示されない」「13位からは範囲が縮小されてしまうためか対戦相手の順位は固定化され、11位～13位は自分の順位から2～4、10～4位は自分の順位から1～3の範囲となる」「例えば11位から10位へは絶対に挑めない。」「※12位以降は対戦相手の順位が固定化されるため、4位から1位に挑戦が可能」。</p>
@@ -216,6 +220,8 @@
 
   </div>
 </div>
+
+<script src="../share.js?v=1"></script>
 
 <footer>
   <div class="foot-inner">

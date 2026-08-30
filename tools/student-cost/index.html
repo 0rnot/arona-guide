@@ -109,7 +109,9 @@
 (function () {
   var btn = document.getElementById('share-page'), toast = document.getElementById('toast-page');
   if (!btn) return;
-  var url = location.href.split('#')[0];
+  // **`#` を落とさない。**TL のように状態をハッシュに入れているツールでは、
+  // ここを削ると相手の画面に同じ結果が出ない（2026-08-30）
+  var url = location.href;
   var name = document.title.split('｜')[0];
   var text = name + '（AronaBot のツール）';
   btn.href = 'https://x.com/intent/post?text=' + encodeURIComponent(text) +
@@ -226,6 +228,8 @@
     </div>
 
     <div class="tfull">
+      <div class="sharebar" id="sharebar"></div>
+
       <details class="src">
         <summary>数字の出どころ</summary>
         <p><b>素材とクレジットは、ゲームのレシピをそのまま読んでいます。</b>レシピの Id は <code>生徒 Id × 1000 ＋ 枠 × 100 ＋ 段</code>で並んでいて、枠 0 が星上げ、枠 1 が EX スキル、枠 2 がそれ以外のスキル、枠 3 が固有武器、枠 4 が愛用品です。中身は <code>Excel/RecipeIngredientExcelTable.json</code> の
@@ -238,7 +242,7 @@
           <code>[true, true, true, false, false]</code> なので、今は★3 までです。データには★4・★5 の行もありますが、中身が「神名文字 1 個」の仮置きなので数えていません。</p>
         <p><b>レベルの必要経験値は <code>Excel/CharacterLevelExcelTable.json</code> そのままです。</b>
           Lv1 から Lv90 までの合計は <b id="src-total">—</b>。レポートの経験値は<b>初級 50 ／ 中級 500 ／ 上級 2,000 ／ 最上級 10,000</b> で、これもデータの値です。</p>
-        <p><b>レベル上げのクレジットは 1 経験値につき 7 で計算しています。この 7 だけはゲームのデータに入っていません。</b><a href="https://bluearchive.wikiru.jp/?%E7%B5%8C%E9%A8%93%E5%80%A4%E8%A1%A8" target="_blank" rel="noopener">ブルアカ Wiki「経験値表」</a>の「育成にはレポートとクレジットが必要で、1EXPあたり7クレジットのコストが掛かる」という記載によります。
+        <p><b>レベル上げのクレジットは 1 経験値につき 7 で計算しています。この 7 は <code>Excel/ConstCommonExcelTable.json</code> の <code>CharacterLvUpCoefficient</code> です。</b><a href="https://bluearchive.wikiru.jp/?%E7%B5%8C%E9%A8%93%E5%80%A4%E8%A1%A8" target="_blank" rel="noopener">ブルアカ Wiki「経験値表」</a>の「育成にはレポートとクレジットが必要で、1EXPあたり7クレジットのコストが掛かる」という記載によります。
           Lv1 から Lv90 まででちょうど <b id="src-lvcost">—</b> になり、同ページの「約875万」と合います。</p>
         <p><b>愛用品を持っている生徒は <b id="src-gear">—</b> 人です。</b>持っていない生徒では、その行を選べません。固有武器も同じで、持っていない生徒では選べません。</p>
         <p>絆ランクの贈り物と、装備の設計図はこのツールでは数えていません。<a href="../bond/">絆ランク計算機</a>と<a href="../equipment/">装備設計図の周回計算機</a>にあります。</p>
@@ -250,6 +254,8 @@
 
   </div>
 </div>
+
+<script src="../share.js?v=1"></script>
 
 <footer>
   <div class="foot-inner">

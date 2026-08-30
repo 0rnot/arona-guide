@@ -96,7 +96,9 @@
 (function () {
   var btn = document.getElementById('share-page'), toast = document.getElementById('toast-page');
   if (!btn) return;
-  var url = location.href.split('#')[0];
+  // **`#` を落とさない。**TL のように状態をハッシュに入れているツールでは、
+  // ここを削ると相手の画面に同じ結果が出ない（2026-08-30）
+  var url = location.href;
   var name = document.title.split('｜')[0];
   var text = name + '（AronaBot のツール）';
   btn.href = 'https://x.com/intent/post?text=' + encodeURIComponent(text) +
@@ -202,7 +204,9 @@
   </div>
 
   <div class="tfull">
-    <details class="src">
+    <div class="sharebar" id="sharebar"></div>
+
+      <details class="src">
       <summary>数字の出どころ</summary>
       <p><b>開催の日付・ボス・地形は、ゲームのデータそのままです。</b>
         <code>raids.min.json</code> の <code>RaidSeasons</code> にある
@@ -212,7 +216,7 @@
       <p><b>大決戦の「Torment に挑戦できる防御タイプ」は <code>OpenDifficulty</code> です。</b>防御タイプごとに、その回で開く難易度の番号が入っています。番号は
         Normal・Hard・VeryHard・Hardcore・Extreme・Insane・Torment・Lunatic の順で、
         <b>6 なら Torment まで</b>、5 なら Insane までです。</p>
-      <p><b>「次の目安」は、直近 6 回の間隔の中央値を最後の開始日に足しただけです。</b>ゲームのデータに次回の予定は入っていません。実際の告知は公式 X の「総力戦＆大決戦スケジュール」と「予告」で出ます。</p>
+      <p><b>「次の目安」は、直近 6 回の間隔から<b>最短と中央値の 2 つ</b>を取って、最後の開始日にそれぞれ足した幅です。</b>ゲームのデータに次回の予定は入っていません。実際の告知は公式 X の「総力戦＆大決戦スケジュール」と「予告」で出ます。</p>
       <p>ボスの装甲と攻撃属性は <code>Raid</code> の <code>ArmorType</code> /
         <code>BulletType</code> / <code>BulletTypeInsane</code> です。
         Insane 以上では攻撃属性が変わるボスがいるので、両方を出しています。相性の詳細は<a href="../raid/">総力戦の相性チェッカー</a>にあります。</p>
@@ -221,6 +225,8 @@
   </div>
 
 </div>
+
+<script src="../share.js?v=1"></script>
 
 <footer>
   <div class="foot-inner">

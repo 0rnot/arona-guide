@@ -94,7 +94,9 @@
 (function () {
   var btn = document.getElementById('share-page'), toast = document.getElementById('toast-page');
   if (!btn) return;
-  var url = location.href.split('#')[0];
+  // **`#` を落とさない。**TL のように状態をハッシュに入れているツールでは、
+  // ここを削ると相手の画面に同じ結果が出ない（2026-08-30）
+  var url = location.href;
   var name = document.title.split('｜')[0];
   var text = name + '（AronaBot のツール）';
   btn.href = 'https://x.com/intent/post?text=' + encodeURIComponent(text) +
@@ -233,31 +235,35 @@
     </div>
 
     <div class="tfull">
+      <div class="sharebar" id="sharebar"></div>
+
       <details class="src">
         <summary>数字の出どころ</summary>
         <p><b>贈り物の絆経験値は、ゲームのデータから毎回その場で計算しています。</b>生徒ごとの表を持っているわけではありません。</p>
         <ul>
           <li>生徒には <code>FavorItemTags</code>（好み）と <code>FavorItemUniqueTags</code>（とくに好き）が付いています</li>
-          <li>贈り物には <code>Tags</code> と <code>ExpValue</code>（基本の絆経験値。紫は 20、橙は 60）が付いています</li>
+          <li>贈り物には <code>Tags</code> と <code>ExpValue</code>（基本の絆経験値。紫は 20、橙は 60（初音ミクのフォトカードときらめきの花束の 2 種だけ、橙でも 20））が付いています</li>
           <li>さらに<b>誰にでも効く共通タグ</b>があります（<code>CommonFavorItemTags</code>: <code id="gen">—</code>）</li>
           <li>絆経験値 ＝ <b><code>ExpValue ×（一致したタグの数 ＋ 1）</code></b></li>
         </ul>
         <p>この式だと「美しい花束」は<b><span id="src-n">—</span> 人ぜんぶに対して ×4</b>になります（ゲーム内で誰に渡しても最大効果になるのと同じです）。<b>どの生徒にも ×4 の贈り物が最低 1 つあります。</b></p>
         <p><b>絆ランクの必要経験値は <code>Excel/FavorLevelExcelTable.json</code> そのままです。</b>
           Lv1 から Lv100 までの合計は <b>240,225</b>、Lv1 から Lv20 までは <b>1,845</b>、Lv1 から Lv50 までは <b>29,175</b> です。</p>
-        <p><b>カフェタッチは 1 回 15 の絆経験値。</b>これはデータではなく攻略サイトの記載です（「カフェでのタッチは1回15経験値で、4回タッチすれば上級効果大の贈り物を1個渡したのと同義」。橙の贈り物の基本値 60 とちょうど合います）。タッチできる回数は 3 時間ごとに回復し、カフェの訪問者は毎日 4 時と 16 時にリセットされます。同じ生徒は 12 時間で最大 4 回までです（4 時／16 時をまたぐと別の生徒に入れ替わるので 5 回目はできません）。これは <a href="https://bluearchive.wikiru.jp/?%E3%82%AB%E3%83%95%E3%82%A7" target="_blank" rel="noopener">ブルアカ Wiki「カフェ」</a>の記載です。
+        <p><b>カフェタッチは 1 回 15 の絆経験値。</b>これはゲームのデータにあります——<code>Excel/CafeInteractionExcelTable.json</code> の <code>FavorEmoticonRewardParcelType: "FavorExp"</code> / <code>FavorEmoticonRewardAmount: 15</code> で、<b>223 行すべてが 15</b>（生徒ごとの差はありません）。橙の贈り物の基本値 60 とちょうど合って、4 回タッチで 1 個ぶんです。<b>回数の制限のほうはデータに見つかりません。</b>タッチできる回数は 3 時間ごとに回復し、カフェの訪問者は毎日 4 時と 16 時にリセットされます。同じ生徒は 12 時間で最大 4 回までです（4 時／16 時をまたぐと別の生徒に入れ替わるので 5 回目はできません）。これは <a href="https://bluearchive.wikiru.jp/?%E3%82%AB%E3%83%95%E3%82%A7" target="_blank" rel="noopener">ブルアカ Wiki「カフェ」</a>の記載です。
           1 号店と 2 号店があるので、招待券を使えば 1 人の生徒を 1 日じゅうカフェに置いておくこともできます。
           1 日に何回タッチできるかは環境で変わるので、入力にしてあります。</p>
         <p><b>スケジュールの絆経験値は入れていません。</b>場所と生徒の組み合わせで変わり、このツールの手持ちのデータからは決められないためです。分かるぶんは「その他」に入れてください。</p>
         <p>出典 —
           <a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a>（式そのもの。
           <code>ExpValue * (matchingTags + 1)</code> と共通タグ）、
-          <a href="https://github.com/electricgoat/ba-data" target="_blank" rel="noopener">electricgoat/ba-data</a>（絆ランクの必要経験値）、<a href="https://game8.jp/blue-archive/639224" target="_blank" rel="noopener">ゲームエイト「絆ランク（好感度）の上げ方とメリット」</a>（カフェタッチ 15、リセット時刻）。取得は <span id="ver">—</span>。</p>
+          <a href="https://github.com/electricgoat/ba-data" target="_blank" rel="noopener">electricgoat/ba-data</a>（絆ランクの必要経験値）、<a href="https://game8.jp/blue-archive/639224" target="_blank" rel="noopener">ゲームエイト「絆ランク（好感度）の上げ方とメリット」</a>（カフェタッチの回数制限とリセット時刻）。取得は <span id="ver">—</span>。</p>
       </details>
     </div>
 
   </div>
 </div>
+
+<script src="../share.js?v=1"></script>
 
 <footer>
   <div class="foot-inner">
@@ -284,7 +290,7 @@
   'use strict';
   var B = window.BOND;
   var el = function (id) { return document.getElementById(id); };
-  var TOUCH = 15;                       // カフェタッチ 1 回
+  var TOUCH = 15;                       // カフェタッチ 1 回（CafeInteractionExcelTable の FavorEmoticonRewardAmount）
   var GEN = B.gen;                      // 誰にでも効く共通タグ
   var have = {};                        // have[giftId] = 個数
   /* **最初は誰も選んでいない。**顔の枠は none のまま置いておく。
@@ -292,7 +298,7 @@
      「まず何を配ればいいか」は生徒を決める前から分かる */
   var NONE = { id: 0, n: '', t: [] };
   var student = NONE;
-  // **既定は「効くものだけ」。** 贈り物は 51 種あって、ぜんぶ出すと
+  // **既定は「効くものだけ」。** 贈り物は 50 種以上あって、ぜんぶ出すと
   // 左の柱が縦に伸びきってしまう。×1 のものは実質どれも同じなので畳む
   var filter = 'good';
 

@@ -50,7 +50,9 @@
 (function () {
   var btn = document.getElementById('share-page'), toast = document.getElementById('toast-page');
   if (!btn) return;
-  var url = location.href.split('#')[0];
+  // **`#` を落とさない。**TL のように状態をハッシュに入れているツールでは、
+  // ここを削ると相手の画面に同じ結果が出ない（2026-08-30）
+  var url = location.href;
   var name = document.title.split('｜')[0];
   var text = name + '（AronaBot のツール）';
   btn.href = 'https://x.com/intent/post?text=' + encodeURIComponent(text) +
@@ -130,8 +132,8 @@
           </select>
         </div>
         <div class="numrow">
-          <div class="nm">神名文字<small>1 個 50 枚</small></div>
-          <input id="i-eleph" type="number" inputmode="numeric" min="0" max="20" step="1" value="0">
+          <div class="nm">神名文字<small>1 口 50 枚で 5 個。買う口数を入れてください</small></div>
+          <input id="i-eleph" type="number" inputmode="numeric" min="0" max="7" step="1" value="0">
         </div>
         <div class="checks" style="margin-top:14px">
           <label><input type="checkbox" id="i-eleph-once"> 神名文字は更新のたびには買わない（1 日 1 回だけ）</label>
@@ -195,6 +197,8 @@
         </div>
       </div>
 
+      <div class="sharebar" id="sharebar"></div>
+
       <details class="src">
         <summary>数字の出どころ</summary>
         <p><b>枚数はゲームのデータそのものです。</b><a href="https://github.com/electricgoat/ba-data" target="_blank" rel="noopener">ba-data</a> の <code>Excel/ArenaRewardExcelTable.json</code> に、順位帯ごとの日別報酬が 11 行あります。<b>11 〜 100 位なら <code>Gem_Bonus</code> 30 と <code>AreaCoin</code> 100</b>、というふうに。下に並べたのがその 11 行の中身で、ページの選択肢と 1 行ずつ突き合わせてあります。</p>
@@ -202,12 +206,15 @@
           201〜500 位 20＋80 ／ 501〜1000 位 18＋70 ／ 1001〜2000 位 16＋60 ／ 2001〜4000 位 14＋50 ／
           4001〜8000 位 12＋40 ／ 8001〜15000 位 10＋30（左が青輝石、右が戦術対抗戦コイン）。</p>
         <p><b>防衛で勝ったぶんと、リセットの時刻も同じデータから取りました。</b>同じ表の <code>DefenseVictory</code> が <code>ArenaCoin</code> 3 枚で、<code>Excel/ConstArenaExcelTable.json</code> の <code>DefenseVictoryRewardMaxCount: 10</code> が 1 日の上限、<code>DailyRewardResetTime: 14:00:00</code> がリセットの時刻です。<b>日別報酬は 1 日 1 回で、14 時のリセット時点の順位で決まります。</b>その時間に 11 〜 100 位に居れば、その日は 100 枚です。</p>
-        <p><b>交換所のレートだけはデータに無いので、記事によります。</b>AP ドリンク（初級）は 15 枚で AP30、（中級）は 30 枚で AP60、神名文字は 50 枚、ショップの更新は 1 回 10 枚で 1 日 3 回まで。<a href="https://game8.jp/blue-archive/654824" target="_blank" rel="noopener">ゲームエイト「戦術コインのおすすめ交換先と入手方法」</a>から取りました。</p>
+        <p><b>交換所のレートもデータそのものです。</b><code>Excel/ShopInfoExcelTable.json</code> の <code>CategoryType: "Arena"</code> から <code>Excel/GoodsExcelTable.json</code> を引きます。AP ドリンク（初級）が <code>Id 3100</code> で <code>ConsumeParcelAmount: [15]</code>、その中身は <code>Excel/ItemExcelTable.json</code> の <code>Id 10000000</code> が <code>UsingResultAmount: 30</code>（AP30）。中級（<code>Id 3101</code>）が 30 枚で AP60。ショップの更新は <code>Id 106</code> の 10 枚で、1 日 3 回までは <code>RefreshAbleCount: 3</code> です。</p>
+        <p><b>神名文字は 1 個 50 枚ではなく、1 口 50 枚で 5 個です。</b><code>Id 3000</code>〜<code>3006</code> の 7 枠がどれも <code>ConsumeParcelAmount: [50]</code> → <code>ParcelAmount: [5]</code>。<b>2026 年 8 月 30 日まで「1 個 50 枚」として数えていて、支出が 5 倍に出ていました。</b>いまは買う口数を入れてもらう形にしてあります。7 枠それぞれ <code>PurchaseCountLimit: 1</code> で、並ぶかどうかは <code>Prob: 50</code>——<b>更新のたびに必ず 7 枠とも出るわけではありません。</b></p>
       </details>
     </div>
 
   </div>
 </div>
+
+<script src="../share.js?v=1"></script>
 
 <footer>
   <div class="foot-inner">
@@ -236,7 +243,10 @@
   var el = function (id) { return document.getElementById(id); };
   var DEF_COIN = 3, DEF_MAX = 10;     // 防衛 1 勝 3 枚、1 日 10 回まで
   var RESET_COST = 10;                // ショップの更新 1 回
-  var ELEPH = 50;                     // 神名文字 1 個
+  // **1 口 50 枚で「5 個」。**1 個 50 枚ではない。`Excel/GoodsExcelTable.json` の
+  // `Id 3000`〜`3006` が `ConsumeParcelAmount: [50]` → `ParcelAmount: [5]`
+  // （2026-08-30 に数え直した。それまで支出が 5 倍に出ていた）
+  var ELEPH = 50, ELEPH_N = 5;        // 1 口の値段と、もらえる個数
   var AP_OF = { 0: 0, 15: 30, 30: 60, 45: 90 };
 
   var iRank = el('i-rank'), iDef = el('i-def'), iDrink = el('i-drink'),

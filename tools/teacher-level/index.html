@@ -61,7 +61,9 @@
 (function () {
   var btn = document.getElementById('share-page'), toast = document.getElementById('toast-page');
   if (!btn) return;
-  var url = location.href.split('#')[0];
+  // **`#` を落とさない。**TL のように状態をハッシュに入れているツールでは、
+  // ここを削ると相手の画面に同じ結果が出ない（2026-08-30）
+  var url = location.href;
   var name = document.title.split('｜')[0];
   var text = name + '（AronaBot のツール）';
   btn.href = 'https://x.com/intent/post?text=' + encodeURIComponent(text) +
@@ -191,7 +193,7 @@
         </div>
 
         <div class="numrow">
-          <div class="nm">月額パス<small>30 日ぶん。スタミナパックで 1 日 150</small></div>
+          <div class="nm">AP パス<small>2 週間ぶん。1 日 150</small></div>
           <div class="checks"><label><input type="checkbox" id="a-pack"> 150</label></div>
         </div>
 
@@ -263,6 +265,8 @@
         </div>
       </div>
 
+      <div class="sharebar" id="sharebar"></div>
+
       <details class="src">
         <summary>数字の出どころ</summary>
         <p>レベルの表はゲームのクライアントから取り出したデータをそのまま使っています。推測した値はありません。</p>
@@ -299,6 +303,8 @@
 
   </div>
 </div>
+
+<script src="../share.js?v=1"></script>
 
 <footer>
   <div class="foot-inner">

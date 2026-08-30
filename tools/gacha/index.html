@@ -63,7 +63,9 @@
 (function () {
   var btn = document.getElementById('share-page'), toast = document.getElementById('toast-page');
   if (!btn) return;
-  var url = location.href.split('#')[0];
+  // **`#` を落とさない。**TL のように状態をハッシュに入れているツールでは、
+  // ここを削ると相手の画面に同じ結果が出ない（2026-08-30）
+  var url = location.href;
   var name = document.title.split('｜')[0];
   var text = name + '（AronaBot のツール）';
   btn.href = 'https://x.com/intent/post?text=' + encodeURIComponent(text) +
@@ -198,7 +200,9 @@
     </div>
 
     <div class="tfull">
-  <details class="src">
+  <div class="sharebar" id="sharebar"></div>
+
+      <details class="src">
     <summary>数字の出どころと、計算のしかた</summary>
     <p><b>提供割合。</b>★3 が 3.0%、★2 が 18.5%、★1 が 78.5%。そのうちピックアップの生徒は 0.7%で、残りの 2.3% がすり抜けです。周年・限定の確率アップでは★3 の合計が 6.0% になりますが、ピックアップの 0.7% は動きません（内訳は 周年限定 0.7% ／ 限定すり抜け 0.9% ／ その他★3 4.4%）。
       10 連の 10 回目は★2 以上が確定しますが、★3 の 3.0% はそのままなので、ピックアップの確率は変わりません。</p>
@@ -218,6 +222,8 @@
     </div>
   </div>
 </div>
+
+<script src="../share.js?v=1"></script>
 
 <footer>
   <div class="foot-inner">

@@ -23,11 +23,21 @@
   var state = {};    // state[cat] = {from, to, n}
   var have = {};     // have[cat][tier] = 枚数
   var sel = {};      // sel[tier] = T◯装備設計図選択ボックスの個数
-  var SEL_MIN = 2, SEL_MAX = 8;   // 選択ボックスは T2〜T8 しか存在しない
+  // **選択ボックスの段はデータから。**手で「T2〜T8」と書いていたので、
+  // 2026-02-01 に増えた T9 に気づけなかった（2026-08-30 に直した）。
+  // ビルダーが SchaleDB の `items` から、日本版のショップに並ぶものだけを数えている
+  var SEL_TIERS = (E.selbox && E.selbox.length) ? E.selbox : [2, 3, 4, 5, 6, 7, 8];
+  var SEL_MIN = SEL_TIERS[0], SEL_MAX = SEL_TIERS[SEL_TIERS.length - 1];
+  (function () {
+    var r = document.getElementById('sel-range');
+    if (r) r.textContent = 'T' + SEL_MIN + ' から T' + SEL_MAX + ' まで';
+  })();
   var univ = {};     // univ[cat] = 万能設計図の枚数（部位ごと）
   /* **万能設計図 → 設計図 の交換レート。**高い Tier ほど割に合わない。
-     ゲームのデータには出ていないので、ここだけ攻略 wiki の表から取った（出どころに明記） */
-  var UR = { 2: 2, 3: 3, 4: 5, 5: 7, 6: 10, 7: 15, 8: 20, 9: 30, 10: 50 };
+     `DB/EquipmentChangePieceExcelTable.json` の `ChangeAmount`。9 部位ぜんぶで
+     同じ並びなので 1 本だけ持つ（2026-08-30 まで攻略 wiki の表を写していた） */
+  var UR = {};
+  (E.univRate || [1, 2, 3, 5, 7, 10, 15, 20, 30, 50]).forEach(function (v, i) { UR[i + 1] = v; });
   var bpCat = CATS[0];
   var diff = 'all';
   var mul = 1;       // ドロップ倍率（2 倍・3 倍のとき）

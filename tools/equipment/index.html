@@ -119,7 +119,9 @@
 (function () {
   var btn = document.getElementById('share-page'), toast = document.getElementById('toast-page');
   if (!btn) return;
-  var url = location.href.split('#')[0];
+  // **`#` を落とさない。**TL のように状態をハッシュに入れているツールでは、
+  // ここを削ると相手の画面に同じ結果が出ない（2026-08-30）
+  var url = location.href;
   var name = document.title.split('｜')[0];
   var text = name + '（AronaBot のツール）';
   btn.href = 'https://x.com/intent/post?text=' + encodeURIComponent(text) +
@@ -195,7 +197,7 @@
         <div class="panel-h">
           <h2><img class="ico" src="../img/equipment_icon_selection_tier7_piece.webp" alt="" width="24" height="24">設計図選択ボックス</h2>
         </div>
-        <p class="lead">熟達証書ショップの「T◯装備設計図選択ボックス」です。<b>Tier は決まっていて、部位が自由</b>。入れた数は、不足がいちばん多い部位から順に差し引きます。T2 から T8 までしかありません。</p>
+        <p class="lead">熟達証書ショップの「T◯装備設計図選択ボックス」です。<b>Tier は決まっていて、部位が自由</b>。入れた数は、不足がいちばん多い部位から順に差し引きます。並ぶ段は <span id="sel-range">—</span> です。</p>
         <div class="unigrid" id="unigrid"></div>
       </div>
 
@@ -261,6 +263,8 @@
         </div>
       </div>
 
+      <div class="sharebar" id="sharebar"></div>
+
       <details class="src">
         <summary>数字の出どころ</summary>
         <p><b>ティアアップの材料とクレジットは、ゲームのデータそのままです。</b>
@@ -276,12 +280,11 @@
         <p><b>ドロップだけ ba-data ではなく SchaleDB を見ています。</b>
           2026-04-21 に実装された万能設計図が ba-data の <code>jp</code> ブランチにまだ入っておらず、
           <code>CampaignStageRewardExcelTable.json</code> を探しても <code>501000</code>〜<code>509000</code> が 1 件も出てこないためです。レシピ・箱の比率は今までどおり ba-data から取っています。</p>
-        <p><b>「設計図選択ボックス」と「万能設計図」は別のものです。</b>選択ボックス（<code>150028</code>〜<code>150033</code>、<code>150041</code>）は熟達証書ショップのもので、
-          Tier が決まっていて部位が自由、<b>T2 から T8 までしかありません</b>。万能設計図（<code>501000</code>〜<code>509000</code>、<code>Tier: 0</code>）は任務で落ちるもので、部位が決まっていて Tier が自由です。</p>
+        <p><b>「設計図選択ボックス」と「万能設計図」は別のものです。</b>選択ボックスは熟達証書ショップのもので、Tier が決まっていて部位が自由。<b>並ぶ段は数えて出しています</b>——SchaleDB の <code>items</code> から「T◯装備設計図選択ボックス」を拾い、日本版で <code>Shop</code> と <code>IsReleased</code> がどちらも立っているものだけを取ります。<b>2026 年 8 月 30 日まで「T2 から T8 まで」と決め打ちにしていて、2026 年 2 月 1 日に増えた T9（<code>150045</code>）を数えていませんでした。</b>T10（<code>150048</code>）はアイテムとしては在りますが、まだどの版でもショップに並びません。万能設計図（<code>501000</code>〜<code>509000</code>、<code>Tier: 0</code>）は任務で落ちるもので、部位が決まっていて Tier が自由です。</p>
         <p><b>部位ごとの需要は、生徒 <span id="src-roster">—</span> 人の装備欄から数えています。</b>ヘアピン 175 ／ 腕時計 161 ／ 帽子 102 ／ 靴 99 ／ ネックレス 75 ／ 手袋 73 ／ カバン 56 ／ バッジ 43 ／ お守り 38。ネックレスを 1 としたときの比は 2.33／2.15／1.36／1.32／1.00／0.97／0.75／0.57／0.51 で、<a href="https://bluearchive.wikiru.jp/?%E8%A3%85%E5%82%99%E3%81%AB%E3%81%A4%E3%81%84%E3%81%A6" target="_blank" rel="noopener">ブルアカ Wiki が別に数えた比</a>（260 人時点で 2.32／2.12／1.35／1.34／1／0.97／0.76／0.58／0.53）とほぼ一致します。<b>ヘアピンと腕時計は、ふつうに集めるだけでは足りません。</b></p>
         <p><b>ドロップの期待値も Wiki の実測と合っています。</b>
           Area 28〜29 を 3 倍期間に 200 周した記録では、T10 が 528 枚（1 周あたり 0.88）、T8 が 306 枚（0.51）、万能設計図が 22,530 枚（1 周 37.6）。このツールが出す 1 周あたりは T10 0.86 ／ T8 0.50 ／ 万能設計図 37.5 です。</p>
-        <p><b>万能設計図の交換レート（T2 は 2 枚、T10 は 50 枚）だけ、ゲームのデータに見つかりませんでした。</b><a href="https://bluearchive.wikiru.jp/?%E8%A3%85%E5%82%99%E3%81%AB%E3%81%A4%E3%81%84%E3%81%A6" target="_blank" rel="noopener">ブルアカ Wiki の「装備について」</a>の表から取っています。この表は「全て万能設計図で補う場合の各 Tier の必要数」も載せていて、
+        <p><b>万能設計図の交換レート（T2 は 2 枚、T10 は 50 枚）もゲームのデータです。</b><code>DB/EquipmentChangePieceExcelTable.json</code> の <code>ChangeAmount</code> で、90 行（9 部位 × 10 段）どれも <code>1 / 2 / 3 / 5 / 7 / 10 / 15 / 20 / 30 / 50</code> と同じ並びでした。<b><code>Excel/</code> 側は中身の無い殻なので、<code>DB/</code> を見ないと取れません。</b>2026 年 8 月 30 日まで <a href="https://bluearchive.wikiru.jp/?%E8%A3%85%E5%82%99%E3%81%AB%E3%81%A4%E3%81%84%E3%81%A6" target="_blank" rel="noopener">ブルアカ Wiki の「装備について」</a>の表を写していて、値は合っていました。この表は「全て万能設計図で補う場合の各 Tier の必要数」も載せていて、
           T2 80 ／ T3 135 ／ T4 250 ／ T5 385 ／ T6 650 ／ T7 975 ／ T8 1,200 ／ T9 1,500 ／ T10 3,000。上のレシピの枚数（40 / 45 / 50 / 55 / 65 / 65 / 60 / 50 / 60）にレートを掛けた値と、9 つとも一致します。</p>
         <p><b>箱（<code>GachaGroup</code>）で出る枠も数えています。</b>中身と比率は <code>Excel/GachaElementExcelTable.json</code> にそのまま入っているので、<b>推測せずにその比率で期待値へ畳んでいます。</b>ここで出る「T1 の装備そのもの」は設計図ではないので数えていません。</p>
         <p><b>data.js は <code>scripts/build-tool-data.py</code> が作っています。</b>
@@ -294,6 +297,8 @@
 
   </div>
 </div>
+
+<script src="../share.js?v=1"></script>
 
 <footer>
   <div class="foot-inner">

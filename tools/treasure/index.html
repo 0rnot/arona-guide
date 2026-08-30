@@ -164,7 +164,9 @@
 (function () {
   var btn = document.getElementById('share-page'), toast = document.getElementById('toast-page');
   if (!btn) return;
-  var url = location.href.split('#')[0];
+  // **`#` を落とさない。**TL のように状態をハッシュに入れているツールでは、
+  // ここを削ると相手の画面に同じ結果が出ない（2026-08-30）
+  var url = location.href;
   var name = document.title.split('｜')[0];
   var text = name + '（AronaBot のツール）';
   btn.href = 'https://x.com/intent/post?text=' + encodeURIComponent(text) +
@@ -277,6 +279,8 @@
     </div>
 
     <div class="tfull">
+      <div class="sharebar" id="sharebar"></div>
+
       <details class="src">
         <summary>数字の出どころと、計算のしくみ</summary>
         <p><b>盤は 9 × 5 の 45 マス。</b>備品は重ならずに置かれていて、種類ごとの個数は決まっています。ここから「条件に合う置き方」をすべて数え上げ、そのうち何通りでそのマスが備品に覆われているかを割ったものが確率です。<b>近似やサンプリングは使っていません。</b></p>
@@ -299,6 +303,8 @@
 
   </div>
 </div>
+
+<script src="../share.js?v=1"></script>
 
 <footer>
   <div class="foot-inner">

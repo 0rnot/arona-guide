@@ -67,7 +67,9 @@
 (function () {
   var btn = document.getElementById('share-page'), toast = document.getElementById('toast-page');
   if (!btn) return;
-  var url = location.href.split('#')[0];
+  // **`#` を落とさない。**TL のように状態をハッシュに入れているツールでは、
+  // ここを削ると相手の画面に同じ結果が出ない（2026-08-30）
+  var url = location.href;
   var name = document.title.split('｜')[0];
   var text = name + '（AronaBot のツール）';
   btn.href = 'https://x.com/intent/post?text=' + encodeURIComponent(text) +
@@ -138,7 +140,7 @@
             <input id="i-per" type="number" inputmode="numeric" min="1000000" step="1000000" value="50896295">
           </div>
         </div>
-        <p class="lead" style="margin:14px 0 0"><b>右の数字だけは、ゲームのデータで裏が取れていません。</b>有志ツールが使っている見積もりをそのまま初期値にしています。星上げ（神名文字）のぶんは入っていません。</p>
+        <p class="lead" style="margin:14px 0 0"><b>右の数字は 4 つともゲームのデータから出しています。</b>内訳は下の「数字の出どころ」に書きました。星上げ（神名文字）のぶんは入っていません。</p>
       </div>
     </div>
 
@@ -178,6 +180,8 @@
     </div>
 
     <div class="tfull">
+      <div class="sharebar" id="sharebar"></div>
+
       <details class="src">
         <summary>数字の出どころ</summary>
         <p><b>レポートの経験値と、生徒の必要経験値は、ゲームのデータそのままです。</b>推測はありません。</p>
@@ -202,6 +206,8 @@
 
   </div>
 </div>
+
+<script src="../share.js?v=1"></script>
 
 <footer>
   <div class="foot-inner">

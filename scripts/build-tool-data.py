@@ -397,6 +397,41 @@ def build_equipment():
     # 部位・Tier・レシピは ba-data を正本にして、名前だけ引く
     sd_name = {e["Id"]: e.get("Name", "") for e in as_list(get_json(SD.format("equipment"))) if e.get("Id")}
 
+    # **選択ボックスの段は数えて出す。**手で「T2〜T8」と書いていたら T9 が
+    # 増えたのに気づけなかった（2026-08-30）。ba-data の `ShopExcelTable` には
+    # まだ 150045 が 1 件も無いので、SchaleDB の `items` の `Shop` フラグを見る。
+    # `Regions` の 0 番目が Jp
+    selbox = []
+    for it in as_list(get_json(SD.format("items"))):
+        m = re.fullmatch(r"T(\d+)装備設計図選択ボックス", it.get("Name") or "")
+        if not m:
+            continue
+        shop = it.get("Shop") or []
+        rel = it.get("IsReleased") or []
+        if (shop[0] if shop else False) and (rel[0] if rel else False):
+            selbox.append(int(m.group(1)))
+    selbox.sort()
+    if not selbox:
+        raise SystemExit("装備設計図選択ボックスが 1 つも取れない。名前の付け方が変わった疑い")
+
+    # **万能設計図 → 設計図 の交換レート。**`Excel/` 側は空の殻（14 バイト）で、
+    # 中身は `DB/` にしかない。90 行（9 部位 × 10 段）あって、どの部位も
+    # 1 / 2 / 3 / 5 / 7 / 10 / 15 / 20 / 30 / 50 で同じ（2026-08-30 に数えた）。
+    # それまで攻略 wiki の表を写していた
+    chg = as_list(get_json(BADB.format("EquipmentChangePieceExcelTable")))
+    rate = {}
+    for r in chg:
+        eq = r.get("ChangeEquipmentId")
+        if eq is None:
+            continue
+        rate.setdefault(eq, []).append(r.get("ChangeAmount", 0))
+    sets = {tuple(v) for v in rate.values()}
+    if len(sets) != 1:
+        raise SystemExit(f"万能設計図の交換レートが部位で違う: {sorted(sets)}")
+    univ_rate = list(sets.pop())
+    if len(univ_rate) < 10:
+        raise SystemExit(f"万能設計図の交換レートが {len(univ_rate)} 段しかない")
+
     # **どの部位を何人が使うか。**生徒 1 人は装備欄を 3 つ持っていて、
     # その組み合わせは生徒ごとに決まっている。ここから「部位の重み」が出る
     # （帽子は多くの生徒が使い、お守りは少ない——必要数がまるで違う）
@@ -519,7 +554,9 @@ def build_equipment():
         for t in range(2, max_tier.get(cat, 0) + 1):
             nm = f"equipment_icon_{cat.lower()}_tier{t}_piece"
             n += fetch_icon(nm, f"https://schaledb.com/images/equipment/icon/{nm}.webp")
-    for t in range(2, 9):
+    # **選択ボックスのアイコンは、並ぶ段のぶんだけ取る。**2〜8 で決め打ちに
+    # していたので、T9 が増えたときにアイコンだけ 404 になっていた（2026-08-30）
+    for t in selbox:
         nm = f"equipment_icon_selection_tier{t}_piece"
         n += fetch_icon(nm, f"https://schaledb.com/images/item/icon/{nm}.webp")
     for cat in CATS:
@@ -530,7 +567,7 @@ def build_equipment():
     return write_js("tools/equipment/data.js", "EQUIP", {
         "cats": CATS, "catJa": CAT_JA, "maxTier": max_tier,
         "recipes": recipes, "stages": out, "names": names,
-        "slots": slots, "roster": roster,
+        "slots": slots, "roster": roster, "selbox": selbox, "univRate": univ_rate,
         "version": "SchaleDB jp（ステージ・ドロップ・AP・万能設計図）／ electricgoat/ba-data jp（レシピ・箱の比率）",
     }, header="/* scripts/build-tool-data.py が吐く。**手で直さない。** */\n")
 
@@ -889,10 +926,16 @@ def build_student_cost():
     gears = sum(1 for s in stu if s["gr"])
     print(f"  アイコン {n} 枚を追加、生徒 {len(stu)} 人・素材 {len(mat)} 種・愛用品 {gears} 人")
 
+    # 1 経験値あたりのクレジット。**`ConstCommonExcelTable` に入っている。**
+    # 2026-08-30 まで 7 を手で書いていた（値は合っていた）
+    ccs = as_list(get_json(BA.format("ConstCommonExcelTable")))
+    cpe = next((r["CharacterLvUpCoefficient"] for r in ccs if r.get("CharacterLvUpCoefficient")), None)
+    if not cpe:
+        raise SystemExit("CharacterLvUpCoefficient が取れない")
+
     return write_js("tools/student-cost/data.js", "COST", {
         "need": need, "rep": rep, "mat": mat, "stu": stu,
-        # 1 経験値あたりのクレジット。**ゲームのデータには入っていない**
-        "creditPerExp": 7,
+        "creditPerExp": cpe,
         "version": "SchaleDB jp（生徒・素材）／ electricgoat/ba-data jp（レシピ・経験値表）",
     }, header="/* scripts/build-tool-data.py が吐く。**手で直さない。** */\n")
 

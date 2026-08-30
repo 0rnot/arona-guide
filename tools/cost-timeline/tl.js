@@ -128,6 +128,11 @@
     return '#' + mode + '|' + ps + '|' + os + '|' +
       [el('i-start').value, el('i-cap').value, el('i-gb').value, el('i-gc').value].join('/');
   }
+  // **共通の共有バー（../share.js）から呼ばれる。**あちらは押された時点で
+  // 組み直すので、ここで状態を渡しておけば「URL をコピー」を押していなくても
+  // いまの盤面が飛ぶ
+  window.shareUrl = toHash;
+
   function fromHash() {
     var h = location.hash.replace(/^#/, '');
     if (!h) return false;
