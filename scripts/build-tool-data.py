@@ -1138,11 +1138,83 @@ def build_raid_calendar():
     }, header="/* scripts/build-tool-data.py が吐く。**手で直さない。** */\n")
 
 
+
+# ------------------------------------------------------------ 装備・愛用品・固有武器の効果
+
+def build_gear_stats():
+    print("装備・愛用品・固有武器の効果早見")
+    eq = as_list(get_json(SD.format("equipment")))
+    students = as_list(get_json(SD.format("students")))
+    loc = get_json(SD.format("localization"))
+
+    # **設計図と万能設計図を落とす。**同じ表に混ざっているが、
+    # ステータスを持たないので StatType の有無で分けられる
+    cats = {}
+    for e in eq:
+        if not e.get("StatType") or not e.get("Name"):
+            continue
+        c = e.get("Category", "")
+        cats.setdefault(c, []).append({
+            "t": e.get("Tier", 0), "n": e["Name"], "i": e.get("Icon", ""),
+            "st": e.get("StatType") or [], "sv": e.get("StatValue") or [],
+            "ml": e.get("MaxLevel", 0),
+            "rc": e.get("RecipeCost", 0), "rp": e.get("Recipe") or [],
+        })
+    for c in cats:
+        cats[c].sort(key=lambda x: x["t"])
+    if len(cats) != 9:
+        raise SystemExit(f"装備の部位が {len(cats)} 種類しか取れない（9 のはず）")
+
+    gear, weap = [], []
+    for s in students:
+        if not s.get("Name"):
+            continue
+        w = s.get("Weapon") or {}
+        weap.append({
+            "id": s["Id"], "n": s["Name"], "sq": s.get("SquadType", ""),
+            "wn": w.get("Name", ""), "ad": w.get("AdaptationType", ""),
+            "av": w.get("AdaptationValue", 0),
+            "a": [w.get("AttackPower1", 0), w.get("AttackPower100", 0)],
+            "h": [w.get("MaxHP1", 0), w.get("MaxHP100", 0)],
+            "p": [w.get("HealPower1", 0), w.get("HealPower100", 0)],
+            "eq": s.get("Equipment") or [],
+        })
+        g = s.get("Gear") or {}
+        if g.get("Name"):
+            gear.append({
+                "id": s["Id"], "n": s["Name"], "gn": g["Name"],
+                "st": g.get("StatType") or [], "sv": g.get("StatValue") or [],
+            })
+    if len(gear) < 40:
+        raise SystemExit(f"愛用品が {len(gear)} 人ぶんしか取れない")
+
+    n = 0
+    for c in cats:
+        for e in cats[c]:
+            if e["i"]:
+                n += fetch_icon(e["i"], f"https://schaledb.com/images/equipment/icon/{e['i']}.webp")
+    for s in weap:
+        n += fetch_portrait(f"student_{s['id']}", f"https://schaledb.com/images/student/collection/{s['id']}.webp")
+    print(f"  部位 {len(cats)} × 段、愛用品 {len(gear)} 人、固有武器 {len(weap)} 人、絵 {n} 枚を追加")
+
+    keep = ("Stat", "StatTooltip", "AdaptationType", "SquadType")
+    return write_js("tools/gear-stats/data.js", "GEAR", {
+        "eq": cats, "gear": gear, "weapon": weap,
+        # 部位の日本語は localization に無いので、装備の周回計算機と同じ言い方に揃える
+        "catJa": {"Hat": "帽子", "Gloves": "手袋", "Shoes": "靴", "Bag": "カバン",
+                  "Badge": "バッジ", "Hairpin": "ヘアピン", "Charm": "お守り",
+                  "Watch": "腕時計", "Necklace": "ネックレス"},
+        "labels": {k: loc.get(k, {}) for k in keep},
+        "version": "SchaleDB jp",
+    }, header="/* scripts/build-tool-data.py が吐く。**手で直さない。** */\n")
+
+
 BUILDERS = {"bond": build_bond, "teacher-level": build_teacher_level,
             "equipment": build_equipment, "tier": build_tier, "raid": build_raid,
             "student-cost": build_student_cost, "treasure": build_treasure,
             "cost-timeline": build_cost_timeline,
             "raid-calendar": build_raid_calendar,
+            "gear-stats": build_gear_stats,
             "ui": build_ui}
 
 if __name__ == "__main__":
