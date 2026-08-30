@@ -261,6 +261,9 @@
     var best = {};
     E.stages.forEach(function (s) {
       if (!passDiff(s) || !s.ap) return;
+      // **ここでは万能設計図を数えない。**1 枚の万能設計図をどの Tier に充てるかは
+      // 1 通りしか選べないので、Tier ごとに別々に足すと同じ枚数を何度も数えてしまう。
+      // 万能設計図を込みにした周回数は、下の「周回先」の各行に出している
       var m = dropsOf(s);
       Object.keys(m).forEach(function (k) {
         var p = k.split('|'), c = p[0], t = +p[1];
@@ -277,6 +280,44 @@
    * 素朴に「1 AP あたり何枚」で並べると、序盤のステージが全部 30 枚/100AP で
    * 横並びになって順位が付かない（実測）。欲しいのは枚数ではなく、
    * **詰まっているところが埋まるかどうか**なので、不足量で重みを付ける。
+   */
+  /**
+   * この面を N 周したとき、対象の不足がぜんぶ埋まるか。
+   * **万能設計図も数える。**部位の中でレートの安い（Tier の低い）ほうから充てる。
+   */
+  function coversIn(s, sh, n) {
+    var m = dropsOf(s), u = univOf(s).by;
+    for (var i = 0; i < CATS.length; i++) {
+      var c = CATS[i], rest = {}, any = false;
+      Object.keys(sh[c]).forEach(function (t) {
+        var lack = sh[c][t] - n * (m[c + '|' + t] || 0);
+        if (lack > 0) { rest[t] = lack; any = true; }
+      });
+      if (!any) continue;
+      var stock = n * (u[c] || 0);
+      for (var t2 = 2; t2 <= 10; t2++) {
+        if (!rest[t2]) continue;
+        var use = Math.min(rest[t2], Math.floor(stock / UR[t2]));
+        stock -= use * UR[t2];
+        rest[t2] -= use;
+      }
+      for (var k in rest) if (rest[k] > 0.0000001 && touches(s, c, +k)) return false;
+    }
+    return true;
+  }
+  /** その面が関われる不足か（直接落ちるか、万能設計図で埋められるか） */
+  function touches(s, c, t) {
+    var m = dropsOf(s), u = univOf(s).by;
+    return !!m[c + '|' + t] || !!u[c];
+  }
+
+  /**
+   * 周回先の並び。**「足りない量が多いものほど重く数える」。**
+   * 素朴に「1 AP あたり何枚」で並べると、序盤のステージが全部 30 枚/100AP で
+   * 横並びになって順位が付かない（実測）。欲しいのは枚数ではなく、
+   * **詰まっているところが埋まるかどうか**なので、不足量で重みを付ける。
+   * **万能設計図も同じ物差しに乗せる。**高 Tier の面ほど大量に落ちるので、
+   * これを数えないと「低 Tier の面ばかり勧める」ことになる（Wiki の考察と食い違う）。
    */
   function rankStages(sh) {
     var maxShort = 0;
@@ -297,21 +338,38 @@
         score += ev * (lack / maxShort);
         parts.push({ txt: JA[c] + ' T' + t + ' ' + ev.toFixed(2), w: lack });
       });
+
+      // 万能設計図ぶん。**1 周でもらえる枚数を、レートの安い Tier から設計図に換算する**
+      var u = univOf(s), uScore = 0, uCount = 0;
+      CATS.forEach(function (c) {
+        var stock = u.by[c] || 0;
+        if (!stock) return;
+        for (var t = 2; t <= 10; t++) {
+          var lack = (sh[c] && sh[c][t]) || 0;
+          if (!lack || stock <= 0) continue;
+          var can = Math.min(lack, stock / UR[t]);
+          stock -= can * UR[t];
+          uScore += can * (lack / maxShort);
+          uCount += can;
+        }
+      });
+      score += uScore;
+      got += uCount;
       if (got <= 0) return;
       parts.sort(function (a, b) { return b.w - a.w; });
-      // **このステージで、いちばん詰まっている 1 種類を埋めるのに何周か。**
+
+      // **この面だけを回ったとき、関われる不足が埋まるまで何周か。**
       // 「不足の合計 ÷ 1 周の枚数」は、設計図が置き換えられるかのように
       // 見えて嘘になる。1 種類でも足りなければ終わらない
-      var runs = 0;
-      Object.keys(m).forEach(function (k) {
-        var p2 = k.split('|'), lack2 = (sh[p2[0]] && sh[p2[0]][+p2[1]]) || 0;
-        if (!lack2 || !m[k]) return;
-        var need = Math.ceil(lack2 / m[k]);
-        if (need > runs) runs = need;
-      });
-      var u = univOf(s);
-      out.push({ s: s, got: got, per: got / s.ap, score: score / s.ap, runs: runs, uni: u.total,
-                 parts: parts.map(function (x) { return x.txt; }) });
+      var lo = 0, hi = 1;
+      while (hi < 1000000 && !coversIn(s, sh, hi)) hi *= 2;
+      if (!coversIn(s, sh, hi)) hi = 1000000;
+      while (lo + 1 < hi) {
+        var mid = Math.floor((lo + hi) / 2);
+        if (coversIn(s, sh, mid)) hi = mid; else lo = mid;
+      }
+      out.push({ s: s, got: got, per: got / s.ap, score: score / s.ap, runs: hi, uni: u.total,
+                 ucount: uCount, parts: parts.map(function (x) { return x.txt; }) });
     });
     out.sort(function (a, b) { return b.score - a.score || b.per - a.per; });
     return out;
@@ -356,7 +414,8 @@
       var wp = worstKey.split('|');
       el('o-runs').innerHTML = fmt(worstAp) + '<small>AP</small>';
       el('o-runs-sub').textContent = 'いちばん詰まるのは ' + JA[wp[0]] + ' T' + wp[1] +
-        '（' + fmt(sh[wp[0]][+wp[1]]) + ' 枚）。' + stageName(best[worstKey].stage) + ' で最短' +
+        '（' + fmt(sh[wp[0]][+wp[1]]) + ' 枚）。' + stageName(best[worstKey].stage) +
+        ' で最短。万能設計図を数えないときの値です' +
         (uncovered.length ? '。' + uncovered.length + ' 種類は今の絞り込みでは落ちません' : '');
     } else {
       el('o-runs').textContent = '—';
@@ -372,7 +431,8 @@
             '<span class="dt2">AP ' + x.s.ap + '　' + (x.per * 100).toFixed(1) + ' 枚/100AP　' +
               x.parts.join('　') +
               (x.uni > 0 ? '<br>万能設計図 1 周 ' + x.uni.toFixed(1) + ' 枚（' +
-                fmt(x.uni * x.runs) + ' 枚たまる）' : '') + '</span></span>' +
+                fmt(x.uni * x.runs) + ' 枚たまります）' : '') +
+              '</span></span>' +
             '<span class="sc">' + fmt(x.runs) + '<small style="font-weight:400;color:var(--fg-mute)"> 周' +
               '<br>' + fmt(x.runs * x.s.ap) + ' AP</small></span>' +
             '</div>';
