@@ -629,8 +629,154 @@ def build_raid():
     }, header="/* scripts/build-tool-data.py が吐く。**手で直さない。** */\n")
 
 
+# ------------------------------------------------------------ 生徒 1 人の育成費用
+
+# レシピ Id は **生徒 Id × 1000 ＋ 枠 × 100 ＋ 段**。実際に確かめた並びは
+#   枠 0 CharacterTranscendence  星上げ    ★1→2 …★4→5（4 段）
+#   枠 1 SkillLevelUp            EX スキル  Lv1→2 …Lv4→5（4 段）
+#   枠 2 SkillLevelUp            EX 以外    Lv1→2 …Lv8→9（8 段）
+#   枠 3 WeaponTranscendence     固有武器   ★1→2 …（開いている段だけ）
+#   枠 4 EquipmentTierUp         愛用品     T1→T2
+#
+# **クレジットと、星・固有武器の神名文字の数は、223 人ぜんぶで同じ値だった**ので
+# ここから定数として取り出す。素材そのもの（BD・ノート・オーパーツ）は生徒ごとに違う。
+#
+# **素材は SchaleDB を正本にする。**ba-data の jp ブランチには 223 人ぶんしか
+# レシピが入っておらず、SchaleDB の 274 人と 51 人ずれる（装備の万能設計図と同じ）。
+#
+# **Lv9→Lv10 だけは生徒ごとのレシピが無い。**秘伝ノート 1 冊で誰でも同じなので、
+# 99999 番の共通レシピ（99999208）に 1 本だけ置いてある。
+SC_LAST_SKILL = 99999 * 1000 + 2 * 100 + 8      # Lv9→Lv10。秘伝ノート
+
+
+def build_student_cost():
+    print("生徒 1 人の育成費用")
+    students = as_list(get_json(SD.format("students")))
+    items = as_list(get_json(SD.format("items")))
+    lv_tbl = as_list(get_json(BA.format("CharacterLevelExcelTable")))
+    ing = {r["Id"]: r for r in as_list(get_json(BA.format("RecipeIngredientExcelTable")))}
+
+    item_by_id = {it["Id"]: it for it in items if it.get("Name")}
+
+    # Lv n から n+1 へ要る経験値。**Lv90 の行は 0**（そこが上限）
+    need = []
+    for r in sorted(lv_tbl, key=lambda x: x.get("Level", 0)):
+        if r.get("Level") and 1 <= r["Level"] <= 90:
+            need.append(r.get("Exp", 0))
+    if len(need) != 90:
+        raise SystemExit(f"CharacterLevelExcelTable が 90 行でない（{len(need)}）")
+
+    rep = []
+    for it in items:
+        if it.get("Category") == "CharacterExpGrowth" and it.get("ExpValue"):
+            rep.append({"id": it["Id"], "n": it["Name"], "e": it["ExpValue"], "i": it["Icon"]})
+    rep.sort(key=lambda x: x["e"])
+    if len(rep) != 4:
+        raise SystemExit(f"レポートが 4 種でない（{len(rep)}）")
+
+    def only(vals, what):
+        """全員で同じ値になっているはずのものを 1 つに畳む。**ずれていたら止める。**"""
+        uniq = set(vals)
+        if len(uniq) != 1:
+            raise SystemExit(f"{what} が生徒ごとに違う: {sorted(uniq)[:5]}")
+        return uniq.pop()
+
+    # 段ごとのクレジットと、星・武器の神名文字の数を 223 人から取り出す
+    credit, stones = {}, {}
+    for slot in (0, 1, 2, 3, 4):
+        for step in range(9):
+            rows = [r for i, r in ing.items()
+                    if 10000000 <= i < 99000000 and (i % 1000) // 100 == slot and i % 100 == step]
+            if not rows:
+                continue
+            credit[(slot, step)] = only([tuple(r["CostAmount"]) for r in rows],
+                                        f"枠 {slot} 段 {step} のクレジット")[0]
+            if slot in (0, 3):
+                stones[(slot, step)] = only([tuple(r["IngredientAmount"]) for r in rows],
+                                            f"枠 {slot} 段 {step} の神名文字")[0]
+    last = ing.get(SC_LAST_SKILL)
+    if not last:
+        raise SystemExit(f"共通レシピ {SC_LAST_SKILL}（Lv9→Lv10）が無い")
+    credit[(2, 8)] = last["CostAmount"][0]
+
+    used = set()
+
+    def mats(ids, amts):
+        out = []
+        for iid, amt in zip(ids or [], amts or []):
+            out.append([iid, amt])
+            used.add(iid)
+        return out
+
+    stu = []
+    for s in students:
+        if not s.get("Name"):
+            continue
+        cid = s["Id"]
+        used.add(cid)                                   # 神名文字はアイテム Id ＝ 生徒 Id
+
+        ex = [[credit[(1, i)], mats(m, a)] for i, (m, a) in
+              enumerate(zip(s.get("SkillExMaterial") or [], s.get("SkillExMaterialAmount") or []))]
+        sk = [[credit[(2, i)], mats(m, a)] for i, (m, a) in
+              enumerate(zip(s.get("SkillMaterial") or [], s.get("SkillMaterialAmount") or []))]
+        if sk:                                          # Lv9→Lv10。**誰でも秘伝ノート 1 冊**
+            sk.append([credit[(2, 8)], mats(last["IngredientId"], last["IngredientAmount"])])
+
+        tr = [[credit[(0, i)], [[cid, stones[(0, i)]]]] for i in range(4)]
+        # 固有武器は★3 まで。データには★4・★5 の段もあるが、中身が
+        # 「神名文字 1 個」の仮置きなので数えない
+        wp = ([[credit[(3, i)], [[cid, stones[(3, i)]]]] for i in range(2)]
+              if s.get("Weapon") else [])
+
+        gear = s.get("Gear") or {}
+        gr = [[credit[(4, i)], mats(m, a)] for i, (m, a) in
+              enumerate(zip(gear.get("TierUpMaterial") or [], gear.get("TierUpMaterialAmount") or []))]
+
+        stu.append({"id": cid, "n": s["Name"], "r": s.get("StarGrade", 1),
+                    "ex": ex, "sk": sk, "tr": tr, "wp": wp, "gr": gr})
+    stu.sort(key=lambda x: x["n"])
+
+    # 素材の名前とアイコン。**神名文字だけは生徒ごとに 274 種ある**ので、
+    # 絵は共通の item_icon_secretstone を使い回して名前だけ持たせる
+    by_name = {s["id"]: s["n"] for s in stu}
+    mat = {}
+    for iid in sorted(used):
+        it = item_by_id.get(iid)
+        if not it:
+            # **未実装の生徒は神名文字だけ items に無い。**名前は生徒から作れる
+            if iid in by_name:
+                mat[str(iid)] = {"n": by_name[iid] + "の神名文字",
+                                 "i": "item_icon_secretstone", "s": 1}
+            else:
+                print(f"    素材 {iid} が items に無い", file=sys.stderr)
+            continue
+        stone = it.get("Category") == "SecretStone"
+        mat[str(iid)] = {"n": it["Name"].replace("\n", ""),
+                         "i": "item_icon_secretstone" if stone else it["Icon"],
+                         "s": 1 if stone else 0}
+
+    n = 0
+    for v in mat.values():
+        n += fetch_icon(v["i"], f"https://schaledb.com/images/item/icon/{v['i']}.webp")
+    for r in rep:
+        n += fetch_icon(r["i"], f"https://schaledb.com/images/item/icon/{r['i']}.webp")
+    fetch_icon("currency_icon_gold", "https://schaledb.com/images/item/icon/currency_icon_gold.webp")
+    for s in stu:
+        n += fetch_portrait(f"student_{s['id']}", f"https://schaledb.com/images/student/collection/{s['id']}.webp")
+    gears = sum(1 for s in stu if s["gr"])
+    print(f"  アイコン {n} 枚を追加、生徒 {len(stu)} 人・素材 {len(mat)} 種・愛用品 {gears} 人")
+
+    return write_js("tools/student-cost/data.js", "COST", {
+        "need": need, "rep": rep, "mat": mat, "stu": stu,
+        # 1 経験値あたりのクレジット。**ゲームのデータには入っていない**
+        "creditPerExp": 7,
+        "version": "SchaleDB jp（生徒・素材）／ electricgoat/ba-data jp（レシピ・経験値表）",
+    }, header="/* scripts/build-tool-data.py が吐く。**手で直さない。** */\n")
+
+
 BUILDERS = {"bond": build_bond, "teacher-level": build_teacher_level,
-            "equipment": build_equipment, "tier": build_tier, "raid": build_raid}
+            "equipment": build_equipment, "tier": build_tier, "raid": build_raid,
+            "student-cost": build_student_cost}
 
 if __name__ == "__main__":
     want = sys.argv[1:] or list(BUILDERS)
