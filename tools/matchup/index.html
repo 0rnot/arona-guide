@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>属性と地形の早見｜AronaBot</title>
+<meta name="description" content="攻撃属性と装甲の倍率、地形適性の 6 段をそのまま並べます。相手の装甲と地形を選ぶと、有効な属性の生徒が適性つきで並びます。">
+<meta name="theme-color" content="#c8892e">
+<link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<meta property="og:title" content="属性と地形の早見">
+<meta property="og:description" content="攻撃属性と装甲の倍率、地形適性の 6 段をそのまま並べます。相手の装甲と地形を選ぶと、有効な属性の生徒が適性つきで並びます。">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://arona-bot.com/tools/matchup/">
+<meta property="og:image" content="https://arona-bot.com/images/hero-night.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="stylesheet" href="../../style.css?v=15">
+<link rel="stylesheet" href="../tool.css?v=7">
+<style>
+  /* 倍率の表。**升に色を付けて、強い・弱いが一目で分かるように。** */
+  .mx { width: 100%; border-collapse: collapse; font-size: .82rem; min-width: 520px; }
+  .mx th, .mx td { padding: .45em .3em; text-align: center; border: 1px solid var(--line); }
+  .mx thead th { font-size: .74rem; font-weight: 700; color: var(--fg-mute); background: var(--bg-sub); }
+  .mx tbody th { font-weight: 700; text-align: left; padding-left: .6em; white-space: nowrap;
+                 background: var(--bg-sub); }
+  .mx td { font-variant-numeric: tabular-nums; font-weight: 700; }
+  .mx td.w2 { background: color-mix(in srgb, var(--accent) 30%, transparent); color: var(--accent-tx); }
+  .mx td.w15 { background: color-mix(in srgb, var(--accent) 15%, transparent); color: var(--accent-tx); }
+  .mx td.w1 { color: var(--fg-mute); font-weight: 500; }
+  .mx td.w05 { background: color-mix(in srgb, var(--fg-mute) 12%, transparent); color: var(--fg-mute); }
+  .mx td.here { outline: 2px solid var(--accent); outline-offset: -2px; }
+  .mx .cur { color: var(--accent-tx); }
+
+  /* 凡例 */
+  .leg { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; font-size: .76rem; color: var(--fg-mute); }
+  .leg i { display: inline-block; width: 14px; height: 14px; border-radius: 4px; vertical-align: -.2em;
+           margin-right: .35em; border: 1px solid var(--line); }
+  .leg .w2 { background: color-mix(in srgb, var(--accent) 30%, transparent); }
+  .leg .w15 { background: color-mix(in srgb, var(--accent) 15%, transparent); }
+  .leg .w1 { background: var(--card); }
+  .leg .w05 { background: color-mix(in srgb, var(--fg-mute) 12%, transparent); }
+
+  /* 生徒の顔 */
+  .mgroup { margin-bottom: 18px; }
+  .mgroup:last-child { margin-bottom: 0; }
+  .mhead { display: flex; align-items: baseline; gap: .5em; margin: 0 0 .6em; font-size: .88rem; font-weight: 800; }
+  .mhead .n { font-size: .78rem; font-weight: 400; color: var(--fg-mute); }
+  .mhead .ex { font-size: .78rem; font-weight: 700; color: var(--accent-tx); }
+  .faces { display: grid; grid-template-columns: repeat(auto-fill, minmax(62px, 1fr)); gap: 6px; }
+  .face { text-align: center; }
+  .face img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 9px;
+              border: 1px solid var(--line); background: var(--bg-sub); display: block; }
+  .face .nm { display: block; font-size: .66rem; line-height: 1.3; margin-top: .2em;
+              overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .face .gr { display: block; font-size: .64rem; font-weight: 800; line-height: 1.3; color: var(--fg-mute); }
+  .face .gr.hi { color: var(--accent-tx); }
+  .empty { font-size: .82rem; color: var(--fg-mute); }
+
+  /* 選んだ生徒 */
+  .stucard { display: grid; grid-template-columns: 84px 1fr; gap: 14px; align-items: center;
+             padding: 12px; margin-top: 14px;
+             border: 1px solid var(--line); border-radius: 14px; background: var(--bg-sub); }
+  .stucard.none { border-style: dashed; }
+  .stucard img { width: 84px; height: 84px; border-radius: 12px; background: var(--card); display: block; }
+  .stucard .ph { width: 84px; height: 84px; border-radius: 12px; background: var(--card);
+                 border: 1px solid var(--line); display: grid; place-items: center;
+                 font-size: .72rem; color: var(--fg-mute); font-weight: 700; }
+  .stucard .nm { font-size: 1.1rem; font-weight: 800; margin: 0 0 .35em; }
+  .stucard.none .nm { color: var(--fg-mute); font-size: .95rem; }
+  .stucard .tags { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: .35em; }
+  .stucard .tg { font-size: .68rem; font-weight: 700; padding: .1em .55em; border-radius: 999px;
+                 border: 1px solid var(--line); background: var(--card); color: var(--fg-mute); }
+  .stucard .tg.on { border-color: transparent; background: var(--accent); color: var(--accent-in); }
+  .stucard .ad { font-size: .78rem; color: var(--fg-mute); line-height: 1.6; }
+  .stucard .ad b { color: var(--fg); }
+</style>
+</head>
+<body>
+
+<!-- 上のバーと footer は scripts/sync-chrome.py が流し込む。
+     **閉じタグの前に改行を入れておくこと。**あちらの正規表現は閉じタグの直前の
+     改行を目印にしているので、1 行に畳むと本文まで食われる。
+     **この注記に目印そのものを書かないこと。**書くと注記の中から当たる -->
+<div class="topbar">
+  <div class="topbar-inner">
+    <a class="topbar-name" href="../../">AronaBotの使い方</a>
+    <a class="topbar-tools" href="../">
+      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <path d="M21.7 18.3l-6-6a5.5 5.5 0 0 0-7-7l3.1 3.1-2.1 2.1L6.6 7.3a5.5 5.5 0 0 0 7 7l6 6a1 1 0 0 0 1.4 0l.7-.7a1 1 0 0 0 0-1.3z"/>
+      </svg>
+      ツール一覧
+    </a>
+    <nav class="topbar-nav">
+      <a href="../../#can">機能</a>
+      <a href="../../#start">つかいはじめる</a>
+      <a href="../../#message">メッセージから</a>
+      <a href="../../#faq">よくある質問</a>
+    </nav>
+    <!-- 共有。**AronaBot 本体と同じ位置に置く。**押した先は環境で変える -->
+    <span class="share-nudge" aria-hidden="true">使えそうな人に、ぜひ</span>
+    <a class="share" id="share-page" target="_blank" rel="noopener" aria-label="このページを共有する"
+       href="https://x.com/intent/post?url=https%3A%2F%2Farona-bot.com%2Ftools%2F">
+      <svg class="share-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <path d="M14 9V5l7 7-7 7v-4.1c-5 0-8.5 1.6-11 5.1 1-5 4-10 11-11z"/>
+      </svg>
+      <span class="share-label">共有</span>
+    </a>
+  </div>
+</div>
+<div class="toast" id="toast-page" role="status" aria-live="polite"></div>
+<script>
+/* 共有ボタン。**そのページ自身の URL を配る。**
+   1. スマホ（navigator.share）→ OS の共有シート
+   2. PC（クリップボード）→ URL をコピーして帯で伝える
+   3. どちらも無い → <a href> のまま X の共有ページへ */
+(function () {
+  var btn = document.getElementById('share-page'), toast = document.getElementById('toast-page');
+  if (!btn) return;
+  // **`#` を落とさない。**TL のように状態をハッシュに入れているツールでは、
+  // ここを削ると相手の画面に同じ結果が出ない（2026-08-30）
+  var url = location.href;
+  var name = document.title.split('｜')[0];
+  var text = name + '（AronaBot のツール）';
+  btn.href = 'https://x.com/intent/post?text=' + encodeURIComponent(text) +
+             '&url=' + encodeURIComponent(url);
+  var timer = null;
+  function say(t) {
+    if (!toast) return;
+    toast.textContent = t; toast.classList.add('shown');
+    clearTimeout(timer); timer = setTimeout(function () { toast.classList.remove('shown'); }, 2000);
+  }
+  btn.addEventListener('click', function (e) {
+    if (navigator.share) {
+      e.preventDefault();
+      navigator.share({ title: name, text: text, url: url }).catch(function () {});
+      return;
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      e.preventDefault();
+      navigator.clipboard.writeText(url).then(function () { say('リンクをコピーしました'); },
+        function () { window.open(btn.href, '_blank', 'noopener'); });
+    }
+  });
+})();
+</script>
+
+<header class="thero">
+  <div class="thero-media" aria-hidden="true">
+    <picture>
+      <source srcset="../../images/hero-day.jpg" media="(prefers-color-scheme: dark)">
+      <img src="../../images/hero-night.jpg" alt="" width="1600" height="400" fetchpriority="high">
+    </picture>
+  </div>
+  <div class="thero-body">
+    <h1>属性と地形の早見</h1>
+    <p class="thero-lead">攻撃属性と装甲の倍率、地形適性の 6 段をそのまま並べます。相手の装甲と地形を選ぶと、有効な属性の生徒が適性つきで並びます。</p>
+  </div>
+</header>
+
+<div class="twrap">
+  <p class="tcrumb"><a href="../../">AronaBotの使い方</a><span class="sl">/</span><a href="../">ツール</a><span class="sl">/</span>属性と地形の早見</p>
+
+  <div class="tcols lean" style="margin-top:20px">
+
+    <div class="tcol">
+      <div class="panel">
+        <div class="panel-h"><h2>相手の条件</h2></div>
+        <p class="lead" style="margin:0 0 12px">相手の装甲と、戦う地形を選んでください。<b>この 2 つで、連れて行きたい生徒が決まります。</b></p>
+        <div class="fields c2">
+          <div class="field">
+            <label for="i-armor">相手の装甲</label>
+            <select id="i-armor"></select>
+          </div>
+          <div class="field">
+            <label for="i-terr">地形</label>
+            <select id="i-terr"></select>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-h"><h2>連れて行く生徒</h2></div>
+        <p class="lead" style="margin:0 0 12px" id="list-lead">—</p>
+        <div class="fields c3">
+          <div class="field">
+            <label for="i-role">役割</label>
+            <select id="i-role"><option value="">ぜんぶ</option></select>
+          </div>
+          <div class="field">
+            <label for="i-sq">枠</label>
+            <select id="i-sq">
+              <option value="">ぜんぶ</option>
+              <option value="Main">ストライカー</option>
+              <option value="Support">スペシャル</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="i-min">地形適性の下限</label>
+            <select id="i-min">
+              <option value="5">SS だけ</option>
+              <option value="4">S 以上</option>
+              <option value="3" selected>A 以上</option>
+              <option value="2">B 以上</option>
+              <option value="0">ぜんぶ</option>
+            </select>
+          </div>
+        </div>
+        <div id="groups" style="margin-top:14px"></div>
+      </div>
+    </div>
+
+    <div class="tcol sticky">
+      <div class="stats c3">
+        <div class="stat hero">
+          <div class="k">いちばん効く攻撃属性</div>
+          <div class="v" id="o-best">—</div>
+          <div class="sub" id="o-best-sub">&nbsp;</div>
+        </div>
+        <div class="stat">
+          <div class="k">地形の攻撃力</div>
+          <div class="v" id="o-terr">—</div>
+          <div class="sub" id="o-terr-sub">適性 SS のとき</div>
+        </div>
+        <div class="stat">
+          <div class="k">条件に合う生徒</div>
+          <div class="v" id="o-n">—</div>
+          <div class="sub" id="o-n-sub">&nbsp;</div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-h"><h2>攻撃属性と装甲の倍率</h2></div>
+        <div class="tscroll"><table class="mx" id="mx"></table></div>
+        <div class="leg">
+          <span><i class="w2"></i>×2.0（弱点）</span>
+          <span><i class="w15"></i>×1.5（効果的）</span>
+          <span><i class="w1"></i>×1.0</span>
+          <span><i class="w05"></i>×0.5（抵抗）</span>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-h"><h2>地形適性の 6 段</h2></div>
+        <p class="lead" style="margin:0 0 12px"><b>3 つの地形（市街地・屋外・屋内）で値は同じです。</b>変わるのは段だけです。</p>
+        <div class="tscroll">
+          <table class="dt">
+            <thead><tr><th>適性</th><th>攻撃力</th><th>ShotFactor</th><th>BlockFactor</th></tr></thead>
+            <tbody id="tt"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-h"><h2>生徒から引く</h2></div>
+        <div class="field">
+          <label for="i-student">生徒</label>
+          <input id="i-student" type="search" list="students" placeholder="名前で探す" autocomplete="off">
+          <datalist id="students"></datalist>
+        </div>
+        <div class="stucard none" id="stucard">
+          <div class="ph" id="stu-img">none</div>
+          <div>
+            <p class="nm" id="stu-name">まだ誰も選んでいません</p>
+            <div class="tags" id="stu-tags"></div>
+            <p class="ad" id="stu-ad">名前を入れると、その子の攻撃属性・装甲・3 つの地形の適性が出ます。</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="tfull">
+      <div class="sharebar" id="sharebar"></div>
+
+      <details class="src">
+        <summary>数字の出どころ</summary>
+        <p><b>倍率の表は、ゲームのデータ 2 か所から取って突き合わせています。</b>片方だけだと足りません。</p>
+        <ul>
+          <li><a href="https://schaledb.com/data/config.json" target="_blank" rel="noopener">SchaleDB の <code>config.json</code></a> の <code>TypeEffectiveness</code>。攻撃属性 6 種 × 装甲 7 種が全部入っています</li>
+          <li><a href="https://github.com/electricgoat/ba-data" target="_blank" rel="noopener">ba-data</a> の <code>Excel/BulletArmorDamageFactorExcelTable.json</code>（42 行）。<code>DamageRate</code> が 10000 分率で、<code>20000</code> が ×2.0 です</li>
+          <li><b>重なる <span id="src-n">—</span> 升は 1 つずつ照合して、ぜんぶ一致しました。</b>食い違う升が出たらデータを作るときに止まります</li>
+          <li><b>ba-data の jp ブランチには「分解（Chemical）」と「複合装甲（CompositeArmor）」の行がありません。</b>この 12 升は SchaleDB 側にしか無いので、そちらから取っています。<b>ゲーム内には既にあって、複合装甲の生徒も 2 人います。</b></li>
+          <li>その 12 升は<a href="https://gamerch.com/bluearchive/186855" target="_blank" rel="noopener">ブルアカ攻略wiki（Gamerch）「分解と複合装甲の相性」</a>とも一致しました——「分解は複合装甲に 2 倍有利／重装甲に 1.5 倍有利／軽装備に半減／その他は等倍」「複合装甲は分解に 2 倍弱点／神秘・振動に半減／その他は等倍」。<b>データと記事が別々に一致したので、読み違いではありません。</b></li>
+        </ul>
+        <p><b>×1.5 という段があります。</b>振動 → 特殊装甲と、分解 → 重装甲の 2 つだけです（<code>DamageAttribute</code> が <code>Effective</code>）。ほかは ×2.0 / ×1.0 / ×0.5 の 3 段です。</p>
+        <p><b>地形適性は <code>Excel/TerrainAdaptationFactorExcelTable.json</code>（18 行）です。</b>市街地・屋外・屋内の 3 つ × 6 段で、<b>3 つの地形で値は 1 つも変わりません</b>（これも数えて確かめています）。
+          <code>AttackPowerFactor</code> が 10000 分率で <code>13000 / 12000 / 11000 / 10000 / 9000 / 8000</code>——<b>SS で ×1.3、D で ×0.8</b>。
+          これは <a href="https://game8.jp/blue-archive/639677" target="_blank" rel="noopener">ゲームエイト「地形適性（戦地適性）の倍率と効果・上げ方」</a>の「SS 1.3倍 / S 1.2倍 / A 1.1倍 / B 1.0倍 / C 0.9倍 / D 0.8倍」と一致します。</p>
+        <p><b><code>ShotFactor</code> と <code>BlockFactor</code> の意味は断定しません。</b>どちらも <code>7500 / 6000 / 4500 / 3000 / 1500 / 0</code> と並んでいて、遮蔽まわりの値であることは
+          <a href="https://gamerch.com/bluearchive/186855" target="_blank" rel="noopener">同じ攻略wiki</a>の「戦地適性で遮蔽物利用時の成功率が変化します。戦地適性が高ければ遮蔽物に隠れているときの BLOCK 率が上昇したり」という記述から分かりますが、<b>数値の単位までは書いた出どころが見つかりませんでした。</b>表には生の数字だけ載せています。同じ表の <code>AccuracyFactor</code> と <code>DodgeFactor</code> は 18 行すべて <code>0</code> なので出していません。</p>
+        <p><b>生徒の攻撃属性・装甲・地形適性は <a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a> の <code>students</code> から。</b>地形適性は <code>StreetBattleAdaptation</code> / <code>OutdoorBattleAdaptation</code> / <code>IndoorBattleAdaptation</code> に <code>0</code>〜<code>5</code> の数字で入っていて、<b>0 が D、5 が SS</b> です。<span id="src-stu">—</span> 人ぶん、範囲の外に出ていないことを確かめています。
+          <b>固有武器の 3 凸で適性が 1 段上がる子がいますが、ここでは素の値を出しています。</b></p>
+        <p>出典 — <a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a>（倍率表・生徒）、<a href="https://github.com/electricgoat/ba-data" target="_blank" rel="noopener">electricgoat/ba-data</a>（倍率表・地形適性）、<a href="https://game8.jp/blue-archive/639677" target="_blank" rel="noopener">ゲームエイト</a>と<a href="https://gamerch.com/bluearchive/186855" target="_blank" rel="noopener">Gamerch</a>（地形と分解・複合装甲の裏取り）。取得は <span id="ver">—</span>。</p>
+      </details>
+    </div>
+
+  </div>
+</div>
+
+<script>window.TOUR = {"key": "matchup", "steps": [
+  {"sel": "#i-armor", "t": "相手の装甲と地形を選びます", "d": "この 2 つで、連れて行きたい生徒が決まります。ボスの装甲が分からないときは総力戦の相性チェッカーへ。"},
+  {"sel": "#o-best", "t": "いちばん効く属性が出ます", "d": "地形の攻撃力倍率も一緒に。SS で ×1.3、D で ×0.8 です。"},
+  {"sel": "#groups", "t": "生徒が倍率ごとに並びます", "d": "顔の下の SS / S / A が、その地形での適性です。役割や枠で絞れます。"},
+  {"sel": "#mx", "t": "倍率表はそのまま置いてあります", "d": "×2.0 が弱点、×1.5 が効果的、×0.5 が抵抗。振動→特殊装甲と分解→重装甲だけが ×1.5 です。"},
+  {"sel": "#sharebar", "t": "結果はそのまま渡せます", "d": "選んだ条件ごと URL になるので、リンクを送れば相手の画面にも同じ結果が出ます。"}
+]};</script>
+<script src="../tour.js?v=1"></script>
+
+<script src="../share.js?v=1"></script>
+
+<footer>
+  <div class="foot-inner">
+    <p class="foot-name">AronaBotの使い方</p>
+    <p class="foot-links">
+      <a href="../../">AronaBot のページ</a>
+      <span class="sep">/</span>
+      <a href="../">ツール一覧</a>
+      <span class="sep">/</span>
+      <a href="https://x.com/pe6cak" target="_blank" rel="noopener">制作者の X（@pe6cak）</a>
+      <span class="sep">/</span>
+      <span>不具合・要望は <b>@0r.not</b> まで</span>
+    </p>
+    <p class="disclaimer">
+      <b>このサイトはファンが作った非公式のものです。</b>運営とは関係ありません。
+      <small>掲載しているゲーム内の画像・アイコン・名称・数値は、Nexon Games / Yostar の
+      「ブルーアーカイブ」から引用したもので、著作権はすべて権利者に帰属します。
+      ツールの計算に使うデータは <a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a> と
+      <a href="https://github.com/electricgoat/ba-data" target="_blank" rel="noopener">ba-data</a> から取得しています。
+      権利者の方でご指摘があれば <b>@0r.not</b> までご連絡ください。</small>
+    </p>
+  </div>
+</footer>
+
+<script src="data.js"></script>
+<script>
+(function () {
+  'use strict';
+  var M = window.MATCH;
+  var el = function (id) { return document.getElementById(id); };
+  function esc(t) {
+    return String(t).replace(/[&<>"]/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
+    });
+  }
+  // 地形適性は 0〜5 の数字。**0 が D、5 が SS**
+  var GRADE = ['D', 'C', 'B', 'A', 'S', 'SS'];
+  var TERR = ['Street', 'Outdoor', 'Indoor'];
+  function gradeOf(s, ti) { return GRADE[s.ad[ti]] || 'D'; }
+  function terrRow(g) {
+    for (var i = 0; i < M.terr.length; i++) if (M.terr[i].g === g) return M.terr[i];
+    return M.terr[M.terr.length - 1];
+  }
+  function rate(b, a) { var r = M.eff[b]; return (r && r[a] != null) ? r[a] : 10000; }
+  function x(v) { return '×' + (v / 10000).toFixed(1); }
+  function cls(v) { return v >= 20000 ? 'w2' : v >= 15000 ? 'w15' : v <= 5000 ? 'w05' : 'w1'; }
+
+  var armor = 'LightArmor', terr = 'Street', student = null;
+  var byId = {};
+  M.stu.forEach(function (s) { byId[s.id] = s; });
+
+  (function fill() {
+    // 相手の装甲。**「通常装甲」と「構造物」も選べるようにする**（構造物は総力戦に出る）
+    el('i-armor').innerHTML = M.armors.map(function (a) {
+      return '<option value="' + a + '"' + (a === armor ? ' selected' : '') + '>' +
+        esc(M.aJa[a] || a) + '</option>';
+    }).join('');
+    el('i-terr').innerHTML = TERR.map(function (t) {
+      return '<option value="' + t + '"' + (t === terr ? ' selected' : '') + '>' +
+        esc(M.trJa[t] || t) + '</option>';
+    }).join('');
+    var seen = {}, roles = [];
+    M.stu.forEach(function (s) { if (s.ro && !seen[s.ro]) { seen[s.ro] = 1; roles.push(s.ro); } });
+    el('i-role').innerHTML = '<option value="">ぜんぶ</option>' +
+      roles.map(function (r) { return '<option>' + esc(r) + '</option>'; }).join('');
+    el('students').innerHTML = M.stu.map(function (s) {
+      return '<option value="' + esc(s.n) + '">';
+    }).join('');
+  })();
+
+  function drawMatrix() {
+    var h = '<thead><tr><th>攻撃属性 \\ 装甲</th>' + M.armors.map(function (a) {
+      return '<th' + (a === armor ? ' class="cur"' : '') + '>' + esc(M.aJa[a] || a) + '</th>';
+    }).join('') + '</tr></thead><tbody>';
+    M.bullets.forEach(function (b) {
+      h += '<tr><th>' + esc(M.bJa[b] || b) + '</th>' + M.armors.map(function (a) {
+        var v = rate(b, a);
+        return '<td class="' + cls(v) + (a === armor ? ' here' : '') + '">' + x(v) + '</td>';
+      }).join('') + '</tr>';
+    });
+    el('mx').innerHTML = h + '</tbody>';
+  }
+
+  (function drawTerr() {
+    el('tt').innerHTML = M.terr.map(function (t) {
+      return '<tr><td>' + t.g + '</td><td>×' + (t.atk / 10000).toFixed(1) + '</td><td>' +
+        t.shot.toLocaleString('ja-JP') + '</td><td>' + t.block.toLocaleString('ja-JP') + '</td></tr>';
+    }).join('');
+  })();
+
+  function drawStudent() {
+    var card = el('stucard');
+    if (!student) {
+      card.classList.add('none');
+      el('stu-img').outerHTML = '<div class="ph" id="stu-img">none</div>';
+      el('stu-name').textContent = 'まだ誰も選んでいません';
+      el('stu-tags').innerHTML = '';
+      el('stu-ad').textContent = '名前を入れると、その子の攻撃属性・装甲・3 つの地形の適性が出ます。';
+      return;
+    }
+    card.classList.remove('none');
+    el('stu-img').outerHTML = '<img id="stu-img" src="../img/student_' + student.id +
+      '.webp" alt="" width="84" height="84">';
+    el('stu-name').textContent = student.n;
+    var v = rate(student.b, armor);
+    el('stu-tags').innerHTML =
+      '<span class="tg' + (v >= 15000 ? ' on' : '') + '">' + esc(M.bJa[student.b] || student.b) + '</span>' +
+      '<span class="tg">' + esc(M.aJa[student.a] || student.a) + '</span>' +
+      '<span class="tg">' + esc(student.ro) + '</span>' +
+      '<span class="tg">' + esc(student.sc) + '</span>';
+    el('stu-ad').innerHTML =
+      '市街地 <b>' + gradeOf(student, 0) + '</b>／屋外 <b>' + gradeOf(student, 1) +
+      '</b>／屋内 <b>' + gradeOf(student, 2) + '</b><br>' +
+      'いま選んでいる' + esc(M.aJa[armor] || armor) + 'には <b>' + x(v) + '</b>。' +
+      'この子の' + esc(M.aJa[student.a] || student.a) + 'に効くのは <b>' +
+      M.bullets.filter(function (b) { return rate(b, student.a) >= 15000; })
+        .map(function (b) { return M.bJa[b] || b; }).join('・') + '</b> です。';
+  }
+
+  function draw() {
+    drawMatrix();
+    var ti = TERR.indexOf(terr);
+    // いちばん効く属性（同率は並べる）
+    var best = 0;
+    M.bullets.forEach(function (b) { if (b !== 'Normal') best = Math.max(best, rate(b, armor)); });
+    var names = M.bullets.filter(function (b) { return b !== 'Normal' && rate(b, armor) === best; })
+                         .map(function (b) { return M.bJa[b] || b; });
+    el('o-best').textContent = best > 10000 ? names.join('・') : 'とくに無し';
+    el('o-best-sub').textContent = best > 10000
+      ? esc(M.aJa[armor] || armor) + 'に ' + x(best)
+      : esc(M.aJa[armor] || armor) + 'に弱点はありません';
+    el('o-terr').textContent = '×1.3 〜 ×0.8';
+    el('o-terr-sub').textContent = 'SS で ×1.3、B で ±0、D で ×0.8';
+
+    var role = el('i-role').value, sq = el('i-sq').value, min = +el('i-min').value;
+    var buckets = {};
+    var n = 0;
+    M.stu.forEach(function (s) {
+      if (role && s.ro !== role) return;
+      if (sq && s.sq !== sq) return;
+      if (s.ad[ti] < min) return;
+      var v = rate(s.b, armor);
+      (buckets[v] = buckets[v] || []).push(s);
+      n++;
+    });
+    var keys = Object.keys(buckets).map(Number).sort(function (a, b) { return b - a; });
+    var html = keys.map(function (v) {
+      var list = buckets[v].slice().sort(function (a, b) {
+        return (b.ad[ti] - a.ad[ti]) || a.n.localeCompare(b.n, 'ja');
+      });
+      return '<div class="mgroup"><p class="mhead">' + x(v) +
+        '<span class="ex">' + (v >= 20000 ? '弱点' : v >= 15000 ? '効果的' : v <= 5000 ? '抵抗される' : '等倍') + '</span>' +
+        '<span class="n">' + list.length + ' 人</span></p><div class="faces">' +
+        list.map(function (s) {
+          var g = gradeOf(s, ti);
+          return '<span class="face"><img src="../img/student_' + s.id +
+            '.webp" alt="" width="62" height="62" loading="lazy" title="' + esc(s.n) + '">' +
+            '<span class="nm">' + esc(s.n) + '</span>' +
+            '<span class="gr' + (s.ad[ti] >= 4 ? ' hi' : '') + '">' + g + '</span></span>';
+        }).join('') + '</div></div>';
+    }).join('');
+    el('groups').innerHTML = html || '<p class="empty">その条件に当てはまる生徒はいません。</p>';
+    el('o-n').textContent = n + ' 人';
+    el('o-n-sub').textContent = M.stu.length + ' 人のうち';
+    el('list-lead').innerHTML = esc(M.aJa[armor] || armor) + 'を' + esc(M.trJa[terr] || terr) +
+      'で相手にするときです。<b>顔の下の SS / S / A が、その地形での適性</b>です。' +
+      '倍率の高い順に並べて、同じ倍率の中では適性の高い順にしています。';
+    drawStudent();
+    location.replace('#' + toHash());
+  }
+
+  function toHash() {
+    return armor + '|' + terr + '|' + el('i-min').value + '|' +
+      encodeURIComponent(el('i-role').value) + '|' + el('i-sq').value +
+      '|' + (student ? student.id : '');
+  }
+  window.shareUrl = function () { return '#' + toHash(); };
+
+  function pick(name, exactOnly) {
+    var hit = null;
+    for (var i = 0; i < M.stu.length; i++) if (M.stu[i].n === name) { hit = M.stu[i]; break; }
+    if (!hit && !exactOnly && name) {
+      for (var j = 0; j < M.stu.length; j++) {
+        if (M.stu[j].n.indexOf(name) === 0) { hit = M.stu[j]; break; }
+      }
+    }
+    if (!hit) return;
+    student = hit;
+    draw();
+  }
+
+  el('i-armor').addEventListener('change', function () { armor = this.value; draw(); });
+  el('i-terr').addEventListener('change', function () { terr = this.value; draw(); });
+  ['i-role', 'i-sq', 'i-min'].forEach(function (id) {
+    el(id).addEventListener('change', draw);
+  });
+  el('i-student').addEventListener('change', function () { pick(this.value.trim(), false); });
+  el('i-student').addEventListener('input', function () { pick(this.value.trim(), true); });
+
+  (function fromHash() {
+    var h = decodeURIComponent(location.hash.replace(/^#/, ''));
+    if (!h) return;
+    var p = h.split('|');
+    if (M.armors.indexOf(p[0]) >= 0) { armor = p[0]; el('i-armor').value = armor; }
+    if (TERR.indexOf(p[1]) >= 0) { terr = p[1]; el('i-terr').value = terr; }
+    if (p[2]) el('i-min').value = p[2];
+    if (p[3]) el('i-role').value = p[3];
+    if (p[4]) el('i-sq').value = p[4];
+    if (p[5] && byId[p[5]]) { student = byId[p[5]]; el('i-student').value = student.n; }
+  })();
+
+  el('src-n').textContent = M.checked;
+  el('src-stu').textContent = M.stu.length;
+  el('ver').textContent = M.version;
+  draw();
+})();
+</script>
+</body>
+</html>

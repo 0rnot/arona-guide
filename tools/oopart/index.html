@@ -4,11 +4,11 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>オーパーツ逆引き｜AronaBot</title>
-<meta name="description" content="オーパーツ・技術ノート・戦術教育 BD を選ぶと、それを使う生徒と必要な個数が出ます。育てたい生徒を選んで合計を出すこともできます。">
+<meta name="description" content="このオーパーツは誰が使うのか。素材を選ぶと、それを必要とする生徒と個数が段ごとに出ます。育てたい生徒を選んで合計を出すこともできます。">
 <meta name="theme-color" content="#c8892e">
 <link rel="icon" href="../../favicon.svg" type="image/svg+xml">
 <meta property="og:title" content="オーパーツ逆引き">
-<meta property="og:description" content="このオーパーツ、誰に使うんだっけ。素材から生徒を引きます。">
+<meta property="og:description" content="このオーパーツは誰が使うのか。素材から生徒を引きます。">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://arona-bot.com/tools/oopart/">
 <meta property="og:image" content="https://arona-bot.com/images/hero-night.jpg">
@@ -127,7 +127,7 @@
   </div>
   <div class="thero-body">
     <h1>オーパーツ逆引き</h1>
-    <p class="thero-lead">持て余しているオーパーツを選ぶと、それを使う生徒が並びます。スキルを最大まで上げたときに何個要るかも段ごとに出します。</p>
+    <p class="thero-lead">このオーパーツは誰が使うのか。素材を選ぶと、それを必要とする生徒が並びます。スキルを最大まで上げたときに何個要るかも段ごとに出します。</p>
   </div>
 </header>
 
@@ -138,8 +138,8 @@
 
     <div class="tcol">
       <div class="panel">
-        <div class="panel-h"><h2>どの素材を持て余していますか</h2></div>
-        <p class="lead">オーパーツは生徒ごとに決まっています。技術ノートと戦術教育 BD は学校ごとです。</p>
+        <div class="panel-h"><h2>どの素材について調べますか</h2></div>
+        <p class="lead"><b>オーパーツは生徒ごと、技術ノートと戦術教育 BD は学校ごとに決まっています。</b>選ぶと、その素材を使う生徒が右に並びます。</p>
         <div class="btnrow" style="margin-bottom:14px">
           <div class="seg" id="kind" role="group" aria-label="素材の種類">
             <button type="button" data-k="oopart" aria-pressed="true">オーパーツ</button>
@@ -175,7 +175,7 @@
     <div class="tfull">
       <div class="panel">
         <div class="panel-h"><h2 id="list-h">この素材を使う生徒</h2></div>
-        <p class="lead" id="list-lead">左で素材を選んでください。</p>
+        <p class="lead" id="list-lead">左で素材を選ぶと、それを使う生徒がここに並びます。</p>
         <div class="btnrow" style="margin-bottom:10px">
           <div class="seg" id="sort" role="group" aria-label="並び順">
             <button type="button" data-s="amount" aria-pressed="true">多く要る順</button>
@@ -197,7 +197,7 @@
         <p><b>素材そのものは <a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a> の <code>data/jp/students.min.json</code> の
           <code>SkillExMaterial</code> / <code>SkillMaterial</code> です。</b>種類の分け方はアイコンの名前で決めています——
           <code>item_icon_material_exskill_*</code> が戦術教育 BD、<code>item_icon_skillbook_*</code> が技術ノート、それ以外の <code>item_icon_material_*</code> がオーパーツです（<code>Category</code> はどれも <code>Material</code> で区別が付きません）。</p>
-        <p><b>Lv9 → Lv10 の秘伝ノートは、ここには出していません。</b>誰でも 1 冊で同じなので、逆引きの役に立たないためです。</p>
+        <p><b>Lv9 → Lv10 の秘伝ノートは、ここには出していません。</b>誰でも 1 冊で同じで、素材から生徒を絞る役に立たないためです。</p>
         <p>取得は <span id="ver">—</span>。</p>
       </details>
     </div>
@@ -205,7 +205,7 @@
   </div>
 </div>
 
-<script>window.TOUR = {"key": "oopart", "steps": [{"sel": "#kind", "t": "素材の種類を選びます", "d": "オーパーツ・技術ノート・戦術教育 BD の 3 つを切り替えられます。"}, {"sel": "#mats", "t": "持て余している素材を選びます", "d": "選んだ素材を使う生徒が下に並びます。「誰に使えば減るか」を逆から引くための道具です。"}, {"sel": "#list", "t": "使う生徒が多い順に並びます", "d": "スキルを最大まで上げたときの必要数です。段ごとの内訳も出しています。"}]};</script>
+<script>window.TOUR = {"key": "oopart", "steps": [{"sel": "#kind", "t": "素材の種類を選びます", "d": "オーパーツ・技術ノート・戦術教育 BD の 3 つを切り替えられます。"}, {"sel": "#mats", "t": "調べたい素材を選びます", "d": "その素材を使う生徒が下に並びます。「このオーパーツは誰が使うのか」を素材から引くための道具です。"}, {"sel": "#list", "t": "使う生徒が多い順に並びます", "d": "スキルを最大まで上げたときの必要数です。段ごとの内訳も出しています。"}]};</script>
 <script src="../tour.js?v=1"></script>
 
 <script src="../share.js?v=1"></script>

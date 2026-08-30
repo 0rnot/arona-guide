@@ -58,7 +58,31 @@
 
      slots は ストライカー MAIN_MAX 枠 ＋ スペシャル SUP_MAX 枠の固定長。
      order は { i: 枠の番号, t: 指定した秒（null なら最短） }。 */
-  function emptySlot() { return { id: null, ex: 5, sk: 10, wp: 0, tier: {}, on: {} }; }
+  function emptySlot() { return { id: null, ex: 5, sk: 10, wp: 0, w4: false, tier: {}, on: {} }; }
+
+  /** 固有武器 ★4 で、スペシャル 1 人につきコストの上限が ＋0.5。
+      **データにはまだ無い。**`CharacterWeaponExcelTable` の `Unlock` が
+      `[true, true, true, false, false]` のままで、★4 の枠に値が入っていない
+      （ba-data の jp・global どちらも 2026-08-30 時点でそう）。
+      値は 2025 年 7 月 19 日の告知から取っている。 */
+  var W4_CAP = 0.5;
+
+  /** 戦闘開始時にコストをくれる 2 人。**値はノーマルスキルのレベルで変わる。**
+      SchaleDB の `Skills.Public.Parameters`（10 段）から。
+      ・シュン（10011）「戦闘開始時、スキルコストを<?1>獲得（戦闘中に1回のみ）」
+      ・シュン（水着）（10144）「戦闘開始時、編成した味方生徒1人当たり、スキルコストを
+        <?1>獲得（最大6人まで）（戦闘中に1回のみ）／ただし自分以外にも、戦闘開始時に
+        コストを獲得する生徒が部隊にいる場合、このスキルではスキルコストを獲得しません。」
+      後段のとおり、**シュンが居るとシュン（水着）は不発**になる。 */
+  var START_COST = {
+    10011: { v: [2, 2.1, 2.2, 2.6, 2.7, 2.8, 3.2, 3.3, 3.4, 3.8], per: 0 },
+    10144: { v: [0.37, 0.39, 0.41, 0.48, 0.5, 0.52, 0.6, 0.61, 0.63, 0.71], per: 6 },
+  };
+  /** ナギサ（水着）のオーバーコスト。EX「Teatime in Wartime」が **味方 1 人に
+      26 秒間** かける状態で、「生徒が編成可能な最大数まで編成され、誰も退却していない
+      場合、保有コストを最大5コストまで超過して消費可能、超過した分はマイナスの
+      コストとして差し引かれます」。持続は EX の `Effects[].Duration` と同じ 26000。 */
+  var NAGISA_SW = 20048, OVER_FLOOR = -5, OVER_MS = 26000;
 
   /** 固有武器のパッシブで伸びた持続（ミリ秒）。**バフとデバフで別の値。**
       `ExtendBuffDuration_Base` / `ExtendDebuffDuration_Base` はどちらも
@@ -73,15 +97,49 @@
     return Math.round(du * (1 + (tbl[lv - 1] || 0) / 10000));
   }
   var mode = 6, slots = [], order = [], lastSim = null;
+  // ステージギミック { t: 発動する秒, v: 回復力の増加量, du: 効果時間の秒 }
+  var gims = [], goal = null;
   for (var z = 0; z < MAIN_MAX + SUP_MAX; z++) slots.push(emptySlot());
 
   function isMain(i) { return i < MAIN_MAX; }
   function live(i) { return isMain(i) ? i < LAYOUT[mode].main : i - MAIN_MAX < LAYOUT[mode].sup; }
 
   var KEY = 'arona-cost-timeline';
+
+  /** コストの上限。**素は 10（制約解除決戦は 20）で、固有武器 ★4 の
+      スペシャル 1 人につき ＋0.5。** */
+  function capNow() {
+    var cap = LAYOUT[mode].cap;
+    slots.forEach(function (s, i) {
+      if (s.id && s.w4 && !isMain(i) && live(i)) cap += W4_CAP;
+    });
+    return cap;
+  }
+  /** 全部の枠が埋まっているか。**オーバーコストの条件。** */
+  function partyFull() {
+    return members().length === LAYOUT[mode].main + LAYOUT[mode].sup;
+  }
+  /** 戦闘開始時にもらえるコスト。**シュンが居るとシュン（水着）は不発。** */
+  function startBonus() {
+    var ms = members();
+    var have = ms.filter(function (m) { return START_COST[m.d.id]; });
+    if (!have.length) return null;
+    // **人数に掛けない側（シュン）が優先。**スキル文の「自分以外にも、戦闘開始時に
+    // コストを獲得する生徒が部隊にいる場合」に当たるのが、いまはこの 1 人だけ
+    var flat = have.filter(function (m) { return !START_COST[m.d.id].per; });
+    var win = flat.length ? flat[0] : have[0];
+    var c = START_COST[win.d.id];
+    var v = c.v[Math.min(c.v.length - 1, Math.max(0, win.s.sk - 1))] || 0;
+    var n = Math.min(c.per || 0, ms.length);
+    return { d: win.d, lv: win.s.sk, v: v, n: n, per: c.per,
+             amt: c.per ? v * n : v,
+             off: have.filter(function (m) { return m !== win; })
+                      .map(function (m) { return m.d.n; }) };
+  }
+
   function state() {
-    return { m: mode, s: slots, o: order,
-             st: el('i-start').value, cp: el('i-cap').value,
+    return { m: mode, s: slots, o: order, gk: gims, gl: goal,
+             st: el('i-start').value, cp: capNow(),
              gb: el('i-gb').value, gc: el('i-gc').value };
   }
   function apply(d) {
@@ -96,18 +154,36 @@
         var want = i < MAIN_MAX ? 'Main' : 'Support';
         var ok = byId[x.id] && byId[x.id].sq === want;
         slots.push({ id: ok ? x.id : null, ex: x.ex || 5, sk: x.sk || 10, wp: x.wp || 0,
+                     // **固有 ★4 はスペシャルの枠だけ。**ストライカーに付いていたら捨てる
+                     w4: !!(ok && x.w4 && i >= MAIN_MAX),
                      tier: ok ? (x.tier || {}) : {}, on: ok ? (x.on || {}) : {} });
       }
     }
     if (Array.isArray(d.o)) {
       order = d.o.map(function (e) {
-        return typeof e === 'number' ? { i: e, t: null, to: null }
+        return typeof e === 'number' ? { i: e, t: null, to: null, ov: null }
                                      : { i: e.i, t: (e.t == null ? null : +e.t),
-                                         to: (e.to == null ? null : +e.to) };
+                                         to: (e.to == null ? null : +e.to),
+                                         ov: (e.ov == null ? null : +e.ov) };
       }).filter(function (e) { return e.i >= 0 && e.i < slots.length; });
     }
+    if (Array.isArray(d.gk)) {
+      gims = d.gk.map(function (g) {
+        return { t: Math.max(0, +g.t || 0), v: +g.v || 0, du: Math.max(0, +g.du || 0) };
+      }).filter(function (g) { return g.v && g.du; });
+    }
+    if (d.gl !== undefined) goal = (d.gl == null || d.gl === '') ? null : Math.max(0, +d.gl || 0);
     if (d.st != null) el('i-start').value = d.st;
-    if (d.cp != null) el('i-cap').value = d.cp;
+    /* **上限は数で持たなくなった。**2026-08-30 より前に配ったリンクと保存には
+       上限の数（`cp`）しか入っていないので、**素の上限を超えたぶんを 0.5 で割って、
+       前から順にスペシャルの「固有 ★4」に置き直す。**新しい形（枠ごとの `w4`）が
+       入っているときは、そちらが正しいので触らない。 */
+    if (d.cp != null && !slots.some(function (x) { return x.w4; })) {
+      var extra = Math.round(((parseFloat(d.cp) || 0) - LAYOUT[mode].cap) / W4_CAP);
+      for (var k = MAIN_MAX; k < MAIN_MAX + SUP_MAX && extra > 0; k++) {
+        if (slots[k] && slots[k].id) { slots[k].w4 = true; extra--; }
+      }
+    }
     if (d.gb != null) el('i-gb').value = d.gb;
     if (d.gc != null) el('i-gc').value = d.gc;
   }

@@ -1147,6 +1147,105 @@ def build_cost_timeline():
             return "self"
         return "ally"
 
+    def skill_extras(sk):
+        """1 つのスキルから、帯に出す持続効果とコスト減少を拾う。
+
+        **EX 本体にも `ExtraSkills` の各形態にも同じ形で使う。**"""
+        out = {}
+        # 持続の無い効果（即時のダメージ・回復）は帯にならないので落とす
+        bf = []
+        for e in sk.get("Effects") or []:
+            du = int(e.get("Duration") or 0)
+            if du <= 0:
+                continue
+            bf.append({"n": eff_name(e), "du": du, "sd": eff_side(e)})
+        if bf:
+            out["bf"] = bf
+        # スキルコストを下げる効果。**`Uses` 回ぶんだけ効いて、時間では切れない。**
+        # `Coefficient` は 10000 分率（-5000 = 50% 引き）、`BaseAmount` は引く数そのもの
+        for e in sk.get("Effects") or []:
+            if e.get("Type") != "CostChange":
+                continue
+            cc = {"u": int(e.get("Uses") or 1),
+                  "vt": "coef" if e.get("ValueType") == "Coefficient" else "flat",
+                  "sc": e.get("Scale") or [], "sd": eff_side(e)}
+            # **効く回数が EX のレベルで変わる子がいる。**`Uses` は最大値しか
+            # 持っていないので、スキル文のパラメータ側（「1回 / … / 2回」）を拾う。
+            # 2026-08-30 時点でこれに当たるのはセイアだけ
+            for row in sk.get("Parameters") or []:
+                m = [re.fullmatch(r"(\d+)回", str(x)) for x in row]
+                if row and all(m):
+                    cc["up"] = [int(x.group(1)) for x in m]
+                    break
+            out["cc"] = cc
+            break
+        # コスト回復力に触る効果。**別の形態にも付いていることがある**
+        # （キサキ（水着）の「実行：ばんざい体操」が RegenCost_Base 2500）
+        reg = []
+        for e in sk.get("Effects") or []:
+            stat = e.get("Stat") or ""
+            if "RegenCost" not in stat:
+                continue
+            tgt = e.get("Target") or []
+            reg.append({"sl": "Ex", "sn": sk.get("Name", ""),
+                        "k": "c" if stat.endswith("_Coefficient") else "b",
+                        "p": "party" if len(tgt) > 1 else "self",
+                        "v": e.get("Value") or [],
+                        "du": int(e.get("Duration") or 0), "cond": ""})
+        if reg:
+            out["r"] = reg
+        return out
+
+    # **手札とコストの回り方を変える書きぶり。**どれも効果の欄には出てこず、
+    # スキル文にしか書かれていないので、文から拾って**原文をそのまま持っておく**
+    # （2026-08-30。画面に「こう書いてある」と出せるようにするため）。
+    SP_PATS = [
+        ("draw", re.compile(r"EX ?スキルを?すぐに(?:(\d+)回)?ドロー")),
+        # **鉤括弧の中に鉤括弧を許さない。**許すとキサキ（水着）の
+        # 「「実行：ばんざい体操」を2回使用後、「宣言：本日休業」にスキルが変更されます」で
+        # 1 つ目の「から最後の」まで丸ごと拾ってしまう（2026-08-30 に踏んだ）
+        ("swap", re.compile(r"「([^「」]+)」にスキルが変更")),
+        ("copy", re.compile(r"EX ?スキルカードを複製")),
+        ("ovl", re.compile(r"CostOverload")),
+        ("back", re.compile(r"カードをデッキの最後尾に移動")),
+    ]
+
+    def special_notes(ex):
+        """スキル文から、手札とコストに効く特別な書きぶりを拾う。
+
+        **見つけた行を原文のまま `txt` に残す。**推測でフラグだけ立てない。"""
+        lines = []
+        for sk in [ex] + list(ex.get("ExtraSkills") or []):
+            for ln in (sk.get("Desc") or "").split("\n"):
+                ln = ln.strip().rstrip("/").strip()
+                if ln:
+                    lines.append(ln)
+        out = {}
+        for key, pat in SP_PATS:
+            for ln in lines:
+                m = pat.search(ln)
+                if not m:
+                    continue
+                if key == "draw":
+                    out["draw"] = int(m.group(1) or 1)
+                    # 「〜の場合」と書いてあるものはゲージ待ちで、毎回は引けない
+                    out["drawCond"] = ("場合" in ln)
+                elif key == "swap":
+                    out["swap"] = m.group(1)
+                elif key == "ovl":
+                    # 何秒続くかは効果の欄にある。**文からは読まない**
+                    du = 0
+                    for e in ex.get("Effects") or []:
+                        du = max(du, int(e.get("Duration") or 0))
+                    out["ovl"] = du
+                else:
+                    out[key] = True
+                out.setdefault("txt", [])
+                if ln not in out["txt"]:
+                    out["txt"].append(ln)
+                break
+        return out
+
     stu = []
     for s in students:
         ex = s.get("Skills", {}).get("Ex")
@@ -1178,35 +1277,26 @@ def build_cost_timeline():
                       "ed" if st.startswith("ExtendDebuffDuration") else ""
                 if key:
                     rec[key] = (e.get("Value") or [[]])[0]
-        # EX が置いていく効果の持続。**タイムラインに帯で出すため。**
-        # 持続の無い効果（即時のダメージ・回復）は帯にならないので落とす
-        bf = []
-        for e in ex.get("Effects") or []:
-            du = int(e.get("Duration") or 0)
-            if du <= 0:
-                continue
-            bf.append({"n": eff_name(e), "du": du, "sd": eff_side(e)})
-        if bf:
-            rec["bf"] = bf
-        # スキルコストを下げる効果。**`Uses` 回ぶんだけ効いて、時間では切れない。**
-        # `Coefficient` は 10000 分率（-5000 = 50% 引き）、`BaseAmount` は引く数そのもの
-        for e in ex.get("Effects") or []:
-            if e.get("Type") != "CostChange":
-                continue
-            sc = e.get("Scale") or []
-            cc = {"u": int(e.get("Uses") or 1),
-                  "vt": "coef" if e.get("ValueType") == "Coefficient" else "flat",
-                  "sc": sc, "sd": eff_side(e)}
-            # **効く回数が EX のレベルで変わる子がいる。**`Uses` は最大値しか
-            # 持っていないので、スキル文のパラメータ側（「1回 / … / 2回」）を拾う。
-            # 2026-08-30 時点でこれに当たるのはセイアだけ
-            for row in ex.get("Parameters") or []:
-                m = [re.fullmatch(r"(\d+)回", str(x)) for x in row]
-                if row and all(m):
-                    cc["up"] = [int(x.group(1)) for x in m]
-                    break
-            rec["cc"] = cc
-            break
+        for k, v in skill_extras(ex).items():
+            if k == "r":
+                continue          # EX 本体のぶんは、下の全スキル走査でまとめて拾う
+            rec[k] = v
+        # **EX が 1 種類とは限らない。**撃つと次から別の EX に変わる子が居て
+        # （ネル（制服）・ミカ（水着）・アリス（臨戦）ほか）、コストも持続も別物。
+        # SchaleDB は `Skills.Ex.ExtraSkills[]` に入れている（2026-08-30 に 16 人）
+        xs = []
+        for x in ex.get("ExtraSkills") or []:
+            if not x.get("Cost"):
+                continue          # コストを持たない行は「別のカード」ではない
+            item = {"n": x.get("Name", ""), "ei": x.get("Icon", ""),
+                    "c": x.get("Cost") or [], "d": x.get("Duration") or 0}
+            item.update(skill_extras(x))
+            xs.append(item)
+        if xs:
+            rec["xs"] = xs
+        sp = special_notes(ex)
+        if sp:
+            rec["sp"] = sp
         reg = []
         for slot, sk in (s.get("Skills") or {}).items():
             if not isinstance(sk, dict):
@@ -1239,7 +1329,8 @@ def build_cost_timeline():
     # EX スキルの絵。**種類で落とす。**82 種で 274 人ぶんをまかなえる。
     # **GitHub のミラーには新しいものが 18 種入っていない**ので本番サイトから取る。
     # 120×128 の縦長で、`fetch_icon` の 122×122 に切ると端が欠ける
-    icons = sorted({x["ei"] for x in stu if x.get("ei")})
+    icons = sorted({x["ei"] for x in stu if x.get("ei")} |
+                   {y["ei"] for x in stu for y in x.get("xs") or [] if y.get("ei")})
     for ic in icons:
         n += fetch_wide("skill_" + ic.lower(),
                         f"https://schaledb.com/images/skill/{ic}.webp", width=96)
@@ -1247,9 +1338,17 @@ def build_cost_timeline():
     if lost:
         raise SystemExit(f"EX スキルの絵が {len(lost)} 種類落ちてこない: {lost[:5]}")
     holders = [s for s in stu if "r" in s]
-    print(f"  生徒 {len(stu)} 人、コスト回復力に触る子 {len(holders)} 人、アイコン {n} 枚を追加")
+    forms = [s for s in stu if s.get("xs")]
+    draws = [s for s in stu if (s.get("sp") or {}).get("draw")]
+    print(f"  生徒 {len(stu)} 人、コスト回復力に触る子 {len(holders)} 人、"
+          f"EX が変わる子 {len(forms)} 人、カードを引く子 {len(draws)} 人、アイコン {n} 枚を追加")
     if len(holders) < 15:
         raise SystemExit(f"コスト回復力持ちが {len(holders)} 人しか取れていない。データの形が変わった疑い")
+    # **拾い漏れの番人。**スキル文の書きぶりが変わったら、ここで気づける
+    if len(forms) < 10:
+        raise SystemExit(f"EX が変わる子が {len(forms)} 人しか取れていない。ExtraSkills の形が変わった疑い")
+    if len(draws) < 6:
+        raise SystemExit(f"カードを引く子が {len(draws)} 人しか取れていない。スキル文の書きぶりが変わった疑い")
 
     keep = ("School", "TacticRole", "BulletType", "ArmorType", "SquadType")
     return write_js("tools/cost-timeline/data.js", "TL", {
