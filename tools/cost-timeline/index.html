@@ -40,6 +40,9 @@
   .slot .face .ph { font-size: .68rem; color: var(--fg-mute); font-weight: 700; letter-spacing: .06em; }
   .slot .nm { font-size: .82rem; font-weight: 700; line-height: 1.3; word-break: auto-phrase; }
   .slot .nm small { display: block; font-weight: 500; color: var(--fg-mute); font-size: .72rem; margin-top: .15em; }
+  /* EX スキルの絵。**どの EX かがひと目で分かるように。**
+     絵そのものは真っ白＋透過なので、`.gi` の型抜きに通して文字の色で塗る */
+  .skico { width: 1.05em; height: 1.05em; vertical-align: -.18em; margin-right: .3em; }
   .slot input[type="search"] { width: 100%; padding: .35em .5em; font-size: .82rem; }
   .slot .lv { display: grid; grid-template-columns: auto 1fr; gap: .4em; align-items: center; font-size: .74rem; color: var(--fg-mute); }
   .slot .lv select { width: 100%; padding: .3em 2em .3em .45em; font-size: .8rem; }

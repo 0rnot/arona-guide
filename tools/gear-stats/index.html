@@ -45,6 +45,13 @@
   .gcard { display: grid; grid-template-columns: 48px 1fr; gap: .6em; align-items: start;
            padding: 9px 10px; border: 1px solid var(--line); border-radius: 12px; background: var(--bg-sub); }
   .gcard img { width: 48px; height: 48px; border-radius: 10px; background: var(--card); }
+  /* 愛用品の絵。**顔の下に置く。**列は 48px のまま */
+  .gcard .thing { grid-column: 1; }
+  /* **顔と品の 2 段ぶんに文字を渡す。**そうしないと文字が品の段から始まる */
+  #gears .gcard > div { grid-column: 2; grid-row: 1 / -1; align-self: center; }
+  /* 固有武器の絵。**800×205 の横長を 130px 幅で。**高さは中身しだいなので auto */
+  .gcard .wpic { width: 100%; max-width: 200px; height: auto; border-radius: 6px;
+                 background: none; margin: .25em 0 .1em; display: block; }
   .gcard .nm { font-weight: 700; font-size: .88rem; }
   .gcard .sub { font-size: .74rem; color: var(--fg-mute); line-height: 1.6; margin-top: .15em; }
   .gcard .sub b { color: var(--fg); font-variant-numeric: tabular-nums; }

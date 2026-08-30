@@ -217,6 +217,39 @@ def fetch_icon(name, url, force=False):
     return True
 
 
+def fetch_wide(name, url, width=260, force=False):
+    """**縦横比を変えない絵。**固有武器の絵は 800×205 の横長で、
+    `fetch_icon` の 122×122 に切ると刀身が消える。横幅だけ揃えて縮める。"""
+    out = IMG / (name + ".webp")
+    if out.exists() and not force:
+        return False
+    try:
+        raw = get(url)
+    except Exception as e:
+        print(f"    落とせない {name}: {e}", file=sys.stderr)
+        return False
+    if not (raw[:8] == b"\x89PNG\r\n\x1a\n" or raw[:4] == b"RIFF" or raw[:3] == b"\xff\xd8\xff"):
+        print(f"    実体が無い {name}（{len(raw)} バイト）", file=sys.stderr)
+        return False
+    IMG.mkdir(parents=True, exist_ok=True)
+    try:
+        from PIL import Image
+        im = Image.open(io.BytesIO(raw)).convert("RGBA")
+        if im.width > width:
+            im = im.resize((width, max(1, round(im.height * width / im.width))), Image.LANCZOS)
+        im.save(out, "WEBP", quality=86, method=6)
+    except ImportError:
+        import subprocess, shutil, tempfile
+        exe = shutil.which("magick") or shutil.which("convert")
+        if not exe:
+            raise SystemExit("Pillow も ImageMagick も無い")
+        with tempfile.NamedTemporaryFile(suffix=".webp", delete=False) as t:
+            t.write(raw); tmp = t.name
+        subprocess.run([exe, tmp, "-resize", f"{width}x>", "-quality", "86", str(out)], check=True)
+        pathlib.Path(tmp).unlink(missing_ok=True)
+    return True
+
+
 def _square(raw, out):
     """146×116 を 122×122 に切り直して保存する。
 
@@ -1123,6 +1156,8 @@ def build_cost_timeline():
             "sc": s.get("School", "ETC"), "at": s.get("ArmorType", ""),
             "bt": s.get("BulletType", ""), "st": s.get("StarGrade", 0),
             "en": ex.get("Name", ""),
+            # EX のアイコン。**82 種しかない**ので、生徒 274 人ぶんより軽い
+            "ei": ex.get("Icon", ""),
             "c": ex.get("Cost") or [],
             # **Duration はフレーム。**ゲームは 30fps なので、秒にするには 30 で割る
             "d": ex.get("Duration") or 0,
@@ -1199,6 +1234,16 @@ def build_cost_timeline():
     # コスト回復のアイコンがそのままあるので、時計を借りずにこれを使う
     fetch_icon("skill_regencost",
                "https://raw.githubusercontent.com/SchaleDB/SchaleDB/main/images/skill/COMMON_SKILLICON_REGENCOST.webp")
+    # EX スキルの絵。**種類で落とす。**82 種で 274 人ぶんをまかなえる。
+    # **GitHub のミラーには新しいものが 18 種入っていない**ので本番サイトから取る。
+    # 120×128 の縦長で、`fetch_icon` の 122×122 に切ると端が欠ける
+    icons = sorted({x["ei"] for x in stu if x.get("ei")})
+    for ic in icons:
+        n += fetch_wide("skill_" + ic.lower(),
+                        f"https://schaledb.com/images/skill/{ic}.webp", width=96)
+    lost = [ic for ic in icons if not (IMG / f"skill_{ic.lower()}.webp").exists()]
+    if lost:
+        raise SystemExit(f"EX スキルの絵が {len(lost)} 種類落ちてこない: {lost[:5]}")
     holders = [s for s in stu if "r" in s]
     print(f"  生徒 {len(stu)} 人、コスト回復力に触る子 {len(holders)} 人、アイコン {n} 枚を追加")
     if len(holders) < 15:
@@ -1315,6 +1360,10 @@ def build_gear_stats():
         w = s.get("Weapon") or {}
         weap.append({
             "id": s["Id"], "n": s["Name"], "sq": s.get("SquadType", ""),
+            # **絵の名前は生徒の Id と一致しない。**衣装違いは元の子の武器を使い回す
+            # （アズサ（水着）10021 の絵は `weapon_icon_10019`）。SchaleDB の
+            # `WeaponImg` をそのまま持つ（2026-08-30。Id で組み立てて 206 人ぶん落ちた）
+            "wi": s.get("WeaponImg", ""),
             "wn": w.get("Name", ""), "ad": w.get("AdaptationType", ""),
             "av": w.get("AdaptationValue", 0),
             "a": [w.get("AttackPower1", 0), w.get("AttackPower100", 0)],
@@ -1338,6 +1387,16 @@ def build_gear_stats():
                 n += fetch_icon(e["i"], f"https://schaledb.com/images/equipment/icon/{e['i']}.webp")
     for s in weap:
         n += fetch_portrait(f"student_{s['id']}", f"https://schaledb.com/images/student/collection/{s['id']}.webp")
+    # 愛用品そのものの絵。**生徒の顔と同じ 146×116 なので `fetch_icon` でよい**
+    for s in gear:
+        n += fetch_icon(f"gear_{s['id']}", f"https://schaledb.com/images/gear/icon/{s['id']}.webp")
+    # 固有武器の絵。**800×205 の横長。**四角に切ると刀身が消えるので幅だけ揃える。
+    # 衣装違いは同じ絵を指すので、名前で重複を落としてから落とす
+    for wi in sorted({s["wi"] for s in weap if s["wi"]}):
+        n += fetch_wide(wi, f"https://schaledb.com/images/weapon/{wi}.webp")
+    lost = [s["n"] for s in weap if s["wi"] and not (IMG / f"{s['wi']}.webp").exists()]
+    if lost:
+        raise SystemExit(f"固有武器の絵が {len(lost)} 人ぶん落ちてこない: {lost[:5]}")
     print(f"  部位 {len(cats)} × 段、愛用品 {len(gear)} 人、固有武器 {len(weap)} 人、絵 {n} 枚を追加")
 
     keep = ("Stat", "StatTooltip", "AdaptationType", "SquadType")

@@ -94,7 +94,9 @@
     el('gear-lead').textContent = '愛用品を持っているのは ' + G.gear.length + ' 人です。' +
       (q ? '「' + q + '」で ' + rows.length + ' 人。' : '');
     el('gears').innerHTML = rows.map(function (g) {
+      // **愛用品そのものの絵も出す。**顔だけだと、どの品か分からない
       return '<div class="gcard"><img src="../img/student_' + g.id + '.webp" alt="" width="48" height="48" loading="lazy">' +
+        '<img class="thing" src="../img/gear_' + g.id + '.webp" alt="" width="48" height="48" loading="lazy">' +
         '<div><div class="nm">' + esc(g.n) + '</div><div class="sub">' + esc(g.gn) + '<br>' +
         g.st.map(function (k, i) {
           var v = g.sv[i] || [0, 0];
@@ -121,8 +123,10 @@
       '。上がり幅は ' + Object.keys(av).sort().map(function (k) { return '＋' + k + ' が ' + av[k] + ' 人'; }).join('、') +
       'です。' + (q || adapt ? 'いまは ' + rows.length + ' 人。' : '');
     el('weapons').innerHTML = rows.map(function (w) {
+      // **武器の絵は横長。**衣装違いは元の子の絵を使い回すので `wi` を見る
+      var wimg = w.wi ? '<img class="wpic" src="../img/' + w.wi + '.webp" alt="" width="130" height="34" loading="lazy">' : '';
       return '<div class="gcard"><img src="../img/student_' + w.id + '.webp" alt="" width="48" height="48" loading="lazy">' +
-        '<div><div class="nm">' + esc(w.n) + '</div><div class="sub">' + esc(w.wn || '—') + '<br>' +
+        '<div><div class="nm">' + esc(w.n) + '</div>' + wimg + '<div class="sub">' + esc(w.wn || '—') + '<br>' +
         '<span class="ad">' + esc(TERRAIN[w.ad] || w.ad) + ' 適性 ＋' + w.av + '</span><br>' +
         [['攻撃力', w.a], ['最大HP', w.h], ['治癒力', w.p]].filter(function (x) { return x[1][1]; })
           .map(function (x) { return x[0] + ' <b>' + num(x[1][0]) + '</b> → <b>' + num(x[1][1]) + '</b>'; })

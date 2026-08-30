@@ -32,6 +32,17 @@
   function n2(v) { return (Math.round(v * 100) / 100).toLocaleString('ja-JP', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
   function fmt(v) { return Math.round(v).toLocaleString('ja-JP'); }
   function face(id) { return '../img/student_' + id + '.webp'; }
+  /** EX スキルの絵。**中身は真っ白＋透過**なので、`<img>` で置くと明るい画面で
+      消える（2026-08-30 に画素を読んで見つけた。全面 #FFFFFF00）。
+      `.gi` と同じ型抜き方式にして、文字の色で塗る。 */
+  function skIcon(d) {
+    if (!d || !d.ei) return '';
+    /* **パスはサイトの根から書く。**カスタムプロパティに入れた `url()` は、
+       それを使う側のスタイルシート（`tools/tool.css`）を起点に解決されるので、
+       `../img/` と書くと `/img/` を見にいって 404 になる（2026-08-30 に実測）。 */
+    return '<i class="gi skico" style="--gi:url(/tools/img/skill_' +
+      d.ei.toLowerCase() + '.webp)" aria-hidden="true"></i>';
+  }
   /** 秒を M:SS.s にする。TL は分秒で書くのが普通なので、書き出しはこの形にする */
   function clock(sec) {
     var m = Math.floor(sec / 60), r = sec - m * 60;
@@ -240,7 +251,9 @@
           ? '<img src="' + face(d.id) + '" alt="" width="120" height="120" loading="lazy">'
           : '<span class="ph">空き</span>') + '</div>';
         if (d) {
-          html += '<div class="nm">' + esc(d.n) + '<small>' + esc(d.en) + '（' + d.c[s.ex - 1] + ' コスト）</small></div>';
+          html += '<div class="nm">' + esc(d.n) + '<small>' +
+            skIcon(d) +
+            esc(d.en) + '（' + d.c[s.ex - 1] + ' コスト）</small></div>';
           html += '<div class="lv"><span>EX</span><select data-k="ex" data-i="' + i + '">';
           for (var v = 1; v <= 5; v++) html += '<option value="' + v + '"' + (v === s.ex ? ' selected' : '') + '>Lv' + v + '</option>';
           html += '</select></div>';
@@ -456,7 +469,9 @@
       if (!d || !live(i)) return;
       html += '<button type="button" class="btn" data-k="add" data-i="' + i + '">' +
         '<img src="' + face(d.id) + '" alt="" width="26" height="26" loading="lazy">' +
-        esc(d.n) + '<small style="color:var(--fg-mute)">（' + d.c[s.ex - 1] + '）</small></button>';
+        esc(d.n) +
+        skIcon(d) +
+        '<small style="color:var(--fg-mute)">（' + d.c[s.ex - 1] + '）</small></button>';
     });
     box.innerHTML = html || '<span class="lead">先に編成を決めてください。</span>';
 
@@ -489,7 +504,9 @@
       return mark + '<div class="tlrow' + (r.why || !r.inHand ? ' bad' : '') + '">' +
         '<span class="no">' + (i + 1) + '</span>' +
         '<img src="' + face(r.d.id) + '" alt="" width="40" height="40" loading="lazy">' +
-        '<span class="tx"><b>' + esc(r.d.n) + '</b><small>' + esc(r.d.en) + '／' +
+        '<span class="tx"><b>' + esc(r.d.n) + '</b><small>' +
+        skIcon(r.d) +
+        esc(r.d.en) + '／' +
         (r.cut ? '<span class="cut2">' + r.raw + ' → ' + r.need + '</span> コスト' : r.need + ' コスト') +
         (r.d.d ? '／演出 ' + n1(r.d.d / FPS) + ' 秒' : '') + '<br>手札 ' + names + giveHtml(r, i) + '</small>' +
         '<span class="when"><select data-k="mode-at" data-j="' + i + '">' +
