@@ -537,6 +537,8 @@
 
     <p><b>パーツ・分身・雑魚は <code>Raid[].EnemyList</code> の 2 体目以降です。</b>1 つの難易度に敵の ID が何個も並んでいて、先頭がボス本体、それ以降がパーツや湧きです（ドラム缶ガニは 9 体、イェソドは 8 体、ケセドとホバークラフトは 7 体）。名前・HP・ランクは <code>data/jp/enemies.min.json</code> の各敵から、ランクの日本語は <code>localization.min.json</code> の <code>EnemyRank</code> から取っています。<b>絵は <code>Icon</code> の値をそのままファイル名にした <code>images/enemy/</code> の画像です</b>（<code>Icon</code> が空の敵は絵無しで出します）。</p>
 
+    <p><b>ランクの日本語は 4 つだけ向こうにあります。</b><code>EnemyRank</code> に入っているのは <code>Champion</code>（BOSS）・<code>Elite</code>（エリート）・<code>Minion</code>（ミニオン）・<code>Summoned</code>（召喚物）の 4 つで、<b>実際のデータにはあと 3 つ出てきます</b>（<code>Boss</code> 32 体、<code>DestructibleProjectile</code> 32 体、<code>Hallucination</code> 8 体）。この 3 つは<b>こちらで「BOSS」「壊せる弾」「分身」と当てています</b>——向こうに日本語が無いところなので、そこだけは当サイトの言葉です。</p>
+
     <p><b>フェーズが変わる HP は <code>enemies.min.json</code> の <code>PhaseChange</code> です。</b>129 件ぜんぶを数えて、<code>Trigger</code> が <code>HPUnder</code> しか無いことを確かめました。<b>しきい値は割合ではなく実数で入っている</b>ので、パーセントはこちらで最大 HP で割っています。文の言い回しは <code>localization.min.json</code> の <code>RaidChangePhase</code> のものです。</p>
 
     <p><b>グロッキーゲージの溜まり方は <code>localization.min.json</code> の <code>GroggyCondition</code> です。</b>キーがボスの <code>DevName</code> とそのまま一致します。<b>ここに載っていないボスは、その欄を出していません。</b>ダメージの蓄積で溜まるふつうの方式だと思われますが、データに書いていないことをこちらで書き足すのはやめました。</p>
@@ -940,6 +942,12 @@
       '<p style="color:var(--fg-mute);font-size:.8rem;margin:0">この相手のスキルはデータに入っていません。</p>';
   }
 
+  /* **SchaleDB の `EnemyRank` には 4 種類しか日本語が無い。**
+     残る 3 つはこちらで言葉を当てている（出典の節に書いてある）。
+     `Boss` は `Champion` と同じ扱いで、向こうの表記も「BOSS」 */
+  var RANK_JA = { Boss: 'BOSS', Hallucination: '分身', DestructibleProjectile: '壊せる弾' };
+  function rankJa(rk) { return (L.EnemyRank && L.EnemyRank[rk]) || RANK_JA[rk] || rk; }
+
   /** パーツ・分身・雑魚と、フェーズ・グロッキー条件。 */
   function drawParts() {
     var b = boss();
@@ -958,7 +966,7 @@
       return '<div class="pt' + (isBoss ? ' boss' : '') + '">' +
         (ic ? '<img src="../img/enemy_' + ic + '.webp" alt="" width="40" height="40" loading="lazy">' : '') +
         '<div class="tx"><div class="nm">' + n + '</div><div class="sub">' +
-        (ja('EnemyRank', rk) || rk) + (hp ? '　HP ' + num(hp) : '') + '</div></div></div>';
+        rankJa(rk) + (hp ? '　HP ' + num(hp) : '') + '</div></div></div>';
     }
     var h = card(row.en || b.n, 'Champion', mode === 'multi' ? 0 : row.hp, row.eic, true);
     h += pt.map(function (x) { return card(x.n, x.rk, x.hp, x.ic, false); }).join('');
