@@ -18,7 +18,12 @@
   --fg-mute:   #6b625a;
   --line:      #e2dbcf;
   --fig-line:  #e2dbcf;   /* 図版の枠。ライトは地の線と同じでよい */
-  --accent:    #b8791f;   /* 琥珀。ボタンや帯など、面で使う側 */
+  /* 琥珀。ボタンや帯など、面で使う側。
+     **白い字を載せて 4.5:1 を満たす濃さにしてある。** #b8791f だと 3.63:1 で、
+     ツール一覧のボタン・押されている seg／タブ・共有の帯が WCAG AA を切っていた。
+     #a26714 で 4.68:1（2026-08-31 に全ツールを測って気づいた）。
+     **ここを明るくするときは、白い字との比を測り直すこと。** */
+  --accent:    #a26714;
   --accent-tx: #96621a;   /* 文字に使う側。**面と同じ濃さだと本文リンクが薄すぎる** */
   --accent-in: #ffffff;
   --gold:      #e2c061;
@@ -427,8 +432,23 @@ h1 {
   border-left: 3px solid var(--gold);
   border-radius: var(--radius);
   padding: 1em 1.2em;
+  /* **絵を左に置く。**題だけ 4 つ並ぶと、どれがゲームの何の話なのかが
+     読まないと分からない（2026-08-31） */
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr);
+  grid-template-rows: auto auto;
+  column-gap: .65em;
 }
-.glance b { display: block; margin-bottom: .15em; font-size: 1rem; }
+.glance li > img {
+  /* **題の 1 行目に合わせる。**縦の中央に置くと、題が 2 行になったとき
+     絵だけが説明文の横に降りてきて、どちらに掛かっているのか分からなくなる */
+  grid-row: 1 / 3; grid-column: 1; align-self: start; margin-top: .1em;
+  width: 30px; height: 30px; border-radius: 8px; object-fit: contain;
+  background: var(--bg-sub); padding: 2px; box-sizing: border-box;
+}
+/* **題は文節で折る。**絵のぶん幅が減って「総力戦・大決戦を調／べる」と
+   文節の途中で切れていた（2026-08-31） */
+.glance b { display: block; margin-bottom: .15em; font-size: 1rem; word-break: auto-phrase; }
 .glance span { color: var(--fg-mute); font-size: .88rem; line-height: 1.7; display: block; }
 
 /* ------------------------------------------------------------ 機能のブロック */
@@ -961,6 +981,22 @@ a.toolband-card:focus-visible { outline: 2px solid var(--accent); outline-offset
 }
 .toolband-card .cat, .toolband-card h3 { padding-right: 62px; }
 a.toolband-card:hover .ticon { transform: scale(1.09) rotate(-4deg); }
+
+/* **そのツールが扱うもの。**題と説明文だけだと 26 枚が同じ白い札に見えて、
+   探すのに全部読むことになる。扱う対象を絵で 2 つ並べると、読む前に絞れる。
+   飾りではないので `aria-hidden`——読み上げには説明文のほうが早い
+   （2026-08-31 の先生の指示「画像の少なさ」「DB で活用できそうな画像を
+   アイテム以外でも探す」を受けて追加） */
+.tsub { display: flex; gap: 5px; margin-top: .85em; }
+.tsub img {
+  width: 26px; height: 26px; border-radius: 7px; object-fit: contain;
+  background: var(--bg-sub); padding: 2px; box-sizing: border-box;
+  opacity: .82; transition: opacity .16s ease, transform .16s ease;
+}
+a.tcard:hover .tsub img, a.toolband-card:hover .tsub img {
+  opacity: 1; transform: translateY(-2px);
+}
+
 .toolband-card .cat { font-size: .68rem; letter-spacing: .1em; color: var(--accent-tx); font-weight: 700; }
 .toolband-card h3 { font-size: .98rem; margin: .3em 0 .3em; font-weight: 800; }
 .toolband-card p { font-size: .82rem; color: var(--fg-mute); margin: 0; line-height: 1.75; word-break: auto-phrase; }

@@ -305,7 +305,7 @@
       '<input type="number" min="0" step="1" inputmode="numeric" value="' + have +
         '" data-c="' + c + '" data-t="' + t + '" aria-label="' + esc(E.catJa[c]) +
         ' ' + (t === 0 ? '万能設計図' : 'T' + t) + ' の所持数">' +
-      '<span class="need">' + (t === 0 ? '交換用' : (short > 0 ? 'あと ' + fmt(short) : '足りています')) +
+      '<span class="need">' + (t === 0 ? '交換用' : (short > 0 ? 'あと ' + fmt(short) : '足りた')) +
       '</span></label>';
   }
 
@@ -542,7 +542,7 @@
       if (t !== 0 && lab) {
         var short = Math.max(0, targetOf(c, t) - v);
         lab.className = 'pc ' + (short > 0 ? 'short' : 'ok');
-        lab.querySelector('.need').textContent = short > 0 ? 'あと ' + fmt(short) : '足りています';
+        lab.querySelector('.need').textContent = short > 0 ? 'あと ' + fmt(short) : '足りた';
       }
     }
   });

@@ -21,8 +21,8 @@
 <meta name="twitter:title" content="装備設計図の周回計算機">
 <meta name="twitter:description" content="いま持っている設計図の枚数を入れると、何がどれだけ足りないかを出して、全体のバランスが整う周回先を 1 本に絞って出します。万能設計図とドロップ 2 倍・3 倍にも対応。">
 <meta name="twitter:image" content="https://arona-bot.com/images/og/equipment.jpg">
-<link rel="stylesheet" href="../../style.css?v=17">
-<link rel="stylesheet" href="../tool.css?v=13">
+<link rel="stylesheet" href="../../style.css?v=19">
+<link rel="stylesheet" href="../tool.css?v=14">
 <style>
   /* 在庫のマス目。**9 部位 × 10 枠を、打ちやすい大きさで並べる。**
      参考元（シャーレ装備管理室）と同じ「部位ごとの札」の形にしてある */
@@ -70,10 +70,10 @@
     .pc { padding: 4px 2px 3px; min-width: 0; }
     .pc img { width: 30px; height: 30px; }
     .pc input { min-width: 0; }
+    /* **札の言葉を「足りた」に縮めた。**「足りています」の 6 文字は 45px の枠に
+       入らず、.46rem（7.36px）まで落として初めて収まっていた。字を小さくするより
+       言葉を短くするほうが読める。隣の「あと 12」とも並びが揃う（2026-08-31） */
     .pc .need { font-size: .55rem; }
-    /* 「足りています」の 6 文字が枠に収まるまで落とす。**切って「足りて…」にしない**
-       （.49rem では 390px 幅で 47px > 45px となり 2px はみ出す。実測 2026-08-31） */
-    .pc.ok .need { font-size: .46rem; letter-spacing: -.03em; }
   }
   .pc { display: block; padding: 5px 4px 4px; border: 1px solid var(--line); border-radius: 10px;
         background: var(--bg-sub); text-align: center; cursor: text; }

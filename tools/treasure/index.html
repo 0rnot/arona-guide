@@ -21,8 +21,8 @@
 <meta name="twitter:title" content="宝探しの確率計算機">
 <meta name="twitter:description" content="開けた結果を入れると、残りのマスに何がある確率かが分かります。近似ではなく、置き方を全部数え上げた値です。">
 <meta name="twitter:image" content="https://arona-bot.com/images/og/treasure.jpg">
-<link rel="stylesheet" href="../../style.css?v=17">
-<link rel="stylesheet" href="../tool.css?v=13">
+<link rel="stylesheet" href="../../style.css?v=19">
+<link rel="stylesheet" href="../tool.css?v=14">
 <style>
   /* **スマホでは 1 列になる。**そのとき盤面が先に来ると、備品の型を決める前に
      盤を触ることになるので、狭いときだけ右の柱を先に出す（番号どおりの順番） */
@@ -146,6 +146,13 @@
   .item.off .aim { color: var(--fg-mute); }
 
   /* 当てるともらえるもの。**畳んである状態が既定。** */
+  /* 中身のアイコンは畳んだままでも見せる。**「狙う」を絞る判断材料そのもの**で、
+     開かないと分からないのでは選べない。開いたら一覧と重複するので消す */
+  .item .ricons { display: flex; flex-wrap: wrap; gap: 3px; margin-top: .4em; }
+  .item .ricons img { width: 22px; height: 22px; border-radius: 5px; background: var(--bg-sub); }
+  .item details.rw[open] + .ricons { display: none; }
+  .item .rw li img { width: 18px; height: 18px; border-radius: 4px;
+                     vertical-align: -.3em; margin-right: .3em; background: var(--bg-sub); }
   .item .rw { margin-top: .45em; font-size: .74rem; }
   .item .rw > summary { cursor: pointer; color: var(--fg-mute); }
   .item .rw ul { list-style: none; margin: .4em 0 0; padding: 0;
@@ -355,7 +362,11 @@
           <a href="https://github.com/terry-u16/schale-inventory-management" target="_blank" rel="noopener">terry-u16/schale-inventory-management</a>（MIT ライセンス）の
           <code>src/components/MainArea.tsx</code> から写したものです。データから作り直した値と 1 つ残らず一致しました。「周目」という呼び方も、ゲーム側の列名 <code>TreasureRound</code> と、同じリポジトリの日本語ロケール（1周目〜13周目以降）に合わせています。解き方は同じ考え方の DP ですが、こちらは通り数がいくつでも厳密な値を出します。</p>
         <p><b>過去のイベントもぜんぶ選べます。</b>在庫管理のミニゲームは名前と大きさを変えて何度も来ていて、今のところ 12 回ぶんが入っています。載っていないものでも、備品は毎回 3 種類なので、上の欄を書き換えればそのまま使えます。</p>
-        <p>出典 — <a href="https://github.com/electricgoat/ba-data" target="_blank" rel="noopener">electricgoat/ba-data</a>（周ごとの中身・備品の大きさ・名前）、<a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a>（イベント名）。取得は <span id="ver">—</span>。</p>
+        <p><b>備品そのものの絵は出していません。</b>データが指す絵
+          （<code>CellUnderImagePath</code>）はゲーム内アセットで、ここが使ってよい
+          出どころ（SchaleDB・ba-data）に実体がありませんでした。
+          代わりに、当てるともらえるもののアイコンを SchaleDB から出しています。</p>
+        <p>出典 — <a href="https://github.com/electricgoat/ba-data" target="_blank" rel="noopener">electricgoat/ba-data</a>（周ごとの中身・備品の大きさ・名前）、<a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a>（イベント名・報酬のアイコン）。取得は <span id="ver">—</span>。</p>
       </details>
     </div>
 
@@ -408,6 +419,9 @@
      GitHub Actions が毎日作り直すので、新しいイベントが来れば勝手に増える
      （2026-08-30 まではここに DIVE into OCEAN! の 13 周ぶんを直接書いていた）。 */
   var EVENTS = (window.TREASURE_EVENTS && window.TREASURE_EVENTS.events) || [];
+  /* 報酬のアイコン表。**行には札（I243 など）だけ入っていて、ここで引く。**
+     引けない札（SchaleDB に絵の無い Id 3 つ）は無理に置かず、名前だけ出す */
+  var RICONS = (window.TREASURE_EVENTS && window.TREASURE_EVENTS.icons) || {};
 
   /** 今日から見て開催中のイベント。無ければいちばん新しいもの。 */
   function currentEvent() {
@@ -520,13 +534,24 @@
 
   /** **当てると何がもらえるか。**イベントのデータに入っているのでそのまま出す
       （2026-08-30 に足した）。名前が引けなかったものは伏せずに Id ごと出す。 */
+  function rIcon(x, size) {
+    var ic = x.p && RICONS[x.p];
+    if (!ic) return '';
+    return '<img src="../img/' + ic + '.webp" alt="" width="' + size + '" height="' + size +
+      '" loading="lazy" title="' + String(x.n).replace(/"/g, '&quot;').replace(/\n/g, '') + '">';
+  }
   function rewards(it) {
     if (!it.rw || !it.rw.length) return '';
+    /* アイコンの帯は畳んだままでも出す。**この備品を狙うかどうかは中身で決める**
+       ので、開かないと見えない場所に置かない。全部出す——間引くと
+       「何が入っているか」ではなく「何かが入っている」しか伝わらない */
+    var strip = it.rw.map(function (x) { return rIcon(x, 22); }).join('');
     return '<details class="rw"><summary>当てるともらえるもの（' + it.rw.length + ' 種）</summary><ul>' +
       it.rw.map(function (x) {
-        return '<li><span>' + String(x.n).replace(/</g, '&lt;').replace(/\n/g, '') +
+        return '<li><span>' + rIcon(x, 18) + String(x.n).replace(/</g, '&lt;').replace(/\n/g, '') +
           '</span><b>' + x.c + '</b></li>';
-      }).join('') + '</ul></details>';
+      }).join('') + '</ul></details>' +
+      (strip ? '<div class="ricons" aria-hidden="true">' + strip + '</div>' : '');
   }
 
   /** 個数の上限。**盤に入りきる数を超えては置けない**ので、マスの総数を

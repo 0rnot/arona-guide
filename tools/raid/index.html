@@ -21,8 +21,8 @@
 <meta name="twitter:title" content="総力戦・大決戦の TL 検索">
 <meta name="twitter:description" content="ボスを絵から選ぶと、その相手の TL・有効な攻撃属性・連れて行く生徒が出ます。">
 <meta name="twitter:image" content="https://arona-bot.com/images/og/raid.jpg">
-<link rel="stylesheet" href="../../style.css?v=17">
-<link rel="stylesheet" href="../tool.css?v=13">
+<link rel="stylesheet" href="../../style.css?v=19">
+<link rel="stylesheet" href="../tool.css?v=14">
 <style>
   /* ===== ① ボスを絵から選ぶ。**ページの導入で、ここが全体の相手を決める。**
      2026-08-30 に、畳んであった相性チェッカーの中から先頭へ引き上げた
@@ -98,6 +98,13 @@
   .ce.good b { color: #2f7d4f; }
   .ce.bad { border-color: #a8402f; background: color-mix(in srgb, #a8402f 10%, var(--card)); }
   .ce.bad b { color: #a8402f; }
+  /* **ダークでは字だけ明るいほうへ振る。**地が暗いカードに 12% 混ぜた色なので、
+     面と同じ濃さの字だと 2.92 / 2.54 まで落ちていた（2026-08-31 に実測）。
+     枠と地はそのまま、字だけ差し替えて 6.99 / 6.64 にする */
+  @media (prefers-color-scheme: dark) {
+    .ce.good b { color: #6fc494; }
+    .ce.bad b { color: #f0907f; }
+  }
 
   .bstats { display: grid; grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: 8px; }
   .bstats .bs { border: 1px solid var(--line); border-radius: 10px; background: var(--bg-sub); padding: .5em .7em; }
@@ -415,12 +422,12 @@
        畳んであるので、タブには入れない ===== -->
   <details class="subtool" id="raid-extra">
     <summary>おまけ — 連れて行く生徒
-      <small>上で選んだ相手に、攻撃が通る順で 274 人を並べます。専用武器で上がる地形適性も込みです。</small>
+      <small>上で選んだ相手に、攻撃が通る順で 274 人を並べます。固有武器で上がる地形適性も込みです。</small>
     </summary>
     <div class="subbody">
 
   <div class="panel">
-    <div class="panel-h"><h2>連れて行く生徒<button type="button" class="qm" data-hint="左の数字が与ダメージの倍率、右がボスの攻撃を受けたときの倍率です。並びは地形適性も含め、専用武器を持たせた前提です。上のチェックを外すと素の適性で並べ直します。実際の火力は育成度と編成で変わるので、順位は付けていません。"></button></h2></div>
+    <div class="panel-h"><h2>連れて行く生徒<button type="button" class="qm" data-hint="左の数字が与ダメージの倍率、右がボスの攻撃を受けたときの倍率です。並びは地形適性も含め、固有武器を持たせた前提です。上のチェックを外すと素の適性で並べ直します。実際の火力は育成度と編成で変わるので、順位は付けていません。"></button></h2></div>
     <p class="lead"><b>攻撃が通る順、次に地形の当たりやすさの順</b>で並べています。</p>
     <div class="fbar">
       <input type="search" id="q" placeholder="名前で探す" aria-label="名前で探す" autocomplete="off">
@@ -428,7 +435,7 @@
       <select id="f-sq" aria-label="区分"><option value="">区分：ぜんぶ</option></select>
       <select id="f-sc" aria-label="学校"><option value="">学校：ぜんぶ</option></select>
       <select id="f-st" aria-label="レア度"><option value="">★：ぜんぶ</option><option value="3">★3</option><option value="2">★2</option><option value="1">★1</option></select>
-      <label class="tag" style="cursor:pointer"><input type="checkbox" id="wep" checked style="margin-right:.4em;vertical-align:-1px">専用武器を持たせて見る</label>
+      <label class="tag" style="cursor:pointer"><input type="checkbox" id="wep" checked style="margin-right:.4em;vertical-align:-1px">固有武器を持たせて見る</label>
       <label class="tag" style="cursor:pointer"><input type="checkbox" id="only" style="margin-right:.4em;vertical-align:-1px">通る子だけ</label>
       <span style="font-size:.8rem;color:var(--fg-mute)" id="n"></span>
     </div>
@@ -474,7 +481,7 @@
       10000 が等倍なので、20000 なら ×2.0、5000 なら ×0.5 です。<b>ここは推測していません。</b></p>
     <p><b>ボスの地形・装甲・攻撃属性は <code>data/jp/raids.min.json</code> から。</b>
       <code>BulletTypeInsane</code> という別の攻撃属性が入っているので、Insane 以上ではそちらに切り替えています。大決戦の装甲の組み合わせは <code>RaidSeasons[].EliminateSeasons</code> の実績から拾っています。</p>
-    <p><b>生徒の地形適性は 0〜5 の数値です（ゲーム内の D / C / B / A / S / SS）。</b>専用武器の <code>AdaptationType</code> と <code>AdaptationValue</code> を足したものが、武器ありの値で、並び順にはこちらを使っています。</p>
+    <p><b>生徒の地形適性は 0〜5 の数値です（ゲーム内の D / C / B / A / S / SS）。</b>固有武器の <code>AdaptationType</code> と <code>AdaptationValue</code> を足したものが、武器ありの値で、並び順にはこちらを使っています。</p>
     <p><b>順位は付けていません。</b>実際の火力はレベル・装備・スキル・編成で変わるもので、ここが出せるのは「属性が通るか」「その地形で当たるか」までです。</p>
     <p>出典 — <a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a>。取得は <span id="tls-ver">—</span>。</p>
   </details>

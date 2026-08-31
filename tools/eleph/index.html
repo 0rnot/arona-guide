@@ -21,8 +21,8 @@
 <meta name="twitter:title" content="星上げの計算機">
 <meta name="twitter:description" content="生徒を選んで今の段と目標を入れると、要る神名文字とクレジットが出ます。★1 から ★5、そのあとの固有1〜固有4（限界解放）まで通しで数えます。">
 <meta name="twitter:image" content="https://arona-bot.com/images/og/eleph.jpg">
-<link rel="stylesheet" href="../../style.css?v=17">
-<link rel="stylesheet" href="../tool.css?v=13">
+<link rel="stylesheet" href="../../style.css?v=19">
+<link rel="stylesheet" href="../tool.css?v=14">
 <style>
   /* 選んだ生徒。**選ぶ前は none。** */
   .stucard { display: grid; grid-template-columns: 96px 1fr; gap: 16px; align-items: center;
@@ -230,7 +230,11 @@
     <div class="tcol sticky">
       <div class="stats c3">
         <div class="stat hero">
-          <div class="k">要る神名文字</div>
+          <!-- **生の item_icon_secretstone は使わない。**あれは「神名のカケラ」の絵
+               （2026-08-30 の先生の指摘）。生徒共通の神名文字の絵は無いので、
+               ここはゲームの製造 UI の神名文字グリフ（CraftNode_SecretStone）。
+               生徒を選ぶと、その子の神名文字の絵が下の札と段ごとの中身に出る -->
+          <div class="k"><i class="gi gi-craftnode-secretstone"></i> 要る神名文字</div>
           <div class="v" id="o-eleph">—</div>
           <div class="sub" id="o-eleph-sub">生徒を選んでください</div>
         </div>
@@ -480,7 +484,9 @@
       card.classList.remove('none');
       el('stu-img').innerHTML = '<img src="../img/student_' + student.id + '.webp" alt="" width="96" height="96" loading="lazy">';
       el('stu-name').textContent = student.n;
-      el('stu-note').innerHTML = '要るのは <b>' + student.en + '</b> です。' +
+      el('stu-note').innerHTML = '要るのは ' +
+        (student.si ? '<img class="ico sm" src="../img/' + student.si + '.webp" alt="" width="18" height="18"> ' : '') +
+        '<b>' + student.en + '</b> です。' +
         'この子はゲームで <b>★' + student.s + '</b> から始まります。';
     } else {
       card.classList.add('none');
@@ -527,7 +533,9 @@
         : '<b>' + weaponGain(sp.w, student) + '</b>／固有武器のレベル上限 <b>' + sp.w.lv + '</b>';
       rowsH.push('<div class="starstep' + cls + (sp.kind === 'weapon' ? ' ue' : '') + '">' +
         '<span class="to">' + lvName(n, true) + '→' + lvName(n + 1, true) + '</span>' +
-        '<span class="cost">' + fmt(sp.el) + ' 個<small>クレジット ' + fmt(sp.cr) +
+        '<span class="cost">' +
+        (student && student.si && sp.el ? '<img class="ico sm" src="../img/' + student.si + '.webp" alt="" width="18" height="18" loading="lazy"> ' : '') +
+        fmt(sp.el) + ' 個<small>クレジット ' + fmt(sp.cr) +
         '／累計 ' + fmt(cum.el) + ' 個</small></span>' +
         '<span class="up">' + up + '</span>' +
         '</div>');

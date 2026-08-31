@@ -21,8 +21,8 @@
 <meta name="twitter:title" content="TL のコスト計算機">
 <meta name="twitter:description" content="この編成なら、その EX は何秒目に撃てるのか。">
 <meta name="twitter:image" content="https://arona-bot.com/images/og/cost-timeline.jpg">
-<link rel="stylesheet" href="../../style.css?v=17">
-<link rel="stylesheet" href="../tool.css?v=13">
+<link rel="stylesheet" href="../../style.css?v=19">
+<link rel="stylesheet" href="../tool.css?v=14">
 <style>
   /* 編成の 6 枠 */
   .party { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
@@ -52,6 +52,20 @@
      絵そのものは真っ白＋透過なので、`.gi` の型抜きに通して文字の色で塗る */
   .skico { width: 1.05em; height: 1.05em; vertical-align: -.18em; margin-right: .3em; }
   .slot input[type="search"] { width: 100%; padding: .35em .5em; font-size: .82rem; }
+
+  /* 生徒を顔で選ぶ一覧（2026-08-31）。**名前を打たなくても、顔を押せば空き枠が
+     埋まる。**ゲームの編成画面と同じ並びで、枠の区分（ストライカー／スペシャル）に
+     合わせて出し分ける。274 人ぶんあるので、高さを切って中でスクロールさせる */
+  .rgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(62px, 1fr));
+           gap: 4px; max-height: 246px; overflow-y: auto; padding: 4px;
+           border: 1px solid var(--line); border-radius: 12px; background: var(--bg-sub); }
+  .rgrid button { display: grid; gap: 2px; justify-items: center; padding: 5px 2px 4px;
+                  font: inherit; font-size: .6rem; color: var(--fg); line-height: 1.25;
+                  background: none; border: 0; border-radius: 9px; cursor: pointer; }
+  .rgrid button:hover { background: color-mix(in srgb, var(--accent) 14%, transparent); }
+  .rgrid img { width: 46px; height: 46px; border-radius: 9px; background: var(--card); }
+  .rgrid .rnm { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .rgrid .none { grid-column: 1 / -1; font-size: .78rem; color: var(--fg-mute); padding: 8px; }
   .slot .lv { display: grid; grid-template-columns: auto 1fr; gap: .4em; align-items: center; font-size: .74rem; color: var(--fg-mute); }
   .slot .lv select { width: 100%; padding: .3em 2em .3em .45em; font-size: .8rem; }
   /* 持続するバフの覚え書き。**選ぶものではない**ので枠を付けない */
@@ -341,6 +355,8 @@
         <div class="party sp" id="party-sup"></div>
         <datalist id="dl-main"></datalist>
         <datalist id="dl-sup"></datalist>
+        <p class="lead" id="roster-lead" style="margin-top:14px"></p>
+        <div class="rgrid" id="roster" role="group" aria-label="生徒を顔で選ぶ"></div>
         <div class="btnrow" style="margin-top:14px">
           <button type="button" class="btn" id="clear-party">編成を空にする</button>
         </div>

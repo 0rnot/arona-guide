@@ -575,7 +575,9 @@ table.dt th .ico, table.dt td .ico { width: 1.5em; height: 1.5em; vertical-align
 .sharebar-btns .btn { white-space: nowrap; text-decoration: none; }
 .sharebar-btns .btn.tone {
   background: var(--accent); border-color: var(--accent);
-  color: var(--on-accent, #fff); font-weight: 700;
+  /* **`--on-accent` ではない。**その名前の変数は定義が無く、常に #fff に
+     落ちてダークのアクセント #e2c061 の上で 1.76:1 だった（2026-08-31 に実測） */
+  color: var(--accent-in); font-weight: 700;
 }
 @media (max-width: 560px) {
   .sharebar-in { flex-direction: column; align-items: stretch; }
@@ -618,7 +620,9 @@ body.tour-on { overflow: hidden; }
 .tour-sp { flex: 1 1 auto; }
 .tour-btns .btn.tone {
   background: var(--accent); border-color: var(--accent);
-  color: var(--on-accent, #fff); font-weight: 700;
+  /* **`--on-accent` ではない。**その名前の変数は定義が無く、常に #fff に
+     落ちてダークのアクセント #e2c061 の上で 1.76:1 だった（2026-08-31 に実測） */
+  color: var(--accent-in); font-weight: 700;
 }
 .tour-open { margin-top: 14px; }
 @media (prefers-reduced-motion: reduce) { .tour-ring { transition: none; } }

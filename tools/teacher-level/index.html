@@ -21,8 +21,8 @@
 <meta name="twitter:title" content="先生レベル計算機">
 <meta name="twitter:description" content="目標の先生レベルまで、あと何 AP・何日かかるかを出します。経験値 2 倍期間と新米先生ブースト、Lv90 のあとの熟達証書にも対応。">
 <meta name="twitter:image" content="https://arona-bot.com/images/og/teacher-level.jpg">
-<link rel="stylesheet" href="../../style.css?v=17">
-<link rel="stylesheet" href="../tool.css?v=13">
+<link rel="stylesheet" href="../../style.css?v=19">
+<link rel="stylesheet" href="../tool.css?v=14">
 <style>
   .pick-row2 { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; margin-top: 18px; }
   .pick-row2 .lb2 { font-size: .8rem; font-weight: 700; color: var(--fg-mute); }
@@ -241,12 +241,12 @@
     <div class="tcol sticky">
       <div class="stats c3">
         <div class="stat hero">
-          <div class="k">かかる日数</div>
+          <div class="k"><i class="gi gi-common-icon-time"></i> かかる日数</div>
           <div class="v" id="o-days">—</div>
           <div class="sub" id="o-days-sub"></div>
         </div>
         <div class="stat">
-          <div class="k">用意する AP</div>
+          <div class="k"><img class="ico" src="../img/currency_icon_ap.webp" alt="" width="18" height="18" loading="lazy"> 用意する AP</div>
           <div class="v" id="o-total">—</div>
           <div class="sub" id="o-total-sub"></div>
         </div>
@@ -291,7 +291,7 @@
         <p class="lead">今のレベル前後の AP 上限と、上限まで貯まる時間です。<button type="button" class="qm" data-hint="低いレベルでは上限が小さいので、こまめに使わないと自然回復ぶんが溢れます。"></button></p>
         <div class="tscroll">
           <table class="dt">
-            <thead><tr><th>レベル</th><th>次まで</th><th>ここまでの累計</th><th>AP 上限</th><th>上限まで貯まる時間</th></tr></thead>
+            <thead><tr><th>レベル</th><th>次まで</th><th>ここまでの累計</th><th><img class="ico" src="../img/currency_icon_ap.webp" alt="" width="18" height="18" loading="lazy"> AP 上限</th><th><i class="gi gi-common-icon-time"></i> 上限まで貯まる時間</th></tr></thead>
             <tbody id="tb"></tbody>
           </table>
         </div>

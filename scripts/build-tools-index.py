@@ -30,6 +30,21 @@ def icon(t, prefix="", size=66):
     return (f'<img class="ticon" src="{prefix}img/{esc(t["img"])}.webp" alt="" '
             f'width="{size}" height="{size}" loading="lazy">')
 
+def subicons(t, prefix=""):
+    """**そのツールが扱うものを絵で並べる。**題と説明文だけだと 26 枚が
+    同じ白い札に見えて、探すのに全部読むことになる（2026-08-31 の先生の指示）。
+    飾りではないので、扱わないものは置かない（無いツールは空のまま）。"""
+    names = t.get("imgs") or []
+    if not names:
+        return ""
+    for n in names:
+        if not (ROOT / "tools" / "img" / (n + ".webp")).exists():
+            raise SystemExit(f"!! tools/img/{n}.webp が無い（{t['slug']}）")
+    tags = "".join(
+        f'<img src="{prefix}img/{esc(n)}.webp" alt="" width="26" height="26" loading="lazy">'
+        for n in names)
+    return f'\n      <span class="tsub" aria-hidden="true">{tags}</span>'
+
 def card(t):
     # **絞り込みは data-group（3 つだけ）。**data-cat は肩書きの表示用で、
     # ここでボタンを作ると 7 種類に散らばって選びづらくなる
@@ -38,7 +53,7 @@ def card(t):
       {icon(t)}
       <div class="cat">{esc(' · '.join(t['cat']))}</div>
       <h2>{esc(t['name'])}</h2>
-      <p>{esc(t['desc'])}</p>
+      <p>{esc(t['desc'])}</p>{subicons(t)}
       <span class="go">つかう {ARROW}</span>
     </a>'''
 
@@ -55,7 +70,7 @@ def band(t):
           {icon(t, "tools/", 54)}
           <div class="cat">{esc(' · '.join(t['cat']))}</div>
           <h3>{esc(t['name'])}</h3>
-          <p>{esc(t['desc'])}</p>
+          <p>{esc(t['desc'])}</p>{subicons(t, "tools/")}
         </a>'''
 
 # **並び順。**tools.json は作った順で、一覧に出すとばらばらに見える。
@@ -92,8 +107,9 @@ def main():
     else:
         print("tools/index.html はそのまま")
 
-    # 本編の帯。**新しい順に 3 本だけ**出す（多すぎると本編の流れを止める）
-    picks = list(reversed(data.get("tools", [])))[:3]
+    # 本編の帯。**新しい順に 6 本。**3 列の並びなので 2 行できれいに収まる。
+    # 3 本だと 26 本あることが伝わらず、絵も 3 枚しか出ない（2026-08-31 に 3→6）
+    picks = list(reversed(data.get("tools", [])))[:6]
     body2 = "<!-- BAND:START -->\n" + "\n\n".join(band(t) for t in picks) + "\n<!-- BAND:END -->"
     t = TOP.read_text(encoding="utf-8")
     new2, n2 = re.subn(r"<!-- BAND:START -->.*?<!-- BAND:END -->", lambda m: body2, t, count=1, flags=re.S)

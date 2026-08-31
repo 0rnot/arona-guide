@@ -1249,8 +1249,15 @@ def build_treasure():
     # **備品を当てると何がもらえるかも出す**（2026-08-30 に足した）。
     # `RewardParcelType` / `RewardParcelId` / `RewardParcelAmount` の 3 本が
     # 同じ長さで並んでいる。`Item` は道具、`Equipment` は装備で、**別々の表**
-    item_nm = {int(i["Id"]): i.get("Name", "") for i in as_list(get_json(SD.format("items"))) if i.get("Id")}
-    equip_nm = {int(i["Id"]): i.get("Name", "") for i in as_list(get_json(SD.format("equipment"))) if i.get("Id")}
+    item_rows = {int(i["Id"]): i for i in as_list(get_json(SD.format("items"))) if i.get("Id")}
+    equip_rows = {int(i["Id"]): i for i in as_list(get_json(SD.format("equipment"))) if i.get("Id")}
+    item_nm = {k: v.get("Name", "") for k, v in item_rows.items()}
+    equip_nm = {k: v.get("Name", "") for k, v in equip_rows.items()}
+
+    # 報酬のアイコン。**中身そのものではなく `p`（`I243` / `E4`）で引かせる。**
+    # 報酬は延べ 1,800 行あるので、行ごとにアイコン名を書くと data.js が 7 万字
+    # 太る。種類は 112 しかないので、表を 1 つ持って行には札だけ置く
+    used_icons = {}
 
     def parcels(it):
         """その備品の中身。**名前が引けないものは落とさず「？」で出す。**"""
@@ -1261,8 +1268,16 @@ def build_treasure():
             return []
         out = []
         for t, i, a in zip(ty, ids, amt):
-            nm = (item_nm if t == "Item" else equip_nm).get(i, "")
-            out.append({"n": nm or f"？（{t} {i}）", "c": a})
+            row = (item_rows if t == "Item" else equip_rows).get(i)
+            nm = (row or {}).get("Name", "")
+            rec = {"n": nm or f"？（{t} {i}）", "c": a}
+            ic = (row or {}).get("Icon")
+            if ic:
+                key = ("I" if t == "Item" else "E") + str(i)
+                used_icons[key] = {"ic": ic.rsplit("/", 1)[-1].lower(),
+                                   "kind": "item" if t == "Item" else "equipment"}
+                rec["p"] = key
+            out.append(rec)
         return out
     # 同じ EventContentId が何行も出るので、開催期間は 1 つに畳む
     period, origin = {}, {}
@@ -1318,9 +1333,22 @@ def build_treasure():
     if not events:
         raise SystemExit("宝探しのイベントが 1 件も取れない")
 
+    # 報酬のアイコンを落とす。**備品そのものの絵は取れない**——`CellUnderImagePath`
+    # （`UIs/01_Common/27_EventContent/Treasure/...`）はゲーム内アセットの道で、
+    # SchaleDB にも ba-data にも実体が無い（2026-08-31 に叩いて確かめた。
+    # schaledb.com は無い絵にも 200 で SPA の HTML を返すので、bytes で見ること）
+    n = 0
+    for v in used_icons.values():
+        n += fetch_icon(v["ic"], f"https://schaledb.com/images/{v['kind']}/icon/{v['ic']}.webp")
+    if n:
+        print(f"  アイコンを {n} 枚追加")
+
     return write_js("tools/treasure/data.js", "TREASURE_EVENTS", {
         "events": events,
-        "version": "electricgoat/ba-data jp（DB/EventContentTreasure*）／ SchaleDB jp（イベント名）",
+        "icons": {k: v["ic"] for k, v in used_icons.items()
+                  if (IMG / (v["ic"] + ".webp")).exists()},
+        "version": "electricgoat/ba-data jp（DB/EventContentTreasure*）／ SchaleDB jp"
+                   "（イベント名・報酬のアイコン）",
     }, header="/* scripts/build-tool-data.py が吐く。**手で直さない。** */\n")
 
 
@@ -3034,6 +3062,26 @@ def build_schedule():
                          "ic": v["Icon"].rsplit("/", 1)[-1].lower(),
                          "rr": v.get("Rarity", "N")}
 
+    # **場所の学校マーク。**`AcademyLocationExcelTable` の `OpenCondition` に
+    # 学校名が 1 つだけ入っている場所がある（11=Gehenna・12=Abydos・13=Millennium・
+    # 14=Trinity・15=RedWinter・16=Hyakkiyako・18=Shanhaijing。2026-08-31 に確認）。
+    # 開放条件の学校であって「その場所の学校」の欄ではないので、**場所の日本語名に
+    # その学校の日本語名が入っていることを突き合わせてから**マークを付ける
+    # （「ゲヘナ学園・中央区」に ゲヘナ、のように 7 か所すべて一致する）。
+    # 片方でも崩れたらここで止まる——黙って違う学校の紋を出すよりよい
+    school_ja = get_json(SD.format("localization")).get("School") or {}
+    loc_school = {}
+    for l_ in lc:
+        cond = [c for c in (l_.get("OpenCondition") or []) if c and c != "None"]
+        if len(cond) != 1 or cond[0] not in school_ja:
+            continue
+        sc = cond[0]
+        nm = name_of(l_["LocalizeEtcId"])
+        if school_ja[sc] not in nm:
+            raise SystemExit(f"場所 {l_['Id']}「{nm}」の開放条件 {sc}"
+                             f"（{school_ja[sc]}）が名前と合わない。紋は付けられない")
+        loc_school[l_["Id"]] = sc
+
     locs = []
     for l_ in sorted(lc, key=lambda x: x["Id"]):
         zs = []
@@ -3055,7 +3103,10 @@ def build_schedule():
                        "u": z["LocationRankForUnlock"], "rw": tiers})
         if not zs:
             raise SystemExit(f"ロケーション {l_['Id']} にゾーンが無い")
-        locs.append({"id": l_["Id"], "nm": name_of(l_["LocalizeEtcId"]), "z": zs})
+        rec = {"id": l_["Id"], "nm": name_of(l_["LocalizeEtcId"]), "z": zs}
+        if l_["Id"] in loc_school:
+            rec["sc"] = loc_school[l_["Id"]].lower()
+        locs.append(rec)
     if len(locs) != 11:
         raise SystemExit(f"ロケーションが {len(locs)} か所（11 のはず）")
 
@@ -3084,6 +3135,10 @@ def build_schedule():
                     "https://schaledb.com/images/item/icon/item_icon_secretstone.webp")
     n += fetch_icon("item_icon_favor_0",
                     "https://schaledb.com/images/item/icon/item_icon_favor_0.webp")
+    # 学校の紋。**168×152 の色付き PNG**なので、切り抜かない `fetch_raw` で置く
+    for sc in sorted(set(loc_school.values())):
+        n += fetch_raw(f"schoolicon_{sc.lower()}",
+                       f"https://schaledb.com/images/schoolicon/{sc}.png")
     if n:
         print(f"  アイコンを {n} 枚追加")
 
@@ -3742,7 +3797,8 @@ def build_cafe_layout():
         sg = f.get("SetGroupId") or 0
         fl.append({"id": f["Id"], "nm": (f.get("Name") or "?").replace("\n", ""),
                    "c": cb, "w": sz[0], "h": sz[1], "sc": sc,
-                   "pl": CL_PLANE.get(sc, "?"), "rr": f.get("Rarity") or "N", "g": sg})
+                   "pl": CL_PLANE.get(sc, "?"), "rr": f.get("Rarity") or "N", "g": sg,
+                   "ic": f.get("Icon") or ""})
         if sg:
             bysets[sg] = bysets.get(sg, 0) + 1
     sets = [{"id": g, "nm": setname.get(str(g), f"セット{g}"), "n": bysets[g],
@@ -3771,6 +3827,15 @@ def build_cafe_layout():
     # 一覧に出すツールの絵。**他の 25 本と被らない色付きのもの**
     n = int(fetch_icon("furniture_icon_sofaset",
                     "https://schaledb.com/images/furniture/icon/my_gehennaparty_01_sofaset_01.webp"))
+    # 家具そのものの絵。**「家具を選ぶ」一覧と盤に出す**（2026-08-31 に追加。
+    # SchaleDB の furniture/icon/ は `Icon` 名でも `Id` でも引けるが、
+    # 上の sofaset と同じく `Icon` 名で引く）。146×116 で生徒の顔と同じ枠なので
+    # `fetch_icon` がそのまま使える。**盤に載せない Trophy と FurnitureEtc
+    # （面が不明の 104 個）は取らない。**絵の名前は 1,091 個すべて一意で、
+    # `tools/img/` の既存ファイルとも被らないことを確かめた
+    for f in fl:
+        if f["pl"] != "?" and f["ic"]:
+            n += fetch_icon(f["ic"], f"https://schaledb.com/images/furniture/icon/{f['ic']}.webp")
     if n:
         print(f"  絵を {n} 枚追加")
 
@@ -3789,6 +3854,19 @@ def build_cafe_layout():
                    % len(fl),
     }, header="/* scripts/build-tool-data.py が吐く。**手で直さない。** */\n")
 
+def build_gacha():
+    """募集の天井計算機。**data.js を持たない**（確率と天井は index.html 側の
+    定数で、出どころはページの「数字の出どころ」欄）。ここでは絵だけ落とす。
+    10 連募集チケット（Item Id 6999「10回募集チケット」。募集回数特典でもらえる
+    もので、SchaleDB の items の `Icon` が `item_icon_recruitticket_normal_10`）。"""
+    print("募集の天井計算機（絵だけ）")
+    n = int(fetch_icon("item_icon_recruitticket_normal_10",
+            "https://schaledb.com/images/item/icon/item_icon_recruitticket_normal_10.webp"))
+    if n:
+        print(f"  絵を {n} 枚追加")
+    return bool(n)
+
+
 BUILDERS = {"bond": build_bond, "teacher-level": build_teacher_level,
             "equipment": build_equipment, "tier": build_tier, "raid": build_raid,
             "student-cost": build_student_cost, "treasure": build_treasure,
@@ -3806,6 +3884,7 @@ BUILDERS = {"bond": build_bond, "teacher-level": build_teacher_level,
             "schedule": build_schedule,
             "cafe": build_cafe,
             "cafe-layout": build_cafe_layout,
+            "gacha": build_gacha,
             "ui": build_ui}
 
 if __name__ == "__main__":

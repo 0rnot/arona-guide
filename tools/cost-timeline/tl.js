@@ -738,6 +738,45 @@
     [].forEach.call(el('mode').querySelectorAll('button'), function (b) {
       b.setAttribute('aria-pressed', String(+b.dataset.m === mode));
     });
+    drawRoster();
+  }
+
+  /* ---------- 生徒を顔で選ぶ一覧（2026-08-31）
+
+     **名前を打たなくても、顔を押せば空き枠が埋まる。**出すのは「次に埋まる枠」
+     （最後に触った検索欄の枠が空いていればそちら）の区分に合う、まだ入っていない
+     生徒。検索欄に打った文字でも絞る。編成が埋まったら消える。 */
+  var pickAt = -1, rosterQ = '';
+
+  /** 顔を押したとき生徒が入る枠。**空きが無ければ -1。** */
+  function rosterTarget() {
+    if (pickAt >= 0 && slots[pickAt] && !slots[pickAt].id && live(pickAt)) return pickAt;
+    for (var i = 0; i < MAIN_MAX + SUP_MAX; i++) {
+      if (live(i) && !slots[i].id) return i;
+    }
+    return -1;
+  }
+
+  function drawRoster() {
+    var box = el('roster'), lead = el('roster-lead');
+    if (!box || !lead) return;
+    var t = rosterTarget();
+    box.hidden = lead.hidden = t < 0;
+    if (t < 0) { box.innerHTML = ''; return; }
+    var sq = isMain(t) ? 'Main' : 'Support';
+    var used = usedIds(-1);
+    var list = D.students.filter(function (s) {
+      return s.sq === sq && !used[s.id] && (!rosterQ || s.n.indexOf(rosterQ) >= 0);
+    });
+    lead.innerHTML = '顔を押すと<b>' + (sq === 'Main' ? 'ストライカー' : 'スペシャル') +
+      'の空き枠</b>に入ります（' + list.length + ' 人）。';
+    box.innerHTML = list.length ? list.map(function (s) {
+      return '<button type="button" data-k="rpick" data-id="' + s.id + '" aria-label="' +
+        esc(s.n) + 'を編成に入れる">' +
+        '<img src="' + face(s.id) + '" alt="" width="46" height="46" loading="lazy">' +
+        '<span class="rnm">' + esc(s.n) + '</span></button>';
+    }).join('') : '<p class="none">「' + esc(rosterQ) + '」に合う' +
+      (sq === 'Main' ? 'ストライカー' : 'スペシャル') + 'は残っていません。</p>';
   }
 
   function drawStats() {
@@ -2266,8 +2305,24 @@
   });
   document.addEventListener('input', function (ev) {
     var t = ev.target, id = t.id;
-    if (t.dataset && t.dataset.k === 'pick') { takePick(t, true); return; }
+    if (t.dataset && t.dataset.k === 'pick') {
+      // 打った文字で顔の一覧も絞る。**確定して欄ごと作り直されたら絞りを解く**
+      // （takePick が draw() を呼ぶと、この欄は DOM から消えている）
+      pickAt = +t.dataset.i; rosterQ = t.value;
+      takePick(t, true);
+      if (!document.body.contains(t)) { pickAt = -1; rosterQ = ''; }
+      drawRoster();
+      return;
+    }
     if (id === 'i-start' || id === 'i-gb' || id === 'i-gc') draw();
+  });
+  // 検索欄に触れたら、その枠を顔の一覧の行き先にする
+  document.addEventListener('focusin', function (ev) {
+    var t = ev.target;
+    if (t.dataset && t.dataset.k === 'pick' && +t.dataset.i !== pickAt) {
+      pickAt = +t.dataset.i; rosterQ = t.value || '';
+      drawRoster();
+    }
   });
 
   function toast(msg) {
@@ -2287,6 +2342,14 @@
       draw();
     } else if (k === 'add') {
       order.push({ i: +b.dataset.i, t: null, to: null, ov: null, f: null }); draw();
+    } else if (k === 'rpick') {
+      var rt = rosterTarget();
+      var rd = byId[+b.dataset.id];
+      if (rt < 0 || !rd) return;
+      say('');
+      slots[rt] = { id: rd.id, ex: 5, sk: 10, tier: {}, on: {} };
+      pickAt = -1; rosterQ = '';
+      draw();
     } else if (k === 'del') {
       order.splice(+b.dataset.j, 1); draw();
     } else if (k === 'up') {

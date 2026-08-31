@@ -21,8 +21,8 @@
 <meta name="twitter:title" content="スケジュールの期待値">
 <meta name="twitter:description" content="どの場所にスケジュールを送ると絆経験値と神名文字がいちばん多いかを、確率込みの期待値で出します。ランクを上げるのに何回要るか、チケットが 1 枚増えるのはどこかも。">
 <meta name="twitter:image" content="https://arona-bot.com/images/og/schedule.jpg">
-<link rel="stylesheet" href="../../style.css?v=17">
-<link rel="stylesheet" href="../tool.css?v=13">
+<link rel="stylesheet" href="../../style.css?v=19">
+<link rel="stylesheet" href="../tool.css?v=14">
 <style>
   /* ロケーションのランク。**左に名前、右に段。** */
   .lrow { display: grid; grid-template-columns: 1fr 96px; gap: 10px; align-items: center;
@@ -80,6 +80,15 @@
         border-radius: 999px; background: var(--accent); color: var(--accent-in);
         vertical-align: .1em; }
   .barnote { font-size: .78rem; color: var(--fg-mute); margin: .6em 0 0; line-height: 1.7; }
+
+  /* ゲーム内の絵で列と場所を引けるように（2026-08-31）。
+     **絆経験値のハートは School_Icon_Schedule_Favor**——スケジュール画面で
+     絆経験値に添えてある絵そのもの。神名文字は道具のアイコン。
+     学校の紋は SchaleDB でも**白一色のグリフ**（<img> だと明るい地に白で消える。
+     2026-08-31 に置いて撮って確かめた）なので、`.gi` の型抜きで文字色に染める */
+  .scm { margin-right: .3em; }
+  table.dt th img { vertical-align: -.25em; margin-right: .2em; }
+  .lrow.off .nm .scm { opacity: .45; }
 </style>
 </head>
 <body>
@@ -226,7 +235,7 @@
           <div class="sub" id="o-tic-sub">合計ランクで決まります</div>
         </div>
         <div class="stat">
-          <div class="k">チケットぶんの神名文字</div>
+          <div class="k"><img class="scm" src="../img/item_icon_secretstone.webp" alt="" width="16" height="16"> チケットぶんの神名文字</div>
           <div class="v" id="o-ss">—</div>
           <div class="sub">いちばん多い場所で使い切ったとき</div>
         </div>
@@ -261,7 +270,7 @@
           <p class="lead">絆経験値と神名文字は、<b>場所ではなくランクだけ</b>で決まります。<button type="button" class="qm" data-hint="同じランクならどこへ送っても同じです。変わるのは追加でもらえる素材だけです。"></button></p>
           <div class="tscroll">
             <table class="dt">
-              <thead><tr><th>場所</th><th>ランク</th><th>絆経験値</th><th>神名文字</th></tr></thead>
+              <thead><tr><th>場所</th><th>ランク</th><th><img src="../img/ui_school_icon_schedule_favor.webp" alt="" width="16" height="16">絆経験値</th><th><img src="../img/item_icon_secretstone.webp" alt="" width="16" height="16">神名文字</th></tr></thead>
               <tbody id="loctb"></tbody>
             </table>
           </div>
@@ -288,7 +297,7 @@
           <p class="lead">段は<b>6 つ</b>しかありません。<button type="button" class="qm" data-hint="ランク1〜3は同じ、4〜6も同じ……という並びで、11と12だけ絆経験値そのものが増えます。"></button></p>
           <div class="tscroll">
             <table class="dt">
-              <thead><tr><th>ランク</th><th>絆の期待値</th><th>神名文字</th><th>本体</th><th>追加の確率</th><th>そこに入るまで</th></tr></thead>
+              <thead><tr><th>ランク</th><th><img src="../img/ui_school_icon_schedule_favor.webp" alt="" width="16" height="16">絆の期待値</th><th><img src="../img/item_icon_secretstone.webp" alt="" width="16" height="16">神名文字</th><th>本体</th><th>追加の確率</th><th>そこに入るまで</th></tr></thead>
               <tbody id="tiertb"></tbody>
             </table>
           </div>
@@ -343,6 +352,10 @@
           <code>AcademyLocationExcelTable</code> の <code>OpenCondition</code>
           （<code>["Gehenna"], [8]</code> など）も、何を 8 個そろえるのかが分かりません。
           <b>裏が取れないものは書かない</b>ことにしています。
+          場所の横の学校の紋は、この <code>OpenCondition</code> に学校が 1 つだけ
+          入っている 7 か所に出しています（<b>場所の日本語名にその学校名が
+          入っていることを突き合わせてから</b>。シャーレオフィス・シャーレ居住区・
+          D.U.シラトリ区・春葉原には学校の欄が無いので付けていません）。
           チケットが何時間で 1 枚戻るかもデータに無いので、<b>「1 日」ではなく「チケット N 枚ぶん」</b>と書いています。</p>
         <p>神名文字は<b>その場所にいる、すでに持っている生徒のもの</b>が出ます。
           誰のものが出るかはデータからは決められないので、ここでは<b>個数だけ</b>を出しています。</p>
@@ -454,9 +467,19 @@
   // <select> が作り直されて焦点が飛ぶ
   var opts = '<option value="0">—</option>';
   for (var r = 1; r <= MAXR; r++) opts += '<option value="' + r + '">' + r + '</option>';
+  /** 学校の紋。**開放条件が学校 1 つだけの 7 か所**（データにあるものだけ。
+      シャーレ・D.U.シラトリ区・春葉原は学校の欄が無いので、推測で付けない）。
+      紋は白一色のグリフなので `.gi` の型抜きで文字色に染める。
+      **パスはサイトの根から**——カスタムプロパティの url() は tool.css を
+      起点に解決される（cost-timeline の skIcon と同じ落とし穴）。 */
+  function scMark(l) {
+    if (!l.sc) return '';
+    return '<i class="gi scm" style="--gi:url(/tools/img/schoolicon_' + l.sc +
+           '.webp)" aria-hidden="true"></i>';
+  }
   el('ranks').innerHTML = S.loc.map(function (l) {
     return '<div class="lrow" data-l="' + l.id + '">' +
-             '<span class="nm">' + l.nm + '<small>エリア ' + l.z.length + ' か所</small></span>' +
+             '<span class="nm">' + scMark(l) + l.nm + '<small>エリア ' + l.z.length + ' か所</small></span>' +
              '<select data-l="' + l.id + '" aria-label="' + l.nm + 'のランク">' + opts + '</select>' +
            '</div>';
   }).join('');
@@ -474,7 +497,7 @@
   el('i-goal').addEventListener('change', function () { goal = +this.value; draw(); });
 
   el('zpick').innerHTML = S.loc.map(function (l) {
-    return '<button type="button" class="chip" data-l="' + l.id + '">' + l.nm +
+    return '<button type="button" class="chip" data-l="' + l.id + '">' + scMark(l) + l.nm +
            '<small>' + l.z.length + '</small></button>';
   }).join('');
   el('zpick').addEventListener('click', function (e) {
@@ -534,7 +557,7 @@
     var best = null;
     open.forEach(function (l) { if (!best || rk[l.id] > rk[best.id]) best = l; });
     if (best) {
-      el('o-best').textContent = best.nm;
+      el('o-best').innerHTML = scMark(best) + best.nm;
       el('o-best-sub').textContent = 'ランク ' + rk[best.id] + '｜1 回で 絆経験値 ' +
         fmt(favorEV(rk[best.id]), 2) + '・神名文字 ' + fmt(ssEV(rk[best.id]), 3);
     } else {
@@ -551,7 +574,7 @@
       var r = rk[l.id];
       var n = l.z.filter(function (z) { return z.u <= r; }).length;
       return '<tr' + (best && l.id === best.id ? ' class="rowbest"' : '') + '><td class="nmc">' +
-             l.nm + '<small>エリア ' + n + ' / ' + l.z.length + ' か所</small></td><td>' + r +
+             scMark(l) + l.nm + '<small>エリア ' + n + ' / ' + l.z.length + ' か所</small></td><td>' + r +
              '</td><td><b>' + fmt(favorEV(r), 2) + '</b></td><td>' + fmt(ssEV(r), 3) + '</td></tr>';
     }).join('') : '<tr><td colspan="4" class="lock">まだ 1 か所も開いていません。上でランクを入れてください。</td></tr>';
 

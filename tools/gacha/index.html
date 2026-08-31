@@ -21,8 +21,8 @@
 <meta name="twitter:title" content="募集の天井計算機">
 <meta name="twitter:description" content="今の石でピックアップを引ける確率は何 % か。呼び出しチャージ 100 / 200 カウントを織り込んで計算します。">
 <meta name="twitter:image" content="https://arona-bot.com/images/og/gacha.jpg">
-<link rel="stylesheet" href="../../style.css?v=17">
-<link rel="stylesheet" href="../tool.css?v=13">
+<link rel="stylesheet" href="../../style.css?v=19">
+<link rel="stylesheet" href="../tool.css?v=14">
 <style>
   .chartbox { margin-top: 8px; }
   .chartbox svg { width: 100%; height: auto; display: block; overflow: visible; }
@@ -193,10 +193,12 @@
       <div class="panel">
         <div class="panel-h"><h2>内訳</h2></div>
         <div class="ledger">
-          <div class="row"><span>引ける回数<span class="subnote">1 連 120 個。募集回数特典の 10 連チケットを足したぶん</span></span><span id="l-pulls">—</span></div>
+          <div class="row"><span>引ける回数<span class="subnote"><img class="ico sm" src="../img/item_icon_recruitticket_normal_10.webp" alt="" width="14" height="14" loading="lazy"> 1 連 120 個。募集回数特典の 10 連チケットを足したぶん</span></span><span id="l-pulls">—</span></div>
           <div class="row"><span id="l-charge-k">引き終わったときの呼び出しチャージ</span><span id="l-charge">—</span></div>
           <div class="row"><span id="l-star3-k">出る★3 の平均人数</span><span id="l-star3">—</span></div>
-          <div class="row total"><span id="l-need-k">天井まで足りない青輝石</span><span id="l-need">—</span></div>
+          <!-- **絵は #l-need-k の外に置く。**gacha.js が textContent で
+               この札を書き換えるので、中に入れると 1 回目の描画で消える -->
+          <div class="row total"><span><img class="ico sm" src="../img/currency_icon_gem.webp" alt="" width="14" height="14" loading="lazy"> <span id="l-need-k">天井まで足りない青輝石</span></span><span id="l-need">—</span></div>
         </div>
       </div>
 
@@ -221,7 +223,7 @@
         <div class="chartbox" id="chart"></div>
         <div class="tscroll">
           <table class="dt">
-            <thead><tr><th>ここまでの確率</th><th>引く回数</th><th>要る青輝石</th><th>もらえる 10 連チケット</th></tr></thead>
+            <thead><tr><th>ここまでの確率</th><th>引く回数</th><th><img class="ico" src="../img/currency_icon_gem.webp" alt="" width="18" height="18" loading="lazy"> 要る青輝石</th><th><img class="ico" src="../img/item_icon_recruitticket_normal_10.webp" alt="" width="18" height="18" loading="lazy"> もらえる 10 連チケット</th></tr></thead>
             <tbody id="tb-q"></tbody>
           </table>
         </div>

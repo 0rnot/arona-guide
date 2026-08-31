@@ -21,8 +21,8 @@
 <meta name="twitter:title" content="オーパーツ逆引き">
 <meta name="twitter:description" content="このオーパーツは誰が使うのか。素材から生徒を引きます。">
 <meta name="twitter:image" content="https://arona-bot.com/images/og/oopart.jpg">
-<link rel="stylesheet" href="../../style.css?v=17">
-<link rel="stylesheet" href="../tool.css?v=13">
+<link rel="stylesheet" href="../../style.css?v=19">
+<link rel="stylesheet" href="../tool.css?v=14">
 <style>
   /* 素材を選ぶ札 */
   .mgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); gap: 8px; }
@@ -74,7 +74,9 @@
     .rar-N   { --rar: rgb(140, 147, 158); }
     .rar-R   { --rar: rgb(101, 141, 191); }
     .rar-SR  { --rar: rgb(168, 125, 81); }
-    .rar-SSR { --rar: rgb(122, 91, 190); }
+    /* **SSR だけ明るくする。**この札の字は #1b1d21 固定で、
+       rgb(122, 91, 190) の上では 3.27 しかなかった。4.86 になる（2026-08-31） */
+    .rar-SSR { --rar: rgb(150, 122, 214); }
   }
 </style>
 </head>
