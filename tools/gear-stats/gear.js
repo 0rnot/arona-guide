@@ -9,6 +9,7 @@
   var el = function (id) { return document.getElementById(id); };
   var ST = (G.labels && G.labels.Stat) || {};
   var TERRAIN = { Street: '市街地戦', Outdoor: '屋外戦', Indoor: '屋内戦' };
+  var BULLET = { Explosion: '爆発', Pierce: '貫通', Mystic: '神秘', Sonic: '振動' };
 
   function esc(t) {
     return String(t).replace(/[&<>"]/g, function (c) {
@@ -137,7 +138,12 @@
     if (n === 1) return '固有武器が使えるようになります';
     if (n === 2) return 'パッシブスキル＋を覚えます';
     if (n === 3) return (TERRAIN[w.ad] || w.ad) + ' 適性 ＋' + w.av;
-    return w.sq === 'Support' ? 'コスト上限 ＋0.5' : '自分の攻撃属性の特効 ＋10%';
+    /* **固有4 のぶんもデータから来る。**`f4` が `MaxCostIncrease` ならコスト上限、
+       `Enhance〇〇Rate` なら〇〇の特効。どちらも 10000 分率 */
+    if (!w.f4) return w.sq === 'Support' ? 'コスト上限 ＋0.5' : '自分の攻撃属性の特効 ＋10%';
+    if (w.f4 === 'MaxCostIncrease') return 'コスト上限 ＋' + (w.f4v / 10000);
+    var bt = w.f4.replace('Enhance', '').replace('Rate', '');
+    return (BULLET[bt] || bt) + ' の特効 ＋' + (w.f4v / 100) + '%';
   }
 
   var adapt = '';

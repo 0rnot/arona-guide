@@ -285,9 +285,9 @@
         </ul>
         <p><b>2026 年 8 月 30 日まで、この式のうち <code>FavorItemUniqueTags</code> を数えていませんでした。</b>文章にはこう書いてあったのに、実際の計算は <code>FavorItemTags</code> だけを見ていて、<b>237 人ぶん・411 組の倍率が本来より低く出ていました。</b>直したあと、SchaleDB の <code>common.js</code> と同じ式を組み直して <b>274 人 × 52 種＝14,248 組</b>を 1 組ずつ突き合わせ、食い違いが 0 であることを確かめています。上限を入れないと ×5 が 106 組出ますが、<b>ゲームに ×5 はありません</b>（SchaleDB も <code>Math.min(commonTags.length, 3)</code> としています）。</p>
         <p>この式だと「美しい花束」は<b><span id="src-n">—</span> 人ぜんぶに対して ×4</b>になります（ゲーム内で誰に渡しても最大効果になるのと同じです）。<b>どの生徒にも ×4 の贈り物が最低 1 つあります。</b></p>
-        <p><b>絆ランクの必要経験値は <code>Excel/FavorLevelExcelTable.json</code> そのままです。</b>
+        <p><b>絆ランクの必要経験値は <code>DB/FavorLevelExcelTable.json</code> そのままです。</b>
           Lv1 から Lv100 までの合計は <b>240,225</b>、Lv1 から Lv20 までは <b>1,845</b>、Lv1 から Lv50 までは <b>29,175</b> です。</p>
-        <p><b>カフェタッチは 1 回 15 の絆経験値。</b>これはゲームのデータにあります——<code>Excel/CafeInteractionExcelTable.json</code> の <code>FavorEmoticonRewardParcelType: "FavorExp"</code> / <code>FavorEmoticonRewardAmount: 15</code> で、<b>223 行すべてが 15</b>（生徒ごとの差はありません）。橙の贈り物の基本値 60 とちょうど合って、4 回タッチで 1 個ぶんです。<b>回数の制限のほうはデータに見つかりません。</b>タッチできる回数は 3 時間ごとに回復し、カフェの訪問者は毎日 4 時と 16 時にリセットされます。同じ生徒は 12 時間で最大 4 回までです（4 時／16 時をまたぐと別の生徒に入れ替わるので 5 回目はできません）。これは <a href="https://bluearchive.wikiru.jp/?%E3%82%AB%E3%83%95%E3%82%A7" target="_blank" rel="noopener">ブルアカ Wiki「カフェ」</a>の記載です。
+        <p><b>カフェタッチは 1 回 15 の絆経験値。</b>これはゲームのデータにあります——<code>DB/CafeInteractionExcelTable.json</code> の <code>FavorEmoticonRewardParcelType: "FavorExp"</code> / <code>FavorEmoticonRewardAmount: 15</code> で、<b>273 行すべてが 15</b>（生徒ごとの差はありません）。橙の贈り物の基本値 60 とちょうど合って、4 回タッチで 1 個ぶんです。<b>回数の制限のほうはデータに見つかりません。</b>タッチできる回数は 3 時間ごとに回復し、カフェの訪問者は毎日 4 時と 16 時にリセットされます。同じ生徒は 12 時間で最大 4 回までです（4 時／16 時をまたぐと別の生徒に入れ替わるので 5 回目はできません）。これは <a href="https://bluearchive.wikiru.jp/?%E3%82%AB%E3%83%95%E3%82%A7" target="_blank" rel="noopener">ブルアカ Wiki「カフェ」</a>の記載です。
           1 号店と 2 号店があるので、招待券を使えば 1 人の生徒を 1 日じゅうカフェに置いておくこともできます。
           1 日に何回タッチできるかは環境で変わるので、入力にしてあります。</p>
         <p><b>スケジュールの絆経験値は入れていません。</b>場所と生徒の組み合わせで変わり、このツールの手持ちのデータからは決められないためです。分かるぶんは「その他」に入れてください。</p>

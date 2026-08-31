@@ -309,13 +309,13 @@
         <p><b>倍率の表は、ゲームのデータ 2 か所から取って突き合わせています。</b>片方だけだと足りません。</p>
         <ul>
           <li><a href="https://schaledb.com/data/config.json" target="_blank" rel="noopener">SchaleDB の <code>config.json</code></a> の <code>TypeEffectiveness</code>。攻撃属性 6 種 × 装甲 7 種が全部入っています</li>
-          <li><a href="https://github.com/electricgoat/ba-data" target="_blank" rel="noopener">ba-data</a> の <code>Excel/BulletArmorDamageFactorExcelTable.json</code>（42 行）。<code>DamageRate</code> が 10000 分率で、<code>20000</code> が ×2.0 です</li>
+          <li><a href="https://github.com/electricgoat/ba-data" target="_blank" rel="noopener">ba-data</a> の <code>DB/BulletArmorDamageFactorExcelTable.json</code>（56 行 = 攻撃属性 8 種 × 装甲 7 種）。<code>DamageRate</code> が 10000 分率で、<code>20000</code> が ×2.0 です</li>
           <li><b>重なる <span id="src-n">—</span> 升は 1 つずつ照合して、ぜんぶ一致しました。</b>食い違う升が出たらデータを作るときに止まります</li>
-          <li><b>ba-data の jp ブランチには「分解（Chemical）」と「複合装甲（CompositeArmor）」の行がありません。</b>この 12 升は SchaleDB 側にしか無いので、そちらから取っています。<b>ゲーム内には既にあって、複合装甲の生徒も 2 人います。</b></li>
-          <li>その 12 升は<a href="https://gamerch.com/bluearchive/186855" target="_blank" rel="noopener">ブルアカ攻略wiki（Gamerch）「分解と複合装甲の相性」</a>とも一致しました——「分解は複合装甲に 2 倍有利／重装甲に 1.5 倍有利／軽装備に半減／その他は等倍」「複合装甲は分解に 2 倍弱点／神秘・振動に半減／その他は等倍」。<b>データと記事が別々に一致したので、読み違いではありません。</b></li>
+          <li><b>「分解（Chemical）」と「複合装甲（CompositeArmor）」の行は <code>DB/</code> 側に入っています</b>（同じリポジトリの <code>Excel/</code> 側は 42 行のまま止まっていて、この 14 行がありません）。<b>複合装甲の生徒も 2 人います。</b></li>
+          <li>分解と複合装甲の升は<a href="https://gamerch.com/bluearchive/186855" target="_blank" rel="noopener">ブルアカ攻略wiki（Gamerch）「分解と複合装甲の相性」</a>とも一致しました——「分解は複合装甲に 2 倍有利／重装甲に 1.5 倍有利／軽装備に半減／その他は等倍」「複合装甲は分解に 2 倍弱点／神秘・振動に半減／その他は等倍」。<b>データと記事が別々に一致したので、読み違いではありません。</b></li>
         </ul>
         <p><b>×1.5 という段があります。</b>振動 → 特殊装甲と、分解 → 重装甲の 2 つだけです（<code>DamageAttribute</code> が <code>Effective</code>）。ほかは ×2.0 / ×1.0 / ×0.5 の 3 段です。</p>
-        <p><b>地形適性は <code>Excel/TerrainAdaptationFactorExcelTable.json</code>（18 行）です。</b>市街地・屋外・屋内の 3 つ × 6 段で、<b>3 つの地形で値は 1 つも変わりません</b>（これも数えて確かめています）。
+        <p><b>地形適性は <code>DB/TerrainAdaptationFactorExcelTable.json</code>（18 行）です。</b>市街地・屋外・屋内の 3 つ × 6 段で、<b>3 つの地形で値は 1 つも変わりません</b>（これも数えて確かめています）。
           <code>AttackPowerFactor</code> が 10000 分率で <code>13000 / 12000 / 11000 / 10000 / 9000 / 8000</code>——<b>SS で ×1.3、D で ×0.8</b>。
           これは <a href="https://game8.jp/blue-archive/639677" target="_blank" rel="noopener">ゲームエイト「地形適性（戦地適性）の倍率と効果・上げ方」</a>の「SS 1.3倍 / S 1.2倍 / A 1.1倍 / B 1.0倍 / C 0.9倍 / D 0.8倍」と一致します。</p>
         <p><b><code>ShotFactor</code> と <code>BlockFactor</code> の意味は断定しません。</b>どちらも <code>7500 / 6000 / 4500 / 3000 / 1500 / 0</code> と並んでいて、遮蔽まわりの値であることは

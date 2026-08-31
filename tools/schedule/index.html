@@ -237,7 +237,7 @@
           <div class="sub" id="o-tic-sub">合計ランクで決まります</div>
         </div>
         <div class="stat">
-          <div class="k"><img class="scm" src="../img/item_icon_secretstone.webp" alt="" width="16" height="16"> チケットぶんの神名文字</div>
+          <div class="k"><span class="gi gi-craftnode-secretstone scm" aria-hidden="true"></span> チケットぶんの神名文字</div>
           <div class="v" id="o-ss">—</div>
           <div class="sub">いちばん多い場所で使い切ったとき</div>
         </div>
@@ -272,7 +272,7 @@
           <p class="lead">絆経験値と神名文字は、<b>場所ではなくランクだけ</b>で決まります。<button type="button" class="qm" data-hint="同じランクならどこへ送っても同じです。変わるのは追加でもらえる素材だけです。"></button></p>
           <div class="tscroll">
             <table class="dt">
-              <thead><tr><th>場所</th><th>ランク</th><th><img src="../img/ui_school_icon_schedule_favor.webp" alt="" width="16" height="16">絆経験値</th><th><img src="../img/item_icon_secretstone.webp" alt="" width="16" height="16">神名文字</th></tr></thead>
+              <thead><tr><th>場所</th><th>ランク</th><th><img src="../img/ui_school_icon_schedule_favor.webp" alt="" width="16" height="16">絆経験値</th><th><span class="gi gi-craftnode-secretstone" aria-hidden="true"></span>神名文字</th></tr></thead>
               <tbody id="loctb"></tbody>
             </table>
           </div>
@@ -299,7 +299,7 @@
           <p class="lead">段は<b>6 つ</b>しかありません。<button type="button" class="qm" data-hint="ランク1〜3は同じ、4〜6も同じ……という並びで、11と12だけ絆経験値そのものが増えます。"></button></p>
           <div class="tscroll">
             <table class="dt">
-              <thead><tr><th>ランク</th><th><img src="../img/ui_school_icon_schedule_favor.webp" alt="" width="16" height="16">絆の期待値</th><th><img src="../img/item_icon_secretstone.webp" alt="" width="16" height="16">神名文字</th><th>本体</th><th>追加の確率</th><th>そこに入るまで</th></tr></thead>
+              <thead><tr><th>ランク</th><th><img src="../img/ui_school_icon_schedule_favor.webp" alt="" width="16" height="16">絆の期待値</th><th><span class="gi gi-craftnode-secretstone" aria-hidden="true"></span>神名文字</th><th>本体</th><th>追加の確率</th><th>そこに入るまで</th></tr></thead>
               <tbody id="tiertb"></tbody>
             </table>
           </div>
@@ -328,26 +328,26 @@
         <summary>数字の出どころ</summary>
         <p><b>ゲームのデータをそのまま読んでいます。</b>推測した数字はありません。</p>
         <ul>
-          <li>報酬は <code>Excel/AcademyRewardExcelTable.json</code>。<b><span id="src-rows">—</span> 行</b>あって、
-            <b>86 のエリア × 6 段</b>ちょうどです。段は <code>LocationRank</code> の
+          <li>報酬は <code>DB/AcademyRewardExcelTable.json</code>。<b><span id="src-rows">—</span> 行</b>あって、
+            <b>94 のエリア × 6 段</b>ちょうどです。段は <code>LocationRank</code> の
             <b>1 / 4 / 7 / 10 / 11 / 12</b> の 6 つだけなので、ランク 5 なら 4 の段、
             ランク 9 なら 7 の段が効きます</li>
           <li>絆経験値は <code>FavorExp</code> ＋ <code>ExtraFavorExp × ExtraFavorExpProb / 10000</code>、
             神名文字は <code>SecretStoneAmount × SecretStoneProb / 10000</code>。
-            <b>確率が 10000 分率であることは、86 エリアすべてで同じ段に同じ値が入っていること</b>で
+            <b>確率が 10000 分率であることは、94 エリアすべてで同じ段に同じ値が入っていること</b>で
             確かめています（段ごとに値が割れていたらデータを作る側で止まります）。
-            <code>SecretStoneAmount</code> は 516 行すべて 1 です</li>
+            <code>SecretStoneAmount</code> は 564 行すべて 1 です</li>
           <li>ランク上げの <b>1 回 100 経験値</b>は <code>RewardParcelType</code> が
-            516 行すべて <code>["LocationExp"]</code>、<code>RewardAmount</code> が
-            516 行すべて <code>[100]</code> であることから。
+            564 行すべて <code>["LocationExp"]</code>、<code>RewardAmount</code> が
+            564 行すべて <code>[100]</code> であることから。
             <b>外の記事とも合いました</b> ——
             <a href="https://gameranbu.jp/bluearchive/b32fa904198c01c0d130" target="_blank" rel="noopener">ゲーム乱舞</a>の
             「スケジュールを行うことでもらえるロケーションの経験値は1回で100ポイント」</li>
-          <li>ランクごとの必要経験値は <code>Excel/AcademyLocationRankExcelTable.json</code> の
+          <li>ランクごとの必要経験値は <code>DB/AcademyLocationRankExcelTable.json</code> の
             <code>TotalExp</code>。<b>ランク 12 が上限</b>で、そこまでの累計は
             <b><span id="src-tot">—</span> 経験値 ＝ <span id="src-run">—</span> 回</b>です。
             <code>RankExp</code> の累計が <code>TotalExp</code> と全段一致することを確かめています</li>
-          <li>チケットの枚数は <code>Excel/AcademyTicketExcelTable.json</code>
+          <li>チケットの枚数は <code>DB/AcademyTicketExcelTable.json</code>
             （<b>列名の綴りが <code>ScheduleTicktetMax</code></b>。データ側の誤字をそのまま読んでいます）。
             合計ランク <b>1 / 10 / 25 / 50 / 80</b> で <b>3 / 4 / 5 / 6 / 7 枚</b>。
             <a href="https://kamigame.jp/bluearchive/page/143091843515583937.html" target="_blank" rel="noopener">神ゲー攻略</a>と
@@ -355,7 +355,7 @@
             表と<b>5 段とも一致</b>しました</li>
           <li>場所とエリアの名前は <code>DB/LocalizeEtcExcelTable.json</code> の <code>NameJp</code>。
             <b><code>AcademyReward</code> の <code>Location</code> 列は韓国語のまま</b>（<code>"샬레 업무관"</code>）で、
-            <code>Excel/</code> 側に日本語はありません。<b><span id="src-zn">—</span> 個ぜんぶ引けなければ
+            この表そのものには日本語がありません。<b><span id="src-zn">—</span> 個ぜんぶ引けなければ
             データを作る側で止まります</b></li>
           <li>追加報酬で<b>同じ道具が 2 行に分かれている</b>ことがあります。学校のエリアの
             ランク 11・12 が <code>[BD, ノート, ノート]</code> の 3 本立てで、2 本目が 100% に

@@ -258,7 +258,7 @@
 
       <details class="src">
         <summary>数字の出どころ</summary>
-        <p><b>スコアの式は、ゲームのデータの列そのものです。</b><a href="https://github.com/electricgoat/ba-data" target="_blank" rel="noopener">ba-data</a> の <code>Excel/RaidStageExcelTable.json</code>（総力戦 144 行）と <code>Excel/EliminateRaidStageExcelTable.json</code>（大決戦 504 行）に、ボスと難易度ごとに 4 つの数が入っています。</p>
+        <p><b>スコアの式は、ゲームのデータの列そのものです。</b><a href="https://github.com/electricgoat/ba-data" target="_blank" rel="noopener">ba-data</a> の <code>DB/RaidStageExcelTable.json</code>（総力戦 168 行）と <code>DB/EliminateRaidStageExcelTable.json</code>（大決戦 532 行）に、ボスと難易度ごとに 4 つの数が入っています。</p>
         <ul>
           <li><code>DefaultClearScore</code> — <b>倒したときに必ずもらえるぶん</b></li>
           <li><code>HPPercentScore</code> — <b>HP をぜんぶ削ったときのぶん</b>。削りきれなければその割合ぶん</li>
@@ -266,9 +266,9 @@
           <li><code>MaximumScore</code> — <b>時間ぶんの満額</b>（0 秒で倒したときにもらえる量）</li>
         </ul>
         <p><b>スコア ＝ 倒したぶん ＋ HP ぶん ＋（時間ぶんの満額 − 経過秒 × 1 秒あたり）。</b>時間ぶんは 0 より下には行きません。</p>
-        <p><b>式が合っていることは、648 行ぜんぶで確かめました。</b>同じ表に <code>MinimumAcquisitionScore</code> と <code>MaximumAcquisitionScore</code> が入っていて、<code>最低 ＝ DefaultClearScore ＋ HPPercentScore</code>、<code>最高 ＝ 最低 ＋ MaximumScore</code> が <b>648 行すべてで 1 の狂いもなく一致</b>しました。合わない行が出たらデータを作り直すときに止まります。</p>
+        <p><b>式が合っていることは、700 行ぜんぶで確かめました。</b>同じ表に <code>MinimumAcquisitionScore</code> と <code>MaximumAcquisitionScore</code> が入っていて、<code>最低 ＝ DefaultClearScore ＋ HPPercentScore</code>、<code>最高 ＝ 最低 ＋ MaximumScore</code> が <b>700 行すべてで 1 の狂いもなく一致</b>しました。合わない行が出たらデータを作り直すときに止まります。</p>
         <p><b><code>PerSecondMinusScore</code> は、そのままでは「1 秒あたり」になりません。1/10 が正しい値です。</b>
-          この列を割ると <code>MaximumScore ÷ PerSecondMinusScore</code> が 648 行すべてで <b>360</b> になりますが、
+          この列を割ると <code>MaximumScore ÷ PerSecondMinusScore</code> が 700 行すべてで <b>360</b> になりますが、
           これを 360 秒と読むと<b>3 分ボスを 2 凸しただけで時間ぶんが 0</b> になり、誰が撃っても同じ点になってしまいます。実際は違います。</p>
         <p><b>正しくは 1/10 で、時間ぶんが尽きるのは合計 3,600 秒（60 分）です。</b>
           <a href="https://kina-ko-m-ochi.net/score/" target="_blank" rel="noopener">きなこもち「総力戦・大決戦スコア計算機」</a>が
@@ -283,7 +283,7 @@
         <p><b>だから「2 凸」以上が意味を持ちます。</b>時間ぶんは<b>部隊をまたいだ合計の戦闘時間</b>で減るので、
           倒しきれずに時間切れになった回のぶんも足されます。このツールは凸ごとに時間を入れる形にして、倒しきれなかった回は制限時間そのものを初期値にしています。
           最後の 1 回だけは「経過」でも「残り」でも入れられます（<b>残り ＝ 制限時間 − 経過</b>）。</p>
-        <p><b>地形と装甲はスコアに関係しません。</b>大決戦の行は「ボス_地形_装甲」という名前で 504 行ありますが、<b>同じボス・同じ難易度なら中身が 1 種類しかありませんでした。</b>総力戦にも <code>Binah_Street</code> のような地形つきの行がありますが、そちらも値は同じです。なので 165 行に畳んで持っています。</p>
+        <p><b>地形と装甲はスコアに関係しません。</b>大決戦の行は「ボス_地形_装甲」という名前で 532 行ありますが、<b>同じボス・同じ難易度なら中身が 1 種類しかありませんでした。</b>総力戦にも <code>Binah_Street</code> のような地形つきの行がありますが、そちらも値は同じです。なので 194 行に畳んで持っています。</p>
         <p><b>ボスの日本語名は <a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a> から引いています。</b>ゲームのデータ側は <code>Binah</code> のような開発名しか持っていません。<b>表によって大文字小文字が揃っていない</b>（<code>ShiroKuro</code> と <code>Shirokuro</code>）ので小文字にして引き、大決戦だけ別名になっている 2 つ（<code>Kaitenger</code> ＝ KAITEN FX Mk.0、<code>HoverCraft</code> ＝ ホバークラフト）は対応表を持っています。</p>
         <p><b>倒しきれなかったときは、クリアぶんと時間ぶんが入りません。</b>HP を削った割合ぶんだけになります。この扱いはデータに明記されていないので、<code>MinimumAcquisitionScore</code> が「クリアしたときの最低」であることからの読み取りです。</p>
         <p>出典 — <a href="https://github.com/electricgoat/ba-data" target="_blank" rel="noopener">electricgoat/ba-data</a>（スコアの列）、<a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a>（ボスの名前と絵）、<a href="https://kina-ko-m-ochi.net/score/" target="_blank" rel="noopener">きなこもち「総力戦・大決戦スコア計算機」</a>（1 秒あたりの減点と 3,600 秒）、<a href="https://w.atwiki.jp/aniwotawiki/pages/52198.html" target="_blank" rel="noopener">アニヲタ Wiki</a>（順位差の実例）。取得は <span id="ver">—</span>。</p>

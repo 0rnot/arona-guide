@@ -282,8 +282,8 @@
         <summary>数字の出どころ</summary>
         <p><b>要る神名文字とクレジットは、ゲームのレシピをそのまま読んでいます。</b>推測はありません。</p>
         <ul>
-          <li><code>Excel/CharacterTranscendenceExcelTable.json</code> — 生徒ごとに <code>RecipeId</code> が 4 つ（★1→2、2→3、3→4、4→5）並んでいます</li>
-          <li>その Id を <code>Excel/RecipeExcelTable.json</code> → <code>Excel/RecipeIngredientExcelTable.json</code> と辿ると、
+          <li><code>DB/CharacterTranscendenceExcelTable.json</code> — 生徒ごとに <code>RecipeId</code> が 4 つ（★1→2、2→3、3→4、4→5）並んでいます</li>
+          <li>その Id を <code>DB/RecipeExcelTable.json</code> → <code>DB/RecipeIngredientExcelTable.json</code> と辿ると、
             <code>CostAmount</code>（クレジット）と <code>IngredientId</code>（その子の神名文字）と <code>IngredientAmount</code>（個数）が出ます</li>
           <li><b><span id="src-n">—</span> 人ぶんを 1 人ずつ数えて、4 段とも全員同じ値であることを確かめています。</b>
             神名文字は <code>30 / 80 / 100 / 120</code> で合計 <b>330 個</b>、クレジットは
@@ -299,14 +299,14 @@
             既定値として書かれている配列も <code>[0, 1e3, 1200, 1400, 1700]</code> / <code>[0, 500, 700, 900, 1400]</code> /
             <code>[0, 750, 1e3, 1200, 1500]</code> で、上のゲームデータと一致します
             （<a href="https://schaledb.com/" target="_blank" rel="noopener">schaledb.com</a> の <code>assets/index-*.js</code>。2026-08-30 に読みました）</li>
-          <li>絆ランクの上限は同じ表の <code>MaxFavorLevel</code>。<code>10 / 10 / 20 / 20 / 100</code> で、★3 で 20、★5 で 100 まで開きます</li>
+          <li>絆ランクの上限は同じ表の <code>MaxFavorLevel</code>。★1 から順に <code>10 / 10 / 20 / 30 / 100</code> で、★3 で 20、★4 で 30、★5 で 100 まで開きます。<b>★4 のぶんは 20 から 30 に上がりました</b>（<code>DB/</code> の 817 行のうち 810 行がこの並び。止まっている <code>Excel/</code> 側はまだ 20 です）</li>
         </ul>
 
         <p><b>★5 のあとは「限界解放」です。</b>★の上げ方を<b>神秘解放</b>、固有武器の上げ方を<b>限界解放</b>と呼び分けます
           （<a href="https://bluearchive.wikiru.jp/?SandBox/%E7%A5%9E%E7%A7%98%E8%A7%A3%E6%94%BE%EF%BC%88%E9%99%90%E7%95%8C%E8%A7%A3%E6%94%BE%EF%BC%89" target="_blank" rel="noopener">ブルアカ攻略 Wiki の「神秘解放/限界解放」</a>）。
           <b>★5 になると固有武器が使えるようになり、その状態が固有1</b>です。そこから固有2・固有3・固有4 と続きます。</p>
         <ul>
-          <li><code>Excel/CharacterWeaponExcelTable.json</code> の <code>RecipeId</code> が段の並びです。
+          <li><code>DB/CharacterWeaponExcelTable.json</code> の <code>RecipeId</code> が段の並びです。
             ★のときと同じように <code>RecipeExcelTable</code> → <code>RecipeIngredientExcelTable</code> と辿ります。
             神名文字は <code>120 / 180 / 200</code>、クレジットは <code>1,000,000 / 1,500,000 / 2,000,000</code> です</li>
           <li>固有武器のレベル上限は同じ表の <code>MaxLevel</code>。<code>30 / 40 / 50 / 60 / 70</code> で、
@@ -314,29 +314,22 @@
           <li>覚えるものも同じ表から読んでいます。<code>LearnSkillSlot</code> の 2 番目が <code>Passive01</code> なので
             <b>固有2 でパッシブスキル＋</b>、<code>StatType</code> の 3 番目が <code>〇〇BattleAdaptation_Base</code> なので
             <b>固有3 で地形適性</b>です。<b>上がり幅は生徒ごとに違います</b>——
-            ＋1 段が 196 人、＋2 段が 28 人で、<code>StatValue</code> をその子ぶん読んでいます</li>
+            ＋1 段が 247 人、＋2 段が 27 人で、<code>StatValue</code> をその子ぶん読んでいます</li>
         </ul>
-        <p><b>ここだけはゲームのデータから取れていません。</b>固有3→固有4 の神名文字です。
-          <code>RecipeIngredientExcelTable</code> の該当行は <code>IngredientAmount</code> が <code>1</code> の仮置きで、
-          <b>クレジットの <code>2,000,000</code> のほうは入っています</b>。
-          <b>ba-data の jp ブランチが 2025-05-21（v1.57.342698）で止まっている</b>のが理由で、
-          <code>Unlock</code> も 224 人全員が <code>[true, true, true, false, false]</code> ＝ 固有3 までのままです。
-          日本ではもう固有4 まで出ていることは、SchaleDB の <code>config.json</code> の <code>Regions</code> の Jp が
-          <code>"WeaponMaxLevel": 60</code>（＝ <code>MaxLevel</code> の 4 番目）になっていることで確かめました。</p>
-        <p>そこで <b>神名文字 200 個</b>だけは
-          <a href="https://game8.jp/blue-archive/706922" target="_blank" rel="noopener">game8 の「固有武器★4の解放必要素材」</a>から取っています（2026-08-30 に取得）。
-          <b>裏取りは 2 本立てです。</b>ひとつは、同じ記事の累計「★1→固有★4 は 830」が、
-          ★1→★5 の <code>330</code>（＝ <code>30+80+100+120</code>。ブルアカ攻略 Wiki と ba-data が一致）に
-          <code>120+180+200</code> を足した値とぴたり合うこと。
-          もうひとつは、同記事の「★3→固有★4 は 720」が、このツールで ★3 の生徒を固有4 まで上げたときの
-          <b>720 個</b>と一致することです。</p>
-        <p><b>固有4 で増えるものは、ゲームのデータには入っていません。</b>
-          <code>StatType</code> の 4 番目は <code>None</code> のままです。
-          ストライカーは<b>自分の攻撃属性の特効が ＋10%</b>、スペシャルは<b>コスト上限が ＋0.5</b>で、
-          これは上の game8 と、ブルアカ攻略 Wiki の「限界解放 星3→星4」の欄
-          （<code>ST:〇〇特効加算+10%、SP:最大コスト0.5増加</code>）が一致しています。
-          どちらを出すかは、その子の <code>SquadType</code>（<code>Main</code> がストライカー、
-          <code>Support</code> がスペシャル）で切り替えています。</p>
+        <p><b>固有3→固有4 の神名文字 200 個も、いまはゲームのデータに入っています。</b>
+          <code>DB/RecipeIngredientExcelTable.json</code> の <code>IngredientAmount</code> が
+          <code>200</code>、<code>CostAmount</code> が <code>2,000,000</code> です。
+          <b>止まっている <code>Excel/</code> 側では <code>1</code> の仮置きのままで、</b>
+          2026-08-31 まではここだけ
+          <a href="https://game8.jp/blue-archive/706922" target="_blank" rel="noopener">game8 の「固有武器★4の解放必要素材」</a>の
+          200 個で補っていました。<b>データ側の値と、外から取っていた値は同じでした。</b></p>
+        <p><b>固有4 で増えるものもデータに入っています</b>（<code>DB/CharacterWeaponExcelTable.json</code> の
+          <code>StatType</code> / <code>StatValue</code> の 4 番目。<code>Excel/</code> 側は <code>None</code> のままです）。
+          ストライカーは <code>Enhance〇〇Rate_Base</code> が <code>1000</code>＝<b>自分の攻撃属性の特効 ＋10%</b>で 187 人、
+          スペシャルは <code>MaxCostIncrease_Base</code> が <code>5000</code>＝<b>コスト上限 ＋0.5</b>で 87 人。
+          <b>274 人ぜんぶが、その子の <code>SquadType</code> と <code>BulletType</code> どおりでした</b>
+          （1 人でも外れたらデータを作る側で止まります）。ブルアカ攻略 Wiki の「限界解放 星3→星4」の欄
+          （<code>ST:〇〇特効加算+10%、SP:最大コスト0.5増加</code>）とも一致します。</p>
         <p><b>データに星上げのレシピが入っていない生徒は、この一覧に出しません。</b>
           <code>IngredientId</code> が「神名のカケラ」（Id 23）を 999 個という仮置きの行になっている生徒と、
           レシピそのものが空の生徒がいます。実装が追いついていないだけなので、<b>ゲーム側では上げられます。</b>
@@ -347,7 +340,7 @@
           <a href="https://github.com/electricgoat/ba-data" target="_blank" rel="noopener">electricgoat/ba-data</a>（レシピと上がり幅）、
           <a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a>（生徒と道具の名前、顔の絵、日本の上限）、
           <a href="https://bluearchive.wikiru.jp/?SandBox/%E7%A5%9E%E7%A7%98%E8%A7%A3%E6%94%BE%EF%BC%88%E9%99%90%E7%95%8C%E8%A7%A3%E6%94%BE%EF%BC%89" target="_blank" rel="noopener">ブルアカ攻略 Wiki</a>（呼び名と各段の恩恵）、
-          <a href="https://game8.jp/blue-archive/706922" target="_blank" rel="noopener">game8</a>（固有3→4 の神名文字）。取得は <span id="ver">—</span>。</p>
+          <a href="https://game8.jp/blue-archive/706922" target="_blank" rel="noopener">game8</a>（固有3→4 の神名文字。いまはデータ側にも入っていて、値が一致しています）。取得は <span id="ver">—</span>。</p>
       </details>
     </div>
 
@@ -441,6 +434,7 @@
 
   /** 限界解放で何が起きるか。**生徒によって変わるのはここだけ。** */
   var TERR_JA = { Street: '市街地', Outdoor: '屋外', Indoor: '屋内' };
+  var BULLET_JA = { Explosion: '爆発', Pierce: '貫通', Mystic: '神秘', Sonic: '振動' };
   function weaponGain(w, stu) {
     if (w.gain === 'unlock') return '固有武器が使えるようになります';
     if (w.gain === 'passive') return 'パッシブスキル＋を覚えます';
@@ -448,10 +442,14 @@
       if (!stu || !stu.ad) return '地形適性が上がります';
       return TERR_JA[stu.ad] + 'の適性が ' + (stu.av > 1 ? stu.av + ' 段' : '1 段') + '上がります';
     }
-    if (!stu) return 'ストライカーは特効＋10%、スペシャルはコスト上限＋0.5';
-    return stu.sq === 'Support'
-      ? 'スペシャルなので、部隊のコスト上限が ＋0.5 されます'
-      : 'ストライカーなので、自分の攻撃属性の特効が ＋10% されます';
+    /* **固有4 のぶんはデータから来る。**`f4` が `MaxCostIncrease` ならコスト上限、
+       `Enhance〇〇Rate` なら〇〇の特効。値は 10000 分率 */
+    if (!stu || !stu.f4) return 'ストライカーは特効＋10%、スペシャルはコスト上限＋0.5';
+    if (stu.f4 === 'MaxCostIncrease') {
+      return '部隊のコスト上限が ＋' + (stu.f4v / 10000) + ' されます';
+    }
+    var bt = stu.f4.replace('Enhance', '').replace('Rate', '');
+    return (BULLET_JA[bt] || bt) + 'の特効が ＋' + (stu.f4v / 100) + '% されます';
   }
 
   (function buildList() {

@@ -219,10 +219,10 @@
         <summary>数字の出どころ</summary>
         <p><b>レポートの経験値と、生徒の必要経験値は、ゲームのデータそのままです。</b>推測はありません。</p>
         <ul>
-          <li><code>Excel/ItemExcelTable.json</code>（SchaleDB の <code>items</code>）— 初級レポート <code>ExpValue: 50</code>／中級 <code>500</code>／上級 <code>2000</code>／最上級 <code>10000</code></li>
+          <li><code>DB/ItemExcelTable.json</code> の <code>StackableFunction</code>（SchaleDB の <code>items</code> では <code>ExpValue</code>。値は同じ）— 初級レポート <code>50</code>／中級 <code>500</code>／上級 <code>2000</code>／最上級 <code>10000</code></li>
           <li><code>data/jp/equipment.min.json</code> の <code>Category: "Exp"</code> — 強化珠の <code>LevelUpFeedExp</code> が <code>90 / 360 / 1440 / 5760</code></li>
-          <li><code>Excel/CharacterLevelExcelTable.json</code> — Lv90 の <code>TotalExp: 1249185</code></li>
-          <li><code>Excel/EquipmentLevelExcelTable.json</code> — Lv70 の <code>TotalExp</code> が Tier1 から順に
+          <li><code>DB/CharacterLevelExcelTable.json</code> — Lv90 の <code>TotalExp: 1249185</code></li>
+          <li><code>DB/EquipmentLevelExcelTable.json</code> — Lv70 の <code>TotalExp</code> が Tier1 から順に
             <code>381 / 1841 / 5456 / 12326 / 17326 / 23551 / 31141 / 40231 / 50961 / 63466</code>。<b>足すとちょうど 246,680</b> で、これが装備 1 個を Tier1 Lv1 から Tier10 Lv70 まで上げるのに要る経験値です</li>
         </ul>
         <p><b>強化珠の経験値もゲームのデータそのままです。</b>レポートが <code>items</code> に入っているのに対して、強化珠は <code>equipment</code> のほうに

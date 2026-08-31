@@ -355,8 +355,9 @@
           <code>RewardParcelType</code> / <code>RewardParcelId</code> / <code>RewardParcelAmount</code>（中身）を読んでいます。
           名前は <code>Item</code> が <a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a> の
           <code>items.min.json</code>、<code>Equipment</code> が <code>equipment.min.json</code> です。
-          <b>どちらにも載っていない Id が 3 つ（85363・85373・85403）あり、そこは
-          「？（Item 85363）」のように Id ごと出しています。</b>伏せると、何が抜けたのか分からなくなるからです。</p>
+          <b>どちらにも載っていない Id が 3 つ（85363・85373・85403。復刻イベントの通貨）あり、そこは
+          ba-data の <code>ItemExcelTable</code> ＋ <code>LocalizeEtc</code> の日本語名で補っています。</b>
+          それでも引けないものが出たら「？（Item 85363）」のように Id ごと出します。伏せると、何が抜けたのか分からなくなるからです。</p>
         <p><b>開いた直後は、選んだイベントの 1 周目が入っています。</b>周を押せば入れ替わります。
           名前・よこ・たて・個数はどれも手で書き換えられるので、データが追いついていない回でも使えます。</p>
         <p><b>盤は 9 × 5 の 45 マス。</b>備品は重ならずに置かれていて、種類ごとの個数は決まっています。ここから「条件に合う置き方」をすべて数え上げ、そのうち何通りでそのマスが備品に覆われているかを割ったものが確率です。<b>近似やサンプリングは使っていません。</b></p>

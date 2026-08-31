@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>カフェの家具配置｜AronaBot</title>
-<meta name="description" content="カフェの床と壁に家具を並べて、置ける・置けないと快適度の合計を確かめます。公式の家具テンプレート 20 個をそのまま読み込めます。">
+<meta name="description" content="カフェの床と壁に家具を並べて、置ける・置けないと快適度の合計を確かめます。公式の家具テンプレート 26 個をそのまま読み込めます。">
 <meta name="theme-color" content="#c8892e">
 <link rel="icon" href="../../favicon.svg" type="image/svg+xml">
 <meta property="og:type" content="website">
@@ -12,14 +12,14 @@
 <meta property="og:locale" content="ja_JP">
 <meta property="og:url" content="https://arona-bot.com/tools/cafe-layout/">
 <meta property="og:title" content="カフェの家具配置">
-<meta property="og:description" content="カフェの床と壁に家具を並べて、置ける・置けないと快適度の合計を確かめます。公式の家具テンプレート 20 個をそのまま読み込めます。">
+<meta property="og:description" content="カフェの床と壁に家具を並べて、置ける・置けないと快適度の合計を確かめます。公式の家具テンプレート 26 個をそのまま読み込めます。">
 <meta property="og:image" content="https://arona-bot.com/images/og/cafe-layout.jpg">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta property="og:image:alt" content="カフェの家具配置 — AronaBot のツール">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="カフェの家具配置">
-<meta name="twitter:description" content="カフェの床と壁に家具を並べて、置ける・置けないと快適度の合計を確かめます。公式の家具テンプレート 20 個をそのまま読み込めます。">
+<meta name="twitter:description" content="カフェの床と壁に家具を並べて、置ける・置けないと快適度の合計を確かめます。公式の家具テンプレート 26 個をそのまま読み込めます。">
 <meta name="twitter:image" content="https://arona-bot.com/images/og/cafe-layout.jpg">
 <link rel="stylesheet" href="../../style.css?v=21">
 <link rel="stylesheet" href="../tool.css?v=14">
@@ -317,7 +317,7 @@
 
       <div class="panel" id="p-room">
         <div class="panel-h"><h2>部屋そのものの化粧</h2></div>
-        <p class="lead">床材・壁紙・背景は<b>それぞれ 1 つだけ</b>です。<button type="button" class="qm" data-hint="マス目は使いません。公式のテンプレート20個すべてが1つずつ持っていたので、この形にしています。"></button></p>
+        <p class="lead">床材・壁紙・背景は<b>それぞれ 1 つだけ</b>です。<button type="button" class="qm" data-hint="マス目は使いません。公式のテンプレート26個すべてが1つずつ持っていたので、この形にしています。"></button></p>
         <div class="fields c3">
           <div class="field">
             <label for="r-fm">床材</label>
@@ -396,7 +396,7 @@
     <div class="tfull">
       <div class="panel" id="p-tpl">
         <div class="panel-h"><h2>公式のテンプレートを読み込む</h2></div>
-        <p class="lead">ゲームが持っている<b>家具テンプレート <span id="n-tpl">20</span> 個</b>です。押すと、<b>今の並びをすべて置き換えて</b>盤に載せます。<button type="button" class="qm" data-hint="この20個は1マスもはみ出さず、重なりもありません。それが床20×20・壁20×7という広さの裏取りになっています。"></button></p>
+        <p class="lead">ゲームが持っている<b>家具テンプレート <span id="n-tpl">26</span> 個</b>です。押すと、<b>今の並びをすべて置き換えて</b>盤に載せます。<button type="button" class="qm" data-hint="この26個は1マスもはみ出さず、重なりもありません。それが床20×20・壁20×7という広さの裏取りになっています。"></button></p>
         <div class="tpls" id="tpls"></div>
       </div>
 
@@ -431,25 +431,25 @@
             <code>"Size": [20, 7]</code> です。
             <span id="src-wfnm">—</span>
             <b>1,091 個の家具のうち、縦にも横にも 20 を超えるものは 1 つもありません。</b></li>
-          <li><b>公式の家具テンプレート 20 個を、その枠に置き直せること。</b>
-            <code>Excel/FurnitureTemplateElementExcelTable.json</code> の 1,299 行には、
+          <li><b>公式の家具テンプレート 26 個を、その枠に置き直せること。</b>
+            <code>DB/FurnitureTemplateElementExcelTable.json</code> の 1,718 行には、
             テンプレートごとに家具の <code>PositionX</code> / <code>PositionY</code> /
             <code>Rotation</code> が入っています。<b>座標は家具の中心</b>で、
             幅が奇数のときだけ <code>.5</code> が付きます
-            （マス目に乗る <b><span id="src-rows">1,239</span> 行</b>のうち
-            <b><span id="src-okrows">1,231</span> 行</b>で成り立ちました。
+            （マス目に乗る <b><span id="src-rows">1,640</span> 行</b>のうち
+            <b><span id="src-okrows">1,632</span> 行</b>で成り立ちました。
             外れる <b><span id="src-half">8</span> 行</b>はいちばん近いマスへ丸めていますが、
             <b>丸めてもはみ出し 0・重なり 0 のまま</b>です）。
             左上のマスを <code>round(座標 − 大きさ ÷ 2)</code> で出すと、
-            <b><span id="src-cells">5,147</span> マスが 1 マスもはみ出さず、重なりも 0</b> でした。
+            <b><span id="src-cells">7,221</span> マスが 1 マスもはみ出さず、重なりも 0</b> でした。
             <b>1 つでもはみ出すか重なったら、データを作る側で止まります。</b></li>
           <li><b>床の装飾（カーペット）だけは重ねてよい</b>ことも、そこから分かります。
-            カーペットを検査に入れると重なりが <b>459 マス</b>出ますが、外すと 0 になります。
+            カーペットを検査に入れると重なりが <b>837 マス</b>出ますが、外すと 0 になります。
             つまり公式のテンプレートは<b>カーペットの上に家具を置いています</b></li>
           <li><b>どの家具がどの面に行くか</b>は、同じ表の <code>Location</code> 欄
             （<code>Floor</code> / <code>WallLeft</code> / <code>WallRight</code>）から決めました。
-            <b>ベッド・椅子・クローゼット・床の装飾・家電・小物・テーブルは 1,037 行すべてが
-            <code>Floor</code>、壁の装飾は 202 行すべてが壁</b>で、混ざった行は 1 つもありません。
+            <b>ベッド・椅子・クローゼット・床の装飾・家電・小物・テーブルは 1,377 行すべてが
+            <code>Floor</code>、壁の装飾は 263 行すべてが壁</b>で、混ざった行は 1 つもありません。
             床材・壁紙・背景は<b>どのテンプレートにもちょうど 1 つずつ</b>入っていたので、
             この画面でも 1 つだけ選ぶ形にしています</li>
         </ul>
@@ -457,10 +457,10 @@
         <ul>
           <li>家具そのものの快適度は <code>furniture</code> の <code>ComfortBonus</code>。
             <b>20 / 50 / 120 / 180 / 350 / 500 の 6 段階</b>しかありません</li>
-          <li>セットボーナスの段は <code>Excel/FurnitureGroupExcelTable.json</code> の
+          <li>セットボーナスの段は <code>DB/FurnitureGroupExcelTable.json</code> の
             <code>RequiredFurnitureCount = [2, 3, 5, 7]</code> と
             <code>ComfortBonus = [100, 200, 450, 750]</code>。
-            <b>20 セットすべて同じ値</b>でした。同時に効くセット数は
+            <b>25 セットすべて同じ値</b>でした。同時に効くセット数は
             <code>Excel/ConstCommonExcelTable.json</code> の
             <code>CafeSetGroupApplyCount = <span id="src-setmax">3</span></code></li>
           <li><b>この 4 つは足し上がります。</b>データだけでは「置き換わる」のか
@@ -481,7 +481,7 @@
             <b>2 つの数が食い違ったときは、表の下に注意書きが出ます。</b>
             もう 1 つは<b>効く 3 セットの選び方</b>で、
             この画面は<b>ボーナスが大きい順に 3 つ</b>としています</li>
-          <li>快適度の上限は <code>Excel/CafeRankExcelTable.json</code> の
+          <li>快適度の上限は <code>DB/CafeRankExcelTable.json</code> の
             <code>ComfortMax</code>。<b>1,000 から 500 きざみで 5,500 まで</b>で、
             これが並んでいなければデータを作る側で止まります</li>
         </ul>
@@ -503,8 +503,8 @@
           <code>characters_st.json</code> を参考にしています</p>
         <p><b>出していないもの。</b>
           <b>1 号店と 2 号店で床の形が違うかどうかは分かりません。</b>
-          <code>Excel/CafeInfoExcelTable.json</code> は 2 行しかなく、持っているのは
-          <code>IsDefault</code> と開放条件の名前だけで、広さも形も入っていません。
+          <code>DB/CafeInfoExcelTable.json</code> は 2 行しかなく、持っているのは
+          <code>IsDefault</code> と開放条件の名前、招待券の情報だけで、広さも形も入っていません。
           公式テンプレートにも「どちらの店用か」という欄がありません。
           <b>この画面は両方を 20×20 として扱っています。実際の 2 号店で合わない場合があります。</b>
           <b>床の形が長方形でない</b>（柱や段差でマスが欠けている）可能性も否定できません。
@@ -512,7 +512,7 @@
           「たまたま置いていないマス」なのかはデータから区別できないので、
           <b>欠けは作っていません。</b>
           <b>トロフィー <span id="src-tro">96</span> 個とその他 <span id="src-etc">8</span> 個は
-          盤に載せていません。</b>この 2 種類は公式テンプレート 20 個に 1 度も出てこないので、
+          盤に載せていません。</b>この 2 種類は公式テンプレート 26 個に 1 度も出てこないので、
           床なのか壁なのかが確かめられませんでした。快適度の合計にも入れていません。
           家具を「持っているかどうか」も見ていません。<b>全部持っている前提</b>の画面です。</p>
         <p>出典 —
@@ -530,7 +530,7 @@
   </div>
 </div>
 
-<script>window.TOUR = {"key": "cafe-layout", "steps": [{"sel": "#p-board", "t": "床と壁に並べます", "d": "面を選び、マス目を押すと置けます。回すのは「回転」ボタンか R キーです。"}, {"sel": "#p-pick", "t": "置く家具はここで選びます", "d": "いま選んでいる面に置けるものだけです。「マス」は快適度を面積で割った値です。"}, {"sel": "#p-tpl", "t": "公式のテンプレートを丸ごと読めます", "d": "ゲームが持っている 20 個の並びです。押すと盤に載ります。"}, {"sel": "#o-total", "t": "合計快適度とランクの上限", "d": "家具の快適度とセットボーナスの合計です。"}, {"sel": "#sharebar", "t": "並べた状態ごと渡せます", "d": "リンクを送ると、相手の画面にも同じ並びが出ます。"}]};</script>
+<script>window.TOUR = {"key": "cafe-layout", "steps": [{"sel": "#p-board", "t": "床と壁に並べます", "d": "面を選び、マス目を押すと置けます。回すのは「回転」ボタンか R キーです。"}, {"sel": "#p-pick", "t": "置く家具はここで選びます", "d": "いま選んでいる面に置けるものだけです。「マス」は快適度を面積で割った値です。"}, {"sel": "#p-tpl", "t": "公式のテンプレートを丸ごと読めます", "d": "ゲームが持っている 26 個の並びです。押すと盤に載ります。"}, {"sel": "#o-total", "t": "合計快適度とランクの上限", "d": "家具の快適度とセットボーナスの合計です。"}, {"sel": "#sharebar", "t": "並べた状態ごと渡せます", "d": "リンクを送ると、相手の画面にも同じ並びが出ます。"}]};</script>
 <script src="../tour.js?v=2"></script>
 
 <script src="../share.js?v=3"></script>
@@ -583,8 +583,8 @@
     { nm: '左の壁', w: C.wall[0], h: C.wall[1], k: 'w' },
     { nm: '右の壁', w: C.wall[0], h: C.wall[1], k: 'w' }
   ];
-  /* 床の装飾（カーペット）だけは家具の下に敷ける。**公式テンプレート 20 個で
-     459 マスぶん重なっていた**ので、重なりの検査から外す唯一の種類 */
+  /* 床の装飾（カーペット）だけは家具の下に敷ける。**公式テンプレート 26 個で
+     837 マスぶん重なっていた**ので、重なりの検査から外す唯一の種類 */
   var UNDER = 'FloorDecoration';
   var LSKEY = 'arona-cafe-layout';
 

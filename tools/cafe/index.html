@@ -334,7 +334,7 @@
         <ul>
           <li>1 時間あたりの生産量は
             <code>(ParcelProductionCoefficient × 快適度 + ParcelProductionCorrectionValue) / 10000</code>。
-            <code>Excel/CafeProductionExcelTable.json</code> の 30 行から引いています。
+            <code>DB/CafeProductionExcelTable.json</code> の 30 行から引いています。
             <b>10000 で割り忘れるとランク 1 で 1,875 万クレジット/時になります。</b></li>
           <li><b>10000 で割るのが正しいことの裏取り。</b>快適度を各ランクの
             <code>ComfortMax</code> に置くと、<code>ParcelStorageMax ÷ 時給</code> が
@@ -356,31 +356,33 @@
             （1250.05 / 2291.85 / 5000 / 6771.05 / 7916.65 / 9375.6 / 10625.55）。
             ランク 3 だけ向こうが <code>3541</code> と桁を落としていて、こちらは 3,541.85 です。
             1 号店のランク 2〜5 だけ向こうが「倉庫 ÷ 24」の概数を載せているぶんずれます</li>
-          <li>快適度の上限・招待人数・タグ数は <code>Excel/CafeRankExcelTable.json</code>。
+          <li>快適度の上限・招待人数・タグ数は <code>DB/CafeRankExcelTable.json</code>。
             <b>1000 から 500 きざみで 5500 まで</b>で、これが並んでいない場合はデータを作る側で止まります。
             上限 5500 は
             <a href="https://game8.jp/blue-archive/645032" target="_blank" rel="noopener">ゲームエイト</a>の
             「1号店2号店ともに5500が最大値」と一致します</li>
           <li>ランクアップの費用は <code>CafeRankExcelTable.RecipeId</code> →
-            <code>Excel/RecipeExcelTable.json</code>（<code>RecipeType</code> が
-            <code>CafeRankUp</code>）→ <code>Excel/RecipeIngredientExcelTable.json</code>。
+            <code>DB/RecipeExcelTable.json</code>（<code>RecipeType</code> が
+            <code>CafeRankUp</code>）→ <code>DB/RecipeIngredientExcelTable.json</code>。
             <b>ランク N の行に付くレシピは「N から N+1 へ」</b>です。
             ランク 10 の行にもレシピがありますが、上限が 10 なので使いません。
             <b>1 号店と 2 号店でクレジットが同額であることを確かめています</b></li>
-          <li>セットボーナスは <code>Excel/FurnitureGroupExcelTable.json</code>。
+          <li>セットボーナスは <code>DB/FurnitureGroupExcelTable.json</code>。
             <b>2 / 3 / 5 / 7 個で ＋100 / 200 / 450 / 750</b>（<b>足し上がるので 7 個で合計 ＋1,500</b>。
             データは段ごとの数しか持たないので、
             <a href="https://kamigame.jp/bluearchive/page/143084388039553700.html" target="_blank" rel="noopener">神ゲー攻略</a>と
             <a href="https://game8.jp/blue-archive/645032" target="_blank" rel="noopener">ゲームエイト</a>で確かめました）で、
-            <b>20 セットすべて同じ値</b>でした（1 つでも違えばセットごとに持つ形へ直します）。
+            <b>25 セットすべて同じ値</b>でした（1 つでも違えばセットごとに持つ形へ直します）。
             同時に効く数は <code>ConstCommonExcelTable.CafeSetGroupApplyCount</code> の
             <b><span id="src-setmax">—</span></b></li>
           <li>家具 <b><span id="src-furn">—</span> 個</b>とセット名は
             <a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a> の
-            <code>furniture</code>。<b>ba-data の <code>FurnitureGroupExcelTable</code> は
-            20 セットしか無く、SchaleDB は 25 セット持っています。</b>
-            足りない 5 セットは名前だけ SchaleDB から借りていて、
-            <b>ボーナスの段はそちらでは裏が取れていません</b>（一覧に印を付けています）</li>
+            <code>furniture</code>。<b>ba-data（<code>DB/</code>）の
+            <code>FurnitureGroupExcelTable</code> も 25 セットで、SchaleDB の 25 セットと
+            一致します。</b>以前は <code>Excel/</code> 側（20 セットで止まっています）を
+            見ていて、足りない 5 セットに「裏が取れていない」と印を付けていました
+            （2026-08-31 に <code>DB/</code> で引き直して解消。裏が取れないセットが
+            また出たときは、一覧に印が付きます）</li>
         </ul>
         <p><b>出していないもの。</b>家具をカフェの床に詰める配置は作っていません。
           家具の <code>Size</code> はデータにありますが、<b>床の広さと置ける形がデータのどこにも無い</b>ので、

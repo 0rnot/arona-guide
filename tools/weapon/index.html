@@ -284,7 +284,7 @@
         <summary>数字の出どころ</summary>
         <p><b>経験値もパーツも、ゲームの表をそのまま読んでいます。</b></p>
         <ul>
-          <li>レベルごとの経験値は <code>Excel/CharacterWeaponLevelExcelTable.json</code>（70 行）。
+          <li>レベルごとの経験値は <code>DB/CharacterWeaponLevelExcelTable.json</code>（70 行）。
             <b><code>TotalExp</code> は「その行のレベルに到達するまで」ではなく「次のレベルまで」の累計です。</b>
             行 <code>Level: 49</code> の <code>TotalExp</code> が <code>26280</code> で、これが Lv1 → Lv50 のぶん。
             <b>この 26,280 は外の数字とも合っています</b> ——
@@ -296,32 +296,36 @@
             <code>WeaponExpGrowthA / B / C / Z</code> として入っています（Id 10〜43 の 16 種）。
             1 個ぶんの経験値は <code>LevelUpFeedExp</code> で、4 系統とも
             <code>10 / 50 / 200 / 1000</code> です</li>
-          <li>1.5 倍になる組み合わせは <code>Excel/CharacterWeaponExpBonusExcelTable.json</code>（武器種 11 種）。
+          <li>1.5 倍になる組み合わせは <code>DB/CharacterWeaponExpBonusExcelTable.json</code>（武器種 11 種）。
             値は <code>15000</code>（1.5 倍）か <code>10000</code>（等倍）の 2 つだけでした。
             <b>ゲーム内の説明文とも突き合わせています</b> —— SchaleDB の <code>localization</code> の
             <code>WeaponPartExpBonus</code> に「SMG、SG、HGおよびFTの固有武器の強化時に獲得EXPが1.5倍になる。」などとあり、
             表の <code>15000</code> の並びと一致します</li>
-          <li>★ごとのレベル上限は <code>Excel/CharacterWeaponExcelTable.json</code> の <code>MaxLevel</code>。
-            <b>224 本すべてで <code>30 / 40 / 50 / 60 / 70</code> と同じ</b>であることを数えて確かめています</li>
-          <li>★の上限は <b><code>Unlock</code> の列を見ていません。</b>あちらは 224 本すべて
-            <code>[true, true, true, false, false]</code>（＝★3 まで）ですが、
-            <b>JP はもう★4 まで開いています。</b>SchaleDB の <code>config.json</code> の
-            <code>Regions</code> で JP の <code>WeaponMaxLevel</code> が <code>60</code> ＝ ★4 なので、そちらを採りました。
-            ba-data の jp ブランチが追いついていないところです</li>
+          <li>★ごとのレベル上限は <code>DB/CharacterWeaponExcelTable.json</code> の <code>MaxLevel</code>。
+            <b>275 本すべてで <code>30 / 40 / 50 / 60 / 70</code> と同じ</b>であることを数えて確かめています</li>
+          <li>★の上限は <b><code>Unlock</code> の列を見ていません。</b><code>DB/</code> 側は 275 本すべて
+            <code>[true, true, true, true, false]</code> で★4 まで、止まっている <code>Excel/</code> 側は
+            224 本すべて <code>[true, true, true, false, false]</code> で★3 まで、と食い違います。
+            <b>どちらにも寄りかからず、日本で開いている段は</b>SchaleDB の <code>config.json</code> の
+            <code>Regions</code> の JP の <code>WeaponMaxLevel</code>（<code>60</code> ＝ ★4）から取っています</li>
           <li>★上げに要る神名文字とクレジットは <code>RecipeId</code> を
-            <code>RecipeExcelTable</code> → <code>RecipeIngredientExcelTable</code> と辿ったもの。
-            <b>224 本すべてで同じ値</b>でした。★1→2 が <code>120 個 / 1,000,000</code>、
-            ★2→3 が <code>180 個 / 1,500,000</code> です</li>
-          <li><b>★3→★4 の神名文字だけ、ゲームのデータが仮置きのままです。</b>
-            224 本すべてが <code>IngredientAmount = 1</code> で、クレジットの <code>2000000</code> だけ実数が入っています。
-            そこで個数は外の出典から <b>200 個</b>を採りました ——
+            <code>DB/RecipeExcelTable.json</code> → <code>DB/RecipeIngredientExcelTable.json</code> と辿ったもの。
+            <b>274 本すべてで同じ値</b>でした。★1→2 が <code>120 個 / 1,000,000</code>、
+            ★2→3 が <code>180 個 / 1,500,000</code>、★3→★4 が <code>200 個 / 2,000,000</code> です</li>
+          <li><b>★3→★4 の 200 個は、2026-08-31 まで外の出典から補っていました。</b>
+            止まっている <code>Excel/</code> 側は 224 本すべて <code>IngredientAmount = 1</code> の仮置きで、
+            クレジットの <code>2000000</code> だけ実数が入っていたためです。当時採っていたのは
             <a href="https://game8.jp/blue-archive/706922" target="_blank" rel="noopener">ゲームエイト「固有4のおすすめキャラと必要数」</a>の
-            「★3→★4の必要素材／神名文字：200個／クレジット：200万／神名のカケラ換算 1000」。
-            <b>クレジットがゲームのデータと一致しているので、個数だけ補う形にしています。</b>
-            データ側が <code>1</code> でなくなったら、この差し替えを外すよう作る側に見張りを入れてあります</li>
+            「★3→★4の必要素材／神名文字：200個／クレジット：200万」。
+            <b><code>DB/</code> 側の実数と同じ値でした。</b>いまはデータ側を出しています</li>
           <li>★2 で武器のパッシブスキルが開き、★3 で地形適性が 1 段上がることは同じ表の
             <code>LearnSkillSlot</code> と <code>StatType</code> / <code>StatValue</code>。
-            <b>224 本すべて同じ並び</b>で、地形適性の上がり幅だけ 196 本が ＋1、28 本が ＋2 でした</li>
+            <b>274 本すべて同じ並び</b>で、地形適性の上がり幅だけ 247 本が ＋1、27 本が ＋2 でした</li>
+          <li><b>★4 で増えるぶんも同じ表に入っています</b>（<code>StatType</code> /
+            <code>StatValue</code> の 4 番目。<code>Excel/</code> 側は <code>None</code> のままです）。
+            ストライカーは <code>Enhance〇〇Rate_Base</code> が <code>1000</code>＝<b>自分の攻撃属性の特効 ＋10%</b>で 187 本、
+            スペシャルは <code>MaxCostIncrease_Base</code> が <code>5000</code>＝<b>コスト上限 ＋0.5</b>で 87 本。
+            <b>274 本ぜんぶが、その子の <code>SquadType</code> と <code>BulletType</code> どおり</b>でした</li>
         </ul>
         <p><b>レベル上げのクレジットは出していません。</b>
           <code>Excel/ConstCommonExcelTable.json</code> に <code>WeaponLvUpCoefficient</code> という値
@@ -558,19 +562,31 @@
     }).join('');
 
     // ★の表
+    var BULLET_JA = { Explosion: '爆発', Pierce: '貫通', Mystic: '神秘', Sonic: '振動' };
+    /* **★4 で増えるぶんもデータに入っている。**`f4` が `MaxCostIncrease` なら
+       コスト上限、`Enhance〇〇Rate` なら〇〇の特効。値は 10000 分率 */
+    function star4Gain(st) {
+      if (!st || !st.f4) return 'ストライカーは特効 ＋10%、スペシャルはコスト上限 ＋0.5';
+      if (st.f4 === 'MaxCostIncrease') return 'コスト上限 ＋' + (st.f4v / 10000);
+      var bt = st.f4.replace('Enhance', '').replace('Rate', '');
+      return (BULLET_JA[bt] || bt) + 'の特効 ＋' + (st.f4v / 100) + '%';
+    }
     el('tb-star').innerHTML = ['<tr' + (toStar === 1 ? ' class="here"' : '') + '><td>★1</td><td>Lv' + cap(1) +
       '</td><td>—</td><td>—</td><td>最初から</td></tr>']
       .concat(W.star.map(function (s) {
         var open = s.to === 2 ? '武器のパッシブスキル'
           : s.to === 3 ? (student ? student.ad + '適性 ＋' + student.av : '地形適性 ＋1')
-          : 'レベル上限が Lv' + cap(s.to) + ' へ';
+          : star4Gain(student);
         return '<tr' + (s.to === toStar ? ' class="here"' : '') + '><td>★' + s.to + '</td>' +
           '<td>Lv' + cap(s.to) + '</td>' +
           '<td class="nowrap">' + fmt(s.el) + ' 個' + (s.src !== 'data' ? ' <b>*</b>' : '') + '</td>' +
           '<td class="nowrap">' + fmt(s.cr) + '</td><td>' + esc(open) + '</td></tr>';
       })).join('');
-    el('starnote').innerHTML = '<b>*</b> は<a href="https://game8.jp/blue-archive/706922" target="_blank" rel="noopener">ゲームエイト</a>の値です。' +
-      '<button type="button" class="qm" data-hint="★3→★4の神名文字だけ、ゲームのデータが仮置き（1個）のままなので、外部の200個を採っています。クレジットの200万はデータ側と一致しました。"></button>';
+    /* **外から補った段があるときだけ注記を出す。**データに実数が入れば消える */
+    el('starnote').innerHTML = W.star4Src
+      ? '<b>*</b> は<a href="https://game8.jp/blue-archive/706922" target="_blank" rel="noopener">ゲームエイト</a>の値です。' +
+        '<button type="button" class="qm" data-hint="この段だけゲームのデータが仮置き（1個）のままなので、外部の値を採っています。クレジットはデータ側と一致しました。"></button>'
+      : '';
 
     // 武器種の行を光らせる
     [].forEach.call(document.querySelectorAll('#tb-bonus tr'), function (tr) {

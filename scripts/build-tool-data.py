@@ -17,13 +17,26 @@
 落としたあと 122×122 に切り直してから置く（中身の一番外側は x 14〜134 / y 4〜116 に
 収まっているのを実測して決めた枠）。切り直しには Pillow を使う。
 """
-import datetime, io, json, pathlib, re, sys, urllib.request
+import collections, datetime, io, json, pathlib, re, sys, urllib.request
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 IMG = ROOT / "tools" / "img"
 BA = "https://raw.githubusercontent.com/electricgoat/ba-data/jp/Excel/{}.json"
 # **同じリポジトリの DB/ 側。**Excel/ にも同名のファイルがあるが、
 # EventContentTreasure 系は Excel/ 側が空の殻で、中身は DB/ にしか無い
+# **`DB/` が今のデータ。`Excel/` は表ごとにばらばらの時点で止まっている。**
+# 更新されている表もあるが、多くは 2024〜2025 年で凍っていて、しかも
+# ディレクトリ全体の最終コミットは今日の日付なので、見ただけでは古さに気づけない
+# （`Excel/CharacterWeaponExcelTable` は 2025-05-21 / v1.57.342698、
+#  `Excel/ItemExcelTable` は 2025-05-07 / v1.56.337920、
+#  `Excel/AcademyRewardExcelTable` は 2024-08-21 / v1.48.295969。
+#  2026-08-31 に GitHub の commits API でファイルごとに確かめた）。
+# 同じ日に、サイトが読む 37 の表を両方数えて確かめた——**20 の表で行数が違う**
+# （ItemExcelTable 1434→1808、RecipeExcelTable 6335→7397、
+#  CharacterWeaponExcelTable 224→275、AcademyRewardExcelTable 516→564 ほか）。
+# 中身も違い、カリン（制服）の固有3 で上がる地形適性は Excel/ が 2、DB/ が 1 で、
+# DB/ のほうが SchaleDB と 274 人ぜんぶ一致する。
+# **`ConstCommonExcelTable` だけ `DB/` に無い（404）ので、そこだけ `BA` を使う。**
 BADB = "https://raw.githubusercontent.com/electricgoat/ba-data/jp/DB/{}.json"
 # **GitHub の SchaleDB/SchaleDB は 2024-08 で止まっている**（build 1723935982）。
 # 生徒が 194 人しか入っておらず、実際の 274 人と 80 人ずれる。
@@ -40,8 +53,31 @@ SQUARE = 122
 
 def get(url):
     req = urllib.request.Request(url, headers={"User-Agent": "arona-guide/1.0"})
-    with urllib.request.urlopen(req, timeout=60) as r:
-        return r.read()
+    try:
+        with urllib.request.urlopen(req, timeout=60) as r:
+            return r.read()
+    except urllib.error.HTTPError as e:
+        # **raw.githubusercontent.com がときどき 400 を返す。**ファイルは在って、
+        # 別のパスでは 200 が返る（2026-08-31 に `DB/CharacterWeaponLevelExcelTable.json`
+        # で踏んだ。3 回続けて 400、Contents API では取れた）。CDN 側の不調なので、
+        # **同じ中身を GitHub の Contents API から取り直す。**こちらは 1 時間 60 回まで
+        alt = raw_to_api(url)
+        if e.code != 400 or not alt:
+            raise
+        print(f"  raw が 400。Contents API で取り直す: {url}")
+        req = urllib.request.Request(alt, headers={"User-Agent": "arona-guide/1.0",
+                                                   "Accept": "application/vnd.github.raw"})
+        with urllib.request.urlopen(req, timeout=60) as r:
+            return r.read()
+
+
+def raw_to_api(url):
+    """`raw.githubusercontent.com/<owner>/<repo>/<ref>/<path>` を Contents API の URL に。"""
+    m = re.match(r"https://raw\.githubusercontent\.com/([^/]+)/([^/]+)/([^/]+)/(.+)$", url)
+    if not m:
+        return ""
+    owner, repo, ref, path = m.groups()
+    return f"https://api.github.com/repos/{owner}/{repo}/contents/{path}?ref={ref}"
 
 
 def get_json(url):
@@ -381,7 +417,7 @@ def build_bond():
     print("絆ランク計算機")
     items = as_list(get_json(SD.format("items")))
     students = as_list(get_json(SD.format("students")))
-    favor = get_json(BA.format("FavorLevelExcelTable"))
+    favor = get_json(BADB.format("FavorLevelExcelTable"))
     const = as_list(get_json(BA.format("ConstCommonExcelTable")))
 
     # 誰にでも効く共通タグ。ConstCommon に 1 行だけある
@@ -447,7 +483,7 @@ def build_bond():
 
 def build_teacher_level():
     print("先生レベル計算機")
-    acc = as_list(get_json(BA.format("AccountLevelExcelTable")))
+    acc = as_list(get_json(BADB.format("AccountLevelExcelTable")))
     const = as_list(get_json(BA.format("ConstCommonExcelTable")))
     mx, ratio = 90, 1
     # Lv90 のあと、AP は熟達証書（MasterCoin）に変わる。**週の上限は AP で決まる**
@@ -523,7 +559,7 @@ def build_equipment():
     # `Excel/GachaElementExcelTable.json` は 2025-05-07 だが、箱の中身の比率は
     # SchaleDB に無いのでこちらを使う（下に、知らない箱が出たら止まる番人を置いた）
     sd_eq = as_list(get_json(SD.format("equipment")))
-    gacha_el = as_list(get_json(BA.format("GachaElementExcelTable")))
+    gacha_el = as_list(get_json(BADB.format("GachaElementExcelTable")))
     loc_stage = [x for x in as_list(get_json(SD.format("stages")))
                  if x.get("Category") == "Campaign"]
 
@@ -1022,8 +1058,8 @@ def build_student_cost():
     print("生徒 1 人の育成費用")
     students = as_list(get_json(SD.format("students")))
     items = as_list(get_json(SD.format("items")))
-    lv_tbl = as_list(get_json(BA.format("CharacterLevelExcelTable")))
-    ing = {r["Id"]: r for r in as_list(get_json(BA.format("RecipeIngredientExcelTable")))}
+    lv_tbl = as_list(get_json(BADB.format("CharacterLevelExcelTable")))
+    ing = {r["Id"]: r for r in as_list(get_json(BADB.format("RecipeIngredientExcelTable")))}
 
     item_by_id = {it["Id"]: it for it in items if it.get("Name")}
 
@@ -1083,10 +1119,10 @@ def build_student_cost():
     def wp_stone(step):
         """★(step+1) → ★(step+2) の神名文字。
 
-        **★3→★4 だけ、ゲームのデータが仮置きのまま。**224 本すべてが
-        `IngredientAmount = 1` で、クレジット `2000000` だけ実数が入っている。
-        実数は game8 から補う（`WP_STAR4_STONE`。固有武器の強化計算機と同じ値）。
-        **表の値が 1 でなくなったら、この差し替えを外す。**
+        **`Excel/` を読んでいた頃、★3→★4 だけ仮置きだった。**224 本すべてが
+        `IngredientAmount = 1` で、クレジット `2000000` だけ実数が入っていて、
+        実数は game8 から補っていた（`WP_STAR4_STONE`）。
+        **`DB/` 側には 200 が入っているので、いまは発火しない。**保険として残す。
         """
         v = stones[(3, step)]
         if step == 2 and v == 1:
@@ -1251,6 +1287,18 @@ def build_treasure():
     # 同じ長さで並んでいる。`Item` は道具、`Equipment` は装備で、**別々の表**
     item_rows = {int(i["Id"]): i for i in as_list(get_json(SD.format("items"))) if i.get("Id")}
     equip_rows = {int(i["Id"]): i for i in as_list(get_json(SD.format("equipment"))) if i.get("Id")}
+    # **復刻イベントの通貨は SchaleDB の items に無い**（85363・85373・85403 の
+    # 3 つが「？（Item 85373）」で画面に出ていた。2026-08-31 に実測）。
+    # ba-data の ItemExcelTable ＋ LocalizeEtc の NameJp で名前と絵を埋める。
+    # 絵は schaledb.com/images/item/icon/ に実体があることを 3 つとも確かめた
+    etc_nm = {x["Key"]: x.get("NameJp") for x in as_list(get_json(BADB.format("LocalizeEtcExcelTable")))}
+    for r in as_list(get_json(BADB.format("ItemExcelTable"))):
+        iid = r.get("Id")
+        if not iid or iid in item_rows:
+            continue
+        nm = etc_nm.get(r.get("LocalizeEtcId"))
+        if nm:
+            item_rows[iid] = {"Name": nm, "Icon": r.get("Icon", "")}
     item_nm = {k: v.get("Name", "") for k, v in item_rows.items()}
     equip_nm = {k: v.get("Name", "") for k, v in equip_rows.items()}
 
@@ -2011,12 +2059,29 @@ def build_gear_stats():
     if len(gear) < 40:
         raise SystemExit(f"愛用品が {len(gear)} 人ぶんしか取れない")
 
-    # **固有武器の段ごとのレベル上限。**224 人ぶんを数えて全員同じことを確かめる
+    # **固有武器の段ごとのレベル上限。**275 本ぶんを数えて全部同じことを確かめる
     # （2026-08-30。それまでこのツールは Lv1 → Lv100 と出していたが、
     # **Lv100 には届かない。**日本の上限は固有4 の Lv60）。
     wlv = {}
-    for r in as_list(get_json(BA.format("CharacterWeaponExcelTable"))):
+    # **固有4 で増えるぶんもこの表に入っている**（`StatType[3]` / `StatValue[3]`。
+    # 2026-08-31 に気づいた。止まっている `Excel/` 側は `None` のままで、
+    # それまでこのページは「データに入っていない」と書いて game8 の記述を出していた）
+    w4 = {}
+    for r in as_list(get_json(BADB.format("CharacterWeaponExcelTable"))):
         wlv[tuple(r["MaxLevel"])] = wlv.get(tuple(r["MaxLevel"]), 0) + 1
+        w4[r["Id"]] = ((r["StatType"][3] or "").replace("_Base", ""), r["StatValue"][3])
+    # **1 人ずつ突き合わせる。**ストライカー（`Main`）は自分の攻撃属性の
+    # `Enhance<属性>Rate` が `1000`（＝ 特効 ＋10%）、スペシャル（`Support`）は
+    # `MaxCostIncrease` が `5000`（＝ コスト上限 ＋0.5）。**1 人でも外れたら止まる**
+    bt_by = {x["Id"]: x.get("BulletType") for x in students}
+    for r in weap:
+        r["f4"], r["f4v"] = w4.get(r["id"], ("", 0))
+        if not r["f4"]:
+            continue
+        want = ("MaxCostIncrease", 5000) if r["sq"] == "Support" \
+            else (f"Enhance{bt_by.get(r['id'])}Rate", 1000)
+        if (r["f4"], r["f4v"]) != want:
+            raise SystemExit(f"固有4 の内容が想定と違う: {r['n']} {r['f4']} {r['f4v']}（{want} のはず）")
     if len(wlv) != 1:
         raise SystemExit(f"固有武器のレベル上限が生徒ごとに割れている: {sorted(wlv.items())[:3]}")
     wmax = list(list(wlv)[0])
@@ -2243,9 +2308,9 @@ def build_eleph():
     print("星上げ（神名文字）の計算機")
     students = as_list(get_json(SD.format("students")))
     items = as_list(get_json(SD.format("items")))
-    tr = {x["CharacterId"]: x for x in as_list(get_json(BA.format("CharacterTranscendenceExcelTable")))}
-    rec = {x["Id"]: x for x in as_list(get_json(BA.format("RecipeExcelTable")))}
-    ing = {x["Id"]: x for x in as_list(get_json(BA.format("RecipeIngredientExcelTable")))}
+    tr = {x["CharacterId"]: x for x in as_list(get_json(BADB.format("CharacterTranscendenceExcelTable")))}
+    rec = {x["Id"]: x for x in as_list(get_json(BADB.format("RecipeExcelTable")))}
+    ing = {x["Id"]: x for x in as_list(get_json(BADB.format("RecipeIngredientExcelTable")))}
     iname = {int(i["Id"]): i.get("Name", "") for i in items if i.get("Id")}
     # **神名文字の絵は生徒ごとに違う。**`item_icon_secretstone` は
     # 「神名のカケラ」（Id 23）の絵で、神名文字ではない
@@ -2304,6 +2369,10 @@ def build_eleph():
         steps.append({"to": i + 2, "cr": need[i][0], "el": need[i][1],
                       # StatBonusRate は 10000 分率。**★1 のぶんは 0** なので 1 つずらす
                       "atk": atk[i + 1], "hp": hp[i + 1], "heal": heal[i + 1],
+                      # 絆の上限は ★1 から順に 10 / 10 / 20 / 30 / 100。
+                      # **★4 は 20 から 30 に上がっている**（`Excel/` は 20 のまま）。
+                      # `DB/CharacterTranscendenceExcelTable` の 817 行のうち 810 行が
+                      # この並びで、最終更新は 2026-08-26 / v1.72.452186（2026-08-31 に実測）
                       "fav": fav[i + 1]})
 
     # ---- ここから限界解放（固有武器の星）。**★5 が上限ではない**
@@ -2312,12 +2381,15 @@ def build_eleph():
     # ★の方を「神秘解放」、固有武器の方を「限界解放」と呼び分ける
     # （ブルアカ攻略 Wiki の「神秘解放/限界解放」）。
     #
-    # **ba-data の jp ブランチは 2025-05-21（v1.57.342698）で止まっている。**
-    # `CharacterWeaponExcelTable` の `Unlock` は 224 人全員 `[T,T,T,F,F]` のままで、
-    # 固有4 が未実装に見える。実際には日本ではもう出ていて、
-    # SchaleDB の `config.json` の `Regions[0]`（Jp）が `"WeaponMaxLevel": 60`
-    # ＝ `MaxLevel` の 4 番目（固有4）を指している。
-    weap = {x["Id"]: x for x in as_list(get_json(BA.format("CharacterWeaponExcelTable")))}
+    # **`Excel/` ではなく `DB/` を読む。**`Excel/CharacterWeaponExcelTable` は
+    # 2025-05-21（v1.57.342698）で止まっていて 224 行、`Unlock` は全員
+    # `[T,T,T,F,F]`（固有4 が未実装に見える）。`DB/` は 275 行で
+    # `[T,T,T,T,F]`、固有4 の枠（`StatType[3]` / `StatValue[3]`）も埋まっている。
+    # **`StatValue[2]`（固有3 で上がる地形適性）も 224 行すべてで違っていて、**
+    # 例えばカリン（制服）26014 は Excel/ が 2、DB/ が 1。DB/ は SchaleDB の
+    # `Weapon.AdaptationValue` と 274 人ぜんぶ一致する（2026-08-31 に実測）。
+    # 段の上限は SchaleDB の `config.json` `Regions[Jp].WeaponMaxLevel` が正本。
+    weap = {x["Id"]: x for x in as_list(get_json(BADB.format("CharacterWeaponExcelTable")))}
 
     # **固有3→4 の神名文字だけ、ba-data に実数が入っていない。**
     # `IngredientAmount` が 1 の仮置きで、クレジット 2,000,000 のほうは正しい。
@@ -2326,8 +2398,14 @@ def build_eleph():
     # 裏取り: 同記事の累計「★1→固有★4 = 830」が、
     #   ★1→★5 の 330（30+80+100+120、ブルアカ攻略 Wiki と ba-data が一致）
     #   ＋120＋180＋200 = 830 とぴたり合う。
+    #
+    # **2026-08-31 追記。`DB/` 側にはもう実数の 200 が入っている。**
+    # 下の差し替えは `Excel/` を読んでいた頃の名残で、いまは一度も発火しない。
+    # 発火したときだけ `src` に印を付けるようにしてあるので、
+    # **画面の「外から取った」表示も自動で消える。**data.js を見れば分かる
     WEAPON_EL_FALLBACK = {2: 200}          # 添字は「何段目の遷移か」（0 起点）
     WEAPON_EL_SRC = "https://game8.jp/blue-archive/706922"
+    used_fallback = set()                  # 実際に差し替えが起きた段だけ入る
 
     def weapon_steps(cid):
         """固有1→2, 2→3, 3→4 の 3 段。4 段目（固有4→5）は日本では未実装。"""
@@ -2344,11 +2422,13 @@ def build_eleph():
             # 仮置き（1 個）は外の出どころで置き換える
             if amt <= 1 and k in WEAPON_EL_FALLBACK:
                 amt = WEAPON_EL_FALLBACK[k]
+                used_fallback.add(k)
             out.append((I["CostAmount"][0], amt))
         return tuple(out) if len(out) == 3 else None
 
     wpats, wlv, wskill = {}, {}, {}
     sq_by = {x["Id"]: x.get("SquadType") for x in students}
+    bt_by = {x["Id"]: x.get("BulletType") for x in students}
     for r in stu:
         w = weap.get(r["id"])
         ws = weapon_steps(r["id"])
@@ -2361,6 +2441,11 @@ def build_eleph():
         r["ad"] = (w["StatType"][2] or "").replace("BattleAdaptation_Base", "")
         r["av"] = w["StatValue"][2]
         r["sq"] = sq_by.get(r["id"]) or "Main"
+        # **固有4 で増えるぶんもゲームのデータに入っている**（2026-08-31 に気づいた。
+        # `Excel/` 側は `StatType[3]` が `None` のままで、長らく「データに無い」と
+        # 書いていた）。ストライカーは自分の攻撃属性の特効、スペシャルはコスト上限
+        r["f4"] = (w["StatType"][3] or "").replace("_Base", "")
+        r["f4v"] = w["StatValue"][3]
 
     if len(wpats) != 1:
         raise SystemExit(f"限界解放の必要数が生徒ごとに割れている: {sorted(wpats.items())[:4]}")
@@ -2375,13 +2460,29 @@ def build_eleph():
     if list(wskill)[0][1] != "Passive01":
         raise SystemExit("固有2 でパッシブを覚えるという前提が崩れた")
 
+    # **固有4 のぶんを 1 人ずつ突き合わせる。**ストライカー（`Main`）は
+    # `Enhance<攻撃属性>Rate_Base` が `1000`（＝ 特効 ＋10%）、スペシャル（`Support`）は
+    # `MaxCostIncrease_Base` が `5000`（＝ コスト上限 ＋0.5）。
+    # game8 と ブルアカ攻略 Wiki の「ST:〇〇特効加算+10%、SP:最大コスト0.5増加」と
+    # 一致する。**1 人でも外れたらここで止まる**
+    for r in stu:
+        if not r.get("f4"):
+            continue
+        if r["sq"] == "Support":
+            want = ("MaxCostIncrease", 5000)
+        else:
+            want = (f"Enhance{bt_by.get(r['id'])}Rate", 1000)
+        if (r["f4"], r["f4v"]) != want:
+            raise SystemExit(f"固有4 の内容が想定と違う: {r['n']} {r['f4']} {r['f4v']}（{want} のはず）")
+
     # 固有1 は ★5 になった時点で使えるので、費用は 0
     wsteps = [{"to": 1, "cr": 0, "el": 0, "lv": wmax[0], "gain": "unlock"}]
     for i, (cr, el) in enumerate(wneed):
         wsteps.append({"to": i + 2, "cr": cr, "el": el, "lv": wmax[i + 1],
                        "gain": ["passive", "adapt", "final"][i],
-                       # 実数がゲームのデータに無く、外の出どころで埋めた段には印を付ける
-                       "src": WEAPON_EL_SRC if i in WEAPON_EL_FALLBACK else ""})
+                       # 実数がゲームのデータに無く、外の出どころで埋めた段には印を付ける。
+                       # **実際に差し替えが起きた段だけ。**入っていれば印は付かない
+                       "src": WEAPON_EL_SRC if i in used_fallback else ""})
 
     adapt = {}
     for r in stu:
@@ -2481,22 +2582,25 @@ def build_matchup():
     """**倍率表そのもの。**攻撃属性 × 装甲と、地形適性の 6 段。
 
     表は 2 か所から取って突き合わせる。SchaleDB の `config.json` が
-    `TypeEffectiveness` を持っていて、**ba-data の jp ブランチより新しい**
-    （分解 / 複合装甲の行が ba-data には無い。2026-08-30 に確認）。
+    `TypeEffectiveness`（6 攻撃属性 × 7 装甲 = 42 升）、`DB/BulletArmorDamageFactorExcelTable`
+    が 56 升（8 × 7。`Siege` と `None` のぶんが多い）。
+    **止まっている `Excel/` 側は 42 行しか無く、分解と複合装甲が入っていない**
+    （2026-08-30 にそれを見て「ba-data のほうが古い」と書いていた。
+    `DB/` に切り替えた 2026-08-31 に解消）。
     重なっている升は 1 つずつ照合して、食い違ったら止まる。"""
     print("攻撃属性・装甲・地形の倍率")
     cfg = get_json(SD_CFG)
     loc = get_json(SD.format("localization"))
     students = as_list(get_json(SD.format("students")))
-    fac = as_list(get_json(BA.format("BulletArmorDamageFactorExcelTable")))
-    terr = as_list(get_json(BA.format("TerrainAdaptationFactorExcelTable")))
+    fac = as_list(get_json(BADB.format("BulletArmorDamageFactorExcelTable")))
+    terr = as_list(get_json(BADB.format("TerrainAdaptationFactorExcelTable")))
 
     eff = cfg.get("TypeEffectiveness")
     if not eff:
         raise SystemExit("config.json に TypeEffectiveness が無い")
 
-    # **重なっている升を 1 つずつ照合する。**ba-data には分解も複合装甲も無いので、
-    # 「無い」ぶんは飛ばして、あるぶんだけ数える
+    # **重なっている升を 1 つずつ照合する。**SchaleDB 側に無い升
+    # （`Siege` と `None`）は飛ばして、あるぶんだけ数える
     checked = 0
     for r in fac:
         b, a, v = r["BulletType"], r["ArmorType"], r["DamageRate"]
@@ -2589,8 +2693,8 @@ def build_potential():
     loc = get_json(SD.format("localization"))
     pot = as_list(get_json(BADB.format("CharacterPotentialExcelTable")))
     pstat = as_list(get_json(BADB.format("CharacterPotentialStatExcelTable")))
-    rec = {r["Id"]: r for r in as_list(get_json(BA.format("RecipeExcelTable")))}
-    ing = {r["Id"]: r for r in as_list(get_json(BA.format("RecipeIngredientExcelTable")))}
+    rec = {r["Id"]: r for r in as_list(get_json(BADB.format("RecipeExcelTable")))}
+    ing = {r["Id"]: r for r in as_list(get_json(BADB.format("RecipeIngredientExcelTable")))}
     const = as_list(get_json(BA.format("ConstCommonExcelTable")))
 
     mats = cfg.get("PotentialMaterial") or []
@@ -2781,11 +2885,11 @@ def build_weapon():
     equip = as_list(get_json(SD.format("equipment")))
     items = as_list(get_json(SD.format("items")))
     loc = get_json(SD.format("localization"))
-    lv_tbl = as_list(get_json(BA.format("CharacterWeaponLevelExcelTable")))
-    bonus_tbl = as_list(get_json(BA.format("CharacterWeaponExpBonusExcelTable")))
-    weapons = as_list(get_json(BA.format("CharacterWeaponExcelTable")))
-    rec = {r["Id"]: r for r in as_list(get_json(BA.format("RecipeExcelTable")))}
-    ing = {r["Id"]: r for r in as_list(get_json(BA.format("RecipeIngredientExcelTable")))}
+    lv_tbl = as_list(get_json(BADB.format("CharacterWeaponLevelExcelTable")))
+    bonus_tbl = as_list(get_json(BADB.format("CharacterWeaponExpBonusExcelTable")))
+    weapons = as_list(get_json(BADB.format("CharacterWeaponExcelTable")))
+    rec = {r["Id"]: r for r in as_list(get_json(BADB.format("RecipeExcelTable")))}
+    ing = {r["Id"]: r for r in as_list(get_json(BADB.format("RecipeIngredientExcelTable")))}
     const = as_list(get_json(BA.format("ConstCommonExcelTable")))
 
     # 経験値の表。**tot[i] は「Lv(i+1) から Lv(i+2) へ」までの累計**
@@ -2835,6 +2939,10 @@ def build_weapon():
     # （2026-08-30 の先生の指摘——「神名文字なのに画像が神名の欠片 分かりづらい」）
     stone_icon = {int(i["Id"]): i.get("Icon", "") for i in items if i.get("Id")}
     sets, stone_of = set(), {}
+    # **まだ出ていない生徒の武器を数に入れない。**`DB/CharacterWeaponExcelTable`
+    # は 275 行あって、SchaleDB に載っていない 1 人ぶんだけレシピの形が違う。
+    # 混ぜると「★上げの中身が武器で割れている」で止まる（2026-08-31 に実測）
+    weapons = [w for w in weapons if w["Id"] in sd_ids]
     for w in weapons:
         row = []
         ids = set()
@@ -2856,6 +2964,10 @@ def build_weapon():
         sets.add(tuple(row))
     if len(sets) != 1:
         raise SystemExit(f"★上げの中身が武器で割れている: {len(sets)} 通り")
+    # **固有4 で増えるぶん。**`StatType[3]` / `StatValue[3]` に入っている
+    # （2026-08-31 に気づいた。止まっている `Excel/` 側は `None` のまま）
+    w4 = {w["Id"]: ((w["StatType"][3] or "").replace("_Base", ""), w["StatValue"][3])
+          for w in weapons}
     raw = list(sets.pop())
     star = []
     for i, v in enumerate(raw[:jp_star - 1]):        # ★1→2 … ★(jp_star-1)→jp_star
@@ -2943,7 +3055,9 @@ def build_weapon():
                     "si": stone_icon.get(stone_of.get(s_["Id"], s_["Id"]), ""),
                     "sc": school.get(s_.get("School", ""), s_.get("School", "")),
                     "ad": ad_ja.get(ad, ad),
-                    "av": w.get("AdaptationValue", av)})
+                    "av": w.get("AdaptationValue", av),
+                    "f4": w4.get(s_["Id"], ("", 0))[0],
+                    "f4v": w4.get(s_["Id"], ("", 0))[1]})
     if len(stu) < 200:
         raise SystemExit(f"固有武器を持つ生徒が {len(stu)} 人しか取れない")
 
@@ -2975,11 +3089,12 @@ def build_weapon():
         "partTx": loc.get("WeaponPartExpBonus", {}),
         "bonus": bonus, "coef": coef,
         "stu": sorted(stu, key=lambda x: x["id"]),
-        "star4Src": WP_STAR4_SRC,
+        # **差し替えが起きた段があるときだけ印を出す。**データに実数が入れば空になる
+        "star4Src": WP_STAR4_SRC if any(x["src"] != "data" for x in star) else "",
         "version": "electricgoat/ba-data jp（CharacterWeaponLevel・CharacterWeaponExpBonus・"
                    "CharacterWeapon・Recipe・RecipeIngredient・ConstCommon）／ "
                    "SchaleDB jp（武器パーツ・生徒・絵）／ SchaleDB config.json（JP の★上限）"
-                   "／ game8（★3→★4 の神名文字 200 個）",
+                   "／ game8（★3→★4 の神名文字 200 個。いまはデータ側にも入っている）",
     }, header="/* scripts/build-tool-data.py が吐く。**手で直さない。** */\n")
 
 
@@ -2999,18 +3114,25 @@ def build_schedule():
     頭打ちになったぶんの上乗せ）。期待値は道具ごとに足し合わせる。
     """
     print("スケジュールの期待値")
-    rw = as_list(get_json(BA.format("AcademyRewardExcelTable")))
-    zn = as_list(get_json(BA.format("AcademyZoneExcelTable")))
-    lc = as_list(get_json(BA.format("AcademyLocationExcelTable")))
-    lr = as_list(get_json(BA.format("AcademyLocationRankExcelTable")))
-    tk = as_list(get_json(BA.format("AcademyTicketExcelTable")))
+    rw = as_list(get_json(BADB.format("AcademyRewardExcelTable")))
+    zn = as_list(get_json(BADB.format("AcademyZoneExcelTable")))
+    lc = as_list(get_json(BADB.format("AcademyLocationExcelTable")))
+    lr = as_list(get_json(BADB.format("AcademyLocationRankExcelTable")))
+    tk = as_list(get_json(BADB.format("AcademyTicketExcelTable")))
     const = as_list(get_json(BA.format("ConstCommonExcelTable")))
     etc = {x["Key"]: x for x in as_list(get_json(BADB.format("LocalizeEtcExcelTable")))}
     items = {x["Id"]: x for x in as_list(get_json(BADB.format("ItemExcelTable")))}
 
     TIERS = [1, 4, 7, 10, 11, 12]
-    if len(rw) != 516:
-        raise SystemExit(f"AcademyReward が {len(rw)} 行（516 のはず）")
+    # **行数を決め打ちしない。**場所は増える——`Excel/` には 11 か所しか無かったが、
+    # `DB/` にはワイルドハント学園（Id 20）が入っていて 12 か所ある（2026-08-31）。
+    # 「場所ごとに段の数で割り切れる行がある」ことだけを確かめる
+    per = collections.Counter(x["Location"] for x in rw)
+    if len(per) < 11:
+        raise SystemExit(f"AcademyReward の場所が {len(per)} か所しかない")
+    bad = {k: v for k, v in per.items() if v % len(TIERS)}
+    if bad:
+        raise SystemExit(f"場所ごとの行数が段の数で割り切れない: {bad}")
     if sorted({x["LocationRank"] for x in rw}) != TIERS:
         raise SystemExit(f"LocationRank の段が {sorted({x['LocationRank'] for x in rw})}")
     if {tuple(x["RewardParcelType"]) for x in rw} != {("LocationExp",)}:
@@ -3030,8 +3152,11 @@ def build_schedule():
     grp = {}
     for x in rw:
         grp.setdefault(x["ScheduleGroupId"], {})[x["LocationRank"]] = x
-    if len(grp) != 86:
-        raise SystemExit(f"ScheduleGroupId が {len(grp)} 種（86 のはず）")
+    # **種類の数を決め打ちしない。**場所が増えれば群も増える
+    # （`Excel/` の 86 種に対し `DB/` は 94 種。2026-08-31）。
+    # 下で「ゾーンと報酬群が 1 対 1」を数えているので、そちらで足りる
+    if len(grp) < 86:
+        raise SystemExit(f"ScheduleGroupId が {len(grp)} 種しかない")
     for gid, tiers in grp.items():
         if sorted(tiers) != TIERS:
             raise SystemExit(f"群 {gid} の段が {sorted(tiers)}")
@@ -3123,8 +3248,12 @@ def build_schedule():
         if l_["Id"] in loc_school:
             rec["sc"] = loc_school[l_["Id"]].lower()
         locs.append(rec)
-    if len(locs) != 11:
-        raise SystemExit(f"ロケーションが {len(locs)} か所（11 のはず）")
+    # **場所の数を決め打ちしない。**`Excel/` は 11 か所で止まっていたが、
+    # `DB/` にはワイルドハント学園（Id 20、ゾーン 8・報酬 48 行）が入っていて
+    # 12 か所ある。日本には所属の生徒が 6 人いる（2026-08-31 に実測）。
+    # 画面の「N か所」も data.js から出しているので、増えれば勝手に追いつく
+    if len(locs) < 11:
+        raise SystemExit(f"ロケーションが {len(locs)} か所しかない")
 
     rank = [{"r": x["Rank"], "exp": x["RankExp"], "tot": x["TotalExp"]}
             for x in sorted(lr, key=lambda x: x["Rank"])]
@@ -3185,12 +3314,12 @@ def build_cafe():
     こちらには「倉庫 = 24 時間ぶん」と書かない。
     """
     print("カフェの収入計算機")
-    prod = as_list(get_json(BA.format("CafeProductionExcelTable")))
-    crank = as_list(get_json(BA.format("CafeRankExcelTable")))
-    info = as_list(get_json(BA.format("CafeInfoExcelTable")))
-    rec = {r["Id"]: r for r in as_list(get_json(BA.format("RecipeExcelTable")))}
-    ing = {r["Id"]: r for r in as_list(get_json(BA.format("RecipeIngredientExcelTable")))}
-    fgrp = as_list(get_json(BA.format("FurnitureGroupExcelTable")))
+    prod = as_list(get_json(BADB.format("CafeProductionExcelTable")))
+    crank = as_list(get_json(BADB.format("CafeRankExcelTable")))
+    info = as_list(get_json(BADB.format("CafeInfoExcelTable")))
+    rec = {r["Id"]: r for r in as_list(get_json(BADB.format("RecipeExcelTable")))}
+    ing = {r["Id"]: r for r in as_list(get_json(BADB.format("RecipeIngredientExcelTable")))}
+    fgrp = as_list(get_json(BADB.format("FurnitureGroupExcelTable")))
     const = as_list(get_json(BA.format("ConstCommonExcelTable")))
     etc = {x["Key"]: x for x in as_list(get_json(BADB.format("LocalizeEtcExcelTable")))}
     items = {x["Id"]: x for x in as_list(get_json(BADB.format("ItemExcelTable")))}
@@ -3512,7 +3641,7 @@ def build_equip_level():
     # **`TotalExp` は「その行のレベルから次へ上がるところまで」の累計。**
     # 行 `Level: 9` の 381 が Lv1 → Lv10 ぶんで、`SD/equipment` の T1 の
     # `MaxLevel = 10` と一致する。到達レベルで引くと 1 段ずれる
-    lv = sorted(as_list(get_json(BA.format("EquipmentLevelExcelTable"))),
+    lv = sorted(as_list(get_json(BADB.format("EquipmentLevelExcelTable"))),
                 key=lambda r: r["Level"])
     sd_eq = as_list(get_json(SD.format("equipment")))
     const = as_list(get_json(BA.format("ConstCommonExcelTable")))
@@ -3674,11 +3803,11 @@ def build_cafe_layout():
     print("カフェの家具配置")
     furn = get_json(SD.format("furniture"))
     loc = get_json(SD.format("localization"))
-    fgrp = as_list(get_json(BA.format("FurnitureGroupExcelTable")))
-    crank = as_list(get_json(BA.format("CafeRankExcelTable")))
+    fgrp = as_list(get_json(BADB.format("FurnitureGroupExcelTable")))
+    crank = as_list(get_json(BADB.format("CafeRankExcelTable")))
     const = as_list(get_json(BA.format("ConstCommonExcelTable")))
-    tpl = as_list(get_json(BA.format("FurnitureTemplateExcelTable")))
-    tel = as_list(get_json(BA.format("FurnitureTemplateElementExcelTable")))
+    tpl = as_list(get_json(BADB.format("FurnitureTemplateExcelTable")))
+    tel = as_list(get_json(BADB.format("FurnitureTemplateElementExcelTable")))
     etc = {x["Key"]: x for x in as_list(get_json(BADB.format("LocalizeEtcExcelTable")))}
 
     fl_all = list(furn.values()) if isinstance(furn, dict) else furn
@@ -3724,8 +3853,10 @@ def build_cafe_layout():
     by_t = {}
     for e in tel:
         by_t.setdefault(e["FurnitureTemplateId"], []).append(e)
-    if len(tpl) != 20 or set(by_t) != {t["FurnitureTemplateId"] for t in tpl}:
-        raise SystemExit(f"テンプレートが {len(tpl)} 個／中身は {len(by_t)} 個ぶん")
+    # **数を決め打ちしない。**手本は増える（`Excel/` の 20 個に対し `DB/` は 26 個。
+    # 2026-08-31）。「手本と中身が 1 対 1」であることだけ確かめる
+    if not tpl or set(by_t) != {t["FurnitureTemplateId"] for t in tpl}:
+        raise SystemExit(f"テンプレートが {len(tpl)} 個／中身は {len(by_t)} 個ぶんで噛み合わない")
 
     half = []          # 左上が半端なマスに来る行。**丸めて載せるが、数は出す**
     out_tpl, cells, overlaps, oob = [], 0, 0, 0

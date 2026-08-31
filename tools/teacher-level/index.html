@@ -303,12 +303,11 @@
         <summary>数字の出どころ</summary>
         <p>レベルの表はゲームのクライアントから取り出したデータをそのまま使っています。推測した値はありません。</p>
         <ul>
-          <li><code>Excel/AccountLevelExcelTable.json</code> — レベルごとの必要経験値（<code>Exp</code>）と AP 上限（<code>APAutoChargeMax</code>）</li>
-          <li><code>DB/AccountLevelExcelTable.json</code> — 新米先生経験値ブーストの倍率（<code>NewbieExpRatio</code>）と、月額商品ぶんの <code>PlusExpRatio1</code> / <code>PlusExpRatio2</code></li>
+          <li><code>DB/AccountLevelExcelTable.json</code> — レベルごとの必要経験値（<code>Exp</code>）と AP 上限（<code>APAutoChargeMax</code>）、新米先生経験値ブーストの倍率（<code>NewbieExpRatio</code>）、月額商品ぶんの <code>PlusExpRatio1</code> / <code>PlusExpRatio2</code></li>
           <li><code>Excel/ConstCommonExcelTable.json</code> — <code>AccountMaxLevel: 90</code>、<code>AccountExpRatio: 1</code>、熟達証書の週上限 <code>MaxApMasterCoinPerWeek: 12000</code> と、月額パスで増えるぶん
             <code>PlusMaxApMasterCoinPerWeek1: 2000</code> / <code>PlusMaxApMasterCoinPerWeek2: 1000</code>
             （<code>PlusMaxApMasterCoinPerWeekProductMonthlyId1/2</code> にそれぞれの商品 ID が入っています）</li>
-          <li><code>Excel/ClanRewardExcelTable.json</code> — サークルの出席報酬が 10（<code>ClanRewardType: Attendance</code>）</li>
+          <li><code>DB/ClanRewardExcelTable.json</code> — サークルの出席報酬が 10（<code>ClanRewardType: Attendance</code>）</li>
         </ul>
         <p><b><code>AccountExpRatio</code> が 1 なので、消費した AP と得られる先生経験値は 1 対 1 です。</b>このツールが「必要経験値＝必要 AP」として扱っているのはそのためです。取得元は <a href="https://github.com/electricgoat/ba-data" target="_blank" rel="noopener">electricgoat/ba-data</a> の
           <code>jp</code> ブランチで、Lv1 から Lv90 までの合計は <b>294,782</b> でした。取得は <span id="ver">—</span>。</p>
