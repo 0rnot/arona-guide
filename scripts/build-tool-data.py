@@ -4291,6 +4291,48 @@ def build_tl():
             cool[g] = [a, c]
     raids = get_json(SD.format("raids"))
     rsk = raids.get("RaidSkills") or {}
+    # ---- ダメージ計算に要る表。**どれも DB/ の実物から取る**（2026-09-01）
+    ch_all = {r["Id"]: r for r in as_list(get_json(BADB.format("CharacterExcelTable")))}
+    # 特効（弾種 × 装甲）。DamageFactorGroupId は "default" だけ
+    bam = {}
+    for r in as_list(get_json(BADB.format("BulletArmorDamageFactorExcelTable"))):
+        if r.get("DamageFactorGroupId") != "default":
+            continue
+        bam.setdefault(r["BulletType"], {})[r["ArmorType"]] = [
+            r["DamageRate"], r.get("MinDamageRate") or 0, r.get("MaxDamageRate") or 0]
+    # 地形適性。Street/Outdoor/Indoor の 3 つとも同じ値なので 1 枚に畳む
+    ter, ter_same = {}, True
+    for r in as_list(get_json(BADB.format("TerrainAdaptationFactorExcelTable"))):
+        v = [r["ShotFactor"], r["BlockFactor"], r["AttackPowerFactor"]]
+        k = r["TerrainAdaptationStat"]
+        if k in ter and ter[k] != v:
+            ter_same = False
+        ter[k] = v
+    if not ter_same:
+        raise SystemExit("TerrainAdaptationFactorExcelTable が地形ごとに違う値になった。畳めない")
+    # 総力戦の支援値（SPECIAL → STRIKER）。万分率
+    trans = {}
+    for r in as_list(get_json(BADB.format("CharacterStatsTransExcelTable"))):
+        if r.get("StatTransType") != "SpecialTransStat":
+            continue
+        trans.setdefault(r.get("EchelonExtensionType") or "Base", {})[
+            r["TransSupportStats"]] = r["TransSupportStatsFactor"]
+    # 敵のレベル（レベル差補正に要る）。RaidStage の GroundId → Ground の LevelBoss
+    ground = {r["Id"]: r for r in as_list(get_json(BADB.format("GroundExcelTable")))}
+    # **キーはキャラクター ID。**RaidBossGroup の綴りは Raid の DevName と揃っていない
+    # （シロ&クロ・ヒエロニムスで外れた。2026-09-01）。地形は GroundExcelTable の
+    # `StageTopography`（`TacticEnvironment` は "None" が入っている）
+    stage = {}
+    for r in as_list(get_json(BADB.format("RaidStageExcelTable"))):
+        g = ground.get(r.get("GroundId")) or {}
+        v = {"lv": g.get("LevelBoss"), "env": g.get("StageTopography"),
+             "ext": r.get("EchelonExtensionType") or "Base"}
+        ids = [r.get("RaidCharacterId")] + list(r.get("BossCharacterId") or [])
+        for cid in ids:
+            if cid:
+                stage.setdefault(cid, v)
+    print(f"  特効 {sum(len(v) for v in bam.values())} 組／地形 {len(ter)} 段／"
+          f"支援値 {len(trans)} 種／ステージ {len(stage)} 件")
 
     fcache = {}
     bosses, ok, half, ng = [], 0, 0, []
@@ -4312,6 +4354,25 @@ def build_tl():
             # EX 1 発の長さ（フレーム）。**帯の幅に使う。**
             # 通常スキルと違って、こちらはトップレベルの `Duration` がそのまま入っている
             got["exd"] = [tl_frames(g, fcache) for g in got["ex"]]
+            # ---- ボス側の素の値。ダメージ計算はここから引く
+            sr = stat.get(got["cid"]) or {}
+            cr = ch_all.get(got["cid"]) or {}
+            sg = stage.get(got["cid"]) or {}
+            got["lv"] = sg.get("lv")
+            got["env"] = sg.get("env")
+            got["ext"] = sg.get("ext") or "Base"
+            got["bs"] = {
+                "armor": cr.get("ArmorType"), "bullet": cr.get("BulletType"),
+                "hp": sr.get("MaxHP1"), "atk": sr.get("AttackPower1"),
+                "def": sr.get("DefensePower1"),
+                "defpr": sr.get("DefensePenetrationResist1") or 0,
+                "stab": sr.get("StabilityPoint"), "stabR": sr.get("StabilityRate"),
+                "dodge": sr.get("DodgePoint"), "acc": sr.get("AccuracyPoint"),
+                "crR": sr.get("CriticalResistPoint"),
+                "cdR": sr.get("CriticalDamageResistRate"),
+                "ad": [sr.get("StreetBattleAdaptation"), sr.get("OutdoorBattleAdaptation"),
+                       sr.get("IndoorBattleAdaptation")],
+            }
             rows.append(got)
             ok += 1 if got["per"] else 0
             half += 0 if got["per"] else 1
@@ -4326,12 +4387,52 @@ def build_tl():
     # `Scale` は万分率（27438 = 274.38%）。`Hits` は 1 発の中の配分（10000 = 100%）
     SD_STAT = ["AttackPower1", "AttackPower100", "MaxHP1", "MaxHP100",
                "DefensePower1", "DefensePower100", "StabilityPoint",
-               "AccuracyPoint", "CriticalPoint", "CriticalDamageRate", "Range"]
+               "AccuracyPoint", "CriticalPoint", "CriticalDamageRate", "Range",
+               "DodgePoint", "HealPower1", "HealPower100"]
+    # SchaleDB は地形適性を 0〜5 の数字で持つ。ボスの表は "D"〜"SS" の字なので字に揃える
+    ADAPT = ["D", "C", "B", "A", "S", "SS"]
     stu = as_list(get_json(SD.format("students")))
-    st_out, dmg_out, ndmg = {}, {}, 0
+    st_out, dmg_out, ndmg, sinfo, build = {}, {}, 0, {}, {}
+    # 装備。段ごとの効果。**値は SchaleDB と同じく `StatValue[i][1]`（その段の上限レベル）**
+    eqp_out = {}
+    for e in as_list(get_json(SD.format("equipment"))):
+        c, t = e.get("Category"), e.get("Tier")
+        # **同じ段が 2 行ある**（Id 101xxx は強化素材側で `StatType` が空）。
+        # 空のほうが後から来て上書きしていた（2026-09-01 に気づいた）
+        if not c or not t or not e.get("StatType"):
+            continue
+        eqp_out.setdefault(c, {})[str(t)] = [
+            [k, (e["StatValue"][i] or [0, 0])[1]]
+            for i, k in enumerate(e.get("StatType") or [])]
     for x in stu:
         sid = str(x["Id"])
-        st_out[sid] = [x.get(k) for k in SD_STAT]
+        # **`StabilityRate` と `DefensePenetration` は SchaleDB に無い。**
+        # ba-data の `DB/CharacterStatExcelTable` から足す（生徒は一律 2000／0）
+        dbs = stat.get(x["Id"]) or {}
+        st_out[sid] = [x.get(k) for k in SD_STAT] + [
+            dbs.get("StabilityRate", 2000), dbs.get("DefensePenetration1", 0),
+            dbs.get("DefensePenetration100", 0)]
+        # ---- 育成の中身。**適用の仕方は SchaleDB の CharacterStats そのまま**
+        #   eqp … 装備の枠 3 つ（Hat / Hairpin / Watch など）
+        #   wp  … 固有武器 [攻撃1, 攻撃100, HP1, HP100, 治癒1, 治癒100, 伸び方, 地形, 段数]
+        #   gr  … 愛用品 [[効果, T2 の値], …]（未実装の生徒は空）
+        #   fav … 絆 [[統計1, 統計2], 区切りごとの伸び]
+        w = x.get("Weapon") or {}
+        build[sid] = {
+            "eqp": x.get("Equipment") or [],
+            "wp": [w.get("AttackPower1"), w.get("AttackPower100"), w.get("MaxHP1"),
+                   w.get("MaxHP100"), w.get("HealPower1"), w.get("HealPower100"),
+                   w.get("StatLevelUpType"), w.get("AdaptationType"),
+                   w.get("AdaptationValue")] if w else None,
+            "gr": [[t, (x["Gear"]["StatValue"][i] or [0, 0])[1]]
+                   for i, t in enumerate((x.get("Gear") or {}).get("StatType") or [])],
+            "fav": [x.get("FavorStatType") or [], x.get("FavorStatValue") or []],
+            "star": x.get("StarGrade") or 1,
+        }
+        sinfo[sid] = [x.get("BulletType"), x.get("ArmorType"), x.get("SquadType")] + [
+            ADAPT[x.get(k)] if isinstance(x.get(k), int) and 0 <= x.get(k) < 6 else x.get(k)
+            for k in ("StreetBattleAdaptation", "OutdoorBattleAdaptation",
+                      "IndoorBattleAdaptation")]
         per_skill = {}
         for kind, sk in (x.get("Skills") or {}).items():
             if not isinstance(sk, dict):
@@ -4358,7 +4459,27 @@ def build_tl():
     # ので、同じ名前にすると後から読んだほうが前を消す（2026-08-31 に気づいた）
     return write_js("tools/tl/data.js", "TLBOSS", {
         "fps": TL_FPS, "bosses": bosses, "skills": skills,
-        "stats": st_out, "statKeys": SD_STAT, "dmg": dmg_out,
+        "stats": st_out,
+        "statKeys": SD_STAT + ["StabilityRate", "DefensePenetration1",
+                               "DefensePenetration100"],
+        "dmg": dmg_out,
+        "sinfo": sinfo,
+        "sinfoKeys": ["BulletType", "ArmorType", "SquadType",
+                      "StreetBattleAdaptation", "OutdoorBattleAdaptation",
+                      "IndoorBattleAdaptation"],
+        "bam": bam, "ter": ter, "trans": trans,
+        "build": build, "eqp": eqp_out,
+        # 星の伸び。SchaleDB の CharacterStats の既定値（生徒別の Transcendence は
+        # jp のデータに 1 件も無いことを 2026-09-01 に確かめた）
+        "tc": [[0, 1000, 1200, 1400, 1700], [0, 500, 700, 900, 1400],
+               [0, 750, 1000, 1200, 1500]],
+        "maxbond": [10, 10, 20, 20, 50],
+        # ダメージの定数。**出典は Excel/ConstCombatExcelTable.json**（DB/ に無いので
+        # v1.57 凍結の値。2026-08-31 に確かめた）と、SchaleDB js/common.js の式
+        "const": {"defA": 10000, "defC": 6000, "accA": 10000, "accC": 3000,
+                  "crtA": 4000, "crtC": 6000,
+                  "stabK": 1000, "lvStep": 200, "lvCap": 30,
+                  "cdBase": 20000, "cdResistBase": 5000, "coverBase": 3000},
         "version": "ba-data jp DB/ + SchaleDB jp",
     }, header="/* scripts/build-tool-data.py が吐く。**手で直さない。** */\n")
 

@@ -156,6 +156,11 @@
   color:var(--tx); border:1px solid var(--ln); border-radius:6px; padding:7px;
   font:11px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; }
 .sheet .row { display:flex; gap:6px; align-items:center; }
+.bset { display:flex; gap:6px; align-items:center; flex-wrap:wrap; font-size:9.5px;
+  color:var(--tx2); }
+.bset label { display:flex; gap:3px; align-items:center; }
+.bset select { background:var(--bg2); color:var(--tx); border:1px solid var(--ln);
+  border-radius:4px; font:10px/1.4 inherit; padding:1px 3px; }
 
 /* ---------- 編成 ---------- */
 .crew { display:grid; grid-template-columns:repeat(6,1fr); gap:3px; }
@@ -431,7 +436,14 @@
       <div class="pane"><div class="bd">
         <div class="setup hd" style="display:flex;margin-bottom:6px">
           <h2>育成設定</h2>
-          <span class="mut" style="font-size:9.5px">生徒をクリックすると詳細を開くことが出来ます</span>
+          <span class="bset">
+            <label>Lv<select id="g-lv"></select></label>
+            <label>★<select id="g-star"></select></label>
+            <label>装備<select id="g-eq"></select></label>
+            <label>固有武器<select id="g-wlv"></select></label>
+            <label>愛用品<select id="g-gear"><option value="1">あり</option><option value="0">なし</option></select></label>
+            <label>絆<select id="g-bond"></select></label>
+          </span>
           <span style="flex:1 1 auto"></span>
           <span class="mut" style="font-size:9.5px" id="crew-n">0 / 6人編成</span>
         </div>
@@ -480,6 +492,7 @@
           <label class="f"><span>難易度</span><select id="i-diff"></select></label>
           <label class="f"><span>地形</span><select id="i-terr"></select></label>
           <label class="f"><span>フェーズ</span><select id="i-phase"><option>なし</option></select></label>
+          <label class="f"><span>敵レベル</span><span id="i-lv" class="mut" style="font-size:11px">—</span></label>
           <label class="f"><span>時間制限</span><select id="i-lim"></select></label>
         </div>
       </div></div>
@@ -512,6 +525,32 @@
         コストは 1 秒あたり 回復力÷10000 で増えます。開始から
         <code>PlayerRegenCostDelay</code> の 2 秒は増えません</li>
       <li><b>スキルの名前と説明</b> — <a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a></li>
+      <li><b>ダメージの式</b> — <a href="https://github.com/SchaleDB/SchaleDB" target="_blank" rel="noopener">SchaleDB</a> の
+        <code>js/common.js</code>（<code>CharacterStats.calculateDamage</code> ／
+        <code>getDefenseDamageReductionMod</code> ／ <code>getCriticalRate</code> ／
+        <code>getHitChance</code> ／ <code>getStabilityMinDamageMod</code> ／
+        <code>getEffectiveMod</code> ／ <code>interpolateStat</code>）を写しています。
+        <b>式は自前で作っていません。</b>日本語の解説は
+        <a href="https://zenn.dev/1m_lcei/books/b380b976c908d9" target="_blank" rel="noopener">けーさんの本</a>です</li>
+      <li><b>特効（弾種 × 装甲）</b> — <code>DB/BulletArmorDamageFactorExcelTable.json</code>。
+        貫通 → 重装甲が 20000（＝200%）、貫通 → 軽装甲が 5000（＝50%）</li>
+      <li><b>地形</b> — <code>DB/TerrainAdaptationFactorExcelTable.json</code> の
+        <code>AttackPowerFactor</code>。D 8000 ／ C 9000 ／ B 10000 ／ A 11000 ／ S 12000 ／ SS 13000。
+        市街・屋外・屋内で値は同じでした。ステージの地形は
+        <code>DB/GroundExcelTable.json</code> の <code>StageTopography</code></li>
+      <li><b>敵のレベル</b> — <code>DB/RaidStageExcelTable.json</code> の <code>GroundId</code> →
+        <code>DB/GroundExcelTable.json</code> の <code>LevelBoss</code>（ビナー Torment は 90）</li>
+      <li><b>支援値</b> — <code>DB/CharacterStatsTransExcelTable.json</code>。
+        SPECIAL の最終値の HP・攻撃 10%、防御・治癒 5% を切り捨てて STRIKER に足します</li>
+      <li><b>育成の中身</b> — 装備は <code>equipment.min.json</code> の各段の上限レベルの値、
+        固有武器・愛用品・絆は <code>students.min.json</code>。星の伸びは SchaleDB の既定値
+        （生徒ごとの <code>Transcendence</code> は日本版のデータに 1 件もありませんでした）</li>
+      <li><b>確かめ方</b> — SchaleDB の <code>common.js</code> をそのまま Node で走らせて、
+        151 人ぶんの最終攻撃力とダメージを突き合わせました。<b>攻撃力は 151/151、
+        ダメージは 150/151 が一致</b>します。残る 1 件（チアキ）は
+        <code>CriticalCheck: "Never"</code> のスキルで、こちらは会心倍率を掛けていません</li>
+      <li><b>まだ入っていないもの</b> — バフ・デバフ、NS と SS のダメージ、遮蔽、
+        キサキ枠（EX スキルダメージ量増加）。<b>実戦の数字より小さく出ます</b></li>
       <li><b>当てにしないでください</b> — 難易度ぶんのビヘイビアツリーが無いボスは Normal の木で埋めています。
         グレゴリオの Lunatic だけは木が無いので出せません</li>
     </ul>
@@ -584,7 +623,9 @@
 
   var st = { bi: 0, di: 0, px: 6, pin: null, party: [null, null, null, null, null, null],
              grid: 3, picking: null, filt: { q: '', role: '', bul: '', arm: '' },
-             tl: [], sel: null, lv: 5, mk: [] };
+             tl: [], sel: null, lv: 5, mk: [],
+             // 育成設定の既定。**総力戦の上位を張る人の並み**に置いてある
+             lv90: 90, star: 5, slv: 5, eq: [9, 9, 9], wlv: 50, gear: true, bond: 20 };
 
   // ------------------------------------------------------------ 置いたスキル
   // st.tl の 1 件は { i: 編成の枠 0-5, t: 秒 }。EX レーンにだけ置く
@@ -801,18 +842,42 @@
     if (st.pin != null) { movePh(st.pin, true); }
   }
 
+  function n0(v) { return Math.round(v).toLocaleString('ja-JP'); }
   function drawRate() {
-    var rows = ['最小', '0会心平均', '平均', '全会心平均', '最大'], h = '';
+    var rows = [['最小', 'min'], ['0会心平均', 'avg0'], ['平均', 'avg'],
+                ['全会心平均', 'avgC'], ['最大', 'max']];
+    var r = diff(), hp = (r.bs && r.bs.hp) || 0, t = total(r), h = '';
     var head = $('rate').rows[0].outerHTML;
     for (var i = 0; i < rows.length; i++) {
-      h += '<tr><td class="n">' + rows[i] + '</td>';
-      for (var k = 0; k < 5; k++) {
-        h += '<td class="v"><span class="cell"><span class="bar"><i style="width:0%"></i></span>' +
-             '<span class="num mut">—</span></span></td>';
+      var v = t[rows[i][1]], left = hp - v;
+      h += '<tr><td class="n">' + rows[i][0] + '</td>';
+      if (!t.n || !hp) {
+        for (var k = 0; k < 5; k++) {
+          h += '<td class="v"><span class="cell"><span class="bar"><i style="width:0%"></i></span>' +
+               '<span class="num mut">—</span></span></td>';
+        }
+      } else {
+        h += cell(Math.max(0, left) / hp, n0(Math.max(0, left)));
+        h += cell(Math.min(1, v / hp), n0(v));
+        h += cell(v ? 1 : 0, n0(v));
+        h += cell(0, '0');
+        h += cell(0, '0');
       }
       h += '</tr>';
     }
     $('rate').innerHTML = head + h;
+    var g = $('goal-note');
+    if (g) {
+      g.textContent = hp
+        ? '最大HP ' + n0(hp) + '　置いた EX ' + st.tl.length + ' 発のうち ' + t.n +
+          ' 発ぶんを数えました（残りはダメージを持たないスキルです。NS・SS・バフはまだ）'
+        : '目標: — ／ ダメージ計算がまだなので空です';
+    }
+  }
+  function cell(frac, txt) {
+    return '<td class="v"><span class="cell"><span class="bar"><i style="width:' +
+           (clamp(frac, 0, 1) * 100).toFixed(1) + '%"></i></span>' +
+           '<span class="num">' + esc(txt) + '</span></span></td>';
   }
 
   function drawErr() {
@@ -833,11 +898,192 @@
       var bp = st.party[run.bad[q].i];
       out.push(['e', 'コストが足りません: ' + ((bp && bp.n) || '?') + ' ' + run.bad[q].t.toFixed(2) + '秒']);
     }
-    out.push(['w', 'ダメージ計算はこれからです（達成率の表はまだ空）']);
+    out.push(['w', 'ダメージは EX だけです（NS・SS・バフはまだ数えていません）']);
     out.push(['w', 'デバフ数・SS レーン・自動生成はこれからです']);
     $('errlog').innerHTML = out.map(function (x) {
       return '<div class="' + x[0] + '">' + (x[0] === 'g' ? '✔ ' : (x[0] === 'e' ? '✕ ' : '▸ ')) + esc(x[1]) + '</div>';
     }).join('');
+  }
+
+  // ------------------------------------------------------------ ダメージ
+  // **式は SchaleDB の js/common.js をそのまま写している**（CharacterStats の
+  // calculateDamage / getDefenseDamageReductionMod / getCriticalRate / getHitChance /
+  // getStabilityMinDamageMod / getEffectiveMod / interpolateStat）。
+  // 表は ba-data の DB/ から: 特効 BulletArmorDamageFactorExcelTable、
+  // 地形 TerrainAdaptationFactorExcelTable、支援値 CharacterStatsTransExcelTable、
+  // 敵レベル RaidStageExcelTable→GroundExcelTable。**式を自前で作っていない。**
+  var SK = {}, SI = {}, ENVI = { Street: 0, Outdoor: 1, Indoor: 2 };
+  (function () {
+    var i;
+    for (i = 0; i < B.statKeys.length; i++) { SK[B.statKeys[i]] = i; }
+    for (i = 0; i < B.sinfoKeys.length; i++) { SI[B.sinfoKeys[i]] = i; }
+  })();
+  function clamp(v, a, b) { return v < a ? a : (v > b ? b : v); }
+  function ipol(s1, s100, lv, tr) {
+    var sc = +(((lv - 1) / 99).toFixed(4));
+    return Math.ceil(+((Math.round(+((s1 + (s100 - s1) * sc).toFixed(4))) * (tr || 1)).toFixed(4)));
+  }
+  function sval(id, key, lv) {
+    var a = B.stats[id];
+    if (!a) { return 0; }
+    var i1 = SK[key + '1'], i2 = SK[key + '100'];
+    if (i1 == null) { return a[SK[key]] || 0; }
+    return ipol(a[i1], a[i2], lv, 1);
+  }
+  // 1 人ぶんの最終ステータス。**SchaleDB の CharacterStats を写している**
+  // （素の値 → 星 → 装備 → 固有武器 → 愛用品 → 絆 の順に足し、
+  //  getTotal は `round((素+固定) × 係数) + 別枠固定`）
+  function mkStats(id, o) {
+    var a = B.stats[id], bd = B.build[id] || {}, stats = {}, i;
+    if (!a) { return null; }
+    var lv = o.lv, star = o.star;
+    function set(k, v) { stats[k] = [v || 0, 0, 1, 0]; }
+    function add(key, amt) {
+      var q = String(key).split('_'), k = q[0];
+      if (!stats[k]) { set(k, 0); }
+      if (q[1] === 'Coefficient') { stats[k][2] += amt / 10000; }
+      else { stats[k][1] += amt; }
+    }
+    var tcA = 1, tcH = 1, tcHl = 1;
+    for (i = 0; i < star; i++) {
+      tcA += B.tc[0][i] / 10000; tcH += B.tc[1][i] / 10000; tcHl += B.tc[2][i] / 10000;
+    }
+    set('AttackPower', ipol(a[SK.AttackPower1], a[SK.AttackPower100], lv, tcA));
+    set('MaxHP', ipol(a[SK.MaxHP1], a[SK.MaxHP100], lv, tcH));
+    set('DefensePower', ipol(a[SK.DefensePower1], a[SK.DefensePower100], lv, 1));
+    set('HealPower', ipol(a[SK.HealPower1], a[SK.HealPower100], lv, tcHl));
+    set('DefensePenetration',
+        ipol(a[SK.DefensePenetration1], a[SK.DefensePenetration100], lv, 1));
+    var flat = ['AccuracyPoint', 'DodgePoint', 'CriticalPoint', 'CriticalDamageRate',
+                'StabilityPoint', 'StabilityRate', 'Range'];
+    for (i = 0; i < flat.length; i++) { set(flat[i], a[SK[flat[i]]]); }
+    // 装備 3 枠
+    for (i = 0; i < (bd.eqp || []).length; i++) {
+      var cat = B.eqp[bd.eqp[i]], t = (o.eq || [])[i] || 0;
+      var rowsE = cat && cat[String(t)];
+      for (var q2 = 0; rowsE && q2 < rowsE.length; q2++) { add(rowsE[q2][0], rowsE[q2][1]); }
+    }
+    // 固有武器
+    var ad = { Street: 0, Outdoor: 0, Indoor: 0 };
+    if (bd.wp && o.wlv > 0) {
+      var w = bd.wp, ls = (w[6] === 'Standard') ? +(((o.wlv - 1) / 99).toFixed(4)) : (o.wlv - 1) / 99;
+      add('AttackPower_Base', Math.round(w[0] + (w[1] - w[0]) * ls));
+      add('MaxHP_Base', Math.round(w[2] + (w[3] - w[2]) * ls));
+      add('HealPower_Base', Math.round(w[4] + (w[5] - w[4]) * ls));
+      if (w[7]) { ad[w[7]] = (ad[w[7]] || 0) + (w[8] || 0); }
+    }
+    // 愛用品
+    if (o.gear) { for (i = 0; i < (bd.gr || []).length; i++) { add(bd.gr[i][0], bd.gr[i][1]); } }
+    // 絆
+    var fv = bd.fav || [[], []], b1 = 0, b2 = 0;
+    var cap = Math.min(o.bond || 1, (B.maxbond[star - 1] || 50));
+    for (i = 1; i < Math.min(cap, 50); i++) {
+      var ix = i < 20 ? Math.floor(i / 5) : 2 + Math.floor(i / 10);
+      if (fv[1][ix]) { b1 += fv[1][ix][0]; b2 += fv[1][ix][1]; }
+    }
+    if (fv[0][0]) { add(fv[0][0], b1); }
+    if (fv[0][1]) { add(fv[0][1], b2); }
+    function tot(k) {
+      var v = stats[k];
+      if (!v) { return 0; }
+      return Math.max(0, Math.round(+(((v[0] + v[1]) * Math.max(v[2], 0.2)).toFixed(4))) + v[3]);
+    }
+    return { get: tot, adapt: ad, star: star, lv: lv };
+  }
+  function buildOpt() {
+    return { lv: st.lv90, star: st.star, eq: st.eq, wlv: st.wlv,
+             gear: st.gear, bond: st.bond };
+  }
+  var _sc = {};
+  function statsOf(id) {
+    var k = id + '|' + JSON.stringify(buildOpt());
+    if (!_sc[k]) { _sc[k] = mkStats(id, buildOpt()); }
+    return _sc[k];
+  }
+  function sinf(id, key) {
+    var a = B.sinfo[id];
+    return a ? a[SI[key]] : null;
+  }
+  var GRADE = ['D', 'C', 'B', 'A', 'S', 'SS'];
+  function terrGrade(id, env, cs) {
+    var k = ['StreetBattleAdaptation', 'OutdoorBattleAdaptation', 'IndoorBattleAdaptation'];
+    var e = ENVI[env] == null ? 1 : ENVI[env];
+    var g = sinf(id, k[e]) || 'D', i = GRADE.indexOf(g);
+    if (i < 0) { i = 0; }
+    // 固有武器は地形適性を上げる（SchaleDB の AdaptationType / AdaptationValue）
+    if (cs && cs.adapt) { i += cs.adapt[['Street', 'Outdoor', 'Indoor'][e]] || 0; }
+    return GRADE[clamp(i, 0, 5)];
+  }
+  function terrMod(id, env, cs) {
+    var g = B.ter[terrGrade(id, env, cs)];
+    return g ? g[2] / 10000 : 1;
+  }
+  function effMod(id, armor) {
+    if (armor === 'Structure') { return 1; }
+    var t = B.bam[sinf(id, 'BulletType')];
+    var v = t && t[armor];
+    return v ? v[0] / 10000 : 1;
+  }
+  // 支援値。SPECIAL（編成の 5・6 枠）の最終値に万分率を掛けて切り捨て、STRIKER に乗る
+  function support(stat, lv, r) {
+    var f = (B.trans[r.ext || 'Base'] || B.trans.Base || {})[stat] || 0, sum = 0;
+    for (var i = 4; i < 6; i++) {
+      var cs = st.party[i] && statsOf(st.party[i].id);
+      if (cs) { sum += Math.floor(cs.get(stat) * f / 10000); }
+    }
+    return sum;
+  }
+  // 1 人の EX スキル 1 回ぶん。会心と乱数の組み合わせで 5 通り返す
+  function dmgOf(idx, r) {
+    var p = st.party[idx];
+    if (!p) { return null; }
+    var effs = (B.dmg[p.id] || {}).Ex;
+    if (!effs || !effs.length) { return null; }
+    var lv = st.lv90 || 90, slv = st.slv || 5, bs = r.bs || {};
+    var cs = statsOf(p.id);
+    if (!cs) { return null; }
+    var atk = cs.get('AttackPower');
+    if (idx < 4) { atk += support('AttackPower', lv, r); }
+    var lvMod = clamp(1 - ((r.lv || lv) - lv) * 0.02, 0.4, 1);
+    var pen = cs.get('DefensePenetration');
+    var def = Math.max((bs.def || 0) - pen, 0);
+    var defMod = 10000000 / (def * 6000 + 10000000);
+    var tm = terrMod(p.id, r.env, cs), em = effMod(p.id, bs.armor);
+    var stab = cs.get('StabilityPoint'), stabR = cs.get('StabilityRate');
+    var sMin = clamp(stab / (stab + 1000) + stabR / 10000, 0, 1);
+    var acc = cs.get('AccuracyPoint');
+    var hit = clamp(2000 / (Math.max((bs.dodge || 0) - acc, 0) * 3 + 2000), 0, 1);
+    var cp = cs.get('CriticalPoint');
+    var cRate = clamp(1 - 4000000 / (Math.max(cp - (bs.crR || 0), 0) * 6000 + 4000000), 0, 1);
+    var cdm = (cs.get('CriticalDamageRate') - (bs.cdR || 0)) / 10000;
+    if (cdm < 1) { cdm = 1; }
+    var o = { min: 0, avg0: 0, avg: 0, avgC: 0, max: 0, hit: hit, crit: cRate, name: p.en };
+    for (var k = 0; k < effs.length; k++) {
+      var e = effs[k], sc = (e[0] || [])[slv - 1] || 0, hs = e[1] || [10000], sum = 0, q;
+      for (q = 0; q < hs.length; q++) { sum += hs[q]; }
+      var base = atk * tm * em * (sc / 10000) * (sum / 10000) * defMod * lvMod;
+      var cr = e[2] === 'Never' ? 0 : (e[2] === 'Always' ? 1 : cRate);
+      var cm = e[2] === 'Never' ? 1 : cdm;
+      var mid = (sMin + 1) / 2;
+      o.min += base * sMin;
+      o.max += base * cm;
+      o.avg0 += base * mid * hit;
+      o.avgC += base * cm * mid * hit;
+      o.avg += (base * mid + base * mid * (cm - 1) * cr) * hit;
+    }
+    return o;
+  }
+  // 置いた EX を全部足す
+  function total(r) {
+    var o = { min: 0, avg0: 0, avg: 0, avgC: 0, max: 0 }, n = 0, ks = ['min', 'avg0', 'avg', 'avgC', 'max'];
+    for (var i = 0; i < st.tl.length; i++) {
+      var d = dmgOf(st.tl[i].i, r);
+      if (!d) { continue; }
+      n++;
+      for (var k = 0; k < ks.length; k++) { o[ks[k]] += d[ks[k]]; }
+    }
+    o.n = n;
+    return o;
   }
 
   // ------------------------------------------------------------ 書き出し・読み込み
@@ -961,9 +1207,13 @@
     for (i = 0; i < 6; i++) {
       var v = st.party[i];
       if (!v) { continue; }
-      su += '<div class="card">' + img(v.id) + '<div class="t"><b>Lv90 ★—</b><br>' +
+      var cs = statsOf(v.id);
+      su += '<div class="card">' + img(v.id) + '<div class="t"><b>Lv' + st.lv90 +
+            ' ★' + st.star + '</b><br>' +
             esc(v.n) + '<br><span class="g">EX コスト ' + (v.c ? v.c[4] : '—') +
-            '／演出 ' + (v.d || '—') + 'f</span><br><span class="g">絆 — ／ 愛用品 —</span></div></div>';
+            '／演出 ' + (v.d || '—') + 'f</span><br><span class="g">攻撃力 ' +
+            (cs ? n0(cs.get('AttackPower')) : '—') + '／会心 ' +
+            (cs ? n0(cs.get('CriticalPoint')) : '—') + '</span></div></div>';
       bn += '<img class="mini" src="../img/student_' + v.id + '.webp" alt="" loading="lazy">';
     }
     $('setup').innerHTML = su || '<span class="mut" style="font-size:10px">左で生徒を選ぶと出ます。</span>';
@@ -991,6 +1241,29 @@
     }
     $('picker').innerHTML = h;
     $('pick-n').textContent = S.students.length + '件中 ' + list.length + '件表示';
+  }
+  function fillBuild() {
+    function opt(id, vals, cur, fmt) {
+      var e = $(id), h = '';
+      for (var i = 0; i < vals.length; i++) {
+        h += '<option value="' + vals[i] + '"' + (vals[i] === cur ? ' selected' : '') +
+             '>' + (fmt ? fmt(vals[i]) : vals[i]) + '</option>';
+      }
+      e.innerHTML = h;
+    }
+    var lvs = [], i;
+    for (i = 1; i <= 90; i++) { lvs.push(i); }
+    opt('g-lv', lvs, st.lv90);
+    opt('g-star', [1, 2, 3, 4, 5], st.star);
+    opt('g-eq', [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10], st.eq[0],
+        function (v) { return v ? 'T' + v : 'なし'; });
+    var wl = [0];
+    for (i = 1; i <= 50; i++) { wl.push(i); }
+    opt('g-wlv', wl, st.wlv, function (v) { return v ? 'Lv' + v : 'なし'; });
+    $('g-gear').value = st.gear ? '1' : '0';
+    var bl = [];
+    for (i = 1; i <= 100; i++) { bl.push(i); }
+    opt('g-bond', bl, st.bond);
   }
   function fillFilters() {
     var L = S.labels || {}, ro = {}, bu = {}, ar = {}, i;
@@ -1020,12 +1293,24 @@
     var r = diff(), dur = r.dur || 240;
     $('i-lim').innerHTML = '<option>' + Math.floor(dur / 60) + ':' +
       (dur % 60 < 10 ? '0' : '') + (dur % 60) + '</option>';
-    $('i-terr').innerHTML = '<option>—</option>';
+    var envJa = { Street: '市街', Outdoor: '屋外', Indoor: '屋内' };
+    $('i-terr').innerHTML = '<option>' + (envJa[r.env] || r.env || '—') + '</option>';
+    var ph = (r.ph && r.ph['0']) || {}, hp = ph.hp || [], pk = '';
+    for (i = 0; i <= hp.length; i++) {
+      pk += '<option value="' + i + '">フェーズ ' + (i + 1) + '</option>';
+    }
+    $('i-phase').innerHTML = pk || '<option>なし</option>';
+    $('i-lv').textContent = r.lv == null ? '—' : ('Lv' + r.lv);
   }
 
   // ------------------------------------------------------------ つなぐ
   st.di = tormentIdx(B.bosses[0]);
   fillBoss(); fillFilters(); drawCrew(); drawPicker(); draw();
+  // 突き合わせ用。**SchaleDB の実装と数字が合うかを外から確かめるため**に出している
+  window.__TLDBG = { statsOf: statsOf, dmgOf: dmgOf, total: total, diff: diff,
+                     terrMod: terrMod, effMod: effMod, st: st, stu: stu };
+
+  fillBuild();
   window.addEventListener('load', fit);
   setTimeout(fit, 60);
 
@@ -1039,6 +1324,19 @@
     this.textContent = on ? '左を出す' : '左を畳む';
     setTimeout(fit, 0);
   });
+  (function () {
+    function on(id, fn) {
+      $(id).addEventListener('change', function () {
+        fn(this.value); _sc = {}; drawCrew(); draw();
+      });
+    }
+    on('g-lv', function (v) { st.lv90 = +v; });
+    on('g-star', function (v) { st.star = +v; });
+    on('g-eq', function (v) { st.eq = [+v, +v, +v]; });
+    on('g-wlv', function (v) { st.wlv = +v; });
+    on('g-gear', function (v) { st.gear = v === '1'; });
+    on('g-bond', function (v) { st.bond = +v; });
+  })();
   $('i-find').addEventListener('input', function () { st.filt.q = this.value.trim(); drawPicker(); });
   $('i-role').addEventListener('change', function () { st.filt.role = this.value; drawPicker(); });
   $('i-bul').addEventListener('change', function () { st.filt.bul = this.value; drawPicker(); });
