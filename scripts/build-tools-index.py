@@ -31,9 +31,9 @@ def icon(t, prefix="", size=66):
             f'width="{size}" height="{size}" loading="lazy">')
 
 def subicons(t, prefix=""):
-    """**そのツールが扱うものを絵で並べる。**題と説明文だけだと 26 枚が
-    同じ白い札に見えて、探すのに全部読むことになる（2026-08-31 の先生の指示）。
-    飾りではないので、扱わないものは置かない（無いツールは空のまま）。"""
+    """そのツールが扱うものを絵で並べる。**使うのは本編の帯だけ。**
+    一覧のカードにも出していたが、説明文の下に小さい絵が 2 つ続くのは
+    邪魔だと先生に言われて外した（2026-08-31）。tools.json の `imgs` はそのまま。"""
     names = t.get("imgs") or []
     if not names:
         return ""
@@ -53,7 +53,7 @@ def card(t):
       {icon(t)}
       <div class="cat">{esc(' · '.join(t['cat']))}</div>
       <h2>{esc(t['name'])}</h2>
-      <p>{esc(t['desc'])}</p>{subicons(t)}
+      <p>{esc(t['desc'])}</p>
       <span class="go">つかう {ARROW}</span>
     </a>'''
 

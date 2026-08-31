@@ -982,18 +982,16 @@ a.toolband-card:focus-visible { outline: 2px solid var(--accent); outline-offset
 .toolband-card .cat, .toolband-card h3 { padding-right: 62px; }
 a.toolband-card:hover .ticon { transform: scale(1.09) rotate(-4deg); }
 
-/* **そのツールが扱うもの。**題と説明文だけだと 26 枚が同じ白い札に見えて、
-   探すのに全部読むことになる。扱う対象を絵で 2 つ並べると、読む前に絞れる。
-   飾りではないので `aria-hidden`——読み上げには説明文のほうが早い
-   （2026-08-31 の先生の指示「画像の少なさ」「DB で活用できそうな画像を
-   アイテム以外でも探す」を受けて追加） */
+/* そのツールが扱うものを絵で 2 つ。**使うのは本編の帯だけ。**
+   一覧のカードにも出していたが、説明文の下に小さい絵が続くのは邪魔だと
+   先生に言われて外した（2026-08-31）。飾りではないので `aria-hidden` */
 .tsub { display: flex; gap: 5px; margin-top: .85em; }
 .tsub img {
   width: 26px; height: 26px; border-radius: 7px; object-fit: contain;
   background: var(--bg-sub); padding: 2px; box-sizing: border-box;
   opacity: .82; transition: opacity .16s ease, transform .16s ease;
 }
-a.tcard:hover .tsub img, a.toolband-card:hover .tsub img {
+a.toolband-card:hover .tsub img {
   opacity: 1; transform: translateY(-2px);
 }
 

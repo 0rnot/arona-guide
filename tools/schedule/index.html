@@ -82,6 +82,11 @@
   table.dt td.nmc small { display: block; font-size: .72rem; color: var(--fg-mute);
                           font-weight: 400; margin-top: .1em; }
   .lock { color: var(--fg-mute); font-size: .78rem; }
+  /* **見出しの絵は名前と同じ行に。**`style.css` の `img { display: block }` が効くと、
+     右寄せの th では絵だけが左端の別行に落ちる。♥ が「ランク」の隣、⬡ が「絆経験値」の
+     隣に見えて、絵と名前が 1 つずつずれていた（2026-08-31 の先生の指摘
+     ——「絆経験値の画像をハートに、ランクの画像はいらない」） */
+  .dt thead th img { display: inline-block; vertical-align: -.28em; margin-right: .3em; }
   .rowbest td { background: color-mix(in srgb, var(--accent) 10%, transparent); }
   .rowbest td:first-child::after { content: "いちばん多い"; display: inline-block;
         font-size: .64rem; font-weight: 700; padding: .1em .5em; margin-left: .45em;
@@ -217,17 +222,6 @@
           <button type="button" class="btn" id="b-reset">ぜんぶ —</button>
         </div>
       </div>
-
-      <div class="panel" id="p-up">
-        <div class="panel-h"><h2>ランクを上げるのに何回</h2></div>
-        <p class="lead">スケジュールは<b>成否にかかわらず 1 回で <span id="lead-run">100</span> 経験値</b>です。</p>
-        <div class="field">
-          <label for="i-goal">目標ランク<span class="hint">開いている場所を全部そこまで上げたとき</span></label>
-          <select id="i-goal"></select>
-        </div>
-        <div class="ledger" id="up"></div>
-        <p class="barnote" id="upnote">—</p>
-      </div>
     </div>
 
     <div class="tcol">
@@ -315,6 +309,21 @@
 
       <div class="sharebar" id="sharebar"></div>
 
+    <!-- **いちばん下に置く。**目標ランクを決めるのは、1 回あたりの数字を
+         見たあとの仕事なので（2026-08-31 の先生の指示） -->
+    <div class="tfull">
+        <div class="panel" id="p-up">
+          <div class="panel-h"><h2>ランクを上げるのに何回</h2></div>
+          <p class="lead">スケジュールは<b>成否にかかわらず 1 回で <span id="lead-run">100</span> 経験値</b>です。</p>
+          <div class="field">
+            <label for="i-goal">目標ランク<span class="hint">開いている場所を全部そこまで上げたとき</span></label>
+            <select id="i-goal"></select>
+          </div>
+          <div class="ledger" id="up"></div>
+          <p class="barnote" id="upnote">—</p>
+        </div>
+    </div>
+
       <details class="src">
         <summary>数字の出どころ</summary>
         <p><b>ゲームのデータをそのまま読んでいます。</b>推測した数字はありません。</p>
@@ -375,6 +384,7 @@
           取得は <span id="ver">—</span>。</p>
       </details>
     </div>
+
 
   </div>
 </div>
