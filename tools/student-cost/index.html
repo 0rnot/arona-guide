@@ -265,7 +265,7 @@
         <p><b>素材とクレジットは、ゲームのレシピをそのまま読んでいます。</b>レシピの Id は <code>生徒 Id × 1000 ＋ 枠 × 100 ＋ 段</code>で並んでいて、枠 0 が星上げ、枠 1 が EX スキル、枠 2 がそれ以外のスキル、枠 3 が固有武器、枠 4 が愛用品です。中身は <code>DB/RecipeIngredientExcelTable.json</code> の
           <code>CostAmount</code>（クレジット）と <code>IngredientId</code> / <code>IngredientAmount</code>（素材）です。</p>
         <p>ノーマル・パッシブ・サブの 3 つは<b>どれも枠 2 の同じ表を使います</b>。ゲームの中でも、この 3 つは同じ素材と同じクレジットで上がります。</p>
-        <p><b>スキルの ◎ と「キリのいい Lv まで」はデータではなく攻略サイトの記載です。</b><a href="https://bluearchive.wikiru.jp/?%E3%82%B9%E3%82%AD%E3%83%AB" target="_blank" rel="noopener">ブルアカ Wiki「スキル」</a>に「EXスキルはLv3とLv5になった際に数値が大きく伸びる」「EX以外のスキルはLv4、Lv7、Lv10になった際に数値が大きく伸びる」「最大まで育成する余裕がない場合は数値が大きく上がるキリのいいLvを目指すと効率がいい」とあります。ボタンはこれに沿って <b>Lv90・EX Lv5・ほかのスキル Lv7</b> を入れます。
+        <p><b>スキルの ◎ と「キリのいい Lv まで」はデータではなく攻略サイトの記載です。</b><a href="https://bluearchive.wikiru.jp/?%E3%82%B9%E3%82%AD%E3%83%AB" target="_blank" rel="noopener">ブルアカ Wiki「スキル」</a>に「EXスキルはLv3とLv5になった際に数値が大きく伸びる」「EX以外のスキルはLv4、Lv7、Lv10になった際に数値が大きく伸びる」「最大まで育成する余裕がない場合は数値が大きく上がるキリのいいLvを目指すと効率がいい」とあります。<a href="https://game8.jp/blue-archive/641784" target="_blank" rel="noopener">ゲームエイト「スキル上げのおすすめキャラ」</a>にも「EXはレベル3と5、その他のノーマル・パッシブ・サブスキルはレベル4・7・10に到達した際に、スキルの倍率が大きく上がります」とあり、2 サイトで一致します（2026 年 8 月 31 日に確認）。ボタンはこれに沿って <b>Lv90・EX Lv5・ほかのスキル Lv7</b> を入れます。
           Lv10 まで行かないのは、その 1 段だけで<b>秘伝ノート 1 冊と 400 万クレジット</b>が要るからです。<b>どの生徒でもこれが正解、という話ではありません。</b>手で書き換えてください。</p>
         <p><b>固有武器は★4 までです。</b><code>Excel/CharacterWeaponExcelTable.json</code> の <code>Unlock</code> は 224 本すべて
           <code>[true, true, true, false, false]</code> で★3 に見えますが、<b>こちらは止まっている写しです。</b>

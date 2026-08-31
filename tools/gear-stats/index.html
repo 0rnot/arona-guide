@@ -225,6 +225,7 @@
     <div class="panel">
       <div class="panel-h"><h2>愛用品</h2></div>
       <p class="lead" id="gear-lead">—</p>
+      <p class="lead">T1 は絆ランク 15、T2 は 20 で開きます。<b>T2 でステータスは増えません</b>——ノーマルスキルが強化されます。<button type="button" class="qm" data-hint="ba-data の DB/CharacterGearExcelTable.json の 132 行（66 人 × 2 段）で確かめました。T1 は 66 人とも LearnSkillSlot が None で StatType にステータスが 1 つ、T2 は 66 人とも StatType が空で LearnSkillSlot が PublicSkill01。開放は T1 が OpenFavorLevel 15、T2 が 20 で、こちらも 66 人とも同じです。下に出しているのは T1 のぶんです。"></button></p>
       <div class="field" style="max-width:280px">
         <label for="q-gear">生徒をしぼる</label>
         <input id="q-gear" type="search" placeholder="名前の一部" autocomplete="off">
@@ -278,7 +279,16 @@
       <p><b>設計図と万能設計図は同じ表に混ざっていますが、ステータスを持たないので外しています。</b></p>
       <p><b>愛用品は <code>Gear</code> です。</b><span id="src-gear">—</span> 人が持っています。
         <code>StatValue</code> には数字が 2 つ入っていますが、
-        <b>66 人ぶんを全部見たところ、どの子も 2 つとも同じ値でした</b>ので 1 つだけ出しています。<b>愛用品 T2 で効果がどう変わるかは、このデータからは分かりません。</b>持っていない生徒はここに出ません。</p>
+        <b>66 人ぶんを全部見たところ、どの子も 2 つとも同じ値でした</b>ので 1 つだけ出しています。持っていない生徒はここに出ません。</p>
+      <p><b>T2 で何が変わるかも、ゲームのデータに入っています。</b>
+        <code>DB/CharacterGearExcelTable.json</code> の 132 行（66 人 × 2 段）です。
+        <b>T1 は 66 人とも <code>LearnSkillSlot: "None"</code> で <code>StatType</code> にステータスが 1 つ、
+        T2 は 66 人とも <code>StatType</code> が空で <code>LearnSkillSlot: "PublicSkill01"</code></b>
+        ——つまり T2 はステータスを増やさず、ノーマルスキルを強化します。
+        開放は <code>OpenFavorLevel</code> が T1 で <code>15</code>、T2 で <code>20</code>。これも 66 人とも同じです。
+        <b>下の一覧に出しているのは T1 のぶん</b>で、上がる量は <code>MinStatValue</code> と
+        <code>MaxStatValue</code> が 66 人とも同じ値でした（<code>MaxLevel</code> も両段とも <code>1</code>）。
+        2026-08-31 まで「T2 の効果はデータから分かりません」と書いていましたが、間違いでした。</p>
       <p><b>固有武器は、固有の段（限界解放）でレベル上限が変わります。</b>
         <code>DB/CharacterWeaponExcelTable.json</code> の <code>MaxLevel</code> が
         <code>30 / 40 / 50 / 60 / 70</code> で、固有1 が Lv30、固有4 が Lv60 です。
@@ -312,7 +322,7 @@
         <a href="https://bluearchive.wikiru.jp/?SandBox/%E7%A5%9E%E7%A7%98%E8%A7%A3%E6%94%BE%EF%BC%88%E9%99%90%E7%95%8C%E8%A7%A3%E6%94%BE%EF%BC%89" target="_blank" rel="noopener">ブルアカ攻略 Wiki</a>
         の「限界解放 星3→星4」の欄（<code>ST:〇〇特効加算+10%、SP:最大コスト0.5増加</code>）とも一致します。</p>
       <p>出典 — <a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a>（装備・愛用品・固有武器・日本の上限）、
-        <a href="https://github.com/electricgoat/ba-data" target="_blank" rel="noopener">electricgoat/ba-data</a>（固有武器のレベル上限）、
+        <a href="https://github.com/electricgoat/ba-data" target="_blank" rel="noopener">electricgoat/ba-data</a>（固有武器のレベル上限と固有4、愛用品の T1・T2）、
         <a href="https://bluearchive.wikiru.jp/?SandBox/%E7%A5%9E%E7%A7%98%E8%A7%A3%E6%94%BE%EF%BC%88%E9%99%90%E7%95%8C%E8%A7%A3%E6%94%BE%EF%BC%89" target="_blank" rel="noopener">ブルアカ攻略 Wiki</a>（固有4 の効果の裏取り）。取得は <span id="ver">—</span>。</p>
     </details>
   </div>

@@ -311,7 +311,15 @@
         </ul>
         <p><b><code>AccountExpRatio</code> が 1 なので、消費した AP と得られる先生経験値は 1 対 1 です。</b>このツールが「必要経験値＝必要 AP」として扱っているのはそのためです。取得元は <a href="https://github.com/electricgoat/ba-data" target="_blank" rel="noopener">electricgoat/ba-data</a> の
           <code>jp</code> ブランチで、Lv1 から Lv90 までの合計は <b>294,782</b> でした。取得は <span id="ver">—</span>。</p>
-        <p><b>1 日の AP の内訳は攻略サイトの記載によります。</b>自然回復は 6 分に 1 で 1 日 240、デイリーミッションはログイン 100 ＋ スケジュール 2 回 50 の合計 150、サークルは 10。青輝石での回復は <b>1 回 120 AP</b> で、値段は 1〜3 回目 30 個、4〜6 回目 60 個、7〜9 回目 100 個、10〜12 回目 150 個、13〜15 回目 200 個、16〜20 回目 300 個。カフェはランク 1 から 10 まで 90 / 150 / 220 / 300 / 390 / 460 / 530 / 600 / 670 / 740。レベルアップで AP が全回復することもここの記載です。</p>
+        <p><b>1 日の AP の内訳は、レベルアップの回復を除いてすべてゲームのデータにあります</b>（2026 年 8 月 31 日に突き合わせました）。</p>
+        <ul>
+          <li><b>自然回復</b> — <code>DB/CurrencyExcelTable.json</code> の ID 5（<code>CurrencyType: "ActionPoint"</code>）に <code>AutoChargeMsc: 360000</code> / <code>AutoChargeAmount: 1</code>。<b>6 分に 1</b> で、1 日 240 は 86,400 秒 ÷ 360 秒の計算です</li>
+          <li><b>デイリーミッション</b> — <code>DB/MissionExcelTable.json</code> の Id 1513（<code>Reset_DailyLogin</code>、報酬が Currency 5 ＝ AP × <b>100</b>）と Id 1508（<code>Reset_CompleteScheduleCount: 2</code>、報酬が AP × <b>50</b>）。合計 150</li>
+          <li><b>サークル</b> — <code>DB/ClanRewardExcelTable.json</code>（上の箇条書きのとおり <b>10</b>。表にはこの 1 行しかありません）</li>
+          <li><b>青輝石</b> — <code>DB/ShopExcelTable.json</code> の Id 21（<code>CategoryType: "Ap"</code>、<code>PurchaseCountLimit: 20</code>、<code>PurchaseCountResetType: "Day"</code>）が <code>DB/GoodsExcelTable.json</code> の商品 20 個を指していて、<b>どれも AP 120 を渡します</b>。値段（Currency 4 ＝青輝石）は 30 が 3 個・60 が 3 個・100 が 3 個・150 が 3 個・200 が 3 個・300 が 5 個——「1〜3 回目 30、4〜6 回目 60、7〜9 回目 100、10〜12 回目 150、13〜15 回目 200、16〜20 回目 300」と一致します</li>
+          <li><b>カフェ</b> — <code>DB/CafeProductionExcelTable.json</code> の 1 号店（<code>CafeId: 1</code>）・AP（<code>CafeProductionParcelId: 5</code>）の <code>ParcelStorageMax</code> がランク 1〜10 で <b>90 / 150 / 220 / 300 / 390 / 460 / 530 / 600 / 670 / 740</b></li>
+        </ul>
+        <p><b>レベルアップの回復だけはデータに見つかりません。</b><a href="https://kamigame.jp/bluearchive/page/142932339821927927.html" target="_blank" rel="noopener">神ゲー攻略「先生レベルの効率的な上げ方」</a>に「即座にAPが最大値分回復する」とあります（<a href="https://gameranbu.jp/bluearchive/aaafabbe19fe4a21a6c2" target="_blank" rel="noopener">ゲーム乱舞</a>にも「レベルアップじのAP回復でAPがあふれてしまうことが多い」と、回復があること自体の記載があります）。「上限まで回復」か「上限ぶん足される」かはこの書き方では決められませんが、このツールは <b>AP を使い切ってから上がる前提</b>で各レベルの上限を足しているので、どちらの読み方でも同じ数になります。</p>
         <p><b>「新米先生経験値ブースト」の倍率はゲームのデータに入っていました。</b><code>DB/AccountLevelExcelTable.json</code> の <code>NewbieExpRatio</code> がそれで、レベルごとに値が入っています（10000 分率。25000 なら ＋250%）。段はこうです。</p>
         <ul>
           <li>Lv1〜50 — <code>25000</code>（＋250%）</li>
@@ -328,7 +336,7 @@
         <p><b>経験値 2 倍のキャンペーンは、単純に倍で計算しています。</b>消費 AP と経験値が 1 対 1 なので、必要な経験値を倍率で割ったものが必要な AP です。レベルアップの全回復ぶんはそのあとに引いています（もらった AP も同じ倍率で経験値になるため）。</p>
         <p><b>気をつけていること。</b>AP の上限は先生レベルに連動していて、Lv1 では 24、Lv90 で 240 です。<b>「1 日 240 の自然回復」を取り切れるのは、上限に届く前に使っているとき</b>で、放っておくと上限で止まります。上の表の「上限まで貯まる時間」がその目安です。</p>
         <p>出典 —
-          <a href="https://game8.jp/blue-archive/641881" target="_blank" rel="noopener">ゲームエイト「APの回復方法一覧と1日の自然回復量」</a>（自然回復 240、デイリー 150、サークル 10、青輝石の値段表）、<a href="https://kamigame.jp/bluearchive/page/142941771335236352.html" target="_blank" rel="noopener">神ゲー攻略「APの効率的な使い方と回復方法」</a>（青輝石 1 回 120 回復）、<a href="https://kamigame.jp/bluearchive/page/142932339821927927.html" target="_blank" rel="noopener">神ゲー攻略「先生レベル」</a>（レベルアップで AP が全回復）、<a href="https://game8.jp/blue-archive/666060" target="_blank" rel="noopener">ゲームエイト「熟達証書」</a>（Lv90 到達後の変換と週の上限）。</p>
+          <a href="https://github.com/electricgoat/ba-data" target="_blank" rel="noopener">electricgoat/ba-data</a>（レベル表・AP の内訳）、<a href="https://kamigame.jp/bluearchive/page/142932339821927927.html" target="_blank" rel="noopener">神ゲー攻略「先生レベル」</a>（レベルアップの AP 回復）、<a href="https://game8.jp/blue-archive/666060" target="_blank" rel="noopener">ゲームエイト「熟達証書」</a>（Lv90 到達後の変換と週の上限）。裏取りに <a href="https://game8.jp/blue-archive/641881" target="_blank" rel="noopener">ゲームエイト「APの回復方法一覧と1日の自然回復量」</a>と<a href="https://kamigame.jp/bluearchive/page/142941771335236352.html" target="_blank" rel="noopener">神ゲー攻略「APの効率的な使い方と回復方法」</a>。</p>
       </details>
     </div>
 

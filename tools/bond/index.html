@@ -279,7 +279,7 @@
         <p><b>贈り物の絆経験値は、ゲームのデータから毎回その場で計算しています。</b>生徒ごとの表を持っているわけではありません。</p>
         <ul>
           <li>生徒には <code>FavorItemTags</code>（好み）と <code>FavorItemUniqueTags</code>（とくに好き）が付いています</li>
-          <li>贈り物には <code>Tags</code> と <code>ExpValue</code>（基本の絆経験値。紫は 20、橙は 60（初音ミクのフォトカードときらめきの花束の 2 種だけ、橙でも 20））が付いています</li>
+          <li>贈り物には <code>Tags</code> と <code>ExpValue</code>（基本の絆経験値。紫は 20、橙は 60（初音ミクのフォトカードときらめきの花束の 2 種だけ、橙でも 20））が付いています。<b>この基本値はゲームのデータにあります</b>——<code>DB/ItemExcelTable.json</code> の贈り物 52 種（<code>ItemCategory: "Favor"</code>）の <code>StackableFunction</code> 列で、SR 35 種はすべて <b>20</b>、SSR 15 種は <b>60</b>、SSR なのに 20 なのは <code>Id: 5998</code>（初音ミクのフォトカード）と <code>Id: 5999</code>（きらめきの花束）の 2 つだけ。SchaleDB の <code>ExpValue</code> と 52 種すべて一致します（2026 年 8 月 31 日に突き合わせました）</li>
           <li>さらに<b>誰にでも効く共通タグ</b>があります（<code>CommonFavorItemTags</code>: <code id="gen">—</code>）</li>
           <li>絆経験値 ＝ <b><code>ExpValue ×（一致したタグの数 ＋ 1）</code></b>。<b>一致数は 3 で頭打ち</b>なので、倍率は ×4 が上限です</li>
         </ul>
@@ -287,14 +287,14 @@
         <p>この式だと「美しい花束」は<b><span id="src-n">—</span> 人ぜんぶに対して ×4</b>になります（ゲーム内で誰に渡しても最大効果になるのと同じです）。<b>どの生徒にも ×4 の贈り物が最低 1 つあります。</b></p>
         <p><b>絆ランクの必要経験値は <code>DB/FavorLevelExcelTable.json</code> そのままです。</b>
           Lv1 から Lv100 までの合計は <b>240,225</b>、Lv1 から Lv20 までは <b>1,845</b>、Lv1 から Lv50 までは <b>29,175</b> です。</p>
-        <p><b>カフェタッチは 1 回 15 の絆経験値。</b>これはゲームのデータにあります——<code>DB/CafeInteractionExcelTable.json</code> の <code>FavorEmoticonRewardParcelType: "FavorExp"</code> / <code>FavorEmoticonRewardAmount: 15</code> で、<b>273 行すべてが 15</b>（生徒ごとの差はありません）。橙の贈り物の基本値 60 とちょうど合って、4 回タッチで 1 個ぶんです。<b>回数の制限のほうはデータに見つかりません。</b>タッチできる回数は 3 時間ごとに回復し、カフェの訪問者は毎日 4 時と 16 時にリセットされます。同じ生徒は 12 時間で最大 4 回までです（4 時／16 時をまたぐと別の生徒に入れ替わるので 5 回目はできません）。これは <a href="https://bluearchive.wikiru.jp/?%E3%82%AB%E3%83%95%E3%82%A7" target="_blank" rel="noopener">ブルアカ Wiki「カフェ」</a>の記載です。
+        <p><b>カフェタッチは 1 回 15 の絆経験値。</b>これはゲームのデータにあります——<code>DB/CafeInteractionExcelTable.json</code> の <code>FavorEmoticonRewardParcelType: "FavorExp"</code> / <code>FavorEmoticonRewardAmount: 15</code> で、<b>273 行すべてが 15</b>（生徒ごとの差はありません）。橙の贈り物の基本値 60 とちょうど合って、4 回タッチで 1 個ぶんです。<b>回数の制限のほうはデータに見つかりません</b>——<code>CafeInteractionExcelTable</code> の列は 10 個すべて確かめましたが（<code>CharacterId</code> / <code>IgnoreIfUnobtained</code> / <code>IgnoreIfUnobtainedStartDate</code> / <code>IgnoreIfUnobtainedEndDate</code> / <code>BubbleType</code> / <code>BubbleDuration</code> / <code>FavorEmoticonRewardParcelType</code> / <code>FavorEmoticonRewardId</code> / <code>FavorEmoticonRewardAmount</code> / <code>CafeCharacterState</code>）、回数・回復間隔・リセット時刻の列はありません（2026 年 8 月 31 日に確認）。タッチできる回数は 3 時間ごとに回復し、カフェの訪問者は毎日 4 時と 16 時にリセットされます。これは攻略サイト複数で一致します——<a href="https://game8.jp/blue-archive/639224" target="_blank" rel="noopener">ゲームエイト</a>に「生徒のタッチは3時間で回復します」「生徒は4時と16時の2回で入れ替わります」、<a href="https://kamigame.jp/bluearchive/page/143084388039553700.html" target="_blank" rel="noopener">神ゲー攻略「カフェ」</a>に「カフェに訪れるキャラはランダムで、毎日4時と16時に入れ替わる」とタップ可能な時間「3時間に1回」。同じ生徒は 12 時間で最大 4 回までです——4 時・7 時・10 時・13 時でタッチすると、次の 16 時で入れ替わるので 5 回目はできません（3 時間回復と 4 時／16 時リセットからの計算で、<a href="https://bluearchive.wikiru.jp/?%E3%82%AB%E3%83%95%E3%82%A7" target="_blank" rel="noopener">ブルアカ Wiki「カフェ」</a>の記載とも合います）。
           1 号店と 2 号店があるので、招待券を使えば 1 人の生徒を 1 日じゅうカフェに置いておくこともできます。
           1 日に何回タッチできるかは環境で変わるので、入力にしてあります。</p>
         <p><b>スケジュールの絆経験値は入れていません。</b>場所と生徒の組み合わせで変わり、このツールの手持ちのデータからは決められないためです。分かるぶんは「その他」に入れてください。</p>
         <p>出典 —
           <a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a>（式そのもの。
           <code>ExpValue * (matchingTags + 1)</code> と共通タグ）、
-          <a href="https://github.com/electricgoat/ba-data" target="_blank" rel="noopener">electricgoat/ba-data</a>（絆ランクの必要経験値）、<a href="https://game8.jp/blue-archive/639224" target="_blank" rel="noopener">ゲームエイト「絆ランク（好感度）の上げ方とメリット」</a>（カフェタッチの回数制限とリセット時刻）。取得は <span id="ver">—</span>。</p>
+          <a href="https://github.com/electricgoat/ba-data" target="_blank" rel="noopener">electricgoat/ba-data</a>（絆ランクの必要経験値・贈り物の基本値・カフェタッチの経験値）、<a href="https://game8.jp/blue-archive/639224" target="_blank" rel="noopener">ゲームエイト「絆ランク（好感度）の上げ方とメリット」</a>と<a href="https://kamigame.jp/bluearchive/page/143084388039553700.html" target="_blank" rel="noopener">神ゲー攻略「カフェ」</a>（カフェタッチの回数制限とリセット時刻）。取得は <span id="ver">—</span>。</p>
       </details>
     </div>
 
