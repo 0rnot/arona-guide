@@ -3,23 +3,23 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>総力戦・大決戦の TL 検索｜AronaBot</title>
-<meta name="description" content="総力戦・大決戦・制約解除決戦のボスを絵から選ぶと、その相手の TL 保管庫・有効な攻撃属性・連れて行く生徒がまとめて出ます。TL は自分の端末に貯めて、ボスや使った生徒で引き直せます。">
+<title>ボス情報｜AronaBot</title>
+<meta name="description" content="総力戦・大決戦・制約解除決戦のボスを絵から選ぶと、ステータス・スキル・パーツ・グロッキー条件・有効な攻撃属性がまとめて出ます。連れて行く生徒と TL の保管庫もおまけに付いています。">
 <meta name="theme-color" content="#c8892e">
 <link rel="icon" href="../../favicon.svg" type="image/svg+xml">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="AronaBot">
 <meta property="og:locale" content="ja_JP">
 <meta property="og:url" content="https://arona-bot.com/tools/raid/">
-<meta property="og:title" content="総力戦・大決戦の TL 検索">
-<meta property="og:description" content="ボスを絵から選ぶと、その相手の TL・有効な攻撃属性・連れて行く生徒が出ます。">
+<meta property="og:title" content="ボス情報">
+<meta property="og:description" content="ボスを絵から選ぶと、ステータス・スキル・パーツ・グロッキー条件が出ます。">
 <meta property="og:image" content="https://arona-bot.com/images/og/raid.jpg">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="総力戦・大決戦の TL 検索 — AronaBot のツール">
+<meta property="og:image:alt" content="ボス情報 — AronaBot のツール">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="総力戦・大決戦の TL 検索">
-<meta name="twitter:description" content="ボスを絵から選ぶと、その相手の TL・有効な攻撃属性・連れて行く生徒が出ます。">
+<meta name="twitter:title" content="ボス情報">
+<meta name="twitter:description" content="ボスを絵から選ぶと、ステータス・スキル・パーツ・グロッキー条件が出ます。">
 <meta name="twitter:image" content="https://arona-bot.com/images/og/raid.jpg">
 <link rel="stylesheet" href="../../style.css?v=21">
 <link rel="stylesheet" href="../tool.css?v=14">
@@ -114,6 +114,58 @@
   .bstats .bs.wide .v span { white-space: nowrap; }
   .bstats .bs.on { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, var(--card)); }
   .bstats .bs.wide .v { font-size: .84rem; font-weight: 700; }
+  /* ===== スキル。**文はゲーム内と同じもの**を SchaleDB から持ってきている。
+     バフ・デバフ・行動不能・特殊状態の語だけ、種類ごとに色を変える ===== */
+  .skl { display: grid; gap: 10px; }
+  .skl .sk { border: 1px solid var(--line); border-radius: 12px; background: var(--card);
+             padding: .8em .9em; }
+  .skl .sk .h { display: flex; flex-wrap: wrap; align-items: baseline; gap: .5em; }
+  .skl .sk .nm { font-weight: 800; font-size: .96rem; }
+  .skl .sk .ty { font-size: .7rem; font-weight: 700; padding: .15em .5em; border-radius: 999px;
+                 background: var(--bg-sub); color: var(--fg-mute); }
+  .skl .sk.ex .ty { background: color-mix(in srgb, var(--accent) 16%, var(--card));
+                    color: var(--accent-tx); }
+  .skl .sk .atg { font-size: .72rem; color: var(--fg-mute); font-variant-numeric: tabular-nums; }
+  .skl .sk .d { margin: .5em 0 0; font-size: .84rem; line-height: 1.75; overflow-wrap: anywhere; }
+  .skl .sk .d em.up { font-style: normal; font-weight: 800; color: var(--accent-tx); }
+  /* 語の色は 4 種だけ。**バフ＝青、デバフ＝赤、行動不能＝紫、特殊＝金。**
+     ゲーム内の色分けに合わせてある */
+  .bf { font-weight: 700; }
+  .bf-b { color: #2c6fa6; }
+  .bf-d, .bc-explosion { color: #a8402f; }
+  .bf-c, .bc-mystic { color: #6a4b9c; }
+  .bf-s { color: #8a6a12; }
+  .bc-pierce { color: #b06a1c; }
+  .bc-sonic { color: #2f7d6a; }
+  .unk { color: var(--fg-mute); border-bottom: 1px dotted var(--fg-mute); cursor: help; }
+  @media (prefers-color-scheme: dark) {
+    .bf-b { color: #7db4dd; }
+    .bf-d, .bc-explosion { color: #f0907f; }
+    .bf-c, .bc-mystic { color: #b79ce0; }
+    .bf-s { color: #e2c061; }
+    .bc-pierce { color: #e0a464; }
+    .bc-sonic { color: #79c8b4; }
+  }
+
+  /* ===== パーツ・分身・雑魚 ===== */
+  .parts { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 8px; }
+  .parts .pt { display: flex; align-items: center; gap: .6em; border: 1px solid var(--line);
+               border-radius: 12px; background: var(--bg-sub); padding: .5em .7em; }
+  /* **切り抜かない。**敵のアイコンは横長のものが混ざっていて、
+     cover にすると体の真ん中だけが残って何の絵か分からなくなる */
+  .parts .pt img { width: 40px; height: 40px; border-radius: 8px; flex: none;
+                   background: var(--card); object-fit: contain; }
+  .parts .pt .tx { min-width: 0; }
+  .parts .pt .nm { font-size: .84rem; font-weight: 700; overflow-wrap: anywhere; }
+  .parts .pt .sub { font-size: .72rem; color: var(--fg-mute); font-variant-numeric: tabular-nums; }
+  .parts .pt.boss { background: color-mix(in srgb, var(--accent) 12%, var(--card));
+                    border-color: var(--accent); }
+  .gimmick { display: grid; gap: 8px; margin-top: 14px; }
+  .gimmick .gm { border-left: 3px solid var(--accent); background: var(--bg-sub);
+                 border-radius: 0 10px 10px 0; padding: .6em .8em; }
+  .gimmick .gm .k { font-size: .72rem; color: var(--fg-mute); font-weight: 700; }
+  .gimmick .gm .v { font-size: .86rem; line-height: 1.7; overflow-wrap: anywhere; }
+
   .now { display: grid; grid-template-columns: 200px 1fr; gap: 16px; align-items: start; }
   .now img { display: block; width: 100%; border-radius: 12px; }
   @media (max-width: 560px) { .now { grid-template-columns: 1fr; } }
@@ -332,13 +384,13 @@
     </picture>
   </div>
   <div class="thero-body wide">
-    <h1>総力戦・大決戦の TL 検索</h1>
-    <p class="thero-lead">まず相手を絵から選びます。TL・有効な攻撃属性・連れて行く生徒がまとめて出ます。<button type="button" class="qm" data-hint="TL はこの端末だけに貯まります。他の人の TL はこのサイトには入っていないので、いちばん下から外部サイトへ渡します。"></button></p>
+    <h1>ボス情報</h1>
+    <p class="thero-lead">相手を絵から選ぶと、ステータス・スキル・パーツが出ます。<button type="button" class="qm" data-hint="総力戦・大決戦・制約解除決戦のボスの中身を、SchaleDB のデータからそのまま出しています。スキルの文はゲーム内と同じもので、難易度ごとに違います。連れて行く生徒の並びと TL の保管庫は、いちばん下におまけとして付けてあります。"></button></p>
   </div>
 </header>
 
 <div class="twrap wide">
-  <p class="tcrumb"><a href="../../">AronaBotの使い方</a><span class="sl">/</span><a href="../">ツール</a><span class="sl">/</span>総力戦・大決戦の TL 検索</p>
+  <p class="tcrumb"><a href="../../">AronaBotの使い方</a><span class="sl">/</span><a href="../">ツール</a><span class="sl">/</span>ボス情報</p>
 
   <!-- ===== ① 相手を選ぶ。**ページ全体のボス選択。**
        ここで選んだものが、下の TL 保管庫の絞り込み・保存先・相性チェッカーの
@@ -380,9 +432,11 @@
   <div class="tpanes" data-panes="raid">
     <div class="ttabs" role="tablist" aria-label="下に出すもの" hidden>
       <button type="button" role="tab" id="tb-r-now" data-p="now"
-              aria-controls="pn-now" aria-selected="true">いまの相手</button>
-      <button type="button" role="tab" id="tb-r-tls" data-p="tls"
-              aria-controls="pn-tls" aria-selected="false">TL の保管庫</button>
+              aria-controls="pn-now" aria-selected="true">相性とステータス</button>
+      <button type="button" role="tab" id="tb-r-sk" data-p="sk"
+              aria-controls="pn-sk" aria-selected="false">スキル</button>
+      <button type="button" role="tab" id="tb-r-pt" data-p="pt"
+              aria-controls="pn-pt" aria-selected="false">パーツと湧き</button>
     </div>
 
     <div class="tpane" id="pn-now" data-p="now" role="tabpanel"
@@ -408,18 +462,32 @@
     </div>
     </div>
 
-    <div class="tpane" id="pn-tls" data-p="tls" role="tabpanel"
-         aria-labelledby="tb-r-tls" tabindex="0">
+    <!-- ===== ② ボスのスキル。**難易度ごとに別の文が焼き込まれている**ので、
+         上で難易度を変えると中身がまるごと入れ替わる ===== -->
+    <div class="tpane" id="pn-sk" data-p="sk" role="tabpanel"
+         aria-labelledby="tb-r-sk" tabindex="0">
+      <div class="panel">
+        <div class="panel-h"><h2 id="sk-h">スキル<button type="button" class="qm" data-hint="ゲーム内のボス情報に出るのと同じ文です。難易度が上がると数値も文も変わるので、上で選んだ難易度のものを出しています。色の付いた語はバフ・デバフ・行動不能・特殊状態の名前です。「？」は SchaleDB のデータに数値が入っていない箇所で、こちらでは埋めていません。"></button></h2></div>
+        <p class="lead" id="sk-note" style="margin:0 0 12px"></p>
+        <div class="skl" id="skl"></div>
+      </div>
+    </div>
 
-
-    <!-- ===== ② TL の保管庫と検索。tl-search.js が組み立てる ===== -->
-    <div id="tlsearch-root"></div>
-
+    <!-- ===== ③ パーツ・分身・雑魚と、フェーズ・グロッキー条件 ===== -->
+    <div class="tpane" id="pn-pt" data-p="pt" role="tabpanel"
+         aria-labelledby="tb-r-pt" tabindex="0">
+      <div class="panel">
+        <div class="panel-h"><h2>パーツと湧き<button type="button" class="qm" data-hint="ボス本体と一緒に場に出る敵です。難易度ごとに別のデータになっていて、HP もそれぞれ違います。名前に「フェーズ1」などが入っているものは、そのフェーズの間だけ出ます。"></button></h2></div>
+        <p class="lead" id="pt-note" style="margin:0 0 12px"></p>
+        <div class="parts" id="parts"></div>
+        <div class="gimmick" id="gimmick"></div>
+      </div>
     </div>
   </div>
 
-  <!-- ===== ③ おまけの相性チェッカー。**相手は上で選んだものを使う**。
-       畳んであるので、タブには入れない ===== -->
+  <!-- ===== ④ おまけ。**相手は上で選んだものを使う**。
+       畳んであるので、タブには入れない。
+       2026-08-31 の先生の指示——「TL検索、TL登録はおまけに内包しよう」 ===== -->
   <details class="subtool" id="raid-extra">
     <summary>おまけ — 連れて行く生徒
       <small>上で選んだ相手に、攻撃が通る順で 274 人を並べます。固有武器で上がる地形適性も込みです。</small>
@@ -446,10 +514,32 @@
     </div>
   </details>
 
+  <details class="subtool" id="raid-tls">
+    <summary>おまけ — TL の保管庫
+      <small>自分で貼った TL をこの端末に貯めて、ボス・難易度・使った生徒で引き直せます。他の人の TL は入っていません。</small>
+    </summary>
+    <div class="subbody">
+      <!-- ===== TL の保管庫と検索。tl-search.js が組み立てる ===== -->
+      <div id="tlsearch-root"></div>
+    </div>
+  </details>
+
   <div class="sharebar" id="sharebar"></div>
 
       <details class="src">
     <summary>数字の出どころ</summary>
+
+    <p><b>■ ボスの中身について</b></p>
+
+    <p><b>スキルの文は <a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a> の <code>data/jp/raids.min.json</code> にある <code>RaidSkills</code> そのままです。</b>どのスキルがどの難易度で出るかは <code>Raid[].RaidSkillList</code> で、<b>並びは <code>EnemyList</code>（＝難易度）と同じ</b>です。難易度が上がると <code>BinahExSkill01</code> → <code>BinahInsaneExSkill01</code> → <code>BinahTormentExSkill01</code> → <code>BinahLunaticExSkill01</code> のように<b>別のキーの別の文</b>に差し替わるので、こちらで数値を作り直してはいません。<b>日本語の文は向こうで完成しています</b>（2026-08-31 に 345 件ぜんぶを数えて、<code>{0}</code> のような差し込みが 1 件も無いことを確かめました）。<b>通常攻撃だけは <code>RaidSkills</code> に無い</b>ので出していません。</p>
+
+    <p><b><code>&lt;b:ATK&gt;</code> のような表記タグは、<code>data/jp/localization.min.json</code> の <code>BuffName</code> で日本語に置き換えています。</b>頭の文字が種類で、<code>b</code> がバフ（<code>Buff_ATK</code>）、<code>d</code> がデバフ（<code>Debuff_Burn</code>）、<code>c</code> が行動不能（<code>CC_Stunned</code>）、<code>s</code> が特殊状態（<code>Special_Immortal</code>）です。<b>色はその 4 種類にだけ付けています。</b><code>&lt;up&gt;</code> は上位難易度で強くなった箇所で、太字にしています。<b>「？」と出ている箇所は、SchaleDB のデータに数値が入っていないところです</b>（セトの憤怒・シロ&amp;クロ・KAITEN FX Mk.0 のいくつかのスキル）。<b>こちらでは埋めていません。</b></p>
+
+    <p><b>パーツ・分身・雑魚は <code>Raid[].EnemyList</code> の 2 体目以降です。</b>1 つの難易度に敵の ID が何個も並んでいて、先頭がボス本体、それ以降がパーツや湧きです（ドラム缶ガニは 9 体、イェソドは 8 体、ケセドとホバークラフトは 7 体）。名前・HP・ランクは <code>data/jp/enemies.min.json</code> の各敵から、ランクの日本語は <code>localization.min.json</code> の <code>EnemyRank</code> から取っています。<b>絵は <code>Icon</code> の値をそのままファイル名にした <code>images/enemy/</code> の画像です</b>（<code>Icon</code> が空の敵は絵無しで出します）。</p>
+
+    <p><b>フェーズが変わる HP は <code>enemies.min.json</code> の <code>PhaseChange</code> です。</b>129 件ぜんぶを数えて、<code>Trigger</code> が <code>HPUnder</code> しか無いことを確かめました。<b>しきい値は割合ではなく実数で入っている</b>ので、パーセントはこちらで最大 HP で割っています。文の言い回しは <code>localization.min.json</code> の <code>RaidChangePhase</code> のものです。</p>
+
+    <p><b>グロッキーゲージの溜まり方は <code>localization.min.json</code> の <code>GroggyCondition</code> です。</b>キーがボスの <code>DevName</code> とそのまま一致します。<b>ここに載っていないボスは、その欄を出していません。</b>ダメージの蓄積で溜まるふつうの方式だと思われますが、データに書いていないことをこちらで書き足すのはやめました。</p>
 
     <p><b>■ TL の保管庫と検索について</b></p>
 <p><b>このページに、他人が作った TL は 1 本も入っていません。</b>このサイトは GitHub Pages の静的配信で、サーバーもデータベースもありません。<b>投稿を受け取る仕組みが作れない</b>ので、代わりに「自分の TL を自分の端末に貯める帳面」と「よそへ条件ごと飛ばすリンク」の 2 つにしてあります。<b>中身の分からない TL を作って並べることはしません。</b></p>
@@ -476,7 +566,7 @@
           <a href="https://x.com/" target="_blank" rel="noopener noreferrer">X</a>。
           <b>いずれも当サイトとは関係のない外部サイトです。</b>中身の正しさや掲載の可否は、それぞれの運営者に帰属します。</p>
 
-    <p><b>■ おまけの相性チェッカーについて</b></p>
+    <p><b>■ 相性と、連れて行く生徒について</b></p>
     <p><b>属性の倍率は <a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a> の <code>data/config.json</code> にある <code>TypeEffectiveness</code> そのままです。</b>
       10000 が等倍なので、20000 なら ×2.0、5000 なら ×0.5 です。<b>ここは推測していません。</b></p>
     <p><b>ボスの地形・装甲・攻撃属性は <code>data/jp/raids.min.json</code> から。</b>
@@ -487,7 +577,7 @@
   </details>
 </div>
 
-<script>window.TOUR = {"key": "raid", "steps": [{"sel": "#bosses", "t": "まず相手を絵から選びます", "d": "総力戦・大決戦・制約解除決戦のボスが並びます。押すと、下の TL・攻撃属性・生徒がぜんぶその相手のものに切り替わります。地形と難易度もここで選びます。"}, {"sel": "#tls-vault", "pre": "#tb-r-tls", "t": "選んだ相手の TL が出ます", "d": "ここに出るのは、あなたがこの端末に保存した TL だけです。他人の TL はこのサイトには入っていません。難易度・使った生徒・メモの語句でさらに絞れます。"}, {"sel": "#tls-add", "pre": "#tb-r-tls", "t": "コスト計算機の URL を貼って貯めます", "d": "TL のコスト計算機は編成と撃つ順番をぜんぶ URL に入れます。その URL を貼って保存すると、あとから「コスト計算機で開く」で盤面ごと戻せます。保存先の相手は上で選んだものです。"}, {"sel": "#tls-exts", "pre": ["#tb-r-tls", "#tls-ext-wrap > summary"], "t": "他人の TL はよそで探します", "d": "このサイトには投稿を集める仕組みがありません。選んでいる相手を、TL 動画を集めている外部サイトと YouTube の検索 URL に組み立てて渡します。"}, {"sel": "#atk", "pre": "#tb-r-now", "t": "こちらの攻撃がどれだけ通るか", "d": "選んだ相手の装甲と地形から、攻撃属性ごとの倍率が出ます。下のおまけを開くと、連れて行く生徒が攻撃の通る順に並びます。"}, {"sel": "#sharebar", "t": "選んだ相手はそのまま渡せます", "d": "URL には選んだボスと絞り込みの条件だけが入ります。保管庫の中身は端末の外に出ません。"}]};</script>
+<script>window.TOUR = {"key": "raid", "steps": [{"sel": "#bosses", "t": "まず相手を絵から選びます", "d": "総力戦・大決戦・制約解除決戦のボスが並びます。押すと、下のステータス・スキル・パーツがぜんぶその相手のものに切り替わります。地形と難易度もここで選びます。"}, {"sel": "#atk", "pre": "#tb-r-now", "t": "こちらの攻撃がどれだけ通るか", "d": "選んだ相手の装甲と地形から、攻撃属性ごとの倍率が出ます。下には、その難易度のボス本体のステータスが並びます。"}, {"sel": "#skl", "pre": "#tb-r-sk", "t": "ボスのスキル", "d": "ゲーム内のボス情報に出るのと同じ文です。難易度が上がると数値も文も変わるので、上で選んだ難易度のものだけを出しています。"}, {"sel": "#parts", "pre": "#tb-r-pt", "t": "パーツと湧き", "d": "ボス本体と一緒に場に出る敵です。それぞれの HP も出ます。下にはフェーズの切り替わる HP と、グロッキーゲージの溜まり方が付きます。"}, {"sel": "#tlsearch-root", "pre": "#raid-tls > summary", "t": "TL の保管庫はおまけに入れました", "d": "自分で貼った TL をこの端末に貯めて、ボス・難易度・使った生徒で引き直せます。他の人の TL はこのサイトには入っていないので、外部サイトの検索 URL を組み立てて渡します。"}, {"sel": "#sharebar", "t": "選んだ相手はそのまま渡せます", "d": "URL には選んだボスと絞り込みの条件だけが入ります。保管庫の中身は端末の外に出ません。"}]};</script>
 <script src="../panes.js?v=1"></script>
 <script src="../tour.js?v=2"></script>
 
@@ -504,7 +594,7 @@
       <span class="sep">/</span>
       <a href="https://x.com/pe6cak" target="_blank" rel="noopener">制作者の X（@pe6cak）</a>
       <span class="sep">/</span>
-      <a href="https://github.com/0rnot/arona-guide/issues/new?template=tool-feedback.yml&title=%5B%E7%B7%8F%E5%8A%9B%E6%88%A6%E3%83%BB%E5%A4%A7%E6%B1%BA%E6%88%A6%E3%81%AE%20TL%20%E6%A4%9C%E7%B4%A2%5D%20&tool=%E7%B7%8F%E5%8A%9B%E6%88%A6%E3%83%BB%E5%A4%A7%E6%B1%BA%E6%88%A6%E3%81%AE%20TL%20%E6%A4%9C%E7%B4%A2" target="_blank" rel="noopener">このツールへの要望・不具合</a>
+      <a href="https://github.com/0rnot/arona-guide/issues/new?template=tool-feedback.yml&title=%5B%E3%83%9C%E3%82%B9%E6%83%85%E5%A0%B1%5D%20&tool=%E3%83%9C%E3%82%B9%E6%83%85%E5%A0%B1" target="_blank" rel="noopener">このツールへの要望・不具合</a>
       <span class="sep">/</span>
       <span>Discord なら <b>@0r.not</b> まで</span>
     </p>
@@ -817,6 +907,79 @@
 
   function num(n) { return (n || 0).toLocaleString('ja-JP'); }
 
+  /** いま見ている枠の番号。**総力戦・大決戦は難易度、制約解除決戦は階層の区間。**
+      `sk` も `st` も `EnemyList` と同じ並びなので、この 1 つで引ける */
+  function slot() { return mode === 'multi' ? sec : diff; }
+  /** いまの枠の名前。見出しと説明で使い回す */
+  function slotName() {
+    return mode === 'multi'
+      ? (mSec().lo + '〜' + (mSec().hi || '') + 'F')
+      : ja('RaidDifficulty', DIFF[diff]);
+  }
+
+  /** ボスのスキル。**難易度ごとに別のキーが並んでいる**ので、
+      難易度を変えると文も数値もまるごと入れ替わる（データがそうなっている） */
+  function drawSkills() {
+    var keys = (boss().sk || [])[slot()] || [];
+    var rows = keys.map(function (k) { return R.skills[k]; }).filter(Boolean);
+    // EX を先に、パッシブを後に。**同じ種類の中では data の順のまま**
+    var ex = rows.filter(function (x) { return x.ty === 'Ex'; });
+    var pv = rows.filter(function (x) { return x.ty !== 'Ex'; });
+    rows = ex.concat(pv);
+
+    el('sk-note').innerHTML = rows.length
+      ? '<b>' + slotName() + '</b> のスキルです。EX ' + ex.length + ' 個、そのほか ' + pv.length + ' 個。'
+      : '';
+    el('skl').innerHTML = rows.map(function (x) {
+      return '<div class="sk' + (x.ty === 'Ex' ? ' ex' : '') + '">' +
+        '<div class="h"><span class="nm">' + x.n + '</span>' +
+        '<span class="ty">' + (ja('SkillType', x.ty) || x.ty) + '</span>' +
+        (x.atg ? '<span class="atg">ATG ' + x.atg + '</span>' : '') +
+        '</div><p class="d">' + x.d + '</p></div>';
+    }).join('') ||
+      '<p style="color:var(--fg-mute);font-size:.8rem;margin:0">この相手のスキルはデータに入っていません。</p>';
+  }
+
+  /** パーツ・分身・雑魚と、フェーズ・グロッキー条件。 */
+  function drawParts() {
+    var b = boss();
+    var row = mode === 'multi' ? (b.secs || [])[slot()] : (b.st || [])[slot()];
+    if (!row) {
+      el('pt-note').textContent = '';
+      el('parts').innerHTML = '<p style="color:var(--fg-mute);font-size:.8rem;margin:0">この枠のデータがありません。</p>';
+      el('gimmick').innerHTML = '';
+      return;
+    }
+    var pt = row.pt || [];
+    el('pt-note').innerHTML = '<b>' + slotName() + '</b> で場に出る敵です。' +
+      (pt.length ? 'ボス本体のほかに ' + pt.length + ' 体。' : 'ボス本体だけです。');
+
+    function card(n, rk, hp, ic, isBoss) {
+      return '<div class="pt' + (isBoss ? ' boss' : '') + '">' +
+        (ic ? '<img src="../img/enemy_' + ic + '.webp" alt="" width="40" height="40" loading="lazy">' : '') +
+        '<div class="tx"><div class="nm">' + n + '</div><div class="sub">' +
+        (ja('EnemyRank', rk) || rk) + (hp ? '　HP ' + num(hp) : '') + '</div></div></div>';
+    }
+    var h = card(row.en || b.n, 'Champion', mode === 'multi' ? 0 : row.hp, row.eic, true);
+    h += pt.map(function (x) { return card(x.n, x.rk, x.hp, x.ic, false); }).join('');
+    el('parts').innerHTML = h;
+
+    var g = '';
+    // フェーズ。**しきい値は実数で入っている**ので、割合はこちらで出す
+    if (mode !== 'multi' && row.ph && row.ph.length && row.hp) {
+      g += '<div class="gm"><div class="k">フェーズ</div><div class="v">' +
+        row.ph.map(function (x, i) {
+          return (R.phaseFmt || 'HPが{1}未満になった時、フェーズ{0}に移行する。')
+            .replace('{0}', i + 2).replace('{1}', Math.round(x / row.hp * 100) + '%');
+        }).join('<br>') + '</div></div>';
+    }
+    if (b.gg) {
+      g += '<div class="gm"><div class="k">グロッキーゲージ</div><div class="v">' +
+        b.gg.replace(/\n/g, '<br>') + '</div></div>';
+    }
+    el('gimmick').innerHTML = g;
+  }
+
   function drawList() {
     var at = bossArmor(), bt = bossBullet();
     var rows = R.students.filter(function (s) {
@@ -849,7 +1012,10 @@
     }).join('') || '<p style="color:var(--fg-mute);font-size:.86rem;margin:0">あてはまる生徒がいません。</p>';
   }
 
-  function draw() { drawMode(); drawBosses(); drawPickers(); drawNow(); drawList(); }
+  function draw() {
+    drawMode(); drawBosses(); drawPickers(); drawNow();
+    drawSkills(); drawParts(); drawList();
+  }
   /** 人が選び直したとき。**描いてから外へ知らせる。** */
   function pick() { draw(); notify(); }
 

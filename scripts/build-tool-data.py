@@ -17,7 +17,7 @@
 落としたあと 122×122 に切り直してから置く（中身の一番外側は x 14〜134 / y 4〜116 に
 収まっているのを実測して決めた枠）。切り直しには Pillow を使う。
 """
-import collections, datetime, io, json, pathlib, re, sys, urllib.request
+import collections, datetime, html, io, json, pathlib, re, sys, urllib.request
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 IMG = ROOT / "tools" / "img"
@@ -858,6 +858,53 @@ def build_tier():
 # ゲヘナ側の内部名（EN0010 など）が入っている。**当てずっぽうで探さない**
 # ——2026-08-30 に EN0008 / EN0009 / EN0011 と推測して 3 体ぶん別のボスの絵を
 # 出していた。schaledb.com 側も images/raid/icon/Icon_${DevName}.png で引いている。
+# ------------------------------------------------------------ ボスのスキル文
+
+# SchaleDB の `RaidSkills[].Desc` には、ゲーム内と同じ表記タグが混ざっている。
+# **中身の日本語は完成していて、`{0}` のような差し込みは 1 件も無い**
+# （2026-08-31 に 345 件ぜんぶを数えて確かめた）。やることはタグの読み替えだけ。
+#
+#   <b:ATK>   バフ    → localization の BuffName["Buff_ATK"]   = 攻撃力
+#   <d:DEF>   デバフ  → BuffName["Debuff_DEF"] が無ければ Buff_DEF に落ちる
+#   <c:Stunned>  行動不能 → BuffName["CC_Stunned"]      = 気絶状態
+#   <s:Immortal> 特殊   → BuffName["Special_Immortal"]  = 不死身状態
+#   <up>…</up>  上位難易度で強くなった箇所
+#   <b>…</b> <i>…</i>  そのまま
+#   <b class='ba-col-mystic'>  属性の色
+#   <?1>  **SchaleDB 側に数値が入っていない箇所**（セトの憤怒など）。
+#         勝手に埋めない。「？」のまま出して、出典の節で断る
+RS_PREFIX = {"b": "Buff", "d": "Debuff", "c": "CC", "s": "Special"}
+RS_TAG = re.compile(r"<(/?)(b|i|up)>|<([bdcs]):([A-Za-z0-9_]+)>"
+                    r"|<b class='ba-col-([a-z]+)'>|<\?(\d+)>")
+
+
+def raid_skill_html(desc, buffname):
+    """スキルの説明を、そのまま innerHTML に入れられる形にする。
+    **タグ以外は全部エスケープする。**素の `<` が来ても崩れないように。"""
+    out, pos, unknown = [], 0, []
+    for m in RS_TAG.finditer(desc):
+        out.append(html.escape(desc[pos:m.start()]))
+        pos = m.end()
+        close, base, pre, nm, col, _q = (m.group(1), m.group(2), m.group(3),
+                                         m.group(4), m.group(5), m.group(6))
+        if base:
+            tag = {"b": "b", "i": "i", "up": "em"}[base]
+            cls = ' class="up"' if base == "up" and not close else ""
+            out.append(f"</{tag}>" if close else f"<{tag}{cls}>")
+        elif pre:
+            ja = buffname.get(f"{RS_PREFIX[pre]}_{nm}") or buffname.get(f"Buff_{nm}")
+            if not ja:
+                unknown.append(f"<{pre}:{nm}>")
+                ja = nm
+            out.append(f'<span class="bf bf-{pre}">{html.escape(ja)}</span>')
+        elif col:
+            out.append(f'<b class="bc-{html.escape(col)}">')
+        else:
+            out.append('<span class="unk" title="SchaleDB のデータに数値が入っていません">？</span>')
+    out.append(html.escape(desc[pos:]))
+    return "".join(out).replace("\n", "<br>"), unknown
+
+
 def build_raid():
     print("総力戦・大決戦の相性チェッカー")
     raids = get_json(SD.format("raids"))
@@ -874,6 +921,20 @@ def build_raid():
     if isinstance(enemies, list):
         enemies = {str(e["Id"]): e for e in enemies if e.get("Id")}
 
+    # **同じ難易度に敵が何体も並ぶ。**先頭がボス本体で、2 体目以降は
+    # パーツ・分身・雑魚（2026-08-31 に確かめた。ドラム缶ガニは 9 体、
+    # イェソドは 8 体、ケセドとホバークラフトは 7 体）。
+    # ここを先頭だけで読むと「ボスの中身」がまるごと落ちる
+    def parts(ids):
+        out = []
+        for i in (ids or [])[1:]:
+            e = enemies.get(str(i))
+            if not e or not e.get("Name"):
+                continue
+            out.append({"n": e["Name"], "rk": e.get("Rank", ""),
+                        "hp": e.get("MaxHP1", 0), "ic": e.get("Icon", "") or ""})
+        return out
+
     def boss_stats(r):
         rows = []
         for ids in r.get("EnemyList") or []:
@@ -882,6 +943,8 @@ def build_raid():
                 rows.append(None)
                 continue
             rows.append({
+                "en": e.get("Name", ""), "eic": e.get("Icon", "") or "",
+                "pt": parts(ids),
                 "hp": e.get("MaxHP1", 0), "atk": e.get("AttackPower1", 0),
                 "df": e.get("DefensePower1", 0), "acc": e.get("AccuracyPoint", 0),
                 "dg": e.get("DodgePoint", 0), "cr": e.get("CriticalPoint", 0),
@@ -894,11 +957,47 @@ def build_raid():
             })
         return rows
 
+    # ボスのスキル。**難易度ごとに別のキーが並ぶ**（BinahExSkill01 →
+    # BinahInsaneExSkill01 → BinahTormentExSkill01 → BinahLunaticExSkill01）。
+    # 説明文は SchaleDB 側で日本語まで焼き込み済みで、埋める差し込みは無い
+    raid_skills = raids.get("RaidSkills") or {}
+    if len(raid_skills) < 300:
+        raise SystemExit(f"RaidSkills が {len(raid_skills)} 件しかない。データの形が変わった疑い")
+    buffname = loc.get("BuffName") or {}
+    skills, unknown_tags = {}, set()
+
+    def take_skills(lst):
+        """難易度（または階層）ごとのスキルキーの並びを、そのまま返して控える。"""
+        out = []
+        for keys in lst or []:
+            row = []
+            for k in keys or []:
+                sk = raid_skills.get(k)
+                if not sk:
+                    continue          # 通常攻撃はテキスト化されていない
+                if k not in skills:
+                    desc, unk = raid_skill_html(sk.get("Desc", ""), buffname)
+                    unknown_tags.update(unk)
+                    skills[k] = {"n": sk.get("Name", ""), "d": desc,
+                                 "ty": sk.get("SkillType", ""),
+                                 "atg": sk.get("ATGCost", 0)}
+                row.append(k)
+            out.append(row)
+        return out
+
+    # グロッキー条件。**キーはボスの DevName そのもの。**
+    # 載っていないボスは「ダメージを与えると溜まる」ふつうの方式
+    groggy = loc.get("GroggyCondition") or {}
+    # フェーズの言い回しもゲーム内の文をそのまま使う
+    phase_fmt = (loc.get("RaidChangePhase") or {}).get("HPUnder", "")
+
     bosses = []
     for r in raids.get("Raid", []):
         if not r.get("Name"):
             continue
         bosses.append({
+            "sk": take_skills(r.get("RaidSkillList")),
+            "gg": groggy.get(r.get("DevName", ""), ""),
             "id": r["Id"], "n": r["Name"], "p": r["PathName"],
             "dev": r.get("DevName", ""),
             "tr": r.get("Terrain", []),
@@ -938,6 +1037,8 @@ def build_raid():
             e = enemies.get(str(elist[i][0])) if i < len(elist) and elist[i] else None
             secs.append({
                 "bt": bt,
+                "pt": parts(elist[i] if i < len(elist) else None),
+                "en": (e or {}).get("Name", ""), "eic": (e or {}).get("Icon", "") or "",
                 "lo": floors[i] if i < len(floors) else 0,
                 "hi": (floors[i + 1] - 1) if i + 1 < len(floors) else 0,
                 "st": ({"hp": e.get("MaxHP1", 0), "atk": e.get("AttackPower1", 0),
@@ -947,7 +1048,9 @@ def build_raid():
                         "rg": e.get("Range", 0), "sz": e.get("Size", ""),
                         "at": e.get("ArmorType", ""), "bt": e.get("BulletType", ""),
                         "ph": []} if e else None)})
-        multi.append({"id": m["Id"], "n": m["Name"], "p": m.get("PathName", ""),
+        multi.append({"sk": take_skills(m.get("RaidSkillList")),
+                      "gg": groggy.get(m.get("DevName", ""), ""),
+                      "id": m["Id"], "n": m["Name"], "p": m.get("PathName", ""),
                       "dev": m.get("DevName", ""), "at": m.get("ArmorType", "Normal"),
                       "tr": m.get("Terrain", []), "dur": m.get("BattleDuration", 0),
                       "secs": secs})
@@ -988,11 +1091,32 @@ def build_raid():
                            f"https://schaledb.com/images/raid/Boss_Portrait_{m['dev']}_Lobby.png")
     for s in stu:
         n += fetch_portrait(f"student_{s['id']}", f"https://schaledb.com/images/student/collection/{s['id']}.webp")
-    print(f"  画像 {n} 枚を追加、ボス {len(bosses)} 体、制約解除決戦 {len(multi)} 枠")
+
+    # パーツ・分身・雑魚のアイコン。**Icon が空の敵がいる**（グレゴリオの
+    # パイプオルガンなど）ので、その子は絵無しで出す
+    icons = set()
+    for b in bosses:
+        for row in b["st"]:
+            if not row:
+                continue
+            icons.add(row["eic"])
+            icons.update(x["ic"] for x in row["pt"])
+    for m in multi:
+        for sec in m["secs"]:
+            icons.add(sec["eic"])
+            icons.update(x["ic"] for x in sec["pt"])
+    icons.discard("")
+    for ic in sorted(icons):
+        n += fetch_icon("enemy_" + ic, f"https://schaledb.com/images/enemy/{ic}.webp")
+    print(f"  画像 {n} 枚を追加、ボス {len(bosses)} 体、制約解除決戦 {len(multi)} 枠、"
+          f"スキル {len(skills)} 個、敵アイコン {len(icons)} 種")
+    if unknown_tags:
+        print(f"    読めない表記タグ: {sorted(unknown_tags)}", file=sys.stderr)
 
     labels = {k: loc.get(k, {}) for k in
               ("BulletType", "ArmorType", "TacticRole", "SquadType", "School",
-               "AdaptationType", "RaidDifficulty")}
+               "AdaptationType", "RaidDifficulty", "EnemyRank", "CharacterSize",
+               "SkillType")}
     # **属性は増える。**（2026-08 に Chemical と CompositeArmor が入った）
     # ページ側で決め打ちにせず、実際に出てくるものをここから渡す
     bullets = [k for k in eff if k not in ("Normal",)]
@@ -1001,6 +1125,7 @@ def build_raid():
     return write_js("tools/raid/data.js", "RAID", {
         "bosses": bosses, "elim": elim, "multi": multi, "students": stu,
         "eff": eff, "labels": labels, "bullets": bullets, "armors": armors,
+        "skills": skills, "phaseFmt": phase_fmt,
         "version": "SchaleDB jp",
     }, header="/* scripts/build-tool-data.py が吐く。**手で直さない。** */\n")
 
