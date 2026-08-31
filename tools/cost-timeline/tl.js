@@ -71,13 +71,29 @@
   var FORM_RULE = {
     // ココロ「潜水状態になり、「上がります！」にスキルが変更」＝ 潜って浮くの繰り返し
     10149: 'alt',
-    // アリス（臨戦）は撃つ前に選ぶ形（アイコンが SELECTEXSKILL）。**自動で決めない**
+    // ヒナ（ドレス）は「集中射撃体勢に転換（10秒間）」→ 旋律の一音目・二音目・
+    // 終演の旋律（終演で「集中射撃体勢解除」）で、**4 形態で 1 周する**。
+    // 既定の hold だと 4 回目から 0 コストの「終演の旋律」に居座ってしまう
+    10086: 'alt',
+    // **撃つ前に選ぶ形。**基本の形態が「選択メニュー」で、スキル文が空・アイコンが
+    // SELECTEXSKILL になっている（アリス（臨戦）・ミカ（水着）・ラブ）。自動で決めない
     10134: 'pick',
+    10122: 'pick',
+    16018: 'pick',
     // キサキ（水着）は「「実行：ばんざい体操」を2回使用後、「宣言：本日休業」に
-    // スキルが変更されます」。**どちらが 1 枚目かがデータの並びと食い違う**ので選ばせる
+    // スキルが変更されます」。**本体 → ばんざい体操 2 回 → 本体の 3 周期**で、
+    // hold でも alt でも合わないので選ばせる
     10145: 'pick',
     // シュン（水着）は 9 秒間だけ変わる。時間で戻るので回数では決められない
     10143: 'pick',
+    // トキは「アビ・エシュフでEXスキル3回使用時にモード解除」＝ 本体 → 強化 3 回の
+    // 4 周期。ノア（パジャマ）は「「消灯後はお静かに」を 2 回使用時」＝ 本体 2 回 →
+    // 強化 1 回の 3 周期。どちらも回数の規則が hold・alt のどちらとも違う
+    10062: 'pick',
+    10109: 'pick',
+    // イブキ（16014）は「イロハの虎丸に搭乗した時」に変わる。**回数でも時間でもなく
+    // 編成側の状態**なので、こちらでは決められない
+    16014: 'pick',
   };
   function autoForm(d, used) {
     var n = forms(d).length;
@@ -95,7 +111,7 @@
   }
   /** `sp` の印を日本語にする。**値は data.js のもの、文は原文のまま出す。** */
   var SP_JA = {
-    draw: '撃つと EX カードをすぐに引きます',
+    draw: '撃つと自分の EX カードがすぐ手札に戻ります',
     swap: 'このあとスキルが変わります',
     copy: '味方 1 人の EX カードを複製します',
     back: 'カードが山札の一番下へ回ります',
@@ -1152,12 +1168,13 @@
         }
       }
       var hand = play.hand(), handCp = play.copyAt();
-      /* **リオは自分のカードを引き直す。**複製する相手を選んでいるときだけ。
-         選んでいなければ、ふつうに山札の一番下へ回す */
-      var mkCopy = !isCopy && d.sp && d.sp.copy && at !== null &&
+      /* **「すぐにドロー」を持つ子は、山札に戻さずそのまま手札に残す。**
+         リオはそのうえで、そのカードを相手の EX カードに化けさせる */
+      var keep = !isCopy && at !== null && redraws(d, fi);
+      var mkCopy = keep && d.sp && d.sp.copy &&
                    e.bt != null && slots[e.bt] && slots[e.bt].id &&
-                   live(e.bt) && e.bt !== e.i;
-      var drawn = play.use(e.i, mkCopy);
+                   live(e.bt) && isMain(e.bt) && e.bt !== e.i;
+      var drawn = play.use(e.i, keep);
       if (drawn && mkCopy) play.copy(e.i, e.bt);
       // **撃ったあとに配る。**自分の発動ぶんには効かない
       var gr = at === null ? null : grantOf(sk, s.ex);
@@ -1172,7 +1189,7 @@
                  need: need, raw: raw, cut: mine, at: at, soon: soon, why: why,
                  over: over, left: at === null ? 0 : cost, idx: idx, rate: rateAt,
                  hand: hand, handCp: handCp, inHand: drawn, grant: gr, to: to,
-                 isCopy: isCopy, madeCopy: !!(drawn && mkCopy) });
+                 isCopy: isCopy, kept: !!(drawn && keep), madeCopy: !!(drawn && mkCopy) });
     });
 
     // 最後の 1 発のあとも、バフが切れるところまでは線を伸ばしておく。
@@ -1208,6 +1225,22 @@
       幅（左が本人ぶんだけ、右が全部乗せ）でしか出せなかった
       （2026-08-30 の先生の指摘——「上のスキル順のところでバフをかけるキャラも
       選択できるようにすれば解決」）。**既定は全員で、絞りたい行だけ手で決める。** */
+  /** 撃ったあと、そのカードが手札に戻るか。
+      「EXスキルをすぐに1回ドロー」＝**撃った本人のカードがそのまま手札に戻る**
+      （2026-08-31 に先生へ確認。ネル（制服）が 1 コストの EX を撃った直後に
+      4 コストの「怪我しても知らねえからな」を撃てるのがこれ）。
+
+      **条件つきの 2 人は数えない。**ハナコ（水着）は「水ゲージが1つ以上の場合」、
+      ヒヨリ（水着）は「EX充電ゲージが1つ以上の場合」で、そのゲージを
+      このツールは持っていない。**戻るかどうかを決められないので、
+      今までどおり山札の一番下へ回す。**
+
+      **形態が変わったあとは戻らない。**この一文を持っているのは基本の形態だけ
+      （ネル（制服）の「怪我しても知らねえからな」には無い）。 */
+  function redraws(d, fi) {
+    return !!(d && d.sp && d.sp.draw && !d.sp.drawCond && fi === 0);
+  }
+
   /** その EX が「味方 1 人の EX カードを複製する」ものか。**いまはリオだけ。**
       `data.js` の `sp.copy` で判る（スキル文の但し書きから取っている）。 */
   function isCopySkill(d) { return !!(d && d.sp && d.sp.copy); }
@@ -1223,11 +1256,20 @@
       (cp ? 'カードを複製する相手' : 'このスキルを誰にかけるか') + '">' +
       '<option value="">' + (cp ? '複製する相手を選ぶ' : 'このスキルは全員へ') + '</option>';
     members().forEach(function (m) {
-      if (cp && m.i === r.e.i) return;          // 「味方 1 人」＝自分は選べない
+      // **複製の相手はストライカーだけ。**SchaleDB のリオの EX は
+      // `Effects[].Target` が `["AllyMain"]`（＝ストライカー）で、
+      // スキル文の「対象」はバフも複製も同じ 1 人
+      if (cp && (m.i === r.e.i || !isMain(m.i))) return;
       h += '<option value="' + m.i + '"' + (r.e.bt === m.i ? ' selected' : '') + '>' +
         esc(m.d.n) + (cp ? ' のカードを複製' : ' だけに') + '</option>';
     });
     return h + '</select>';
+  }
+
+  /** 「すぐにドロー」で手札に戻った行に、そのことを 1 行で出す。 */
+  function keepHtml(r) {
+    if (!r.kept) return '';
+    return '<br>' + esc(r.d.n) + ' のカードは山札へ戻らず、すぐ手札に返ります';
   }
 
   /** 複製の行き先を、行の下に 1 行で出す。 */
@@ -1301,8 +1343,10 @@
     out += '<details class="tlx-sp"><summary>このスキルの但し書き</summary>' +
       '<div>' + flags.map(function (t) { return esc(t); }).join('／') + '</div>' +
       (sp.txt || []).map(function (t) { return '<p>' + esc(t) + '</p>'; }).join('') +
-      ((sp.back || (sp.draw && !sp.copy))
-        ? '<p class="tlx-warn">カードを引く・山札の一番下へ回す動きは、<b>このツールの手札の並びには入れていません。</b>ここだけ手で読み替えてください。</p>' : '') +
+      (sp.back
+        ? '<p class="tlx-warn">カードを山札の一番下へ回す動きは、<b>このツールの手札の並びには入れていません。</b>ここだけ手で読み替えてください。</p>' : '') +
+      (sp.draw && sp.drawCond
+        ? '<p class="tlx-warn">ゲージが要る「すぐにドロー」なので、<b>手札に戻る扱いにしていません。</b>ゲージの数をこのツールが持っていないためです。</p>' : '') +
       (sp.copy
         ? '<p>複製は<b>手札の並びに入れています。</b>上で選んだ子の EX カードが、基本コストから 1 引いた値で 1 回だけ手札に入ります。</p>' : '') +
       '</details>';
@@ -1376,7 +1420,7 @@
         (r.isCopy ? '<span class="tag2">複製カード</span>' : '') + '／' +
         (r.cut ? '<span class="cut2">' + r.raw + ' → ' + r.need + '</span> コスト' : r.need + ' コスト') +
         (r.sk.d ? '／演出 ' + n1(r.sk.d / FPS) + ' 秒' : '') + '<br>手札 ' + names +
-        giveHtml(r, i) + ovHtml(r) + copyHtml(r) + spHtml(r) + '</small>' +
+        giveHtml(r, i) + ovHtml(r) + keepHtml(r) + copyHtml(r) + spHtml(r) + '</small>' +
         '<span class="when"><select data-k="mode-at" data-j="' + i + '">' +
         '<option value="auto"' + (fixed ? '' : ' selected') + '>最短で</option>' +
         '<option value="fix"' + (fixed ? ' selected' : '') + '>この秒に</option></select>' +
