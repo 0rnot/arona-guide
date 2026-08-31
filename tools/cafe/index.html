@@ -22,7 +22,7 @@
 <meta name="twitter:description" content="快適度を入れると 1 時間あたりのクレジットと AP、倉庫が満杯になるまでの時間が出ます。ランクごとの快適度上限と招待人数、ランクアップに要るクレジットも一緒に。">
 <meta name="twitter:image" content="https://arona-bot.com/images/og/cafe.jpg">
 <link rel="stylesheet" href="../../style.css?v=17">
-<link rel="stylesheet" href="../tool.css?v=11">
+<link rel="stylesheet" href="../tool.css?v=13">
 <style>
   /* 快適度のつまみ */
   input[type="range"] { width: 100%; margin: 12px 0 2px; accent-color: var(--accent); }
@@ -101,13 +101,30 @@
 (function () {
   var btn = document.getElementById('share-page'), toast = document.getElementById('toast-page');
   if (!btn) return;
-  // **`#` を落とさない。**TL のように状態をハッシュに入れているツールでは、
-  // ここを削ると相手の画面に同じ結果が出ない（2026-08-30）
-  var url = location.href;
+  /* **`#` を落とさない。**TL のように状態をハッシュに入れているツールでは、
+     ここを削ると相手の画面に同じ結果が出ない（2026-08-30）。
+
+     **読み込み時に 1 回だけ取らない。**そのあと入力を変えてハッシュが
+     書き換わっても、古い URL を配ってしまう（2026-08-31 にサブエージェント
+     2 体が別々に見つけた）。`share.js` の X ボタンと同じく、押される直前に
+     読み直す。`window.shareUrl` を持つツールでは、そちらを先に呼ぶ。 */
+  function url() {
+    try {
+      if (typeof window.shareUrl === 'function') {
+        var h = window.shareUrl();
+        if (h) return location.href.split('#')[0] + h;
+      }
+    } catch (e) { /* ツール側が転んでも共有は動かす */ }
+    return location.href;
+  }
   var name = document.title.split('｜')[0];
   var text = name + '（AronaBot のツール）';
-  btn.href = 'https://x.com/intent/post?text=' + encodeURIComponent(text) +
-             '&url=' + encodeURIComponent(url);
+  function refresh() {
+    btn.href = 'https://x.com/intent/post?text=' + encodeURIComponent(text) +
+               '&url=' + encodeURIComponent(url());
+  }
+  refresh();
+  ['focus', 'pointerdown'].forEach(function (ev) { btn.addEventListener(ev, refresh); });
   var timer = null;
   function say(t) {
     if (!toast) return;
@@ -115,14 +132,16 @@
     clearTimeout(timer); timer = setTimeout(function () { toast.classList.remove('shown'); }, 2000);
   }
   btn.addEventListener('click', function (e) {
+    refresh();
+    var u = url();
     if (navigator.share) {
       e.preventDefault();
-      navigator.share({ title: name, text: text, url: url }).catch(function () {});
+      navigator.share({ title: name, text: text, url: u }).catch(function () {});
       return;
     }
     if (navigator.clipboard && navigator.clipboard.writeText) {
       e.preventDefault();
-      navigator.clipboard.writeText(url).then(function () { say('リンクをコピーしました'); },
+      navigator.clipboard.writeText(u).then(function () { say('リンクをコピーしました'); },
         function () { window.open(btn.href, '_blank', 'noopener'); });
     }
   });
@@ -392,7 +411,7 @@
 <script src="../panes.js?v=1"></script>
 <script src="../tour.js?v=2"></script>
 
-<script src="../share.js?v=2"></script>
+<script src="../share.js?v=3"></script>
 <script src="../hint.js?v=1"></script>
 
 <footer>
@@ -683,6 +702,7 @@
 
     drawFurn();
     hash = '#c=' + cafe + '&r=' + rank + '&v=' + comfort;
+    syncHash();
   }
 
   function drawFurn() {
@@ -713,6 +733,19 @@
   /* ---- URL ---- */
   var hash = '';
   window.shareUrl = function () { return hash; };
+  /** **URL バーにも書く。**このツールは localStorage を持たないので、書かないと
+      再読み込みで入力が全部消える（2026-08-31 に実機で踏んだ）。
+      `&pane=…` は ../panes.js の区画なので、消さずに残す。 */
+  function syncHash() {
+    var keep = '';
+    var seg = location.hash.replace(/^#/, '').split('&');
+    for (var i = 0; i < seg.length; i++) {
+      if (seg[i].indexOf('pane=') === 0) keep = '&' + seg[i];
+    }
+    try {
+      history.replaceState(null, '', location.pathname + location.search + hash + keep);
+    } catch (e) { /* file:// では黙って諦める */ }
+  }
 
   (function readHash() {
     var m = /[#&]c=(\d)/.exec(location.hash);

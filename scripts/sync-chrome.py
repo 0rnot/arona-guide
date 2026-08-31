@@ -57,13 +57,30 @@ def topbar(up: str, tools_href: str, current: bool) -> str:
 (function () {{
   var btn = document.getElementById('share-page'), toast = document.getElementById('toast-page');
   if (!btn) return;
-  // **`#` を落とさない。**TL のように状態をハッシュに入れているツールでは、
-  // ここを削ると相手の画面に同じ結果が出ない（2026-08-30）
-  var url = location.href;
+  /* **`#` を落とさない。**TL のように状態をハッシュに入れているツールでは、
+     ここを削ると相手の画面に同じ結果が出ない（2026-08-30）。
+
+     **読み込み時に 1 回だけ取らない。**そのあと入力を変えてハッシュが
+     書き換わっても、古い URL を配ってしまう（2026-08-31 にサブエージェント
+     2 体が別々に見つけた）。`share.js` の X ボタンと同じく、押される直前に
+     読み直す。`window.shareUrl` を持つツールでは、そちらを先に呼ぶ。 */
+  function url() {{
+    try {{
+      if (typeof window.shareUrl === 'function') {{
+        var h = window.shareUrl();
+        if (h) return location.href.split('#')[0] + h;
+      }}
+    }} catch (e) {{ /* ツール側が転んでも共有は動かす */ }}
+    return location.href;
+  }}
   var name = document.title.split('｜')[0];
   var text = name + '（AronaBot のツール）';
-  btn.href = 'https://x.com/intent/post?text=' + encodeURIComponent(text) +
-             '&url=' + encodeURIComponent(url);
+  function refresh() {{
+    btn.href = 'https://x.com/intent/post?text=' + encodeURIComponent(text) +
+               '&url=' + encodeURIComponent(url());
+  }}
+  refresh();
+  ['focus', 'pointerdown'].forEach(function (ev) {{ btn.addEventListener(ev, refresh); }});
   var timer = null;
   function say(t) {{
     if (!toast) return;
@@ -71,14 +88,16 @@ def topbar(up: str, tools_href: str, current: bool) -> str:
     clearTimeout(timer); timer = setTimeout(function () {{ toast.classList.remove('shown'); }}, 2000);
   }}
   btn.addEventListener('click', function (e) {{
+    refresh();
+    var u = url();
     if (navigator.share) {{
       e.preventDefault();
-      navigator.share({{ title: name, text: text, url: url }}).catch(function () {{}});
+      navigator.share({{ title: name, text: text, url: u }}).catch(function () {{}});
       return;
     }}
     if (navigator.clipboard && navigator.clipboard.writeText) {{
       e.preventDefault();
-      navigator.clipboard.writeText(url).then(function () {{ say('リンクをコピーしました'); }},
+      navigator.clipboard.writeText(u).then(function () {{ say('リンクをコピーしました'); }},
         function () {{ window.open(btn.href, '_blank', 'noopener'); }});
     }}
   }});

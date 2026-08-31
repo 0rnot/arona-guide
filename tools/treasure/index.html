@@ -22,7 +22,7 @@
 <meta name="twitter:description" content="開けた結果を入れると、残りのマスに何がある確率かが分かります。近似ではなく、置き方を全部数え上げた値です。">
 <meta name="twitter:image" content="https://arona-bot.com/images/og/treasure.jpg">
 <link rel="stylesheet" href="../../style.css?v=17">
-<link rel="stylesheet" href="../tool.css?v=11">
+<link rel="stylesheet" href="../tool.css?v=13">
 <style>
   /* **スマホでは 1 列になる。**そのとき盤面が先に来ると、備品の型を決める前に
      盤を触ることになるので、狭いときだけ右の柱を先に出す（番号どおりの順番） */
@@ -193,13 +193,30 @@
 (function () {
   var btn = document.getElementById('share-page'), toast = document.getElementById('toast-page');
   if (!btn) return;
-  // **`#` を落とさない。**TL のように状態をハッシュに入れているツールでは、
-  // ここを削ると相手の画面に同じ結果が出ない（2026-08-30）
-  var url = location.href;
+  /* **`#` を落とさない。**TL のように状態をハッシュに入れているツールでは、
+     ここを削ると相手の画面に同じ結果が出ない（2026-08-30）。
+
+     **読み込み時に 1 回だけ取らない。**そのあと入力を変えてハッシュが
+     書き換わっても、古い URL を配ってしまう（2026-08-31 にサブエージェント
+     2 体が別々に見つけた）。`share.js` の X ボタンと同じく、押される直前に
+     読み直す。`window.shareUrl` を持つツールでは、そちらを先に呼ぶ。 */
+  function url() {
+    try {
+      if (typeof window.shareUrl === 'function') {
+        var h = window.shareUrl();
+        if (h) return location.href.split('#')[0] + h;
+      }
+    } catch (e) { /* ツール側が転んでも共有は動かす */ }
+    return location.href;
+  }
   var name = document.title.split('｜')[0];
   var text = name + '（AronaBot のツール）';
-  btn.href = 'https://x.com/intent/post?text=' + encodeURIComponent(text) +
-             '&url=' + encodeURIComponent(url);
+  function refresh() {
+    btn.href = 'https://x.com/intent/post?text=' + encodeURIComponent(text) +
+               '&url=' + encodeURIComponent(url());
+  }
+  refresh();
+  ['focus', 'pointerdown'].forEach(function (ev) { btn.addEventListener(ev, refresh); });
   var timer = null;
   function say(t) {
     if (!toast) return;
@@ -207,14 +224,16 @@
     clearTimeout(timer); timer = setTimeout(function () { toast.classList.remove('shown'); }, 2000);
   }
   btn.addEventListener('click', function (e) {
+    refresh();
+    var u = url();
     if (navigator.share) {
       e.preventDefault();
-      navigator.share({ title: name, text: text, url: url }).catch(function () {});
+      navigator.share({ title: name, text: text, url: u }).catch(function () {});
       return;
     }
     if (navigator.clipboard && navigator.clipboard.writeText) {
       e.preventDefault();
-      navigator.clipboard.writeText(url).then(function () { say('リンクをコピーしました'); },
+      navigator.clipboard.writeText(u).then(function () { say('リンクをコピーしました'); },
         function () { window.open(btn.href, '_blank', 'noopener'); });
     }
   });
@@ -346,7 +365,7 @@
 <script>window.TOUR = {"key": "treasure", "steps": [{"sel": "#board", "t": "盤面を写します", "d": "開けたマスの結果を、上の色を選んでから盤面に置いていきます。間違えたら「ひとつ戻す」で戻せます。"}, {"sel": "#picks", "t": "次に開けるマスが出ます", "d": "残りの置き方をぜんぶ数えて、当たりが入っている確率がいちばん高いマスを出しています。"}, {"sel": "#items", "t": "備品の型を確かめます", "d": "周ごとに入っている備品の形と数が変わります。今どの周かをここで合わせてください。「狙う」を外した備品は確率に数えません。"}]};</script>
 <script src="../tour.js?v=2"></script>
 
-<script src="../share.js?v=2"></script>
+<script src="../share.js?v=3"></script>
 <script src="../hint.js?v=1"></script>
 
 <footer>
@@ -720,6 +739,12 @@
       order.push(id);
     }
     draw();
+    /* **押したマスに焦点を返す。**draw() は盤を innerHTML で作り直すので、
+       キーボードで印を付けるたびに焦点が body へ落ち、毎回盤の先頭から
+       Tab し直しになっていた（2026-08-31 に実測）。マスの位置は変わらないので
+       同じ座標のボタンへ返すだけでよい */
+    var nb2 = el('board').querySelector('button[data-c="' + b.dataset.c + '"][data-r="' + b.dataset.r + '"]');
+    if (nb2) nb2.focus({ preventScroll: true });
   });
   el('board').addEventListener('pointerover', function (ev) {
     var b = ev.target.closest('button.cell'); if (!b) return;
@@ -744,12 +769,22 @@
     });
     draw();
   });
+  /* **盤に印があるうちは、消える操作の前に一言聞く。**周も 45 マスの入力も
+     指で押していく道具なので、押し間違い 1 つで全部消えるのは重すぎる */
+  function okToWipe() {
+    return !order.length ||
+      confirm('付けた印 ' + order.length + ' マスが消えます。よろしいですか？');
+  }
   el('weeks').addEventListener('click', function (e2) {
     var b = e2.target.closest('button'); if (!b) return;
+    // **いま居る周をもう一度押しても何もしない。**前は盤が白紙に戻っていた
+    if (+b.dataset.w === week) return;
+    if (!okToWipe()) return;
     loadWeek(+b.dataset.w);
     drawWeeks(); drawItems(); draw();
   });
   el('event').addEventListener('change', function () {
+    if (!okToWipe()) { this.value = ev; return; }
     ev = +this.value;
     // **イベントを変えたら、その回の 1 周目に入れ替える。**
     // 前のイベントの備品が残っていると、盤の大きさだけ変わって中身が食い違う
@@ -793,9 +828,48 @@
     if (id != null) marks[id] = U;
     draw();
   });
-  el('reset').addEventListener('click', function () { clearBoard(); draw(); });
+  el('reset').addEventListener('click', function () {
+    if (!okToWipe()) return;
+    clearBoard(); draw();
+  });
+
+  /* ---- 状態を URL に残す。**共有帯の「開いている状態ごと URL になります」を
+     嘘にしない。**イベントは並び順ではなく開始日で覚える（data.js は毎日
+     作り直されて、並びが変わりうる）。備品の欄を手で書き換えた分（week=-1）は
+     URL に入れられないので、そのときは素の URL に落とす */
+  window.shareUrl = function () {
+    if (ev < 0 || week < 0) return '';
+    var ms = '';
+    for (var i = 0; i < N; i++) ms += marks[i] === E ? 'e' : (marks[i] >= 0 ? marks[i] : 'u');
+    var ws = items.map(function (it) { return it.want ? 1 : 0; }).join('');
+    // open には空白が入る（"2026-08-26 11:00:00"）。**素で置くと %20 になって
+    // 照合に落ちる**ので、書くときに包んで読むときに解く
+    return '#' + encodeURIComponent(EVENTS[ev].open) + '|' + week + '|' + ms + '|' + ws;
+  };
+  function fromHash() {
+    var p = location.hash.replace(/^#/, '').split('|');
+    if (p.length < 3) return;
+    var found = -1, opn;
+    try { opn = decodeURIComponent(p[0]); } catch (e) { return; }
+    for (var i = 0; i < EVENTS.length; i++) if (EVENTS[i].open === opn) { found = i; break; }
+    if (found < 0) return;
+    ev = found;
+    var w = Math.floor(+p[1]);
+    if (!(w >= 0 && w < WEEKS().length)) { loadFirst(); return; }
+    loadWeek(w);
+    if (p[2] && p[2].length === N) {
+      for (var j = 0; j < N; j++) {
+        var ch = p[2].charAt(j);
+        if (ch === 'e') marks[j] = E;
+        else if (ch >= '0' && +ch < items.length) marks[j] = +ch;
+        if (marks[j] !== U) order.push(j);
+      }
+    }
+    if (p[3]) items.forEach(function (it, k) { it.want = p[3].charAt(k) !== '0'; });
+  }
 
   loadFirst();
+  fromHash();
   drawEvents(); drawWeeks(); drawItems(); draw();
   el('ver').textContent = (window.TREASURE_EVENTS || {}).fetched || '';
 })();

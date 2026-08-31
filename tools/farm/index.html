@@ -22,7 +22,7 @@
 <meta name="twitter:description" content="足りない素材を選ぶと、それが出る任務と指名手配が期待値の高い順に並びます。AP 10 あたり何個か、指名手配券 1 枚あたり何個かを分けて出すので、今日どこを回るかがすぐ決まります。">
 <meta name="twitter:image" content="https://arona-bot.com/images/og/farm.jpg">
 <link rel="stylesheet" href="../../style.css?v=17">
-<link rel="stylesheet" href="../tool.css?v=11">
+<link rel="stylesheet" href="../tool.css?v=13">
 <style>
   /* 選んでいる素材。**選ぶ前は破線。** */
   .matcard { display: grid; grid-template-columns: 62px 1fr; gap: 14px; align-items: center;
@@ -110,13 +110,30 @@
 (function () {
   var btn = document.getElementById('share-page'), toast = document.getElementById('toast-page');
   if (!btn) return;
-  // **`#` を落とさない。**TL のように状態をハッシュに入れているツールでは、
-  // ここを削ると相手の画面に同じ結果が出ない（2026-08-30）
-  var url = location.href;
+  /* **`#` を落とさない。**TL のように状態をハッシュに入れているツールでは、
+     ここを削ると相手の画面に同じ結果が出ない（2026-08-30）。
+
+     **読み込み時に 1 回だけ取らない。**そのあと入力を変えてハッシュが
+     書き換わっても、古い URL を配ってしまう（2026-08-31 にサブエージェント
+     2 体が別々に見つけた）。`share.js` の X ボタンと同じく、押される直前に
+     読み直す。`window.shareUrl` を持つツールでは、そちらを先に呼ぶ。 */
+  function url() {
+    try {
+      if (typeof window.shareUrl === 'function') {
+        var h = window.shareUrl();
+        if (h) return location.href.split('#')[0] + h;
+      }
+    } catch (e) { /* ツール側が転んでも共有は動かす */ }
+    return location.href;
+  }
   var name = document.title.split('｜')[0];
   var text = name + '（AronaBot のツール）';
-  btn.href = 'https://x.com/intent/post?text=' + encodeURIComponent(text) +
-             '&url=' + encodeURIComponent(url);
+  function refresh() {
+    btn.href = 'https://x.com/intent/post?text=' + encodeURIComponent(text) +
+               '&url=' + encodeURIComponent(url());
+  }
+  refresh();
+  ['focus', 'pointerdown'].forEach(function (ev) { btn.addEventListener(ev, refresh); });
   var timer = null;
   function say(t) {
     if (!toast) return;
@@ -124,14 +141,16 @@
     clearTimeout(timer); timer = setTimeout(function () { toast.classList.remove('shown'); }, 2000);
   }
   btn.addEventListener('click', function (e) {
+    refresh();
+    var u = url();
     if (navigator.share) {
       e.preventDefault();
-      navigator.share({ title: name, text: text, url: url }).catch(function () {});
+      navigator.share({ title: name, text: text, url: u }).catch(function () {});
       return;
     }
     if (navigator.clipboard && navigator.clipboard.writeText) {
       e.preventDefault();
-      navigator.clipboard.writeText(url).then(function () { say('リンクをコピーしました'); },
+      navigator.clipboard.writeText(u).then(function () { say('リンクをコピーしました'); },
         function () { window.open(btn.href, '_blank', 'noopener'); });
     }
   });
@@ -296,7 +315,7 @@
 <script>window.TOUR = {"key": "farm", "steps": [{"sel": "#matcard", "t": "まず素材を選びます", "d": "オーパーツ・技術ノート・戦術教育BD・レポート・武器パーツ・神名文字。名前の一部でも探せます。"}, {"sel": "#matbox", "t": "種類ごとに並んでいます", "d": "上のタブで群を切り替えるか、さがす欄に打ち込んでください。押すとその場で結果が入れ替わります。"}, {"sel": "#o-best", "t": "いちばん効率のいい場所が出ます", "d": "目標の個数と手持ちを入れると、あと何周・何 AP かかるかも出ます。"}, {"sel": "#tops", "t": "AP と券は混ぜません", "d": "指名手配券と学園交流会チケットは 1 日にもらえる枚数が決まっているので、AP と同じ物差しでは比べられません。"}, {"sel": "#tables .panel:first-child", "t": "下に全部のステージが並びます", "d": "入場料 1 あたりの多い順です。ドロップ 2 倍・3 倍のあいだは倍率を切り替えてください。"}, {"sel": "#sharebar", "t": "結果はそのまま渡せます", "d": "選んでいる素材と個数ごと URL になるので、リンクを送れば相手の画面にも同じ結果が出ます。"}]};</script>
 <script src="../tour.js?v=2"></script>
 
-<script src="../share.js?v=2"></script>
+<script src="../share.js?v=3"></script>
 <script src="../hint.js?v=1"></script>
 
 <footer>
@@ -395,10 +414,12 @@
   })();
 
   function drawPick() {
-    [].forEach.call(el('mgroups').querySelectorAll('button'), function (b) {
-      b.setAttribute('aria-pressed', String(b.dataset.g === group));
-    });
     var low = find.toLowerCase();
+    // **検索中は群のタブを光らせない。**打ち込んでいる間は全群から探すので、
+    // タブが押されたままだと「その群の中だけ」に見える
+    [].forEach.call(el('mgroups').querySelectorAll('button'), function (b) {
+      b.setAttribute('aria-pressed', String(!low && b.dataset.g === group));
+    });
     var list = F.mats.filter(function (m) {
       if (low) return m.n.toLowerCase().indexOf(low) >= 0;
       return m.g === group;

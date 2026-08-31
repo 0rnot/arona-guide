@@ -22,7 +22,7 @@
 <meta name="twitter:description" content="生徒を並べて自分の Tier 表を作る。画像で保存でき、URL でそのまま共有できます。">
 <meta name="twitter:image" content="https://arona-bot.com/images/og/tier.jpg">
 <link rel="stylesheet" href="../../style.css?v=17">
-<link rel="stylesheet" href="../tool.css?v=11">
+<link rel="stylesheet" href="../tool.css?v=13">
 <style>
   /* 生徒の顔。**盤と手札で同じ見た目にする。**動かしても大きさが変わらないほうが迷わない */
   .stu {
@@ -139,13 +139,30 @@
 (function () {
   var btn = document.getElementById('share-page'), toast = document.getElementById('toast-page');
   if (!btn) return;
-  // **`#` を落とさない。**TL のように状態をハッシュに入れているツールでは、
-  // ここを削ると相手の画面に同じ結果が出ない（2026-08-30）
-  var url = location.href;
+  /* **`#` を落とさない。**TL のように状態をハッシュに入れているツールでは、
+     ここを削ると相手の画面に同じ結果が出ない（2026-08-30）。
+
+     **読み込み時に 1 回だけ取らない。**そのあと入力を変えてハッシュが
+     書き換わっても、古い URL を配ってしまう（2026-08-31 にサブエージェント
+     2 体が別々に見つけた）。`share.js` の X ボタンと同じく、押される直前に
+     読み直す。`window.shareUrl` を持つツールでは、そちらを先に呼ぶ。 */
+  function url() {
+    try {
+      if (typeof window.shareUrl === 'function') {
+        var h = window.shareUrl();
+        if (h) return location.href.split('#')[0] + h;
+      }
+    } catch (e) { /* ツール側が転んでも共有は動かす */ }
+    return location.href;
+  }
   var name = document.title.split('｜')[0];
   var text = name + '（AronaBot のツール）';
-  btn.href = 'https://x.com/intent/post?text=' + encodeURIComponent(text) +
-             '&url=' + encodeURIComponent(url);
+  function refresh() {
+    btn.href = 'https://x.com/intent/post?text=' + encodeURIComponent(text) +
+               '&url=' + encodeURIComponent(url());
+  }
+  refresh();
+  ['focus', 'pointerdown'].forEach(function (ev) { btn.addEventListener(ev, refresh); });
   var timer = null;
   function say(t) {
     if (!toast) return;
@@ -153,14 +170,16 @@
     clearTimeout(timer); timer = setTimeout(function () { toast.classList.remove('shown'); }, 2000);
   }
   btn.addEventListener('click', function (e) {
+    refresh();
+    var u = url();
     if (navigator.share) {
       e.preventDefault();
-      navigator.share({ title: name, text: text, url: url }).catch(function () {});
+      navigator.share({ title: name, text: text, url: u }).catch(function () {});
       return;
     }
     if (navigator.clipboard && navigator.clipboard.writeText) {
       e.preventDefault();
-      navigator.clipboard.writeText(url).then(function () { say('リンクをコピーしました'); },
+      navigator.clipboard.writeText(u).then(function () { say('リンクをコピーしました'); },
         function () { window.open(btn.href, '_blank', 'noopener'); });
     }
   });
@@ -185,11 +204,12 @@
 
   <div class="panel" style="margin-top:20px">
     <div class="panel-h"><h2>並べる</h2></div>
-    <p class="lead"><b>生徒を押してから、置きたい段を押します。</b><button type="button" class="qm" data-hint="パソコンならそのまま掴んで運べます。段の名前は書き換えられます。"></button></p>
+    <p class="lead"><b>生徒を押してから、置きたい段を押します。</b><button type="button" class="qm" data-hint="置いた生徒も、押して掴めば別の段へ動かせます。パソコンならそのまま掴んで運べます。段の名前は書き換えられます。"></button></p>
     <div class="held-note" id="held-note" hidden>
       <span id="held-img"></span>
-      <span><b id="held-name"></b> を持っています。置きたい段を押してください。</span>
-      <button type="button" class="btn" id="held-cancel" style="margin-left:auto;padding:.3em .8em;font-size:.8rem">やめる</button>
+      <span><b id="held-name"></b> を持っています。置きたい段か、割り込みたい生徒を押してください。</span>
+      <button type="button" class="btn" id="held-tohand" style="margin-left:auto;padding:.3em .8em;font-size:.8rem">手札に戻す</button>
+      <button type="button" class="btn" id="held-cancel" style="padding:.3em .8em;font-size:.8rem">やめる</button>
     </div>
     <div class="btnrow" style="margin-bottom:12px">
       <span style="font-size:.8rem;font-weight:700;color:var(--fg-mute)">顔の大きさ</span>
@@ -248,7 +268,7 @@
 <script>window.TOUR = {"key": "tier", "steps": [{"sel": "#size", "t": "並べる大きさを決めます", "d": "段の数とアイコンの大きさを変えられます。"}, {"sel": "#q", "t": "生徒を探して置きます", "d": "学校・役割・攻撃属性・装甲で絞り込めます。掴んで段に落としてください。"}, {"sel": "#sharebar", "t": "作った表はそのまま渡せます", "d": "並べた状態ごと URL になります。画像にしなくてもリンクで渡せます。"}]};</script>
 <script src="../tour.js?v=2"></script>
 
-<script src="../share.js?v=2"></script>
+<script src="../share.js?v=3"></script>
 <script src="../hint.js?v=1"></script>
 
 <footer>
@@ -312,7 +332,12 @@
   }
 
   // ---- 保存と読み出し
+  /* **URL から開いただけでは保存しない。**人の表のリンクを見に来ただけで、
+     自分が作って保存してあった表が黙って上書きされていた。
+     一度でも触った（＝この表を使う気がある）ら通常どおり保存する */
+  var dirty = true;
   function save() {
+    if (!dirty) return;
     try { localStorage.setItem(KEY, JSON.stringify(rows)); localStorage.setItem(SZKEY, zoom); } catch (e) {}
   }
   function encode() {
@@ -331,10 +356,17 @@
     });
     return out.length ? out : null;
   }
+  window.shareUrl = function () { return '#t=' + encode(); };
   (function load() {
     var h = location.hash.replace(/^#t=/, '');
     var fromUrl = h && h !== location.hash ? decode(h) : null;
-    if (fromUrl) { rows = fromUrl; return; }
+    if (fromUrl) {
+      rows = fromUrl;
+      dirty = false;
+      document.addEventListener('pointerdown', function () { dirty = true; });
+      document.addEventListener('keydown', function () { dirty = true; });
+      return;
+    }
     try {
       var z = localStorage.getItem(SZKEY);
       if (z === 's' || z === 'm' || z === 'l') zoom = z;
@@ -426,16 +458,21 @@
   }
 
   // ---- タップ
+  /* **置いてある子も、押せば掴める。**前は押すと即・手札行きで、
+     段から段へ動かすのに「一覧から探し直す」遠回りしかなかった
+     （スマホには掴んで運ぶ操作が無い）。手札へ戻すのは、掴んでから
+     下の一覧を押す。掴んだまま置いてある子を押すと、その子の前に割り込む */
   document.addEventListener('click', function (ev) {
     var chipEl = ev.target.closest('.stu');
     if (chipEl) {
       var id = +chipEl.dataset.id;
+      if (held == null) { held = id; draw(); return; }
+      if (held === id) { held = null; draw(); return; }
       if (chipEl.dataset.where === 'row') {
-        // 置いてある子を押したら手札へ戻す。**持っている子がいれば入れ替えない**
-        if (held === id) { held = null; } else { removeFrom(id); held = null; }
-        draw(); return;
+        putIn(+chipEl.closest('.drop').dataset.r, held, id);
+        held = null; draw(); return;
       }
-      held = (held === id) ? null : id;
+      held = id;                      // 手札の別の子へ持ち替え
       draw(); return;
     }
     var drop = ev.target.closest('.drop');
@@ -445,6 +482,15 @@
   });
 
   el('held-cancel').addEventListener('click', function (ev) { ev.stopPropagation(); held = null; draw(); });
+  /* **スマホでは一覧の空き地を押せない。**指のタップは近くの押せるものに
+     吸い付くので、生徒の隙間（6px）を狙っても隣の子に当たって持ち替えになる
+     （2026-08-31 に実測。elementFromPoint では空き地でも、届く click は .stu）。
+     手札へ戻す押し場所を、掴んでいる帯の中に置く */
+  el('held-tohand').addEventListener('click', function (ev) {
+    ev.stopPropagation();
+    if (held != null) removeFrom(held);
+    held = null; draw();
+  });
 
   // ---- 掴んで運ぶ（パソコン）
   var dragId = null;
@@ -491,6 +537,9 @@
     var i = +b.dataset.r, act = b.dataset.act;
     if (act === 'del') {
       if (rows.length <= 1) return;
+      // **中身ごと消える操作は一言聞く。**× は小さく、押し間違いが起きる
+      if (rows[i].ids.length &&
+          !confirm('「' + rows[i].n + '」の段を消します。置いていた ' + rows[i].ids.length + ' 人は手札に戻ります。')) return;
       rows.splice(i, 1);
     } else if (act === 'up' && i > 0) {
       rows.splice(i - 1, 0, rows.splice(i, 1)[0]);
@@ -507,7 +556,10 @@
     draw();
   });
   el('reset').addEventListener('click', function () {
-    rows = DEFAULT.map(function (n) { return { n: n, ids: [] }; });
+    var n = Object.keys(placed()).length;
+    // **並べた表は作り直せない。**押し間違い 1 回で消えないよう一言聞く
+    if (n && !confirm('置いた ' + n + ' 人をぜんぶ手札に戻して、段も S〜D に戻します。')) return;
+    rows = DEFAULT.map(function (n2) { return { n: n2, ids: [] }; });
     held = null; draw();
   });
 

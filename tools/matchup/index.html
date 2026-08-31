@@ -22,7 +22,7 @@
 <meta name="twitter:description" content="攻撃属性と装甲の倍率、地形適性の 6 段をそのまま並べます。相手の装甲と地形を選ぶと、有効な属性の生徒が適性つきで並びます。">
 <meta name="twitter:image" content="https://arona-bot.com/images/og/matchup.jpg">
 <link rel="stylesheet" href="../../style.css?v=17">
-<link rel="stylesheet" href="../tool.css?v=11">
+<link rel="stylesheet" href="../tool.css?v=13">
 <style>
   /* 倍率の表。**升に色を付けて、強い・弱いが一目で分かるように。** */
   .mx { width: 100%; border-collapse: collapse; font-size: .82rem; min-width: 520px; }
@@ -123,13 +123,30 @@
 (function () {
   var btn = document.getElementById('share-page'), toast = document.getElementById('toast-page');
   if (!btn) return;
-  // **`#` を落とさない。**TL のように状態をハッシュに入れているツールでは、
-  // ここを削ると相手の画面に同じ結果が出ない（2026-08-30）
-  var url = location.href;
+  /* **`#` を落とさない。**TL のように状態をハッシュに入れているツールでは、
+     ここを削ると相手の画面に同じ結果が出ない（2026-08-30）。
+
+     **読み込み時に 1 回だけ取らない。**そのあと入力を変えてハッシュが
+     書き換わっても、古い URL を配ってしまう（2026-08-31 にサブエージェント
+     2 体が別々に見つけた）。`share.js` の X ボタンと同じく、押される直前に
+     読み直す。`window.shareUrl` を持つツールでは、そちらを先に呼ぶ。 */
+  function url() {
+    try {
+      if (typeof window.shareUrl === 'function') {
+        var h = window.shareUrl();
+        if (h) return location.href.split('#')[0] + h;
+      }
+    } catch (e) { /* ツール側が転んでも共有は動かす */ }
+    return location.href;
+  }
   var name = document.title.split('｜')[0];
   var text = name + '（AronaBot のツール）';
-  btn.href = 'https://x.com/intent/post?text=' + encodeURIComponent(text) +
-             '&url=' + encodeURIComponent(url);
+  function refresh() {
+    btn.href = 'https://x.com/intent/post?text=' + encodeURIComponent(text) +
+               '&url=' + encodeURIComponent(url());
+  }
+  refresh();
+  ['focus', 'pointerdown'].forEach(function (ev) { btn.addEventListener(ev, refresh); });
   var timer = null;
   function say(t) {
     if (!toast) return;
@@ -137,14 +154,16 @@
     clearTimeout(timer); timer = setTimeout(function () { toast.classList.remove('shown'); }, 2000);
   }
   btn.addEventListener('click', function (e) {
+    refresh();
+    var u = url();
     if (navigator.share) {
       e.preventDefault();
-      navigator.share({ title: name, text: text, url: url }).catch(function () {});
+      navigator.share({ title: name, text: text, url: u }).catch(function () {});
       return;
     }
     if (navigator.clipboard && navigator.clipboard.writeText) {
       e.preventDefault();
-      navigator.clipboard.writeText(url).then(function () { say('リンクをコピーしました'); },
+      navigator.clipboard.writeText(u).then(function () { say('リンクをコピーしました'); },
         function () { window.open(btn.href, '_blank', 'noopener'); });
     }
   });
@@ -185,6 +204,26 @@
         </div>
       </div>
 
+      <!-- **答えは入力の真下。**右の柱に置いていたころは、スマホで
+           顔の一覧（100 人前後）を全部送らないと出てこなかった -->
+      <div class="stats c3">
+        <div class="stat hero">
+          <div class="k">いちばん効く攻撃属性</div>
+          <div class="v" id="o-best">—</div>
+          <div class="sub" id="o-best-sub">&nbsp;</div>
+        </div>
+        <div class="stat">
+          <div class="k">地形の攻撃力</div>
+          <div class="v" id="o-terr">—</div>
+          <div class="sub" id="o-terr-sub">適性 SS のとき</div>
+        </div>
+        <div class="stat">
+          <div class="k">条件に合う生徒</div>
+          <div class="v" id="o-n">—</div>
+          <div class="sub" id="o-n-sub">&nbsp;</div>
+        </div>
+      </div>
+
       <div class="panel">
         <div class="panel-h"><h2>連れて行く生徒</h2></div>
         <p class="lead" style="margin:0 0 12px" id="list-lead">—</p>
@@ -218,24 +257,6 @@
     </div>
 
     <div class="tcol sticky">
-      <div class="stats c3">
-        <div class="stat hero">
-          <div class="k">いちばん効く攻撃属性</div>
-          <div class="v" id="o-best">—</div>
-          <div class="sub" id="o-best-sub">&nbsp;</div>
-        </div>
-        <div class="stat">
-          <div class="k">地形の攻撃力</div>
-          <div class="v" id="o-terr">—</div>
-          <div class="sub" id="o-terr-sub">適性 SS のとき</div>
-        </div>
-        <div class="stat">
-          <div class="k">条件に合う生徒</div>
-          <div class="v" id="o-n">—</div>
-          <div class="sub" id="o-n-sub">&nbsp;</div>
-        </div>
-      </div>
-
       <div class="panel">
         <div class="panel-h"><h2>地形適性の 6 段</h2></div>
         <p class="lead" style="margin:0 0 12px"><b>3 つの地形で値は同じです。</b>変わるのは段だけです。</p>
@@ -317,7 +338,7 @@
 ]};</script>
 <script src="../tour.js?v=2"></script>
 
-<script src="../share.js?v=2"></script>
+<script src="../share.js?v=3"></script>
 <script src="../hint.js?v=1"></script>
 
 <footer>
@@ -535,7 +556,12 @@
     el(id).addEventListener('change', draw);
   });
   el('i-student').addEventListener('change', function () { pick(this.value.trim(), false); });
-  el('i-student').addEventListener('input', function () { pick(this.value.trim(), true); });
+  el('i-student').addEventListener('input', function () {
+    var v = this.value.trim();
+    // **欄を空にしたら選び直せる。**前は消しても前の生徒が居座っていた
+    if (!v) { if (student) { student = null; draw(); } return; }
+    pick(v, true);
+  });
 
   (function fromHash() {
     var h = decodeURIComponent(location.hash.replace(/^#/, ''));

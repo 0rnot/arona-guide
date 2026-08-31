@@ -81,6 +81,17 @@
       '</div>' +
     '</div>';
 
+  /* **「状態ごと URL になります」は、状態を URL に入れているツールだけ。**
+     `window.shareUrl` を持たないツールでも同じ文を出していて、嘘になっていた
+     （2026-08-31 にサブエージェント 2 体が別々に指摘）。
+     **判定は DOMContentLoaded まで待つ。**このファイルはツール本体より先に
+     走るので、読み込み直後に見ても `window.shareUrl` はまだ生えていない。 */
+  document.addEventListener('DOMContentLoaded', function () {
+    if (typeof window.shareUrl === 'function') return;
+    var sub = box.querySelector('.sharebar-sub');
+    if (sub) sub.textContent = 'このページの URL を配ります';
+  });
+
   var toast = document.getElementById('toast-page');
   var timer = null;
   function say(t) {

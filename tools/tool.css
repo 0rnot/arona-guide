@@ -35,7 +35,10 @@
 .tcol > .panel, .tcol > .stats, .tcol > .note-box { margin: 0; }
 
 /* 全幅で置きたいもの（表・グラフ） */
-.tfull { grid-column: 1 / -1; min-width: 0; }
+/* 段をまたぐ帯。**`order` は必ず最後にしておく。**柱に order を配って
+   並び替えるツール（宝探しのスマホ）で、order が 0 のままだと帯が先頭へ
+   飛んで、盤より上に共有バーと出どころ欄が来ていた（2026-08-31） */
+.tfull { grid-column: 1 / -1; min-width: 0; order: 99; }
 
 .tcrumb { font-size: .82rem; color: var(--fg-mute); padding: 22px 0 0; }
 /* ヒーローのすぐ下に来るときは、ヒーロー側が余白を持っているので詰める */
@@ -355,7 +358,14 @@ input[type="range"]::-moz-range-thumb {
   display: grid; grid-template-columns: 1fr auto; gap: 14px;
   padding: 10px 0; border-bottom: 1px solid var(--line); font-size: .9rem;
 }
-.ledger .row > span:last-child { font-variant-numeric: tabular-nums; white-space: nowrap; }
+/* **値は折り返してよい。**`nowrap` にしていたせいで、値が数字ではなく文になる
+   欄（先生レベルのブースト）でスマホに横スクロールが出ていた。390px で 59px
+   はみ出した実測（2026-08-31）。数字は `tabular-nums` で揃うので、
+   折り返しを許しても桁はずれない */
+.ledger .row > span:last-child {
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere; text-align: right;
+}
 .ledger .row.minus > span:last-child { color: var(--accent-tx); }
 .ledger .row.total { border-bottom: 0; font-weight: 800; border-top: 2px solid var(--line); margin-top: 4px; }
 .ledger .row .subnote { display: block; color: var(--fg-mute); font-size: .78rem; }
@@ -616,3 +626,14 @@ body.tour-on { overflow: hidden; }
 /* 贈り物の効き目の絵。**色が付いているので mask ではなく <img>。**
    `.gi` の仕掛け（currentColor を型抜き）に通すと真っ黒になる */
 .mtag .gico { width: 16px; height: 16px; vertical-align: -.24em; margin-right: .2em; }
+
+/* **スマホでは入力欄の字を 16px 未満にしない。**iOS Safari は 16px 未満の
+   input / select / textarea に触れた瞬間、画面ごと拡大して、指を離しても戻さない。
+   各ツールの <style> は tool.css より後に読まれて同じ詳細度なら勝ってしまうので、
+   ここだけは !important で押さえる（2026-08-31。390px の全 28 ページを測ったら
+   16px 未満が 108 個あった。maximum-scale で拡大を殺す手は指での拡大まで奪うので取らない） */
+@media (max-width: 700px) {
+  input:not([type=checkbox]):not([type=radio]):not([type=range]),
+  select,
+  textarea { font-size: 16px !important; }
+}

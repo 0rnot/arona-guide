@@ -482,8 +482,15 @@
   }
   window.shareUrl = function () { return '#' + hash(); };
   function syncHash() {
+    /* **`&pane=…` を消さない。**../panes.js の区画で、消すと在庫を打つたびに
+       開いているタブが URL から落ちる（2026-08-31 に実機で踏んだ） */
+    var keep = '';
+    var seg = location.hash.replace(/^#/, '').split('&');
+    for (var i = 0; i < seg.length; i++) {
+      if (seg[i].indexOf('pane=') === 0) keep = '&' + seg[i];
+    }
     try {
-      history.replaceState(null, '', location.pathname + location.search + '#' + hash());
+      history.replaceState(null, '', location.pathname + location.search + '#' + hash() + keep);
     } catch (e) { /* file:// では黙って諦める */ }
   }
   function fromHash() {
@@ -716,7 +723,12 @@
   /* **URL だけが変わったときも読み直す。**同じページで別の共有リンクを開くと、
      ブラウザは再読み込みせずにハッシュだけ差し替える（2026-08-30 に検査で踏んだ） */
   window.addEventListener('hashchange', function () {
-    if ('#' + hash() === location.hash) return;
+    /* **自分の区画だけ比べる。**URL には `&pane=…` も付くので、
+       丸ごと比べるとタブを変えただけで在庫を読み直してしまう */
+    var seg = location.hash.replace(/^#/, '').split('&').filter(function (x) {
+      return x.indexOf('eq=') === 0;
+    })[0];
+    if (seg === hash()) return;
     if (fromHash()) { save(); drawSettings(); drawAll(); }
   });
 

@@ -22,7 +22,7 @@
 <meta name="twitter:description" content="その生徒に効く贈り物が一目で分かります。目標の絆ランクまで何個・何日かかるかも。">
 <meta name="twitter:image" content="https://arona-bot.com/images/og/bond.jpg">
 <link rel="stylesheet" href="../../style.css?v=17">
-<link rel="stylesheet" href="../tool.css?v=11">
+<link rel="stylesheet" href="../tool.css?v=13">
 <style>
   .gift { display: grid; grid-template-columns: 50px 1fr 66px 96px; gap: .7em; align-items: center;
           padding: .5em 0; border-bottom: 1px solid var(--line); }
@@ -109,13 +109,30 @@
 (function () {
   var btn = document.getElementById('share-page'), toast = document.getElementById('toast-page');
   if (!btn) return;
-  // **`#` を落とさない。**TL のように状態をハッシュに入れているツールでは、
-  // ここを削ると相手の画面に同じ結果が出ない（2026-08-30）
-  var url = location.href;
+  /* **`#` を落とさない。**TL のように状態をハッシュに入れているツールでは、
+     ここを削ると相手の画面に同じ結果が出ない（2026-08-30）。
+
+     **読み込み時に 1 回だけ取らない。**そのあと入力を変えてハッシュが
+     書き換わっても、古い URL を配ってしまう（2026-08-31 にサブエージェント
+     2 体が別々に見つけた）。`share.js` の X ボタンと同じく、押される直前に
+     読み直す。`window.shareUrl` を持つツールでは、そちらを先に呼ぶ。 */
+  function url() {
+    try {
+      if (typeof window.shareUrl === 'function') {
+        var h = window.shareUrl();
+        if (h) return location.href.split('#')[0] + h;
+      }
+    } catch (e) { /* ツール側が転んでも共有は動かす */ }
+    return location.href;
+  }
   var name = document.title.split('｜')[0];
   var text = name + '（AronaBot のツール）';
-  btn.href = 'https://x.com/intent/post?text=' + encodeURIComponent(text) +
-             '&url=' + encodeURIComponent(url);
+  function refresh() {
+    btn.href = 'https://x.com/intent/post?text=' + encodeURIComponent(text) +
+               '&url=' + encodeURIComponent(url());
+  }
+  refresh();
+  ['focus', 'pointerdown'].forEach(function (ev) { btn.addEventListener(ev, refresh); });
   var timer = null;
   function say(t) {
     if (!toast) return;
@@ -123,14 +140,16 @@
     clearTimeout(timer); timer = setTimeout(function () { toast.classList.remove('shown'); }, 2000);
   }
   btn.addEventListener('click', function (e) {
+    refresh();
+    var u = url();
     if (navigator.share) {
       e.preventDefault();
-      navigator.share({ title: name, text: text, url: url }).catch(function () {});
+      navigator.share({ title: name, text: text, url: u }).catch(function () {});
       return;
     }
     if (navigator.clipboard && navigator.clipboard.writeText) {
       e.preventDefault();
-      navigator.clipboard.writeText(url).then(function () { say('リンクをコピーしました'); },
+      navigator.clipboard.writeText(u).then(function () { say('リンクをコピーしました'); },
         function () { window.open(btn.href, '_blank', 'noopener'); });
     }
   });
@@ -285,7 +304,7 @@
 <script>window.TOUR = {"key": "bond", "steps": [{"sel": "#stucard", "t": "まず生徒を選びます", "d": "名前を入れると、好みに合わせて贈り物が並び替わります。"}, {"sel": "#gifts", "t": "効く贈り物から順に並びます", "d": "一致したタグの数で倍率が決まり、×4 が上限です。"}, {"sel": "#l-need", "t": "手持ちを入れると残りが出ます", "d": "個数と回数を入れると、目標までの日数が出ます。"}, {"sel": "#sharebar", "t": "結果はそのまま渡せます", "d": "リンクを送ると、相手の画面にも同じ結果が出ます。"}]};</script>
 <script src="../tour.js?v=2"></script>
 
-<script src="../share.js?v=2"></script>
+<script src="../share.js?v=3"></script>
 <script src="../hint.js?v=1"></script>
 
 <footer>
@@ -447,6 +466,11 @@
 
     var from = parseInt(el('i-from').value, 10);
     var to = parseInt(el('i-to').value, 10);
+    /* **目標ボタンの押下表示は目標の値から引く。**ボタンを押したときだけ
+       付け替える作りだと、数字を手で変えたあとも古いボタンが光ったまま残る */
+    [].forEach.call(el('quick').querySelectorAll('button'), function (x) {
+      x.setAttribute('aria-pressed', String(+x.dataset.t === to));
+    });
     var list = giftList();
     if (!skipGifts) drawGifts(list);
 
@@ -531,16 +555,70 @@
   el('quick').addEventListener('click', function (ev) {
     var b = ev.target.closest('button'); if (!b) return;
     el('i-to').value = b.dataset.t;
-    [].forEach.call(el('quick').querySelectorAll('button'), function (x) {
-      x.setAttribute('aria-pressed', String(x.dataset.t === b.dataset.t));
-    });
-    calc();
+    calc();                              // 押下表示は calc() が目標の値から引く
   });
   ['i-student', 'i-from', 'i-to', 'i-touch', 'i-etc', 'i-target'].forEach(function (id) {
     var skip = id === 'i-touch' || id === 'i-etc' || id === 'i-target';
     el(id).addEventListener('input', function () { calc(skip); });
     el(id).addEventListener('change', function () { calc(); });
   });
+  /* **確定（change）のときだけ前方一致で補完する。**入力中に補完すると
+     打っている途中で別の生徒に飛ぶ（eleph と同じ作法）。
+     それでも見つからなければ、黙らずにエラーを出す */
+  el('i-student').addEventListener('change', function () {
+    var name = this.value.trim();
+    if (!name) return;
+    for (var i = 0; i < B.students.length; i++) if (B.students[i].n === name) return;
+    var low = name.toLowerCase(), hit = null;
+    for (var j = 0; j < B.students.length; j++) {
+      if (B.students[j].n.toLowerCase().indexOf(low) === 0) { hit = B.students[j]; break; }
+    }
+    if (hit) { this.value = hit.n; calc(); return; }
+    var e = el('err');
+    e.textContent = '「' + name + '」という生徒が見つかりません。名前を選び直してください。';
+    e.hidden = false;
+  });
+
+  /* ---- 状態を URL に残す。**share.js が「結果を共有」のときに呼ぶ**
+     （eleph などと同じ作法。ツアーの「リンクを送ると、相手の画面にも同じ
+     結果が出ます」はこれが担う）。形は `#生徒id|今|目標|タッチ|その他|手持ち|目標日`。
+     手持ちは `贈り物id.個数` をコンマでつなぐ。**0 個は入れない**——50 種ぜんぶ
+     並べると URL が贈り物の数だけ伸びる。目標日と手持ちが無ければ後ろは空のまま
+     （2026-08-31 まで前の 5 つだけで、手持ちを入れた送り手は「余り 7,035」、
+     受け手は「11 日」と別の結果を見ていた） */
+  window.shareUrl = function () {
+    var sid = 0, name = el('i-student').value.trim();
+    for (var i = 0; i < B.students.length; i++) if (B.students[i].n === name) { sid = B.students[i].id; break; }
+    var g = [];
+    Object.keys(have).forEach(function (k) { if (have[k] > 0) g.push(k + '.' + have[k]); });
+    return '#' + [sid, el('i-from').value, el('i-to').value,
+      el('i-touch').value, el('i-etc').value || 0, g.join(','), el('i-target').value].join('|');
+  };
+  (function fromHash() {
+    var h = location.hash.replace(/^#/, '');
+    if (!h) return;
+    var p = h.split('|');
+    if (p.length < 5) return;
+    var sid = parseInt(p[0], 10);
+    if (sid > 0) {
+      for (var i = 0; i < B.students.length; i++) {
+        if (B.students[i].id === sid) { el('i-student').value = B.students[i].n; break; }
+      }
+    }
+    if (+p[1] >= 1 && +p[1] <= MAXR) el('i-from').value = Math.floor(+p[1]);
+    if (+p[2] >= 1 && +p[2] <= MAXR) el('i-to').value = Math.floor(+p[2]);
+    if (+p[3] >= 0) el('i-touch').value = Math.floor(+p[3]);
+    if (+p[4] >= 0) el('i-etc').value = Math.floor(+p[4]);
+    if (p[5]) {
+      p[5].split(',').forEach(function (q) {
+        var kv = q.split('.');
+        if (+kv[0] > 0 && +kv[1] > 0) have[kv[0]] = Math.floor(+kv[1]);
+      });
+    }
+    // **日付は形を見てから入れる。**壊れた値を value に入れると黙って空になり、
+    // 「入れたのに消えた」ように見える
+    if (p[6] && /^\d{4}-\d{2}-\d{2}$/.test(p[6])) el('i-target').value = p[6];
+  })();
   el('gen').textContent = GEN.join(' / ');
   el('ver').textContent = B.fetched;
   el('src-n').textContent = B.students.length;   // **人数は増える。**出どころの文章にも埋め込む

@@ -22,7 +22,7 @@
 <meta name="twitter:description" content="T1 から T10 まで、装備を目標のレベルまで上げるのに強化珠が何個要るかを出します。手持ちを入れれば足りない数と、ショップで買ったときのクレジットも一緒に出ます。">
 <meta name="twitter:image" content="https://arona-bot.com/images/og/equip-level.jpg">
 <link rel="stylesheet" href="../../style.css?v=17">
-<link rel="stylesheet" href="../tool.css?v=11">
+<link rel="stylesheet" href="../tool.css?v=13">
 <style>
   /* 1 行が「今 → 目標 × 個数」。**部位は選ばせない**（どの部位でも同じ表なので） */
   .eqrow { display: grid; gap: 8px 10px; align-items: end;
@@ -45,6 +45,9 @@
   .eqrow .over b { color: var(--fg); }
   @media (max-width: 700px) {
     .eqrow { grid-template-columns: 1fr 1fr; }
+    /* **入力は 16px に戻す。**iOS Safari は 16px 未満の入力に触れるたび
+       画面ごと拡大する（PC の .92rem はそのまま） */
+    .eqrow select, .eqrow input { font-size: 16px; }
     .eqrow .arrow { display: none; }
     .eqrow .cnt { grid-column: 1; }
     .eqrow .del { grid-column: 2; justify-self: end; }
@@ -57,6 +60,8 @@
   .gem .gn { font-size: .78rem; font-weight: 700; line-height: 1.3; }
   .gem .gn small { display: block; font-weight: 400; color: var(--fg-mute); font-size: .72rem; }
   .gem input { width: 100%; text-align: right; padding: .35em .5em; font-size: .92rem; }
+  /* **こちらも 16px に。**基底より前に書くと同じ詳細度で上書きされて死ぬので、ここに置く */
+  @media (max-width: 700px) { .gem input { font-size: 16px; } }
   .ledger .row .ico { width: 20px; height: 20px; border-radius: 4px; vertical-align: -.3em; margin-right: .35em; }
   .nowrap { white-space: nowrap; }
   .bar { height: 12px; border-radius: 999px; background: var(--bg-sub);
@@ -109,13 +114,30 @@
 (function () {
   var btn = document.getElementById('share-page'), toast = document.getElementById('toast-page');
   if (!btn) return;
-  // **`#` を落とさない。**TL のように状態をハッシュに入れているツールでは、
-  // ここを削ると相手の画面に同じ結果が出ない（2026-08-30）
-  var url = location.href;
+  /* **`#` を落とさない。**TL のように状態をハッシュに入れているツールでは、
+     ここを削ると相手の画面に同じ結果が出ない（2026-08-30）。
+
+     **読み込み時に 1 回だけ取らない。**そのあと入力を変えてハッシュが
+     書き換わっても、古い URL を配ってしまう（2026-08-31 にサブエージェント
+     2 体が別々に見つけた）。`share.js` の X ボタンと同じく、押される直前に
+     読み直す。`window.shareUrl` を持つツールでは、そちらを先に呼ぶ。 */
+  function url() {
+    try {
+      if (typeof window.shareUrl === 'function') {
+        var h = window.shareUrl();
+        if (h) return location.href.split('#')[0] + h;
+      }
+    } catch (e) { /* ツール側が転んでも共有は動かす */ }
+    return location.href;
+  }
   var name = document.title.split('｜')[0];
   var text = name + '（AronaBot のツール）';
-  btn.href = 'https://x.com/intent/post?text=' + encodeURIComponent(text) +
-             '&url=' + encodeURIComponent(url);
+  function refresh() {
+    btn.href = 'https://x.com/intent/post?text=' + encodeURIComponent(text) +
+               '&url=' + encodeURIComponent(url());
+  }
+  refresh();
+  ['focus', 'pointerdown'].forEach(function (ev) { btn.addEventListener(ev, refresh); });
   var timer = null;
   function say(t) {
     if (!toast) return;
@@ -123,14 +145,16 @@
     clearTimeout(timer); timer = setTimeout(function () { toast.classList.remove('shown'); }, 2000);
   }
   btn.addEventListener('click', function (e) {
+    refresh();
+    var u = url();
     if (navigator.share) {
       e.preventDefault();
-      navigator.share({ title: name, text: text, url: url }).catch(function () {});
+      navigator.share({ title: name, text: text, url: u }).catch(function () {});
       return;
     }
     if (navigator.clipboard && navigator.clipboard.writeText) {
       e.preventDefault();
-      navigator.clipboard.writeText(url).then(function () { say('リンクをコピーしました'); },
+      navigator.clipboard.writeText(u).then(function () { say('リンクをコピーしました'); },
         function () { window.open(btn.href, '_blank', 'noopener'); });
     }
   });
@@ -347,7 +371,7 @@
 <script src="../panes.js?v=1"></script>
 <script src="../tour.js?v=2"></script>
 
-<script src="../share.js?v=2"></script>
+<script src="../share.js?v=3"></script>
 <script src="../hint.js?v=1"></script>
 
 <footer>

@@ -22,7 +22,7 @@
 <meta name="twitter:description" content="カフェの床と壁に家具を並べて、置ける・置けないと快適度の合計を確かめます。公式の家具テンプレート 20 個をそのまま読み込めます。">
 <meta name="twitter:image" content="https://arona-bot.com/images/og/cafe-layout.jpg">
 <link rel="stylesheet" href="../../style.css?v=17">
-<link rel="stylesheet" href="../tool.css?v=11">
+<link rel="stylesheet" href="../tool.css?v=13">
 <style>
   /* ------------------------------------------------------------ 盤
 
@@ -182,13 +182,30 @@
 (function () {
   var btn = document.getElementById('share-page'), toast = document.getElementById('toast-page');
   if (!btn) return;
-  // **`#` を落とさない。**TL のように状態をハッシュに入れているツールでは、
-  // ここを削ると相手の画面に同じ結果が出ない（2026-08-30）
-  var url = location.href;
+  /* **`#` を落とさない。**TL のように状態をハッシュに入れているツールでは、
+     ここを削ると相手の画面に同じ結果が出ない（2026-08-30）。
+
+     **読み込み時に 1 回だけ取らない。**そのあと入力を変えてハッシュが
+     書き換わっても、古い URL を配ってしまう（2026-08-31 にサブエージェント
+     2 体が別々に見つけた）。`share.js` の X ボタンと同じく、押される直前に
+     読み直す。`window.shareUrl` を持つツールでは、そちらを先に呼ぶ。 */
+  function url() {
+    try {
+      if (typeof window.shareUrl === 'function') {
+        var h = window.shareUrl();
+        if (h) return location.href.split('#')[0] + h;
+      }
+    } catch (e) { /* ツール側が転んでも共有は動かす */ }
+    return location.href;
+  }
   var name = document.title.split('｜')[0];
   var text = name + '（AronaBot のツール）';
-  btn.href = 'https://x.com/intent/post?text=' + encodeURIComponent(text) +
-             '&url=' + encodeURIComponent(url);
+  function refresh() {
+    btn.href = 'https://x.com/intent/post?text=' + encodeURIComponent(text) +
+               '&url=' + encodeURIComponent(url());
+  }
+  refresh();
+  ['focus', 'pointerdown'].forEach(function (ev) { btn.addEventListener(ev, refresh); });
   var timer = null;
   function say(t) {
     if (!toast) return;
@@ -196,14 +213,16 @@
     clearTimeout(timer); timer = setTimeout(function () { toast.classList.remove('shown'); }, 2000);
   }
   btn.addEventListener('click', function (e) {
+    refresh();
+    var u = url();
     if (navigator.share) {
       e.preventDefault();
-      navigator.share({ title: name, text: text, url: url }).catch(function () {});
+      navigator.share({ title: name, text: text, url: u }).catch(function () {});
       return;
     }
     if (navigator.clipboard && navigator.clipboard.writeText) {
       e.preventDefault();
-      navigator.clipboard.writeText(url).then(function () { say('リンクをコピーしました'); },
+      navigator.clipboard.writeText(u).then(function () { say('リンクをコピーしました'); },
         function () { window.open(btn.href, '_blank', 'noopener'); });
     }
   });
@@ -231,7 +250,7 @@
     <div class="tcol">
       <div class="panel" id="p-board">
         <div class="panel-h"><h2>床と壁に並べる</h2></div>
-        <p class="lead">右で家具を選んで、マス目を押すと置けます。<button type="button" class="qm" data-hint="カーソルのマスが家具の左上になります。すでに家具があるところには置けません。床の装飾（カーペット）だけは家具の下に敷けます。"></button></p>
+        <p class="lead">下の「家具を選ぶ」で選んで、マス目を押すと置けます。<button type="button" class="qm" data-hint="カーソルのマスが家具の左上になります。すでに家具があるところには置けません。床の装飾（カーペット）だけは家具の下に敷けます。"></button></p>
         <div class="seg" id="segplane" role="group" aria-label="どの面に置くか">
           <button type="button" data-p="0" aria-pressed="true">床 20×20</button>
           <button type="button" data-p="1" aria-pressed="false">左の壁 20×7</button>
@@ -501,7 +520,7 @@
 <script>window.TOUR = {"key": "cafe-layout", "steps": [{"sel": "#p-board", "t": "床と壁に並べます", "d": "面を選び、マス目を押すと置けます。回すのは「回転」ボタンか R キーです。"}, {"sel": "#p-pick", "t": "置く家具はここで選びます", "d": "いま選んでいる面に置けるものだけです。「マス」は快適度を面積で割った値です。"}, {"sel": "#p-tpl", "t": "公式のテンプレートを丸ごと読めます", "d": "ゲームが持っている 20 個の並びです。押すと盤に載ります。"}, {"sel": "#o-total", "t": "合計快適度とランクの上限", "d": "家具の快適度とセットボーナスの合計です。"}, {"sel": "#sharebar", "t": "並べた状態ごと渡せます", "d": "リンクを送ると、相手の画面にも同じ並びが出ます。"}]};</script>
 <script src="../tour.js?v=2"></script>
 
-<script src="../share.js?v=2"></script>
+<script src="../share.js?v=3"></script>
 <script src="../hint.js?v=1"></script>
 
 <footer>
@@ -778,7 +797,13 @@
       push(); items.splice(k, 1); msg = ''; draw();
       return;
     }
-    if (!sel) { msg = '先に「家具を選ぶ」から 1 つ選んでください。'; draw(); return; }
+    if (!sel) {
+      msg = '先に「家具を選ぶ」から 1 つ選んでください。'; draw();
+      /* **一覧は盤の下にいる。**言葉だけだと、390px では 1.5 画面ぶん
+         探させることになる（2026-08-31 に実測）。その場へ連れて行く */
+      el('p-pick').scrollIntoView({ behavior: 'smooth', block: 'start' });
+      return;
+    }
     if (!canPlace(plane, sel, c.x, c.y, rot)) {
       var f = fby[sel], s = sizeOf(f, rot), pl = PL[plane];
       msg = (c.x + s[0] > pl.w || c.y + s[1] > pl.h)

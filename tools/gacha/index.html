@@ -22,7 +22,7 @@
 <meta name="twitter:description" content="今の石でピックアップを引ける確率は何 % か。呼び出しチャージ 100 / 200 カウントを織り込んで計算します。">
 <meta name="twitter:image" content="https://arona-bot.com/images/og/gacha.jpg">
 <link rel="stylesheet" href="../../style.css?v=17">
-<link rel="stylesheet" href="../tool.css?v=11">
+<link rel="stylesheet" href="../tool.css?v=13">
 <style>
   .chartbox { margin-top: 8px; }
   .chartbox svg { width: 100%; height: auto; display: block; overflow: visible; }
@@ -73,13 +73,30 @@
 (function () {
   var btn = document.getElementById('share-page'), toast = document.getElementById('toast-page');
   if (!btn) return;
-  // **`#` を落とさない。**TL のように状態をハッシュに入れているツールでは、
-  // ここを削ると相手の画面に同じ結果が出ない（2026-08-30）
-  var url = location.href;
+  /* **`#` を落とさない。**TL のように状態をハッシュに入れているツールでは、
+     ここを削ると相手の画面に同じ結果が出ない（2026-08-30）。
+
+     **読み込み時に 1 回だけ取らない。**そのあと入力を変えてハッシュが
+     書き換わっても、古い URL を配ってしまう（2026-08-31 にサブエージェント
+     2 体が別々に見つけた）。`share.js` の X ボタンと同じく、押される直前に
+     読み直す。`window.shareUrl` を持つツールでは、そちらを先に呼ぶ。 */
+  function url() {
+    try {
+      if (typeof window.shareUrl === 'function') {
+        var h = window.shareUrl();
+        if (h) return location.href.split('#')[0] + h;
+      }
+    } catch (e) { /* ツール側が転んでも共有は動かす */ }
+    return location.href;
+  }
   var name = document.title.split('｜')[0];
   var text = name + '（AronaBot のツール）';
-  btn.href = 'https://x.com/intent/post?text=' + encodeURIComponent(text) +
-             '&url=' + encodeURIComponent(url);
+  function refresh() {
+    btn.href = 'https://x.com/intent/post?text=' + encodeURIComponent(text) +
+               '&url=' + encodeURIComponent(url());
+  }
+  refresh();
+  ['focus', 'pointerdown'].forEach(function (ev) { btn.addEventListener(ev, refresh); });
   var timer = null;
   function say(t) {
     if (!toast) return;
@@ -87,14 +104,16 @@
     clearTimeout(timer); timer = setTimeout(function () { toast.classList.remove('shown'); }, 2000);
   }
   btn.addEventListener('click', function (e) {
+    refresh();
+    var u = url();
     if (navigator.share) {
       e.preventDefault();
-      navigator.share({ title: name, text: text, url: url }).catch(function () {});
+      navigator.share({ title: name, text: text, url: u }).catch(function () {});
       return;
     }
     if (navigator.clipboard && navigator.clipboard.writeText) {
       e.preventDefault();
-      navigator.clipboard.writeText(url).then(function () { say('リンクをコピーしました'); },
+      navigator.clipboard.writeText(u).then(function () { say('リンクをコピーしました'); },
         function () { window.open(btn.href, '_blank', 'noopener'); });
     }
   });
@@ -236,7 +255,7 @@
 <script>window.TOUR = {"key": "gacha", "steps": [{"sel": "#i-gem", "t": "今の石とチャージを入れます", "d": "持っている青輝石と、呼び出しチャージの数を入れると、お迎えできる確率が出ます。"}, {"sel": "#l-pulls", "t": "内訳で中身を確かめます", "d": "何連引けるか、天井まで何連か、★3 が何人出るかを分けて出しています。"}, {"sel": "#tb-q", "t": "何連で届くかを見ます", "d": "確率を先に決めて「そこに届くには何連いるか」を逆から見られます。"}]};</script>
 <script src="../tour.js?v=2"></script>
 
-<script src="../share.js?v=2"></script>
+<script src="../share.js?v=3"></script>
 <script src="../hint.js?v=1"></script>
 
 <footer>
@@ -375,6 +394,23 @@
     }
 
     drawChart(r, pulls, p);
+    location.replace('#' + toHash());
+  }
+
+  /* ---- 状態を URL に残す。**共有帯の「開いている状態ごと URL になります」を
+     嘘にしない。**石・チャージ・人数・募集の種類の 4 つで画面が決まる */
+  function toHash() {
+    return (parseInt(iGem.value, 10) || 0) + '|' + (parseInt(iCharge.value, 10) || 0) +
+      '|' + (parseInt(iCopies.value, 10) || 1) + '|' + bannerKind;
+  }
+  window.shareUrl = function () { return '#' + toHash(); };
+  function fromHash() {
+    var p = location.hash.replace(/^#/, '').split('|');
+    if (p.length < 3) return;
+    if (+p[0] >= 0) iGem.value = Math.floor(+p[0]);
+    if (+p[1] >= 0 && +p[1] <= 199) iCharge.value = Math.floor(+p[1]);
+    if (+p[2] >= 1 && +p[2] <= 6) iCopies.value = Math.floor(+p[2]);
+    if (p[3] === 'fes' || p[3] === 'normal') bannerKind = p[3];
   }
 
   // ---- 折れ線。累積確率だけの 1 本。**軸は 1 つ。**
@@ -420,21 +456,25 @@
       g + '<path class="cx-area" d="' + a + '"/><path class="cx-line" d="' + d + '"/>' + mark + '</svg>';
   }
 
-  el('banner').addEventListener('click', function (e) {
-    var b = e.target.closest('button');
-    if (!b) return;
-    bannerKind = b.dataset.b;
+  function setBannerUI() {
     [].forEach.call(el('banner').querySelectorAll('button'), function (x) {
       x.setAttribute('aria-pressed', String(x.dataset.b === bannerKind));
     });
     el('banner-note').textContent = bannerKind === 'fes'
       ? '★3 の合計が 6.0%（ピックアップ 0.7% ／ 周年・限定のすり抜け 0.9% ／ 通常★3 4.4%）。'
       : '★3 が 3.0%（ピックアップ 0.7% ／ すり抜け 2.3%）。';
+  }
+  el('banner').addEventListener('click', function (e) {
+    var b = e.target.closest('button');
+    if (!b) return;
+    bannerKind = b.dataset.b;
+    setBannerUI();
     calc();
   });
 
   [iGem, iCharge, iCopies].forEach(function (n) { n.addEventListener('input', calc); });
-  el('banner-note').textContent = '★3 が 3.0%（ピックアップ 0.7% ／ すり抜け 2.3%）。';
+  fromHash();
+  setBannerUI();
   calc();
 })();
 </script>

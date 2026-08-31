@@ -2159,7 +2159,16 @@
     if (name && hit.length === 1) return hit[0];
     // 名前は合っているのに候補に無い＝もう編成に入っている
     var dup = D.students.filter(function (s) { return s.sq === sq && s.n === name; });
-    return dup.length ? { dup: true, n: dup[0].n } : null;
+    if (dup.length) return { dup: true, n: dup[0].n };
+    // **区分違い。**スペシャルの子をストライカーの枠に打つと、いままで
+    // 「見つかりません」と嘘をついていた（2026-08-31）。名前は合っているので、
+    // どちらの枠に入れるべきかを言う
+    var other = D.students.filter(function (s) { return s.sq !== sq && s.n === name; });
+    if (!other.length) {
+      other = D.students.filter(function (s) { return s.sq !== sq && s.n.indexOf(name) === 0; });
+      if (!name || other.length !== 1) other = [];
+    }
+    return other.length ? { wrongSq: true, n: other[0].n } : null;
   }
   function say(msg) {
     var e = el('err');
@@ -2180,10 +2189,22 @@
     if (exactOnly && !D.students.some(function (s) { return s.sq === sq && s.n === name; })) return;
     var d = findByName(name, sq, i);
     if (!d) { if (!exactOnly) say('その名前の生徒が見つかりません。'); return; }
+    if (d.wrongSq) {
+      var ja = sq === 'Main' ? 'スペシャル' : 'ストライカー';
+      say(d.n + ' は' + ja + 'の子です。' + ja + 'の枠に入れてください。');
+      return;
+    }
     if (d.dup) { say(d.n + ' はもう編成に入っています。同じ子は 1 人までです。'); return; }
     say('');
     slots[i] = { id: d.id, ex: 5, sk: 10, tier: {}, on: {} };
     draw();
+    // **次の空き枠へフォーカスを送る。**draw() で入力欄ごと消えるので、
+    // 送らないと 1 人ごとに次の枠をクリックし直すことになる（2026-08-31）。
+    // 後ろの枠だけ。前に飛ぶと、わざと空けた枠へ勝手に戻って鬱陶しい
+    var nexts = document.querySelectorAll('.slot.empty input[data-k="pick"]');
+    for (var nx = 0; nx < nexts.length; nx++) {
+      if (+nexts[nx].dataset.i > i) { nexts[nx].focus(); break; }
+    }
   }
 
   document.addEventListener('change', function (ev) {

@@ -22,7 +22,7 @@
 <meta name="twitter:description" content="クリアタイムからスコアを出します。逆に、目標スコアに届くのに何分何秒で倒せばいいかも出せます。総力戦と大決戦の全ボス・全難易度に対応。">
 <meta name="twitter:image" content="https://arona-bot.com/images/og/raid-score.jpg">
 <link rel="stylesheet" href="../../style.css?v=17">
-<link rel="stylesheet" href="../tool.css?v=11">
+<link rel="stylesheet" href="../tool.css?v=13">
 <style>
   /* 相手を選ぶ */
   .bosses { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 8px; }
@@ -102,13 +102,30 @@
 (function () {
   var btn = document.getElementById('share-page'), toast = document.getElementById('toast-page');
   if (!btn) return;
-  // **`#` を落とさない。**TL のように状態をハッシュに入れているツールでは、
-  // ここを削ると相手の画面に同じ結果が出ない（2026-08-30）
-  var url = location.href;
+  /* **`#` を落とさない。**TL のように状態をハッシュに入れているツールでは、
+     ここを削ると相手の画面に同じ結果が出ない（2026-08-30）。
+
+     **読み込み時に 1 回だけ取らない。**そのあと入力を変えてハッシュが
+     書き換わっても、古い URL を配ってしまう（2026-08-31 にサブエージェント
+     2 体が別々に見つけた）。`share.js` の X ボタンと同じく、押される直前に
+     読み直す。`window.shareUrl` を持つツールでは、そちらを先に呼ぶ。 */
+  function url() {
+    try {
+      if (typeof window.shareUrl === 'function') {
+        var h = window.shareUrl();
+        if (h) return location.href.split('#')[0] + h;
+      }
+    } catch (e) { /* ツール側が転んでも共有は動かす */ }
+    return location.href;
+  }
   var name = document.title.split('｜')[0];
   var text = name + '（AronaBot のツール）';
-  btn.href = 'https://x.com/intent/post?text=' + encodeURIComponent(text) +
-             '&url=' + encodeURIComponent(url);
+  function refresh() {
+    btn.href = 'https://x.com/intent/post?text=' + encodeURIComponent(text) +
+               '&url=' + encodeURIComponent(url());
+  }
+  refresh();
+  ['focus', 'pointerdown'].forEach(function (ev) { btn.addEventListener(ev, refresh); });
   var timer = null;
   function say(t) {
     if (!toast) return;
@@ -116,14 +133,16 @@
     clearTimeout(timer); timer = setTimeout(function () { toast.classList.remove('shown'); }, 2000);
   }
   btn.addEventListener('click', function (e) {
+    refresh();
+    var u = url();
     if (navigator.share) {
       e.preventDefault();
-      navigator.share({ title: name, text: text, url: url }).catch(function () {});
+      navigator.share({ title: name, text: text, url: u }).catch(function () {});
       return;
     }
     if (navigator.clipboard && navigator.clipboard.writeText) {
       e.preventDefault();
-      navigator.clipboard.writeText(url).then(function () { say('リンクをコピーしました'); },
+      navigator.clipboard.writeText(u).then(function () { say('リンクをコピーしました'); },
         function () { window.open(btn.href, '_blank', 'noopener'); });
     }
   });
@@ -169,14 +188,14 @@
         <div class="btnrow" style="margin-bottom:12px">
           <div class="seg" id="turns" role="group" aria-label="凸数">
             <button type="button" data-n="1" aria-pressed="true">1 凸</button>
-            <button type="button" data-n="2">2 凸</button>
-            <button type="button" data-n="3">3 凸</button>
-            <button type="button" data-n="4">4 凸</button>
-            <button type="button" data-n="5">5 凸</button>
+            <button type="button" data-n="2" aria-pressed="false">2 凸</button>
+            <button type="button" data-n="3" aria-pressed="false">3 凸</button>
+            <button type="button" data-n="4" aria-pressed="false">4 凸</button>
+            <button type="button" data-n="5" aria-pressed="false">5 凸</button>
           </div>
           <div class="seg" id="tmode" role="group" aria-label="最後の凸の入れ方">
             <button type="button" data-t="clear" aria-pressed="true">経過で入れる</button>
-            <button type="button" data-t="left">残りで入れる</button>
+            <button type="button" data-t="left" aria-pressed="false">残りで入れる</button>
           </div>
         </div>
         <div id="times"></div>
@@ -277,7 +296,7 @@
 <script>window.TOUR = {"key": "raid-score", "steps": [{"sel": "#bosses", "t": "ボスを選びます", "d": "総力戦と大決戦を切り替えられます。地形と装甲はスコアに関係しないので、選ぶ必要はありません。"}, {"sel": "#times", "t": "クリアタイムを入れます", "d": "倒すまでにかかった合計の時間です。部隊をまたいだぶんも足してください。"}, {"sel": "#o-score", "t": "スコアが出ます", "d": "内訳と、いちばん高いときとの差も出します。倒しきれなかったときは、削れた HP の割合を入れてください。"}, {"sel": "#i-goal", "t": "逆にも引けます", "d": "狙いたいスコアを入れると、何分何秒で倒せば届くかが出ます。"}]};</script>
 <script src="../tour.js?v=2"></script>
 
-<script src="../share.js?v=2"></script>
+<script src="../share.js?v=3"></script>
 <script src="../hint.js?v=1"></script>
 
 <footer>
@@ -461,6 +480,7 @@
     el('pick-lead').innerHTML = esc(r.n) + '（' + esc(R.diffJa[r.d] || r.d) + '）は<b>1 戦 ' +
       r.du + ' 秒</b>。' +
       '<button type="button" class="qm" data-hint="地形と装甲はスコアに関係しません。"></button>';
+    syncHash();
   }
 
   /* 目盛り。**現実に届く範囲の中で、どこに居るか。**
@@ -526,6 +546,15 @@
       return;
     }
     var need = (r.mx - (g - lo)) / r.ps;
+    // **この凸数では時間切れが先に来る。**1 凸 3 分ボスに「57:03 までに倒せば」と
+    // 出しても意味がない（2026-08-31）。合計が制限時間 × 凸数を超えられない以上、
+    // 要るタイムがそれ以上なら、倒しきりさえすれば必ず届く
+    if (need >= r.du * turns) {
+      var worst = r.cl + r.hp + Math.max(0, r.mx - r.du * turns * r.ps);
+      el('goal-out').innerHTML = '<b>倒しきれば必ず届きます。</b>' + turns + ' 凸ぶんの合計 ' +
+        clock(r.du * turns) + ' をかけても ' + fmt(worst) + ' 点は入ります。';
+      return;
+    }
     var pre = r.du * (turns - 1);
     var lastNeed = need - pre;
     el('goal-out').innerHTML = '<b>合計 ' + clock(Math.max(0, need)) + ' までに倒せば ' + fmt(g) +
@@ -539,6 +568,68 @@
             : '<br><b>' + turns + ' 凸では届きません。</b>前の ' + (turns - 1) + ' 回で ' +
               clock(pre) + ' 使ってしまうためです。')
         : '');
+  }
+
+  /* ---------- URL ----------
+     **開いている状態を URL に残す。**下の共有の帯が「開いている状態ごと
+     URL になります」と言うので、それを本当にする（2026-08-31。それまで
+     このツールは状態が URL に入らなかった）。
+     区画は `rs=種類~ボス~難易度~凸数~入れ方~凸ごとの秒（_区切り）~HP~目標`。 */
+  function tstr() {
+    return times.slice(0, turns).map(function (v) {
+      return String(Math.round((v || 0) * 10) / 10);
+    }).join('_');
+  }
+  function hash() {
+    return 'rs=' + [kind, boss, diff, turns, tmode, tstr(), hp,
+      Math.max(0, parseFloat(el('i-goal').value) || 0)].join('~');
+  }
+  // 既定のまま。**このときはハッシュを書かず、URL を短いままにしておく**
+  // （既定のボスと難易度はデータ次第なので、ここで同じ手順で組んでおく）
+  var DEF_HASH = (function () {
+    var list = bossesOf('raid');
+    var b0 = list.length ? list[0].b : '';
+    var ds = diffsOf('raid', b0);
+    return 'rs=' + ['raid', b0, ds[ds.length - 1] || '', 1, 'clear', '90', 100, 0].join('~');
+  })();
+  window.shareUrl = function () { return '#' + hash(); };
+  function syncHash() {
+    var h = hash();
+    try {
+      history.replaceState(null, '', location.pathname + location.search +
+        (h === DEF_HASH ? '' : '#' + h));
+    } catch (e) { /* file:// では黙って諦める */ }
+  }
+  function fromHash() {
+    var seg = location.hash.replace(/^#/, '').split('&').filter(function (x) {
+      return x.indexOf('rs=') === 0;
+    })[0];
+    if (!seg) return;
+    var p = seg.slice(3).split('~');
+    if (p[0] === 'raid' || p[0] === 'elim') kind = p[0];
+    if (p[1]) boss = p[1];          // 実在するかは drawBosses() が確かめる
+    if (p[2]) diff = p[2];          // 同上
+    var n = parseInt(p[3], 10);
+    if (n >= 1 && n <= 5) turns = n;
+    if (p[4] === 'clear' || p[4] === 'left') tmode = p[4];
+    if (p[5]) {
+      var ts = p[5].split('_').map(function (x) { return Math.max(0, parseFloat(x) || 0); });
+      if (ts.length) times = ts;
+    }
+    var hv = parseInt(p[6], 10);
+    if (hv >= 5 && hv <= 100 && hv % 5 === 0) { hp = hv; el('i-hp').value = String(hv); }
+    var g = parseFloat(p[7]);
+    if (g > 0) el('i-goal').value = g;
+    // 押しボタンの見た目を合わせる（種類・凸数・入れ方は描き直しが無い）
+    [].forEach.call(el('kind').querySelectorAll('button'), function (x) {
+      x.setAttribute('aria-pressed', String(x.dataset.k === kind));
+    });
+    [].forEach.call(el('turns').querySelectorAll('button'), function (x) {
+      x.setAttribute('aria-pressed', String(+x.dataset.n === turns));
+    });
+    [].forEach.call(el('tmode').querySelectorAll('button'), function (x) {
+      x.setAttribute('aria-pressed', String(x.dataset.t === tmode));
+    });
   }
 
   el('kind').addEventListener('click', function (e) {
@@ -593,6 +684,8 @@
   });
 
   el('ver').textContent = R.fetched;
+  // URL に状態が入っていたら、それを戻してから最初の描画をする
+  fromHash();
   drawBosses();
   drawTimes();
   draw();

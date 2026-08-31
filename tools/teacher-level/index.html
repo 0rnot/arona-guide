@@ -22,7 +22,7 @@
 <meta name="twitter:description" content="目標の先生レベルまで、あと何 AP・何日かかるかを出します。経験値 2 倍期間と新米先生ブースト、Lv90 のあとの熟達証書にも対応。">
 <meta name="twitter:image" content="https://arona-bot.com/images/og/teacher-level.jpg">
 <link rel="stylesheet" href="../../style.css?v=17">
-<link rel="stylesheet" href="../tool.css?v=11">
+<link rel="stylesheet" href="../tool.css?v=13">
 <style>
   .pick-row2 { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; margin-top: 18px; }
   .pick-row2 .lb2 { font-size: .8rem; font-weight: 700; color: var(--fg-mute); }
@@ -33,6 +33,8 @@
   .mrow .mc .k { font-size: .74rem; color: var(--fg-mute); }
   .mrow .mc .v { font-size: 1.15rem; font-weight: 800; font-variant-numeric: tabular-nums; }
   .mrow .mc .v small { font-size: .68rem; font-weight: 600; color: var(--fg-mute); margin-left: .25em; }
+  /* ブーストの行だけ値が文になる。共有 CSS の nowrap のままだとスマホで
+     画面ごと横に伸びる（390px で実測 59px はみ出た）ので、この行だけ折り返す */
 </style>
 </head>
 <body>
@@ -72,13 +74,30 @@
 (function () {
   var btn = document.getElementById('share-page'), toast = document.getElementById('toast-page');
   if (!btn) return;
-  // **`#` を落とさない。**TL のように状態をハッシュに入れているツールでは、
-  // ここを削ると相手の画面に同じ結果が出ない（2026-08-30）
-  var url = location.href;
+  /* **`#` を落とさない。**TL のように状態をハッシュに入れているツールでは、
+     ここを削ると相手の画面に同じ結果が出ない（2026-08-30）。
+
+     **読み込み時に 1 回だけ取らない。**そのあと入力を変えてハッシュが
+     書き換わっても、古い URL を配ってしまう（2026-08-31 にサブエージェント
+     2 体が別々に見つけた）。`share.js` の X ボタンと同じく、押される直前に
+     読み直す。`window.shareUrl` を持つツールでは、そちらを先に呼ぶ。 */
+  function url() {
+    try {
+      if (typeof window.shareUrl === 'function') {
+        var h = window.shareUrl();
+        if (h) return location.href.split('#')[0] + h;
+      }
+    } catch (e) { /* ツール側が転んでも共有は動かす */ }
+    return location.href;
+  }
   var name = document.title.split('｜')[0];
   var text = name + '（AronaBot のツール）';
-  btn.href = 'https://x.com/intent/post?text=' + encodeURIComponent(text) +
-             '&url=' + encodeURIComponent(url);
+  function refresh() {
+    btn.href = 'https://x.com/intent/post?text=' + encodeURIComponent(text) +
+               '&url=' + encodeURIComponent(url());
+  }
+  refresh();
+  ['focus', 'pointerdown'].forEach(function (ev) { btn.addEventListener(ev, refresh); });
   var timer = null;
   function say(t) {
     if (!toast) return;
@@ -86,14 +105,16 @@
     clearTimeout(timer); timer = setTimeout(function () { toast.classList.remove('shown'); }, 2000);
   }
   btn.addEventListener('click', function (e) {
+    refresh();
+    var u = url();
     if (navigator.share) {
       e.preventDefault();
-      navigator.share({ title: name, text: text, url: url }).catch(function () {});
+      navigator.share({ title: name, text: text, url: u }).catch(function () {});
       return;
     }
     if (navigator.clipboard && navigator.clipboard.writeText) {
       e.preventDefault();
-      navigator.clipboard.writeText(url).then(function () { say('リンクをコピーしました'); },
+      navigator.clipboard.writeText(u).then(function () { say('リンクをコピーしました'); },
         function () { window.open(btn.href, '_blank', 'noopener'); });
     }
   });
@@ -318,7 +339,7 @@
 <script>window.TOUR = {"key": "teacher-level", "steps": [{"sel": "#i-level", "t": "今のレベルと目標を入れます", "d": "そこまでに要る AP と、何日かかるかを出します。新米先生ブーストはレベルごとに倍率が変わります。"}, {"sel": "#preset", "t": "1 日に入る AP を決めます", "d": "自然回復・デイリー・カフェ・青輝石での回復を足し合わせます。カフェのランクで量が変わります。"}, {"sel": "#m-week", "t": "Lv90 のあとも見られます", "d": "経験値が上限に達したあと、使った AP が熟達証書に変わります。週にもらえる枚数には上限があります。"}]};</script>
 <script src="../tour.js?v=2"></script>
 
-<script src="../share.js?v=2"></script>
+<script src="../share.js?v=3"></script>
 <script src="../hint.js?v=1"></script>
 
 <footer>
@@ -654,6 +675,42 @@
 
   [iLevel, iExp, iTarget, cafeSel, drinkSel, gemSel, cDaily, cClan, cPack, iEtc]
     .forEach(function (n) { n.addEventListener('input', calc); n.addEventListener('change', calc); });
+
+  /* ---- 状態を URL に残す。**share.js が「結果を共有」のときに呼ぶ**
+     （eleph などと同じ作法。これが無いと、共有バーの「開いている状態ごと
+     URL になります」が嘘になる） */
+  window.shareUrl = function () {
+    return '#' + [iLevel.value, iExp.value, iTarget.value, xpMul,
+      el('i-boost').checked ? 1 : 0, plusPick, cafeSel.value, drinkSel.value,
+      gemSel.value, cDaily.checked ? 1 : 0, cClan.checked ? 1 : 0,
+      cPack.checked ? 1 : 0, iEtc.value || 0].join('|');
+  };
+  (function fromHash() {
+    var h = location.hash.replace(/^#/, '');
+    if (!h) return;
+    var p = h.split('|');
+    if (p.length < 13) return;
+    if (+p[0] >= 1 && +p[0] <= MAX) iLevel.value = +p[0];
+    if (+p[1] >= 0) iExp.value = +p[1];
+    if (+p[2] >= 1 && +p[2] <= MAX) iTarget.value = +p[2];
+    xpMul = +p[3] === 2 ? 2 : 1;
+    el('i-boost').checked = p[4] === '1';
+    plusPick = (+p[5] === 1 || +p[5] === 2) ? +p[5] : 0;
+    if (+p[6] >= 1 && +p[6] <= CAFE.length) cafeSel.value = +p[6];
+    if ([0, 30, 60, 90].indexOf(+p[7]) >= 0) drinkSel.value = +p[7];
+    if (+p[8] >= 0 && +p[8] <= GEM_MAX) gemSel.value = +p[8];
+    cDaily.checked = p[9] === '1';
+    cClan.checked = p[10] === '1';
+    cPack.checked = p[11] === '1';
+    if (+p[12] >= 0) iEtc.value = +p[12];
+    [].forEach.call(el('xp').querySelectorAll('button'), function (x) {
+      x.setAttribute('aria-pressed', String(+x.dataset.x === xpMul));
+    });
+    [].forEach.call(el('plus').querySelectorAll('button'), function (x) {
+      x.setAttribute('aria-pressed', String(+x.dataset.p === plusPick));
+    });
+  })();
+
   el('ver').textContent = D.fetched;
   calc();
 })();

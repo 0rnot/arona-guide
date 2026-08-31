@@ -9,6 +9,11 @@
   var el = function (id) { return document.getElementById(id); };
   var NONE = null;                 // 生徒を選ぶ前
   var student = NONE;
+  /* レベルの上限。**need の行数がそのまま上限**（いまは 90。最終行は 0 で、
+     「Lv90 から先は無い」の意味）。90 と手で書いていると、上限が上がった日に
+     選択肢だけ古いまま残る——固有武器が★3 で取り残されていたのと同じ壊れ方
+     （2026-08-31 の先生の指摘。teacher-level・bond と同じ作法に揃えた） */
+  var LVMAX = C.need.length;
 
   function fmt(n) { return Math.round(n).toLocaleString('ja-JP'); }
 
@@ -17,7 +22,7 @@
      min / max は「その項目が取りうる値」。step は段の配列で、
      値 v から v+1 へ上がるのに使うのが step[v - min]。 */
   var ROWS = [
-    { k: 'lv',  nm: 'レベル',        sub: 'Lv1 〜 Lv90',                   min: 1, max: 90 },
+    { k: 'lv',  nm: 'レベル',        sub: 'Lv1 〜 Lv' + LVMAX,             min: 1, max: LVMAX },
     { k: 'ex',  nm: 'EX スキル',      sub: '戦術教育 BD で上げるところ',     min: 1, slot: 'ex' },
     { k: 'sk1', nm: 'ノーマルスキル', sub: '技術ノート。Lv10 は秘伝ノート',  min: 1, slot: 'sk' },
     { k: 'sk2', nm: 'パッシブスキル', sub: 'ノーマルと同じ表',               min: 1, slot: 'sk' },
@@ -29,7 +34,7 @@
 
   var state = {};                  // state[k] = { f: 今, t: 目標 }
   ROWS.forEach(function (r) { state[r.k] = { f: r.min, t: r.min }; });
-  state.lv = { f: 1, t: 90 };
+  state.lv = { f: 1, t: LVMAX };
 
   /** その項目が今の生徒で使えるか。使えない行は畳んで選べなくする。 */
   function avail(r) {
@@ -234,7 +239,7 @@
       // 「最大まで育成する余裕がない場合は数値が大きく上がるキリのいいLvを目指すと効率がいい」。
       // EX は最後の伸びが Lv5 なので上限まで、ほかは Lv7 で止める
       // （Lv10 はその 1 段だけで秘伝ノート 1 冊と 400 万クレジットが要る）
-      if (r.k === 'lv') return { f: 1, t: 90 };
+      if (r.k === 'lv') return { f: 1, t: LVMAX };
       if (r.slot === 'ex') return { f: 1, t: hi(r) };
       if (r.slot === 'sk') return { f: 1, t: Math.min(7, hi(r)) };
       return { f: lo(r), t: lo(r) };
@@ -258,16 +263,68 @@
     var st = state[s.dataset.k], v = parseInt(s.value, 10);
     st[s.dataset.w] = v;
     if (st.t < st.f) st[s.dataset.w === 'f' ? 't' : 'f'] = v;
+    // **手で変えたらプリセットの押下表示を消す。**もうその組み合わせではない
+    [].forEach.call(el('preset').querySelectorAll('button'), function (x) {
+      x.setAttribute('aria-pressed', 'false');
+    });
     drawGoals();
     calc();
   });
 
   el('i-student').addEventListener('input', function () { pickStudent(this.value.trim()); });
-  el('i-student').addEventListener('change', function () { pickStudent(this.value.trim()); });
+  /* **確定（change）のときだけ前方一致で補完する。**入力中に補完すると
+     打っている途中で別の生徒に飛ぶ（eleph と同じ作法）。
+     それでも見つからなければ、黙らずにエラーを出す */
+  el('i-student').addEventListener('change', function () {
+    var name = this.value.trim(), err = el('err');
+    err.hidden = true;
+    var exact = false;
+    for (var i = 0; i < C.stu.length; i++) if (C.stu[i].n === name) { exact = true; break; }
+    if (name && !exact) {
+      var low = name.toLowerCase(), hit = null;
+      for (var j = 0; j < C.stu.length; j++) {
+        if (C.stu[j].n.toLowerCase().indexOf(low) === 0) { hit = C.stu[j]; break; }
+      }
+      if (hit) { this.value = name = hit.n; }
+      else { err.textContent = '「' + name + '」という生徒が見つかりません。名前を選び直してください。'; err.hidden = false; }
+    }
+    pickStudent(name);
+  });
 
   el('students').innerHTML = C.stu.map(function (s) {
     return '<option value="' + s.n + '"></option>';
   }).join('');
+
+  /* ---- 状態を URL に残す。**share.js が「結果を共有」のときに呼ぶ**
+     （eleph などと同じ作法。これが無いと、共有バーの「開いている状態ごと
+     URL になります」が嘘になる）。形は `#生徒id|f.t|f.t|…`（ROWS の順） */
+  window.shareUrl = function () {
+    var p = [student ? student.id : 0];
+    ROWS.forEach(function (r) { p.push(state[r.k].f + '.' + state[r.k].t); });
+    return '#' + p.join('|');
+  };
+  (function fromHash() {
+    var h = location.hash.replace(/^#/, '');
+    if (!h) return;
+    var p = h.split('|');
+    if (p.length < 1 + ROWS.length) return;
+    var sid = parseInt(p[0], 10);
+    if (sid > 0) {
+      for (var i = 0; i < C.stu.length; i++) {
+        if (C.stu[i].id === sid) {
+          el('i-student').value = C.stu[i].n;
+          pickStudent(C.stu[i].n);
+          break;
+        }
+      }
+    }
+    ROWS.forEach(function (r, i) {
+      var q = String(p[i + 1]).split('.');
+      if (+q[0] >= 1) state[r.k].f = Math.floor(+q[0]);
+      if (+q[1] >= 1) state[r.k].t = Math.floor(+q[1]);
+    });
+    // 範囲を超えたぶんは drawGoals() が lo()/hi() に収める
+  })();
 
   var lvTotal = 0;
   for (var i = 0; i < C.need.length; i++) lvTotal += C.need[i];

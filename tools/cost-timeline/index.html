@@ -22,7 +22,7 @@
 <meta name="twitter:description" content="この編成なら、その EX は何秒目に撃てるのか。">
 <meta name="twitter:image" content="https://arona-bot.com/images/og/cost-timeline.jpg">
 <link rel="stylesheet" href="../../style.css?v=17">
-<link rel="stylesheet" href="../tool.css?v=11">
+<link rel="stylesheet" href="../tool.css?v=13">
 <style>
   /* 編成の 6 枠 */
   .party { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
@@ -257,13 +257,30 @@
 (function () {
   var btn = document.getElementById('share-page'), toast = document.getElementById('toast-page');
   if (!btn) return;
-  // **`#` を落とさない。**TL のように状態をハッシュに入れているツールでは、
-  // ここを削ると相手の画面に同じ結果が出ない（2026-08-30）
-  var url = location.href;
+  /* **`#` を落とさない。**TL のように状態をハッシュに入れているツールでは、
+     ここを削ると相手の画面に同じ結果が出ない（2026-08-30）。
+
+     **読み込み時に 1 回だけ取らない。**そのあと入力を変えてハッシュが
+     書き換わっても、古い URL を配ってしまう（2026-08-31 にサブエージェント
+     2 体が別々に見つけた）。`share.js` の X ボタンと同じく、押される直前に
+     読み直す。`window.shareUrl` を持つツールでは、そちらを先に呼ぶ。 */
+  function url() {
+    try {
+      if (typeof window.shareUrl === 'function') {
+        var h = window.shareUrl();
+        if (h) return location.href.split('#')[0] + h;
+      }
+    } catch (e) { /* ツール側が転んでも共有は動かす */ }
+    return location.href;
+  }
   var name = document.title.split('｜')[0];
   var text = name + '（AronaBot のツール）';
-  btn.href = 'https://x.com/intent/post?text=' + encodeURIComponent(text) +
-             '&url=' + encodeURIComponent(url);
+  function refresh() {
+    btn.href = 'https://x.com/intent/post?text=' + encodeURIComponent(text) +
+               '&url=' + encodeURIComponent(url());
+  }
+  refresh();
+  ['focus', 'pointerdown'].forEach(function (ev) { btn.addEventListener(ev, refresh); });
   var timer = null;
   function say(t) {
     if (!toast) return;
@@ -271,14 +288,16 @@
     clearTimeout(timer); timer = setTimeout(function () { toast.classList.remove('shown'); }, 2000);
   }
   btn.addEventListener('click', function (e) {
+    refresh();
+    var u = url();
     if (navigator.share) {
       e.preventDefault();
-      navigator.share({ title: name, text: text, url: url }).catch(function () {});
+      navigator.share({ title: name, text: text, url: u }).catch(function () {});
       return;
     }
     if (navigator.clipboard && navigator.clipboard.writeText) {
       e.preventDefault();
-      navigator.clipboard.writeText(url).then(function () { say('リンクをコピーしました'); },
+      navigator.clipboard.writeText(u).then(function () { say('リンクをコピーしました'); },
         function () { window.open(btn.href, '_blank', 'noopener'); });
     }
   });
@@ -343,7 +362,9 @@
         </div>
         <div class="numrow">
           <span class="nm">目標の時間<small>3:00 のように入れると、下のふたつの図に赤い縦線が出ます</small></span>
-          <input id="i-goal" type="text" inputmode="numeric" placeholder="3:00" autocomplete="off">
+          <!-- **inputmode="numeric" を付けない。**スマホの数字キーボードには「:」が
+               無く、3:00 という指示どおりの形を打てなかった（2026-08-31） -->
+          <input id="i-goal" type="text" placeholder="3:00" autocomplete="off">
         </div>
         <div class="numrow">
           <span class="nm">ステージのコスト回復力（実数）<small>ボスのギミックや、データに無いぶんを足し引きします</small></span>
@@ -362,7 +383,7 @@
         <p class="lead"><b>途中からコスト回復力が増える</b>分を、時刻・増加量・効果時間で足せます。<button type="button" class="qm" data-hint="ボスの怯みなどが対象です。増やした分は編成の合計にそのまま足し、％のバフは掛けません。"></button></p>
         <div id="gims" class="tlx-gims"></div>
         <div class="tlx-gimadd">
-          <label>発動<input id="i-gim-t" type="text" inputmode="numeric" placeholder="1:30" autocomplete="off"></label>
+          <label>発動<input id="i-gim-t" type="text" placeholder="1:30" autocomplete="off"></label>
           <label>増加量<input id="i-gim-v" type="number" step="100" placeholder="5000"></label>
           <label>効果時間<input id="i-gim-d" type="number" step="1" placeholder="23"></label>
           <button type="button" class="btn" id="gim-add">足す</button>
@@ -562,7 +583,7 @@
 <script src="../panes.js?v=1"></script>
 <script src="../tour.js?v=2"></script>
 
-<script src="../share.js?v=2"></script>
+<script src="../share.js?v=3"></script>
 <script src="../hint.js?v=1"></script>
 
 <footer>

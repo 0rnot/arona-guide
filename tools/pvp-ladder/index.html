@@ -22,7 +22,7 @@
 <meta name="twitter:description" content="今の順位から 1 位まで、あと何回勝てばいいか。挑戦できる相手の範囲をそのまま辿って出します。">
 <meta name="twitter:image" content="https://arona-bot.com/images/og/pvp-ladder.jpg">
 <link rel="stylesheet" href="../../style.css?v=17">
-<link rel="stylesheet" href="../tool.css?v=11">
+<link rel="stylesheet" href="../tool.css?v=13">
 <style>
   /* 階段。**1 行 1 戦。**上から順に読めるようにする */
   .ladder { display: flex; flex-direction: column; gap: 0; margin-top: 6px; }
@@ -85,13 +85,30 @@
 (function () {
   var btn = document.getElementById('share-page'), toast = document.getElementById('toast-page');
   if (!btn) return;
-  // **`#` を落とさない。**TL のように状態をハッシュに入れているツールでは、
-  // ここを削ると相手の画面に同じ結果が出ない（2026-08-30）
-  var url = location.href;
+  /* **`#` を落とさない。**TL のように状態をハッシュに入れているツールでは、
+     ここを削ると相手の画面に同じ結果が出ない（2026-08-30）。
+
+     **読み込み時に 1 回だけ取らない。**そのあと入力を変えてハッシュが
+     書き換わっても、古い URL を配ってしまう（2026-08-31 にサブエージェント
+     2 体が別々に見つけた）。`share.js` の X ボタンと同じく、押される直前に
+     読み直す。`window.shareUrl` を持つツールでは、そちらを先に呼ぶ。 */
+  function url() {
+    try {
+      if (typeof window.shareUrl === 'function') {
+        var h = window.shareUrl();
+        if (h) return location.href.split('#')[0] + h;
+      }
+    } catch (e) { /* ツール側が転んでも共有は動かす */ }
+    return location.href;
+  }
   var name = document.title.split('｜')[0];
   var text = name + '（AronaBot のツール）';
-  btn.href = 'https://x.com/intent/post?text=' + encodeURIComponent(text) +
-             '&url=' + encodeURIComponent(url);
+  function refresh() {
+    btn.href = 'https://x.com/intent/post?text=' + encodeURIComponent(text) +
+               '&url=' + encodeURIComponent(url());
+  }
+  refresh();
+  ['focus', 'pointerdown'].forEach(function (ev) { btn.addEventListener(ev, refresh); });
   var timer = null;
   function say(t) {
     if (!toast) return;
@@ -99,14 +116,16 @@
     clearTimeout(timer); timer = setTimeout(function () { toast.classList.remove('shown'); }, 2000);
   }
   btn.addEventListener('click', function (e) {
+    refresh();
+    var u = url();
     if (navigator.share) {
       e.preventDefault();
-      navigator.share({ title: name, text: text, url: url }).catch(function () {});
+      navigator.share({ title: name, text: text, url: u }).catch(function () {});
       return;
     }
     if (navigator.clipboard && navigator.clipboard.writeText) {
       e.preventDefault();
-      navigator.clipboard.writeText(url).then(function () { say('リンクをコピーしました'); },
+      navigator.clipboard.writeText(u).then(function () { say('リンクをコピーしました'); },
         function () { window.open(btn.href, '_blank', 'noopener'); });
     }
   });
@@ -149,7 +168,7 @@
           <span class="lb" style="display:block;font-size:.84rem;font-weight:700;margin-bottom:.5em">選び方</span>
           <div class="seg" id="mode" role="group" aria-label="経路の選び方">
             <button type="button" data-m="top" aria-pressed="true">最短で登る</button>
-            <button type="button" data-m="many">対戦回数を稼ぐ</button>
+            <button type="button" data-m="many" aria-pressed="false">対戦回数を稼ぐ</button>
           </div>
           <p id="mode-note" style="color:var(--fg-mute);font-size:.78rem;margin:.7em 0 0;line-height:1.7"></p>
         </div>
@@ -158,7 +177,9 @@
 
       <div class="panel">
         <div class="panel-h"><h2>登り方</h2></div>
-        <p class="lead">上から順に、この順位の相手に勝っていきます。<button type="button" class="qm" data-hint="実際に出る相手は範囲の中からランダムなので、いちばん上の順位が毎回並ぶとは限りません。表示が渋いと、その日のうちに登り切れないこともあります。負けると順位はおよそ 1.4 倍まで落ちます。この経路は勝ち続けた場合の回数です。"></button></p>
+        <!-- **答えの数字をここにも出す。**「勝つ回数」の枠はスマホだと階段 23 段の
+             下（入力から約 2,300px）に居て、入力しても答えが見えなかった（2026-08-31 に実測） -->
+        <p class="lead"><b id="o-n"></b>上から順に、この順位の相手に勝っていきます。<button type="button" class="qm" data-hint="実際に出る相手は範囲の中からランダムなので、いちばん上の順位が毎回並ぶとは限りません。表示が渋いと、その日のうちに登り切れないこともあります。負けると順位はおよそ 1.4 倍まで落ちます。この経路は勝ち続けた場合の回数です。"></button></p>
         <div class="ladder" id="ladder"></div>
       </div>
     </div>
@@ -234,7 +255,7 @@
 <script>window.TOUR = {"key": "pvp-ladder", "steps": [{"sel": "#i-rank", "t": "今の順位と目標を入れます", "d": "そこまで登るのに何勝いるか、何日かかるか、石を割るなら何個かを出します。"}, {"sel": "#ladder", "t": "登り方が段で出ます", "d": "報酬が 1 段良くなる境目を跨ぐたびに、もらえるものが増えます。"}, {"sel": "#l-now-k", "t": "1 日の差を見ます", "d": "今の順位帯と目標の順位帯で、毎日もらえるものがどれだけ変わるかを並べています。"}]};</script>
 <script src="../tour.js?v=2"></script>
 
-<script src="../share.js?v=2"></script>
+<script src="../share.js?v=3"></script>
 <script src="../hint.js?v=1"></script>
 
 <footer>
@@ -294,12 +315,42 @@
 
   function fmt(n) { return Math.round(n).toLocaleString('ja-JP'); }
 
+  /* ---------- URL ----------
+     **開いている状態を URL に残す。**下の共有の帯が「開いている状態ごと
+     URL になります」と言うので、それを本当にする（2026-08-31。それまで
+     このツールは状態が URL に入らなかった）。
+     区画は `pl=順位~目標~選び方`。 */
+  function hash() { return 'pl=' + [iRank.value, goal, mode].join('~'); }
+  // 既定のまま。**このときはハッシュを書かず、URL を短いままにしておく**
+  var DEF_HASH = 'pl=15001~1~top';
+  window.shareUrl = function () { return '#' + hash(); };
+  function syncHash() {
+    var h = hash();
+    try {
+      history.replaceState(null, '', location.pathname + location.search +
+        (h === DEF_HASH ? '' : '#' + h));
+    } catch (e) { /* file:// では黙って諦める */ }
+  }
+  function fromHash() {
+    var seg = location.hash.replace(/^#/, '').split('&').filter(function (x) {
+      return x.indexOf('pl=') === 0;
+    })[0];
+    if (!seg) return;
+    var p = seg.slice(3).split('~');
+    var r = parseInt(p[0], 10);
+    if (r >= 2 && r <= P.MAX_RANK) iRank.value = r;
+    var g = parseInt(p[1], 10);
+    if (P.BORDERS.indexOf(g) >= 0) { goal = g; iGoal.value = String(g); }
+    if (p[2] === 'top' || p[2] === 'many') mode = p[2];
+  }
+
   function calc() {
     var rank = parseInt(iRank.value, 10);
     if (!(rank >= 2 && rank <= P.MAX_RANK)) {
       el('f-rank').classList.add('bad');
       el('err').textContent = '順位は 2 〜 ' + fmt(P.MAX_RANK) + ' で入れてください。シーズンの開始時は 15001 位です。';
       el('err').hidden = false;
+      el('o-n').textContent = '';
       el('ladder').innerHTML = '';
       ['o-steps', 'o-days', 'o-gem'].forEach(function (o) { el(o).textContent = '—'; });
       return;
@@ -312,6 +363,7 @@
       el('o-steps-sub').textContent = 'もう ' + fmt(goal) + ' 位以内です';
       el('o-days').textContent = '—';
       el('o-gem').textContent = '—';
+      el('o-n').textContent = '';
       el('ladder').innerHTML = '<p style="color:var(--fg-mute);font-size:.88rem;margin:0">もう ' + fmt(goal) + ' 位以内なので、登る必要はありません。</p>';
       drawRewards(rank);
       return;
@@ -320,6 +372,7 @@
     var r = P.path(rank, goal, mode);
     var n = r.steps.length;
 
+    el('o-n').textContent = 'あと ' + fmt(n) + ' 勝。';
     el('o-steps').innerHTML = fmt(n) + '<small>回</small>';
     el('o-steps-sub').textContent = fmt(rank) + ' 位 → ' + fmt(goal) + ' 位' + (r.ok ? '' : '（届きませんでした）');
 
@@ -362,6 +415,7 @@
       prev = hi;
     });
     el('tb-rw').innerHTML = rows;
+    syncHash();
   }
 
   el('i-goal').addEventListener('change', function () {
@@ -381,7 +435,17 @@
     calc();
   });
   iRank.addEventListener('input', calc);
-  el('mode-note').textContent = '最短ルートです。';
+  // URL に状態が入っていたら、それを入力へ戻してから最初の計算をする
+  fromHash();
+  [].forEach.call(el('mode').querySelectorAll('button'), function (x) {
+    x.setAttribute('aria-pressed', String(x.dataset.m === mode));
+  });
+  el('mode-note').textContent = mode === 'many'
+    ? '回数は増えますが、対戦ミッションの消化に向きます。'
+    : '最短ルートです。';
+  // **目標の報酬は最初から出す。**change を待つと、既定の「1 位」の報酬が
+  // 一度も見えない（2026-08-31）
+  noteGoal();
   calc();
 })();
 </script>

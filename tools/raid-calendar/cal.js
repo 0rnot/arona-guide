@@ -39,6 +39,44 @@
   var kind = 'all', terrain = '', boss = null, shown = 20;
   var now = Math.floor(Date.now() / 1000);
 
+  /* ---------- URL ----------
+     **開いている絞り込みを URL に残す。**下の共有の帯が「開いている状態ごと
+     URL になります」と言うので、それを本当にする（2026-08-31。それまで
+     このツールは状態が URL に入らなかった）。
+     区画は `rc=種類~地形~ボス` の 1 つだけ。**`pane=` は `../panes.js` の
+     持ちものなので触らない**——自分の区画だけ入れ替えて、ほかは順番ごと残す
+     （`tools/raid/tl-search.js` の `tls=` と同じ流儀）。 */
+  function hash() { return 'rc=' + [kind, terrain, boss == null ? '' : boss].join('~'); }
+  function syncHash() {
+    var mine = (kind !== 'all' || terrain || boss != null) ? hash() : '';
+    var parts = location.hash.replace(/^#/, '').split('&').filter(function (x) {
+      return x && x.indexOf('rc=') !== 0;
+    });
+    if (mine) parts.push(mine);
+    var h = parts.join('&');
+    try {
+      history.replaceState(null, '', location.pathname + location.search + (h ? '#' + h : ''));
+    } catch (e) { /* file:// では黙って諦める */ }
+  }
+  function fromHash() {
+    var seg = location.hash.replace(/^#/, '').split('&').filter(function (x) {
+      return x.indexOf('rc=') === 0;
+    })[0];
+    if (!seg) return;
+    var p = seg.slice(3).split('~');
+    if (p[0] === 'all' || p[0] === 'raid' || p[0] === 'elim') kind = p[0];
+    if (p[1] === '' || TERRAIN[p[1]]) terrain = p[1] || '';
+    var b = parseInt(p[2], 10);
+    if (C.bosses[String(b)]) boss = b;
+    // 押しボタンの見た目を合わせる（種類と地形は描き直しが無い）
+    [].forEach.call(el('kind').querySelectorAll('button'), function (x) {
+      x.setAttribute('aria-pressed', String(x.dataset.k === kind));
+    });
+    [].forEach.call(el('terrain').querySelectorAll('button'), function (x) {
+      x.setAttribute('aria-pressed', String(x.dataset.t === terrain));
+    });
+  }
+
   function bossOf(id) { return C.bosses[String(id)]; }
   function img(b) { return '../img/' + b.ic + '.webp'; }
 
@@ -151,7 +189,7 @@
     }).join('');
   }
 
-  function draw() { drawBosses(); drawList(); }
+  function draw() { drawBosses(); drawList(); syncHash(); }
 
   /** 記録の箱まで送る。**上のバーは `position: sticky` なので、その高さぶん
       余計に上げないと見出しと絞り込みがバーの下に隠れる**（2026-08-30 の
@@ -182,7 +220,7 @@
     [].forEach.call(el('kind').querySelectorAll('button'), function (x) {
       x.setAttribute('aria-pressed', String(x.dataset.k === kind));
     });
-    drawList();
+    drawList(); syncHash();
   });
   el('terrain').addEventListener('click', function (ev) {
     var b = ev.target.closest('button'); if (!b) return;
@@ -190,11 +228,15 @@
     [].forEach.call(el('terrain').querySelectorAll('button'), function (x) {
       x.setAttribute('aria-pressed', String(x.dataset.t === terrain));
     });
-    drawList();
+    drawList(); syncHash();
   });
   el('more').addEventListener('click', function () { shown += 30; drawList(); });
 
+  window.shareUrl = function () { return '#' + hash(); };
+
   el('ver').textContent = C.fetched;
+  // URL に絞り込みが入っていたら、それを戻してから最初の描画をする
+  fromHash();
   summary();
   draw();
 })();

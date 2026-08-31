@@ -171,6 +171,27 @@
     draw();
   });
 
+  /* ---- 状態を URL に残す。**share.js が「結果を共有」のときに呼ぶ**
+     （eleph などと同じ作法。これが無いと、共有バーの「開いている状態ごと
+     URL になります」が嘘になる） */
+  window.shareUrl = function () {
+    return '#' + [kind, pick || '', sort].join('|');
+  };
+  (function fromHash() {
+    var h = decodeURIComponent(location.hash.replace(/^#/, ''));
+    if (!h) return;
+    var p = h.split('|');
+    if (p[0] === 'oopart' || p[0] === 'note' || p[0] === 'bd') kind = p[0];
+    if (p[1] && fams[p[1]] && fams[p[1]].k === kind) pick = p[1];
+    if (p[2] === 'amount' || p[2] === 'name') sort = p[2];
+    [].forEach.call(el('kind').querySelectorAll('button'), function (x) {
+      x.setAttribute('aria-pressed', String(x.dataset.k === kind));
+    });
+    [].forEach.call(el('sort').querySelectorAll('button'), function (x) {
+      x.setAttribute('aria-pressed', String(x.dataset.s === sort));
+    });
+  })();
+
   el('ver').textContent = C.fetched;
   drawMats();
   draw();

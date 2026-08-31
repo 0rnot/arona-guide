@@ -22,7 +22,7 @@
 <meta name="twitter:description" content="贈り物を選ぶと、それが ×4 で効く生徒が顔つきで並びます。持て余している贈り物を誰に配ればいいかが一目で分かります。">
 <meta name="twitter:image" content="https://arona-bot.com/images/og/gift-search.jpg">
 <link rel="stylesheet" href="../../style.css?v=17">
-<link rel="stylesheet" href="../tool.css?v=11">
+<link rel="stylesheet" href="../tool.css?v=13">
 <style>
   /* 贈り物の一覧。**押して選ぶ。**顔の一覧が右に出る */
   .glist { display: grid; grid-template-columns: repeat(auto-fill, minmax(148px, 1fr)); gap: 8px; }
@@ -113,13 +113,30 @@
 (function () {
   var btn = document.getElementById('share-page'), toast = document.getElementById('toast-page');
   if (!btn) return;
-  // **`#` を落とさない。**TL のように状態をハッシュに入れているツールでは、
-  // ここを削ると相手の画面に同じ結果が出ない（2026-08-30）
-  var url = location.href;
+  /* **`#` を落とさない。**TL のように状態をハッシュに入れているツールでは、
+     ここを削ると相手の画面に同じ結果が出ない（2026-08-30）。
+
+     **読み込み時に 1 回だけ取らない。**そのあと入力を変えてハッシュが
+     書き換わっても、古い URL を配ってしまう（2026-08-31 にサブエージェント
+     2 体が別々に見つけた）。`share.js` の X ボタンと同じく、押される直前に
+     読み直す。`window.shareUrl` を持つツールでは、そちらを先に呼ぶ。 */
+  function url() {
+    try {
+      if (typeof window.shareUrl === 'function') {
+        var h = window.shareUrl();
+        if (h) return location.href.split('#')[0] + h;
+      }
+    } catch (e) { /* ツール側が転んでも共有は動かす */ }
+    return location.href;
+  }
   var name = document.title.split('｜')[0];
   var text = name + '（AronaBot のツール）';
-  btn.href = 'https://x.com/intent/post?text=' + encodeURIComponent(text) +
-             '&url=' + encodeURIComponent(url);
+  function refresh() {
+    btn.href = 'https://x.com/intent/post?text=' + encodeURIComponent(text) +
+               '&url=' + encodeURIComponent(url());
+  }
+  refresh();
+  ['focus', 'pointerdown'].forEach(function (ev) { btn.addEventListener(ev, refresh); });
   var timer = null;
   function say(t) {
     if (!toast) return;
@@ -127,14 +144,16 @@
     clearTimeout(timer); timer = setTimeout(function () { toast.classList.remove('shown'); }, 2000);
   }
   btn.addEventListener('click', function (e) {
+    refresh();
+    var u = url();
     if (navigator.share) {
       e.preventDefault();
-      navigator.share({ title: name, text: text, url: url }).catch(function () {});
+      navigator.share({ title: name, text: text, url: u }).catch(function () {});
       return;
     }
     if (navigator.clipboard && navigator.clipboard.writeText) {
       e.preventDefault();
-      navigator.clipboard.writeText(url).then(function () { say('リンクをコピーしました'); },
+      navigator.clipboard.writeText(u).then(function () { say('リンクをコピーしました'); },
         function () { window.open(btn.href, '_blank', 'noopener'); });
     }
   });
@@ -162,7 +181,7 @@
     <div class="tcol">
       <div class="panel">
         <div class="panel-h"><h2>どの贈り物ですか</h2></div>
-        <p class="lead">数字は ×4 で効く人数です。押すと右に顔が出ます。</p>
+        <p class="lead">数字は ×4 で効く人数です。押すと効く生徒が顔で並びます。</p>
         <div class="fields c2">
           <div class="field">
             <label for="i-q">名前で絞る</label>
@@ -186,7 +205,7 @@
         <div class="ph" id="pick-img">none</div>
         <div>
           <p class="nm" id="pick-name">まだ選んでいません</p>
-          <p class="note" id="pick-note">左で選ぶと、効く生徒が並びます。</p>
+          <p class="note" id="pick-note">贈り物を選ぶと、効く生徒が並びます。</p>
         </div>
       </div>
 
@@ -263,7 +282,7 @@
 ]};</script>
 <script src="../tour.js?v=2"></script>
 
-<script src="../share.js?v=2"></script>
+<script src="../share.js?v=3"></script>
 <script src="../hint.js?v=1"></script>
 
 <footer>
@@ -352,7 +371,7 @@
       box.classList.add('none');
       el('pick-img').outerHTML = '<div class="ph" id="pick-img">none</div>';
       el('pick-name').textContent = 'まだ選んでいません';
-      el('pick-note').textContent = '左で選ぶと、効く生徒が並びます。';
+      el('pick-note').textContent = '贈り物を選ぶと、効く生徒が並びます。';
       ['o-m4', 'o-m3', 'o-m2'].forEach(function (id) { el(id).textContent = '—'; });
       el('o-m3-sub').textContent = ''; el('o-m2-sub').textContent = '';
       el('groups').innerHTML = '<p class="empty">まだ贈り物を選んでいません。</p>';
@@ -407,6 +426,19 @@
     var id = +b.dataset.id;
     picked = (picked && picked.id === id) ? null : G.gifts.filter(function (g) { return g.id === id; })[0];
     drawList(); drawPick();
+    /* **スマホでは結果が一覧の下、約 4 画面先にある。**押しても画面が動かないと
+       「効いていない」ように見える（2026-08-31 に 390px で実測。#pick が top 3802px）。
+       結果の札が見えていないときだけ、そこまで動かす。topbar は sticky なので
+       その高さぶん下げる（`panes.js` の keepInView と同じ流儀） */
+    if (picked) {
+      var bar = document.querySelector('.topbar');
+      var off = (bar ? bar.getBoundingClientRect().height : 0) + 14;
+      var r = el('pick').getBoundingClientRect();
+      if (r.top < off || r.bottom > window.innerHeight) {
+        window.scrollTo({ top: Math.max(0, r.top + window.pageYOffset - off),
+                          behavior: 'smooth' });
+      }
+    }
   });
   ['i-q', 'i-rar'].forEach(function (id) { el(id).addEventListener('input', drawList); });
   ['i-school', 'i-min'].forEach(function (id) { el(id).addEventListener('change', drawPick); });

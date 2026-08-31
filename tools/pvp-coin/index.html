@@ -22,7 +22,7 @@
 <meta name="twitter:description" content="順位帯と買うものから、コインが 1 日でどれだけ増減するか。防衛勝利のぶんも数えます。">
 <meta name="twitter:image" content="https://arona-bot.com/images/og/pvp-coin.jpg">
 <link rel="stylesheet" href="../../style.css?v=17">
-<link rel="stylesheet" href="../tool.css?v=11">
+<link rel="stylesheet" href="../tool.css?v=13">
 </head>
 <body>
 
@@ -61,13 +61,30 @@
 (function () {
   var btn = document.getElementById('share-page'), toast = document.getElementById('toast-page');
   if (!btn) return;
-  // **`#` を落とさない。**TL のように状態をハッシュに入れているツールでは、
-  // ここを削ると相手の画面に同じ結果が出ない（2026-08-30）
-  var url = location.href;
+  /* **`#` を落とさない。**TL のように状態をハッシュに入れているツールでは、
+     ここを削ると相手の画面に同じ結果が出ない（2026-08-30）。
+
+     **読み込み時に 1 回だけ取らない。**そのあと入力を変えてハッシュが
+     書き換わっても、古い URL を配ってしまう（2026-08-31 にサブエージェント
+     2 体が別々に見つけた）。`share.js` の X ボタンと同じく、押される直前に
+     読み直す。`window.shareUrl` を持つツールでは、そちらを先に呼ぶ。 */
+  function url() {
+    try {
+      if (typeof window.shareUrl === 'function') {
+        var h = window.shareUrl();
+        if (h) return location.href.split('#')[0] + h;
+      }
+    } catch (e) { /* ツール側が転んでも共有は動かす */ }
+    return location.href;
+  }
   var name = document.title.split('｜')[0];
   var text = name + '（AronaBot のツール）';
-  btn.href = 'https://x.com/intent/post?text=' + encodeURIComponent(text) +
-             '&url=' + encodeURIComponent(url);
+  function refresh() {
+    btn.href = 'https://x.com/intent/post?text=' + encodeURIComponent(text) +
+               '&url=' + encodeURIComponent(url());
+  }
+  refresh();
+  ['focus', 'pointerdown'].forEach(function (ev) { btn.addEventListener(ev, refresh); });
   var timer = null;
   function say(t) {
     if (!toast) return;
@@ -75,14 +92,16 @@
     clearTimeout(timer); timer = setTimeout(function () { toast.classList.remove('shown'); }, 2000);
   }
   btn.addEventListener('click', function (e) {
+    refresh();
+    var u = url();
     if (navigator.share) {
       e.preventDefault();
-      navigator.share({ title: name, text: text, url: url }).catch(function () {});
+      navigator.share({ title: name, text: text, url: u }).catch(function () {});
       return;
     }
     if (navigator.clipboard && navigator.clipboard.writeText) {
       e.preventDefault();
-      navigator.clipboard.writeText(url).then(function () { say('リンクをコピーしました'); },
+      navigator.clipboard.writeText(u).then(function () { say('リンクをコピーしました'); },
         function () { window.open(btn.href, '_blank', 'noopener'); });
     }
   });
@@ -225,7 +244,7 @@
 <script>window.TOUR = {"key": "pvp-coin", "steps": [{"sel": "#i-rank", "t": "順位帯を選びます", "d": "日別報酬は毎日 14 時のリセット時点の順位で決まります。防衛で勝ったぶんもここに足します。"}, {"sel": "#i-drink", "t": "買うものを決めます", "d": "AP ドリンクとショップの更新、神名文字を入れると 1 日の支出が出ます。神名文字は 1 口 50 枚で 5 個です。"}, {"sel": "#i-have", "t": "手持ちで何日もつかを見ます", "d": "今のコインを入れると、この使い方で何日続けられるかが出ます。"}]};</script>
 <script src="../tour.js?v=2"></script>
 
-<script src="../share.js?v=2"></script>
+<script src="../share.js?v=3"></script>
 <script src="../hint.js?v=1"></script>
 
 <footer>
@@ -287,6 +306,45 @@
 
   function fmt(n) { return Math.round(n).toLocaleString('ja-JP'); }
 
+  /* ---------- URL ----------
+     **開いている状態を URL に残す。**下の共有の帯が「開いている状態ごと
+     URL になります」と言うので、それを本当にする（2026-08-31。それまで
+     このツールは状態が URL に入らなかった）。
+     区画は `pc=順位帯~防衛~ドリンク~更新~神名文字~1日1回~手持ち~目標`。 */
+  function hash() {
+    return 'pc=' + [iRank.value, iDef.value, iDrink.value, iReset.value,
+      iEleph.value, iOnce.checked ? 1 : 0, iHave.value, iWant.value].join('~');
+  }
+  // 既定のまま。**このときはハッシュを書かず、URL を短いままにしておく**
+  var DEF_HASH = 'pc=100~0~45~3~0~0~5000~0';
+  window.shareUrl = function () { return '#' + hash(); };
+  function syncHash() {
+    var h = hash();
+    try {
+      history.replaceState(null, '', location.pathname + location.search +
+        (h === DEF_HASH ? '' : '#' + h));
+    } catch (e) { /* file:// では黙って諦める */ }
+  }
+  function fromHash() {
+    var seg = location.hash.replace(/^#/, '').split('&').filter(function (x) {
+      return x.indexOf('pc=') === 0;
+    })[0];
+    if (!seg) return;
+    var p = seg.slice(3).split('~');
+    function put(sel, v) {
+      for (var i = 0; i < sel.options.length; i++) {
+        if (sel.options[i].value === v) { sel.value = v; return; }
+      }
+    }
+    put(iRank, p[0]); put(iDef, p[1]); put(iDrink, p[2]); put(iReset, p[3]);
+    var e = parseInt(p[4], 10);
+    if (e >= 0 && e <= 6) iEleph.value = e;
+    iOnce.checked = p[5] === '1';
+    var hv = parseInt(p[6], 10), wt = parseInt(p[7], 10);
+    if (hv >= 0) iHave.value = hv;
+    if (wt >= 0) iWant.value = wt;
+  }
+
   /* もらえる枚数は **選択肢の中ではなく行の下の一言に出す。**
      括弧を付けると枠に収まらず、右端が矢印の下に隠れる（2026-08-30 の先生の指摘） */
   function noteRows() {
@@ -308,7 +366,10 @@
 
     var drink = parseInt(iDrink.value, 10);
     var resets = parseInt(iReset.value, 10);
-    var eleph = Math.max(0, parseInt(iEleph.value, 10) || 0);
+    // 6 が上限。**並ぶ枠が 6 つしかない**（`Id 3000`〜`3005`）。手打ちで 7 以上を
+    // 入れても、無い枠は買えないので 6 に丸める（2026-08-31）
+    var eleph = Math.min(6, Math.max(0, parseInt(iEleph.value, 10) || 0));
+    if (eleph !== (parseInt(iEleph.value, 10) || 0)) iEleph.value = eleph;
     var buys = resets + 1;                    // 最初の 1 回＋更新のぶん
     var drinkCost = drink * buys;
     var resetCost = resets * RESET_COST;
@@ -353,11 +414,14 @@
       prev = hi;
     });
     el('tb-rw').innerHTML = rows;
+    syncHash();
   }
 
   [iRank, iDef, iDrink, iReset, iEleph, iOnce, iHave, iWant].forEach(function (n) {
     n.addEventListener('input', calc); n.addEventListener('change', calc);
   });
+  // URL に状態が入っていたら、それを入力へ戻してから最初の計算をする
+  fromHash();
   calc();
 })();
 </script>

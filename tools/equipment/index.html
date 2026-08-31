@@ -22,7 +22,7 @@
 <meta name="twitter:description" content="いま持っている設計図の枚数を入れると、何がどれだけ足りないかを出して、全体のバランスが整う周回先を 1 本に絞って出します。万能設計図とドロップ 2 倍・3 倍にも対応。">
 <meta name="twitter:image" content="https://arona-bot.com/images/og/equipment.jpg">
 <link rel="stylesheet" href="../../style.css?v=17">
-<link rel="stylesheet" href="../tool.css?v=11">
+<link rel="stylesheet" href="../tool.css?v=13">
 <style>
   /* 在庫のマス目。**9 部位 × 10 枠を、打ちやすい大きさで並べる。**
      参考元（シャーレ装備管理室）と同じ「部位ごとの札」の形にしてある */
@@ -69,10 +69,11 @@
     .pgrid, .dgrid { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px; }
     .pc { padding: 4px 2px 3px; min-width: 0; }
     .pc img { width: 30px; height: 30px; }
-    .pc input { font-size: .78rem; min-width: 0; padding: .2em 0; }
+    .pc input { min-width: 0; }
     .pc .need { font-size: .55rem; }
-    /* 「足りています」の 6 文字が枠に収まるまで落とす。**切って「足りて…」にしない** */
-    .pc.ok .need { font-size: .49rem; letter-spacing: -.02em; }
+    /* 「足りています」の 6 文字が枠に収まるまで落とす。**切って「足りて…」にしない**
+       （.49rem では 390px 幅で 47px > 45px となり 2px はみ出す。実測 2026-08-31） */
+    .pc.ok .need { font-size: .46rem; letter-spacing: -.03em; }
   }
   .pc { display: block; padding: 5px 4px 4px; border: 1px solid var(--line); border-radius: 10px;
         background: var(--bg-sub); text-align: center; cursor: text; }
@@ -80,6 +81,10 @@
   .pc img { width: 40px; height: 40px; display: block; margin: 1px auto 2px; }
   .pc input { width: 100%; box-sizing: border-box; padding: .2em .1em; font-size: .88rem;
               text-align: center; font-variant-numeric: tabular-nums; }
+  /* **狭い画面では 16px に戻す。**iOS Safari は 16px 未満の入力に触れるたび
+     画面ごと拡大する。ここは 90 個打つ欄なので、そのたびに戻す羽目になる。
+     列の幅はグリッド側が決めるので、文字を戻しても 5 列のままはみ出さない */
+  @media (max-width: 560px) { .pc input { font-size: 16px; padding: .15em 0; } }
   .pc .need { display: block; font-size: .6rem; line-height: 1.4; margin-top: .2em;
               color: var(--fg-mute); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   /* **足りているものは沈める。**目に入るのは足りていないものだけでいい */
@@ -191,13 +196,30 @@
 (function () {
   var btn = document.getElementById('share-page'), toast = document.getElementById('toast-page');
   if (!btn) return;
-  // **`#` を落とさない。**TL のように状態をハッシュに入れているツールでは、
-  // ここを削ると相手の画面に同じ結果が出ない（2026-08-30）
-  var url = location.href;
+  /* **`#` を落とさない。**TL のように状態をハッシュに入れているツールでは、
+     ここを削ると相手の画面に同じ結果が出ない（2026-08-30）。
+
+     **読み込み時に 1 回だけ取らない。**そのあと入力を変えてハッシュが
+     書き換わっても、古い URL を配ってしまう（2026-08-31 にサブエージェント
+     2 体が別々に見つけた）。`share.js` の X ボタンと同じく、押される直前に
+     読み直す。`window.shareUrl` を持つツールでは、そちらを先に呼ぶ。 */
+  function url() {
+    try {
+      if (typeof window.shareUrl === 'function') {
+        var h = window.shareUrl();
+        if (h) return location.href.split('#')[0] + h;
+      }
+    } catch (e) { /* ツール側が転んでも共有は動かす */ }
+    return location.href;
+  }
   var name = document.title.split('｜')[0];
   var text = name + '（AronaBot のツール）';
-  btn.href = 'https://x.com/intent/post?text=' + encodeURIComponent(text) +
-             '&url=' + encodeURIComponent(url);
+  function refresh() {
+    btn.href = 'https://x.com/intent/post?text=' + encodeURIComponent(text) +
+               '&url=' + encodeURIComponent(url());
+  }
+  refresh();
+  ['focus', 'pointerdown'].forEach(function (ev) { btn.addEventListener(ev, refresh); });
   var timer = null;
   function say(t) {
     if (!toast) return;
@@ -205,14 +227,16 @@
     clearTimeout(timer); timer = setTimeout(function () { toast.classList.remove('shown'); }, 2000);
   }
   btn.addEventListener('click', function (e) {
+    refresh();
+    var u = url();
     if (navigator.share) {
       e.preventDefault();
-      navigator.share({ title: name, text: text, url: url }).catch(function () {});
+      navigator.share({ title: name, text: text, url: u }).catch(function () {});
       return;
     }
     if (navigator.clipboard && navigator.clipboard.writeText) {
       e.preventDefault();
-      navigator.clipboard.writeText(url).then(function () { say('リンクをコピーしました'); },
+      navigator.clipboard.writeText(u).then(function () { say('リンクをコピーしました'); },
         function () { window.open(btn.href, '_blank', 'noopener'); });
     }
   });
@@ -477,7 +501,7 @@
 <script src="../panes.js?v=1"></script>
 <script src="../tour.js?v=2"></script>
 
-<script src="../share.js?v=2"></script>
+<script src="../share.js?v=3"></script>
 <script src="../hint.js?v=1"></script>
 
 <footer>

@@ -86,6 +86,7 @@
         (e.rc ? '<br>作るのに ' + num(e.rc) + ' クレジット' : '') + '</small></span>' +
         '<span class="up">' + up + '</span></div>';
     }).join('');
+    syncHash();
   }
 
   /* ---------- 愛用品 */
@@ -105,6 +106,7 @@
           return statName(k) + ' <b>' + statVal(k, v[0]) + '</b>';
         }).join('<br>') + '</div></div></div>';
     }).join('') || '<p class="lead">見つかりませんでした。</p>';
+    syncHash();
   }
 
   /* ---------- 固有武器
@@ -254,6 +256,7 @@
     el('wp-more-wrap').innerHTML = hidden
       ? '<button type="button" id="wp-more" class="btn">あと ' + hidden + ' 人ぶんを見る</button>'
       : '';
+    syncHash();
   }
 
   /* ---------- タブ */
@@ -262,6 +265,49 @@
     ['eq', 'gear', 'wp'].forEach(function (v) { el('pane-' + v).hidden = v !== view; });
     [].forEach.call(el('tab').querySelectorAll('button'), function (b) {
       b.setAttribute('aria-pressed', String(b.dataset.v === view));
+    });
+    syncHash();
+  }
+
+  /* ---------- URL ----------
+     **開いている面と絞り込みを URL に残す。**下の共有の帯は
+     「開いている状態ごと URL になります」と言うので、それを本当にする
+     （2026-08-31。それまでこのツールだけ状態が URL に入らなかった）。
+     区画は `g=面~部位~地形~並べ替え~固有の段~愛用品の検索~武器の検索`。 */
+  function hash() {
+    return 'g=' + [view, cat, adapt, wsort, wstar,
+      encodeURIComponent((el('q-gear').value || '').trim()),
+      encodeURIComponent((el('q-wp').value || '').trim())].join('~');
+  }
+  // 既定のまま。**このときはハッシュを書かず、URL を短いままにしておく**
+  var DEF_HASH = 'g=eq~Hat~~name~0~~';
+  window.shareUrl = function () { return '#' + hash(); };
+  function syncHash() {
+    var h = hash();
+    try {
+      history.replaceState(null, '', location.pathname + location.search +
+        (h === DEF_HASH ? '' : '#' + h));
+    } catch (e) { /* file:// では黙って諦める */ }
+  }
+  function fromHash() {
+    var seg = location.hash.replace(/^#/, '').split('&').filter(function (x) {
+      return x.indexOf('g=') === 0;
+    })[0];
+    if (!seg) return;
+    var p = seg.slice(2).split('~');
+    if (p[0] === 'eq' || p[0] === 'gear' || p[0] === 'wp') view = p[0];
+    if (G.catJa[p[1]]) cat = p[1];
+    if (p[2] === '' || TERRAIN[p[2]]) adapt = p[2];
+    if (WSORTS.some(function (x) { return x[0] === p[3]; })) wsort = p[3];
+    var n = parseInt(p[4], 10);
+    if (n >= 0 && n <= WSTAR) wstar = n;
+    try {
+      el('q-gear').value = decodeURIComponent(p[5] || '');
+      el('q-wp').value = decodeURIComponent(p[6] || '');
+    } catch (e) { /* 壊れた %xx は空のまま */ }
+    // 地形の押しボタンは描き直しが無いので、ここで合わせる
+    [].forEach.call(el('adapt').querySelectorAll('button'), function (x) {
+      x.setAttribute('aria-pressed', String(x.dataset.a === adapt));
     });
   }
 
@@ -299,5 +345,6 @@
 
   el('ver').textContent = G.fetched;
   el('src-gear').textContent = G.gear.length;
+  fromHash();
   drawCats(); drawTiers(); drawGear(); drawWeapons(); drawTab();
 })();

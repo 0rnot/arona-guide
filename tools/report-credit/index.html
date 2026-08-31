@@ -22,7 +22,7 @@
 <meta name="twitter:description" content="レポート・強化珠・クレジットの手持ちが何人ぶんかを数えて、今日は特別依頼のどこを回るかを決めます。">
 <meta name="twitter:image" content="https://arona-bot.com/images/og/report-credit.jpg">
 <link rel="stylesheet" href="../../style.css?v=17">
-<link rel="stylesheet" href="../tool.css?v=11">
+<link rel="stylesheet" href="../tool.css?v=13">
 <style>
   /* 素材の行。**アイコンを左に置いて、名前と入力を並べる。** */
   .mat { display: grid; grid-template-columns: 46px 1fr 110px; gap: .8em; align-items: center;
@@ -78,13 +78,30 @@
 (function () {
   var btn = document.getElementById('share-page'), toast = document.getElementById('toast-page');
   if (!btn) return;
-  // **`#` を落とさない。**TL のように状態をハッシュに入れているツールでは、
-  // ここを削ると相手の画面に同じ結果が出ない（2026-08-30）
-  var url = location.href;
+  /* **`#` を落とさない。**TL のように状態をハッシュに入れているツールでは、
+     ここを削ると相手の画面に同じ結果が出ない（2026-08-30）。
+
+     **読み込み時に 1 回だけ取らない。**そのあと入力を変えてハッシュが
+     書き換わっても、古い URL を配ってしまう（2026-08-31 にサブエージェント
+     2 体が別々に見つけた）。`share.js` の X ボタンと同じく、押される直前に
+     読み直す。`window.shareUrl` を持つツールでは、そちらを先に呼ぶ。 */
+  function url() {
+    try {
+      if (typeof window.shareUrl === 'function') {
+        var h = window.shareUrl();
+        if (h) return location.href.split('#')[0] + h;
+      }
+    } catch (e) { /* ツール側が転んでも共有は動かす */ }
+    return location.href;
+  }
   var name = document.title.split('｜')[0];
   var text = name + '（AronaBot のツール）';
-  btn.href = 'https://x.com/intent/post?text=' + encodeURIComponent(text) +
-             '&url=' + encodeURIComponent(url);
+  function refresh() {
+    btn.href = 'https://x.com/intent/post?text=' + encodeURIComponent(text) +
+               '&url=' + encodeURIComponent(url());
+  }
+  refresh();
+  ['focus', 'pointerdown'].forEach(function (ev) { btn.addEventListener(ev, refresh); });
   var timer = null;
   function say(t) {
     if (!toast) return;
@@ -92,14 +109,16 @@
     clearTimeout(timer); timer = setTimeout(function () { toast.classList.remove('shown'); }, 2000);
   }
   btn.addEventListener('click', function (e) {
+    refresh();
+    var u = url();
     if (navigator.share) {
       e.preventDefault();
-      navigator.share({ title: name, text: text, url: url }).catch(function () {});
+      navigator.share({ title: name, text: text, url: u }).catch(function () {});
       return;
     }
     if (navigator.clipboard && navigator.clipboard.writeText) {
       e.preventDefault();
-      navigator.clipboard.writeText(url).then(function () { say('リンクをコピーしました'); },
+      navigator.clipboard.writeText(u).then(function () { say('リンクをコピーしました'); },
         function () { window.open(btn.href, '_blank', 'noopener'); });
     }
   });
@@ -146,11 +165,13 @@
         <div class="panel-h"><h2>持っているクレジット</h2></div>
         <div class="fields c2">
           <div class="field">
-            <label for="i-credit">クレジット</label>
+            <!-- **number 入力は桁区切りを出せない。**50000000 と 500000000 が見分けにくいので、
+                 読んだ値を桁区切りで下に返す（中身は calc() が書く） -->
+            <label for="i-credit">クレジット<span class="hint" id="h-credit">—</span></label>
             <input id="i-credit" type="number" inputmode="numeric" min="0" step="1000000" value="50000000">
           </div>
           <div class="field">
-            <label for="i-per">1 人を仕上げるクレジット<span class="hint">レベル・スキル 4 種・装備 3 個</span></label>
+            <label for="i-per">1 人を仕上げるクレジット<span class="hint">レベル・スキル 4 種・装備 3 個 ＝ <span id="h-per">—</span></span></label>
             <input id="i-per" type="number" inputmode="numeric" min="1000000" step="1000000" value="51721955">
           </div>
         </div>
@@ -225,7 +246,7 @@
 <script>window.TOUR = {"key": "report-credit", "steps": [{"sel": "#reports", "t": "持っているレポートを入れます", "d": "初級から最上級まで、手持ちの枚数を入れると経験値の合計が出ます。"}, {"sel": "#i-credit", "t": "クレジットも入れます", "d": "レポートとクレジットのどちらが先に足りなくなるかを見るための道具です。"}, {"sel": "#v-body", "t": "どちらが足りないかが出ます", "d": "レポートが余っているのか、クレジットが先に尽きるのかを言葉で出しています。"}]};</script>
 <script src="../tour.js?v=2"></script>
 
-<script src="../share.js?v=2"></script>
+<script src="../share.js?v=3"></script>
 <script src="../hint.js?v=1"></script>
 
 <footer>
@@ -307,6 +328,10 @@
     var cre = credit / per;               // 何人ぶん
     var sto = stoExp / EQUIP_EXP;         // 何装備ぶん
 
+    // 桁区切りの読み返し。入力欄の生の数字（50000000）は桁を数えないと読めない
+    el('h-credit').textContent = fmt(credit);
+    el('h-per').textContent = fmt(per);
+
     el('o-repexp').textContent = fmt(repExp);
     el('o-stoneexp').textContent = fmt(stoExp);
     el('o-rep').innerHTML = f1(rep) + '<small>人</small>';
@@ -344,6 +369,28 @@
   }
 
   [].forEach.call(document.querySelectorAll('input'), function (n) { n.addEventListener('input', calc); });
+
+  /* ---- 状態を URL に残す。**share.js が「結果を共有」のときに呼ぶ**
+     （eleph などと同じ作法。これが無いと、共有バーの「開いている状態ごと
+     URL になります」が嘘になる） */
+  var HASH_IDS = ['r1', 'r2', 'r3', 'r4', 's1', 's2', 's3', 's4'];
+  window.shareUrl = function () {
+    var p = HASH_IDS.map(function (id) { return el('i-' + id).value || 0; });
+    p.push(el('i-credit').value || 0, el('i-per').value || 0);
+    return '#' + p.join('|');
+  };
+  (function fromHash() {
+    var h = location.hash.replace(/^#/, '');
+    if (!h) return;
+    var p = h.split('|');
+    if (p.length < 10) return;
+    HASH_IDS.forEach(function (id, i) {
+      if (+p[i] >= 0) el('i-' + id).value = Math.floor(+p[i]);
+    });
+    if (+p[8] >= 0) el('i-credit').value = Math.floor(+p[8]);
+    if (+p[9] >= 1) el('i-per').value = Math.floor(+p[9]);
+  })();
+
   calc();
 })();
 </script>
