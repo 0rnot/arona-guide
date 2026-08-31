@@ -9,11 +9,7 @@
       ],
       "desc": "目標のレベルまで、あと何 AP・何日か。経験値 2 倍の期間にも対応。",
       "img": "currency_icon_ap",
-      "group": "育てる",
-      "imgs": [
-        "item_icon_expitem_3",
-        "ui_common_icon_time"
-      ]
+      "group": "育てる"
     },
     {
       "slug": "report-credit",
@@ -23,11 +19,7 @@
       ],
       "desc": "レポートと強化珠、今日はどちらを回る日か。手持ちが何人ぶんかを数えます。",
       "img": "item_icon_expitem_3",
-      "group": "育てる",
-      "imgs": [
-        "equipment_icon_exp_3",
-        "currency_icon_gold"
-      ]
+      "group": "育てる"
     },
     {
       "slug": "student-cost",
@@ -37,11 +29,7 @@
       ],
       "desc": "1 人を今から目標まで育てるのに要るクレジットと素材。",
       "img": "currency_icon_gold",
-      "group": "育てる",
-      "imgs": [
-        "item_icon_skillbook_millennium_3",
-        "item_icon_secretstone"
-      ]
+      "group": "育てる"
     },
     {
       "slug": "oopart",
@@ -51,11 +39,7 @@
       ],
       "desc": "このオーパーツは誰が使うのか。素材から生徒を引きます。",
       "img": "item_icon_material_rohonc_3",
-      "group": "育てる",
-      "imgs": [
-        "item_icon_skillbook_trinity_3",
-        "item_icon_material_antikythera_3"
-      ]
+      "group": "育てる"
     },
     {
       "slug": "equipment",
@@ -65,11 +49,7 @@
       ],
       "desc": "設計図の枚数を入れると、次に回る任務ステージが 1 本に絞られます。",
       "img": "equipment_icon_hat_tier10_piece",
-      "group": "装備",
-      "imgs": [
-        "equipment_icon_shoes_useall_piece",
-        "equipment_icon_watch_useall_piece"
-      ]
+      "group": "装備"
     },
     {
       "slug": "gear-stats",
@@ -79,11 +59,7 @@
       ],
       "desc": "部位ごとに T1〜T10 で何がどれだけ伸びるか。愛用品と固有武器も。",
       "img": "equipment_icon_hat_tier9",
-      "group": "装備",
-      "imgs": [
-        "ui_icon_inven_watch",
-        "equipment_icon_weaponexpgrowthz_3"
-      ]
+      "group": "装備"
     },
     {
       "slug": "bond",
@@ -93,11 +69,7 @@
       ],
       "desc": "その生徒に効く贈り物と、目標のランクまでの個数・日数。",
       "img": "item_icon_favor_0",
-      "group": "育てる",
-      "imgs": [
-        "ui_cafe_icon_interaction",
-        "item_icon_favor_lv2_special"
-      ]
+      "group": "育てる"
     },
     {
       "slug": "pvp-ladder",
@@ -107,11 +79,7 @@
       ],
       "desc": "今の順位から 1 位まで、あと何回勝てばいいか。",
       "img": "item_icon_arenacoin",
-      "group": "戦う",
-      "imgs": [
-        "currency_icon_gem",
-        "ui_common_icon_time"
-      ]
+      "group": "戦う"
     },
     {
       "slug": "pvp-coin",
@@ -121,11 +89,7 @@
       ],
       "desc": "順位帯と買うもので、コインが 1 日にどれだけ増減するか。",
       "img": "item_icon_arenacoin",
-      "group": "戦う",
-      "imgs": [
-        "item_icon_secretstone",
-        "currency_icon_gold"
-      ]
+      "group": "戦う"
     },
     {
       "slug": "raid",
@@ -135,11 +99,7 @@
       ],
       "desc": "ボスを絵から選ぶと、その相手の TL・有効な属性・連れて行く生徒が出ます。",
       "img": "item_icon_raidcoin",
-      "group": "戦う",
-      "imgs": [
-        "ui_terrain_indoor",
-        "ui_type_attack"
-      ]
+      "group": "戦う"
     },
     {
       "slug": "cost-timeline",
@@ -149,11 +109,7 @@
       ],
       "desc": "この編成なら、その EX は何秒目に撃てるのか。",
       "img": "skill_regencost",
-      "group": "戦う",
-      "imgs": [
-        "ui_common_icon_time",
-        "item_icon_exskillcd_selection_3"
-      ]
+      "group": "戦う"
     },
     {
       "slug": "raid-calendar",
@@ -163,11 +119,7 @@
       ],
       "desc": "総力戦 93 回と大決戦 38 回の全記録。次はいつごろか。",
       "img": "bossicon_binah",
-      "group": "戦う",
-      "imgs": [
-        "bossicon_chesed",
-        "bossicon_perorodzilla"
-      ]
+      "group": "戦う"
     },
     {
       "slug": "gacha",
@@ -177,11 +129,7 @@
       ],
       "desc": "今の石でピックアップを引ける確率と、天井までに要る石。",
       "img": "currency_icon_gem",
-      "group": "集める・つくる",
-      "imgs": [
-        "ui_common_icon_formation_star_r3",
-        "ui_common_icon_formation_star_r2"
-      ]
+      "group": "集める・つくる"
     },
     {
       "slug": "treasure",
@@ -201,11 +149,7 @@
       ],
       "desc": "生徒を並べて自分の Tier 表を作る。画像でも URL でも渡せます。",
       "img": "ui_common_icon_formation_star_r1",
-      "group": "集める・つくる",
-      "imgs": [
-        "ui_role_damagedealer",
-        "ui_role_supporter"
-      ]
+      "group": "集める・つくる"
     },
     {
       "slug": "raid-score",
@@ -215,11 +159,7 @@
       ],
       "desc": "クリアタイムからスコアを出す。目標スコアからの逆算も。",
       "img": "ui_common_icon_time",
-      "group": "戦う",
-      "imgs": [
-        "bossicon_hieronymus",
-        "item_icon_raidcoin"
-      ]
+      "group": "戦う"
     },
     {
       "slug": "eleph",
@@ -229,11 +169,7 @@
       ],
       "desc": "今の星から目標まで、要る神名文字とクレジット。伸び幅も一緒に。",
       "img": "ui_common_icon_formation_star_r3",
-      "group": "育てる",
-      "imgs": [
-        "item_icon_secretstone",
-        "currency_icon_gold"
-      ]
+      "group": "育てる"
     },
     {
       "slug": "gift-search",
@@ -243,11 +179,7 @@
       ],
       "desc": "贈り物を選ぶと、×4 で効く生徒が顔つきで並びます。",
       "img": "item_icon_favor_lv2_package",
-      "group": "育てる",
-      "imgs": [
-        "ui_cafe_interaction_gift_04",
-        "item_icon_favor_ssr_2"
-      ]
+      "group": "育てる"
     },
     {
       "slug": "matchup",
@@ -257,11 +189,7 @@
       ],
       "desc": "相手の装甲と地形から、有効な属性と生徒を引きます。",
       "img": "ui_type_attack",
-      "group": "戦う",
-      "imgs": [
-        "ui_type_defense",
-        "ui_terrain_street"
-      ]
+      "group": "戦う"
     },
     {
       "slug": "potential",
@@ -271,11 +199,7 @@
       ],
       "desc": "潜在能力を目標まで上げるのに要るオーパーツとクレジット。",
       "img": "item_icon_workbook_potentialattack",
-      "group": "育てる",
-      "imgs": [
-        "item_icon_workbook_potentialmaxhp",
-        "item_icon_workbook_potentialhealpower"
-      ]
+      "group": "育てる"
     },
     {
       "slug": "weapon",
@@ -285,11 +209,7 @@
       ],
       "desc": "固有武器を目標まで上げるのに要る経験値・神名文字・クレジット。",
       "img": "equipment_icon_weaponexpgrowthz_3",
-      "group": "装備",
-      "imgs": [
-        "item_icon_secretstone",
-        "currency_icon_gold"
-      ]
+      "group": "装備"
     },
     {
       "slug": "farm",
@@ -299,11 +219,7 @@
       ],
       "desc": "足りない素材を選ぶと、効率のいい周回先が順に並びます。",
       "img": "item_icon_skillbook_gehenna_2",
-      "group": "集める・つくる",
-      "imgs": [
-        "item_icon_skillbook_trinity_2",
-        "item_icon_material_baghdad_2"
-      ]
+      "group": "集める・つくる"
     },
     {
       "slug": "equip-level",
@@ -313,11 +229,7 @@
       ],
       "desc": "装備を目標のレベルまで上げるのに、強化珠が何個要るか。",
       "img": "equipment_icon_exp_3",
-      "group": "装備",
-      "imgs": [
-        "equipment_icon_exp_1",
-        "currency_icon_gold"
-      ]
+      "group": "装備"
     },
     {
       "slug": "schedule",
@@ -327,11 +239,7 @@
       ],
       "desc": "どこにスケジュールを送ると絆経験値と神名文字がいちばん多いか。",
       "img": "ui_school_icon_schedule_favor",
-      "group": "育てる",
-      "imgs": [
-        "item_icon_favor_0",
-        "item_icon_secretstone"
-      ]
+      "group": "育てる"
     },
     {
       "slug": "cafe",
@@ -341,11 +249,7 @@
       ],
       "desc": "快適度から、1 時間あたりのクレジットと AP、倉庫が満杯になる時間。",
       "img": "ui_cafe_icon_comfort",
-      "group": "カフェ",
-      "imgs": [
-        "currency_icon_gold",
-        "currency_icon_ap"
-      ]
+      "group": "カフェ"
     },
     {
       "slug": "cafe-layout",
@@ -355,10 +259,7 @@
       ],
       "desc": "カフェの床と壁に家具を並べて、置けるかと快適度の合計を確かめます。",
       "img": "furniture_icon_sofaset",
-      "group": "カフェ",
-      "imgs": [
-        "ui_cafe_icon_comfort"
-      ]
+      "group": "カフェ"
     }
   ],
   "soon": [

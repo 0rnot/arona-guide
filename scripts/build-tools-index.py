@@ -30,21 +30,6 @@ def icon(t, prefix="", size=66):
     return (f'<img class="ticon" src="{prefix}img/{esc(t["img"])}.webp" alt="" '
             f'width="{size}" height="{size}" loading="lazy">')
 
-def subicons(t, prefix=""):
-    """そのツールが扱うものを絵で並べる。**使うのは本編の帯だけ。**
-    一覧のカードにも出していたが、説明文の下に小さい絵が 2 つ続くのは
-    邪魔だと先生に言われて外した（2026-08-31）。tools.json の `imgs` はそのまま。"""
-    names = t.get("imgs") or []
-    if not names:
-        return ""
-    for n in names:
-        if not (ROOT / "tools" / "img" / (n + ".webp")).exists():
-            raise SystemExit(f"!! tools/img/{n}.webp が無い（{t['slug']}）")
-    tags = "".join(
-        f'<img src="{prefix}img/{esc(n)}.webp" alt="" width="26" height="26" loading="lazy">'
-        for n in names)
-    return f'\n      <span class="tsub" aria-hidden="true">{tags}</span>'
-
 def card(t):
     # **絞り込みは data-group（3 つだけ）。**data-cat は肩書きの表示用で、
     # ここでボタンを作ると 7 種類に散らばって選びづらくなる
@@ -70,7 +55,7 @@ def band(t):
           {icon(t, "tools/", 54)}
           <div class="cat">{esc(' · '.join(t['cat']))}</div>
           <h3>{esc(t['name'])}</h3>
-          <p>{esc(t['desc'])}</p>{subicons(t, "tools/")}
+          <p>{esc(t['desc'])}</p>
         </a>'''
 
 # **並び順。**tools.json は作った順で、一覧に出すとばらばらに見える。
