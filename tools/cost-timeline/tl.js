@@ -49,7 +49,8 @@
   function capNow() { return E.capNow(env()); }
   function partyFull() { return E.partyFull(env()); }
   function startBonus() { return E.startBonus(env()); }
-  /** 装備の補正だけ入力欄から読む。**`el()` を呼ぶのはここと `state()` だけ。** */
+  /** 装備の補正だけ入力欄から読む。**計算に渡す数を入力欄から取るのは
+      この関数と `simulate()` の呼び出し元だけ。** */
   function pool() {
     var i = env();
     i.base = D.base;
