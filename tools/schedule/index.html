@@ -22,7 +22,7 @@
 <meta name="twitter:description" content="どの場所にスケジュールを送ると絆経験値と神名文字がいちばん多いかを、確率込みの期待値で出します。ランクを上げるのに何回要るか、チケットが 1 枚増えるのはどこかも。">
 <meta name="twitter:image" content="https://arona-bot.com/images/og/schedule.jpg">
 <link rel="stylesheet" href="../../style.css?v=19">
-<link rel="stylesheet" href="../tool.css?v=14">
+<link rel="stylesheet" href="../tool.css?v=15">
 <style>
   /* ロケーションのランク。**左に名前、右に段。** */
   .lrow { display: grid; grid-template-columns: 1fr 96px; gap: 10px; align-items: center;
@@ -36,8 +36,14 @@
     .lrow { border-bottom: 0; }
     .lrow:nth-last-of-type(n+3) { border-bottom: 1px solid var(--line); }
   }
-  .lrow .nm { font-size: .92rem; font-weight: 700; line-height: 1.45; min-width: 0;
-              word-break: auto-phrase; }
+  /* **学園の紋を名前の上に落とさない。**インラインのまま置くと、名前が
+     折り返したときに紋だけが 1 行目に取り残される（2026-08-31 の先生の指摘
+     ——「長いロケーション名だと学園マークが文字の上になってる」）。
+     紋を固定幅の欄にして、名前はその右で折り返させる */
+  .lrow .nm { font-size: .92rem; font-weight: 700; line-height: 1.45; min-width: 0; }
+  .lrow .nm .t { display: flex; align-items: flex-start; gap: .3em; }
+  .lrow .nm .t .scm { margin: .18em 0 0; }
+  .lrow .nm .t > span { min-width: 0; word-break: auto-phrase; }
   .lrow .nm small { display: block; font-weight: 400; color: var(--fg-mute);
                     font-size: .72rem; margin-top: .1em; }
   .lrow select { padding: .42em .5em; font-size: .92rem; padding-right: 1.9em;
@@ -100,6 +106,10 @@
      学校の紋は SchaleDB でも**白一色のグリフ**（<img> だと明るい地に白で消える。
      2026-08-31 に置いて撮って確かめた）なので、`.gi` の型抜きで文字色に染める */
   .scm { margin-right: .3em; }
+  /* **場所の名前は数字ではないので、数字と同じ大きさだと入らない。**
+     「シャーレオフィス」が「シャーレオフィ／ス」と割れていた（2026-08-31 の
+     先生の指摘）。少し小さくして、折り返すときは語のまとまりで折る */
+  #o-best { font-size: clamp(1.15rem, 3.4vw, 1.38rem); word-break: auto-phrase; }
   table.dt th img { vertical-align: -.25em; margin-right: .2em; }
   .lrow.off .nm .scm { opacity: .45; }
 </style>
@@ -243,24 +253,20 @@
         </div>
       </div>
 
-      <div class="panel" id="p-tic">
-        <div class="panel-h"><h2>次にチケットが増えるのは</h2></div>
-        <p class="lead">合計ランクが節目を越えると、チケットが 1 枚増えます。<button type="button" class="qm" data-hint="いちばん安く越える上げ方を出しています。"></button></p>
-        <div class="ledger" id="tic"></div>
-        <p class="barnote" id="ticnote">—</p>
-      </div>
     </div>
 
     <!-- **ここから下はタブで畳む。**参考の表が 3 枚で、スマホでは 2,687px あった
          （2026-08-30 に実測。頁ぜんぶで 7,293px ＝ 9.3 画面ぶん）。
-         入力のランクと右の結果は上に出したまま。既定は「1 回あたり」——
-         入れたランクがそのまま出る面で、開いた瞬間に空にならない -->
+         入力のランクと右の結果は上に出したまま。
+         **既定は「エリアの報酬」**（2026-08-31 の先生の指示）。1 回あたりの
+         絆経験値と神名文字はランクだけで決まって右の板にもう出ているので、
+         先に見たいのは場所ごとに違うエリアの報酬のほう -->
     <div class="tfull tpanes" data-panes="schedule">
       <div class="ttabs" role="tablist" aria-label="下に出すもの" hidden>
         <button type="button" role="tab" id="tb-s-loc" data-p="loc"
-                aria-controls="pn-loc" aria-selected="true">1 回あたり</button>
+                aria-controls="pn-loc" aria-selected="false">1 回あたり</button>
         <button type="button" role="tab" id="tb-s-zone" data-p="zone"
-                aria-controls="pn-zone" aria-selected="false">エリアの報酬</button>
+                aria-controls="pn-zone" aria-selected="true">エリアの報酬</button>
         <button type="button" role="tab" id="tb-s-tier" data-p="tier"
                 aria-controls="pn-tier" aria-selected="false">ランクの早見</button>
       </div>
@@ -281,7 +287,7 @@
 
       </div>
 
-      <div class="tpane" id="pn-zone" data-p="zone" role="tabpanel"
+      <div class="tpane" id="pn-zone" data-p="zone" data-def role="tabpanel"
            aria-labelledby="tb-s-zone" tabindex="0">
         <div class="panel" id="p-zone">
           <div class="panel-h"><h2>エリアごとの追加報酬</h2></div>
@@ -392,7 +398,6 @@
 <script>window.TOUR = {"key": "schedule", "steps": [
   {"sel": "#ranks", "t": "まず今のランクを入れます", "d": "開いていない場所は「—」のままにしてください。"},
   {"sel": "#o-best", "t": "いちばん多い場所が出ます", "d": "ランクだけで決まるので、いちばん高い場所が答えです。"},
-  {"sel": "#tic", "t": "チケットが増えるところ", "d": "合計ランクが節目を越えると 1 枚増えます。"},
   {"sel": "#zpick", "pre": "#tb-s-zone", "t": "素材はエリアで変わります", "d": "場所を選ぶと、エリアごとの期待個数が並びます。"},
   {"sel": "#sharebar", "t": "結果はそのまま渡せます", "d": "リンクを送ると、相手の画面にも同じ結果が出ます。"}
 ]};</script>
@@ -457,10 +462,6 @@
     for (var i = 0; i < S.ticket.length; i++) if (sum >= S.ticket[i][0]) n = S.ticket[i][1];
     return n;
   }
-  function nextStep(sum) {
-    for (var i = 0; i < S.ticket.length; i++) if (sum < S.ticket[i][0]) return S.ticket[i];
-    return null;
-  }
 
   function fmt(n, d) {
     return n.toLocaleString('ja-JP', { minimumFractionDigits: d, maximumFractionDigits: d });
@@ -497,7 +498,8 @@
   }
   el('ranks').innerHTML = S.loc.map(function (l) {
     return '<div class="lrow" data-l="' + l.id + '">' +
-             '<span class="nm">' + scMark(l) + l.nm + '<small>エリア ' + l.z.length + ' か所</small></span>' +
+             '<span class="nm"><span class="t">' + scMark(l) + '<span>' + l.nm +
+               '</span></span><small>エリア ' + l.z.length + ' か所</small></span>' +
              '<select data-l="' + l.id + '" aria-label="' + l.nm + 'のランク">' + opts + '</select>' +
            '</div>';
   }).join('');
@@ -595,50 +597,6 @@
              scMark(l) + l.nm + '<small>エリア ' + n + ' / ' + l.z.length + ' か所</small></td><td>' + r +
              '</td><td><b>' + fmt(favorEV(r), 2) + '</b></td><td>' + fmt(ssEV(r), 3) + '</td></tr>';
     }).join('') : '<tr><td colspan="4" class="lock">まだ 1 か所も開いていません。上でランクを入れてください。</td></tr>';
-
-    // 次のチケット
-    var step = nextStep(sum);
-    if (!open.length) {
-      el('tic').innerHTML = '';
-      el('ticnote').textContent = 'ランクを入れると出ます。';
-    } else if (!step) {
-      el('tic').innerHTML = '<div class="row total"><span>チケット</span><span>' + tic + ' 枚（上限）</span></div>';
-      el('ticnote').textContent = '合計ランク ' + sum + '。もう増えません。';
-    } else {
-      // **安いところから上げる。**どの場所も同じ経験値表なので、
-      // 「いまいちばんランクの低い場所」を上げるのがいつでも最安になる
-      var cur = {}, plan = {};
-      open.forEach(function (l) { cur[l.id] = rk[l.id]; });
-      var need = step[0] - sum, guard = 0;
-      while (need > 0 && guard++ < 400) {
-        var pickL = null;
-        open.forEach(function (l) {
-          if (cur[l.id] >= MAXR) return;
-          if (!pickL || cur[l.id] < cur[pickL.id]) pickL = l;
-        });
-        if (!pickL) break;
-        cur[pickL.id]++; plan[pickL.id] = cur[pickL.id]; need--;
-      }
-      var total = 0, lines = [];
-      open.forEach(function (l) {
-        if (!plan[l.id]) return;
-        var n = runsFor(rk[l.id], plan[l.id]);
-        total += n;
-        lines.push('<div class="row"><span>' + l.nm + '<span class="subnote">ランク ' +
-                   rk[l.id] + ' → ' + plan[l.id] + '</span></span><span>' + n + ' 回</span></div>');
-      });
-      if (need > 0) {
-        el('tic').innerHTML = '';
-        el('ticnote').innerHTML = '<b>今の場所だけでは ' + step[0] +
-          ' に届きません。</b>まだ開いていない場所を開けば合計ランクが伸びます。';
-      } else {
-        lines.push('<div class="row total"><span>合わせて</span><span>' + total + ' 回</span></div>');
-        el('tic').innerHTML = lines.join('');
-        el('ticnote').innerHTML = '合計ランク <b>' + sum + ' → ' + step[0] + '</b> で、チケットが <b>' +
-          tic + ' 枚 → ' + step[1] + ' 枚</b>になります。チケット ' + tic + ' 枚ずつ使うと <b>' +
-          Math.ceil(total / Math.max(tic, 1)) + ' 日</b>ぶんです。';
-      }
-    }
 
     // ランク上げ
     if (!open.length) {

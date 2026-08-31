@@ -21,8 +21,8 @@
 <meta name="twitter:title" content="装備設計図の周回計算機">
 <meta name="twitter:description" content="いま持っている設計図の枚数を入れると、何がどれだけ足りないかを出して、全体のバランスが整う周回先を 1 本に絞って出します。万能設計図とドロップ 2 倍・3 倍にも対応。">
 <meta name="twitter:image" content="https://arona-bot.com/images/og/equipment.jpg">
-<link rel="stylesheet" href="../../style.css?v=21">
-<link rel="stylesheet" href="../tool.css?v=14">
+<link rel="stylesheet" href="../../style.css?v=22">
+<link rel="stylesheet" href="../tool.css?v=15">
 <style>
   /* 在庫のマス目。**9 部位 × 10 枠を、打ちやすい大きさで並べる。**
      参考元（シャーレ装備管理室）と同じ「部位ごとの札」の形にしてある */
@@ -152,8 +152,8 @@
   .srow-set { display: flex; flex-wrap: wrap; gap: .7em 1.1em; align-items: center;
               margin-bottom: 14px; }
   .srow-set > span { font-size: .82rem; font-weight: 700; }
-  .rng { display: flex; align-items: center; gap: .6em; }
-  .rng input[type=range] { width: 170px; }
+  .rng { display: flex; align-items: center; gap: .6em; min-width: 0; }
+  .rng input[type=range] { width: 170px; max-width: 100%; }
   .rng b { font-size: .8rem; color: var(--accent-tx); min-width: 4.5em; }
   .chk { display: inline-flex; align-items: center; gap: .45em; font-size: .82rem; }
   .empty { font-size: .82rem; color: var(--fg-mute); line-height: 1.8; margin: 0; }

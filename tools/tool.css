@@ -440,6 +440,10 @@ details.src summary::before { content: "▸ "; display: inline-block; transition
 details.src[open] summary::before { content: "▾ "; }
 details.src p, details.src li { font-size: .83rem; color: var(--fg-mute); line-height: 1.9; }
 details.src b { color: var(--fg); }
+/* **出典のリンクは記事の題そのまま**で、鉤括弧や「？」で終わるものがある。
+   文節で折る指定のままだと、行末の括弧が送れずに 6px はみ出した（2026-08-31）。
+   ここだけ今までどおり、どこででも折れるようにする */
+details.src a { word-break: normal; }
 details.src code { font-size: .78rem; }
 details.src ul { padding-left: 1.3em; }
 

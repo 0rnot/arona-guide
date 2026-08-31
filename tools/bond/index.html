@@ -21,8 +21,8 @@
 <meta name="twitter:title" content="絆ランク計算機">
 <meta name="twitter:description" content="その生徒に効く贈り物が一目で分かります。目標の絆ランクまで何個・何日かかるかも。">
 <meta name="twitter:image" content="https://arona-bot.com/images/og/bond.jpg">
-<link rel="stylesheet" href="../../style.css?v=21">
-<link rel="stylesheet" href="../tool.css?v=14">
+<link rel="stylesheet" href="../../style.css?v=22">
+<link rel="stylesheet" href="../tool.css?v=15">
 <style>
   .gift { display: grid; grid-template-columns: 50px 1fr 66px 96px; gap: .7em; align-items: center;
           padding: .5em 0; border-bottom: 1px solid var(--line); }
@@ -35,7 +35,9 @@
      「×n はアイコンの右でいいかな?」）*/
   .gift .mtag .gico { width: 16px; height: 16px; border-radius: 0; background: none;
                       display: inline-block; vertical-align: -.24em; margin-right: .2em; }
-  .gift .nm { font-size: .86rem; line-height: 1.45; }
+  /* **`1fr` の柱は中身より縮まない。**名前が折れにくくなると柱ごと広がって、
+     右端の個数欄が札からはみ出す（2026-08-31）。柱を縮められるようにしておく */
+  .gift .nm { font-size: .86rem; line-height: 1.45; min-width: 0; }
   .gift .nm small { display: block; color: var(--fg-mute); font-size: .74rem; }
   .gift .ex { text-align: right; font-variant-numeric: tabular-nums; font-weight: 800; font-size: .95rem; }
   .gift .ex small { font-weight: 400; color: var(--fg-mute); font-size: .72rem; display: block; }

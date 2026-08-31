@@ -21,8 +21,8 @@
 <meta name="twitter:title" content="贈り物の逆引き">
 <meta name="twitter:description" content="贈り物を選ぶと、それが ×4 で効く生徒が顔つきで並びます。持て余している贈り物を誰に配ればいいかが一目で分かります。">
 <meta name="twitter:image" content="https://arona-bot.com/images/og/gift-search.jpg">
-<link rel="stylesheet" href="../../style.css?v=21">
-<link rel="stylesheet" href="../tool.css?v=14">
+<link rel="stylesheet" href="../../style.css?v=22">
+<link rel="stylesheet" href="../tool.css?v=15">
 <style>
   /* 贈り物の一覧。**押して選ぶ。**顔の一覧が右に出る */
   .glist { display: grid; grid-template-columns: repeat(auto-fill, minmax(148px, 1fr)); gap: 8px; }
@@ -40,6 +40,21 @@
   .gcard .nm { display: block; font-size: .8rem; font-weight: 700; line-height: 1.35;
                word-break: auto-phrase; overflow-wrap: anywhere; }
   .gcard .sub { display: block; font-size: .72rem; color: var(--fg-mute); font-variant-numeric: tabular-nums; margin-top: .15em; }
+  /* **レア度は色で出す。**札を足すと名前が押し出されるので、字にはしない
+     （2026-08-31 の先生の指示——「贈り物レアレティで色変えて」
+     「レア度表示は不要、色だけで」）。ゲーム内と同じで SSR が金、SR が紫 */
+  .gcard { border-left-width: 3px; }
+  .gcard[data-r="SSR"] { border-left-color: #c08a1e;
+                         background: color-mix(in srgb, #c08a1e 7%, var(--card)); }
+  .gcard[data-r="SR"]  { border-left-color: #7b5ea7;
+                         background: color-mix(in srgb, #7b5ea7 7%, var(--card)); }
+  @media (prefers-color-scheme: dark) {
+    .gcard[data-r="SSR"] { border-left-color: #e2c061; }
+    .gcard[data-r="SR"]  { border-left-color: #b79ce0; }
+  }
+  /* 選ばれている札は、今までどおり地ごと塗る */
+  .gcard[aria-pressed="true"][data-r] { border-left-color: transparent;
+                                        background: var(--accent); }
 
   /* 選んだ贈り物 */
   .pick { display: grid; grid-template-columns: 74px 1fr; gap: 14px; align-items: center;
@@ -357,11 +372,14 @@
       return true;
     });
     el('glist').innerHTML = rows.length ? rows.map(function (g) {
-      return '<button type="button" class="gcard" data-id="' + g.id + '"' +
+      return '<button type="button" class="gcard" data-id="' + g.id + '" data-r="' + g.r + '"' +
         ' aria-pressed="' + (picked && picked.id === g.id) + '">' +
         '<img src="../img/' + g.i + '.webp" alt="" width="42" height="42" loading="lazy">' +
         '<span><span class="nm">' + g.n + '</span>' +
-        '<span class="sub">×4 が ' + counts[g.id][4] + ' 人／基本 ' + g.e + '</span></span></button>';
+        // **札の中は「×4 が何人か」だけ。**基本の経験値は選んだあとの板に出る。
+        // 2 つ並べると 148px の札で必ず 2 行になって、スラッシュが行末に残った
+        // （2026-08-31 の先生の指摘——「中途半端な改行」）
+        '<span class="sub">×4 が ' + counts[g.id][4] + ' 人</span></span></button>';
     }).join('') : '<p class="empty">その名前の贈り物は見つかりません。</p>';
   }
 

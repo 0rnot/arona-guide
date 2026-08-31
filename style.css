@@ -60,6 +60,19 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--fg);
+  /* **日本語は、既定だとどの文字の間でも折り返す。**「Hard 7-3 ほ／か 1 本」
+     「シャーレオフィ／ス」のように語の途中で割れる（2026-08-31 の先生の指摘
+     ——「こんな感じの謎改行が多すぎる、全ツールチェックして修正かけてくれ」）。
+     `auto-phrase` は文節の切れ目でだけ折る。**入らないときは今までどおり
+     どこででも折るので、はみ出しは増えない。**対応していないブラウザでは
+     この 1 行が無視されるだけで、今までの見え方に戻る */
+  word-break: auto-phrase;
+  /* **小さいかなで行を始めない。**「ウェーブキャ／ットの枕」のように
+     促音・拗音が行頭に落ちるのを禁止する（既定の `auto` は許している） */
+  line-break: strict;
+  /* **最後の逃げ道は残す。**折れるところが無い長い並びは、はみ出す前に切る。
+     `anywhere` と違って min-content の幅は変えないので、桁組みは崩れない */
+  overflow-wrap: break-word;
   font-family: "Helvetica Neue", Arial, "Hiragino Kaku Gothic ProN", "Hiragino Sans",
                "Yu Gothic", Meiryo, sans-serif;
   line-height: 1.9;
@@ -1027,6 +1040,11 @@ a.toolband-card:hover .ticon { transform: scale(1.09) rotate(-4deg); }
   font-size: .84rem; line-height: 1.7; color: var(--fg);
   background: var(--card); border: 1px solid var(--line); border-radius: 10px;
   box-shadow: var(--shadow);
+  /* **中身が長いときは中で送る。**帯の条件を丸ごと入れる使い方をしたら、
+     吹き出しが画面より高くなって下が読めなくなった（2026-08-31）。
+     技術情報は削らないので、器のほうを閉じる */
+  max-height: min(60vh, 420px); overflow-y: auto; overscroll-behavior: contain;
+  white-space: pre-line;
 }
 /* **角は付けない。**吹き出しは画面からはみ出さないよう左右にずらすので、
    角の位置と丸の位置が合わなくなる。近さで十分つながって見える（2026-08-31） */

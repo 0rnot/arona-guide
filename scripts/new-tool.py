@@ -29,8 +29,8 @@ TPL = '''<!DOCTYPE html>
 <meta property="og:url" content="https://arona-bot.com/tools/{slug}/">
 <meta property="og:image" content="https://arona-bot.com/images/hero-night.jpg">
 <meta name="twitter:card" content="summary_large_image">
-<link rel="stylesheet" href="../../style.css?v=21">
-<link rel="stylesheet" href="../tool.css?v=14">
+<link rel="stylesheet" href="../../style.css?v=22">
+<link rel="stylesheet" href="../tool.css?v=15">
 <style>
 {style}
 </style>

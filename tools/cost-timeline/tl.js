@@ -1446,18 +1446,35 @@
      同じ図に乗せている。EX は撃った 1 回ぶん、それ以外は `iv` 秒ごとに繰り返す。 */
   var SIDE_JA = { self: '本人', ally: '味方', enemy: '敵' };
 
-  /** 帯の見出し。**収まらないぶんは `<title>` に回す**（技術情報は削らない）。 */
+  /** 図に置く札。**誰の何が何秒か、それだけ。**
+      初回の時刻・間隔・確率・固有での延長は入れない——札が帯より長くなって、
+      隣の行と重なって読めなくなる（2026-08-31 の先生の指摘——「表記おかしい、
+      ながければ省略して◯iでいい」）。落としたぶんは丸に i と `<title>` にある。 */
   function barLabel(b) {
     return (b.kind === 'EX' || !b.kind ? '' : '〈' + b.kind + '〉') + b.who + '／' + b.e +
       ' ' + n1(b.ms / 1000) + '秒' +
+      // **同じ行が 2 本並ぶときだけ、誰にかかるかを書く。**無いと区別が付かない
+      (b.dup ? '（' + (SIDE_JA[b.sd] || b.sd) + '）' : '');
+  }
+
+  /** 札に入れなかったぶんまで含めた、帯 1 本の言い方。丸に i の中身。 */
+  function barLong(b) {
+    return barLabel(b) +
       (b.iv ? (b.cond ? '（' + b.cond + '・' + nn(b.iv) + '秒ごと）'
                       : '（初回 ' + nn(b.st0) + '秒／' + nn(b.iv) + '秒ごと）')
             : b.once ? '（' + nn(b.st0) + '秒に 1 回だけ）' : '') +
       (b.afu ? '（着弾の時刻はデータに無い）' : '') +
       (b.ch < 10000 ? '（' + nn(b.ch / 100) + '%）' : '') +
-      (b.dup ? '（' + (SIDE_JA[b.sd] || b.sd) + '）' : '') +
       (b.tier ? '（段あり・1段目）' : '') +
       (b.grew ? '（固有で延長）' : '');
+  }
+
+  /** 入る幅に収まるまで札を削って、末尾に「…」を付ける。 */
+  function fitLabel(t, maxPx) {
+    if (labelPx(t) <= maxPx) return t;
+    var cut = t;
+    while (cut.length > 1 && labelPx(cut + '…') > maxPx) cut = cut.slice(0, -1);
+    return cut + '…';
   }
   function barTitle(b) {
     return b.who + '　' + (b.skn ? '「' + b.skn + '」' : '') + b.e +
@@ -1527,6 +1544,7 @@
     var box = el('bars'), lead = el('bars-lead');
     if (!bars.length) {
       box.innerHTML = '';
+      if (el('bars-more')) el('bars-more').hidden = true;
       lead.textContent = members().length
         ? '持続する効果を持った子が編成にいません。上のチェックで種別を戻すと出ることがあります。'
         : '編成を決めると持続する効果が帯で出ます。';
@@ -1582,27 +1600,41 @@
          長い札（「〈ノーマル〉セイア／貫通特効 25.0秒（初回 36.43秒／35秒ごと）」）が
          右へはみ出していた（2026-08-30 の先生の指摘——画像つきで「表示おかしい」）。
          **全角は 11px、半角は 6px** で見積もる（`.chart text.lb` が 11px）。 */
-      var est = labelPx(barLabel(b));
+      var lb = barLabel(b);
+      var est = labelPx(lb);
       var late = x0 + 6 + est > W - R - 4;
+      // **どちら向きでも枠から出さない。**右揃えにしても入らない札は削る
+      lb = fitLabel(lb, (W - R - 4) - (late ? L : x0 + 6));
       return body + '<text class="lb" text-anchor="' + (late ? 'end' : 'start') + '" x="' +
         (late ? (W - R - 4) : (x0 + 6)).toFixed(1) + '" y="' + (y + h - 3) + '">' +
-        esc(barLabel(b)) + '</text>';
+        esc(lb) + '</text>';
     }).join('');
 
     box.innerHTML = '<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="効果の持続">' +
       g + rows + goalMark(goal, x, T, H - B, span) + '</svg>';
+
+    /* **札から落とした条件は、丸に i にぜんぶ入れる。**
+       図の上では読めないが、消してしまうと初回の時刻も確率も分からなくなる */
+    var more = el('bars-more');
+    if (more) {
+      more.hidden = false;
+      more.setAttribute('data-hint',
+        '色は本人（濃い）／味方（中）／敵（薄い）です。' +
+        (amp ? '点線の枠は属性特効で、受け取る子の攻撃属性が合ったときだけ乗ります。' : '') +
+        (cc ? '灰色は CC（気絶・挑発など）で、敵にかかります。' : '') +
+        (ns ? '初回はスキル文のとおりです。「40秒毎に」なら 1 回目も 40 秒後、' +
+              '「戦闘開始時とそれ以降、40秒毎に」なら 0 秒からです。' : '') +
+        ((sim && sim.ovWin && sim.ovWin.length) ? 'オーバーコストの帯も出しています。' : '') +
+        (gims.length ? 'ステージギミックの帯も出しています。' : '') +
+        '\n\n札に入りきらない条件は、ここに全部あります。\n' +
+        bars.map(function (b) { return '・' + barLong(b); }).join('\n'));
+    }
+    /* **画面に出す文は数だけ。**色の意味・初回の決め方・特効の扱いは丸に i へ
+       （2026-08-31 の先生の指示——文章は最小限、詳しいのは丸に i で十分）。 */
     lead.textContent = '帯 ' + bars.length + ' 本。左端が発動、右端の縦線で切れます。' +
-      (ns ? (ns === bars.length ? '' : 'うち ') + ns +
-            ' 本はノーマル・パッシブ・サブです。初回はスキル文のとおりで、' +
-            '「40秒毎に」なら 1 回目も 40 秒後、' +
-            '「戦闘開始時とそれ以降、40秒毎に」なら 0 秒からです。' : '') +
-      (over ? over + ' 本は図の右端より先まで続きます。' : '') +
-      '色は本人（濃い）／味方（中）／敵（薄い）です。' +
-      (cc ? 'CC（気絶・挑発など）は敵にかかる灰色の帯で、100% でないものは確率を書いています。' : '') +
-      (amp ? 'うち ' + amp + ' 本は属性特効（点線の枠）で、受け取る子の攻撃属性が合ったときだけ乗ります。' : '') +
-      ((sim && sim.ovWin && sim.ovWin.length) ? 'オーバーコストの帯も出しています。' : '') +
-      (gims.length ? 'ステージギミックの帯も出しています。' : '') +
-      (cut ? cut + ' 本は発動が ' + TICK_MAX + ' 回で打ち切りです。' : '');
+      (ns ? (ns === bars.length ? '' : 'うち ') + ns + ' 本はノーマル・パッシブ・サブ。' : '') +
+      (over ? over + ' 本は右端より先まで続きます。' : '') +
+      (cut ? cut + ' 本は ' + TICK_MAX + ' 回で打ち切り。' : '');
   }
 
   /* ---------- 攻撃力の倍率
