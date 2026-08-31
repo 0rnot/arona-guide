@@ -37,7 +37,7 @@
   .bbtn[aria-pressed="true"] .nm { color: var(--accent-tx); }
 
   /* 時間の入力。**凸ごとに 1 行。** */
-  .timein { display: grid; grid-template-columns: 4.2em auto 4.6em auto 4.6em 1fr; gap: .45em;
+  .timein { display: grid; grid-template-columns: 4.2em auto 4.6em auto 4.6em 1fr auto; gap: .45em;
             align-items: center; margin-bottom: .5em; }
   .timein input { width: 100%; text-align: right; font-variant-numeric: tabular-nums;
                   padding: .35em .5em; }
@@ -45,9 +45,22 @@
   .timein .lb { font-size: .8rem; font-weight: 700; color: var(--fg); }
   .timein .note { font-size: .74rem; }
   .timein.last .lb { color: var(--accent-tx); }
+  /* **凸を外すボタン。**行の右端に置く。1 凸のときは出さない
+     （2026-08-31 の先生の指示——「+で無制限に追加できるようにしたほうがいい」） */
+  .timein .del { border: 0; background: transparent; color: var(--fg-mute); cursor: pointer;
+                 font: inherit; font-size: 1rem; line-height: 1; padding: .2em .35em;
+                 border-radius: 7px; }
+  .timein .del:hover { background: var(--bg-sub); color: var(--fg); }
+  .timein .del:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .addrow { display: flex; flex-wrap: wrap; align-items: center; gap: .5em .8em; margin-top: .2em; }
+  .addrow .btn { flex: none; white-space: nowrap; }
+  .addrow #turn-n { font-size: .8rem; color: var(--fg-mute); }
   @media (max-width: 460px) {
-    .timein { grid-template-columns: 3.6em auto 1fr auto 1fr; }
-    .timein .note { grid-column: 1 / -1; }
+    /* **狭い画面では 2 段に折る。**説明を下の段に落とすと外すボタンが押し出されて
+       次の行の左端に落ちるので、説明と外すボタンを同じ段に明示的に置く */
+    .timein { grid-template-columns: 3.6em auto 1fr auto 1fr auto; }
+    .timein .note { grid-column: 1 / 6; grid-row: 2; }
+    .timein .del, .timein .delslot { grid-column: 6; grid-row: 2; justify-self: end; }
   }
   .totline { font-size: .86rem; font-weight: 700; margin: .6em 0 0; }
   .totline small { display: block; font-weight: 400; color: var(--fg-mute); font-size: .78rem;
@@ -186,19 +199,16 @@
         <div class="panel-h"><h2>クリアタイム</h2></div>
         <p class="lead" style="margin:0 0 12px"><b>時間ぶんは、部隊をまたいだ合計の戦闘時間で決まります。</b><button type="button" class="qm" data-hint="2 凸なら 1 回目にかかった時間も足されます。倒せなかった回はふつう時間切れなので、制限時間そのものを入れてあります。"></button></p>
         <div class="btnrow" style="margin-bottom:12px">
-          <div class="seg" id="turns" role="group" aria-label="凸数">
-            <button type="button" data-n="1" aria-pressed="true">1 凸</button>
-            <button type="button" data-n="2" aria-pressed="false">2 凸</button>
-            <button type="button" data-n="3" aria-pressed="false">3 凸</button>
-            <button type="button" data-n="4" aria-pressed="false">4 凸</button>
-            <button type="button" data-n="5" aria-pressed="false">5 凸</button>
-          </div>
           <div class="seg" id="tmode" role="group" aria-label="最後の凸の入れ方">
             <button type="button" data-t="clear" aria-pressed="true">経過で入れる</button>
             <button type="button" data-t="left" aria-pressed="false">残りで入れる</button>
           </div>
         </div>
         <div id="times"></div>
+        <div class="addrow">
+          <button type="button" class="btn sm" id="add-turn">＋ 凸を足す</button>
+          <span id="turn-n"></span>
+        </div>
         <p class="totline" id="t-total">&nbsp;</p>
         <div class="numrow wide" style="margin-top:14px">
           <div class="nm">削れた HP<small>倒しきれなかったときだけ触ってください</small></div>
@@ -409,6 +419,10 @@
      最後の 1 回だけは「経過」でも「残り」でも入れられる（残り ＝ 制限時間 − 経過）。 */
   var turns = 1, tmode = 'clear';
   var times = [90];                   // 凸ごとの経過秒。最後が倒した回
+  /* **凸は好きなだけ足せる。**上限を 30 にしてあるのは、URL に入る長さと、
+     合計 60 分（時間ぶんが 0 になる点）を超えたら数える意味が無くなるため
+     （2026-08-31 の先生の指示「+で無制限に追加できるようにしたほうがいい」） */
+  var MAX_TURNS = 30;
 
   function drawTimes() {
     var r = row(); if (!r) return;
@@ -422,15 +436,21 @@
       var mm = Math.floor(show / 60), ss = Math.round((show - mm * 60) * 10) / 10;
       h += '<div class="timein' + (last ? ' last' : '') + '" data-i="' + i + '">' +
         '<span class="lb">' + (i + 1) + ' 凸目</span>' +
-        '<span>分</span><input type="number" inputmode="numeric" min="0" max="10" step="1" ' +
+        '<span>分</span><input type="number" inputmode="numeric" min="0" max="60" step="1" ' +
         'data-k="m" data-i="' + i + '" value="' + mm + '" aria-label="' + (i + 1) + ' 凸目の分">' +
         '<span>秒</span><input type="number" inputmode="decimal" min="0" max="59.9" step="0.1" ' +
         'data-k="s" data-i="' + i + '" value="' + ss + '" aria-label="' + (i + 1) + ' 凸目の秒">' +
         '<span class="note">' + (last
           ? (tmode === 'left' ? '倒したときの<b>残り</b>タイム' : '倒すまでの<b>経過</b>タイム')
-          : '倒しきれず時間切れ（' + clock(r.du) + '）') + '</span></div>';
+          : '倒しきれず時間切れ（' + clock(r.du) + '）') + '</span>' +
+        // **1 凸のときは外すボタンを出さない。**押しても何も起きない札は置かない
+        (turns > 1
+          ? '<button type="button" class="del" data-del="' + i + '" aria-label="' +
+            (i + 1) + ' 凸目を外す">✕</button>'
+          : '<span class="delslot"></span>') + '</div>';
     }
     el('times').innerHTML = h;
+    el('turn-n').textContent = turns + ' 凸ぶん。合計の戦闘時間で時間ぶんが減ります';
   }
 
   function secs() {
@@ -611,7 +631,7 @@
     if (p[1]) boss = p[1];          // 実在するかは drawBosses() が確かめる
     if (p[2]) diff = p[2];          // 同上
     var n = parseInt(p[3], 10);
-    if (n >= 1 && n <= 5) turns = n;
+    if (n >= 1 && n <= MAX_TURNS) turns = n;
     if (p[4] === 'clear' || p[4] === 'left') tmode = p[4];
     if (p[5]) {
       var ts = p[5].split('_').map(function (x) { return Math.max(0, parseFloat(x) || 0); });
@@ -621,12 +641,10 @@
     if (hv >= 5 && hv <= 100 && hv % 5 === 0) { hp = hv; el('i-hp').value = String(hv); }
     var g = parseFloat(p[7]);
     if (g > 0) el('i-goal').value = g;
-    // 押しボタンの見た目を合わせる（種類・凸数・入れ方は描き直しが無い）
+    // 押しボタンの見た目を合わせる（種類・入れ方は描き直しが無い。
+    // 凸数は `drawTimes` が行ごと描き直すので、ここには要らない）
     [].forEach.call(el('kind').querySelectorAll('button'), function (x) {
       x.setAttribute('aria-pressed', String(x.dataset.k === kind));
-    });
-    [].forEach.call(el('turns').querySelectorAll('button'), function (x) {
-      x.setAttribute('aria-pressed', String(+x.dataset.n === turns));
     });
     [].forEach.call(el('tmode').querySelectorAll('button'), function (x) {
       x.setAttribute('aria-pressed', String(x.dataset.t === tmode));
@@ -645,13 +663,16 @@
     var b = e.target.closest('button'); if (!b) return;
     boss = b.dataset.b; drawBosses(); drawTimes(); draw();
   });
-  el('turns').addEventListener('click', function (e) {
-    var b = e.target.closest('button'); if (!b) return;
-    turns = +b.dataset.n;
-    [].forEach.call(el('turns').querySelectorAll('button'), function (x) {
-      x.setAttribute('aria-pressed', String(+x.dataset.n === turns));
-    });
-    drawTimes(); draw();
+  /* **足すのは最後の 1 つ手前**で、最後の行は「倒した回」のまま動かさない */
+  el('add-turn').addEventListener('click', function () {
+    if (turns >= MAX_TURNS) return;
+    turns += 1; drawTimes(); draw();
+  });
+  el('times').addEventListener('click', function (e) {
+    var b = e.target.closest('[data-del]'); if (!b) return;
+    if (turns <= 1) return;
+    times.splice(+b.dataset.del, 1);
+    turns -= 1; drawTimes(); draw();
   });
   el('tmode').addEventListener('click', function (e) {
     var b = e.target.closest('button'); if (!b) return;
