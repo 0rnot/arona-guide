@@ -35,7 +35,10 @@
   .mbtn[aria-pressed="true"] { background: var(--accent); color: var(--accent-in); border-color: transparent; }
   .mbtn[aria-pressed="true"] .sub { color: var(--accent-in); opacity: .8; }
   .mbtn img { width: 38px; height: 38px; border-radius: 7px; background: var(--bg-sub); }
-  .mbtn .nm { font-size: .78rem; font-weight: 700; line-height: 1.3; word-break: auto-phrase; }
+  /* **`min-width: 0` が要る。**grid の子は既定が `auto` で、中身より狭くならない。
+     長い名前（アンティキティラ装置）が札から 18px はみ出していた（2026-08-31） */
+  .mbtn .nm { font-size: .78rem; font-weight: 700; line-height: 1.3; word-break: auto-phrase;
+              min-width: 0; overflow-wrap: anywhere; }
   .mbtn .sub { display: block; font-size: .7rem; font-weight: 400; color: var(--fg-mute); margin-top: .1em; }
 
   /* 生徒の行 */
@@ -57,7 +60,12 @@
   .t4 img { width: 40px; height: 40px; border-radius: 8px;
             background: var(--rar, var(--bg-sub)); }
   .t4 .v { font-weight: 800; font-size: 1.1rem; font-variant-numeric: tabular-nums; }
-  .t4 .k { font-size: .7rem; color: var(--fg-mute); line-height: 1.4; word-break: auto-phrase; }
+  /* **ここだけ `word-break: auto-phrase` を外す。**「初級技術ノート（アビドス）」が
+     1 行のまま 4px はみ出していた（2026-08-31）。auto-phrase は文節で折る指定で、
+     折れる場所が見つからないと `overflow-wrap: anywhere` があっても折らない。
+     ここは 155px の細い札なので、素直に文字の間で折らせる */
+  .t4 .k { font-size: .7rem; color: var(--fg-mute); line-height: 1.4;
+           word-break: normal; overflow-wrap: anywhere; }
   /* レアリティの札。**枠と絵の下地に同じ色を敷く。**段が上がるほど濃くなるので、
      数字を読まなくても「これは完全な方」と分かる（2026-08-30 の先生の要望） */
   .t4 .rr { display: inline-block; margin-top: .3em; padding: .05em .5em;

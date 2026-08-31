@@ -79,6 +79,10 @@ code {
   border: 1px solid var(--line);
   border-radius: 6px;
   padding: .1em .45em;
+  /* **長い列名は途中で折る。**`PlusMaxApMasterCoinPerWeek` のような名前が
+     スマホで画面から 10px はみ出していた（2026-08-31）。英字の連続は
+     既定では折れないので、ここで許可する */
+  overflow-wrap: anywhere;
 }
 
 /* ------------------------------------------------------------ 上部バー

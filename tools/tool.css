@@ -217,10 +217,17 @@ select {
                  font-variant-numeric: tabular-nums; color: var(--accent-tx); }
 
 /* 分割ボタン（排他の選択） */
+/* **角丸を 999px にしない。**折り返して 2 行以上になった瞬間、
+   帯が巨大な楕円の塊になる（2026-08-31 に先生のスマホの写真で発覚。
+   装備の部位 9 個で 3 行、難易度 8 個で 3 行、コスト計算機の編成 2 個で 2 行）。
+   **24px なら、1 行のときはブラウザが「高さの半分」まで自動で丸めるので
+   今までどおりの錠剤に見え、折り返したときだけ角丸の四角になる**
+   （CSS の仕様で、辺の長さを超える角丸は縮められる）。
+   1 行の帯は高さ 37〜46px なので、どれも今までと同じ形のまま */
 .seg {
   display: inline-flex; flex-wrap: wrap; gap: 4px;
   background: var(--bg-sub); border: 1px solid var(--line);
-  border-radius: 999px; padding: 4px;
+  border-radius: 24px; padding: 4px;
 }
 .seg button {
   font: inherit; font-size: .84rem; font-weight: 700;
@@ -249,7 +256,8 @@ select {
 .ttabs {
   display: flex; flex-wrap: wrap; gap: 4px;
   background: var(--bg-sub); border: 1px solid var(--line);
-  border-radius: 999px; padding: 4px; margin: 26px 0 0;
+  /* **`.seg` と同じ理由で 24px。**折り返すと 999px は楕円の塊になる */
+  border-radius: 24px; padding: 4px; margin: 26px 0 0;
 }
 .ttabs button {
   font: inherit; font-size: .84rem; font-weight: 700;

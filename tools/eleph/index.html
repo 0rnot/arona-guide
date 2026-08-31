@@ -40,8 +40,11 @@
   /* 星の並び。**押した数がそのまま目標。** */
   .starrow { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
   .starrow .lb { font-size: .78rem; color: var(--fg-mute); width: 5.4em; flex: none; }
-  /* **ボタンは横に並べる。**素の div のままだと縦に積み上がる */
-  .starrow > div { display: flex; gap: 6px; }
+  /* **ボタンは横に並べる。**素の div のままだと縦に積み上がる。
+     **折り返しも要る**——段は 8 個あって、390px では画面から 19px はみ出していた
+     （2026-08-31 に先生のスマホの写真で発覚。外側の `.starrow` は折り返す設定だが、
+     ボタンを包むこの div が 1 本の行のままだった） */
+  .starrow > div { display: flex; flex-wrap: wrap; gap: 6px; }
   .star { width: 34px; height: 34px; border-radius: 9px; border: 1px solid var(--line);
           background: var(--card); color: var(--fg-mute); cursor: pointer; font-size: 1rem;
           line-height: 1; display: grid; place-items: center; padding: 0; }
@@ -57,7 +60,8 @@
   .stargrid { display: grid; gap: 8px; }
   /* **2 段。**左に星、右上に要る量、右下に上がり幅。1 行に押し込むと
      細い柱で「攻撃力／最大 HP／回復力」が 1 語ずつ折り返す */
-  .starstep { display: grid; grid-template-columns: 4.8em 1fr; gap: .3em .7em;
+  /* **左の柱は 5.2em。**4.8em だと「★1→★2」が 2px 切れる（2026-08-31） */
+  .starstep { display: grid; grid-template-columns: 5.2em 1fr; gap: .3em .7em;
               padding: .55em .7em; border: 1px solid var(--line); border-radius: 11px;
               background: var(--card); font-size: .86rem; }
   .starstep .to { grid-row: 1 / 3; align-self: center; }
@@ -71,7 +75,7 @@
                     font-size: .84rem; }
   .starstep .cost small { font-weight: 400; color: var(--fg-mute); font-size: .74rem; margin-left: .5em; }
   @media (max-width: 400px) {
-    .starstep { grid-template-columns: 4.2em 1fr; }
+    .starstep { grid-template-columns: 5.2em 1fr; }
     .starstep .cost small { display: block; margin-left: 0; }
   }
 

@@ -30,8 +30,11 @@
   .gift img { width: 50px; height: 50px; border-radius: 8px; background: var(--bg-sub); }
   /* **効き目の絵は小さく。**上の `.gift img` に負けるので、ここで指定し直す
      （width 属性は CSS に勝てない。2026-08-30 に 50px で出て気づいた） */
+  /* **絵と ×n を横に並べる。**style.css の `img { display: block }` が効くと
+     ×n が絵の下に落ちて、札が 2 行ぶんの高さになる（2026-08-31 の先生の指摘
+     「×n はアイコンの右でいいかな?」）*/
   .gift .mtag .gico { width: 16px; height: 16px; border-radius: 0; background: none;
-                      vertical-align: -.24em; margin-right: .2em; }
+                      display: inline-block; vertical-align: -.24em; margin-right: .2em; }
   .gift .nm { font-size: .86rem; line-height: 1.45; }
   .gift .nm small { display: block; color: var(--fg-mute); font-size: .74rem; }
   .gift .ex { text-align: right; font-variant-numeric: tabular-nums; font-weight: 800; font-size: .95rem; }

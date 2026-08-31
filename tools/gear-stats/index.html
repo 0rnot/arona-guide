@@ -37,7 +37,10 @@
   .tier .tx small { display: block; color: var(--fg-mute); font-size: .74rem; line-height: 1.55; }
   .tier .up { text-align: right; font-size: .78rem; white-space: nowrap; }
   .tier .up b { display: block; font-size: .92rem; font-variant-numeric: tabular-nums; color: var(--accent-tx); }
-  .tier .up small { color: var(--fg-mute); font-size: .7rem; }
+  /* **太字の値とくっつかせない。**「＋2%T9 の最大から」と読めてしまう
+     （2026-08-31 に先生のスマホの写真で発覚） */
+  .tier .up small { color: var(--fg-mute); font-size: .7rem; margin-left: .5em; }
+  .tier .up small:only-child { margin-left: 0; }
   @media (max-width: 520px) {
     .tier { grid-template-columns: 42px 38px 1fr; row-gap: .25em; }
     /* **`white-space: nowrap` を外す。**幅いっぱいに回しているので、
