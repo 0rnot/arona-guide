@@ -141,6 +141,21 @@
   border-radius:4px; padding:2px 6px; font-size:10px; line-height:1.55; white-space:nowrap;
   z-index:10; pointer-events:none; }
 .phbox .neg { color:#ff6b6b; }
+.mkl { position:absolute; top:0; bottom:0; width:1px; background:var(--ylw); opacity:.55; z-index:6; }
+.mkt { position:absolute; top:0; height:14px; transform:translateX(1px); z-index:7;
+  background:var(--ylw); color:#221900; border:0; border-radius:0 3px 3px 0; cursor:pointer;
+  font:700 9px/14px inherit; padding:0 4px; max-width:120px; overflow:hidden;
+  text-overflow:ellipsis; white-space:nowrap; }
+.mkt:hover { filter:brightness(1.12); }
+.sheet { position:fixed; inset:0; z-index:99; background:#000a; display:flex;
+  align-items:center; justify-content:center; }
+.sheet .card { background:var(--bg1); border:1px solid var(--ln); border-radius:8px;
+  padding:12px; width:min(640px, 92vw); display:flex; flex-direction:column; gap:8px; }
+.sheet h3 { margin:0; font-size:13px; }
+.sheet textarea { width:100%; height:220px; resize:vertical; background:#0a0d18;
+  color:var(--tx); border:1px solid var(--ln); border-radius:6px; padding:7px;
+  font:11px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; }
+.sheet .row { display:flex; gap:6px; align-items:center; }
 
 /* ---------- 編成 ---------- */
 .crew { display:grid; grid-template-columns:repeat(6,1fr); gap:3px; }
@@ -439,10 +454,10 @@
           <div class="box"><span class="cap">制限時間</span><span id="o-dur">—</span></div>
         </div>
         <div class="r">
-          <button type="button" class="btn2" id="b-export">エクスポート</button>
-          <button type="button" class="btn2" id="b-import">インポート</button>
+          <button type="button" class="btn2" id="b-export" data-act="export">エクスポート</button>
+          <button type="button" class="btn2" id="b-import" data-act="import">インポート</button>
           <div class="box"><span class="cap">表示スキル</span><span class="imgs" id="showsk"></span></div>
-          <div class="box"><span class="cap">マーカーを追加</span><button type="button" class="btn2">＋</button></div>
+          <div class="box"><span class="cap">マーカーを追加</span><button type="button" class="btn2" data-act="mark">＋</button></div>
           <div class="box"><button type="button" class="btn2">PS適用</button>
             <button type="button" class="btn2">SS適用</button></div>
           <div class="box"><span class="cap">コスト回復力</span><span id="o-rec">—</span></div>
@@ -569,13 +584,13 @@
 
   var st = { bi: 0, di: 0, px: 6, pin: null, party: [null, null, null, null, null, null],
              grid: 3, picking: null, filt: { q: '', role: '', bul: '', arm: '' },
-             tl: [], sel: null, lv: 5 };
+             tl: [], sel: null, lv: 5, mk: [] };
 
   // ------------------------------------------------------------ 置いたスキル
   // st.tl の 1 件は { i: 編成の枠 0-5, t: 秒 }。EX レーンにだけ置く
   function snap(t) {
     var q = st.grid / B.fps;
-    return Math.max(0, Math.round(t / q) * q);
+    return Math.max(0, +(Math.round(t / q) * q).toFixed(4));
   }
   function exDur(p) { return (p && p.d) || 60; }
   function exCost(p) { return (p && p.c && p.c[st.lv - 1]) || 0; }
@@ -758,6 +773,14 @@
     side += lbl(H.ss, '<span class="nm">SS</span>');
     cv += lane(H.ss, '');
 
+    for (var m = 0; m < st.mk.length; m++) {
+      if (st.mk[m].t > dur) { continue; }
+      cv += '<div class="mkl" style="left:' + (st.mk[m].t * px).toFixed(1) + 'px"></div>' +
+            '<button type="button" class="mkt" data-mk="' + m + '" style="left:' +
+            (st.mk[m].t * px).toFixed(1) + 'px" title="' + esc(st.mk[m].n) + '\n' +
+            st.mk[m].t.toFixed(2) + '秒（残り ' + mmss(dur, st.mk[m].t) + '）\nクリックで消します">' +
+            esc(st.mk[m].n) + '</button>';
+    }
     cv += '<div class="ph" id="ph" style="left:-10px"></div><div class="phbox" id="phbox" hidden></div>';
     $('side').innerHTML = side;
     $('cv').innerHTML = cv;
@@ -811,10 +834,68 @@
       out.push(['e', 'コストが足りません: ' + ((bp && bp.n) || '?') + ' ' + run.bad[q].t.toFixed(2) + '秒']);
     }
     out.push(['w', 'ダメージ計算はこれからです（達成率の表はまだ空）']);
-    out.push(['w', 'デバフ数・SS・マーカー・エクスポートもこれからです']);
+    out.push(['w', 'デバフ数・SS レーン・自動生成はこれからです']);
     $('errlog').innerHTML = out.map(function (x) {
       return '<div class="' + x[0] + '">' + (x[0] === 'g' ? '✔ ' : (x[0] === 'e' ? '✕ ' : '▸ ')) + esc(x[1]) + '</div>';
     }).join('');
+  }
+
+  // ------------------------------------------------------------ 書き出し・読み込み
+  function snapshot() {
+    var ids = [];
+    for (var i = 0; i < 6; i++) { ids.push(st.party[i] ? st.party[i].id : null); }
+    return { v: 1, boss: boss().id, diff: diff().df, lv: st.lv,
+             party: ids, tl: st.tl, mk: st.mk };
+  }
+  function restore(o) {
+    if (!o || o.v !== 1) { throw new Error('形式が違います（v:1 ではありません）'); }
+    var bi = -1, di = -1, i, k;
+    for (i = 0; i < B.bosses.length; i++) { if (B.bosses[i].id === o.boss) { bi = i; } }
+    if (bi < 0) { throw new Error('知らないボスです: ' + o.boss); }
+    for (k = 0; k < B.bosses[bi].d.length; k++) { if (B.bosses[bi].d[k].df === o.diff) { di = k; } }
+    if (di < 0) { throw new Error('知らない難易度です: ' + o.diff); }
+    st.bi = bi; st.di = di; st.lv = o.lv || 5;
+    st.party = [null, null, null, null, null, null];
+    for (i = 0; i < 6 && i < (o.party || []).length; i++) {
+      st.party[i] = o.party[i] == null ? null : stu(o.party[i]);
+    }
+    st.tl = []; st.mk = []; st.sel = null;
+    for (i = 0; i < (o.tl || []).length; i++) {
+      var u = o.tl[i];
+      if (u && u.i >= 0 && u.i < 6 && isFinite(u.t)) { st.tl.push({ i: +u.i, t: +u.t }); }
+    }
+    for (i = 0; i < (o.mk || []).length; i++) {
+      var m = o.mk[i];
+      if (m && isFinite(m.t)) { st.mk.push({ t: +m.t, n: String(m.n || '') }); }
+    }
+    fillBoss(); drawCrew(); drawPicker(); draw();
+  }
+  function sheet(title, text, onOK) {
+    var w = document.createElement('div');
+    w.className = 'sheet';
+    w.innerHTML = '<div class="card"><h3></h3><textarea spellcheck="false"></textarea>' +
+      '<div class="row"><button type="button" class="btn2" data-x="ok"></button>' +
+      '<button type="button" class="btn2" data-x="no">閉じる</button>' +
+      '<span class="msg mut"></span></div></div>';
+    w.querySelector('h3').textContent = title;
+    var ta = w.querySelector('textarea'), ok = w.querySelector('[data-x="ok"]');
+    ta.value = text;
+    ok.textContent = onOK ? '読み込む' : 'コピー';
+    function close() { document.body.removeChild(w); }
+    w.addEventListener('click', function (e) {
+      if (e.target === w || e.target.getAttribute('data-x') === 'no') { close(); return; }
+      if (e.target !== ok) { return; }
+      if (!onOK) {
+        ta.select();
+        try { document.execCommand('copy'); w.querySelector('.msg').textContent = 'コピーしました'; }
+        catch (err) { w.querySelector('.msg').textContent = '手で選んでコピーしてください'; }
+        return;
+      }
+      try { onOK(JSON.parse(ta.value)); close(); }
+      catch (err) { w.querySelector('.msg').textContent = String(err.message || err); }
+    });
+    document.body.appendChild(w);
+    if (onOK) { ta.focus(); } else { ta.select(); }
   }
 
   // ------------------------------------------------------------ 再生ヘッド
@@ -983,7 +1064,21 @@
     var act = e.target.closest('button[data-act]');
     if (act) {
       var a = act.getAttribute('data-act');
-      if (a === 'clear') { st.tl = []; st.sel = null; draw(); }
+      if (a === 'clear') { st.tl = []; st.sel = null; st.mk = []; draw(); }
+      if (a === 'export') { sheet('エクスポート', JSON.stringify(snapshot()), null); }
+      if (a === 'import') {
+        sheet('インポート', '', function (o) { restore(o); });
+      }
+      if (a === 'mark') {
+        var dur = diff().dur || 240;
+        var t = st.pin != null ? st.pin :
+                ($('view').scrollLeft + $('view').clientWidth / 2) / st.px;
+        t = Math.max(0, Math.min(dur, t));
+        var n = window.prompt('マーカーの名前', mmss(dur, t));
+        if (n == null) { return; }
+        st.mk.push({ t: snap(t), n: n || mmss(dur, t) });
+        draw();
+      }
       return;
     }
     var b = e.target.closest('button[data-grid]');
@@ -1014,6 +1109,10 @@
     return (clientX - box.left + view.scrollLeft) / st.px;
   }
   view.addEventListener('click', function (e) {
+    var mk = e.target.closest('.mkt');
+    if (mk) {
+      st.mk.splice(+mk.getAttribute('data-mk'), 1); draw(); return;
+    }
     if (e.target.closest('.b')) { return; }
     if (e.target.closest('.exlane')) { return; }
     var t = timeAt(e.clientX);
@@ -1025,6 +1124,7 @@
     view.focus();
     if (e.button === 1) { drag = { x: e.clientX, l: view.scrollLeft }; e.preventDefault(); return; }
     if (e.button !== 0) { return; }
+    if (e.target.closest('.mkt')) { return; }
     var bar = e.target.closest('.b.sk');
     if (bar) {
       st.sel = +bar.getAttribute('data-ix');
