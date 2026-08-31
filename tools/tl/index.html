@@ -651,6 +651,12 @@
     var q = st.grid / B.fps;
     return Math.max(0, +(Math.round(t / q) * q).toFixed(4));
   }
+  // **切り上げ側の吸い付き。**自動生成で使う。四捨五入だと刻みぶん手前に落ちて
+  // コストが 0.02 ほど足りなくなり、置いた端から赤くなっていた（2026-09-01）
+  function snapUp(t) {
+    var q = st.grid / B.fps;
+    return Math.max(0, +(Math.ceil(t / q - 1e-9) * q).toFixed(4));
+  }
   function exDur(p) { return (p && p.d) || 60; }
   function exCost(p) { return (p && p.c && p.c[st.lv - 1]) || 0; }
   function tlSorted() {
@@ -660,6 +666,29 @@
     if (!st.party[i]) { return; }
     st.tl.push({ i: i, t: snap(t) });
     st.sel = st.tl.length - 1;
+    draw();
+  }
+  // 自動生成。**編成の順に、コストが貯まった瞬間から順に置く。**
+  // 前の EX の演出が終わるまでは次を置かない（実際に撃てないので）
+  function autoFill() {
+    var r = diff(), dur = r.dur || 240, rate = recPower() / 10000;
+    if (rate <= 0) { return; }
+    var order = [], i;
+    for (i = 0; i < 6; i++) { if (st.party[i] && exCost(st.party[i]) > 0) { order.push(i); } }
+    if (!order.length) { return; }
+    st.tl = []; st.sel = null;
+    var cur = 0, last = REC_DELAY, free = REC_DELAY, k = 0, guard = 0;
+    while (guard++ < 400) {
+      var idx = order[k % order.length], p = st.party[idx], c = exCost(p);
+      var t = cur >= c ? last : last + (c - cur) / rate;
+      if (t < free) { t = free; }
+      t = snapUp(t);
+      if (t > dur) { break; }
+      cur = Math.min(CAP, cur + (t - last) * rate) - c;
+      last = t; free = t + exDur(p) / B.fps;
+      st.tl.push({ i: idx, t: t });
+      k++;
+    }
     draw();
   }
   function delSel() {
@@ -716,7 +745,8 @@
       upto(t);
       var c = exCost(st.party[u.i]);
       cur -= c; pts.push([t, cur]);
-      if (cur < 0) { bad.push(u); }
+      // ちょうど 0 になる置き方が -0.0000001 になることがあるので、そこは見逃す
+      if (cur < -1e-6) { bad.push(u); }
     }
     upto(dur);
     return { pts: pts, bad: bad, end: cur };
@@ -945,7 +975,7 @@
     }
     var eb0 = enemyAt(r, 0);
     out.push(['w', 'ダメージは EX だけです（NS と SS はまだ数えていません）']);
-    out.push(['w', 'SS レーン・自動生成・遮蔽はこれからです']);
+    out.push(['w', 'SS レーン・遮蔽・条件つきのバフはこれからです']);
     $('errlog').innerHTML = out.map(function (x) {
       return '<div class="' + x[0] + '">' + (x[0] === 'g' ? '✔ ' : (x[0] === 'e' ? '✕ ' : '▸ ')) + esc(x[1]) + '</div>';
     }).join('');
@@ -1554,6 +1584,7 @@
     if (act) {
       var a = act.getAttribute('data-act');
       if (a === 'clear') { st.tl = []; st.sel = null; st.mk = []; draw(); }
+      if (a === 'auto') { autoFill(); }
       if (a === 'export') { sheet('エクスポート', JSON.stringify(snapshot()), null); }
       if (a === 'import') {
         sheet('インポート', '', function (o) { restore(o); });
