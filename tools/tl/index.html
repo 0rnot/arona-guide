@@ -65,6 +65,14 @@
 .tlmain.wide { grid-template-columns:minmax(0,1fr); }
 .tlleft { display:flex; flex-direction:column; gap:7px; min-width:0; }
 .tlright { display:flex; flex-direction:column; gap:7px; min-width:0; }
+/* スマホは後回しだが、**本文が横に溢れるのだけは止める**。
+   errlog の nowrap と ボタン列が幅を押し広げていた（2026-09-01 に 390px で実測） */
+@media (max-width:999px) {
+  .tltop > *, .tlmain > * { min-width:0; }
+  .errlog div { white-space:normal; }
+  .brand-btns { flex-wrap:wrap; }
+  .bset { font-size:9px; }
+}
 
 /* ---------- エラー履歴 ---------- */
 .errlog { background:#0a0d18; border:1px solid var(--ln); border-radius:6px; padding:5px 7px;
