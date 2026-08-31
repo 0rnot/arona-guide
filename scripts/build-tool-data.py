@@ -4139,6 +4139,230 @@ def build_gacha():
     return bool(n)
 
 
+# ------------------------------------------------------------ TL エディタ（ボスの行動）
+
+# **ボスがいつ EX を撃つかは `DB/BossExternalBTExcelTable` のビヘイビアツリー。**
+# 2026-08-31 に見つけた。引き金と振る舞いの組で書かれていて、総力戦で効くのは 3 つ。
+#
+#   UseNormalSkill N       → UseSelectExSkill i   通常スキル N 発目のあとに EX の i 番
+#   CheckPeriod ms         → AddActiveGauge v     ms ごとにゲージが v たまる
+#   CheckActiveGaugeOver t → UseSelectExSkill i   ゲージが t を超えたら EX の i 番
+#   HPUnder hp             → ChangePhase p        HP が hp を切ったらフェーズ p へ
+#
+# **`UseSelectExSkill` の添字は `DB/CharacterSkillListExcelTable` の
+# `ExSkillGroupId` の並び。**SchaleDB の `RaidSkillList` の並びではない。
+#
+# **通常スキル 1 発の長さは 2 通りの入り方をする。**
+#   通常攻撃の型   `AnimationFrames` の `AttackIngDuration`（`Duration` は 2147483647）
+#   Timeline の型  トップレベルの `Duration` がそのまま 1 周期
+#
+# `EnemyStartCoolTime` / `EnemyCoolTime`（`DB/SkillExcelTable`）で動くボスもいる。
+# 0 のボスが多いので、そちらは上のツリーで動く。両方を出しておく。
+BALS = "https://raw.githubusercontent.com/electricgoat/ba-data/jp/LevelSkill/{}.json"
+TL_FPS = 30.0
+TL_DIFF = ["Normal", "Hard", "VeryHard", "Hardcore", "Extreme", "Insane", "Torment", "Lunatic"]
+
+
+def tl_frames(group, cache):
+    """通常スキル 1 発ぶんのフレーム数。引けなければ None。"""
+    if group in cache:
+        return cache[group]
+    try:
+        d = get_json(BALS.format(group))
+    except Exception:
+        d = {}
+    v = None
+    for a in (d.get("AnimationFrames") or []):
+        if a.get("Key") == "AttackIngDuration" and a.get("Frame"):
+            v = a["Frame"]
+    if not v:
+        dur = d.get("Duration")
+        if isinstance(dur, int) and 0 < dur < 100000:
+            v = dur
+    cache[group] = v
+    return v
+
+
+def tl_idxs(arg):
+    """`BehaviorArgument` は "2" のほか "2,0" のように複数入ることがある。"""
+    return [int(x) for x in str(arg).split(",") if x.strip().lstrip("-").isdigit()]
+
+
+def tl_base_id(cid):
+    """制約解除決戦の敵 ID は `<ボス5桁>0<難易度1桁><部位2桁>`。Normal 版に落とす。
+    例: 614130201（Hard の本体）→ 614130101（Normal の本体）。総力戦の 7 桁は対象外。"""
+    c = int(cid)
+    if c < 100000000:
+        return None
+    d = c // 100 % 10
+    return c - (d - 1) * 100 if d > 1 else None
+
+
+def tl_one(cid, bt, csl, stat, fcache, ch_appear):
+    """敵 1 体ぶんの行動。出せなければ None。
+
+    **難易度ぶんの木が無いときは Normal の木で埋める**（`fb` に残す）。
+    HP のしきい値を無視して木を比べると、ペロロジラ・グレゴリオ・クロカゲ・
+    ゲブラ・ドラム缶ガニは全難易度で同じ形をしていた。スキル名と HP は
+    その難易度の表から取り直すので、埋めても名前と HP は正しい。
+    """
+    fb = []
+    rows = bt.get(cid)
+    if not rows:
+        b = tl_base_id(cid)
+        if b and bt.get(b):
+            rows, _ = bt[b], fb.append("bt=" + str(b))
+    if not rows:
+        return None
+    sl = csl.get(cid)
+    if not sl:
+        b = tl_base_id(cid)
+        if b and csl.get(b):
+            sl, _ = csl[b], fb.append("skills=" + str(b))
+    if not sl:
+        return None
+    ex = sl.get("ExSkillGroupId") or []
+    ns = (sl.get("NormalSkillGroupId") or [None])[0]
+    nf = tl_frames(ns, fcache) if ns else None
+    st = stat.get(cid, {})
+    spd = (st.get("NormalAttackSpeed") or 10000) / 10000.0
+    per = (nf / TL_FPS / spd) if nf else None
+    ph = {}
+    for p in sorted({r["AIPhase"] for r in rows}):
+        rs = [r for r in rows if r["AIPhase"] == p]
+        ev = sorted(([int(r["TriggerArgument"]),
+                      round(int(r["TriggerArgument"]) * per, 3) if per else None,
+                      tl_idxs(r["BehaviorArgument"])]
+                     for r in rs
+                     if r["ExternalBTTrigger"] == "UseNormalSkill"
+                     and r["ExternalBehavior"] == "UseSelectExSkill"), key=lambda x: x[0])
+        add = [r for r in rs if r["ExternalBTTrigger"] == "CheckPeriod"
+               and r["ExternalBehavior"] == "AddActiveGauge"]
+        over = [r for r in rs if r["ExternalBTTrigger"] == "CheckActiveGaugeOver"]
+        g = None
+        if add and over:
+            step, amt = int(add[0]["TriggerArgument"]), int(add[0]["BehaviorArgument"])
+            if amt:
+                g = [round(int(over[0]["TriggerArgument"]) / amt * (step / 1000.0), 3),
+                     tl_idxs(over[0]["BehaviorArgument"])]
+        hp = [[int(r["TriggerArgument"]), r["BehaviorArgument"]] for r in rs
+              if r["ExternalBTTrigger"] == "HPUnder"
+              and r["ExternalBehavior"].startswith(("ChangePhase", "ForceChangePhase"))]
+        # **上の 3 つで拾えなかった行は、そのまま残す。**
+        # `OnSpawned` `ApplyGroggy` `DestroyParts` `CheckSummonCharacterCountUnder`
+        # `CheckHallucinationCountOver` などは、時刻に直せないが画面には出したい
+        taken = {"UseNormalSkill", "CheckPeriod", "CheckActiveGaugeOver", "HPUnder"}
+        raw = [[r["ExternalBTNodeType"], r["ExternalBTTrigger"], r["TriggerArgument"],
+                r["BehaviorRate"], r["ExternalBehavior"], r["BehaviorArgument"]]
+               for r in rs if r["ExternalBTTrigger"] not in taken]
+        if not (ev or g or hp or raw):
+            continue
+        ph[str(p)] = {"ev": ev, "g": g, "hp": hp, "raw": raw}
+    if not ph:
+        return None
+    return {"cid": cid, "hp": st.get("MaxHP1"), "ns": ns, "nf": nf,
+            "spd": st.get("NormalAttackSpeed") or 10000,
+            "ap": ch_appear.get(cid),
+            "per": round(per, 3) if per else None, "ex": ex, "ph": ph, "fb": fb}
+
+
+def build_tl():
+    """TL エディタが読むボスの行動。**いまは総力戦だけ**（大決戦とワールドレイドは
+    ID の付き方が違って、ビヘイビアツリーが引けない枠が多い。2026-08-31 の判断）。"""
+    print("TL エディタ（ボスの行動）")
+    bt = {}
+    for r in as_list(get_json(BADB.format("BossExternalBTExcelTable"))):
+        bt.setdefault(r["ExternalBTId"], []).append(r)
+    csl = {r["CharacterSkillListGroupId"]: r
+           for r in as_list(get_json(BADB.format("CharacterSkillListExcelTable")))}
+    stat = {r["CharacterId"]: r
+            for r in as_list(get_json(BADB.format("CharacterStatExcelTable")))}
+    # **登場に 20 フレームかかる**（ビナー。`AppearFrame`）。実物の TL の時刻と
+    # 突き合わせると、これを足したほうが 1 本目の 29.0 秒に近づいた（2026-08-31）
+    appear = {r["Id"]: r.get("AppearFrame")
+              for r in as_list(get_json(BADB.format("CharacterExcelTable")))}
+    cool = {}
+    for r in as_list(get_json(BADB.format("SkillExcelTable"))):
+        g = r.get("GroupId")
+        if not g or g in cool:
+            continue
+        a, c = r.get("EnemyStartCoolTime") or 0, r.get("EnemyCoolTime") or 0
+        if a or c:
+            cool[g] = [a, c]
+    raids = get_json(SD.format("raids"))
+    rsk = raids.get("RaidSkills") or {}
+
+    fcache = {}
+    bosses, ok, half, ng = [], 0, 0, []
+    for b in raids.get("Raid") or []:
+        rows = []
+        for i, ids in enumerate(b.get("EnemyList") or []):
+            got = None
+            for cid in (ids if isinstance(ids, list) else [ids]):
+                got = tl_one(cid, bt, csl, stat, fcache, appear)
+                if got:
+                    break
+            df = TL_DIFF[i] if i < len(TL_DIFF) else str(i)
+            if not got:
+                ng.append(f"{b.get('Name')} {df}")
+                continue
+            got["df"] = df
+            got["dur"] = (b.get("BattleDuration") or [None] * (i + 1))[i]
+            got["cool"] = {g: cool[g] for g in got["ex"] if g in cool}
+            # EX 1 発の長さ（フレーム）。**帯の幅に使う。**
+            # 通常スキルと違って、こちらはトップレベルの `Duration` がそのまま入っている
+            got["exd"] = [tl_frames(g, fcache) for g in got["ex"]]
+            rows.append(got)
+            ok += 1 if got["per"] else 0
+            half += 0 if got["per"] else 1
+        if rows:
+            bosses.append({"id": b["Id"], "n": b.get("Name"), "dev": b.get("DevName"),
+                           "path": b.get("PathName"), "d": rows})
+    # **生徒の素ステータスとダメージ倍率。**`tools/cost-timeline/data.js` には
+    # バフと着弾しか入っていないので、ダメージを出すのに要るぶんだけここに足す。
+    # ページは両方の data.js を読む（変数は `TL` と `TLBOSS` で分けてある）。
+    #   st  … [攻撃1, 攻撃100, HP1, HP100, 防御1, 防御100, 安定値, 命中, 会心, 会心ダメージ率, 射程]
+    #   dmg … スキルの種類ごとに [倍率5段, ヒット配分, 会心判定, ブロック]
+    # `Scale` は万分率（27438 = 274.38%）。`Hits` は 1 発の中の配分（10000 = 100%）
+    SD_STAT = ["AttackPower1", "AttackPower100", "MaxHP1", "MaxHP100",
+               "DefensePower1", "DefensePower100", "StabilityPoint",
+               "AccuracyPoint", "CriticalPoint", "CriticalDamageRate", "Range"]
+    stu = as_list(get_json(SD.format("students")))
+    st_out, dmg_out, ndmg = {}, {}, 0
+    for x in stu:
+        sid = str(x["Id"])
+        st_out[sid] = [x.get(k) for k in SD_STAT]
+        per_skill = {}
+        for kind, sk in (x.get("Skills") or {}).items():
+            if not isinstance(sk, dict):
+                continue
+            eff = [[e.get("Scale"), e.get("Hits"), e.get("CriticalCheck"), e.get("Block")]
+                   for e in (sk.get("Effects") or [])
+                   if str(e.get("Type", "")).startswith("Damage")]
+            if eff:
+                per_skill[kind] = eff
+                ndmg += len(eff)
+        if per_skill:
+            dmg_out[sid] = per_skill
+    print(f"  生徒 {len(st_out)} 人 / ダメージを持つ生徒 {len(dmg_out)} 人・効果 {ndmg} 件")
+
+    used = sorted({g for x in bosses for r in x["d"] for g in r["ex"]}
+                  | {r["ns"] for x in bosses for r in x["d"] if r["ns"]})
+    skills = {g: {"n": rsk[g].get("Name"), "d": rsk[g].get("Desc")}
+              for g in used if g in rsk}
+    print(f"  ボス {len(bosses)} 体 / 秒つき {ok} 件・ゲージのみ {half} 件・出せない {len(ng)} 件")
+    if ng:
+        print("    出せない: " + ", ".join(ng))
+    (ROOT / "tools" / "tl").mkdir(parents=True, exist_ok=True)
+    # **変数名は `TLBOSS`。**`tools/cost-timeline/data.js` が既に `window.TL` を使っている
+    # ので、同じ名前にすると後から読んだほうが前を消す（2026-08-31 に気づいた）
+    return write_js("tools/tl/data.js", "TLBOSS", {
+        "fps": TL_FPS, "bosses": bosses, "skills": skills,
+        "stats": st_out, "statKeys": SD_STAT, "dmg": dmg_out,
+        "version": "ba-data jp DB/ + SchaleDB jp",
+    }, header="/* scripts/build-tool-data.py が吐く。**手で直さない。** */\n")
+
+
 BUILDERS = {"bond": build_bond, "teacher-level": build_teacher_level,
             "equipment": build_equipment, "tier": build_tier, "raid": build_raid,
             "student-cost": build_student_cost, "treasure": build_treasure,
@@ -4157,6 +4381,7 @@ BUILDERS = {"bond": build_bond, "teacher-level": build_teacher_level,
             "cafe": build_cafe,
             "cafe-layout": build_cafe_layout,
             "gacha": build_gacha,
+            "tl": build_tl,
             "ui": build_ui}
 
 if __name__ == "__main__":

@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TL エディタ｜AronaBot</title>
+<meta name="description" content="総力戦のタイムラインを、コスト・手札・ボスの動きと一緒に組み立てます。ボスがいつ EX を撃つかはゲームのデータから出しています。">
+<meta name="theme-color" content="#c8892e">
+<link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="AronaBot">
+<meta property="og:locale" content="ja_JP">
+<meta property="og:url" content="https://arona-bot.com/tools/tl/">
+<meta property="og:title" content="TL エディタ">
+<meta property="og:description" content="総力戦のタイムラインを、コスト・手札・ボスの動きと一緒に組み立てます。ボスがいつ EX を撃つかはゲームのデータから出しています。">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="TL エディタ">
+<meta name="twitter:description" content="総力戦のタイムラインを、コスト・手札・ボスの動きと一緒に組み立てます。ボスがいつ EX を撃つかはゲームのデータから出しています。">
+<link rel="stylesheet" href="../../style.css?v=22">
+<link rel="stylesheet" href="../tool.css?v=16">
+<style>
+  /* ============================================================
+     TL エディタ。**横軸が時間で、画面いっぱいに使う。**
+     レーンは左に見出し、右に帯。見出しの列だけ固定幅で、
+     帯のほうは秒 × 倍率で幅が決まる（横スクロール）
+     ============================================================ */
+  .tlbar { display: flex; flex-wrap: wrap; gap: .5em .9em; align-items: center;
+           margin: 14px 0 10px; }
+  .tlbar .grp { display: flex; align-items: center; gap: .4em; }
+  .tlbar label { font-size: .78rem; color: var(--fg-mute); }
+  .tlbar select, .tlbar input[type="number"] { font: inherit; padding: .3em .5em;
+           border-radius: 8px; border: 1px solid var(--line);
+           background: var(--bg-sub); color: var(--fg); }
+  .tlbar .zoom { display: flex; align-items: center; gap: .35em; }
+  .tlbar .zoom input { width: 130px; }
+  .tlbar .spacer { flex: 1 1 auto; }
+  .tlbar .meta { font-size: .78rem; color: var(--fg-mute);
+                 font-variant-numeric: tabular-nums; }
+
+  /* ボスを選ぶ帯 */
+  .bosspick { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; }
+  .bosspick button { flex: none; font: inherit; font-size: .74rem; cursor: pointer;
+           padding: 5px 10px; border-radius: 999px; border: 1px solid var(--line);
+           background: var(--bg-sub); color: var(--fg); white-space: nowrap; }
+  .bosspick button[aria-pressed="true"] { border-color: var(--accent); color: var(--accent-tx);
+           font-weight: 700; }
+
+  /* 盤 */
+  .board { border: 1px solid var(--line); border-radius: 14px; overflow: hidden;
+           background: var(--card); }
+  .board .rows { display: grid; grid-template-columns: 148px minmax(0, 1fr); }
+  .board .hd { border-right: 1px solid var(--line); background: var(--bg-sub); }
+  .board .hd > div, .lane { height: 30px; display: flex; align-items: center;
+           border-bottom: 1px solid var(--line); }
+  .board .hd > div { padding: 0 .6em; font-size: .74rem; font-weight: 700;
+           color: var(--fg-mute); gap: .4em; }
+  .board .hd > div.sub { font-weight: 400; }
+  .board .hd > div .tag { font-size: .62rem; padding: 0 .35em; border-radius: 4px;
+           border: 1px solid var(--line); color: var(--fg-mute); }
+  .scroll { overflow-x: auto; overflow-y: hidden; position: relative; }
+  .inner { position: relative; }
+  .lane { position: relative; }
+  .lane.tall { height: 44px; }
+  .board .hd > div.tall { height: 44px; }
+
+  /* 目盛り */
+  .axis { height: 26px; position: relative; border-bottom: 1px solid var(--line);
+          background: var(--bg-sub); }
+  .board .hd > div.axis-h { height: 26px; }
+  .tick { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--line); }
+  .tick.big { background: var(--fg-mute); opacity: .55; }
+  .tick b { position: absolute; top: 4px; left: 4px; font-size: .68rem; font-weight: 600;
+            color: var(--fg-mute); white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .grid { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--line);
+          opacity: .45; pointer-events: none; }
+
+  /* ボスの EX */
+  .blk { position: absolute; top: 3px; bottom: 3px; border-radius: 6px;
+         border: 1px solid var(--line); background: var(--bg-sub);
+         font-size: .66rem; line-height: 1; display: flex; align-items: center;
+         padding: 0 5px; overflow: hidden; white-space: nowrap; cursor: default; }
+  .blk.ex   { background: color-mix(in srgb, #c0392b 22%, var(--card)); border-color: #c0392b88; }
+  .blk.ex2  { background: color-mix(in srgb, #8e44ad 22%, var(--card)); border-color: #8e44ad88; }
+  .blk.gau  { background: color-mix(in srgb, #2980b9 20%, var(--card)); border-color: #2980b988; }
+  .blk.stu  { background: color-mix(in srgb, var(--accent) 26%, var(--card));
+              border-color: var(--accent); }
+  .blk .n { overflow: hidden; text-overflow: ellipsis; }
+
+  /* HP のしきい値（フェーズ） */
+  .phline { position: absolute; top: 0; bottom: 0; width: 2px; background: #e67e22;
+            opacity: .8; }
+  .phline b { position: absolute; top: 2px; left: 4px; font-size: .64rem; color: #e67e22;
+              white-space: nowrap; }
+
+  /* 再生ヘッド */
+  .head { position: absolute; top: 0; bottom: 0; width: 2px; background: #e74c3c;
+          pointer-events: none; z-index: 5; }
+  .head .bub { position: absolute; top: 2px; left: 5px; background: var(--card);
+          border: 1px solid #e74c3c; border-radius: 8px; padding: 3px 7px;
+          font-size: .7rem; line-height: 1.45; white-space: nowrap;
+          font-variant-numeric: tabular-nums; box-shadow: 0 2px 10px #0003; }
+  .head .bub .c { color: var(--fg-mute); }
+
+  /* 編成 */
+  .party { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+           gap: 8px; }
+  .pslot { display: flex; align-items: center; gap: .5em; padding: 6px 8px;
+           border: 1px solid var(--line); border-radius: 10px; background: var(--bg-sub); }
+  .pslot img { width: 34px; height: 34px; border-radius: 8px; background: var(--card); }
+  .pslot select { font: inherit; font-size: .78rem; min-width: 0; flex: 1 1 auto;
+           border: 0; background: transparent; color: var(--fg); }
+  .pslot .role { font-size: .62rem; color: var(--fg-mute); }
+
+  .legend { display: flex; flex-wrap: wrap; gap: .4em .9em; margin-top: .6em;
+            font-size: .72rem; color: var(--fg-mute); }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px;
+              margin-right: .3em; vertical-align: -1px; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-inner">
+    <a class="topbar-name" href="../../">AronaBotの使い方</a>
+    <a class="topbar-tools" href="../">
+      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <path d="M21.7 18.3l-6-6a5.5 5.5 0 0 0-7-7l3.1 3.1-2.1 2.1L6.6 7.3a5.5 5.5 0 0 0 7 7l6 6a1 1 0 0 0 1.4 0l.7-.7a1 1 0 0 0 0-1.3z"/>
+      </svg>
+      ツール一覧
+    </a>
+    <nav class="topbar-nav">
+      <a href="../../#can">機能</a>
+      <a href="../../#start">つかいはじめる</a>
+      <a href="../../#message">メッセージから</a>
+      <a href="../../#faq">よくある質問</a>
+    </nav>
+    <!-- 共有。**AronaBot 本体と同じ位置に置く。**押した先は環境で変える -->
+    <span class="share-nudge" aria-hidden="true">使えそうな人に、ぜひ</span>
+    <a class="share" id="share-page" target="_blank" rel="noopener" aria-label="このページを共有する"
+       href="https://x.com/intent/post?url=https%3A%2F%2Farona-bot.com%2Ftools%2F">
+      <svg class="share-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <path d="M14 9V5l7 7-7 7v-4.1c-5 0-8.5 1.6-11 5.1 1-5 4-10 11-11z"/>
+      </svg>
+      <span class="share-label">共有</span>
+    </a>
+  </div>
+</div>
+<div class="toast" id="toast-page" role="status" aria-live="polite"></div>
+<script>
+/* 共有ボタン。**そのページ自身の URL を配る。**
+   1. スマホ（navigator.share）→ OS の共有シート
+   2. PC（クリップボード）→ URL をコピーして帯で伝える
+   3. どちらも無い → <a href> のまま X の共有ページへ */
+(function () {
+  var btn = document.getElementById('share-page'), toast = document.getElementById('toast-page');
+  if (!btn) return;
+  /* **`#` を落とさない。**TL のように状態をハッシュに入れているツールでは、
+     ここを削ると相手の画面に同じ結果が出ない（2026-08-30）。
+
+     **読み込み時に 1 回だけ取らない。**そのあと入力を変えてハッシュが
+     書き換わっても、古い URL を配ってしまう（2026-08-31 にサブエージェント
+     2 体が別々に見つけた）。`share.js` の X ボタンと同じく、押される直前に
+     読み直す。`window.shareUrl` を持つツールでは、そちらを先に呼ぶ。 */
+  function url() {
+    try {
+      if (typeof window.shareUrl === 'function') {
+        var h = window.shareUrl();
+        if (h) return location.href.split('#')[0] + h;
+      }
+    } catch (e) { /* ツール側が転んでも共有は動かす */ }
+    return location.href;
+  }
+  var name = document.title.split('｜')[0];
+  var text = name + '（AronaBot のツール）';
+  function refresh() {
+    btn.href = 'https://x.com/intent/post?text=' + encodeURIComponent(text) +
+               '&url=' + encodeURIComponent(url());
+  }
+  refresh();
+  ['focus', 'pointerdown'].forEach(function (ev) { btn.addEventListener(ev, refresh); });
+  var timer = null;
+  function say(t) {
+    if (!toast) return;
+    toast.textContent = t; toast.classList.add('shown');
+    clearTimeout(timer); timer = setTimeout(function () { toast.classList.remove('shown'); }, 2000);
+  }
+  btn.addEventListener('click', function (e) {
+    refresh();
+    var u = url();
+    if (navigator.share) {
+      e.preventDefault();
+      navigator.share({ title: name, text: text, url: u }).catch(function () {});
+      return;
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      e.preventDefault();
+      navigator.clipboard.writeText(u).then(function () { say('リンクをコピーしました'); },
+        function () { window.open(btn.href, '_blank', 'noopener'); });
+    }
+  });
+})();
+</script>
+
+<header class="thero">
+  <div class="thero-media" aria-hidden="true">
+    <picture>
+      <source srcset="../../images/hero-day.jpg" media="(prefers-color-scheme: dark)">
+      <img src="../../images/hero-night.jpg" alt="" width="1600" height="400" fetchpriority="high">
+    </picture>
+  </div>
+  <div class="thero-body">
+    <h1>TL エディタ</h1>
+    <p class="thero-lead">ボスがいつ動くかを敷いた上に、自分の TL を組み立てます。</p>
+  </div>
+</header>
+
+<div class="twrap full">
+  <p class="tcrumb"><a href="../../">AronaBotの使い方</a><span class="sl">/</span><a href="../">ツール</a><span class="sl">/</span>TL エディタ</p>
+
+  <div class="panel" style="margin-top:16px">
+    <div class="bosspick" id="bosspick"></div>
+    <div class="tlbar">
+      <div class="grp">
+        <label for="i-diff">難易度</label>
+        <select id="i-diff"></select>
+      </div>
+      <div class="grp zoom">
+        <label for="i-zoom">拡大</label>
+        <input type="range" id="i-zoom" min="3" max="24" step="1" value="8">
+      </div>
+      <span class="spacer"></span>
+      <span class="meta" id="o-meta"></span>
+      <button type="button" class="qm" id="h-src" data-hint=""></button>
+    </div>
+
+    <div class="board" id="board">
+      <div class="rows">
+        <div class="hd" id="hd"></div>
+        <div class="scroll" id="scroll">
+          <div class="inner" id="inner"></div>
+        </div>
+      </div>
+    </div>
+    <div class="legend">
+      <span><i style="background:#c0392b"></i>ボスの EX（通常スキルの回数で撃つ）</span>
+      <span><i style="background:#8e44ad"></i>ボスの EX（2 種類目）</span>
+      <span><i style="background:#2980b9"></i>ボスの EX（ゲージで撃つ）</span>
+      <span><i style="background:#e67e22"></i>フェーズの切り替わる HP</span>
+    </div>
+  </div>
+
+  <div class="panel" id="party-panel">
+    <h2 class="ph">編成</h2>
+    <p class="pnote">まだ形だけです。並べた生徒はレーンに行が増えるところまで動きます。</p>
+    <div class="party" id="party"></div>
+  </div>
+
+  <div class="note-box">
+    <h2 class="ph">いまできること</h2>
+    <ul class="tlist">
+      <li><b>ボスの動きが敷けます。</b>いつどの EX を撃つか、フェーズがどの HP で切り替わるかを、ゲームのデータから出しています</li>
+      <li><b>再生ヘッドが動きます。</b>盤の上でカーソルを動かすと、残り時間が出ます</li>
+      <li><b>まだ無いもの。</b>コストの線、手札、スキルの置きかけ、ダメージ。順に足していきます</li>
+    </ul>
+  </div>
+
+  <details class="src">
+    <summary>数字の出どころ</summary>
+    <ul>
+      <li><b>ボスがいつ EX を撃つか</b> — ba-data の <code>DB/BossExternalBTExcelTable.json</code>（ビヘイビアツリー）。
+        <code>UseNormalSkill N → UseSelectExSkill i</code> は「通常スキル N 発目のあとに EX の i 番」、
+        <code>CheckPeriod ms → AddActiveGauge v</code> と <code>CheckActiveGaugeOver t</code> はゲージで撃つぶん、
+        <code>HPUnder hp → ChangePhase p</code> はフェーズの切り替わりです</li>
+      <li><b>通常スキル 1 発の長さ</b> — <code>LevelSkill/&lt;スキル名&gt;.json</code>。
+        通常攻撃の型は <code>AnimationFrames</code> の <code>AttackIngDuration</code>、
+        Timeline の型はトップレベルの <code>Duration</code>。どちらもフレーム数で、30fps で秒に直しています</li>
+      <li><b>EX の並び</b> — <code>DB/CharacterSkillListExcelTable.json</code> の <code>ExSkillGroupId</code>。
+        <code>UseSelectExSkill</code> の番号はこの並びを指します</li>
+      <li><b>ボスの HP と通常攻撃の速さ</b> — <code>DB/CharacterStatExcelTable.json</code> の
+        <code>MaxHP1</code> と <code>NormalAttackSpeed</code></li>
+      <li><b>スキルの名前と説明</b> — <a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a> の <code>raids</code></li>
+      <li><b>ここだけ当てにしないでください。</b>難易度ぶんのビヘイビアツリーが無いボスは、
+        Normal の木で埋めています（スキル名と HP はその難易度のものを使っています）。
+        グレゴリオの Lunatic だけは木が無いので出せません</li>
+    </ul>
+  </details>
+</div>
+
+<script>window.TOUR = {"key": "tl", "steps": [{"sel": "#bosspick", "t": "ボスを選びます", "d": "難易度は Torment から開きます。"}, {"sel": "#board", "t": "ボスの動きが敷いてあります", "d": "いつどの EX を撃つかを、ゲームのデータから出しています。カーソルを乗せると残り時間が出ます。"}, {"sel": "#party-panel", "t": "編成を並べます", "d": "まだ行が増えるだけです。コストと手札はこれから足します。"}]};</script>
+<script src="../tour.js?v=2"></script>
+
+<script src="../share.js?v=3"></script>
+<script src="../hint.js?v=1"></script>
+
+<footer>
+  <div class="foot-inner">
+    <p class="foot-name">AronaBotの使い方</p>
+    <p class="foot-links">
+      <a href="../../">AronaBot のページ</a>
+      <span class="sep">/</span>
+      <a href="../">ツール一覧</a>
+      <span class="sep">/</span>
+      <a href="https://x.com/pe6cak" target="_blank" rel="noopener">制作者の X（@pe6cak）</a>
+      <span class="sep">/</span>
+      <a href="https://github.com/0rnot/arona-guide/issues/new?template=tool-feedback.yml&title=%5BTL%20%E3%82%A8%E3%83%87%E3%82%A3%E3%82%BF%5D%20&tool=TL%20%E3%82%A8%E3%83%87%E3%82%A3%E3%82%BF" target="_blank" rel="noopener">このツールへの要望・不具合</a>
+      <span class="sep">/</span>
+      <span>Discord なら <b>@0r.not</b> まで</span>
+    </p>
+    <p class="disclaimer">
+      <b>このサイトはファンが作った非公式のものです。</b>運営とは関係ありません。
+      <small>掲載しているゲーム内の画像・アイコン・名称・数値は、Nexon Games / Yostar の
+      「ブルーアーカイブ」から引用したもので、著作権はすべて権利者に帰属します。
+      ツールの計算に使うデータは <a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a> と
+      <a href="https://github.com/electricgoat/ba-data" target="_blank" rel="noopener">ba-data</a> から取得しています。
+      権利者の方でご指摘があれば <b>@0r.not</b> までご連絡ください。</small>
+    </p>
+  </div>
+</footer>
+<script src="data.js"></script>
+<script src="../cost-timeline/data.js"></script>
+<script>
+(function () {
+  'use strict';
+  var B = window.TLBOSS, S = window.TL;
+  var el = function (id) { return document.getElementById(id); };
+  function esc(t) {
+    return String(t).replace(/[&<>"]/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
+    });
+  }
+  // 残り時間の書き方。**TL は残り時間で書く**（先生がくれた実物もそう）
+  function rest(dur, t) {
+    var x = Math.max(0, dur - t), m = Math.floor(x / 60), s = x - m * 60;
+    return m + ':' + (s < 10 ? '0' : '') + s.toFixed(1);
+  }
+  function skName(g) { return (B.skills[g] && B.skills[g].n) || g; }
+
+  var st = { bi: 0, di: 0, px: 8 };
+
+  // ------------------------------------------------------------ ボスと難易度
+  function drawPick() {
+    var h = '';
+    for (var i = 0; i < B.bosses.length; i++) {
+      h += '<button type="button" data-i="' + i + '" aria-pressed="' +
+           (i === st.bi ? 'true' : 'false') + '">' + esc(B.bosses[i].n) + '</button>';
+    }
+    el('bosspick').innerHTML = h;
+  }
+  function drawDiff() {
+    var b = B.bosses[st.bi], h = '';
+    for (var i = 0; i < b.d.length; i++) {
+      h += '<option value="' + i + '">' + esc(b.d[i].df) + '</option>';
+    }
+    el('i-diff').innerHTML = h;
+    el('i-diff').value = String(st.di);
+  }
+  // **既定は Torment**（2026-08-31 の先生の指示「難易度は Torment 優先で」）
+  function pickDiff(b) {
+    for (var i = 0; i < b.d.length; i++) { if (b.d[i].df === 'Torment') return i; }
+    return b.d.length - 1;
+  }
+
+  // ------------------------------------------------------------ 盤
+  function row(cls, label, sub) {
+    return '<div class="' + cls + '">' + esc(label) +
+           (sub ? ' <span class="tag">' + esc(sub) + '</span>' : '') + '</div>';
+  }
+  function draw() {
+    var b = B.bosses[st.bi], r = b.d[st.di];
+    var dur = r.dur || 240, W = Math.round(dur * st.px);
+    var ph = r.ph['0'] || { ev: [], g: null, hp: [], raw: [] };
+    var px = st.px;
+
+    // 見出しの列
+    var hd = '<div class="axis-h">残り時間</div>';
+    hd += row('', 'ボスの EX', r.per ? r.nf + 'f' : '');
+    if (ph.g) { hd += row('', 'ゲージの EX', ph.g[0] + '秒'); }
+    if (r.per) { hd += row('sub', '通常スキル', r.per + '秒'); }
+    var party = readParty();
+    for (var i = 0; i < party.length; i++) {
+      hd += row('tall', party[i] ? party[i].n : '（空き）', party[i] ? 'EX' : '');
+    }
+    el('hd').innerHTML = hd;
+
+    // 帯の側
+    var h = '<div class="axis" style="width:' + W + 'px">';
+    var step = px >= 12 ? 5 : (px >= 6 ? 10 : 20);
+    for (var t = 0; t <= dur; t += step) {
+      var big = (t % 30 === 0);
+      h += '<div class="tick' + (big ? ' big' : '') + '" style="left:' + (t * px) + 'px">' +
+           (big ? '<b>' + rest(dur, t) + '</b>' : '') + '</div>';
+    }
+    h += '</div>';
+
+    function lane(inner, tall) {
+      return '<div class="lane' + (tall ? ' tall' : '') + '" style="width:' + W + 'px">' +
+             gridLines(dur, px) + inner + '</div>';
+    }
+    // ボスの EX
+    var s = '';
+    for (var k = 0; k < ph.ev.length; k++) {
+      var e = ph.ev[k];
+      if (e[1] == null || e[1] > dur) { continue; }
+      for (var q = 0; q < e[2].length; q++) {
+        var gi = e[2][q], g = r.ex[gi] || ('?' + gi);
+        var w = Math.max(14, ((r.exd && r.exd[gi]) || 60) / B.fps * px);
+        s += '<div class="blk ' + (gi === 0 ? 'ex' : 'ex2') + '" style="left:' + (e[1] * px) +
+             'px;width:' + w + 'px" title="' + esc(skName(g)) + ' / ' + esc(g) +
+             '\n通常スキル ' + e[0] + ' 発目\n' + e[1].toFixed(1) + '秒（残り ' + rest(dur, e[1]) + '）">' +
+             '<span class="n">' + esc(skName(g)) + '</span></div>';
+      }
+    }
+    // フェーズのしきい値は時刻に直せない（ダメージ計算が要る）ので、いまは印だけ
+    h += lane(s);
+
+    if (ph.g) {
+      var s2 = '', gi2 = ph.g[1][0], g2 = r.ex[gi2] || ('?' + gi2);
+      var w2 = Math.max(14, ((r.exd && r.exd[gi2]) || 60) / B.fps * px);
+      for (var t2 = ph.g[0]; t2 <= dur; t2 += ph.g[0]) {
+        s2 += '<div class="blk gau" style="left:' + (t2 * px) + 'px;width:' + w2 + 'px" title="' +
+              esc(skName(g2)) + ' / ' + esc(g2) + '\n' + t2.toFixed(1) + '秒（残り ' + rest(dur, t2) + '）">' +
+              '<span class="n">' + esc(skName(g2)) + '</span></div>';
+      }
+      h += lane(s2);
+    }
+    if (r.per) {
+      var s3 = '';
+      for (var n = 1; n * r.per <= dur; n++) {
+        s3 += '<div class="grid" style="left:' + (n * r.per * px) + 'px;background:var(--fg-mute);opacity:.28"></div>';
+      }
+      h += lane(s3);
+    }
+    for (var p = 0; p < party.length; p++) { h += lane('', true); }
+
+    h += '<div class="head" id="head" style="left:-10px"><div class="bub" id="bub"></div></div>';
+    el('inner').innerHTML = h;
+
+    var fb = r.fb && r.fb.length ? '　※Normal の木で埋めています' : '';
+    el('o-meta').textContent = 'HP ' + (r.hp || 0).toLocaleString('ja-JP') +
+      '　制限 ' + dur + '秒　EX ' + ph.ev.length + ' 本' +
+      (ph.hp.length ? '　フェーズ ' + ph.hp.map(function (x) {
+        return Math.round(x[0] / r.hp * 100) + '%';
+      }).join(' / ') : '') + fb;
+    el('h-src').setAttribute('data-hint',
+      'ボスの本体 ID ' + r.cid + '。通常スキル ' + (r.ns || '—') + '（' + (r.nf || '—') +
+      ' フレーム＝' + (r.per || '—') + ' 秒）。登場に ' + (r.ap || 0) + ' フレームかかります。' +
+      'EX の並びは ' + r.ex.join(' / ') + '。' +
+      (r.fb && r.fb.length ? 'この難易度は木が無いので Normal（' + r.fb.join(' ') + '）で埋めています。' : ''));
+  }
+  function gridLines(dur, px) {
+    var h = '', step = px >= 12 ? 30 : 60;
+    for (var t = step; t < dur; t += step) {
+      h += '<div class="grid" style="left:' + (t * px) + 'px"></div>';
+    }
+    return h;
+  }
+
+  // ------------------------------------------------------------ 編成（まだ形だけ）
+  var SLOTS = ['STRIKER 1', 'STRIKER 2', 'STRIKER 3', 'STRIKER 4', 'SPECIAL 1', 'SPECIAL 2'];
+  function drawParty() {
+    var opts = '<option value="">（選ぶ）</option>';
+    var list = S.students.slice().sort(function (a, b2) { return a.n.localeCompare(b2.n, 'ja'); });
+    for (var i = 0; i < list.length; i++) {
+      opts += '<option value="' + list[i].id + '">' + esc(list[i].n) + '</option>';
+    }
+    var h = '';
+    for (var k = 0; k < SLOTS.length; k++) {
+      h += '<div class="pslot"><select data-slot="' + k + '" aria-label="' + SLOTS[k] + '">' +
+           opts + '</select><span class="role">' + SLOTS[k].replace(' ', '') + '</span></div>';
+    }
+    el('party').innerHTML = h;
+  }
+  function readParty() {
+    var out = [], sel = el('party').querySelectorAll('select');
+    for (var i = 0; i < sel.length; i++) {
+      var v = sel[i].value, s = null;
+      if (v) { for (var k = 0; k < S.students.length; k++) { if (String(S.students[k].id) === v) { s = S.students[k]; } } }
+      out.push(s);
+    }
+    return out;
+  }
+
+  // ------------------------------------------------------------ 再生ヘッド
+  function head(ev) {
+    var b = B.bosses[st.bi], r = b.d[st.di], dur = r.dur || 240;
+    var sc = el('scroll'), box = sc.getBoundingClientRect();
+    var x = ev.clientX - box.left + sc.scrollLeft;
+    var t = Math.max(0, Math.min(dur, x / st.px));
+    var hEl = el('head'), bub = el('bub');
+    if (!hEl) { return; }
+    hEl.style.left = (t * st.px) + 'px';
+    bub.innerHTML = '残り時間: ' + rest(dur, t) + '<br><span class="c">経過 ' + t.toFixed(1) + ' 秒</span>';
+  }
+
+  // ------------------------------------------------------------ つなぐ
+  drawPick(); drawParty();
+  st.di = pickDiff(B.bosses[0]);
+  drawDiff(); draw();
+
+  el('bosspick').addEventListener('click', function (e) {
+    var b = e.target.closest('button[data-i]');
+    if (!b) { return; }
+    st.bi = +b.getAttribute('data-i');
+    st.di = pickDiff(B.bosses[st.bi]);
+    drawPick(); drawDiff(); draw();
+  });
+  el('i-diff').addEventListener('change', function () { st.di = +this.value; draw(); });
+  el('i-zoom').addEventListener('input', function () { st.px = +this.value; draw(); });
+  el('party').addEventListener('change', draw);
+  el('scroll').addEventListener('mousemove', head);
+})();
+</script>
+
+</body>
+</html>

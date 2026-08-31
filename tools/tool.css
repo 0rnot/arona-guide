@@ -15,6 +15,11 @@
 .twrap { max-width: 1180px; margin: 0 auto; padding: 0 clamp(16px, 3vw, 32px) 96px; }
 .twrap.narrow { max-width: 860px; }
 .twrap.wide   { max-width: 1320px; }
+/* **画面いっぱいに使う。**TL エディタのように、横軸が時間で、
+   広ければ広いほど読みやすいものだけ（2026-08-31 の先生の指示
+   ——「ブラウザ画面いっぱいに使って再現したい」） */
+.twrap.full   { max-width: none; padding-left: clamp(10px, 1.4vw, 20px);
+                padding-right: clamp(10px, 1.4vw, 20px); }
 
 /* ------------------------------------------------------------ 2 段組み
    **道具は読み物ではない。** 1 本の細い柱に流すと、広い画面で左右が丸ごと余る
