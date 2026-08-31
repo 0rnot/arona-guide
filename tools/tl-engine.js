@@ -33,6 +33,7 @@
    ---------- 出すもの
 
      simulate(IN)          -> { rows, segs, end, cap, rate, deck, ovWin }
+                             行の `lockTo` は「前の EX の演出が終わる時刻」
      collectBars(IN, sim)  -> 帯の配列。sim が null なら EX 抜き
      playHand(deck)        -> 手札の模擬（hand / isCopy / copyAt / use / copy）
      Recovery(ms, base, gb, gc) -> コスト回復力の入れもの
@@ -694,6 +695,10 @@
       var mine = cut[e.i];
       var need = costAfter(raw, mine);
       if (mine) { mine.n--; if (mine.n <= 0) delete cut[e.i]; }
+      // **前の EX の演出が終わるまで撃てない。**その「終わる時刻」を行にも入れて
+      // 返す（2026-09-01）。画面側が「コストが足りない」と「演出待ち」を
+      // 言い分けるのに要る。**判定そのものは変えていない。**
+      var lockTo = lock;
       var t0 = Math.max(t, lock);
       curOv = e.i;
       var soon = reach(need, t0);
@@ -747,6 +752,7 @@
       out.push({ e: e, d: d, s: s, sk: sk, fi: fi, auto: auto, fl: fl, nth: u + 1,
                  need: need, raw: raw, cut: mine, at: at, soon: soon, why: why,
                  over: over, left: at === null ? 0 : cost, idx: idx, rate: rateAt,
+                 lockTo: lockTo, t0: t0,
                  hand: hand, handCp: handCp, inHand: drawn, grant: gr, to: to,
                  isCopy: isCopy, kept: !!(drawn && keep), madeCopy: !!(drawn && mkCopy) });
     });

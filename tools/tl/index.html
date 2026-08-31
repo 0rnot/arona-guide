@@ -356,6 +356,13 @@
 #bset label > select + select { flex:0 0 46px; }
 .startsk .s select { max-width:none; width:74px; }
 .picker { grid-template-columns:repeat(6,1fr); max-height:230px; }
+
+/* 置いた時刻と、演出待ちで実際に出る時刻のあいだ */
+.ghost { position:absolute; top:50%; height:2px; transform:translateY(-50%);
+  background:repeating-linear-gradient(90deg,var(--tx3) 0 3px,transparent 3px 6px); opacity:.8; }
+.ghost::before { content:''; position:absolute; left:0; top:-4px; width:2px; height:10px;
+  background:var(--tx3); }
+.b.sk.late { box-shadow:inset 0 0 0 1px var(--tx3); opacity:.92; }
 </style>
 </head>
 <body>
@@ -859,9 +866,31 @@
   function addUse(i, t) {
     if (!st.party[i]) { return; }
     mark();
-    st.tl.push({ i: i, t: snap(t), to: null, ov: null, f: null, bt: null });
+    var u = { i: i, t: snap(t), to: null, ov: null, f: null, bt: null };
+    st.tl.push(u);
     st.sel = st.tl.length - 1;
+    fixUse(u);
     draw();
+  }
+  // **手で置いた 1 発が「間に合わない」なら、撃てる最短の刻みへ寄せる。**
+  // 刻みへの吸い付きは四捨五入なので、ちょうどコストが貯まる時刻を狙うと
+  // 必ず 1 刻み手前に落ちて赤くなる（2026-09-01、実物の TL を写していて気づいた）。
+  // **読み込んだ TL は寄せない。**成立しないことがそのまま見えるようにしておく
+  function fixUse(u) {
+    var dur = diff().dur || 240, guard = 0;
+    while (guard++ < 60) {
+      var rows = simOf(orderOf(), dur).rows, me = null, k;
+      for (k = 0; k < rows.length; k++) {
+        if (rows[k].e && rows[k].e._ix != null && st.tl[rows[k].e._ix] === u) { me = rows[k]; }
+      }
+      if (!me || !me.why || me.soon == null) { return; }
+      // **演出待ちは寄せない。**engine が自動で後ろへ出してくれるし、
+      // 実物の TL は「タップした時刻」で書かれているので、置いた位置を残したい
+      if (kindOf(me) === 'wait') { return; }
+      var nt = snapUp(Math.max(u.t + st.grid / B.fps * 0.5, me.soon));
+      if (nt > dur || nt <= u.t) { return; }
+      u.t = nt;
+    }
   }
   // 自動生成。**編成の順に、コストが貯まった瞬間から順に置く。**
   // 前の EX の演出が終わるまでは次を置かない（実際に撃てないので）
@@ -949,6 +978,35 @@
                _ix: st.tl.indexOf(u) };
     });
   }
+  // **「間に合いません」の理由を分ける。**コストが足りないのか、前の EX の
+  // 演出が終わっていないのか。実物の TL を写すと、詰まるのはほとんど後者だった
+  // （2026-09-01。総力戦の TL は「タップした時刻」で書かれているので、
+  //  演出を直列に積むこちらとは 1 発ごとにずれる）
+  // 置いた時刻に出せなかったとき、その理由は 3 通り。**扱いを変える。**
+  //   over … コストの上限を超えていて、どう待っても撃てない（本当のエラー）
+  //   wait … 前の EX の演出が終わっていないだけ（順番は成立している）
+  //   cost … コストが貯まっていない
+  function kindOf(row) {
+    if (!row || !row.why) { return ''; }
+    if (row.why.indexOf('上限') >= 0) { return 'over'; }
+    var late = row.lockTo != null && row.e.t != null && row.lockTo > row.e.t + 1e-6;
+    if (late && row.soon != null && Math.abs(row.soon - row.lockTo) < 0.05) { return 'wait'; }
+    return late ? 'both' : 'cost';
+  }
+  function whyOf(row) {
+    var k = kindOf(row);
+    if (!k) { return ''; }
+    if (k === 'over') { return 'コストの上限を超えていて撃てません'; }
+    var at = row.at == null ? null : row.at;
+    if (k === 'wait') {
+      return '前の EX の演出待ち。実際に出るのは ' + TE.n1(at) + ' 秒（' +
+             TE.n1(at - row.e.t) + ' 秒あと）';
+    }
+    if (k === 'both') {
+      return 'コストと演出の両方が足りず、実際に出るのは ' + TE.n1(at) + ' 秒';
+    }
+    return 'コストが足りず、実際に出るのは ' + TE.n1(at) + ' 秒';
+  }
   var _simC = null, _simK = '';
   function sim() {
     var dur = diff().dur || 240;
@@ -982,7 +1040,20 @@
   function costRun(dur) {
     var sm = sim(), pts = [], bad = [], i;
     for (i = 0; i < sm.segs.length; i++) { pts.push([sm.segs[i].t, sm.segs[i].c]); }
-    if (!pts.length || pts[pts.length - 1][0] < dur) { pts.push([dur, pts.length ? pts[pts.length - 1][1] : 0]); }
+    // **最後の 1 発より後ろも描く。**engine の segs はバフやギミックの切れ目までしか
+    // 伸びないので、そこから先は上限まで貯まる線を自分で足す（2026-09-01。
+    // 足さないと最後の EX から先が水平になって、残りコストが読めなかった）
+    if (!pts.length) { pts.push([0, 0]); }
+    var lastP = pts[pts.length - 1], rate = sm.rate;
+    if (lastP[0] < dur) {
+      if (rate > 0 && lastP[1] < sm.cap - 1e-9) {
+        var tcap = lastP[0] + (sm.cap - lastP[1]) / rate;
+        if (tcap < dur) { pts.push([tcap, sm.cap], [dur, sm.cap]); }
+        else { pts.push([dur, lastP[1] + rate * (dur - lastP[0])]); }
+      } else {
+        pts.push([dur, lastP[1]]);
+      }
+    }
     for (i = 0; i < sm.rows.length; i++) {
       var row = sm.rows[i];
       if (row.d && (row.why || row.at == null)) { bad.push(row); }
@@ -1114,7 +1185,8 @@
       for (var u2 = 0; u2 < st.tl.length; u2++) {
         var uu = st.tl[u2];
         if (uu.i !== i || uu.t > dur) { continue; }
-        var er = rowOf[u2] || null;
+        var er = rowOf[u2] || null, ek = kindOf(er);
+        var showT = (er && er.at != null) ? er.at : uu.t;
         var fnm = er && er.sk ? er.sk.n : (p && p.en) || '';
         var fdu = er && er.sk ? er.sk.d : exDur(p);
         var fc = er ? er.need : exCost(p);
@@ -1124,11 +1196,20 @@
         var tips = esc(fnm) + '\nコスト ' + (Math.round(fc * 10) / 10) +
           (er && er.isCopy ? '（複製カード）' : '') +
           (er && er.fl && er.fl.length > 1 ? '\n形態 ' + (er.fi + 1) + '/' + er.fl.length : '') +
-          '\n' + uu.t.toFixed(2) + '秒（残り ' + mmss(dur, uu.t) + '）' +
-          (er && er.why ? '\n⚠ ' + er.why : '');
+          '\n置いた ' + uu.t.toFixed(2) + '秒（残り ' + mmss(dur, uu.t) + '）' +
+          (er && er.at != null && Math.abs(er.at - uu.t) > 0.01
+            ? '\n実際に出る ' + er.at.toFixed(2) + '秒' : '') +
+          (er && er.why ? '\n⚠ ' + whyOf(er) : '');
+        if (Math.abs(showT - uu.t) > 0.01) {
+          // **置いた時刻の印。**どこでタップしたつもりかが消えないように残す
+          sb += '<div class="ghost" style="left:' + (uu.t * px).toFixed(1) + 'px;width:' +
+                Math.max(2, (showT - uu.t) * px).toFixed(1) + 'px" title="' +
+                '置いたのは ' + uu.t.toFixed(2) + '秒／出るのは ' + showT.toFixed(2) + '秒"></div>';
+        }
         sb += '<div class="b sk' + (st.sel === u2 ? ' sel' : '') +
-              (er && er.why ? ' bad' : '') + (er && er.isCopy ? ' cp' : '') +
-              '" data-ix="' + u2 + '" style="left:' + (uu.t * px).toFixed(1) +
+              (ek === 'over' || ek === 'cost' || ek === 'both' ? ' bad' : '') +
+              (ek === 'wait' ? ' late' : '') + (er && er.isCopy ? ' cp' : '') +
+              '" data-ix="' + u2 + '" style="left:' + (showT * px).toFixed(1) +
               'px;width:' + uw.toFixed(1) + 'px" title="' + tips + '">' + inner + '</div>';
       }
       cv += lane(H.row, sb, 'alt exlane" data-mem="' + i + '');
@@ -1271,7 +1352,14 @@
     $('kpi').innerHTML =
       box('与ダメージ（平均）', t.n ? n0(v) : '—', 'EX ' + t.ex.n + ' 発＋NS ' + t.ns.n + ' 発') +
       box('ボス HP に対して', hp ? pct.toFixed(1) + '%' : '—', hp ? n0(hp) : '—') +
-      box('置いた EX', st.tl.length + ' 発', run.bad.length ? run.bad.length + ' 発が撃てません' : '詰まりなし') +
+      (function () {
+        var nb = 0, nw = 0, q2;
+        for (q2 = 0; q2 < run.bad.length; q2++) {
+          if (kindOf(run.bad[q2]) === 'wait') { nw++; } else { nb++; }
+        }
+        return box('置いた EX', st.tl.length + ' 発',
+          nb ? nb + ' 発が撃てません' : (nw ? nw + ' 発が演出待ちでずれます' : '詰まりなし'));
+      })() +
       box('終わりのコスト', run.end.toFixed(2), '上限 ' + run.cap.toFixed(1)) +
       box('編成', crewCount() + ' / ' + (LAY[st.mode].main + LAY[st.mode].sup) + ' 人',
           'パーティー ' + (st.pi + 1) + ' / ' + st.parties.length) +
@@ -1291,10 +1379,51 @@
     } else {
       out.push(['g', 'スキルを ' + st.tl.length + ' 個置いています（終わりのコスト ' + run.end.toFixed(2) + '）']);
     }
+    var nWait = 0, lastAt = null;
     for (var q = 0; q < run.bad.length; q++) {
-      var br = run.bad[q], bp = st.party[br.e.i];
-      out.push(['e', ((bp && bp.n) || '?') + ' ' + (br.e.t == null ? '' : br.e.t.toFixed(2) + '秒') +
-        '：' + (br.why || 'コストが足りません')]);
+      var br = run.bad[q], bp = st.party[br.e.i], bk = kindOf(br);
+      if (bk === 'wait') { nWait++; lastAt = br.at; continue; }
+      out.push([bk === 'over' ? 'e' : 'w',
+        ((bp && bp.n) || '?') + ' ' + (br.e.t == null ? '' : br.e.t.toFixed(2) + '秒') +
+        '：' + whyOf(br)]);
+    }
+    if (nWait) {
+      out.push(['w', nWait + ' 発が前の EX の演出待ちで後ろにずれます' +
+        (lastAt == null ? '' : '（最後の 1 発が出るのは ' + lastAt.toFixed(1) + ' 秒）') +
+        '。コストは足りているので、順番としては成立しています']);
+    }
+    // **渡し先が決まっていないものを名指しで出す。**実物の TL を写していて、
+    // セイアのコスト減少カードの渡し先を決め忘れると、後半が 20 秒ぶんまるごと
+    // 撃てなくなった（2026-09-01）。黙って損をするので、ここで知らせる
+    for (var w1 = 0; w1 < run.sim.rows.length; w1++) {
+      var wr = run.sim.rows[w1];
+      if (!wr.d || wr.at == null) { continue; }
+      if (wr.grant && wr.grant.sd !== 'self' && wr.to == null) {
+        out.push(['w', wr.d.n + ' ' + wr.e.t.toFixed(2) + '秒：コスト' +
+          (wr.grant.vt === 'coef' ? '減少' : '増加') + 'カードの渡し先が決まっていません' +
+          '（帯をクリックして選びます）']);
+      }
+      if (TE.ovlMs(wr.d) && wr.e.ov == null) {
+        out.push(['w', wr.d.n + ' ' + wr.e.t.toFixed(2) + '秒：オーバーコストの渡し先が' +
+          '決まっていません（帯をクリックして選びます）']);
+      }
+      if (wr.d.sp && wr.d.sp.copy && wr.e.bt == null) {
+        out.push(['w', wr.d.n + ' ' + wr.e.t.toFixed(2) + '秒：カードを複製する相手が' +
+          '決まっていません（帯をクリックして選びます）']);
+      }
+    }
+    var pl = TE.pool(engIn([], r.dur || 240));
+    if (pl.efs.length) {
+      var parts = [], pq;
+      for (pq = 0; pq < pl.efs.length; pq++) {
+        var pe = pl.efs[pq];
+        parts.push(pe.m.d.n + ' ' + (pe.e.k === 'b' ? '+' + pe.v : '+' + (pe.v / 100) + '%'));
+      }
+      out.push(['g', 'コスト回復力（常時ぶん） ' + Math.round(pl.total) + ' ＝ 基礎 ' +
+        (S.base * pl.ms.length) + '（' + pl.ms.length + '人）＋ ' + parts.join('・') +
+        '。持続するものは、その EX を撃った時刻から効きます']);
+    } else {
+      out.push(['g', 'コスト回復力 ' + Math.round(pl.total) + '（基礎だけ。1 人 ' + S.base + '）']);
     }
     var sb1 = run.sim.IN._sb;
     if (sb1) {
@@ -1561,12 +1690,22 @@
     }
     return null;
   }
+  // 引き金の型。**AutoUseRule の名前をそのまま出したうえで、日本語を添える**
+  var NSRULE = { OnAttackIng: '攻撃中', HpUnder: 'HP がしきい値を下回ったとき',
+                 KillTarget: '敵を倒したとき', AmmoCountUnder: '弾薬が減ったとき',
+                 UseSkill: '別のスキルを使ったとき', CriticalAttack: '会心が出たとき',
+                 HitLogicEffectTemplateId: '特定の効果が乗ったとき',
+                 HitLogicEffectGroupId: '特定の効果が乗ったとき',
+                 RemoveLogicEffectTemplateId: '特定の効果が切れたとき' };
   function nsWhy(id) {
     var sd = _byid[id], n = sd && sd.ns;
-    if (!n) { return '通常スキルのデータがありません'; }
-    if (n.cond) { return '引き金つき（' + n.cond + '）なので時刻が決まりません'; }
-    var rows = (B.ns || {})[id] || [];
-    return '間隔で決まらない型です（' + ((rows[0] && rows[0][1]) || '不明') + '）';
+    var rows = (B.ns || {})[id] || [], r0 = rows[0];
+    if (r0 && r0[1] && r0[1] !== 'Interval') {
+      return '引き金が ' + r0[1] + (NSRULE[r0[1]] ? '（' + NSRULE[r0[1]] + '）' : '') +
+             ' なので時刻が決まりません';
+    }
+    if (n && n.cond) { return '引き金つき（' + n.cond + '）なので時刻が決まりません'; }
+    return '発動間隔が読めませんでした';
   }
   function nsTimes(id, dur) {
     var n = nsInfo(id), out = [], t;
@@ -2041,7 +2180,10 @@
       (er && er.sk ? esc(er.sk.n) : esc(d.en || 'EX')) + '</h2>';
     h2 += '<span class="mut tiny">' + u.t.toFixed(2) + '秒／コスト ' +
       (er ? Math.round(er.need * 10) / 10 : '—') +
-      (er && er.isCopy ? '（複製カード −1）' : '') + '</span>';
+      (er && er.isCopy ? '（複製カード −1）' : '') +
+      '／演出 ' + (((er && er.sk ? er.sk.d : d.d) || 0) / B.fps).toFixed(2) + '秒' +
+      (er && er.at != null && Math.abs(er.at - u.t) > 0.01
+        ? '　実際に出るのは ' + er.at.toFixed(2) + '秒' : '') + '</span>';
     var fl = TE.forms(d);
     if (fl.length > 1) {
       var fh = '<option value="">自動（' + esc(fl[er ? er.auto : 0].n) + '）</option>';
@@ -2075,7 +2217,7 @@
       }
       h2 += '<span class="mut tiny">効果: ' + esc(names.join('　')) + '</span>';
     }
-    if (er && er.why) { h2 += '<span class="warn tiny">⚠ ' + esc(er.why) + '</span>'; }
+    if (er && er.why) { h2 += '<span class="warn tiny">⚠ ' + esc(whyOf(er)) + '</span>'; }
     h2 += '<span style="flex:1 1 auto"></span>' +
       '<button type="button" class="btn2" data-act="delsel">この 1 発を消す</button>';
     $('useedit').innerHTML = h2;
@@ -2112,7 +2254,7 @@
   syncUndo();
   // 突き合わせ用。**SchaleDB の実装と数字が合うかを外から確かめるため**に出している
   window.__TLDBG = { statsOf: statsOf, dmgOf: dmgOf, total: total, diff: diff,
-                     terrMod: terrMod, effMod: effMod, st: st, stu: stu, sim: sim, engIn: engIn };
+                     terrMod: terrMod, effMod: effMod, st: st, stu: stu, sim: sim, engIn: engIn, costPts: costPts };
 
   function syncTabs() {
     var bs = document.querySelectorAll('#rtabs .t');
@@ -2414,7 +2556,10 @@
     var nt = snap(Math.max(0, sdrag.t0 + dt));
     if (nt !== u.t) { u.t = nt; draw(); }
   });
-  window.addEventListener('mouseup', function () { drag = null; sdrag = null; });
+  window.addEventListener('mouseup', function () {
+    if (sdrag && sdrag.moved && st.tl[sdrag.ix]) { fixUse(st.tl[sdrag.ix]); draw(); }
+    drag = null; sdrag = null;
+  });
 
   // ------------------------------------------------------------ キーボード
   // W/S 拡大・A/D 横移動は Perfetto と DevTools の Performance に合わせた
