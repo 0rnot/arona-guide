@@ -378,8 +378,9 @@
     el('bosses').innerHTML = list.map(function (x) {
       return '<button type="button" class="bbtn" data-b="' + esc(x.b) + '" aria-pressed="' +
         (x.b === boss) + '">' +
-        '<img src="../img/bossicon_' + esc(x.ic) + '.webp" alt="" width="46" height="46" loading="lazy"' +
-        ' onerror="this.onerror=null;this.src=\'../img/boss_' + esc(x.ic) + '.webp\'">' +
+        // **`ic` は前置きごと入っている。**`bossicon_` を決め打ちすると、
+        // ドラム缶ガニのように `boss_` にしか絵が無い子で 404 が 1 回出る
+        '<img src="../img/' + esc(x.ic) + '.webp" alt="" width="46" height="46" loading="lazy">' +
         '<span class="nm">' + esc(x.n) + '</span></button>';
     }).join('');
 

@@ -28,6 +28,14 @@
   .lrow { display: grid; grid-template-columns: 1fr 96px; gap: 10px; align-items: center;
           padding: 9px 0; border-bottom: 1px solid var(--line); }
   .lrow:last-of-type { border-bottom: 0; }
+  /* **広い画面では 11 か所を 2 列に折る。**1 列だと下 4 か所が画面から外れて、
+     ランクを入れるだけでスクロールが要った（2026-08-31 の先生の指摘
+     ——「全画面で操作ごとにスクロールせずに完結させたい」） */
+  @media (min-width: 1240px) {
+    #ranks { display: grid; grid-template-columns: 1fr 1fr; gap: 0 20px; }
+    .lrow { border-bottom: 0; }
+    .lrow:nth-last-of-type(n+3) { border-bottom: 1px solid var(--line); }
+  }
   .lrow .nm { font-size: .92rem; font-weight: 700; line-height: 1.45; min-width: 0;
               word-break: auto-phrase; }
   .lrow .nm small { display: block; font-weight: 400; color: var(--fg-mute);

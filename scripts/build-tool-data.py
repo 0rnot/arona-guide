@@ -2077,8 +2077,13 @@ def build_raid_score():
     print("総力戦・大決戦のスコア計算機")
     raids = get_json(SD.format("raids"))
     loc = get_json(SD.format("localization"))
-    stages = as_list(get_json(BA.format("RaidStageExcelTable")))
-    elim = as_list(get_json(BA.format("EliminateRaidStageExcelTable")))
+    # **`Excel/` ではなく `DB/` を読む。**`Excel/` 側は取り残されていて、
+    # 日本ではもう出ているイェソド（EN0013）とドラム缶ガニ（EN0022）が入っていない。
+    # 実測 2026-08-31: Excel/RaidStageExcelTable は 144 行・ボス 12 体、
+    # DB/RaidStageExcelTable は 168 行・ボス 14 体。大決戦も 504 → 532 行で
+    # ゲブラ（EN0010）が増える。列は 9 つとも同じ（先生の指摘で気づいた）
+    stages = as_list(get_json(BADB.format("RaidStageExcelTable")))
+    elim = as_list(get_json(BADB.format("EliminateRaidStageExcelTable")))
 
     # ボスの日本語名。**`RaidStageExcelTable` は開発名（`Binah`）しか持たない**
     name = {}
@@ -2208,6 +2213,17 @@ def build_raid_score():
             n += fetch_portrait(f"boss_{p_}", f"https://schaledb.com/images/raid/Boss_Portrait_{p_}_Lobby.png")
         else:
             n += 1
+    # **どちらの前置きで取れたかをデータに書く。**ページ側で `bossicon_` を
+    # 決め打ちして外れたら `boss_` に落とす作りにしていたが、外れた 1 回ぶんの
+    # 404 がコンソールに残る（ドラム缶ガニ。2026-08-31）。取れたほうを持たせる
+    for r in rows_out:
+        base = r["ic"]
+        if not base:
+            continue
+        r["ic"] = f"bossicon_{base}" if (IMG / f"bossicon_{base}.webp").exists() else f"boss_{base}"
+        if not (IMG / f"{r['ic']}.webp").exists():
+            raise SystemExit(f"ボスの絵が無い: {base}")
+
     print(f"  {len(all_rows)} 行（総力戦 {len(rows(stages, 'raid'))} ／ 大決戦 {len(rows(elim, 'elim'))}）、"
           f"時間ぶんが尽きるのは {span} 秒、絵 {n} 枚を追加")
 
