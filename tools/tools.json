@@ -102,6 +102,16 @@
       "group": "戦う"
     },
     {
+      "slug": "tl",
+      "name": "TL エディタ",
+      "cat": [
+        "総力戦"
+      ],
+      "desc": "ボスの動きの上に EX を並べて、コストとダメージを確かめます。",
+      "img": "skill_regencost",
+      "group": "戦う"
+    },
+    {
       "slug": "cost-timeline",
       "name": "TL のコスト計算機",
       "cat": [
