@@ -148,7 +148,12 @@
       26 秒間** かける状態で、「生徒が編成可能な最大数まで編成され、誰も退却していない
       場合、保有コストを最大5コストまで超過して消費可能、超過した分はマイナスの
       コストとして差し引かれます」。持続は EX の `Effects[].Duration` と同じ 26000。 */
-  var NAGISA_SW = 20048, OVER_FLOOR = -5, OVER_MS = 26000;
+  var OVER_FLOOR = -5;
+  /** その子の EX がオーバーコストを配るなら、その持続（ミリ秒）。**0 なら配らない。**
+      **生徒 ID で決め打ちにしない**——`data.js` の `sp.ovl` を見る。
+      いまは ナギサ（水着）（20048）だけが 26000 を持っている（2026-08-31 に
+      274 人ぶんを数えて確かめた）。同じ効果の子が増えたら、そのまま動く */
+  function ovlMs(d) { return (d && d.sp && d.sp.ovl) || 0; }
 
   /** 固有武器のパッシブで伸びた持続（ミリ秒）。**バフとデバフで別の値。**
       `ExtendBuffDuration_Base` / `ExtendDebuffDuration_Base` はどちらも
@@ -865,14 +870,47 @@
 
   function playHand(deck) {
     var hand = deck.slice(0, HAND), rest = deck.slice(HAND);
+    /* **複製カード。**リオの EX「ビッグシスター」だけが作る。
+       スキル文は「EXスキルをすぐにドロー後、味方1人のEXスキルカードを複製
+       （複製したカードの使用は1回まで）」。**山札には戻さずに自分のカードを
+       引き直し、そのカードが相手の EX カードに化ける。**
+       `owner` がリオの枠、`of` が化けている相手の枠。 */
+    var cp = null;
     return {
-      hand: function () { return hand.slice(); },
-      /** 撃てたら true。撃てなければ手札を変えずに false */
-      use: function (i) {
+      hand: function () {
+        var h = hand.slice();
+        if (cp) { var k = h.indexOf(cp.owner); if (k >= 0) h[k] = cp.of; }
+        return h;
+      },
+      /** その枠が「複製カード」で撃てるか。**コストが 1 安いのはこのときだけ。** */
+      isCopy: function (i) { return !!cp && cp.of === i && hand.indexOf(cp.owner) >= 0; },
+      /** 手札の何枚目が複製カードか。**同じ子の本物と並ぶことがある**ので、
+          名前だけでは見分けが付かない（−1 なら複製は無い） */
+      copyAt: function () { return cp ? hand.indexOf(cp.owner) : -1; },
+      /** 撃てたら true。撃てなければ手札を変えずに false。
+          `keep` は「山札に戻さず、その場で引き直す」（リオの「すぐにドロー」）。 */
+      use: function (i, keep) {
+        if (cp && cp.of === i) {
+          var k = hand.indexOf(cp.owner);
+          if (k >= 0) {
+            // **複製を使い切ると、そこでリオが山札の一番下へ回る**
+            rest.push(cp.owner);
+            hand[k] = rest.shift();
+            cp = null;
+            return true;
+          }
+        }
         var at = hand.indexOf(i);
         if (at < 0) return false;
+        if (keep) return true;
         rest.push(i);                 // 使ったカードは山札の一番下へ
         hand[at] = rest.shift();      // 空いた枠に山札の先頭を引く
+        return true;
+      },
+      /** リオが撃ったあと、手札に残っている自分のカードを相手のものに化けさせる。 */
+      copy: function (owner, of) {
+        if (hand.indexOf(owner) < 0) return false;
+        cp = { owner: owner, of: of };
         return true;
       },
     };
@@ -1070,7 +1108,14 @@
       var auto = autoForm(d, u);
       var fi = e.f == null ? auto : Math.max(0, Math.min(e.f, fl.length - 1));
       var sk = fl[fi];
+      /* **複製カードで撃つと、基本コストから 1 引いた値になる（最小 0）。**
+         スキル文の「複製したカードのコストは、対象のEXスキルの基本コストから
+         1減少した値を持ちます（最小0）」がこれ。**カードに乗っている
+         コスト減少はそのまま効く**（「複製したカードは、対象のEXスキルの
+         カード状態に従います」）ので、引き算の順はここ→ costAfter。 */
+      var isCopy = play.isCopy(e.i);
       var raw = sk.c[s.ex - 1] || 0;
+      if (isCopy) raw = Math.max(0, raw - 1);
       var mine = cut[e.i];
       var need = costAfter(raw, mine);
       if (mine) { mine.n--; if (mine.n <= 0) delete cut[e.i]; }
@@ -1101,13 +1146,19 @@
           rec.start(e.i + '/' + x.ei, x, at + du / 1000);
         });
         // **オーバーコストを配る。**全枠が埋まっていて、渡す先を選んであるときだけ
-        if (d.id === NAGISA_SW && e.ov != null && partyFull() &&
+        if (ovlMs(d) && e.ov != null && partyFull() &&
             slots[e.ov] && slots[e.ov].id && live(e.ov)) {
-          ovWin.push({ to: e.ov, s: at, e: at + extend(d, s, OVER_MS, 'ally') / 1000 });
+          ovWin.push({ to: e.ov, s: at, e: at + extend(d, s, ovlMs(d), 'ally') / 1000 });
         }
       }
-      var hand = play.hand();
-      var drawn = play.use(e.i);
+      var hand = play.hand(), handCp = play.copyAt();
+      /* **リオは自分のカードを引き直す。**複製する相手を選んでいるときだけ。
+         選んでいなければ、ふつうに山札の一番下へ回す */
+      var mkCopy = !isCopy && d.sp && d.sp.copy && at !== null &&
+                   e.bt != null && slots[e.bt] && slots[e.bt].id &&
+                   live(e.bt) && e.bt !== e.i;
+      var drawn = play.use(e.i, mkCopy);
+      if (drawn && mkCopy) play.copy(e.i, e.bt);
       // **撃ったあとに配る。**自分の発動ぶんには効かない
       var gr = at === null ? null : grantOf(sk, s.ex);
       var to = null;
@@ -1120,7 +1171,8 @@
       out.push({ e: e, d: d, s: s, sk: sk, fi: fi, auto: auto, fl: fl, nth: u + 1,
                  need: need, raw: raw, cut: mine, at: at, soon: soon, why: why,
                  over: over, left: at === null ? 0 : cost, idx: idx, rate: rateAt,
-                 hand: hand, inHand: drawn, grant: gr, to: to });
+                 hand: hand, handCp: handCp, inHand: drawn, grant: gr, to: to,
+                 isCopy: isCopy, madeCopy: !!(drawn && mkCopy) });
     });
 
     // 最後の 1 発のあとも、バフが切れるところまでは線を伸ばしておく。
@@ -1156,14 +1208,41 @@
       幅（左が本人ぶんだけ、右が全部乗せ）でしか出せなかった
       （2026-08-30 の先生の指摘——「上のスキル順のところでバフをかけるキャラも
       選択できるようにすれば解決」）。**既定は全員で、絞りたい行だけ手で決める。** */
+  /** その EX が「味方 1 人の EX カードを複製する」ものか。**いまはリオだけ。**
+      `data.js` の `sp.copy` で判る（スキル文の但し書きから取っている）。 */
+  function isCopySkill(d) { return !!(d && d.sp && d.sp.copy); }
+
   function btSel(r, i) {
-    var h = '<select data-k="bt" data-j="' + i + '" aria-label="味方バフの相手">' +
-      '<option value="">味方バフは全員へ</option>';
+    // **複製するスキルは、その相手が複製元でもある。**リオのスキル文は
+    // 「味方1人のEXスキルカードを複製…対象の攻撃力を51.4%増加」で、
+    // バフの相手と複製の相手が同じ 1 人（2026-08-31 の先生の指示
+    // ——「このタイミングで打つスキルは誰にって意味のがいい」
+    // 「リオはスキルコピーだからそれに対応して」）
+    var cp = isCopySkill(r.d);
+    var h = '<select data-k="bt" data-j="' + i + '" aria-label="' +
+      (cp ? 'カードを複製する相手' : 'このスキルを誰にかけるか') + '">' +
+      '<option value="">' + (cp ? '複製する相手を選ぶ' : 'このスキルは全員へ') + '</option>';
     members().forEach(function (m) {
+      if (cp && m.i === r.e.i) return;          // 「味方 1 人」＝自分は選べない
       h += '<option value="' + m.i + '"' + (r.e.bt === m.i ? ' selected' : '') + '>' +
-        esc(m.d.n) + ' だけに</option>';
+        esc(m.d.n) + (cp ? ' のカードを複製' : ' だけに') + '</option>';
     });
     return h + '</select>';
+  }
+
+  /** 複製の行き先を、行の下に 1 行で出す。 */
+  function copyHtml(r) {
+    if (!isCopySkill(r.d)) return '';
+    if (r.e.bt == null) {
+      return '<br><span class="cut2">複製する相手を選んでいません</span>';
+    }
+    var m = null;
+    members().forEach(function (x) { if (x.i === r.e.bt) m = x; });
+    if (!m) return '';
+    var fl = forms(m.d), sk = fl[0];
+    var base = sk.c[m.s.ex - 1] || 0;
+    return '<br>' + esc(m.d.n) + ' の「' + esc(sk.n) + '」が手札に複製されます' +
+      '（コスト ' + base + ' → ' + Math.max(0, base - 1) + '・使えるのは 1 回）';
   }
   /** その行の EX に、味方にかかる持続効果があるか。**無ければ選ばせない。** */
   function hasAlly(r) {
@@ -1186,11 +1265,11 @@
     return h + '</select>';
   }
   function ovHtml(r) {
-    if (!r.d || r.d.id !== NAGISA_SW) return '';
+    if (!r.d || !ovlMs(r.d)) return '';
     if (!partyFull()) return '<br><span class="cut2">枠が埋まっていないので、オーバーコストは立ちません</span>';
     if (r.e.ov == null) return '<br><span class="cut2">オーバーコストを誰にも渡していません</span>';
     var d = byId[slots[r.e.ov].id];
-    return '<br>' + esc(d ? d.n : '？') + ' が ' + n1(extend(r.d, r.s, OVER_MS, 'ally') / 1000) +
+    return '<br>' + esc(d ? d.n : '？') + ' が ' + n1(extend(r.d, r.s, ovlMs(r.d), 'ally') / 1000) +
       ' 秒間、コストを ' + neg(OVER_FLOOR) + ' まで超過して払えます';
   }
   /** 撃つ形態を選ぶ欄。**既定は自動**（何回目かで決める）。 */
@@ -1222,8 +1301,10 @@
     out += '<details class="tlx-sp"><summary>このスキルの但し書き</summary>' +
       '<div>' + flags.map(function (t) { return esc(t); }).join('／') + '</div>' +
       (sp.txt || []).map(function (t) { return '<p>' + esc(t) + '</p>'; }).join('') +
-      ((sp.copy || sp.back || sp.draw)
-        ? '<p class="tlx-warn">カードを引く・複製する・山札の一番下へ回す動きは、<b>このツールの手札の並びには入れていません。</b>ここだけ手で読み替えてください。</p>' : '') +
+      ((sp.back || (sp.draw && !sp.copy))
+        ? '<p class="tlx-warn">カードを引く・山札の一番下へ回す動きは、<b>このツールの手札の並びには入れていません。</b>ここだけ手で読み替えてください。</p>' : '') +
+      (sp.copy
+        ? '<p>複製は<b>手札の並びに入れています。</b>上で選んだ子の EX カードが、基本コストから 1 引いた値で 1 回だけ手札に入ります。</p>' : '') +
       '</details>';
     return out;
   }
@@ -1271,8 +1352,10 @@
       var fixed = r.e.t != null;
       // **`<b>` は使わない。**`.tlrow .tx b` が display: block なので、
       // 手札の中で太字にすると、そこで行が折れて「手札 ホシノ／・ハナコ」になる
-      var names = r.hand.map(function (k) {
+      var names = r.hand.map(function (k, hi) {
         var d = byId[slots[k].id], nm = esc(d ? d.n : '？');
+        // **複製カードは名前が本物と同じ。**どちらが複製かを書かないと見分けが付かない
+        if (hi === r.handCp) nm += '（複製）';
         return k === r.e.i ? '<span class="me">' + nm + '</span>' : nm;
       }).join('・');
       var mark = '';
@@ -1288,18 +1371,20 @@
         icoOf(r.sk.ei) +
         esc(r.sk.n) +
         (r.fl.length > 1 ? '<span class="tag2">' + (r.fi + 1) + ' / ' + r.fl.length +
-          ' 形態目・' + r.nth + ' 回目</span>' : '') + '／' +
+          ' 形態目・' + r.nth + ' 回目</span>' : '') +
+        // **複製カードで撃った行。**基本コストが 1 安い
+        (r.isCopy ? '<span class="tag2">複製カード</span>' : '') + '／' +
         (r.cut ? '<span class="cut2">' + r.raw + ' → ' + r.need + '</span> コスト' : r.need + ' コスト') +
         (r.sk.d ? '／演出 ' + n1(r.sk.d / FPS) + ' 秒' : '') + '<br>手札 ' + names +
-        giveHtml(r, i) + ovHtml(r) + spHtml(r) + '</small>' +
+        giveHtml(r, i) + ovHtml(r) + copyHtml(r) + spHtml(r) + '</small>' +
         '<span class="when"><select data-k="mode-at" data-j="' + i + '">' +
         '<option value="auto"' + (fixed ? '' : ' selected') + '>最短で</option>' +
         '<option value="fix"' + (fixed ? ' selected' : '') + '>この秒に</option></select>' +
         (fixed ? '<input type="number" step="0.1" min="0" data-k="at" data-j="' + i + '" value="' + r.e.t + '"> 秒' : '') +
         (r.grant && r.grant.sd === 'ally' ? giveSel(r, i) : '') +
-        (r.d.id === NAGISA_SW && partyFull() ? ovSel(r, i) : '') +
+        (ovlMs(r.d) && partyFull() ? ovSel(r, i) : '') +
         (r.fl.length > 1 ? formSel(r, i) : '') +
-        (hasAlly(r) ? btSel(r, i) : '') +
+        (hasAlly(r) || isCopySkill(r.d) ? btSel(r, i) : '') +
         '</span></span>' +
         '<span class="at">' + (r.at === null ? '撃てない'
           : dur ? '残り ' + clock(Math.max(0, dur - r.at)) : n1(r.at) + ' 秒') +
