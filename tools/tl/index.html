@@ -214,6 +214,7 @@
 .tabs .t { font-size:10px; border:1px solid var(--ln2); border-radius:4px; padding:1px 7px;
   background:var(--bg2); color:var(--tx2); }
 .tabs .t.on { background:var(--bg3); color:var(--tx); }
+.tabs button.t { cursor:pointer; font-family:inherit; }
 .rate td.v { padding:0; }
 .rate .cell { display:grid; grid-template-columns:minmax(60px,1fr) auto; gap:6px; align-items:center;
   padding:2px 6px; }
@@ -362,9 +363,9 @@
             <p class="goal" id="goal-note">目標: — ／ ダメージ計算がまだなので空です</p>
           </div>
           <span style="flex:1 1 auto"></span>
-          <button type="button" class="btn2" id="b-goal">＋目標設定</button>
+          <button type="button" class="btn2" id="b-goal" data-act="goal">＋目標設定</button>
         </div>
-        <div class="tabs"><span class="t on">会心/EX/NS</span><span class="t">目標</span></div>
+        <div class="tabs" id="rtabs"><button type="button" class="t on" data-tab="0">会心/EX/NS</button><button type="button" class="t" data-tab="1">目標</button></div>
         <div style="overflow-x:auto">
           <table class="rate" id="rate">
             <tr><th style="width:96px"></th><th>残HP／階層HP</th><th>与ダメージ</th><th>EX合計</th><th>NS合計</th><th>SS合計</th></tr>
@@ -643,7 +644,7 @@
              tl: [], sel: null, lv: 5, mk: [],
              // 育成設定の既定。**総力戦の上位を張る人の並み**に置いてある
              lv90: 90, star: 5, slv: 5, eq: [9, 9, 9], wlv: 50, gear: true, bond: 20,
-             pLv: 10, wstar: 3 };
+             pLv: 10, wstar: 3, tab: 0, goal: null };
 
   // ------------------------------------------------------------ 置いたスキル
   // st.tl の 1 件は { i: 編成の枠 0-5, t: 秒 }。EX レーンにだけ置く
@@ -918,36 +919,48 @@
   }
 
   function n0(v) { return Math.round(v).toLocaleString('ja-JP'); }
+  var RROW = [['最小', 'min'], ['0会心平均', 'avg0'], ['平均', 'avg'],
+              ['全会心平均', 'avgC'], ['最大', 'max']];
+  var RHEAD = [['残HP／階層HP', '与ダメージ', 'EX合計', 'NS合計', 'SS合計'],
+               ['目標までの残り', '達成率', '与ダメージ', '目標ダメージ', '制限時間']];
   function drawRate() {
-    var rows = [['最小', 'min'], ['0会心平均', 'avg0'], ['平均', 'avg'],
-                ['全会心平均', 'avgC'], ['最大', 'max']];
-    var r = diff(), hp = (r.bs && r.bs.hp) || 0, t = total(r), h = '';
-    var head = $('rate').rows[0].outerHTML;
-    for (var i = 0; i < rows.length; i++) {
-      var v = t[rows[i][1]], left = hp - v;
-      h += '<tr><td class="n">' + rows[i][0] + '</td>';
+    var r = diff(), hp = (r.bs && r.bs.hp) || 0, t = total(r), h = '', i, k;
+    var goal = (st.goal && st.goal.dmg) || hp, sec = (st.goal && st.goal.sec) || (r.dur || 240);
+    var hd = '<tr><th style="width:96px"></th>';
+    for (i = 0; i < 5; i++) { hd += '<th>' + RHEAD[st.tab][i] + '</th>'; }
+    hd += '</tr>';
+    for (i = 0; i < RROW.length; i++) {
+      var v = t[RROW[i][1]];
+      h += '<tr><td class="n">' + RROW[i][0] + '</td>';
       if (!t.n || !hp) {
-        for (var k = 0; k < 5; k++) {
+        for (k = 0; k < 5; k++) {
           h += '<td class="v"><span class="cell"><span class="bar"><i style="width:0%"></i></span>' +
                '<span class="num mut">—</span></span></td>';
         }
-      } else {
-        h += cell(Math.max(0, left) / hp, n0(Math.max(0, left)));
+      } else if (st.tab === 0) {
+        h += cell(Math.max(0, hp - v) / hp, n0(Math.max(0, hp - v)));
         h += cell(Math.min(1, v / hp), n0(v));
         h += cell(v ? 1 : 0, n0(v));
         h += cell(0, '0');
         h += cell(0, '0');
+      } else {
+        var rate = goal ? v / goal : 0;
+        h += cell(Math.max(0, goal - v) / (goal || 1), n0(Math.max(0, goal - v)));
+        h += cell(Math.min(1, rate), (rate * 100).toFixed(2) + '%');
+        h += cell(Math.min(1, v / (goal || 1)), n0(v));
+        h += cell(1, n0(goal));
+        h += cell(1, mmss(sec, 0));
       }
       h += '</tr>';
     }
-    $('rate').innerHTML = head + h;
+    $('rate').innerHTML = hd + h;
     var g = $('goal-note');
-    if (g) {
-      g.textContent = hp
-        ? '最大HP ' + n0(hp) + '　置いた EX ' + st.tl.length + ' 発のうち ' + t.n +
-          ' 発ぶんを数えました（残りはダメージを持たないスキルです。NS と SS はまだ）'
-        : '目標: — ／ ダメージ計算がまだなので空です';
-    }
+    if (!g) { return; }
+    if (!hp) { g.textContent = '目標: — ／ ダメージ計算がまだなので空です'; return; }
+    g.textContent = '目標: ' + n0(goal) + ' ダメージ ／ ' + mmss(sec, 0) + ' 以内' +
+      (st.goal ? '' : '（既定はボスの最大HPと制限時間）') +
+      '　置いた EX ' + st.tl.length + ' 発のうち ' + t.n +
+      ' 発ぶんを数えました（残りはダメージを持たないスキルです。NS と SS はまだ）';
   }
   function cell(frac, txt) {
     return '<td class="v"><span class="cell"><span class="bar"><i style="width:' +
@@ -1308,7 +1321,9 @@
     var ids = [];
     for (var i = 0; i < 6; i++) { ids.push(st.party[i] ? st.party[i].id : null); }
     return { v: 1, boss: boss().id, diff: diff().df, lv: st.lv,
-             party: ids, tl: st.tl, mk: st.mk };
+             party: ids, tl: st.tl, mk: st.mk, goal: st.goal,
+             build: { lv: st.lv90, star: st.star, slv: st.slv, eq: st.eq, wlv: st.wlv,
+                      wstar: st.wstar, gear: st.gear, bond: st.bond, pLv: st.pLv } };
   }
   function restore(o) {
     if (!o || o.v !== 1) { throw new Error('形式が違います（v:1 ではありません）'); }
@@ -1331,7 +1346,21 @@
       var m = o.mk[i];
       if (m && isFinite(m.t)) { st.mk.push({ t: +m.t, n: String(m.n || '') }); }
     }
-    fillBoss(); drawCrew(); drawPicker(); draw();
+    st.goal = (o.goal && isFinite(o.goal.dmg)) ? { dmg: +o.goal.dmg, sec: +o.goal.sec } : null;
+    var bd = o.build;
+    if (bd) {
+      if (isFinite(bd.lv)) { st.lv90 = +bd.lv; }
+      if (isFinite(bd.star)) { st.star = +bd.star; }
+      if (isFinite(bd.slv)) { st.slv = +bd.slv; }
+      if (bd.eq && bd.eq.length === 3) { st.eq = [+bd.eq[0], +bd.eq[1], +bd.eq[2]]; }
+      if (isFinite(bd.wlv)) { st.wlv = +bd.wlv; }
+      if (isFinite(bd.wstar)) { st.wstar = +bd.wstar; }
+      if (typeof bd.gear === 'boolean') { st.gear = bd.gear; }
+      if (isFinite(bd.bond)) { st.bond = +bd.bond; }
+      if (isFinite(bd.pLv)) { st.pLv = +bd.pLv; }
+      _sc = {};
+    }
+    fillBoss(); fillBuild(); drawCrew(); drawPicker(); draw();
   }
   function sheet(title, text, onOK) {
     var w = document.createElement('div');
@@ -1530,6 +1559,17 @@
                      terrMod: terrMod, effMod: effMod, st: st, stu: stu };
 
   fillBuild();
+  function syncTabs() {
+    var bs = document.querySelectorAll('#rtabs .t');
+    for (var i = 0; i < bs.length; i++) {
+      bs[i].className = 't' + (+bs[i].getAttribute('data-tab') === st.tab ? ' on' : '');
+    }
+  }
+  $('rtabs').addEventListener('click', function (e) {
+    var b = e.target.closest('.t');
+    if (!b) { return; }
+    st.tab = +b.getAttribute('data-tab'); syncTabs(); drawRate();
+  });
   window.addEventListener('load', fit);
   setTimeout(fit, 60);
 
@@ -1579,12 +1619,21 @@
     if (!b) { return; }
     st.party[+b.getAttribute('data-rm')] = null; drawCrew(); drawPicker(); draw();
   });
-  document.querySelector('.tools2').addEventListener('click', function (e) {
+  function onAct(e) {
     var act = e.target.closest('button[data-act]');
     if (act) {
       var a = act.getAttribute('data-act');
       if (a === 'clear') { st.tl = []; st.sel = null; st.mk = []; draw(); }
       if (a === 'auto') { autoFill(); }
+      if (a === 'goal') {
+        var r0 = diff(), hp0 = (r0.bs && r0.bs.hp) || 0;
+        var cur = st.goal || { dmg: hp0, sec: r0.dur || 240 };
+        sheet('目標設定', JSON.stringify({ dmg: cur.dmg, sec: cur.sec }, null, 1),
+          function (o) {
+            if (!isFinite(o.dmg) || !isFinite(o.sec)) { throw new Error('dmg と sec は数字で'); }
+            st.goal = { dmg: +o.dmg, sec: +o.sec }; st.tab = 1; syncTabs(); draw();
+          });
+      }
       if (a === 'export') { sheet('エクスポート', JSON.stringify(snapshot()), null); }
       if (a === 'import') {
         sheet('インポート', '', function (o) { restore(o); });
@@ -1604,11 +1653,13 @@
     var b = e.target.closest('button[data-grid]');
     if (!b) { return; }
     st.grid = +b.getAttribute('data-grid');
-    var all = this.querySelectorAll('button[data-grid]');
+    var all = document.querySelectorAll('.tools2 button[data-grid]');
     for (var i = 0; i < all.length; i++) {
       all[i].setAttribute('aria-pressed', all[i] === b ? 'true' : 'false');
     }
-  });
+  }
+  document.querySelector('.tools2').addEventListener('click', onAct);
+  $('b-goal').addEventListener('click', onAct);
 
   // ------------------------------------------------------------ マウス
   // **定石に合わせる**（2026-09-01 に 12 本のソフトを調べた結論）。
