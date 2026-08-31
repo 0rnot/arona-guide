@@ -35,10 +35,10 @@
      右   … 育成設定の帯 ／ 道具帯 ／ タイムライン ／ ボス設定
    ============================================================ */
 .tlapp {
-  --bg0:#0b0f1c; --bg1:#111726; --bg2:#161d31; --bg3:#1c2540;
-  --ln:#242d47; --ln2:#33405f; --tx:#e6ebf7; --tx2:#94a1bf; --tx3:#6b7899;
-  --acc:#4a7fd4; --red:#c3384a; --red2:#7d2231; --teal:#2b7f92; --grn:#2f8b58;
-  --ylw:#b8912b; --pur:#6b4b9e; --tan:#7a5c3e;
+  --bg0:#0c0f16; --bg1:#141821; --bg2:#1b2029; --bg3:#242b37;
+  --ln:#262d3a; --ln2:#37404f; --tx:#e8ecf2; --tx2:#98a2b3; --tx3:#6d778a;
+  --acc:#2f8f9e; --acc2:#c98a2e; --red:#c3384a; --red2:#7d2231; --teal:#2b7f92;
+  --grn:#2f8b58; --ylw:#b8912b; --pur:#6b4b9e; --tan:#7a5c3e;
   background:var(--bg0); color:var(--tx);
   font-size:12px; line-height:1.5; -webkit-font-smoothing:antialiased;
   padding:10px clamp(8px,1.2vw,16px) 40px;
@@ -46,12 +46,12 @@
 }
 .tlapp *, .tlapp *::before, .tlapp *::after { box-sizing:border-box; }
 .tlapp h2 { font-size:12.5px; font-weight:700; margin:0; color:var(--tx); }
-.tlapp .pane { background:var(--bg1); border:1px solid var(--ln); border-radius:8px; }
+.tlapp .pane { background:var(--bg1); border:1px solid var(--ln); border-radius:4px; }
 .tlapp .pane > .ttl { display:flex; align-items:center; gap:8px; padding:6px 9px;
   border-bottom:1px solid var(--ln); }
 .tlapp .pane > .ttl .sub { font-size:10.5px; color:var(--tx3); font-weight:400; }
-.tlapp .pane > .bd { padding:8px 9px; }
-.tlapp .btn2 { font:inherit; font-size:11px; cursor:pointer; padding:3px 9px; border-radius:5px;
+.tlapp .pane > .bd { padding:6px 8px; }
+.tlapp .btn2 { font:inherit; font-size:11px; cursor:pointer; padding:2px 8px; border-radius:3px;
   border:1px solid var(--ln2); background:var(--bg2); color:var(--tx); white-space:nowrap; }
 .tlapp .btn2:hover { background:var(--bg3); }
 .tlapp .btn2[aria-pressed="true"] { background:var(--acc); border-color:var(--acc); color:#fff; }
@@ -60,16 +60,30 @@
   font:inherit; font-size:11px; padding:2px 6px; border-radius:5px;
   border:1px solid var(--ln2); background:var(--bg2); color:var(--tx); }
 .tlapp .mut { color:var(--tx2); }
+
+/* **見出しは左の細い柱で示す。**枠を並べるより縦が詰まるし、
+   相手のツールとも見た目が別物になる（2026-09-01 の先生の指示） */
+.tlapp h2.sect { display:flex; align-items:center; gap:6px; margin:0 0 5px;
+  font-size:11px; letter-spacing:.04em; }
+.tlapp h2.sect > i { width:3px; height:12px; border-radius:2px; background:var(--acc);
+  flex:0 0 auto; }
+.tlapp h2.sect.inline { margin:0; }
+.tabsm { display:flex; gap:3px; }
+.tabsm .btn2 { padding:1px 6px; font-size:10px; }
+.vr { width:1px; align-self:stretch; background:var(--ln); margin:0 3px; }
+.f .val { font-size:11px; color:var(--tx2); padding:2px 0; }
+.fields.wrapf { display:flex; flex-wrap:wrap; align-items:flex-end; gap:5px 8px; }
 .tlapp .row { display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
 
 /* ---------- 3 段の骨格 ---------- */
-.tltop { display:grid; gap:7px; grid-template-columns:1fr; margin-bottom:7px; }
+.tltop { display:grid; gap:5px; grid-template-columns:1fr; margin-bottom:5px; }
 @media (min-width:1000px) { .tltop { grid-template-columns:17% minmax(0,1fr); } }
-.tlmain { display:grid; gap:7px; grid-template-columns:1fr; }
+.tltop.one { grid-template-columns:minmax(0,1fr) !important; }
+.tlmain { display:grid; gap:5px; grid-template-columns:1fr; }
 @media (min-width:1000px) { .tlmain { grid-template-columns:17% minmax(0,1fr); } }
 .tlmain.wide { grid-template-columns:minmax(0,1fr); }
-.tlleft { display:flex; flex-direction:column; gap:7px; min-width:0; }
-.tlright { display:flex; flex-direction:column; gap:7px; min-width:0; }
+.tlleft { display:flex; flex-direction:column; gap:5px; min-width:0; }
+.tlright { display:flex; flex-direction:column; gap:5px; min-width:0; }
 /* スマホは後回しだが、**本文が横に溢れるのだけは止める**。
    errlog の nowrap と ボタン列が幅を押し広げていた（2026-09-01 に 390px で実測） */
 @media (max-width:999px) {
@@ -80,9 +94,9 @@
 }
 
 /* ---------- エラー履歴 ---------- */
-.errlog { background:#0a0d18; border:1px solid var(--ln); border-radius:6px; padding:5px 7px;
-  height:104px; overflow-y:auto; font-size:10.5px; line-height:1.65; }
-.errlog div { white-space:nowrap; }
+.errlog { background:#0a0d13; border:1px solid var(--ln); border-radius:3px; padding:4px 6px;
+  max-height:120px; overflow-y:auto; overflow-x:hidden; font-size:10.5px; line-height:1.6; }
+.errlog div { white-space:normal; text-indent:-9px; padding-left:9px; }
 .errlog .e { color:#ff7a7a; } .errlog .w { color:#ffc46b; } .errlog .g { color:#7bd88f; }
 
 /* ---------- 達成率の表 ---------- */
@@ -95,7 +109,7 @@
 .rate .bar i { display:block; height:100%; border-radius:3px; }
 
 /* ---------- タイムライン ---------- */
-.stage { background:var(--bg0); border:1px solid var(--ln); border-radius:8px; overflow:hidden; }
+.stage { background:var(--bg0); border:1px solid var(--ln); border-radius:4px; overflow:hidden; }
 .stage .grid2 { display:grid; grid-template-columns:var(--lw) minmax(0,1fr); }
 .side { background:var(--bg1); border-right:1px solid var(--ln2); }
 .view { position:relative; overflow-x:auto; overflow-y:hidden; cursor:crosshair;
@@ -130,17 +144,20 @@
 .b.ps { background:var(--grn); color:#fff; }
 .b.gro { background:var(--ylw); color:#221900; font-weight:700; }
 .b.dbf { background:var(--pur); color:#fff; justify-content:center; padding:0; }
-.b.sk { background:var(--acc); color:#fff; cursor:grab; gap:2px; padding:0 2px;
+.b.sk { background:var(--acc2); color:#171004; cursor:grab; gap:2px; padding:0 2px;
   overflow:hidden; }
 .b.sk .ic { width:12px; height:12px; border-radius:2px; flex:0 0 auto; }
 .b.sk .cs { font-size:9px; font-weight:700; flex:0 0 auto; }
 .b.sk .nm { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .b.sk:hover { filter:brightness(1.15); }
 .b.sk.sel { outline:2px solid #fff; outline-offset:-1px; z-index:3; }
+.b.sk .cs { color:#171004; }
 .b.sk.bad { background:var(--red); }
 .b.ns { background:var(--grn); color:#fff; justify-content:center; padding:0;
   font-size:9px; font-weight:700; }
 .b.ns.flat { background:var(--tan); }
+.b.ss { background:var(--pur); color:#fff; }
+.b.ss.off { background:#2a3350; color:var(--tx2); }
 .ln.exlane { cursor:copy; }
 .ln.exlane:hover { background:rgba(90,140,255,.07); }
 .plot { position:absolute; inset:0; width:100%; height:100%; display:block; }
@@ -201,13 +218,15 @@
   white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 
 /* ---------- 育成設定の帯 ---------- */
-.setup { display:grid; grid-auto-flow:column; grid-auto-columns:minmax(150px,1fr); gap:6px;
-  overflow-x:auto; }
-.setup .card { display:flex; gap:6px; padding:5px; border:1px solid var(--ln2); border-radius:6px;
-  background:var(--bg2); }
-.setup .card img { width:38px; height:38px; border-radius:5px; object-fit:cover; background:var(--bg3); }
-.setup .card .t { font-size:9.5px; color:var(--tx2); line-height:1.45; min-width:0; }
-.setup .card .t b { color:var(--tx); font-size:10px; }
+.setup { display:flex; flex-wrap:wrap; gap:4px; }
+.setup:empty { display:none; }
+.setup .card { display:flex; gap:5px; align-items:center; padding:2px 6px 2px 2px;
+  border:1px solid var(--ln); border-radius:3px; background:var(--bg2); min-width:0; }
+.setup .card img { width:24px; height:24px; border-radius:2px; object-fit:cover;
+  background:var(--bg3); flex:0 0 auto; }
+.setup .card .t { font-size:9px; color:var(--tx3); line-height:1.35; min-width:0;
+  white-space:nowrap; }
+.setup .card .t b { color:var(--tx); font-size:10px; font-weight:700; }
 
 /* ---------- 道具帯 ---------- */
 .tools { display:flex; flex-wrap:wrap; gap:5px 8px; align-items:center; }
@@ -238,11 +257,11 @@
 
 /* ---------- 育成設定の帯 ---------- */
 .setup .card .t .g { color:var(--tx3); }
-.setup .hd { display:flex; align-items:center; gap:8px; }
 
 /* ---------- 道具帯（2 段） ---------- */
 .tools2 { display:grid; gap:4px; }
 .tools2 .r { display:flex; flex-wrap:wrap; gap:4px 6px; align-items:center; }
+.tools2 .r.hdr { padding-bottom:3px; border-bottom:1px solid var(--ln); }
 .tools2 .box { display:flex; align-items:center; gap:4px; flex-wrap:nowrap; border:1px solid var(--ln);
   border-radius:5px; padding:2px 6px; background:var(--bg1); }
 .tools2 .box .cap { font-size:9.5px; color:var(--tx3); }
@@ -253,7 +272,7 @@
   background:var(--bg2); }
 
 /* ---------- ボス設定 ---------- */
-.fields { display:flex; flex-wrap:wrap; gap:10px 16px; align-items:flex-end; }
+.fields { display:flex; flex-wrap:wrap; gap:5px 12px; align-items:flex-end; }
 .fields .f { display:grid; gap:2px; }
 .fields .f > span { font-size:9.5px; color:var(--tx3); }
 
@@ -264,10 +283,79 @@
 .filt .f select, .filt .f input { width:100%; }
 .crewline { display:grid; grid-template-columns:auto 1fr; gap:5px; align-items:center; }
 .crewline > .h { font-size:9.5px; color:var(--tx3); }
-.picking { font-size:10.5px; color:var(--tx2); margin:5px 0; }
+.picking { font-size:10px; color:var(--tx2); margin:4px 0; }
 .picking b { color:var(--tx); }
 .gaugebar { height:6px; border-radius:3px; background:var(--bg3); overflow:hidden; }
 .gaugebar i { display:block; height:100%; background:linear-gradient(90deg,#3aa76d,#7bd88f); }
+/* ---------- 概況の帯。**数字だけ先に読める**ようにする（上の表より前に置く） */
+.kpi { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:5px;
+  background:var(--bg1); border:1px solid var(--ln); border-radius:4px;
+  padding:7px 9px 8px; margin-bottom:5px; position:relative; }
+.kpi .k { display:flex; flex-direction:column; gap:1px; min-width:0; }
+.kpi .kl { font-size:9px; color:var(--tx3); letter-spacing:.03em; }
+.kpi .kv { font-size:17px; font-weight:700; color:var(--tx); line-height:1.15;
+  font-variant-numeric:tabular-nums; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.kpi .ks { font-size:9px; color:var(--tx2); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.kpi .kbar { grid-column:1/-1; height:3px; border-radius:2px; background:var(--bg3); overflow:hidden; }
+.kpi .kbar i { display:block; height:100%; background:linear-gradient(90deg,var(--teal),var(--acc2)); }
+@media (max-width:999px) { .kpi { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+
+/* ---------- 編成。STRIKER と SPECIAL を別の行にする */
+.crewline { display:flex; align-items:center; gap:5px; margin-bottom:4px; }
+.crewline > .h { flex:0 0 52px; font-size:8.5px; font-weight:700; letter-spacing:.04em;
+  padding:2px 0; text-align:center; border-radius:3px; }
+.crewline > .h.st { color:#ffd9a0; background:rgba(201,138,46,.16); border:1px solid rgba(201,138,46,.4); }
+.crewline > .h.sp { color:#a8e0e8; background:rgba(47,143,158,.16); border:1px solid rgba(47,143,158,.4); }
+.crewline .crew { flex:1 1 auto; }
+.crew .c { padding:0; cursor:pointer; }
+.crew .c.on { border-color:var(--acc); box-shadow:0 0 0 1px var(--acc); }
+.crew .c.empty { display:flex; align-items:center; justify-content:center;
+  border-style:dashed; color:var(--tx3); }
+.crew .c .pl { font-size:13px; }
+.crew .c .lvb { position:absolute; left:1px; bottom:1px; font-size:8px; padding:0 2px;
+  border-radius:2px; background:rgba(0,0,0,.66); color:#dfe6ef; font-variant-numeric:tabular-nums; }
+.crew .c .x { display:flex; align-items:center; justify-content:center; cursor:pointer; }
+
+/* 開始スキル。**枠の数はモードで変わる**（通常 5・制約解除 9） */
+.startsk { display:flex; flex-wrap:wrap; align-items:center; gap:3px; }
+.startsk .s { display:flex; align-items:center; gap:2px; padding:1px 3px; }
+.startsk .s b { font-size:8.5px; color:var(--tx3); font-weight:700; }
+.startsk .s select { max-width:62px; font-size:9px; padding:0 2px; }
+
+/* ---------- 生徒を選ぶ */
+.filt.f2 { grid-template-columns:repeat(4,1fr); }
+.picker button.pk { position:relative; }
+.picker button.pk::before { content:''; position:absolute; left:0; top:0; width:3px; height:100%;
+  border-radius:5px 0 0 5px; }
+.picker button.pk.m::before { background:var(--acc2); }
+.picker button.pk.s::before { background:var(--teal); }
+.picker .cst { position:absolute; right:1px; top:1px; font-size:8px; padding:0 2px;
+  border-radius:2px; background:rgba(0,0,0,.6); color:#e6ecf3; }
+
+/* ---------- 道具帯 */
+.tools2 .r.sub { margin-top:4px; padding-top:4px; border-top:1px solid var(--ln); }
+.pill { display:inline-flex; align-items:baseline; gap:4px; font-size:9.5px; color:var(--tx3);
+  border:1px solid var(--ln); border-radius:10px; padding:1px 8px; background:var(--bg2); }
+.pill b { font-size:11px; color:var(--tx); font-variant-numeric:tabular-nums; }
+.seg { display:flex; gap:2px; }
+.who { max-width:170px; font-size:10px; }
+.tiny { font-size:9.5px; }
+.warn { color:#ffb27a; }
+#build-note { margin:5px 0 0; line-height:1.5; }
+#useedit .f span { color:var(--tx3); }
+.b.sk.cp { outline:1px dashed #ffe9b0; outline-offset:-2px; }
+
+/* 左は編成・育成・生徒選びが同居するので、17% では窮屈だった */
+@media (min-width:1000px) { .tlmain { grid-template-columns:22% minmax(0,1fr); } }
+@media (min-width:1600px) { .tlmain { grid-template-columns:340px minmax(0,1fr); } }
+.tlmain.wide { grid-template-columns:minmax(0,1fr) !important; }
+/* 育成の並び。**値が切れないように 2 列で置く** */
+#bset { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:3px 6px; font-size:9.5px; }
+#bset label { display:flex; align-items:center; gap:3px; min-width:0; }
+#bset label > select { flex:1 1 auto; min-width:0; }
+#bset label > select + select { flex:0 0 46px; }
+.startsk .s select { max-width:none; width:74px; }
+.picker { grid-template-columns:repeat(6,1fr); max-height:230px; }
 </style>
 </head>
 <body>
@@ -356,172 +444,157 @@
 
 <div class="tlapp">
 
-  <!-- ============ 1 段目: 見出し＋エラー履歴 ／ シナリオ別達成率 ============ -->
-  <div class="tltop">
-    <div class="pane"><div class="bd">
-      <p class="brand">TL エディタ</p>
-      <p class="brand-sub">ボスの動きはゲームのデータから出しています。データの利用にあたっては<a href="#src" style="color:var(--acc)">出どころ</a>をご確認ください。</p>
-      <div class="brand-btns">
-        <button type="button" class="btn2" id="b-preset">育成プリセット</button>
-        <button type="button" class="btn2" id="b-cmp">TL比較モード</button>
-        <span class="sp"></span>
-        <button type="button" class="btn2 danger" id="b-issue">不具合・要望報告</button>
-        <button type="button" class="btn2 danger" id="b-err">エラー履歴</button>
-      </div>
-      <div class="errlog" id="errlog"></div>
-    </div></div>
+  <!-- ============ 概況（数字だけ先に読める帯） ============ -->
+  <div class="kpi" id="kpi"></div>
 
-    <div class="pane">
-      <div class="bd">
-        <div class="row" style="align-items:flex-start">
-          <div style="min-width:0">
-            <h2>シナリオ別達成率</h2>
-            <p class="goal" id="goal-note">目標: — ／ ダメージ計算がまだなので空です</p>
-          </div>
-          <span style="flex:1 1 auto"></span>
-          <button type="button" class="btn2" id="b-goal" data-act="goal">＋目標設定</button>
-        </div>
-        <div class="tabs" id="rtabs"><button type="button" class="t on" data-tab="0">会心/EX/NS</button><button type="button" class="t" data-tab="1">目標</button></div>
-        <div style="overflow-x:auto">
-          <table class="rate" id="rate">
-            <tr><th style="width:96px"></th><th>残HP／階層HP</th><th>与ダメージ</th><th>EX合計</th><th>NS合計</th><th>SS合計</th></tr>
-          </table>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ============ 2 段目: パーティー ============ -->
-  <div class="row" style="margin-bottom:7px">
-    <button type="button" class="btn2" aria-pressed="true">パーティー1</button>
-    <button type="button" class="btn2" id="b-addparty">＋ 追加</button>
-    <span style="flex:1 1 auto"></span>
-    <span class="mut" style="font-size:10px">1 / 4 パーティー</span>
-    <button type="button" class="btn2" id="b-side">左を畳む</button>
-  </div>
-
-  <!-- ============ 3 段目 ============ -->
+  <!-- ============ 本体 ============ -->
   <div class="tlmain" id="tlmain">
 
     <!-- ---------- 左 ---------- -->
     <div class="tlleft" id="tlleft">
-      <div class="pane"><div class="bd">
-        <div class="row" style="margin-bottom:6px">
-          <h2>編成設定</h2><span style="flex:1 1 auto"></span>
-          <button type="button" class="btn2" aria-pressed="true">通常編成</button>
-          <button type="button" class="btn2">制約解除決戦</button>
-        </div>
-        <div class="crewline"><span class="h">編成</span><div class="crew" id="crew"></div></div>
-        <div class="startsk" id="startsk"></div>
 
-        <p class="picking">生徒選択中: <b id="picking">—</b></p>
+      <div class="pane"><div class="bd">
+        <h2 class="sect"><i></i>編成
+          <span class="tabsm" id="ptabs"></span>
+          <button type="button" class="btn2" id="b-addparty" title="パーティーを足す">＋</button>
+          <span style="flex:1 1 auto"></span>
+          <span class="seg" id="modeseg">
+            <button type="button" class="btn2" data-mode="6" aria-pressed="true">6人</button>
+            <button type="button" class="btn2" data-mode="10">10人</button>
+          </span>
+        </h2>
+        <div class="crewline"><span class="h st">STRIKER</span><div class="crew" id="crew-m"></div></div>
+        <div class="crewline"><span class="h sp">SPECIAL</span><div class="crew" id="crew-s"></div></div>
+        <div class="startsk" id="startsk"></div>
+      </div></div>
+
+      <div class="pane"><div class="bd">
+        <h2 class="sect"><i></i>育成
+          <select id="g-who" class="who"></select>
+          <span style="flex:1 1 auto"></span>
+          <button type="button" class="btn2" id="b-ball" title="いま出ている値を編成の全員へ">全員へ</button>
+        </h2>
+        <div class="bset" id="bset">
+          <label>Lv<select id="g-lv"></select></label>
+          <label>星<select id="g-star"></select></label>
+          <label>装備<select id="g-eq"></select></label>
+          <label>固有<select id="g-wlv"></select><select id="g-wstar"></select></label>
+          <label>EX<select id="g-ex"></select></label>
+          <label>ノーマル<select id="g-sk"></select></label>
+          <label>パッシブ<select id="g-plv"></select></label>
+          <label>サブ<select id="g-sslv"></select></label>
+          <label>愛用品<select id="g-gear"></select></label>
+          <label>絆<select id="g-bond"></select></label>
+        </div>
+        <p class="mut tiny" id="build-note"></p>
+      </div></div>
+
+      <div class="pane"><div class="bd">
+        <h2 class="sect"><i></i>生徒を選ぶ
+          <span style="flex:1 1 auto"></span>
+          <span class="mut tiny" id="pick-n"></span>
+        </h2>
         <div class="filt">
-          <label class="f"><span>検索</span><input type="text" id="i-find" placeholder="アカネ、バニーガール、*"></label>
-          <label class="f"><span>攻撃タイプ</span><select id="i-bul"></select></label>
-          <label class="f"><span>防御タイプ</span><select id="i-arm"></select></label>
-          <label class="f"><span>役割（クラス）</span><select id="i-role"></select></label>
+          <label class="f"><span>検索</span><input type="text" id="i-find" placeholder="アカネ、バニー…"></label>
+          <label class="f"><span>攻撃</span><select id="i-bul"></select></label>
+          <label class="f"><span>防御</span><select id="i-arm"></select></label>
+          <label class="f"><span>クラス</span><select id="i-role"></select></label>
+        </div>
+        <div class="filt f2" id="filt2" hidden>
+          <label class="f"><span>学校</span><select id="i-sch"></select></label>
+          <label class="f"><span>配置</span><select id="i-sq"></select></label>
+          <label class="f"><span>レアリティ</span><select id="i-star"></select></label>
+          <label class="f"><span>並び</span><select id="i-sort">
+            <option value="n">名前</option><option value="c">EXコスト</option>
+            <option value="d">EX演出の長さ</option><option value="id">実装順</option></select></label>
         </div>
         <div class="row" style="margin-bottom:5px">
-          <button type="button" class="btn2" id="b-more">詳細フィルター</button>
-          <span style="flex:1 1 auto"></span>
-          <span class="mut" style="font-size:10px" id="pick-n"></span>
+          <button type="button" class="btn2" id="b-more" aria-pressed="false">詳細フィルター</button>
+          <button type="button" class="btn2" id="b-reset">条件をクリア</button>
         </div>
         <div class="picker" id="picker"></div>
       </div></div>
 
       <div class="pane"><div class="bd">
-        <h2 style="margin-bottom:5px">育成コスト</h2>
-        <p class="mut" style="font-size:10px;margin:0 0 6px">育成コスト・再現性改善提案</p>
-        <div class="row" style="gap:10px">
-          <div style="flex:0 0 auto"><span class="mut" style="font-size:9.5px">現状の再現性スコア</span>
-            <div style="font-size:19px;font-weight:800">—</div></div>
-          <div style="flex:1 1 auto;min-width:0"><span class="mut" style="font-size:9.5px">目標</span>
-            <div class="gaugebar"><i style="width:0%"></i></div></div>
-        </div>
-        <p class="mut" style="font-size:9.5px;margin:6px 0 0" id="cost-note">ダメージ計算ができてからです。</p>
-      </div></div>
-
-      <div class="pane"><div class="bd">
-        <div class="row"><h2>育成優先度</h2><span style="flex:1 1 auto"></span>
-          <span class="mut" style="font-size:9.5px">（再現性スコアへの貢献度順）</span></div>
-        <p class="mut" style="font-size:10px;margin:6px 0 0">ダメージ計算ができてからです。</p>
+        <h2 class="sect"><i></i>気をつけること
+          <span style="flex:1 1 auto"></span>
+          <a href="#src" style="color:var(--acc);font-size:9px">数字の出どころ</a>
+        </h2>
+        <div class="errlog" id="errlog"></div>
       </div></div>
     </div>
 
     <!-- ---------- 右 ---------- -->
     <div class="tlright">
-      <div class="pane"><div class="bd">
-        <div class="setup hd" style="display:flex;margin-bottom:6px">
-          <h2>育成設定</h2>
-          <span class="bset">
-            <label>Lv<select id="g-lv"></select></label>
-            <label>★<select id="g-star"></select></label>
-            <label>装備<select id="g-eq"></select></label>
-            <label>固有武器<select id="g-wlv"></select><select id="g-wstar"></select></label>
-            <label>パッシブ<select id="g-plv"></select></label>
-            <label>愛用品<select id="g-gear"><option value="1">あり</option><option value="0">なし</option></select></label>
-            <label>絆<select id="g-bond"></select></label>
-          </span>
-          <span style="flex:1 1 auto"></span>
-          <span class="mut" style="font-size:9.5px" id="crew-n">0 / 6人編成</span>
-        </div>
-        <div class="setup" id="setup"></div>
-      </div></div>
-
       <div class="pane"><div class="bd tools2">
         <div class="r">
-          <button type="button" class="btn2" id="b-auto" data-act="auto">自動生成</button>
-          <button type="button" class="btn2" id="b-clear" data-act="clear">全て削除</button>
-          <div class="box"><span class="cap">控えスキル</span><span class="imgs" id="bench"></span></div>
-          <div class="box"><span class="cap">グリッド移動</span>
-            <button type="button" class="btn2" data-grid="1">1フレーム</button>
-            <button type="button" class="btn2" data-grid="3" aria-pressed="true">3フレーム(0.1秒)</button>
+          <button type="button" class="btn2" data-act="undo" id="b-undo" title="Ctrl+Z">↶ 戻す</button>
+          <button type="button" class="btn2" data-act="redo" id="b-redo" title="Ctrl+Y / Ctrl+Shift+Z">↷ 進む</button>
+          <span class="vr"></span>
+          <button type="button" class="btn2" data-act="auto">自動生成</button>
+          <button type="button" class="btn2" data-act="clear">全て削除</button>
+          <button type="button" class="btn2" data-act="mark">マーカー</button>
+          <span class="vr"></span>
+          <div class="box"><span class="cap">グリッド</span>
+            <button type="button" class="btn2" data-grid="1">1f</button>
+            <button type="button" class="btn2" data-grid="3" aria-pressed="true">0.1秒</button>
             <button type="button" class="btn2" data-grid="30">1秒</button></div>
-          <div class="box"><span class="cap">EX/NS/SS 一括処理</span>
-            <button type="button" class="btn2">EX</button><button type="button" class="btn2">NS</button>
-            <button type="button" class="btn2">SS</button></div>
           <span style="flex:1 1 auto"></span>
-          <div class="box"><span class="cap">制限時間</span><span id="o-dur">—</span></div>
+          <button type="button" class="btn2" data-act="export">書き出し</button>
+          <button type="button" class="btn2" data-act="import">読み込み</button>
+          <button type="button" class="btn2" id="b-side">左を畳む</button>
         </div>
-        <div class="r">
-          <button type="button" class="btn2" id="b-export" data-act="export">エクスポート</button>
-          <button type="button" class="btn2" id="b-import" data-act="import">インポート</button>
-          <div class="box"><span class="cap">表示スキル</span><span class="imgs" id="showsk"></span></div>
-          <div class="box"><span class="cap">マーカーを追加</span><button type="button" class="btn2" data-act="mark">＋</button></div>
-          <div class="box"><button type="button" class="btn2">PS適用</button>
-            <button type="button" class="btn2">SS適用</button></div>
-          <div class="box"><span class="cap">コスト回復力</span><span id="o-rec">—</span></div>
+        <div class="r sub">
+          <span class="pill"><b id="o-rec">—</b> コスト回復力</span>
+          <span class="pill"><b id="o-cap">—</b> コスト上限</span>
+          <span class="pill"><b id="o-start">—</b> 開始コスト</span>
+          <span class="pill"><b id="o-dur">—</b> 制限時間</span>
+          <span class="pill" id="o-crew">—</span>
           <span style="flex:1 1 auto"></span>
-          <span class="keys"><kbd>Ctrl</kbd>+ホイール 拡大　<kbd>Shift</kbd>+ホイール／中ドラッグ 横移動　<kbd>W</kbd><kbd>S</kbd> 拡大　<kbd>A</kbd><kbd>D</kbd> 横移動　<kbd>←→</kbd> 1コマ　<kbd>Home</kbd> 全体　<kbd>?</kbd> 一覧</span>
+          <span class="keys"><kbd>Ctrl</kbd>+ホイール 拡大　<kbd>Shift</kbd>+ホイール 横移動　<kbd>W</kbd><kbd>S</kbd> 拡大　<kbd>A</kbd><kbd>D</kbd> 横移動　<kbd>Ctrl</kbd>+<kbd>Z</kbd>/<kbd>Y</kbd> 戻す・進む　<kbd>?</kbd> 一覧</span>
         </div>
       </div></div>
 
       <div class="stage" id="stage">
-        <div class="grid2" style="--lw:98px">
+        <div class="grid2" style="--lw:110px">
           <div class="side" id="side"></div>
           <div class="view" id="view" tabindex="0"><div class="cv" id="cv"></div></div>
         </div>
       </div>
 
+      <div class="pane" id="usepane" hidden><div class="bd">
+        <div class="fields wrapf" id="useedit"></div>
+      </div></div>
+
       <div class="pane"><div class="bd">
-        <h2 style="margin-bottom:6px">ボス設定</h2>
-        <div class="fields">
-          <label class="f"><span>ボス選択</span><select id="i-boss"></select></label>
+        <div class="fields wrapf">
+          <h2 class="sect inline"><i></i>相手</h2>
+          <label class="f"><span>ボス</span><select id="i-boss"></select></label>
           <label class="f"><span>難易度</span><select id="i-diff"></select></label>
           <label class="f"><span>地形</span><select id="i-terr"></select></label>
           <label class="f"><span>フェーズ</span><select id="i-phase"><option>なし</option></select></label>
-          <label class="f"><span>敵レベル</span><span id="i-lv" class="mut" style="font-size:11px">—</span></label>
-          <label class="f"><span>時間制限</span><select id="i-lim"></select></label>
+          <label class="f"><span>敵Lv</span><span id="i-lv" class="val">—</span></label>
+          <label class="f"><span>制限</span><select id="i-lim"></select></label>
+          <span class="vr"></span>
+          <span class="fields" id="phases"></span>
+          <span style="flex:1 1 auto"></span>
+          <span class="mut tiny" id="ph-boss"></span>
         </div>
       </div></div>
 
       <div class="pane"><div class="bd">
-        <div class="row" style="margin-bottom:6px">
-          <h2>フェーズHP</h2><span class="mut" style="font-size:9.5px">（ビヘイビアツリーから。手で上書きはまだ）</span>
+        <div class="row" style="align-items:flex-start">
+          <div style="min-width:0">
+            <h2 class="sect"><i></i>シナリオ別達成率</h2>
+            <p class="goal" id="goal-note">目標: —</p>
+          </div>
           <span style="flex:1 1 auto"></span>
-          <span class="mut" style="font-size:9.5px" id="ph-boss"></span>
+          <div class="tabs" id="rtabs"><button type="button" class="t on" data-tab="0">会心/EX/NS</button><button type="button" class="t" data-tab="1">目標</button></div>
+          <button type="button" class="btn2" id="b-goal" data-act="goal">目標設定</button>
         </div>
-        <div class="fields" id="phases"></div>
+        <div style="overflow-x:auto">
+          <table class="rate" id="rate"></table>
+        </div>
       </div></div>
     </div>
   </div>
@@ -529,6 +602,11 @@
   <details class="src" id="src" style="margin-top:10px">
     <summary>数字の出どころ</summary>
     <ul>
+      <li><b>コストの計算そのもの</b> — <code>tools/tl-engine.js</code>。
+        コスト計算機（<a href="../cost-timeline/">EX スキル順とコスト</a>）と<b>同じ関数</b>を呼んでいます。
+        形態が変わる EX（ネル（制服）・イブキ（水着）など）、複製カード、
+        ナギサ（水着）のオーバーコスト、コスト回復力バフの持続、
+        固有武器★4 のコスト上限＋0.5、シュンの開始コストは、そちらの実装がそのまま効きます</li>
       <li><b>ボスがいつ EX を撃つか</b> — ba-data の <code>DB/BossExternalBTExcelTable.json</code>（ビヘイビアツリー）。
         <code>UseNormalSkill N → UseSelectExSkill i</code> は「通常スキル N 発目のあとに EX の i 番」、
         <code>CheckPeriod ms → AddActiveGauge v</code> と <code>CheckActiveGaugeOver t</code> はゲージで撃つぶん、
@@ -541,7 +619,9 @@
         <code>MaxHP1</code> と <code>NormalAttackSpeed</code></li>
       <li><b>コスト回復力</b> — 1 人あたり 700（<code>RegenCost</code>）。6 人で 4200。
         コストは 1 秒あたり 回復力÷10000 で増えます。開始から
-        <code>PlayerRegenCostDelay</code> の 2 秒は増えません</li>
+        <code>PlayerRegenCostDelay</code> の 2 秒は増えません。
+        編成の枠は通常が STRIKER 4 ＋ SPECIAL 2、制約解除決戦が 6 ＋ 4
+        （<code>LAYOUT</code>）で、コスト上限は 10 と 20 です</li>
       <li><b>スキルの名前と説明</b> — <a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a></li>
       <li><b>ダメージの式</b> — <a href="https://github.com/SchaleDB/SchaleDB" target="_blank" rel="noopener">SchaleDB</a> の
         <code>js/common.js</code>（<code>CharacterStats.calculateDamage</code> ／
@@ -562,7 +642,8 @@
         SPECIAL の最終値の HP・攻撃 10%、防御・治癒 5% を切り捨てて STRIKER に足します</li>
       <li><b>育成の中身</b> — 装備は <code>equipment.min.json</code> の各段の上限レベルの値、
         固有武器・愛用品・絆は <code>students.min.json</code>。星の伸びは SchaleDB の既定値
-        （生徒ごとの <code>Transcendence</code> は日本版のデータに 1 件もありませんでした）</li>
+        （生徒ごとの <code>Transcendence</code> は日本版のデータに 1 件もありませんでした）。
+        <b>育成は生徒ごとに持っています</b>（左の「育成」で対象を選んで変えます）</li>
       <li><b>常時のパッシブ</b> — パッシブと固有武器パッシブ（固有武器★2 以上）を乗せています。
         同じ（スキルの枠, <code>Channel</code>）が 2 回来たら先に来たほうが勝つ、という
         SchaleDB の扱い（<code>common.js</code> 7723 行）に合わせました。
@@ -588,16 +669,24 @@
         272 人がこの型で、残る 68 件は <code>OnAttackIng</code>・<code>HpUnder</code> など
         <b>間隔で決まらない型なので置いていません</b>（その生徒がいると左の欄に出ます）。
         愛用品 T2 で通常スキルが変わる子は、そちらを使います</li>
-      <li><b>まだ入っていないもの</b> — SS のダメージ、遮蔽、
-        キサキ枠（EX スキルダメージ量増加）、条件つきのバフ 30 件。
-        <b>実戦の数字より小さく出ます</b></li>
+      <li><b>まだ入っていないもの</b> — <b>通常攻撃（オートアタック）</b>、SS のダメージ、遮蔽、
+        キサキ枠（EX スキルダメージ量増加）、条件つきのバフ 30 件、
+        形態ごとに違う EX のダメージ（コストと演出時間と回復力バフは形態ぶんが効きます）。
+        総力戦の実際のスコアは通常攻撃がかなりの割合を占めるので、
+        <b>ここの合計は実戦よりかなり小さく出ます</b>。
+        EX と NS の 1 発ずつの数字は SchaleDB と突き合わせて合っています</li>
       <li><b>当てにしないでください</b> — 難易度ぶんのビヘイビアツリーが無いボスは Normal の木で埋めています。
         グレゴリオの Lunatic だけは木が無いので出せません</li>
     </ul>
   </details>
 </div>
 
-<script>window.TOUR = {"key": "tl", "steps": [{"sel": "#stage", "t": "ボスの動きが敷いてあります", "d": "Ctrl+ホイールで拡大、Shift+ホイールか中ボタンのドラッグで横に動きます。W/S でも拡大、A/D で横移動です。"}, {"sel": "#picker", "t": "生徒を並べます", "d": "押すと編成に入ります。もう一度押すと外れます。"}, {"sel": "#errlog", "t": "気をつけることが出ます", "d": "まだできていないところも、ここに出しています。"}]};</script>
+<script>window.TOUR = {"key": "tl", "steps": [
+  {"el": "#crew-m", "t": "編成", "d": "STRIKER は 4 人（10 人編成なら 6 人）、SPECIAL は 2 人（同 4 人）。下の一覧から選ぶと、その子の配置に合う枠へ入ります。"},
+  {"el": "#g-who", "t": "育成は生徒ごと", "d": "対象を選んでから Lv や装備を変えます。「全員へ」で、いま出ている値を編成の全員に配れます。"},
+  {"el": "#startsk", "t": "開始スキル", "d": "並べたとおりに撃てる順番です。通常編成は 5 人ぶん、制約解除決戦は 9 人ぶん。"},
+  {"el": "#view", "t": "タイムライン", "d": "EX の行をクリックするとスキルを置けます。置いた帯を選ぶと、下に「誰に渡すか」「どの形態か」が出ます。Ctrl+Z で戻せます。"}
+]};</script>
 <script src="../tour.js?v=2"></script>
 <script src="../share.js?v=3"></script>
 <script src="../hint.js?v=1"></script>
@@ -628,6 +717,7 @@
 </footer>
 <script src="data.js"></script>
 <script src="../cost-timeline/data.js"></script>
+<script src="../tl-engine.js?v=1"></script>
 <script>
 (function () {
   'use strict';
@@ -661,12 +751,93 @@
   var PER_MEMBER = 700;   // RegenCost。6 人で 4200
   var CAP = 10;           // ConstCombat の EchelonMaxCommonCost
 
-  var st = { bi: 0, di: 0, px: 6, pin: null, party: [null, null, null, null, null, null],
-             grid: 3, picking: null, filt: { q: '', role: '', bul: '', arm: '' },
-             tl: [], sel: null, lv: 5, mk: [],
-             // 育成設定の既定。**総力戦の上位を張る人の並み**に置いてある
-             lv90: 90, star: 5, slv: 5, eq: [9, 9, 9], wlv: 50, gear: true, bond: 20,
-             pLv: 10, wstar: 3, tab: 0, goal: null };
+  // ------------------------------------------------------------ 枠とパーティー
+  // **コストの計算は tools/tl-engine.js に全部ある。**ここでは持たない。
+  // 枠は engine と同じ並び（0〜5 ストライカー・6〜9 スペシャル）で、
+  // 使わない後ろの枠は空のまま残す（6 人 ⇄ 10 人で編成が消えない）
+  var TE = window.TLENGINE;
+  var LAY = TE.LAYOUT, MAIN_MAX = TE.MAIN_MAX;
+  var SLOTS = MAIN_MAX + TE.SUP_MAX;
+  var _byid = {};
+  (function () { for (var i = 0; i < S.students.length; i++) { _byid[S.students[i].id] = S.students[i]; } })();
+
+  // 1 枠。**engine が読む欄（id / ex / sk / w4 / tier / on）を素で持つ**
+  function mkSlot() {
+    return { id: null, ex: 5, sk: 10, w4: false, tier: [3, 3, 3, 3, 3, 3], on: true,
+             lv: 90, star: 5, eq: 9, wlv: 50, wstar: 3, plv: 10, sslv: 10, gear: 3, bond: 20 };
+  }
+  function mkParty() {
+    var a = [], i;
+    for (i = 0; i < SLOTS; i++) { a.push(mkSlot()); }
+    return { slots: a, tl: [], start: [] };
+  }
+  function live(i) { return TE.live(st.mode, i); }
+  function isMain(i) { return i < MAIN_MAX; }
+
+  var st = { bi: 0, di: 0, px: 6, pin: null, mode: 6, pi: 0, parties: [mkParty()],
+             grid: 3, filt: { q: '', role: '', bul: '', arm: '', sch: '', sq: '', star: '', sort: 'n' },
+             more: false, who: -1, sel: null, lv: 5, mk: [], slv: 5, tab: 0, goal: null };
+  st.slots = st.parties[0].slots;
+  st.tl = st.parties[0].tl;
+  st.start = st.parties[0].start;
+
+  // st.party は「枠 → 生徒データ」の読み取り専用の眺め。**中身は st.slots が正本。**
+  var _pv = 0, _pcache = null, _pat = -1;
+  function bump() { _pv++; _sc = {}; }
+  Object.defineProperty(st, 'party', { get: function () {
+    if (_pat !== _pv) {
+      _pcache = [];
+      for (var i = 0; i < SLOTS; i++) {
+        var sl = st.slots[i];
+        _pcache.push(sl && sl.id && live(i) ? (_byid[sl.id] || null) : null);
+      }
+      _pat = _pv;
+    }
+    return _pcache;
+  } });
+  function slotOf(i) { return st.slots[i]; }
+
+  // ------------------------------------------------------------ 元に戻す・進む
+  // **Ctrl+Z / Ctrl+Y。**編成・育成・置いたスキル・マーカーを丸ごと覚える
+  // **mark() は「変える直前」に呼ぶ。**そのときの状態をそのまま UNDO に積む
+  var UNDO = [], REDO = [];
+  function uState() {
+    return JSON.stringify({ mode: st.mode, pi: st.pi, parties: st.parties, mk: st.mk, goal: st.goal });
+  }
+  function mark() {
+    var now = uState();
+    if (UNDO.length && UNDO[UNDO.length - 1] === now) { return; }
+    UNDO.push(now);
+    if (UNDO.length > 80) { UNDO.shift(); }
+    REDO.length = 0;
+    syncUndo();
+  }
+  function uApply(js) {
+    var o = JSON.parse(js);
+    st.mode = o.mode === 10 ? 10 : 6;
+    st.parties = o.parties; st.pi = Math.min(o.pi, o.parties.length - 1);
+    st.mk = o.mk; st.goal = o.goal;
+    usePartyRef(); st.sel = null; st.who = -1; bump();
+    fillBuild(); drawParty(); drawCrew(); drawPicker(); draw();
+    syncUndo();
+  }
+  function undo() {
+    if (!UNDO.length) { return; }
+    REDO.push(uState()); uApply(UNDO.pop());
+  }
+  function redo() {
+    if (!REDO.length) { return; }
+    UNDO.push(uState()); uApply(REDO.pop());
+  }
+  function syncUndo() {
+    var a = $('b-undo'), b2 = $('b-redo');
+    if (a) { a.disabled = !UNDO.length; }
+    if (b2) { b2.disabled = !REDO.length; }
+  }
+  function usePartyRef() {
+    var p = st.parties[st.pi];
+    st.slots = p.slots; st.tl = p.tl; st.start = p.start;
+  }
 
   // ------------------------------------------------------------ 置いたスキル
   // st.tl の 1 件は { i: 編成の枠 0-5, t: 秒 }。EX レーンにだけ置く
@@ -687,35 +858,58 @@
   }
   function addUse(i, t) {
     if (!st.party[i]) { return; }
-    st.tl.push({ i: i, t: snap(t) });
+    mark();
+    st.tl.push({ i: i, t: snap(t), to: null, ov: null, f: null, bt: null });
     st.sel = st.tl.length - 1;
     draw();
   }
   // 自動生成。**編成の順に、コストが貯まった瞬間から順に置く。**
   // 前の EX の演出が終わるまでは次を置かない（実際に撃てないので）
+  // 自動生成。**engine に「最短で撃つ」を解かせて、その時刻をそのまま置く。**
+  // 開始スキルで指定した順を先頭に、あとは編成の順に回す
   function autoFill() {
-    var r = diff(), dur = r.dur || 240, rate = recPower() / 10000;
-    if (rate <= 0) { return; }
-    var order = [], i;
-    for (i = 0; i < 6; i++) { if (st.party[i] && exCost(st.party[i]) > 0) { order.push(i); } }
-    if (!order.length) { return; }
-    st.tl = []; st.sel = null;
-    var cur = 0, last = REC_DELAY, free = REC_DELAY, k = 0, guard = 0;
-    while (guard++ < 400) {
-      var idx = order[k % order.length], p = st.party[idx], c = exCost(p);
-      var t = cur >= c ? last : last + (c - cur) / rate;
-      if (t < free) { t = free; }
-      t = snapUp(t);
-      if (t > dur) { break; }
-      cur = Math.min(CAP, cur + (t - last) * rate) - c;
-      last = t; free = t + exDur(p) / B.fps;
-      st.tl.push({ i: idx, t: t });
+    var r = diff(), dur = r.dur || 240, i;
+    var seq = [];
+    for (i = 0; i < st.start.length; i++) {
+      if (st.start[i] != null && st.party[st.start[i]]) { seq.push(st.start[i]); }
+    }
+    for (i = 0; i < SLOTS; i++) {
+      if (st.party[i] && seq.indexOf(i) < 0 && (st.party[i].c || [])[0] != null) { seq.push(i); }
+    }
+    if (!seq.length) { return; }
+    mark();
+    // **1 発ずつ確定させる。**先に置いた 1 発を刻みへ切り上げるとコストの貯まりが
+    // ずれるので、まとめて解いてから丸めると後ろが「間に合いません」になる
+    var fixed = [], k = 0;
+    while (fixed.length < 120) {
+      var probe = fixed.concat([{ i: seq[k % seq.length], t: null, to: null, ov: null, f: null, bt: null }]);
+      var rows = simOf(probe, dur).rows, last = rows[rows.length - 1];
+      if (!last || !last.d || last.at == null) { break; }
+      var at = snapUp(last.at);
+      if (at > dur) { break; }
+      // 切り上げた時刻で本当に撃てるか確かめ直す。だめならもう 1 刻み後ろへ
+      var guard = 0;
+      while (guard++ < 40) {
+        var test = fixed.concat([{ i: last.e.i, t: at, to: null, ov: null, f: null, bt: null }]);
+        var tr = simOf(test, dur).rows;
+        var tl2 = tr[tr.length - 1];
+        if (!tl2.why) { break; }
+        at = snapUp(at + st.grid / B.fps);
+        if (at > dur) { break; }
+      }
+      if (at > dur) { break; }
+      fixed.push({ i: last.e.i, t: at, to: null, ov: null, f: null, bt: null });
       k++;
+    }
+    st.tl.length = 0; st.sel = null;
+    for (i = 0; i < fixed.length; i++) {
+      st.tl.push({ i: fixed[i].i, t: fixed[i].t, to: null, ov: null, f: null, bt: null });
     }
     draw();
   }
   function delSel() {
     if (st.sel == null) { return; }
+    mark();
     st.tl.splice(st.sel, 1); st.sel = null; draw();
   }
 
@@ -727,10 +921,42 @@
   }
   function crewCount() {
     var n = 0;
-    for (var i = 0; i < 6; i++) { if (st.party[i]) { n++; } }
+    for (var i = 0; i < SLOTS; i++) { if (st.party[i]) { n++; } }
     return n;
   }
-  function recPower() { return crewCount() * PER_MEMBER; }
+  // ------------------------------------------------------------ エンジンへの入力
+  // **画面の状態を tools/tl-engine.js が読む形にするだけ。**式はここに書かない
+  function engIn(order, span) {
+    var IN = { D: S, mode: st.mode, slots: st.slots, order: order || [], gims: [],
+               base: S.base, gb: 0, gc: 0, show: { ex: 1, ns: 0, pv: 0 }, span: span || 240 };
+    IN.cap = TE.capNow(IN);
+    var sb = TE.startBonus(IN);
+    IN.start = sb ? sb.amt : 0;
+    IN._sb = sb;
+    return IN;
+  }
+  function simOf(order, span) {
+    var IN = engIn(order, span);
+    var sim = TE.simulate(IN);
+    sim.IN = IN;
+    return sim;
+  }
+  // 置いてある TL を engine の order にする
+  function orderOf() {
+    return tlSorted().map(function (u) {
+      return { i: u.i, t: u.t, to: u.to == null ? null : u.to, ov: u.ov == null ? null : u.ov,
+               f: u.f == null ? null : u.f, bt: u.bt == null ? null : u.bt,
+               _ix: st.tl.indexOf(u) };
+    });
+  }
+  var _simC = null, _simK = '';
+  function sim() {
+    var dur = diff().dur || 240;
+    var k = JSON.stringify([st.mode, st.pi, st.slots, st.tl, dur]);
+    if (k !== _simK) { _simC = simOf(orderOf(), dur); _simK = k; }
+    return _simC;
+  }
+  function recPower() { return Math.round(TE.pool(engIn([], 240)).total); }
 
   // ------------------------------------------------------------ 目盛りと折れ線
   function ticks(dur, px) {
@@ -751,28 +977,17 @@
   }
   // 回復は PlayerRegenCostDelay(2 秒)のあと 回復力/10000 /秒。上限 EchelonMaxCommonCost=10。
   // 置いたスキルの時刻でコストを引く。足りなければ負のまま描いて、下の errlog で知らせる
+  // **engine の segs をそのまま折れ線にする。**コスト回復力バフの持続も、
+  // 形態ごとのコストも、複製カードの −1 も、オーバーコストも engine 側で効いている
   function costRun(dur) {
-    var rate = recPower() / 10000, pts = [[0, 0], [REC_DELAY, 0]];
-    var cur = 0, last = REC_DELAY, uses = tlSorted(), bad = [], i;
-    function upto(t) {
-      if (t <= last) { return; }
-      if (rate > 0 && cur < CAP) {
-        var tcap = last + (CAP - cur) / rate;
-        if (tcap < t) { pts.push([tcap, CAP]); cur = CAP; last = tcap; }
-      }
-      cur = Math.min(CAP, cur + (t - last) * rate); last = t;
-      pts.push([t, cur]);
+    var sm = sim(), pts = [], bad = [], i;
+    for (i = 0; i < sm.segs.length; i++) { pts.push([sm.segs[i].t, sm.segs[i].c]); }
+    if (!pts.length || pts[pts.length - 1][0] < dur) { pts.push([dur, pts.length ? pts[pts.length - 1][1] : 0]); }
+    for (i = 0; i < sm.rows.length; i++) {
+      var row = sm.rows[i];
+      if (row.d && (row.why || row.at == null)) { bad.push(row); }
     }
-    for (i = 0; i < uses.length; i++) {
-      var u = uses[i], t = Math.max(REC_DELAY, Math.min(dur, u.t));
-      upto(t);
-      var c = exCost(st.party[u.i]);
-      cur -= c; pts.push([t, cur]);
-      // ちょうど 0 になる置き方が -0.0000001 になることがあるので、そこは見逃す
-      if (cur < -1e-6) { bad.push(u); }
-    }
-    upto(dur);
-    return { pts: pts, bad: bad, end: cur };
+    return { pts: pts, bad: bad, end: pts[pts.length - 1][1], cap: sm.cap, sim: sm };
   }
   function costPts(dur) { return costRun(dur).pts; }
   function poly(pts, px, h, ymax, pad) {
@@ -873,35 +1088,48 @@
       '<polyline class="rec" points="' + poly([[0, rec], [dur, rec]], px, H.rec, ymax, 8) + '"/></svg>' +
       '<span class="vl" style="left:44px;top:' + (H.rec - 8 - (rec / ymax) * (H.rec - 16)) + 'px">' + rec + '</span>');
 
+    var run = costRun(dur), sm = run.sim;
     side += lbl(H.cost, '<b>コスト</b>');
     cv += lane(H.cost,
       '<svg class="plot" viewBox="0 0 ' + W + ' ' + H.cost + '" preserveAspectRatio="none">' +
       '<line class="dash" x1="0" y1="8" x2="' + W + '" y2="8"/>' +
       '<line class="zero" x1="0" y1="' + (H.cost - 8) + '" x2="' + W + '" y2="' + (H.cost - 8) + '"/>' +
-      '<polyline class="cost" points="' + poly(costPts(dur), px, H.cost, CAP, 8) + '"/></svg>' +
-      '<span class="yl" style="top:8px">' + CAP.toFixed(1) + '</span>' +
+      '<polyline class="cost" points="' + poly(run.pts, px, H.cost, run.cap, 8) + '"/></svg>' +
+      '<span class="yl" style="top:8px">' + run.cap.toFixed(1) + '</span>' +
       '<span class="yl" style="top:' + (H.cost - 8) + 'px">0</span>');
 
-    var bad = costRun(dur).bad, badset = {};
-    for (var z2 = 0; z2 < bad.length; z2++) { badset[bad[z2].i + '@' + bad[z2].t] = 1; }
-    for (var i = 0; i < 6; i++) {
+    // engine の行を「置いた 1 件」に結び直す。**形態・コスト・詰まりはここから取る**
+    var rowOf = {};
+    for (var z2 = 0; z2 < sm.rows.length; z2++) {
+      if (sm.rows[z2].e && sm.rows[z2].e._ix != null) { rowOf[sm.rows[z2].e._ix] = sm.rows[z2]; }
+    }
+    for (var i = 0; i < SLOTS; i++) {
+      if (!live(i)) { continue; }
       var p = st.party[i];
       side += lbl(H.row, (p ? img(p.id, 'ic') : '') +
-        '<span class="nm">' + (p ? esc(p.n) : '<span class="mut">（空き）</span>') + '</span>' +
+        '<span class="nm">' + (p ? esc(p.n) : '<span class="mut">（' +
+          (isMain(i) ? 'ST' : 'SP') + ' 空き）</span>') + '</span>' +
         '<span class="mb">EX</span>');
       var sb = '';
       for (var u2 = 0; u2 < st.tl.length; u2++) {
         var uu = st.tl[u2];
         if (uu.i !== i || uu.t > dur) { continue; }
-        var uw = Math.max(26, exDur(p) / B.fps * px);
-        var inner = img(p.id, 'ic') + '<b class="cs">' + exCost(p) + '</b>' +
-                    (uw >= 90 ? '<span class="nm">' + esc(p.en || '') + '</span>' : '');
+        var er = rowOf[u2] || null;
+        var fnm = er && er.sk ? er.sk.n : (p && p.en) || '';
+        var fdu = er && er.sk ? er.sk.d : exDur(p);
+        var fc = er ? er.need : exCost(p);
+        var uw = Math.max(26, (fdu || 60) / B.fps * px);
+        var inner = img(p.id, 'ic') + '<b class="cs">' + (Math.round(fc * 10) / 10) + '</b>' +
+                    (uw >= 90 ? '<span class="nm">' + esc(fnm) + '</span>' : '');
+        var tips = esc(fnm) + '\nコスト ' + (Math.round(fc * 10) / 10) +
+          (er && er.isCopy ? '（複製カード）' : '') +
+          (er && er.fl && er.fl.length > 1 ? '\n形態 ' + (er.fi + 1) + '/' + er.fl.length : '') +
+          '\n' + uu.t.toFixed(2) + '秒（残り ' + mmss(dur, uu.t) + '）' +
+          (er && er.why ? '\n⚠ ' + er.why : '');
         sb += '<div class="b sk' + (st.sel === u2 ? ' sel' : '') +
-              (badset[uu.i + '@' + uu.t] ? ' bad' : '') +
+              (er && er.why ? ' bad' : '') + (er && er.isCopy ? ' cp' : '') +
               '" data-ix="' + u2 + '" style="left:' + (uu.t * px).toFixed(1) +
-              'px;width:' + uw.toFixed(1) + 'px" title="' + esc((p && p.en) || '') +
-              '\nコスト ' + exCost(p) + '／' + uu.t.toFixed(2) + '秒（残り ' + mmss(dur, uu.t) + '）">' +
-              inner + '</div>';
+              'px;width:' + uw.toFixed(1) + 'px" title="' + tips + '">' + inner + '</div>';
       }
       cv += lane(H.row, sb, 'alt exlane" data-mem="' + i + '');
       var nb = '', nsn = p ? nsInfo(p.id) : null;
@@ -910,21 +1138,44 @@
         var nsk = nsKind(p.id), hasD = !!(B.dmg[p.id] || {})[nsk];
         for (var nq = 0; nq < nts.length; nq++) {
           nb += '<div class="b ns' + (hasD ? '' : ' flat') + '" style="left:' +
-                (nts[nq] * px).toFixed(1) + 'px;width:' + nw.toFixed(1) + 'px" title="通常スキル／' +
-                (nsn[2] / B.fps).toFixed(1) + '秒ごと／' + nts[nq].toFixed(1) + '秒">' +
+                (nts[nq] * px).toFixed(1) + 'px;width:' + nw.toFixed(1) + 'px" title="' +
+                esc(nsn.nm || '通常スキル') + '\n' + nsn.iv.toFixed(1) + '秒ごと（初回 ' +
+                nsn.st.toFixed(1) + '秒）／' + nts[nq].toFixed(1) + '秒' +
+                (hasD ? '' : '\nこのスキルはダメージを持ちません') + '">' +
                 (nw >= 26 ? ((nq + 1) + '') : '') + '</div>';
         }
       }
       side += lbl(H.row, mini + '<span class="nm">NS</span>' +
-        (p && nsn && nsn[1] === 'Interval' && nsn[2] > 1
-          ? '<span class="mb">' + (nsn[2] / B.fps).toFixed(0) + 's</span>'
-          : (p ? '<span class="mb">—</span>' : '')));
+        (p ? '<span class="mb"' + (nsn ? '' : ' title="' + esc(nsWhy(p.id)) + '"') + '>' +
+             (nsn ? nsn.iv.toFixed(0) + 's' : '条件') + '</span>' : ''));
       cv += lane(H.row, nb);
     }
-    side += lbl(H.ss, '<b>SS</b>');
+    // SS = サブスキル。常時効いているものは端から端までの帯にする
+    side += lbl(H.ss, '<b>SS</b><span class="mb">サブスキル</span>');
     cv += lane(H.ss, '');
-    side += lbl(H.ss, '<span class="nm">SS</span>');
-    cv += lane(H.ss, '');
+    var ssn = 0;
+    for (var v2 = 0; v2 < SLOTS; v2++) {
+      var vp = st.party[v2];
+      if (!vp) { continue; }
+      var cnt = ssCount(v2);
+      if (!cnt[0] && !cnt[1]) { continue; }
+      ssn++;
+      var snm = ((B.skname || {})[vp.id] || {}).ExtraPassive || 'サブスキル';
+      side += lbl(H.ss, img(vp.id, 'ic') + '<span class="nm">' + esc(vp.n) + '</span>');
+      cv += lane(H.ss, cnt[0]
+        ? '<div class="b ss" style="left:0;width:' + W + 'px" title="' + esc(snm) +
+          '\n常時 ' + cnt[0] + ' 件が効いています' +
+          (cnt[1] ? '／発動して効くもの ' + cnt[1] + ' 件は数えていません' : '') + '">' +
+          esc(snm) + '　常時 ' + cnt[0] + ' 件' +
+          (cnt[1] ? '（発動ぶん ' + cnt[1] + ' 件は未対応）' : '') + '</div>'
+        : '<div class="b ss off" style="left:0;width:' + W + 'px" title="' + esc(snm) +
+          '\n発動して効くもの ' + cnt[1] + ' 件だけなので、まだ数えていません">' +
+          esc(snm) + '　発動ぶん ' + cnt[1] + ' 件（未対応）</div>');
+    }
+    if (!ssn) {
+      side += lbl(H.ss, '<span class="mut">（なし）</span>');
+      cv += lane(H.ss, '');
+    }
 
     for (var m = 0; m < st.mk.length; m++) {
       if (st.mk[m].t > dur) { continue; }
@@ -941,7 +1192,11 @@
 
     $('o-rec').textContent = rec ? String(rec) : '—';
     $('o-dur').textContent = dur + '秒';
-    $('crew-n').textContent = crewCount() + ' / 6人編成';
+    $('o-cap').textContent = run.cap.toFixed(1);
+    var sb0 = sm.IN._sb;
+    $('o-start').textContent = sb0 ? (Math.round(sb0.amt * 100) / 100) + '（' + sb0.d.n + '）' : '0';
+    $('o-crew').textContent = crewCount() + ' / ' + (LAY[st.mode].main + LAY[st.mode].sup) +
+      '人（ST ' + LAY[st.mode].main + '・SP ' + LAY[st.mode].sup + '）';
     $('ph-boss').textContent = boss().n + '　' + r.df;
     var pf = '';
     for (var z = 0; z < ph0.hp.length; z++) {
@@ -950,7 +1205,7 @@
             'style="width:120px"></label>';
     }
     $('phases').innerHTML = pf || '<span class="mut" style="font-size:10px">このボスにはフェーズの切り替わりがありません。</span>';
-    drawRate(); drawErr();
+    drawRate(); drawErr(); kpi(); drawUse();
     if (st.pin != null) { movePh(st.pin, true); }
   }
 
@@ -996,8 +1251,9 @@
     if (!hp) { g.textContent = '目標: — ／ ダメージ計算がまだなので空です'; return; }
     g.textContent = '目標: ' + n0(goal) + ' ダメージ ／ ' + mmss(sec, 0) + ' 以内' +
       (st.goal ? '' : '（既定はボスの最大HPと制限時間）') +
-      '　EX ' + t.ex.n + ' 発＋NS ' + t.ns.n + ' 発を数えました' +
-      '（置いた EX ' + st.tl.length + ' 発のうち、ダメージを持つのは ' + t.ex.n + ' 発。SS はまだ）';
+      '　EX ' + t.ex.n + ' 発＋NS ' + t.ns.n + ' 発ぶんのダメージ' +
+      '（置いた EX ' + st.tl.length + ' 発のうち、ダメージを持つのは ' + t.ex.n +
+      ' 発。SS は常時ぶんをステータスに乗せています）';
   }
   function cell(frac, txt) {
     return '<td class="v"><span class="cell"><span class="bar"><i style="width:' +
@@ -1005,6 +1261,22 @@
            '<span class="num">' + esc(txt) + '</span></span></td>';
   }
 
+  function kpi() {
+    var r = diff(), hp = (r.bs && r.bs.hp) || 0, t = total(r), run = costRun(r.dur || 240);
+    var v = t.avg, pct = hp ? Math.min(100, v / hp * 100) : 0;
+    function box(lbl2, val, sub) {
+      return '<div class="k"><span class="kl">' + lbl2 + '</span><b class="kv">' + val + '</b>' +
+             (sub ? '<span class="ks">' + sub + '</span>' : '') + '</div>';
+    }
+    $('kpi').innerHTML =
+      box('与ダメージ（平均）', t.n ? n0(v) : '—', 'EX ' + t.ex.n + ' 発＋NS ' + t.ns.n + ' 発') +
+      box('ボス HP に対して', hp ? pct.toFixed(1) + '%' : '—', hp ? n0(hp) : '—') +
+      box('置いた EX', st.tl.length + ' 発', run.bad.length ? run.bad.length + ' 発が撃てません' : '詰まりなし') +
+      box('終わりのコスト', run.end.toFixed(2), '上限 ' + run.cap.toFixed(1)) +
+      box('編成', crewCount() + ' / ' + (LAY[st.mode].main + LAY[st.mode].sup) + ' 人',
+          'パーティー ' + (st.pi + 1) + ' / ' + st.parties.length) +
+      '<div class="kbar"><i style="width:' + pct.toFixed(1) + '%"></i></div>';
+  }
   function drawErr() {
     var r = diff(), out = [];
     out.push(['g', boss().n + ' ' + r.df + ' を読み込みました']);
@@ -1020,20 +1292,23 @@
       out.push(['g', 'スキルを ' + st.tl.length + ' 個置いています（終わりのコスト ' + run.end.toFixed(2) + '）']);
     }
     for (var q = 0; q < run.bad.length; q++) {
-      var bp = st.party[run.bad[q].i];
-      out.push(['e', 'コストが足りません: ' + ((bp && bp.n) || '?') + ' ' + run.bad[q].t.toFixed(2) + '秒']);
+      var br = run.bad[q], bp = st.party[br.e.i];
+      out.push(['e', ((bp && bp.n) || '?') + ' ' + (br.e.t == null ? '' : br.e.t.toFixed(2) + '秒') +
+        '：' + (br.why || 'コストが足りません')]);
     }
-    var eb0 = enemyAt(r, 0);
-    var nsng = 0;
-    for (var y = 0; y < 6; y++) {
-      var yp = st.party[y], yn = yp && nsInfo(yp.id);
-      if (yp && (!yn || yn[1] !== 'Interval' || !(yn[2] > 1))) { nsng++; }
+    var sb1 = run.sim.IN._sb;
+    if (sb1) {
+      out.push(['g', '開始コスト ' + (Math.round(sb1.amt * 100) / 100) + '（' + sb1.d.n +
+        ' ノーマル Lv' + sb1.lv + (sb1.per ? '／' + sb1.n + ' 人ぶん' : '') + '）' +
+        (sb1.off.length ? '／' + sb1.off.join('・') + ' は不発' : '')]);
     }
-    if (nsng) {
-      out.push(['w', 'この編成の ' + nsng + ' 人は通常スキルが間隔で決まらない型なので、' +
-        'NS レーンに置いていません']);
+    for (var y = 0; y < SLOTS; y++) {
+      var yp = st.party[y];
+      if (!yp || nsInfo(yp.id)) { continue; }
+      out.push(['w', yp.n + ' の通常スキルは置いていません：' + nsWhy(yp.id)]);
     }
-    out.push(['w', 'SS レーン・遮蔽・条件つきのバフはこれからです']);
+    out.push(['w', '通常攻撃（オートアタック）・SS のダメージ・遮蔽・条件つきのバフは' +
+      'まだ数えていません。合計は実戦よりかなり小さく出ます']);
     $('errlog').innerHTML = out.map(function (x) {
       return '<div class="' + x[0] + '">' + (x[0] === 'g' ? '✔ ' : (x[0] === 'e' ? '✕ ' : '▸ ')) + esc(x[1]) + '</div>';
     }).join('');
@@ -1147,21 +1422,28 @@
   //   ・同じ（スキルの枠, Channel）が 2 回来たら**先に来たほうが勝つ**
   //     （common.js 7723 行。あとから来たものは discount される）
   //   ・ExtraPassive は SchaleDB の preview が触っていないので**乗せていない**
-  var PASS = ['Passive', 'WeaponPassive'];
+  // **`ExtraPassive` がサブスキル（SS）**。SchaleDB の localization.min.json の
+  // `SkillType` がそう言っている（Ex=EXスキル / Public=ノーマルスキル /
+  // Passive=パッシブスキル / WeaponPassive=パッシブスキル＋ / ExtraPassive=サブスキル）
+  var PASS = ['Passive', 'WeaponPassive', 'ExtraPassive'];
   function passiveList() {
     var out = [], i, k, q;
-    for (i = 0; i < 6; i++) {
+    for (i = 0; i < SLOTS; i++) {
       var p = st.party[i];
       if (!p) { continue; }
+      var sl0 = slotOf(i);
       var bk = B.buf[p.id];
       if (!bk) { continue; }
       for (k = 0; k < PASS.length; k++) {
         var slot = PASS[k];
-        if (slot === 'WeaponPassive' && !(st.wstar >= 2 && st.wlv > 0)) { continue; }
+        if (slot === 'WeaponPassive' && !(sl0.wstar >= 2 && sl0.wlv > 0)) { continue; }
         var list = bk[slot] || [];
         for (q = 0; q < list.length; q++) {
           var e = list[q], vals = e[3] || [];
-          var lv = Math.min(st.pLv, vals.length) || 1;
+          // **持続時間があるものは常時ではない**（何かで発動する）。乗せない
+          if (e[4] != null) { continue; }
+          var mx = slot === 'ExtraPassive' ? sl0.sslv : sl0.plv;
+          var lv = Math.min(mx, vals.length) || 1;
           out.push({ owner: i, slot: slot, tg: e[0] || [], stat: e[1],
                      ch: e[2], v: vals[lv - 1] || 0 });
         }
@@ -1169,10 +1451,20 @@
     }
     return out;
   }
+  // サブスキル（SS）の内訳。[常時 効いている本数, 発動して効く本数]
+  function ssCount(idx) {
+    var p = st.party[idx];
+    if (!p) { return [0, 0]; }
+    var list = (B.buf[p.id] || {}).ExtraPassive || [], on = 0, off = 0;
+    for (var q = 0; q < list.length; q++) {
+      if (list[q][4] == null) { on++; } else { off++; }
+    }
+    return [on, off];
+  }
   // idx 番の枠に効く常時バフだけを取り出す
   function passiveFor(idx) {
     var all = passiveList(), out = [], i;
-    var want = idx < 4 ? 'AllyMain' : 'AllySupport';
+    var want = isMain(idx) ? 'AllyMain' : 'AllySupport';
     for (i = 0; i < all.length; i++) {
       var e = all[i], hit = false, q;
       for (q = 0; q < e.tg.length; q++) {
@@ -1184,13 +1476,14 @@
     }
     return out;
   }
-  function buildOpt() {
-    return { lv: st.lv90, star: st.star, eq: st.eq, wlv: st.wlv,
-             gear: st.gear, bond: st.bond };
+  function buildOpt(idx) {
+    var b = (idx == null ? null : slotOf(idx)) || mkSlot();
+    return { lv: b.lv, star: b.star, eq: [b.eq, b.eq, b.eq], wlv: b.wlv,
+             gear: b.gear > 0, bond: b.bond };
   }
   var _sc = {};
   function statsOf(id, idx, at) {
-    var o = buildOpt();
+    var o = buildOpt(idx);
     o.extra = idx == null ? [] : passiveFor(idx);
     if (idx != null && at != null) { o.extra = o.extra.concat(liveBuffs(at, 'ally' + idx)); }
     var k = id + '|' + idx + '|' + at + '|' + JSON.stringify(o);
@@ -1229,7 +1522,8 @@
   // 支援値。SPECIAL（編成の 5・6 枠）の最終値に万分率を掛けて切り捨て、STRIKER に乗る
   function support(stat, lv, r) {
     var f = (B.trans[r.ext || 'Base'] || B.trans.Base || {})[stat] || 0, sum = 0;
-    for (var i = 4; i < 6; i++) {
+    for (var i = MAIN_MAX; i < SLOTS; i++) {
+      if (!live(i)) { continue; }
       var cs = st.party[i] && statsOf(st.party[i].id, i);
       if (cs) { sum += Math.floor(cs.get(stat) * f / 10000); }
     }
@@ -1240,25 +1534,50 @@
   // `ConditionType: "Interval"` なら `ConditionArgument` がフレーム（750 = 25 秒）。
   // `OnAttackIng` など間隔で決まらない型は、周期が出せないので置かない
   function nsKind(id) {
-    return (st.gear && (B.dmg[id] || {}).GearPublic) ? 'GearPublic' : 'Public';
+    return (gearT(id) >= 2 && (B.dmg[id] || {}).GearPublic) ? 'GearPublic' : 'Public';
   }
+  // その生徒が編成のどこに居るか（居なければ既定の育成）
+  function gearT(id) {
+    for (var i = 0; i < SLOTS; i++) { if (st.slots[i].id === id) { return st.slots[i].gear; } }
+    return 3;
+  }
+  // **置ける根拠は 2 つある。**
+  //  ① スキル文の「N 秒毎に」（cost-timeline の `ns.iv` / `ns.st`）。
+  //     引き金が先に書いてある子は `st` が付かない＝時刻が決まらないので置かない
+  //  ② `LevelSkill` の `AutoUseRule`（tl の `ns`）。`Interval` だけが置ける
+  // ①のほうが広く読めるので先に見る（イブキ（水着）は②では
+  // `RemoveLogicEffectTemplateId` だが、スキル文は「30秒毎に」）
   function nsInfo(id) {
-    var rows = (B.ns || {})[id] || [], want = st.gear ? 2 : 0, got = null;
-    for (var i = 0; i < rows.length; i++) {
-      if ((rows[i][0] || 0) <= want) { got = rows[i]; }
+    var sd = _byid[id], n = sd && sd.ns, i;
+    var rows = (B.ns || {})[id] || [], want = gearT(id) >= 2 ? 2 : 0, au = null;
+    for (i = 0; i < rows.length; i++) { if ((rows[i][0] || 0) <= want) { au = rows[i]; } }
+    var duF = (au && au[3] && au[3] < 100000) ? au[3] : 60;
+    if (n && n.iv > 0 && n.st != null) {
+      return { iv: n.iv, st: n.st, du: duF, src: 'desc', nm: n.n, rule: au ? au[1] : null };
     }
-    return got;
+    if (au && au[1] === 'Interval' && au[2] > 1) {
+      return { iv: au[2] / B.fps, st: au[2] / B.fps, du: duF, src: 'auto',
+               nm: n ? n.n : '', rule: 'Interval' };
+    }
+    return null;
+  }
+  function nsWhy(id) {
+    var sd = _byid[id], n = sd && sd.ns;
+    if (!n) { return '通常スキルのデータがありません'; }
+    if (n.cond) { return '引き金つき（' + n.cond + '）なので時刻が決まりません'; }
+    var rows = (B.ns || {})[id] || [];
+    return '間隔で決まらない型です（' + ((rows[0] && rows[0][1]) || '不明') + '）';
   }
   function nsTimes(id, dur) {
-    var n = nsInfo(id), out = [];
-    if (!n || n[1] !== 'Interval' || !n[2] || n[2] < 2) { return out; }
-    var step = n[2] / B.fps;
-    for (var t = step; t <= dur; t += step) { out.push(+t.toFixed(4)); }
+    var n = nsInfo(id), out = [], t;
+    if (!n) { return out; }
+    if (n.iv <= 0) { return n.st <= dur ? [n.st] : []; }
+    for (t = n.st; t <= dur; t += n.iv) { out.push(+t.toFixed(4)); }
     return out;
   }
   function nsDur(id) {
     var n = nsInfo(id);
-    return (n && n[3] && n[3] < 100000) ? n[3] : 60;
+    return n ? n.du : 60;
   }
 
   // ------------------------------------------------------------ 時限のバフ・デバフ
@@ -1271,7 +1590,7 @@
     var out = [], i, k;
     for (i = 0; i < st.tl.length; i++) { out.push({ i: st.tl[i].i, t: st.tl[i].t, k: 'Ex' }); }
     var dur = diff().dur || 240;
-    for (i = 0; i < 6; i++) {
+    for (i = 0; i < SLOTS; i++) {
       var p = st.party[i];
       if (!p) { continue; }
       var ts = nsTimes(p.id, dur), kd = nsKind(p.id);
@@ -1295,8 +1614,8 @@
           if (to === 'enemy') { if (tg[z] === 'Enemy') { hit = true; } continue; }
           var idx = +to.slice(4);
           if (tg[z] === 'Self' && u.i === idx) { hit = true; }
-          if (tg[z] === 'AllyMain' && idx < 4) { hit = true; }
-          if (tg[z] === 'AllySupport' && idx >= 4) { hit = true; }
+          if (tg[z] === 'AllyMain' && isMain(idx)) { hit = true; }
+          if (tg[z] === 'AllySupport' && !isMain(idx)) { hit = true; }
         }
         if (!hit) { continue; }
         var vals = e[3] || [], lv = Math.min(st.slv, vals.length) || 1;
@@ -1346,14 +1665,14 @@
     if (!p) { return null; }
     var effs = (B.dmg[p.id] || {})[kind || 'Ex'];
     if (!effs || !effs.length) { return null; }
-    var lv = st.lv90 || 90, slv = st.slv || 5, bs = r.bs || {};
+    var lv = slotOf(idx).lv || 90, slv = slotOf(idx).ex || 5, bs = r.bs || {};
     var cs = statsOf(p.id, idx, at);
     if (!cs) { return null; }
     var eb = at == null ? { def: bs.def, dodge: bs.dodge, crR: bs.crR, cdR: bs.cdR,
                             damaged: 10000, armor: bs.armor, n: 0 }
                         : enemyAt(r, at);
     var atk = cs.get('AttackPower');
-    if (idx < 4) { atk += support('AttackPower', lv, r); }
+    if (isMain(idx)) { atk += support('AttackPower', lv, r); }
     var lvMod = clamp(1 - ((r.lv || lv) - lv) * 0.02, 0.4, 1);
     var pen = cs.get('DefensePenetration');
     var def = Math.max((eb.def || 0) - pen, 0);
@@ -1402,49 +1721,71 @@
 
   // ------------------------------------------------------------ 書き出し・読み込み
   function snapshot() {
-    var ids = [];
-    for (var i = 0; i < 6; i++) { ids.push(st.party[i] ? st.party[i].id : null); }
-    return { v: 1, boss: boss().id, diff: diff().df, lv: st.lv,
-             party: ids, tl: st.tl, mk: st.mk, goal: st.goal,
-             build: { lv: st.lv90, star: st.star, slv: st.slv, eq: st.eq, wlv: st.wlv,
-                      wstar: st.wstar, gear: st.gear, bond: st.bond, pLv: st.pLv } };
+    return { v: 2, boss: boss().id, diff: diff().df, mode: st.mode, pi: st.pi,
+             parties: st.parties, mk: st.mk, goal: st.goal };
   }
   function restore(o) {
-    if (!o || o.v !== 1) { throw new Error('形式が違います（v:1 ではありません）'); }
+    if (!o || (o.v !== 1 && o.v !== 2)) { throw new Error('形式が違います（v:1 か v:2 ではありません）'); }
     var bi = -1, di = -1, i, k;
     for (i = 0; i < B.bosses.length; i++) { if (B.bosses[i].id === o.boss) { bi = i; } }
     if (bi < 0) { throw new Error('知らないボスです: ' + o.boss); }
     for (k = 0; k < B.bosses[bi].d.length; k++) { if (B.bosses[bi].d[k].df === o.diff) { di = k; } }
     if (di < 0) { throw new Error('知らない難易度です: ' + o.diff); }
-    st.bi = bi; st.di = di; st.lv = o.lv || 5;
-    st.party = [null, null, null, null, null, null];
-    for (i = 0; i < 6 && i < (o.party || []).length; i++) {
-      st.party[i] = o.party[i] == null ? null : stu(o.party[i]);
+    mark();
+    st.bi = bi; st.di = di;
+    if (o.v === 2) {
+      st.mode = o.mode === 10 ? 10 : 6;
+      st.parties = [];
+      for (i = 0; i < (o.parties || []).length && i < 4; i++) {
+        var src = o.parties[i], np = mkParty(), q;
+        for (q = 0; q < SLOTS && q < (src.slots || []).length; q++) {
+          var a = src.slots[q], b = np.slots[q], key;
+          for (key in b) { if (a[key] != null) { b[key] = a[key]; } }
+          if (b.id != null && !_byid[b.id]) { b.id = null; }
+        }
+        for (q = 0; q < (src.tl || []).length; q++) {
+          var u = src.tl[q];
+          if (u && isFinite(u.t) && u.i >= 0 && u.i < SLOTS) {
+            np.tl.push({ i: +u.i, t: +u.t, to: u.to == null ? null : +u.to,
+                         ov: u.ov == null ? null : +u.ov, f: u.f == null ? null : +u.f,
+                         bt: u.bt == null ? null : +u.bt });
+          }
+        }
+        for (q = 0; q < (src.start || []).length; q++) { np.start.push(src.start[q]); }
+        st.parties.push(np);
+      }
+      if (!st.parties.length) { st.parties = [mkParty()]; }
+      st.pi = Math.min(o.pi || 0, st.parties.length - 1);
+    } else {
+      // **v1（枠 6 つ・育成ひとまとめ）を読む。**STRIKER 4 ＋ SPECIAL 2 に割り直す
+      st.mode = 6; st.parties = [mkParty()]; st.pi = 0;
+      var bd = o.build || {}, m = 0, sp2 = MAIN_MAX;
+      for (i = 0; i < (o.party || []).length; i++) {
+        var sd = o.party[i] == null ? null : _byid[o.party[i]];
+        if (!sd) { continue; }
+        var at = sd.sq === 'Support' ? sp2++ : m++;
+        if (at >= SLOTS) { continue; }
+        var sl = st.parties[0].slots[at];
+        sl.id = sd.id;
+        if (isFinite(bd.lv)) { sl.lv = +bd.lv; }
+        if (isFinite(bd.star)) { sl.star = +bd.star; }
+        if (bd.eq && bd.eq.length) { sl.eq = +bd.eq[0]; }
+        if (isFinite(bd.wlv)) { sl.wlv = +bd.wlv; }
+        if (isFinite(bd.wstar)) { sl.wstar = +bd.wstar; }
+        if (isFinite(bd.slv)) { sl.ex = +bd.slv; }
+        if (isFinite(bd.pLv)) { sl.plv = +bd.pLv; }
+        if (typeof bd.gear === 'boolean') { sl.gear = bd.gear ? 3 : 0; }
+        if (isFinite(bd.bond)) { sl.bond = +bd.bond; }
+      }
     }
-    st.tl = []; st.mk = []; st.sel = null;
-    for (i = 0; i < (o.tl || []).length; i++) {
-      var u = o.tl[i];
-      if (u && u.i >= 0 && u.i < 6 && isFinite(u.t)) { st.tl.push({ i: +u.i, t: +u.t }); }
-    }
+    st.mk = [];
     for (i = 0; i < (o.mk || []).length; i++) {
-      var m = o.mk[i];
-      if (m && isFinite(m.t)) { st.mk.push({ t: +m.t, n: String(m.n || '') }); }
+      var mk2 = o.mk[i];
+      if (mk2 && isFinite(mk2.t)) { st.mk.push({ t: +mk2.t, n: String(mk2.n || '') }); }
     }
     st.goal = (o.goal && isFinite(o.goal.dmg)) ? { dmg: +o.goal.dmg, sec: +o.goal.sec } : null;
-    var bd = o.build;
-    if (bd) {
-      if (isFinite(bd.lv)) { st.lv90 = +bd.lv; }
-      if (isFinite(bd.star)) { st.star = +bd.star; }
-      if (isFinite(bd.slv)) { st.slv = +bd.slv; }
-      if (bd.eq && bd.eq.length === 3) { st.eq = [+bd.eq[0], +bd.eq[1], +bd.eq[2]]; }
-      if (isFinite(bd.wlv)) { st.wlv = +bd.wlv; }
-      if (isFinite(bd.wstar)) { st.wstar = +bd.wstar; }
-      if (typeof bd.gear === 'boolean') { st.gear = bd.gear; }
-      if (isFinite(bd.bond)) { st.bond = +bd.bond; }
-      if (isFinite(bd.pLv)) { st.pLv = +bd.pLv; }
-      _sc = {};
-    }
-    fillBoss(); fillBuild(); drawCrew(); drawPicker(); draw();
+    st.sel = null; usePartyRef(); bump();
+    fillBoss(); fillBuild(); drawParty(); drawCrew(); drawPicker(); draw();
   }
   function sheet(title, text, onOK) {
     var w = document.createElement('div');
@@ -1522,95 +1863,225 @@
   }
 
   // ------------------------------------------------------------ 左
-  function drawCrew() {
+  function drawParty() {
     var h = '', i;
-    for (i = 0; i < 6; i++) {
-      var p = st.party[i];
-      h += '<div class="c">' + (p ? img(p.id) + '<button type="button" class="x" data-rm="' + i +
-           '" aria-label="外す">×</button>' : '') + '</div>';
+    for (i = 0; i < st.parties.length; i++) {
+      h += '<button type="button" class="btn2" data-pt="' + i + '" aria-pressed="' +
+           (i === st.pi) + '">P' + (i + 1) + '</button>';
     }
-    $('crew').innerHTML = h;
-    var k = '<span class="h">開始スキル</span>';
-    for (i = 0; i < 5; i++) { k += '<span class="s">' + (i + 1) + '</span>'; }
-    $('startsk').innerHTML = k;
-    var su = '', bn = '';
-    for (i = 0; i < 6; i++) {
-      var v = st.party[i];
-      if (!v) { continue; }
-      var cs = statsOf(v.id, i);
-      su += '<div class="card">' + img(v.id) + '<div class="t"><b>Lv' + st.lv90 +
-            ' ★' + st.star + '</b><br>' +
-            esc(v.n) + '<br><span class="g">EX コスト ' + (v.c ? v.c[4] : '—') +
-            '／演出 ' + (v.d || '—') + 'f</span><br><span class="g">攻撃力 ' +
-            (cs ? n0(cs.get('AttackPower')) : '—') + '／会心 ' +
-            (cs ? n0(cs.get('CriticalPoint')) : '—') + '</span></div></div>';
-      bn += '<img class="mini" src="../img/student_' + v.id + '.webp" alt="" loading="lazy">';
+    $('ptabs').innerHTML = h;
+    $('b-addparty').disabled = st.parties.length >= 4;
+    var bs = document.querySelectorAll('#modeseg button');
+    for (i = 0; i < bs.length; i++) {
+      bs[i].setAttribute('aria-pressed', +bs[i].getAttribute('data-mode') === st.mode ? 'true' : 'false');
     }
-    $('setup').innerHTML = su || '<span class="mut" style="font-size:10px">左で生徒を選ぶと出ます。</span>';
-    $('bench').innerHTML = bn || '<span class="sq"></span><span class="sq"></span>';
-    $('bench').className = 'imgs';
-    $('showsk').innerHTML = bn || '<span class="sq"></span><span class="sq"></span>';
-    $('showsk').className = 'imgs';
   }
-  function drawPicker() {
-    var f = st.filt, list = [], i;
-    for (i = 0; i < S.students.length; i++) {
-      var s = S.students[i];
-      if (f.q && s.n.indexOf(f.q) < 0) { continue; }
-      if (f.role && s.ro !== f.role) { continue; }
-      if (f.bul && s.bt !== f.bul) { continue; }
-      if (f.arm && s.at !== f.arm) { continue; }
-      list.push(s);
+  function slotCard(i) {
+    var p = st.party[i], sl = st.slots[i];
+    if (!p) {
+      return '<button type="button" class="c empty" data-slot="' + i + '" title="ここに入れる生徒を下から選びます">' +
+             '<span class="pl">＋</span></button>';
     }
+    return '<button type="button" class="c' + (st.who === i ? ' on' : '') + '" data-slot="' + i +
+      '" title="' + esc(p.n) + '\nLv' + sl.lv + ' 星' + sl.star + '／EX Lv' + sl.ex +
+      '\nクリックで育成をこの子に切り替えます">' + img(p.id) +
+      '<span class="lvb">' + sl.lv + '</span>' +
+      '<span class="x" data-rm="' + i + '" role="button" aria-label="外す">×</span></button>';
+  }
+  function drawCrew() {
+    var hm = '', hs = '', i;
+    for (i = 0; i < MAIN_MAX; i++) { if (live(i)) { hm += slotCard(i); } }
+    for (i = MAIN_MAX; i < SLOTS; i++) { if (live(i)) { hs += slotCard(i); } }
+    $('crew-m').innerHTML = hm;
+    $('crew-s').innerHTML = hs;
+    drawStart();
+  }
+  // 開始スキル。**並べたとおりに撃てる人数は engine の LAYOUT.start**
+  // （2026-05-27 のアップデートで通常編成 3→5、制約解除決戦 5→9）
+  function drawStart() {
+    var n = LAY[st.mode].start, h = '<span class="h">開始スキル</span>', i, k;
+    var opts = '<option value="">—</option>';
+    for (k = 0; k < SLOTS; k++) {
+      if (live(k) && st.party[k]) {
+        opts += '<option value="' + k + '">' + esc(st.party[k].n) + '</option>';
+      }
+    }
+    for (i = 0; i < n; i++) {
+      h += '<span class="s"><b>' + (i + 1) + '</b><select data-sk="' + i + '">' + opts + '</select></span>';
+    }
+    $('startsk').innerHTML = h;
+    var ss = $('startsk').querySelectorAll('select');
+    for (i = 0; i < ss.length; i++) {
+      var v = st.start[i];
+      ss[i].value = (v == null || !st.party[v]) ? '' : String(v);
+    }
+  }
+  var SORTS = {
+    n: function (a, b) { return a.n < b.n ? -1 : (a.n > b.n ? 1 : 0); },
+    c: function (a, b) { return ((a.c || [])[4] || 0) - ((b.c || [])[4] || 0) || (a.n < b.n ? -1 : 1); },
+    d: function (a, b) { return (a.d || 0) - (b.d || 0) || (a.n < b.n ? -1 : 1); },
+    id: function (a, b) { return b.id - a.id; }
+  };
+  function drawPicker() {
+    var f = st.filt, list = [], i, k;
+    for (i = 0; i < S.students.length; i++) {
+      var s2 = S.students[i];
+      if (f.q && s2.n.indexOf(f.q) < 0) { continue; }
+      if (f.role && s2.ro !== f.role) { continue; }
+      if (f.bul && s2.bt !== f.bul) { continue; }
+      if (f.arm && s2.at !== f.arm) { continue; }
+      if (f.sch && s2.sc !== f.sch) { continue; }
+      if (f.sq && s2.sq !== f.sq) { continue; }
+      if (f.star && String(s2.st) !== f.star) { continue; }
+      list.push(s2);
+    }
+    list.sort(SORTS[f.sort] || SORTS.n);
+    var inParty = {};
+    for (k = 0; k < SLOTS; k++) { if (st.party[k]) { inParty[st.party[k].id] = 1; } }
     var h = '';
     for (i = 0; i < list.length; i++) {
-      var on = false;
-      for (var k = 0; k < 6; k++) { if (st.party[k] && st.party[k].id === list[i].id) { on = true; } }
-      h += '<button type="button" data-add="' + list[i].id + '" aria-pressed="' + on + '" title="' +
-           esc(list[i].n) + '">' + img(list[i].id) + '<span class="n">' + esc(list[i].n) + '</span></button>';
+      var s3 = list[i], on = !!inParty[s3.id];
+      h += '<button type="button" class="pk' + (s3.sq === 'Main' ? ' m' : ' s') + '" data-add="' + s3.id +
+           '" aria-pressed="' + on + '" title="' + esc(s3.n) + '\n' +
+           (s3.sq === 'Main' ? 'STRIKER' : 'SPECIAL') + '／EX コスト ' + ((s3.c || [])[4] == null ? '—' : s3.c[4]) +
+           '／演出 ' + (s3.d || '—') + 'f">' + img(s3.id) +
+           '<span class="n">' + esc(s3.n) + '</span>' +
+           '<span class="cst">' + ((s3.c || [])[4] == null ? '' : s3.c[4]) + '</span></button>';
     }
     $('picker').innerHTML = h;
-    $('pick-n').textContent = S.students.length + '件中 ' + list.length + '件表示';
+    $('pick-n').textContent = list.length + ' / ' + S.students.length + ' 人';
+  }
+  // ---- 育成（対象ごと）
+  function opt(id, vals, cur, fmt) {
+    var e = $(id), h = '';
+    for (var i = 0; i < vals.length; i++) {
+      h += '<option value="' + vals[i] + '"' + (String(vals[i]) === String(cur) ? ' selected' : '') +
+           '>' + (fmt ? fmt(vals[i]) : vals[i]) + '</option>';
+    }
+    e.innerHTML = h;
+  }
+  var _dft = mkSlot();
+  function whoSlot() { return st.who < 0 ? _dft : st.slots[st.who]; }
+  function fillWho() {
+    var h = '<option value="-1">既定（これから入れる子）</option>', i;
+    for (i = 0; i < SLOTS; i++) {
+      if (live(i) && st.party[i]) {
+        h += '<option value="' + i + '">' + (isMain(i) ? 'ST' : 'SP') + (isMain(i) ? i + 1 : i - MAIN_MAX + 1) +
+             '　' + esc(st.party[i].n) + '</option>';
+      }
+    }
+    $('g-who').innerHTML = h;
+    if (st.who >= 0 && !st.party[st.who]) { st.who = -1; }
+    $('g-who').value = String(st.who);
   }
   function fillBuild() {
-    function opt(id, vals, cur, fmt) {
-      var e = $(id), h = '';
-      for (var i = 0; i < vals.length; i++) {
-        h += '<option value="' + vals[i] + '"' + (vals[i] === cur ? ' selected' : '') +
-             '>' + (fmt ? fmt(vals[i]) : vals[i]) + '</option>';
-      }
-      e.innerHTML = h;
-    }
-    var lvs = [], i;
+    fillWho();
+    var b = whoSlot(), lvs = [], i, wl = [], bl = [];
     for (i = 1; i <= 90; i++) { lvs.push(i); }
-    opt('g-lv', lvs, st.lv90);
-    opt('g-star', [1, 2, 3, 4, 5], st.star);
-    opt('g-eq', [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10], st.eq[0],
-        function (v) { return v ? 'T' + v : 'なし'; });
-    var wl = [0];
-    for (i = 1; i <= 50; i++) { wl.push(i); }
-    opt('g-wlv', wl, st.wlv, function (v) { return v ? 'Lv' + v : 'なし'; });
-    opt('g-wstar', [0, 1, 2, 3], st.wstar, function (v) { return '★' + v; });
-    opt('g-plv', [1, 2, 3, 4, 5, 6, 7, 8, 9, 10], st.pLv, function (v) { return 'Lv' + v; });
-    $('g-gear').value = st.gear ? '1' : '0';
-    var bl = [];
+    for (i = 0; i <= 50; i++) { wl.push(i); }
     for (i = 1; i <= 100; i++) { bl.push(i); }
-    opt('g-bond', bl, st.bond);
+    opt('g-lv', lvs, b.lv);
+    opt('g-star', [1, 2, 3, 4, 5], b.star, function (v) { return '★' + v; });
+    opt('g-eq', [0,1,2,3,4,5,6,7,8,9,10], b.eq, function (v) { return v ? 'T' + v : 'なし'; });
+    opt('g-wlv', wl, b.wlv, function (v) { return v ? 'Lv' + v : 'なし'; });
+    opt('g-wstar', [0, 1, 2, 3, 4], b.wstar, function (v) { return '★' + v; });
+    opt('g-ex', [1, 2, 3, 4, 5], b.ex, function (v) { return 'Lv' + v; });
+    opt('g-sk', [1,2,3,4,5,6,7,8,9,10], b.sk, function (v) { return 'Lv' + v; });
+    opt('g-plv', [1,2,3,4,5,6,7,8,9,10], b.plv, function (v) { return 'Lv' + v; });
+    opt('g-sslv', [1,2,3,4,5,6,7,8,9,10], b.sslv, function (v) { return 'Lv' + v; });
+    opt('g-gear', [0, 1, 2, 3], b.gear, function (v) { return v ? 'T' + v : 'なし'; });
+    opt('g-bond', bl, b.bond);
+    var p = st.who < 0 ? null : st.party[st.who];
+    var cs = p ? statsOf(p.id, st.who) : null;
+    $('build-note').innerHTML = p
+      ? esc(p.n) + '　攻撃 <b>' + n0(cs.get('AttackPower')) + '</b>／会心 <b>' +
+        n0(cs.get('CriticalPoint')) + '</b>／会心ダメージ <b>' +
+        (cs.get('CriticalDamageRate') / 100).toFixed(0) + '%</b>' +
+        (b.wstar >= 4 && !isMain(st.who) ? '　固有★4 でコスト上限 +0.5' : '')
+      : 'これから編成に入れる子に使う既定です。ここを変えても、いま入っている子は変わりません。';
   }
   function fillFilters() {
-    var L = S.labels || {}, ro = {}, bu = {}, ar = {}, i;
+    var L = S.labels || {}, ro = {}, bu = {}, ar = {}, sc = {}, i;
     for (i = 0; i < S.students.length; i++) {
-      ro[S.students[i].ro] = 1; bu[S.students[i].bt] = 1; ar[S.students[i].at] = 1;
+      var s4 = S.students[i];
+      ro[s4.ro] = 1; bu[s4.bt] = 1; ar[s4.at] = 1; sc[s4.sc] = 1;
     }
-    function opts(sel, map, dict) {
-      var h = '<option value="">すべて</option>', k;
+    function opts(sel, map, dict, all) {
+      var h = '<option value="">' + (all || 'すべて') + '</option>', k;
       for (k in map) { h += '<option value="' + esc(k) + '">' + esc((dict && dict[k]) || k) + '</option>'; }
       $(sel).innerHTML = h;
     }
     opts('i-role', ro, L.TacticRole);
     opts('i-bul', bu, L.BulletType);
     opts('i-arm', ar, L.ArmorType);
+    opts('i-sch', sc, L.School);
+    opts('i-sq', { Main: 1, Support: 1 }, L.SquadType);
+    opts('i-star', { 1: 1, 2: 1, 3: 1 }, { 1: '★1', 2: '★2', 3: '★3' });
   }
+  // ---- 選んだ EX 1 発の設定（誰に渡すか・どの形態か）
+  function drawUse() {
+    var u = st.sel == null ? null : st.tl[st.sel];
+    if (!u || !st.party[u.i]) { $('usepane').hidden = true; return; }
+    var d = st.party[u.i], sm = sim(), er = null, i;
+    for (i = 0; i < sm.rows.length; i++) {
+      if (sm.rows[i].e && sm.rows[i].e._ix === st.sel) { er = sm.rows[i]; }
+    }
+    function memOpts(cur, only) {
+      var h = '<option value="">—</option>', k;
+      for (k = 0; k < SLOTS; k++) {
+        if (!live(k) || !st.party[k]) { continue; }
+        if (only === 'main' && !isMain(k)) { continue; }
+        if (only === 'other' && k === u.i) { continue; }
+        h += '<option value="' + k + '"' + (String(cur) === String(k) ? ' selected' : '') + '>' +
+             esc(st.party[k].n) + '</option>';
+      }
+      return h;
+    }
+    var h2 = '<h2 class="sect inline"><i></i>' + esc(d.n) + ' の ' +
+      (er && er.sk ? esc(er.sk.n) : esc(d.en || 'EX')) + '</h2>';
+    h2 += '<span class="mut tiny">' + u.t.toFixed(2) + '秒／コスト ' +
+      (er ? Math.round(er.need * 10) / 10 : '—') +
+      (er && er.isCopy ? '（複製カード −1）' : '') + '</span>';
+    var fl = TE.forms(d);
+    if (fl.length > 1) {
+      var fh = '<option value="">自動（' + esc(fl[er ? er.auto : 0].n) + '）</option>';
+      for (i = 0; i < fl.length; i++) {
+        fh += '<option value="' + i + '"' + (String(u.f) === String(i) ? ' selected' : '') + '>' +
+              (i + 1) + '. ' + esc(fl[i].n) + '（' + (fl[i].c ? fl[i].c[4] : 0) + '）</option>';
+      }
+      h2 += '<label class="f"><span>形態</span><select data-us="f">' + fh + '</select></label>';
+    }
+    if (er && er.grant) {
+      h2 += '<label class="f"><span>コスト' + (er.grant.vt === 'coef' ? '減少' : '増加') +
+        'カードを渡す</span><select data-us="to"' +
+        (er.grant.sd === 'self' ? ' disabled' : '') + '>' +
+        (er.grant.sd === 'self' ? '<option>自分</option>' : memOpts(u.to)) + '</select></label>';
+    }
+    if (TE.ovlMs(d)) {
+      h2 += '<label class="f"><span>オーバーコストを渡す</span><select data-us="ov">' +
+            memOpts(u.ov) + '</select></label>';
+    }
+    if (d.sp && d.sp.copy) {
+      h2 += '<label class="f"><span>カードを複製する相手</span><select data-us="bt">' +
+            memOpts(u.bt, 'main') + '</select></label>';
+    }
+    var bfs = (er && er.sk && er.sk.bf) || d.bf || [];
+    if (bfs.length) {
+      var names = [];
+      for (i = 0; i < bfs.length; i++) {
+        names.push(bfs[i].n + '（' + (bfs[i].sd === 'self' ? '自分' :
+          (bfs[i].sd === 'ally' ? '味方' : '敵')) + '・' +
+          Math.round((bfs[i].du || 0) / 1000) + '秒）');
+      }
+      h2 += '<span class="mut tiny">効果: ' + esc(names.join('　')) + '</span>';
+    }
+    if (er && er.why) { h2 += '<span class="warn tiny">⚠ ' + esc(er.why) + '</span>'; }
+    h2 += '<span style="flex:1 1 auto"></span>' +
+      '<button type="button" class="btn2" data-act="delsel">この 1 発を消す</button>';
+    $('useedit').innerHTML = h2;
+    $('usepane').hidden = false;
+  }
+
   function fillBoss() {
     var h = '', i;
     for (i = 0; i < B.bosses.length; i++) {
@@ -1637,12 +2108,12 @@
 
   // ------------------------------------------------------------ つなぐ
   st.di = tormentIdx(B.bosses[0]);
-  fillBoss(); fillFilters(); drawCrew(); drawPicker(); draw();
+  fillBoss(); fillFilters(); fillBuild(); drawParty(); drawCrew(); drawPicker(); draw();
+  syncUndo();
   // 突き合わせ用。**SchaleDB の実装と数字が合うかを外から確かめるため**に出している
   window.__TLDBG = { statsOf: statsOf, dmgOf: dmgOf, total: total, diff: diff,
-                     terrMod: terrMod, effMod: effMod, st: st, stu: stu };
+                     terrMod: terrMod, effMod: effMod, st: st, stu: stu, sim: sim, engIn: engIn };
 
-  fillBuild();
   function syncTabs() {
     var bs = document.querySelectorAll('#rtabs .t');
     for (var i = 0; i < bs.length; i++) {
@@ -1667,47 +2138,174 @@
     this.textContent = on ? '左を出す' : '左を畳む';
     setTimeout(fit, 0);
   });
+
+  // ---- パーティーと編成モード
+  $('ptabs').addEventListener('click', function (e) {
+    var b = e.target.closest('button[data-pt]');
+    if (!b) { return; }
+    st.pi = +b.getAttribute('data-pt'); usePartyRef(); st.sel = null; st.who = -1; bump();
+    fillBuild(); drawParty(); drawCrew(); drawPicker(); draw();
+  });
+  $('b-addparty').addEventListener('click', function () {
+    if (st.parties.length >= 4) { return; }
+    mark();
+    st.parties.push(mkParty()); st.pi = st.parties.length - 1;
+    usePartyRef(); st.sel = null; st.who = -1; bump();
+    fillBuild(); drawParty(); drawCrew(); drawPicker(); draw();
+  });
+  $('modeseg').addEventListener('click', function (e) {
+    var b = e.target.closest('button[data-mode]');
+    if (!b) { return; }
+    mark();
+    st.mode = +b.getAttribute('data-mode'); bump();
+    fillBuild(); drawParty(); drawCrew(); drawPicker(); draw();
+  });
+
+  // ---- 編成の枠
+  function crewClick(e) {
+    var rm = e.target.closest('[data-rm]');
+    if (rm) {
+      e.stopPropagation();
+      mark();
+      var k = +rm.getAttribute('data-rm');
+      st.slots[k].id = null;
+      for (var q = st.tl.length - 1; q >= 0; q--) { if (st.tl[q].i === k) { st.tl.splice(q, 1); } }
+      if (st.who === k) { st.who = -1; }
+      st.sel = null; bump(); fillBuild(); drawCrew(); drawPicker(); draw();
+      return;
+    }
+    var c = e.target.closest('[data-slot]');
+    if (!c) { return; }
+    var i = +c.getAttribute('data-slot');
+    if (st.party[i]) { st.who = i; fillBuild(); drawCrew(); }
+  }
+  $('crew-m').addEventListener('click', crewClick);
+  $('crew-s').addEventListener('click', crewClick);
+  $('startsk').addEventListener('change', function (e) {
+    var sel = e.target.closest('select[data-sk]');
+    if (!sel) { return; }
+    mark();
+    var i = +sel.getAttribute('data-sk');
+    while (st.start.length <= i) { st.start.push(null); }
+    st.start[i] = sel.value === '' ? null : +sel.value;
+    // 同じ子を 2 か所に置かない
+    for (var q = 0; q < st.start.length; q++) {
+      if (q !== i && st.start[q] != null && st.start[q] === st.start[i]) { st.start[q] = null; }
+    }
+    drawStart(); draw();
+  });
+
+  // ---- 育成
+  $('g-who').addEventListener('change', function () {
+    st.who = +this.value; fillBuild(); drawCrew();
+  });
   (function () {
-    function on(id, fn) {
+    var KEY = { 'g-lv': 'lv', 'g-star': 'star', 'g-eq': 'eq', 'g-wlv': 'wlv', 'g-wstar': 'wstar',
+                'g-ex': 'ex', 'g-sk': 'sk', 'g-plv': 'plv', 'g-sslv': 'sslv',
+                'g-gear': 'gear', 'g-bond': 'bond' };
+    function bind(id) {
       $(id).addEventListener('change', function () {
-        fn(this.value); _sc = {}; drawCrew(); draw();
+        mark();
+        var k = KEY[id], v = +this.value, b = whoSlot();
+        b[k] = v;
+        if (k === 'wstar') { b.w4 = v >= 4; }
+        if (k === 'gear') { b.tier = [v, v, v, v, v, v]; }
+        bump(); fillBuild(); drawCrew(); draw();
       });
     }
-    on('g-lv', function (v) { st.lv90 = +v; });
-    on('g-star', function (v) { st.star = +v; });
-    on('g-eq', function (v) { st.eq = [+v, +v, +v]; });
-    on('g-wlv', function (v) { st.wlv = +v; });
-    on('g-wstar', function (v) { st.wstar = +v; });
-    on('g-plv', function (v) { st.pLv = +v; });
-    on('g-gear', function (v) { st.gear = v === '1'; });
-    on('g-bond', function (v) { st.bond = +v; });
+    for (var id in KEY) { bind(id); }
   })();
-  $('i-find').addEventListener('input', function () { st.filt.q = this.value.trim(); drawPicker(); });
-  $('i-role').addEventListener('change', function () { st.filt.role = this.value; drawPicker(); });
-  $('i-bul').addEventListener('change', function () { st.filt.bul = this.value; drawPicker(); });
-  $('i-arm').addEventListener('change', function () { st.filt.arm = this.value; drawPicker(); });
+  $('b-ball').addEventListener('click', function () {
+    var b = whoSlot(), i, k;
+    mark();
+    for (i = 0; i < SLOTS; i++) {
+      if (!st.slots[i].id) { continue; }
+      for (k in b) { if (k !== 'id') { st.slots[i][k] = (k === 'tier' ? b[k].slice() : b[k]); } }
+    }
+    bump(); fillBuild(); drawCrew(); draw();
+  });
+
+  // ---- 生徒を選ぶ
+  function onFilt() {
+    st.filt.q = $('i-find').value.trim();
+    st.filt.role = $('i-role').value; st.filt.bul = $('i-bul').value;
+    st.filt.arm = $('i-arm').value; st.filt.sch = $('i-sch').value;
+    st.filt.sq = $('i-sq').value; st.filt.star = $('i-star').value;
+    st.filt.sort = $('i-sort').value;
+    drawPicker();
+  }
+  (function () {
+    var ids = ['i-role', 'i-bul', 'i-arm', 'i-sch', 'i-sq', 'i-star', 'i-sort'];
+    for (var i = 0; i < ids.length; i++) { $(ids[i]).addEventListener('change', onFilt); }
+    $('i-find').addEventListener('input', onFilt);
+  })();
+  $('b-more').addEventListener('click', function () {
+    st.more = !st.more;
+    $('filt2').hidden = !st.more;
+    this.setAttribute('aria-pressed', st.more ? 'true' : 'false');
+    this.textContent = st.more ? '詳細フィルターを畳む' : '詳細フィルター';
+  });
+  $('b-reset').addEventListener('click', function () {
+    $('i-find').value = '';
+    var ids = ['i-role', 'i-bul', 'i-arm', 'i-sch', 'i-sq', 'i-star'];
+    for (var i = 0; i < ids.length; i++) { $(ids[i]).value = ''; }
+    $('i-sort').value = 'n';
+    onFilt();
+  });
+  // **STRIKER は 0〜5、SPECIAL は 6〜9 にしか入らない。**枠の種類はデータの SquadType
+  function addStudent(sd) {
+    var lo = sd.sq === 'Support' ? MAIN_MAX : 0, hi = sd.sq === 'Support' ? SLOTS : MAIN_MAX, i;
+    for (i = 0; i < SLOTS; i++) {
+      if (st.slots[i].id === sd.id) {          // もう入っている → 外す
+        mark();
+        st.slots[i].id = null;
+        for (var q = st.tl.length - 1; q >= 0; q--) { if (st.tl[q].i === i) { st.tl.splice(q, 1); } }
+        if (st.who === i) { st.who = -1; }
+        bump(); fillBuild(); drawCrew(); drawPicker(); draw();
+        return;
+      }
+    }
+    for (i = lo; i < hi; i++) {
+      if (live(i) && !st.slots[i].id) {
+        mark();
+        var keep = st.slots[i];
+        st.slots[i] = mkSlot();
+        var k;
+        for (k in _dft) { if (k !== 'id') { st.slots[i][k] = (k === 'tier' ? _dft[k].slice() : _dft[k]); } }
+        st.slots[i].id = sd.id;
+        void keep;
+        st.who = i; bump(); fillBuild(); drawCrew(); drawPicker(); draw();
+        return;
+      }
+    }
+    alert((sd.sq === 'Support' ? 'SPECIAL' : 'STRIKER') + 'の枠が埋まっています（' +
+          (sd.sq === 'Support' ? LAY[st.mode].sup : LAY[st.mode].main) + ' 人まで）。');
+  }
   $('picker').addEventListener('click', function (e) {
     var b = e.target.closest('button[data-add]');
     if (!b) { return; }
-    var s = stu(+b.getAttribute('data-add')), i;
-    if (!s) { return; }
-    $('picking').textContent = s.n;
-    for (i = 0; i < 6; i++) {
-      if (st.party[i] && st.party[i].id === s.id) { st.party[i] = null; drawCrew(); drawPicker(); draw(); return; }
-    }
-    for (i = 0; i < 6; i++) { if (!st.party[i]) { st.party[i] = s; break; } }
-    drawCrew(); drawPicker(); draw();
+    var sd = _byid[+b.getAttribute('data-add')];
+    if (sd) { addStudent(sd); }
   });
-  $('crew').addEventListener('click', function (e) {
-    var b = e.target.closest('button[data-rm]');
-    if (!b) { return; }
-    st.party[+b.getAttribute('data-rm')] = null; drawCrew(); drawPicker(); draw();
+
+  // ---- 選んだ 1 発の設定
+  $('useedit').addEventListener('change', function (e) {
+    var sel = e.target.closest('select[data-us]');
+    if (!sel || st.sel == null) { return; }
+    mark();
+    var k = sel.getAttribute('data-us'), v = sel.value === '' ? null : +sel.value;
+    st.tl[st.sel][k] = v;
+    draw();
   });
+
   function onAct(e) {
     var act = e.target.closest('button[data-act]');
     if (act) {
       var a = act.getAttribute('data-act');
-      if (a === 'clear') { st.tl = []; st.sel = null; st.mk = []; draw(); }
+      if (a === 'undo') { undo(); }
+      if (a === 'redo') { redo(); }
+      if (a === 'delsel') { delSel(); }
+      if (a === 'clear') { mark(); st.tl.length = 0; st.sel = null; st.mk = []; draw(); }
       if (a === 'auto') { autoFill(); }
       if (a === 'goal') {
         var r0 = diff(), hp0 = (r0.bs && r0.bs.hp) || 0;
@@ -1715,13 +2313,12 @@
         sheet('目標設定', JSON.stringify({ dmg: cur.dmg, sec: cur.sec }, null, 1),
           function (o) {
             if (!isFinite(o.dmg) || !isFinite(o.sec)) { throw new Error('dmg と sec は数字で'); }
+            mark();
             st.goal = { dmg: +o.dmg, sec: +o.sec }; st.tab = 1; syncTabs(); draw();
           });
       }
-      if (a === 'export') { sheet('エクスポート', JSON.stringify(snapshot()), null); }
-      if (a === 'import') {
-        sheet('インポート', '', function (o) { restore(o); });
-      }
+      if (a === 'export') { sheet('書き出し', JSON.stringify(snapshot()), null); }
+      if (a === 'import') { sheet('読み込み', '', function (o) { restore(o); }); }
       if (a === 'mark') {
         var dur = diff().dur || 240;
         var t = st.pin != null ? st.pin :
@@ -1729,6 +2326,7 @@
         t = Math.max(0, Math.min(dur, t));
         var n = window.prompt('マーカーの名前', mmss(dur, t));
         if (n == null) { return; }
+        mark();
         st.mk.push({ t: snap(t), n: n || mmss(dur, t) });
         draw();
       }
@@ -1744,6 +2342,17 @@
   }
   document.querySelector('.tools2').addEventListener('click', onAct);
   $('b-goal').addEventListener('click', onAct);
+  $('useedit').addEventListener('click', onAct);
+
+  // **Ctrl+Z / Ctrl+Y は画面のどこにいても効く。**入力欄の中だけは横取りしない
+  document.addEventListener('keydown', function (e) {
+    if (!(e.ctrlKey || e.metaKey) || e.altKey) { return; }
+    var tag = (e.target && e.target.tagName) || '';
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') { return; }
+    var k = (e.key || '').toLowerCase();
+    if (k === 'z') { e.preventDefault(); if (e.shiftKey) { redo(); } else { undo(); } }
+    else if (k === 'y') { e.preventDefault(); redo(); }
+  });
 
   // ------------------------------------------------------------ マウス
   // **定石に合わせる**（2026-09-01 に 12 本のソフトを調べた結論）。
@@ -1782,6 +2391,7 @@
     if (e.target.closest('.mkt')) { return; }
     var bar = e.target.closest('.b.sk');
     if (bar) {
+      mark();
       st.sel = +bar.getAttribute('data-ix');
       sdrag = { ix: st.sel, x: e.clientX, t0: st.tl[st.sel].t, moved: false };
       e.preventDefault(); draw(); return;
@@ -1823,9 +2433,16 @@
       case 'd': case 'D': view.scrollLeft += view.clientWidth * 0.2; return;
       case 'f': case 'F': fit(); return;
       case 'Delete': case 'Backspace': delSel(); e.preventDefault(); return;
+      case 'z': case 'Z':
+        if (e.ctrlKey || e.metaKey) { e.preventDefault(); if (e.shiftKey) { redo(); } else { undo(); } }
+        return;
+      case 'y': case 'Y':
+        if (e.ctrlKey || e.metaKey) { e.preventDefault(); redo(); }
+        return;
       case 'Escape': st.sel = null; st.pin = null; $('phbox').hidden = true;
         $('ph').style.left = '-10px'; draw(); return;
-      case '?': alert('Ctrl+ホイール 拡大／Shift+ホイール・中ドラッグ 横移動／W S 拡大／A D 横移動／' +
+      case '?': alert('Ctrl+Z 戻す／Ctrl+Y（Ctrl+Shift+Z）進む／' +
+        'Ctrl+ホイール 拡大／Shift+ホイール・中ドラッグ 横移動／W S 拡大／A D 横移動／' +
         '←→ 1コマ（Shift で 10 コマ、Ctrl で 1 秒）／Home 全体／End 末尾／' +
         'EX レーンをクリックでスキルを置く／バーをドラッグで移動／Delete で消す／Esc 解除'); return;
       default: hit = false;

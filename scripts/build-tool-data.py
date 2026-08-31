@@ -4400,6 +4400,7 @@ def build_tl():
     st_out, dmg_out, ndmg, sinfo, build = {}, {}, 0, {}, {}
     buf_out, nbuf, nskip = {}, 0, 0
     ns_out, nns = {}, 0
+    skname = {}
     # 装備。段ごとの効果。**値は SchaleDB と同じく `StatValue[i][1]`（その段の上限レベル）**
     eqp_out = {}
     for e in as_list(get_json(SD.format("equipment"))):
@@ -4485,7 +4486,12 @@ def build_tl():
                 if not v or not isinstance(v[0], list):
                     nskip += 1
                     continue
-                bl.append([e.get("Target") or [], e["Stat"], e.get("Channel"),
+                # **`Target` は文字列のことがある**（"Self" / "Ally"）。
+                # そのまま渡すと画面側で 1 文字ずつに割れる（2026-09-01 に踏んだ）
+                tg = e.get("Target") or []
+                if isinstance(tg, str):
+                    tg = [tg]
+                bl.append([tg, e["Stat"], e.get("Channel"),
                            v[0], e.get("Duration"), e.get("ApplyFrame") or 0])
                 nbuf += 1
             if bl:
@@ -4494,6 +4500,14 @@ def build_tl():
             dmg_out[sid] = per_skill
         if per_buff:
             buf_out[sid] = per_buff
+        # スキルの名前（EX・ノーマル・ノーマル＋・サブ）。レーンの札に使う
+        nm = {}
+        for kind in ("Ex", "Public", "GearPublic", "ExtraPassive"):
+            sk2 = (x.get("Skills") or {}).get(kind)
+            if isinstance(sk2, dict) and sk2.get("Name"):
+                nm[kind] = sk2["Name"]
+        if nm:
+            skname[sid] = nm
     print(f"  生徒 {len(st_out)} 人 / ダメージを持つ生徒 {len(dmg_out)} 人・効果 {ndmg} 件")
     print(f"  バフ {nbuf} 件（条件つき・周期ものを {nskip} 件外した）")
     import collections as _c
@@ -4522,7 +4536,7 @@ def build_tl():
                       "IndoorBattleAdaptation"],
         "bam": bam, "ter": ter, "trans": trans,
         "build": build, "eqp": eqp_out, "buf": buf_out,
-        "ns": ns_out,
+        "ns": ns_out, "skname": skname,
         "nsKeys": ["MinimumTierCharacterGear", "ConditionType",
                    "ConditionArgument(フレーム)", "Duration(フレーム)"],
         "bufKeys": ["Target", "Stat", "Channel", "Value", "Duration", "ApplyFrame"],
