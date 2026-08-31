@@ -558,8 +558,16 @@
         <b>最終攻撃力は 151/151、ダメージは 150/151 が一致</b>します。残る 1 件（チアキ）は
         <code>CriticalCheck: "Never"</code> のスキルで、参照側は会心倍率を必ず掛けますが
         こちらは掛けません。SchaleDB 自身のスキル表示も <code>Never</code> は会心率 0 にしています</li>
-      <li><b>まだ入っていないもの</b> — スキルで掛ける時限のバフ・デバフ、NS と SS のダメージ、
-        遮蔽、キサキ枠（EX スキルダメージ量増加）。<b>実戦の数字より小さく出ます</b></li>
+      <li><b>時限のバフ・デバフ</b> — 置いた EX が掛けるバフは
+        <code>ApplyFrame</code> ぶん遅れて始まり、<code>Duration</code>（ミリ秒）続きます。
+        対象は <code>Self</code> ／ <code>AllyMain</code>（STRIKER）／
+        <code>AllySupport</code>（SPECIAL）／ <code>Enemy</code>。
+        <b>同じ（スキルの枠, <code>Channel</code>）が重なったら、後から掛けたほうが勝ちます</b>
+        （原則後掛け優先。常時のパッシブだけは SchaleDB に合わせて先勝ちです）。
+        敵に乗ったぶんは「デバフ数」のレーンに本数で出しています</li>
+      <li><b>まだ入っていないもの</b> — NS と SS のダメージ、遮蔽、
+        キサキ枠（EX スキルダメージ量増加）、条件つきのバフ 30 件。
+        <b>実戦の数字より小さく出ます</b></li>
       <li><b>当てにしないでください</b> — 難易度ぶんのビヘイビアツリーが無いボスは Normal の木で埋めています。
         グレゴリオの Lunatic だけは木が無いので出せません</li>
     </ul>
@@ -775,8 +783,35 @@
     side += lbl(H.ps, mini + '<span class="nm">PS</span>');
     cv += lane(H.ps, s2);
 
+    // デバフ数。置いた EX が敵に掛けるバフの、生きている本数を段で描く
+    var dseg = '', cuts = [0], di, dq;
+    for (di = 0; di < st.tl.length; di++) {
+      var du = st.tl[di], dp = st.party[du.i];
+      if (!dp) { continue; }
+      var dl = (B.buf[dp.id] || {}).Ex || [];
+      for (dq = 0; dq < dl.length; dq++) {
+        var de = dl[dq], tg2 = de[0] || [], isE = false;
+        for (var z3 = 0; z3 < tg2.length; z3++) { if (tg2[z3] === 'Enemy') { isE = true; } }
+        if (!isE) { continue; }
+        var s0 = du.t + (de[5] || 0) / B.fps;
+        cuts.push(s0);
+        if (de[4] != null) { cuts.push(s0 + de[4] / 1000); }
+      }
+    }
+    cuts.push(dur);
+    cuts.sort(function (a2, b2) { return a2 - b2; });
+    for (di = 0; di < cuts.length - 1; di++) {
+      var a1 = cuts[di], b1 = cuts[di + 1];
+      if (b1 - a1 < 0.02 || a1 >= dur) { continue; }
+      var cnt = enemyAt(r, (a1 + b1) / 2).n;
+      if (!cnt) { continue; }
+      dseg += '<div class="b dbf" style="left:' + (a1 * px).toFixed(1) + 'px;width:' +
+              Math.max(2, (b1 - a1) * px).toFixed(1) + 'px" title="デバフ ' + cnt + ' 本／' +
+              a1.toFixed(1) + '〜' + Math.min(b1, dur).toFixed(1) + '秒">' +
+              ((b1 - a1) * px >= 12 ? cnt : '') + '</div>';
+    }
     side += lbl(H.dbf, '<span class="nm">デバフ数</span>');
-    cv += lane(H.dbf, '');
+    cv += lane(H.dbf, dseg);
 
     var rec = recPower(), ymax = 15000;
     side += lbl(H.rec, '<b>回復力</b>');
@@ -880,7 +915,7 @@
     if (g) {
       g.textContent = hp
         ? '最大HP ' + n0(hp) + '　置いた EX ' + st.tl.length + ' 発のうち ' + t.n +
-          ' 発ぶんを数えました（残りはダメージを持たないスキルです。NS・SS・バフはまだ）'
+          ' 発ぶんを数えました（残りはダメージを持たないスキルです。NS と SS はまだ）'
         : '目標: — ／ ダメージ計算がまだなので空です';
     }
   }
@@ -908,9 +943,9 @@
       var bp = st.party[run.bad[q].i];
       out.push(['e', 'コストが足りません: ' + ((bp && bp.n) || '?') + ' ' + run.bad[q].t.toFixed(2) + '秒']);
     }
-    out.push(['w', 'ダメージは EX だけ。常時のパッシブは入っていますが、' +
-      'スキルで掛ける時限のバフ・デバフはまだです']);
-    out.push(['w', 'デバフ数・SS レーン・自動生成はこれからです']);
+    var eb0 = enemyAt(r, 0);
+    out.push(['w', 'ダメージは EX だけです（NS と SS はまだ数えていません）']);
+    out.push(['w', 'SS レーン・自動生成・遮蔽はこれからです']);
     $('errlog').innerHTML = out.map(function (x) {
       return '<div class="' + x[0] + '">' + (x[0] === 'g' ? '✔ ' : (x[0] === 'e' ? '✕ ' : '▸ ')) + esc(x[1]) + '</div>';
     }).join('');
@@ -1066,10 +1101,11 @@
              gear: st.gear, bond: st.bond };
   }
   var _sc = {};
-  function statsOf(id, idx) {
+  function statsOf(id, idx, at) {
     var o = buildOpt();
     o.extra = idx == null ? [] : passiveFor(idx);
-    var k = id + '|' + idx + '|' + JSON.stringify(o);
+    if (idx != null && at != null) { o.extra = o.extra.concat(liveBuffs(at, 'ally' + idx)); }
+    var k = id + '|' + idx + '|' + at + '|' + JSON.stringify(o);
     if (!_sc[k]) { _sc[k] = mkStats(id, o); }
     return _sc[k];
   }
@@ -1111,35 +1147,108 @@
     }
     return sum;
   }
+  // ------------------------------------------------------------ 時限のバフ・デバフ
+  // 置いた EX が掛けるバフは `ApplyFrame` ぶん遅れて始まり、`Duration`(ms) 続く。
+  // **同じ（スキルの枠, Channel）が重なったら後から掛けたほうが勝つ**
+  // （原則後掛け優先。Zenn 7228e2 のコラム）。常時のパッシブは先勝ちで、
+  // そちらは SchaleDB の扱いに合わせてある
+  function usesSorted() {
+    return st.tl.slice().sort(function (a, b) { return a.t - b.t; });
+  }
+  // t 秒の時点で生きているバフ。to は 'ally<枠>' か 'enemy'
+  function liveBuffs(t, to) {
+    var us = usesSorted(), out = [], i, q;
+    for (i = 0; i < us.length; i++) {
+      var u = us[i], p = st.party[u.i];
+      if (!p) { continue; }
+      var list = (B.buf[p.id] || {}).Ex || [];
+      for (q = 0; q < list.length; q++) {
+        var e = list[q], st0 = u.t + (e[5] || 0) / B.fps;
+        var dur = e[4] == null ? Infinity : e[4] / 1000;
+        if (t < st0 || t >= st0 + dur) { continue; }
+        var tg = e[0] || [], hit = false, z;
+        for (z = 0; z < tg.length; z++) {
+          if (to === 'enemy') { if (tg[z] === 'Enemy') { hit = true; } continue; }
+          var idx = +to.slice(4);
+          if (tg[z] === 'Self' && u.i === idx) { hit = true; }
+          if (tg[z] === 'AllyMain' && idx < 4) { hit = true; }
+          if (tg[z] === 'AllySupport' && idx >= 4) { hit = true; }
+        }
+        if (!hit) { continue; }
+        var vals = e[3] || [], lv = Math.min(st.slv, vals.length) || 1;
+        out.push({ slot: 'Ex', ch: e[2], stat: e[1], v: vals[lv - 1] || 0, at: st0 });
+      }
+    }
+    // 後掛け優先。同じ（枠, Channel）は遅く始まったほうを残す
+    out.sort(function (a, b) { return b.at - a.at; });
+    var seen = {}, keep = [];
+    for (i = 0; i < out.length; i++) {
+      var k = out[i].slot + '/' + out[i].ch;
+      if (out[i].ch != null && seen[k]) { continue; }
+      if (out[i].ch != null) { seen[k] = 1; }
+      keep.push(out[i]);
+    }
+    return keep;
+  }
+  // ボスの実効ステータス。t 秒の時点で乗っているデバフを入れる
+  function enemyAt(r, t) {
+    var bs = r.bs || {}, m = {}, i;
+    function set(k, v) { m[k] = [v || 0, 0, 1]; }
+    set('DefensePower', bs.def); set('DodgePoint', bs.dodge);
+    set('CriticalChanceResistPoint', bs.crR);
+    set('CriticalDamageResistRate', bs.cdR);
+    set('DamagedRatio', 10000);
+    var db = liveBuffs(t, 'enemy');
+    for (i = 0; i < db.length; i++) {
+      var q = String(db[i].stat).split('_'), k = q[0];
+      if (!m[k]) { continue; }
+      if (q[1] === 'Coefficient') { m[k][2] += db[i].v / 10000; }
+      else { m[k][1] += db[i].v; }
+    }
+    function tot(k) {
+      var v = m[k];
+      if (!v) { return 0; }
+      var r2 = Math.round(+(((v[0] + v[1]) * Math.max(v[2], 0.2)).toFixed(4)));
+      return k === 'DamagedRatio' ? r2 : Math.max(r2, 0);
+    }
+    return { def: tot('DefensePower'), dodge: tot('DodgePoint'),
+             crR: tot('CriticalChanceResistPoint'), cdR: tot('CriticalDamageResistRate'),
+             damaged: tot('DamagedRatio'), armor: bs.armor, n: db.length };
+  }
+
   // 1 人の EX スキル 1 回ぶん。会心と乱数の組み合わせで 5 通り返す
-  function dmgOf(idx, r) {
+  function dmgOf(idx, r, at) {
     var p = st.party[idx];
     if (!p) { return null; }
     var effs = (B.dmg[p.id] || {}).Ex;
     if (!effs || !effs.length) { return null; }
     var lv = st.lv90 || 90, slv = st.slv || 5, bs = r.bs || {};
-    var cs = statsOf(p.id, idx);
+    var cs = statsOf(p.id, idx, at);
     if (!cs) { return null; }
+    var eb = at == null ? { def: bs.def, dodge: bs.dodge, crR: bs.crR, cdR: bs.cdR,
+                            damaged: 10000, armor: bs.armor, n: 0 }
+                        : enemyAt(r, at);
     var atk = cs.get('AttackPower');
     if (idx < 4) { atk += support('AttackPower', lv, r); }
     var lvMod = clamp(1 - ((r.lv || lv) - lv) * 0.02, 0.4, 1);
     var pen = cs.get('DefensePenetration');
-    var def = Math.max((bs.def || 0) - pen, 0);
+    var def = Math.max((eb.def || 0) - pen, 0);
     var defMod = 10000000 / (def * 6000 + 10000000);
-    var tm = terrMod(p.id, r.env, cs), em = effMod(p.id, bs.armor, cs);
+    var tm = terrMod(p.id, r.env, cs), em = effMod(p.id, eb.armor, cs);
+    var dr = cs.get('DamageRatio') / 10000, ddr = (20000 - eb.damaged) / 10000;
     var stab = cs.get('StabilityPoint'), stabR = cs.get('StabilityRate');
     var sMin = clamp(stab / (stab + 1000) + stabR / 10000, 0, 1);
     var acc = cs.get('AccuracyPoint');
-    var hit = clamp(2000 / (Math.max((bs.dodge || 0) - acc, 0) * 3 + 2000), 0, 1);
+    var hit = clamp(2000 / (Math.max((eb.dodge || 0) - acc, 0) * 3 + 2000), 0, 1);
     var cp = cs.get('CriticalPoint');
-    var cRate = clamp(1 - 4000000 / (Math.max(cp - (bs.crR || 0), 0) * 6000 + 4000000), 0, 1);
-    var cdm = (cs.get('CriticalDamageRate') - (bs.cdR || 0)) / 10000;
+    var cRate = clamp(1 - 4000000 / (Math.max(cp - (eb.crR || 0), 0) * 6000 + 4000000), 0, 1);
+    var cdm = (cs.get('CriticalDamageRate') - (eb.cdR || 0)) / 10000;
     if (cdm < 1) { cdm = 1; }
     var o = { min: 0, avg0: 0, avg: 0, avgC: 0, max: 0, hit: hit, crit: cRate, name: p.en };
     for (var k = 0; k < effs.length; k++) {
       var e = effs[k], sc = (e[0] || [])[slv - 1] || 0, hs = e[1] || [10000], sum = 0, q;
       for (q = 0; q < hs.length; q++) { sum += hs[q]; }
-      var base = atk * tm * em * (sc / 10000) * (sum / 10000) * defMod * lvMod;
+      var base = atk * tm * em * (sc / 10000) * (sum / 10000) * defMod * dr * ddr * lvMod;
       var cr = e[2] === 'Never' ? 0 : (e[2] === 'Always' ? 1 : cRate);
       var cm = e[2] === 'Never' ? 1 : cdm;
       var mid = (sMin + 1) / 2;
@@ -1155,7 +1264,7 @@
   function total(r) {
     var o = { min: 0, avg0: 0, avg: 0, avgC: 0, max: 0 }, n = 0, ks = ['min', 'avg0', 'avg', 'avgC', 'max'];
     for (var i = 0; i < st.tl.length; i++) {
-      var d = dmgOf(st.tl[i].i, r);
+      var d = dmgOf(st.tl[i].i, r, st.tl[i].t);
       if (!d) { continue; }
       n++;
       for (var k = 0; k < ks.length; k++) { o[ks[k]] += d[ks[k]]; }
