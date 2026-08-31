@@ -4,117 +4,170 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>TL エディタ｜AronaBot</title>
-<meta name="description" content="総力戦のタイムラインを、コスト・手札・ボスの動きと一緒に組み立てます。ボスがいつ EX を撃つかはゲームのデータから出しています。">
-<meta name="theme-color" content="#c8892e">
+<meta name="description" content="総力戦のタイムラインを、ボスの動き・コスト・回復力と一緒に組み立てます。ボスがいつ EX を撃つかはゲームのデータから出しています。">
+<meta name="theme-color" content="#0d1220">
 <link rel="icon" href="../../favicon.svg" type="image/svg+xml">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="AronaBot">
 <meta property="og:locale" content="ja_JP">
 <meta property="og:url" content="https://arona-bot.com/tools/tl/">
 <meta property="og:title" content="TL エディタ">
-<meta property="og:description" content="総力戦のタイムラインを、コスト・手札・ボスの動きと一緒に組み立てます。ボスがいつ EX を撃つかはゲームのデータから出しています。">
+<meta property="og:description" content="総力戦のタイムラインを、ボスの動き・コスト・回復力と一緒に組み立てます。">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="TL エディタ">
-<meta name="twitter:description" content="総力戦のタイムラインを、コスト・手札・ボスの動きと一緒に組み立てます。ボスがいつ EX を撃つかはゲームのデータから出しています。">
+<meta name="twitter:description" content="総力戦のタイムラインを、ボスの動き・コスト・回復力と一緒に組み立てます。">
 <link rel="stylesheet" href="../../style.css?v=22">
 <link rel="stylesheet" href="../tool.css?v=16">
 <style>
-  /* ============================================================
-     TL エディタ。**横軸が時間で、画面いっぱいに使う。**
-     レーンは左に見出し、右に帯。見出しの列だけ固定幅で、
-     帯のほうは秒 × 倍率で幅が決まる（横スクロール）
-     ============================================================ */
-  .tlbar { display: flex; flex-wrap: wrap; gap: .5em .9em; align-items: center;
-           margin: 14px 0 10px; }
-  .tlbar .grp { display: flex; align-items: center; gap: .4em; }
-  .tlbar label { font-size: .78rem; color: var(--fg-mute); }
-  .tlbar select, .tlbar input[type="number"] { font: inherit; padding: .3em .5em;
-           border-radius: 8px; border: 1px solid var(--line);
-           background: var(--bg-sub); color: var(--fg); }
-  .tlbar .zoom { display: flex; align-items: center; gap: .35em; }
-  .tlbar .zoom input { width: 130px; }
-  .tlbar .spacer { flex: 1 1 auto; }
-  .tlbar .meta { font-size: .78rem; color: var(--fg-mute);
-                 font-variant-numeric: tabular-nums; }
+/* ============================================================
+   TL エディタ。**この画面だけは常に暗い。**
+   帯の色を読ませる道具なので、地を暗くしたほうが速い（DAW と同じ）。
+   サイトのライト／ダークには追従させない（2026-09-01）。
 
-  /* ボスを選ぶ帯 */
-  .bosspick { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; }
-  .bosspick button { flex: none; font: inherit; font-size: .74rem; cursor: pointer;
-           padding: 5px 10px; border-radius: 999px; border: 1px solid var(--line);
-           background: var(--bg-sub); color: var(--fg); white-space: nowrap; }
-  .bosspick button[aria-pressed="true"] { border-color: var(--accent); color: var(--accent-tx);
-           font-weight: 700; }
+   目標は Kivotos TL Analyzer の画面。3 段に割る。
+     上   … 見出し＋エラー履歴 ／ シナリオ別達成率
+     左   … 編成・生徒選び・育成コスト
+     右   … 育成設定の帯 ／ 道具帯 ／ タイムライン ／ ボス設定
+   ============================================================ */
+.tlapp {
+  --bg0:#0b0f1c; --bg1:#111726; --bg2:#161d31; --bg3:#1c2540;
+  --ln:#242d47; --ln2:#33405f; --tx:#e6ebf7; --tx2:#94a1bf; --tx3:#6b7899;
+  --acc:#4a7fd4; --red:#c3384a; --red2:#7d2231; --teal:#2b7f92; --grn:#2f8b58;
+  --ylw:#b8912b; --pur:#6b4b9e; --tan:#7a5c3e;
+  background:var(--bg0); color:var(--tx);
+  font-size:12px; line-height:1.5; -webkit-font-smoothing:antialiased;
+  padding:10px clamp(8px,1.2vw,16px) 40px;
+  font-variant-numeric:tabular-nums;
+}
+.tlapp *, .tlapp *::before, .tlapp *::after { box-sizing:border-box; }
+.tlapp h2 { font-size:12.5px; font-weight:700; margin:0; color:var(--tx); }
+.tlapp .pane { background:var(--bg1); border:1px solid var(--ln); border-radius:8px; }
+.tlapp .pane > .ttl { display:flex; align-items:center; gap:8px; padding:6px 9px;
+  border-bottom:1px solid var(--ln); }
+.tlapp .pane > .ttl .sub { font-size:10.5px; color:var(--tx3); font-weight:400; }
+.tlapp .pane > .bd { padding:8px 9px; }
+.tlapp .btn2 { font:inherit; font-size:11px; cursor:pointer; padding:3px 9px; border-radius:5px;
+  border:1px solid var(--ln2); background:var(--bg2); color:var(--tx); white-space:nowrap; }
+.tlapp .btn2:hover { background:var(--bg3); }
+.tlapp .btn2[aria-pressed="true"] { background:var(--acc); border-color:var(--acc); color:#fff; }
+.tlapp .btn2.danger { border-color:#8c3040; color:#ff8b9b; }
+.tlapp select, .tlapp input[type="text"], .tlapp input[type="number"] {
+  font:inherit; font-size:11px; padding:2px 6px; border-radius:5px;
+  border:1px solid var(--ln2); background:var(--bg2); color:var(--tx); }
+.tlapp .mut { color:var(--tx2); }
+.tlapp .row { display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
 
-  /* 盤 */
-  .board { border: 1px solid var(--line); border-radius: 14px; overflow: hidden;
-           background: var(--card); }
-  .board .rows { display: grid; grid-template-columns: 148px minmax(0, 1fr); }
-  .board .hd { border-right: 1px solid var(--line); background: var(--bg-sub); }
-  .board .hd > div, .lane { height: 30px; display: flex; align-items: center;
-           border-bottom: 1px solid var(--line); }
-  .board .hd > div { padding: 0 .6em; font-size: .74rem; font-weight: 700;
-           color: var(--fg-mute); gap: .4em; }
-  .board .hd > div.sub { font-weight: 400; }
-  .board .hd > div .tag { font-size: .62rem; padding: 0 .35em; border-radius: 4px;
-           border: 1px solid var(--line); color: var(--fg-mute); }
-  .scroll { overflow-x: auto; overflow-y: hidden; position: relative; }
-  .inner { position: relative; }
-  .lane { position: relative; }
-  .lane.tall { height: 44px; }
-  .board .hd > div.tall { height: 44px; }
+/* ---------- 3 段の骨格 ---------- */
+.tltop { display:grid; gap:8px; grid-template-columns:1fr; margin-bottom:8px; }
+@media (min-width:1100px) { .tltop { grid-template-columns:minmax(280px,20%) minmax(0,1fr); } }
+.tlmain { display:grid; gap:8px; grid-template-columns:1fr; }
+@media (min-width:1100px) { .tlmain { grid-template-columns:minmax(280px,20%) minmax(0,1fr); } }
+.tlmain.wide { grid-template-columns:minmax(0,1fr); }
+.tlleft { display:flex; flex-direction:column; gap:8px; min-width:0; }
+.tlright { display:flex; flex-direction:column; gap:8px; min-width:0; }
 
-  /* 目盛り */
-  .axis { height: 26px; position: relative; border-bottom: 1px solid var(--line);
-          background: var(--bg-sub); }
-  .board .hd > div.axis-h { height: 26px; }
-  .tick { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--line); }
-  .tick.big { background: var(--fg-mute); opacity: .55; }
-  .tick b { position: absolute; top: 4px; left: 4px; font-size: .68rem; font-weight: 600;
-            color: var(--fg-mute); white-space: nowrap; font-variant-numeric: tabular-nums; }
-  .grid { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--line);
-          opacity: .45; pointer-events: none; }
+/* ---------- エラー履歴 ---------- */
+.errlog { background:#0a0d18; border:1px solid var(--ln); border-radius:6px; padding:5px 7px;
+  height:104px; overflow-y:auto; font-size:10.5px; line-height:1.65; }
+.errlog div { white-space:nowrap; }
+.errlog .e { color:#ff7a7a; } .errlog .w { color:#ffc46b; } .errlog .g { color:#7bd88f; }
 
-  /* ボスの EX */
-  .blk { position: absolute; top: 3px; bottom: 3px; border-radius: 6px;
-         border: 1px solid var(--line); background: var(--bg-sub);
-         font-size: .66rem; line-height: 1; display: flex; align-items: center;
-         padding: 0 5px; overflow: hidden; white-space: nowrap; cursor: default; }
-  .blk.ex   { background: color-mix(in srgb, #c0392b 22%, var(--card)); border-color: #c0392b88; }
-  .blk.ex2  { background: color-mix(in srgb, #8e44ad 22%, var(--card)); border-color: #8e44ad88; }
-  .blk.gau  { background: color-mix(in srgb, #2980b9 20%, var(--card)); border-color: #2980b988; }
-  .blk.stu  { background: color-mix(in srgb, var(--accent) 26%, var(--card));
-              border-color: var(--accent); }
-  .blk .n { overflow: hidden; text-overflow: ellipsis; }
+/* ---------- 達成率の表 ---------- */
+.rate { width:100%; border-collapse:collapse; font-size:10.5px; }
+.rate th, .rate td { border:1px solid var(--ln); padding:2px 6px; text-align:right; }
+.rate th { background:var(--bg2); color:var(--tx2); font-weight:600; text-align:center; }
+.rate td.n { text-align:left; color:var(--tx2); }
+.rate .bar { display:block; height:7px; border-radius:3px; background:var(--bg3);
+  overflow:hidden; min-width:70px; }
+.rate .bar i { display:block; height:100%; border-radius:3px; }
 
-  /* HP のしきい値（フェーズ） */
-  .phline { position: absolute; top: 0; bottom: 0; width: 2px; background: #e67e22;
-            opacity: .8; }
-  .phline b { position: absolute; top: 2px; left: 4px; font-size: .64rem; color: #e67e22;
-              white-space: nowrap; }
+/* ---------- タイムライン ---------- */
+.stage { background:var(--bg0); border:1px solid var(--ln); border-radius:8px; overflow:hidden; }
+.stage .grid2 { display:grid; grid-template-columns:var(--lw) minmax(0,1fr); }
+.side { background:var(--bg1); border-right:1px solid var(--ln2); }
+.view { position:relative; overflow-x:auto; overflow-y:hidden; cursor:crosshair;
+  overscroll-behavior-x:contain; }
+.view::-webkit-scrollbar { height:9px; }
+.view::-webkit-scrollbar-track { background:var(--bg1); }
+.view::-webkit-scrollbar-thumb { background:var(--ln2); border-radius:5px; }
+.cv { position:relative; }
+.lb, .ln { border-bottom:1px solid var(--ln); box-sizing:border-box; position:relative; }
+.lb { display:flex; align-items:center; gap:3px; padding:0 4px; color:var(--tx2);
+  font-size:10px; white-space:nowrap; overflow:hidden; }
+.lb b { color:var(--tx); font-weight:700; }
+.lb .mb { border:1px solid var(--ln2); border-radius:3px; background:var(--bg2);
+  color:var(--tx3); font-size:8.5px; padding:0 2px; line-height:1.35; cursor:pointer; }
+.lb .nm { flex:1 1 auto; overflow:hidden; text-overflow:ellipsis; }
+.ln.alt { background:#ffffff05; }
+.axis { background:var(--bg1); }
+.tk { position:absolute; top:0; bottom:0; width:1px; background:var(--ln); }
+.tk.m { background:var(--ln2); }
+.tk b { position:absolute; top:2px; left:3px; font-size:10px; color:var(--tx2); font-weight:600; }
+.vg { position:absolute; top:0; bottom:0; width:1px; background:#ffffff0a; pointer-events:none; }
+.vg.m { background:#ffffff18; }
+.b { position:absolute; top:2px; bottom:2px; border-radius:3px; display:flex; align-items:center;
+  gap:3px; padding:0 4px; overflow:hidden; white-space:nowrap; font-size:10px;
+  border:1px solid #0007; cursor:default; }
+.b.name { background:var(--teal); color:#fff; font-weight:700; }
+.b.ex { background:var(--red); color:#fff; }
+.b.ex2 { background:var(--pur); color:#fff; }
+.b.ps { background:var(--grn); color:#fff; }
+.b.gro { background:var(--ylw); color:#221900; font-weight:700; }
+.b.dbf { background:var(--pur); color:#fff; justify-content:center; padding:0; }
+.plot { position:absolute; inset:0; width:100%; height:100%; display:block; }
+.plot .dash { stroke:#ffffff30; stroke-width:1; stroke-dasharray:4 4; }
+.plot .zero { stroke:#ffffff20; stroke-width:1; }
+.plot .cost { stroke:#4a8ae0; stroke-width:1.5; fill:none; }
+.plot .rec { stroke:#dbe3f5; stroke-width:1.3; fill:none; }
+.yl { position:absolute; left:3px; font-size:9.5px; color:var(--tx2); transform:translateY(-50%); }
+.vl { position:absolute; font-size:9.5px; color:var(--tx2); transform:translate(-50%,-100%); }
+.ph { position:absolute; top:0; bottom:0; width:1px; background:#ff3b30; z-index:9;
+  pointer-events:none; }
+.ph.pin { width:2px; }
+.phbox { position:absolute; top:1px; background:#0c1120f2; border:1px solid #ff3b30;
+  border-radius:4px; padding:2px 6px; font-size:10px; line-height:1.55; white-space:nowrap;
+  z-index:10; pointer-events:none; }
+.phbox .neg { color:#ff6b6b; }
 
-  /* 再生ヘッド */
-  .head { position: absolute; top: 0; bottom: 0; width: 2px; background: #e74c3c;
-          pointer-events: none; z-index: 5; }
-  .head .bub { position: absolute; top: 2px; left: 5px; background: var(--card);
-          border: 1px solid #e74c3c; border-radius: 8px; padding: 3px 7px;
-          font-size: .7rem; line-height: 1.45; white-space: nowrap;
-          font-variant-numeric: tabular-nums; box-shadow: 0 2px 10px #0003; }
-  .head .bub .c { color: var(--fg-mute); }
+/* ---------- 編成 ---------- */
+.crew { display:grid; grid-template-columns:repeat(6,1fr); gap:3px; }
+.crew .c { position:relative; aspect-ratio:1/1; border:1px solid var(--ln2); border-radius:5px;
+  background:var(--bg2); overflow:hidden; }
+.crew .c img { width:100%; height:100%; object-fit:cover; }
+.crew .c .x { position:absolute; top:0; right:0; width:13px; height:13px; border:0; padding:0;
+  background:#c3384ae0; color:#fff; font-size:9px; line-height:13px; cursor:pointer;
+  border-radius:0 4px 0 4px; }
+.startsk { display:grid; grid-template-columns:auto repeat(5,1fr); gap:3px; align-items:center;
+  margin-top:4px; }
+.startsk .h { font-size:9.5px; color:var(--tx3); }
+.startsk .s { border:1px solid var(--ln2); border-radius:4px; background:var(--bg2);
+  text-align:center; font-size:10px; padding:2px 0; color:var(--tx2); }
+.picker { display:grid; grid-template-columns:repeat(auto-fill,minmax(42px,1fr)); gap:3px;
+  max-height:270px; overflow-y:auto; padding-right:2px; }
+.picker button { padding:0; border:1px solid var(--ln2); border-radius:5px; background:var(--bg2);
+  cursor:pointer; overflow:hidden; }
+.picker button[aria-pressed="true"] { border-color:var(--acc); box-shadow:0 0 0 1px var(--acc); }
+.picker img { width:100%; aspect-ratio:1/1; object-fit:cover; display:block; }
+.picker .n { display:block; font-size:8.5px; color:var(--tx2); padding:1px 1px 2px;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 
-  /* 編成 */
-  .party { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-           gap: 8px; }
-  .pslot { display: flex; align-items: center; gap: .5em; padding: 6px 8px;
-           border: 1px solid var(--line); border-radius: 10px; background: var(--bg-sub); }
-  .pslot img { width: 34px; height: 34px; border-radius: 8px; background: var(--card); }
-  .pslot select { font: inherit; font-size: .78rem; min-width: 0; flex: 1 1 auto;
-           border: 0; background: transparent; color: var(--fg); }
-  .pslot .role { font-size: .62rem; color: var(--fg-mute); }
+/* ---------- 育成設定の帯 ---------- */
+.setup { display:grid; grid-auto-flow:column; grid-auto-columns:minmax(150px,1fr); gap:6px;
+  overflow-x:auto; }
+.setup .card { display:flex; gap:6px; padding:5px; border:1px solid var(--ln2); border-radius:6px;
+  background:var(--bg2); }
+.setup .card img { width:38px; height:38px; border-radius:5px; object-fit:cover; background:var(--bg3); }
+.setup .card .t { font-size:9.5px; color:var(--tx2); line-height:1.45; min-width:0; }
+.setup .card .t b { color:var(--tx); font-size:10px; }
 
-  .legend { display: flex; flex-wrap: wrap; gap: .4em .9em; margin-top: .6em;
-            font-size: .72rem; color: var(--fg-mute); }
-  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px;
-              margin-right: .3em; vertical-align: -1px; }
+/* ---------- 道具帯 ---------- */
+.tools { display:flex; flex-wrap:wrap; gap:5px 8px; align-items:center; }
+.tools .g { display:flex; align-items:center; gap:4px; padding:2px 6px; border:1px solid var(--ln);
+  border-radius:6px; background:var(--bg1); }
+.tools .g > span:first-child { font-size:9.5px; color:var(--tx3); }
+.keys { font-size:10px; color:var(--tx3); }
+.keys kbd { border:1px solid var(--ln2); border-radius:3px; padding:0 3px; background:var(--bg2);
+  color:var(--tx2); font:inherit; font-size:9.5px; }
 </style>
 </head>
 <body>
@@ -201,70 +254,106 @@
 })();
 </script>
 
-<header class="thero">
-  <div class="thero-media" aria-hidden="true">
-    <picture>
-      <source srcset="../../images/hero-day.jpg" media="(prefers-color-scheme: dark)">
-      <img src="../../images/hero-night.jpg" alt="" width="1600" height="400" fetchpriority="high">
-    </picture>
-  </div>
-  <div class="thero-body">
-    <h1>TL エディタ</h1>
-    <p class="thero-lead">ボスがいつ動くかを敷いた上に、自分の TL を組み立てます。</p>
-  </div>
-</header>
+<div class="tlapp">
 
-<div class="twrap full">
-  <p class="tcrumb"><a href="../../">AronaBotの使い方</a><span class="sl">/</span><a href="../">ツール</a><span class="sl">/</span>TL エディタ</p>
-
-  <div class="panel" style="margin-top:16px">
-    <div class="bosspick" id="bosspick"></div>
-    <div class="tlbar">
-      <div class="grp">
-        <label for="i-diff">難易度</label>
-        <select id="i-diff"></select>
+  <div class="tltop">
+    <div class="pane">
+      <div class="ttl"><h2>TL エディタ</h2><span class="sub">総力戦</span>
+        <span style="flex:1 1 auto"></span>
+        <button type="button" class="btn2" id="b-fit">全体を表示</button>
       </div>
-      <div class="grp zoom">
-        <label for="i-zoom">拡大</label>
-        <input type="range" id="i-zoom" min="3" max="24" step="1" value="8">
+      <div class="bd">
+        <p class="mut" style="margin:0 0 6px;font-size:10.5px">ボスがいつ動くかを、ゲームのデータから敷いています。<a href="#src" style="color:var(--acc)">出どころ</a></p>
+        <div class="errlog" id="errlog"></div>
       </div>
-      <span class="spacer"></span>
-      <span class="meta" id="o-meta"></span>
-      <button type="button" class="qm" id="h-src" data-hint=""></button>
     </div>
+    <div class="pane">
+      <div class="ttl"><h2>シナリオ別達成率</h2>
+        <span class="sub" id="goal-note">目標はまだ設定できません（ダメージ計算がこれから）</span>
+      </div>
+      <div class="bd" style="overflow-x:auto">
+        <table class="rate">
+          <tr><th></th><th>残HP／階層HP</th><th>与ダメージ</th><th>EX合計</th><th>NS合計</th><th>SS合計</th></tr>
+          <tr><td class="n">最小</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>
+          <tr><td class="n">0会心平均</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>
+          <tr><td class="n">平均</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>
+          <tr><td class="n">全会心平均</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>
+          <tr><td class="n">最大</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>
+        </table>
+      </div>
+    </div>
+  </div>
 
-    <div class="board" id="board">
-      <div class="rows">
-        <div class="hd" id="hd"></div>
-        <div class="scroll" id="scroll">
-          <div class="inner" id="inner"></div>
+  <div class="row" style="margin-bottom:8px">
+    <button type="button" class="btn2" aria-pressed="true">パーティー1</button>
+    <span style="flex:1 1 auto"></span>
+    <span class="mut" style="font-size:10.5px">1 / 1 パーティー</span>
+    <button type="button" class="btn2" id="b-side">左を畳む</button>
+  </div>
+
+  <div class="tlmain" id="tlmain">
+    <div class="tlleft" id="tlleft">
+      <div class="pane">
+        <div class="ttl"><h2>編成設定</h2><span style="flex:1 1 auto"></span>
+          <span class="sub" id="crew-n">0 / 6</span></div>
+        <div class="bd">
+          <div class="crew" id="crew"></div>
+          <div class="startsk" id="startsk"></div>
         </div>
       </div>
+      <div class="pane">
+        <div class="ttl"><h2>生徒を選ぶ</h2><span style="flex:1 1 auto"></span>
+          <span class="sub" id="pick-n"></span></div>
+        <div class="bd">
+          <div class="row" style="margin-bottom:6px">
+            <input type="text" id="i-find" placeholder="名前で探す" style="flex:1 1 120px">
+            <select id="i-role"><option value="">役割</option></select>
+            <select id="i-bul"><option value="">攻撃</option></select>
+          </div>
+          <div class="picker" id="picker"></div>
+        </div>
+      </div>
+      <div class="pane">
+        <div class="ttl"><h2>育成コスト</h2></div>
+        <div class="bd mut" style="font-size:10.5px">ダメージ計算ができてからです。</div>
+      </div>
     </div>
-    <div class="legend">
-      <span><i style="background:#c0392b"></i>ボスの EX（通常スキルの回数で撃つ）</span>
-      <span><i style="background:#8e44ad"></i>ボスの EX（2 種類目）</span>
-      <span><i style="background:#2980b9"></i>ボスの EX（ゲージで撃つ）</span>
-      <span><i style="background:#e67e22"></i>フェーズの切り替わる HP</span>
+
+    <div class="tlright">
+      <div class="pane">
+        <div class="ttl"><h2>育成設定</h2><span class="sub">生徒を選ぶと出ます</span></div>
+        <div class="bd"><div class="setup" id="setup"></div></div>
+      </div>
+
+      <div class="pane">
+        <div class="bd tools">
+          <div class="g"><span>ボス</span><select id="i-boss"></select><select id="i-diff"></select></div>
+          <div class="g"><span>グリッド</span>
+            <button type="button" class="btn2" data-grid="1">1フレーム</button>
+            <button type="button" class="btn2" data-grid="3" aria-pressed="true">3フレーム(0.1秒)</button>
+            <button type="button" class="btn2" data-grid="30">1秒</button></div>
+          <div class="g"><span>コスト回復力</span><span id="o-rec">—</span></div>
+          <div class="g"><span>制限時間</span><span id="o-dur">—</span></div>
+          <span style="flex:1 1 auto"></span>
+          <span class="keys"><kbd>ホイール</kbd>拡大　<kbd>Shift</kbd>+ホイール／中ドラッグで横移動　<kbd>←→</kbd>1コマ　<kbd>Shift</kbd>+<kbd>←→</kbd>0.1秒　<kbd>Ctrl</kbd>+<kbd>←→</kbd>1秒　<kbd>Home</kbd>/<kbd>End</kbd>　<kbd>F</kbd>全体　<kbd>クリック</kbd>で固定</span>
+        </div>
+      </div>
+
+      <div class="stage" id="stage">
+        <div class="grid2" style="--lw:104px">
+          <div class="side" id="side"></div>
+          <div class="view" id="view" tabindex="0"><div class="cv" id="cv"></div></div>
+        </div>
+      </div>
+
+      <div class="pane">
+        <div class="ttl"><h2>ボス設定</h2></div>
+        <div class="bd row" id="bossinfo"></div>
+      </div>
     </div>
   </div>
 
-  <div class="panel" id="party-panel">
-    <h2 class="ph">編成</h2>
-    <p class="pnote">まだ形だけです。並べた生徒はレーンに行が増えるところまで動きます。</p>
-    <div class="party" id="party"></div>
-  </div>
-
-  <div class="note-box">
-    <h2 class="ph">いまできること</h2>
-    <ul class="tlist">
-      <li><b>ボスの動きが敷けます。</b>いつどの EX を撃つか、フェーズがどの HP で切り替わるかを、ゲームのデータから出しています</li>
-      <li><b>再生ヘッドが動きます。</b>盤の上でカーソルを動かすと、残り時間が出ます</li>
-      <li><b>まだ無いもの。</b>コストの線、手札、スキルの置きかけ、ダメージ。順に足していきます</li>
-    </ul>
-  </div>
-
-  <details class="src">
+  <details class="src" id="src" style="margin-top:10px">
     <summary>数字の出どころ</summary>
     <ul>
       <li><b>ボスがいつ EX を撃つか</b> — ba-data の <code>DB/BossExternalBTExcelTable.json</code>（ビヘイビアツリー）。
@@ -273,22 +362,22 @@
         <code>HPUnder hp → ChangePhase p</code> はフェーズの切り替わりです</li>
       <li><b>通常スキル 1 発の長さ</b> — <code>LevelSkill/&lt;スキル名&gt;.json</code>。
         通常攻撃の型は <code>AnimationFrames</code> の <code>AttackIngDuration</code>、
-        Timeline の型はトップレベルの <code>Duration</code>。どちらもフレーム数で、30fps で秒に直しています</li>
-      <li><b>EX の並び</b> — <code>DB/CharacterSkillListExcelTable.json</code> の <code>ExSkillGroupId</code>。
-        <code>UseSelectExSkill</code> の番号はこの並びを指します</li>
+        Timeline の型はトップレベルの <code>Duration</code>。30fps で秒に直しています</li>
+      <li><b>EX の並び</b> — <code>DB/CharacterSkillListExcelTable.json</code> の <code>ExSkillGroupId</code></li>
       <li><b>ボスの HP と通常攻撃の速さ</b> — <code>DB/CharacterStatExcelTable.json</code> の
         <code>MaxHP1</code> と <code>NormalAttackSpeed</code></li>
-      <li><b>スキルの名前と説明</b> — <a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a> の <code>raids</code></li>
-      <li><b>ここだけ当てにしないでください。</b>難易度ぶんのビヘイビアツリーが無いボスは、
-        Normal の木で埋めています（スキル名と HP はその難易度のものを使っています）。
+      <li><b>コスト回復力</b> — 1 人あたり 700（<code>RegenCost</code>）。6 人で 4200。
+        コストは 1 秒あたり 回復力÷10000 で増えます。開始から
+        <code>PlayerRegenCostDelay</code> の 2 秒は増えません</li>
+      <li><b>スキルの名前と説明</b> — <a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a></li>
+      <li><b>当てにしないでください</b> — 難易度ぶんのビヘイビアツリーが無いボスは Normal の木で埋めています。
         グレゴリオの Lunatic だけは木が無いので出せません</li>
     </ul>
   </details>
 </div>
 
-<script>window.TOUR = {"key": "tl", "steps": [{"sel": "#bosspick", "t": "ボスを選びます", "d": "難易度は Torment から開きます。"}, {"sel": "#board", "t": "ボスの動きが敷いてあります", "d": "いつどの EX を撃つかを、ゲームのデータから出しています。カーソルを乗せると残り時間が出ます。"}, {"sel": "#party-panel", "t": "編成を並べます", "d": "まだ行が増えるだけです。コストと手札はこれから足します。"}]};</script>
+<script>window.TOUR = {"key": "tl", "steps": [{"sel": "#stage", "t": "ボスの動きが敷いてあります", "d": "いつどの EX を撃つかを、ゲームのデータから出しています。ホイールで拡大、Shift+ホイールか中ボタンのドラッグで横に動きます。"}, {"sel": "#picker", "t": "生徒を並べます", "d": "押すと編成に入ります。もう一度押すと外れます。"}, {"sel": "#errlog", "t": "気をつけることが出ます", "d": "まだできていないところも、ここに出しています。"}]};</script>
 <script src="../tour.js?v=2"></script>
-
 <script src="../share.js?v=3"></script>
 <script src="../hint.js?v=1"></script>
 
@@ -322,192 +411,431 @@
 (function () {
   'use strict';
   var B = window.TLBOSS, S = window.TL;
-  var el = function (id) { return document.getElementById(id); };
+  var $ = function (id) { return document.getElementById(id); };
   function esc(t) {
     return String(t).replace(/[&<>"]/g, function (c) {
       return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
     });
   }
-  // 残り時間の書き方。**TL は残り時間で書く**（先生がくれた実物もそう）
+  // **TL は残り時間で書く。**先生がくれた実物の TL もそうだった
   function rest(dur, t) {
     var x = Math.max(0, dur - t), m = Math.floor(x / 60), s = x - m * 60;
-    return m + ':' + (s < 10 ? '0' : '') + s.toFixed(1);
+    return m + ':' + (s < 10 ? '0' : '') + s.toFixed(3);
+  }
+  function mmss(dur, t) {
+    var x = Math.max(0, Math.round(dur - t)), m = Math.floor(x / 60), s = x - m * 60;
+    return m + ':' + (s < 10 ? '0' : '') + s;
   }
   function skName(g) { return (B.skills[g] && B.skills[g].n) || g; }
-
-  var st = { bi: 0, di: 0, px: 8 };
-
-  // ------------------------------------------------------------ ボスと難易度
-  function drawPick() {
-    var h = '';
-    for (var i = 0; i < B.bosses.length; i++) {
-      h += '<button type="button" data-i="' + i + '" aria-pressed="' +
-           (i === st.bi ? 'true' : 'false') + '">' + esc(B.bosses[i].n) + '</button>';
-    }
-    el('bosspick').innerHTML = h;
+  function stu(id) {
+    for (var i = 0; i < S.students.length; i++) { if (S.students[i].id === id) { return S.students[i]; } }
+    return null;
   }
-  function drawDiff() {
-    var b = B.bosses[st.bi], h = '';
-    for (var i = 0; i < b.d.length; i++) {
-      h += '<option value="' + i + '">' + esc(b.d[i].df) + '</option>';
-    }
-    el('i-diff').innerHTML = h;
-    el('i-diff').value = String(st.di);
-  }
-  // **既定は Torment**（2026-08-31 の先生の指示「難易度は Torment 優先で」）
-  function pickDiff(b) {
-    for (var i = 0; i < b.d.length; i++) { if (b.d[i].df === 'Torment') return i; }
+
+  // レーンの高さ。**詰めて置く**（2026-09-01 の先生の指示「UI はツメツメでいい」）
+  var H = { axis: 20, name: 18, ex: 18, ps: 18, dbf: 14, rec: 54, cost: 62, row: 18, ss: 20 };
+  var REC_DELAY = 2;          // ConstCombat の PlayerRegenCostDelay = 2000ms
+  var PER_MEMBER = 700;       // RegenCost。6 人で 4200（向こうの画面と同じ数字）
+  var CAP = 10;               // ConstCombat の EchelonMaxCommonCost
+
+  var st = { bi: 0, di: 0, px: 6, pin: null, party: [null, null, null, null, null, null],
+             grid: 3, filt: { q: '', role: '', bul: '' } };
+
+  function boss() { return B.bosses[st.bi]; }
+  function diff() { return boss().d[st.di]; }
+  function tormentIdx(b) {
+    for (var i = 0; i < b.d.length; i++) { if (b.d[i].df === 'Torment') { return i; } }
     return b.d.length - 1;
   }
-
-  // ------------------------------------------------------------ 盤
-  function row(cls, label, sub) {
-    return '<div class="' + cls + '">' + esc(label) +
-           (sub ? ' <span class="tag">' + esc(sub) + '</span>' : '') + '</div>';
+  function crewCount() {
+    var n = 0;
+    for (var i = 0; i < 6; i++) { if (st.party[i]) { n++; } }
+    return n;
   }
-  function draw() {
-    var b = B.bosses[st.bi], r = b.d[st.di];
-    var dur = r.dur || 240, W = Math.round(dur * st.px);
-    var ph = r.ph['0'] || { ev: [], g: null, hp: [], raw: [] };
-    var px = st.px;
+  function recPower() { return crewCount() * PER_MEMBER; }
 
-    // 見出しの列
-    var hd = '<div class="axis-h">残り時間</div>';
-    hd += row('', 'ボスの EX', r.per ? r.nf + 'f' : '');
-    if (ph.g) { hd += row('', 'ゲージの EX', ph.g[0] + '秒'); }
-    if (r.per) { hd += row('sub', '通常スキル', r.per + '秒'); }
-    var party = readParty();
-    for (var i = 0; i < party.length; i++) {
-      hd += row('tall', party[i] ? party[i].n : '（空き）', party[i] ? 'EX' : '');
-    }
-    el('hd').innerHTML = hd;
-
-    // 帯の側
-    var h = '<div class="axis" style="width:' + W + 'px">';
-    var step = px >= 12 ? 5 : (px >= 6 ? 10 : 20);
+  // ------------------------------------------------------------ 目盛りと折れ線
+  function ticks(dur, px) {
+    var h = '', step = px >= 14 ? 5 : (px >= 7 ? 10 : (px >= 3.5 ? 20 : 30));
     for (var t = 0; t <= dur; t += step) {
-      var big = (t % 30 === 0);
-      h += '<div class="tick' + (big ? ' big' : '') + '" style="left:' + (t * px) + 'px">' +
-           (big ? '<b>' + rest(dur, t) + '</b>' : '') + '</div>';
-    }
-    h += '</div>';
-
-    function lane(inner, tall) {
-      return '<div class="lane' + (tall ? ' tall' : '') + '" style="width:' + W + 'px">' +
-             gridLines(dur, px) + inner + '</div>';
-    }
-    // ボスの EX
-    var s = '';
-    for (var k = 0; k < ph.ev.length; k++) {
-      var e = ph.ev[k];
-      if (e[1] == null || e[1] > dur) { continue; }
-      for (var q = 0; q < e[2].length; q++) {
-        var gi = e[2][q], g = r.ex[gi] || ('?' + gi);
-        var w = Math.max(14, ((r.exd && r.exd[gi]) || 60) / B.fps * px);
-        s += '<div class="blk ' + (gi === 0 ? 'ex' : 'ex2') + '" style="left:' + (e[1] * px) +
-             'px;width:' + w + 'px" title="' + esc(skName(g)) + ' / ' + esc(g) +
-             '\n通常スキル ' + e[0] + ' 発目\n' + e[1].toFixed(1) + '秒（残り ' + rest(dur, e[1]) + '）">' +
-             '<span class="n">' + esc(skName(g)) + '</span></div>';
-      }
-    }
-    // フェーズのしきい値は時刻に直せない（ダメージ計算が要る）ので、いまは印だけ
-    h += lane(s);
-
-    if (ph.g) {
-      var s2 = '', gi2 = ph.g[1][0], g2 = r.ex[gi2] || ('?' + gi2);
-      var w2 = Math.max(14, ((r.exd && r.exd[gi2]) || 60) / B.fps * px);
-      for (var t2 = ph.g[0]; t2 <= dur; t2 += ph.g[0]) {
-        s2 += '<div class="blk gau" style="left:' + (t2 * px) + 'px;width:' + w2 + 'px" title="' +
-              esc(skName(g2)) + ' / ' + esc(g2) + '\n' + t2.toFixed(1) + '秒（残り ' + rest(dur, t2) + '）">' +
-              '<span class="n">' + esc(skName(g2)) + '</span></div>';
-      }
-      h += lane(s2);
-    }
-    if (r.per) {
-      var s3 = '';
-      for (var n = 1; n * r.per <= dur; n++) {
-        s3 += '<div class="grid" style="left:' + (n * r.per * px) + 'px;background:var(--fg-mute);opacity:.28"></div>';
-      }
-      h += lane(s3);
-    }
-    for (var p = 0; p < party.length; p++) { h += lane('', true); }
-
-    h += '<div class="head" id="head" style="left:-10px"><div class="bub" id="bub"></div></div>';
-    el('inner').innerHTML = h;
-
-    var fb = r.fb && r.fb.length ? '　※Normal の木で埋めています' : '';
-    el('o-meta').textContent = 'HP ' + (r.hp || 0).toLocaleString('ja-JP') +
-      '　制限 ' + dur + '秒　EX ' + ph.ev.length + ' 本' +
-      (ph.hp.length ? '　フェーズ ' + ph.hp.map(function (x) {
-        return Math.round(x[0] / r.hp * 100) + '%';
-      }).join(' / ') : '') + fb;
-    el('h-src').setAttribute('data-hint',
-      'ボスの本体 ID ' + r.cid + '。通常スキル ' + (r.ns || '—') + '（' + (r.nf || '—') +
-      ' フレーム＝' + (r.per || '—') + ' 秒）。登場に ' + (r.ap || 0) + ' フレームかかります。' +
-      'EX の並びは ' + r.ex.join(' / ') + '。' +
-      (r.fb && r.fb.length ? 'この難易度は木が無いので Normal（' + r.fb.join(' ') + '）で埋めています。' : ''));
-  }
-  function gridLines(dur, px) {
-    var h = '', step = px >= 12 ? 30 : 60;
-    for (var t = step; t < dur; t += step) {
-      h += '<div class="grid" style="left:' + (t * px) + 'px"></div>';
+      var big = (t % 60 === 0);
+      h += '<div class="tk' + (big ? ' m' : '') + '" style="left:' + (t * px) + 'px">' +
+           (big || px >= 7 ? '<b>' + mmss(dur, t) + '</b>' : '') + '</div>';
     }
     return h;
   }
-
-  // ------------------------------------------------------------ 編成（まだ形だけ）
-  var SLOTS = ['STRIKER 1', 'STRIKER 2', 'STRIKER 3', 'STRIKER 4', 'SPECIAL 1', 'SPECIAL 2'];
-  function drawParty() {
-    var opts = '<option value="">（選ぶ）</option>';
-    var list = S.students.slice().sort(function (a, b2) { return a.n.localeCompare(b2.n, 'ja'); });
-    for (var i = 0; i < list.length; i++) {
-      opts += '<option value="' + list[i].id + '">' + esc(list[i].n) + '</option>';
+  function vgrid(dur, px) {
+    var h = '', step = px >= 14 ? 10 : (px >= 7 ? 30 : 60);
+    for (var t = step; t < dur; t += step) {
+      h += '<div class="vg' + (t % 60 === 0 ? ' m' : '') + '" style="left:' + (t * px) + 'px"></div>';
     }
-    var h = '';
-    for (var k = 0; k < SLOTS.length; k++) {
-      h += '<div class="pslot"><select data-slot="' + k + '" aria-label="' + SLOTS[k] + '">' +
-           opts + '</select><span class="role">' + SLOTS[k].replace(' ', '') + '</span></div>';
-    }
-    el('party').innerHTML = h;
+    return h;
   }
-  function readParty() {
-    var out = [], sel = el('party').querySelectorAll('select');
-    for (var i = 0; i < sel.length; i++) {
-      var v = sel[i].value, s = null;
-      if (v) { for (var k = 0; k < S.students.length; k++) { if (String(S.students[k].id) === v) { s = S.students[k]; } } }
-      out.push(s);
+  /** コストの折れ線。**まだスキルを置いていないので、上限までの立ち上がりだけ。**
+      置けるようになったら tl-engine の segs をそのまま食わせる */
+  function costPts(dur) {
+    var rate = recPower() / 10000, pts = [[0, 0], [REC_DELAY, 0]];
+    if (rate <= 0) { pts.push([dur, 0]); return pts; }
+    var full = REC_DELAY + CAP / rate;
+    if (full < dur) { pts.push([full, CAP], [dur, CAP]); } else { pts.push([dur, (dur - REC_DELAY) * rate]); }
+    return pts;
+  }
+  function poly(pts, dur, px, h, ymax, pad) {
+    var s = '';
+    for (var i = 0; i < pts.length; i++) {
+      s += (i ? ' ' : '') + (pts[i][0] * px).toFixed(1) + ',' +
+           (h - pad - (pts[i][1] / ymax) * (h - pad * 2)).toFixed(1);
     }
-    return out;
+    return s;
+  }
+
+  // ------------------------------------------------------------ 盤を描く
+  function draw() {
+    var r = diff(), dur = r.dur || 240, px = st.px, W = Math.max(200, Math.round(dur * px));
+    var ph0 = r.ph['0'] || { ev: [], g: null, hp: [], raw: [] };
+    var side = '', cv = '';
+
+    function lane(hh, inner, cls) {
+      return '<div class="ln' + (cls ? ' ' + cls : '') + '" style="height:' + hh +
+             'px;width:' + W + 'px">' + vgrid(dur, px) + (inner || '') + '</div>';
+    }
+    function lbl(hh, html, cls) {
+      return '<div class="lb' + (cls ? ' ' + cls : '') + '" style="height:' + hh + 'px">' + html + '</div>';
+    }
+    var mini = '<button type="button" class="mb" tabindex="-1">C</button>' +
+               '<button type="button" class="mb" tabindex="-1">詳細</button>' +
+               '<button type="button" class="mb" tabindex="-1">\u{1F512}</button>';
+
+    // 時間軸
+    side += lbl(H.axis, '<b>時間軸</b>');
+    cv += '<div class="ln axis" style="height:' + H.axis + 'px;width:' + W + 'px">' +
+          ticks(dur, px) + '</div>';
+
+    // ボス（名前の帯）
+    side += lbl(H.name, '<b>ボス</b>');
+    cv += lane(H.name, '<div class="b name" style="left:0;width:' + W + 'px">' +
+               esc(boss().n) + '　' + esc(r.df) + '</div>');
+
+    // ボスの EX（通常スキルの回数で撃つぶん）
+    var s = '';
+    for (var k = 0; k < ph0.ev.length; k++) {
+      var e = ph0.ev[k];
+      if (e[1] == null || e[1] > dur) { continue; }
+      for (var q = 0; q < e[2].length; q++) {
+        var gi = e[2][q], g = r.ex[gi] || ('?' + gi);
+        var w = Math.max(10, ((r.exd && r.exd[gi]) || 60) / B.fps * px);
+        s += '<div class="b ' + (gi === 0 ? 'ex' : 'ex2') + '" style="left:' + (e[1] * px).toFixed(1) +
+             'px;width:' + w.toFixed(1) + 'px" title="' + esc(skName(g)) + '（' + esc(g) + '）\n' +
+             '通常スキル ' + e[0] + ' 発目\n' + e[1].toFixed(1) + '秒／残り ' + mmss(dur, e[1]) + '">' +
+             esc(skName(g)) + '</div>';
+      }
+    }
+    side += lbl(H.ex, mini + '<span class="nm">EX</span>');
+    cv += lane(H.ex, s);
+
+    // ボスの EX（ゲージ）
+    var s2 = '';
+    if (ph0.g) {
+      var gi2 = ph0.g[1][0], g2 = r.ex[gi2] || ('?' + gi2);
+      var w2 = Math.max(10, ((r.exd && r.exd[gi2]) || 60) / B.fps * px);
+      for (var t2 = ph0.g[0]; t2 <= dur; t2 += ph0.g[0]) {
+        s2 += '<div class="b ps" style="left:' + (t2 * px).toFixed(1) + 'px;width:' + w2.toFixed(1) +
+              'px" title="' + esc(skName(g2)) + '（' + esc(g2) + '）\n' + t2.toFixed(1) +
+              '秒／残り ' + mmss(dur, t2) + '">' + esc(skName(g2)) + '</div>';
+      }
+    }
+    side += lbl(H.ps, mini + '<span class="nm">PS</span>');
+    cv += lane(H.ps, s2);
+
+    // デバフ数（まだ数えられないので枠だけ）
+    side += lbl(H.dbf, '<span class="nm">デバフ数</span>');
+    cv += lane(H.dbf, '');
+
+    // 回復力
+    var rec = recPower();
+    var recLane = '<svg class="plot" viewBox="0 0 ' + W + ' ' + H.rec + '" preserveAspectRatio="none">' +
+      '<polyline class="rec" points="' + poly([[0, rec], [dur, rec]], dur, px, H.rec, Math.max(rec, 15000), 8) + '"/></svg>' +
+      '<span class="vl" style="left:' + Math.min(W - 20, 40) + 'px;top:' +
+      (H.rec - 8 - (rec / Math.max(rec, 15000)) * (H.rec - 16)) + 'px">' + rec + '</span>';
+    side += lbl(H.rec, '<b>回復力</b>');
+    cv += lane(H.rec, recLane);
+
+    // コスト
+    var pts = costPts(dur);
+    var costLane = '<svg class="plot" viewBox="0 0 ' + W + ' ' + H.cost + '" preserveAspectRatio="none">' +
+      '<line class="dash" x1="0" y1="8" x2="' + W + '" y2="8"/>' +
+      '<line class="zero" x1="0" y1="' + (H.cost - 8) + '" x2="' + W + '" y2="' + (H.cost - 8) + '"/>' +
+      '<polyline class="cost" points="' + poly(pts, dur, px, H.cost, CAP, 8) + '"/></svg>' +
+      '<span class="yl" style="top:8px">' + CAP.toFixed(1) + '</span>' +
+      '<span class="yl" style="top:' + (H.cost - 8) + 'px">0</span>';
+    side += lbl(H.cost, '<b>コスト</b>');
+    cv += lane(H.cost, costLane);
+
+    // 生徒
+    for (var i = 0; i < 6; i++) {
+      var p = st.party[i];
+      side += lbl(H.row, '<span class="nm">' + (p ? esc(p.n) : '<span class="mut">（空き）</span>') + '</span>');
+      cv += lane(H.row, '', 'alt');
+      side += lbl(H.row, mini + '<span class="nm">NS</span>');
+      cv += lane(H.row, '');
+    }
+    // SS
+    side += lbl(H.ss, '<b>SS</b>');
+    cv += lane(H.ss, '');
+
+    cv += '<div class="ph" id="ph" style="left:-10px"></div><div class="phbox" id="phbox" hidden></div>';
+    $('side').innerHTML = side;
+    $('cv').innerHTML = cv;
+    $('cv').style.width = W + 'px';
+
+    $('o-rec').textContent = rec ? String(rec) : '—';
+    $('o-dur').textContent = dur + '秒';
+    $('crew-n').textContent = crewCount() + ' / 6';
+    $('bossinfo').innerHTML =
+      '<span class="mut">本体 ID</span> ' + r.cid +
+      '　<span class="mut">最大 HP</span> ' + (r.hp || 0).toLocaleString('ja-JP') +
+      '　<span class="mut">通常スキル</span> ' + esc(r.ns || '—') + '（' + (r.nf || '—') + ' フレーム＝' +
+      (r.per || '—') + ' 秒）' +
+      '　<span class="mut">登場</span> ' + (r.ap || 0) + ' フレーム' +
+      (ph0.hp.length ? '　<span class="mut">フェーズ</span> ' + ph0.hp.map(function (x) {
+        return Math.round(x[0] / r.hp * 100) + '% → ' + x[1];
+      }).join(' / ') : '') +
+      (r.fb && r.fb.length ? '　<span style="color:#ffc46b">Normal の木で埋めています（' +
+        esc(r.fb.join(' ')) + '）</span>' : '');
+    drawErr();
+    if (st.pin != null) { movePh(st.pin, true); }
+  }
+
+  function drawErr() {
+    var r = diff(), out = [];
+    out.push(['g', boss().n + ' ' + r.df + ' を読み込みました']);
+    if (!crewCount()) { out.push(['w', '編成が空です。左から生徒を選んでください']); }
+    if (r.fb && r.fb.length) {
+      out.push(['w', 'この難易度はビヘイビアツリーが無いので Normal の木で埋めています（' + r.fb.join(' ') + '）']);
+    }
+    if (!r.per) { out.push(['w', '通常スキルの長さが引けないので、EX はゲージぶんだけです']); }
+    out.push(['w', 'コストの線は、まだスキルを置いていないので上限までの立ち上がりだけです']);
+    out.push(['w', 'ダメージ計算はこれからです（達成率の表はまだ空）']);
+    $('errlog').innerHTML = out.map(function (x) {
+      return '<div class="' + x[0] + '">' + (x[0] === 'g' ? '✔ ' : '▸ ') + esc(x[1]) + '</div>';
+    }).join('');
   }
 
   // ------------------------------------------------------------ 再生ヘッド
-  function head(ev) {
-    var b = B.bosses[st.bi], r = b.d[st.di], dur = r.dur || 240;
-    var sc = el('scroll'), box = sc.getBoundingClientRect();
-    var x = ev.clientX - box.left + sc.scrollLeft;
-    var t = Math.max(0, Math.min(dur, x / st.px));
-    var hEl = el('head'), bub = el('bub');
-    if (!hEl) { return; }
-    hEl.style.left = (t * st.px) + 'px';
-    bub.innerHTML = '残り時間: ' + rest(dur, t) + '<br><span class="c">経過 ' + t.toFixed(1) + ' 秒</span>';
+  function costAt(t) {
+    var pts = costPts(diff().dur || 240);
+    for (var i = 1; i < pts.length; i++) {
+      if (t <= pts[i][0]) {
+        var a = pts[i - 1], b = pts[i], k = b[0] === a[0] ? 0 : (t - a[0]) / (b[0] - a[0]);
+        return a[1] + (b[1] - a[1]) * k;
+      }
+    }
+    return pts[pts.length - 1][1];
+  }
+  function movePh(t, keep) {
+    var r = diff(), dur = r.dur || 240;
+    t = Math.max(0, Math.min(dur, t));
+    if (!keep) { st.pin = st.pin == null ? null : t; }
+    var e = $('ph'), box = $('phbox');
+    if (!e) { return; }
+    e.style.left = (t * st.px) + 'px';
+    e.className = 'ph' + (st.pin != null ? ' pin' : '');
+    var c = costAt(t);
+    box.hidden = false;
+    box.innerHTML = '残り時間: ' + rest(dur, t) + '<br>コスト: ' +
+      '<span class="' + (c < 0 ? 'neg' : '') + '">' + c.toFixed(2) + '</span>';
+    // **右端で切れないように左へ寄せる**
+    var w = 96, x = t * st.px + 6;
+    if (x + w > dur * st.px) { x = t * st.px - w - 6; }
+    box.style.left = Math.max(0, x) + 'px';
+  }
+
+  // ------------------------------------------------------------ 拡大・移動
+  function fit() {
+    var r = diff(), dur = r.dur || 240;
+    st.px = Math.max(1, ($('view').clientWidth - 4) / dur);
+    draw();
+  }
+  function zoomAt(clientX, factor) {
+    var v = $('view'), box = v.getBoundingClientRect();
+    var mx = clientX - box.left + v.scrollLeft, t = mx / st.px;
+    var np = Math.max(0.6, Math.min(120, st.px * factor));
+    if (np === st.px) { return; }
+    st.px = np;
+    draw();
+    v.scrollLeft = t * st.px - (clientX - box.left);
+  }
+
+  // ------------------------------------------------------------ 左の編成
+  function drawCrew() {
+    var h = '';
+    for (var i = 0; i < 6; i++) {
+      var p = st.party[i];
+      h += '<div class="c">' + (p ? '<img src="../img/student_' + p.id + '.webp" alt="' + esc(p.n) +
+           '" loading="lazy"><button type="button" class="x" data-rm="' + i + '" aria-label="外す">×</button>' : '') +
+           '</div>';
+    }
+    $('crew').innerHTML = h;
+    var k = '<span class="h">開始スキル</span>';
+    for (var j = 0; j < 5; j++) {
+      var q = st.party[j];
+      k += '<span class="s">' + (q ? esc(q.n.slice(0, 4)) : (j + 1)) + '</span>';
+    }
+    $('startsk').innerHTML = k;
+    var su = '';
+    for (var m = 0; m < 6; m++) {
+      var v = st.party[m];
+      if (!v) { continue; }
+      su += '<div class="card"><img src="../img/student_' + v.id + '.webp" alt="" loading="lazy">' +
+            '<div class="t"><b>' + esc(v.n) + '</b><br>Lv90 ★—<br>EX コスト ' +
+            (v.c ? v.c[4] : '—') + '<br>演出 ' + (v.d || '—') + 'f</div></div>';
+    }
+    $('setup').innerHTML = su || '<span class="mut" style="font-size:10.5px">左で生徒を選ぶと出ます。</span>';
+  }
+  function drawPicker() {
+    var f = st.filt, list = [], i;
+    for (i = 0; i < S.students.length; i++) {
+      var s = S.students[i];
+      if (f.q && s.n.indexOf(f.q) < 0) { continue; }
+      if (f.role && s.ro !== f.role) { continue; }
+      if (f.bul && s.bt !== f.bul) { continue; }
+      list.push(s);
+    }
+    var h = '';
+    for (i = 0; i < list.length; i++) {
+      var on = false;
+      for (var k = 0; k < 6; k++) { if (st.party[k] && st.party[k].id === list[i].id) { on = true; } }
+      h += '<button type="button" data-add="' + list[i].id + '" aria-pressed="' + on + '" title="' +
+           esc(list[i].n) + '"><img src="../img/student_' + list[i].id + '.webp" alt="" loading="lazy">' +
+           '<span class="n">' + esc(list[i].n) + '</span></button>';
+    }
+    $('picker').innerHTML = h;
+    $('pick-n').textContent = S.students.length + ' 人中 ' + list.length + ' 人';
+  }
+  function fillFilters() {
+    var L = S.labels || {}, ro = {}, bu = {}, i;
+    for (i = 0; i < S.students.length; i++) { ro[S.students[i].ro] = 1; bu[S.students[i].bt] = 1; }
+    function opts(sel, map, dict, head) {
+      var h = '<option value="">' + head + '</option>', k;
+      for (k in map) { h += '<option value="' + esc(k) + '">' + esc((dict && dict[k]) || k) + '</option>'; }
+      $(sel).innerHTML = h;
+    }
+    opts('i-role', ro, L.TacticRole, '役割');
+    opts('i-bul', bu, L.BulletType, '攻撃');
+  }
+
+  // ------------------------------------------------------------ ボスの選択
+  function fillBoss() {
+    var h = '', i;
+    for (i = 0; i < B.bosses.length; i++) {
+      h += '<option value="' + i + '">' + esc(B.bosses[i].n) + '</option>';
+    }
+    $('i-boss').innerHTML = h;
+    $('i-boss').value = String(st.bi);
+    var k = '';
+    for (i = 0; i < boss().d.length; i++) {
+      k += '<option value="' + i + '">' + esc(boss().d[i].df) + '</option>';
+    }
+    $('i-diff').innerHTML = k;
+    $('i-diff').value = String(st.di);
   }
 
   // ------------------------------------------------------------ つなぐ
-  drawPick(); drawParty();
-  st.di = pickDiff(B.bosses[0]);
-  drawDiff(); draw();
+  st.di = tormentIdx(B.bosses[0]);
+  fillBoss(); fillFilters(); drawCrew(); drawPicker(); draw();
+  window.addEventListener('load', fit);
+  setTimeout(fit, 60);
 
-  el('bosspick').addEventListener('click', function (e) {
-    var b = e.target.closest('button[data-i]');
-    if (!b) { return; }
-    st.bi = +b.getAttribute('data-i');
-    st.di = pickDiff(B.bosses[st.bi]);
-    drawPick(); drawDiff(); draw();
+  $('i-boss').addEventListener('change', function () {
+    st.bi = +this.value; st.di = tormentIdx(boss()); fillBoss(); fit();
   });
-  el('i-diff').addEventListener('change', function () { st.di = +this.value; draw(); });
-  el('i-zoom').addEventListener('input', function () { st.px = +this.value; draw(); });
-  el('party').addEventListener('change', draw);
-  el('scroll').addEventListener('mousemove', head);
+  $('i-diff').addEventListener('change', function () { st.di = +this.value; draw(); });
+  $('b-fit').addEventListener('click', fit);
+  $('b-side').addEventListener('click', function () {
+    var m = $('tlmain'), on = m.classList.toggle('wide');
+    $('tlleft').hidden = on;
+    this.textContent = on ? '左を出す' : '左を畳む';
+    setTimeout(fit, 0);
+  });
+  $('i-find').addEventListener('input', function () { st.filt.q = this.value.trim(); drawPicker(); });
+  $('i-role').addEventListener('change', function () { st.filt.role = this.value; drawPicker(); });
+  $('i-bul').addEventListener('change', function () { st.filt.bul = this.value; drawPicker(); });
+  $('picker').addEventListener('click', function (e) {
+    var b = e.target.closest('button[data-add]');
+    if (!b) { return; }
+    var s = stu(+b.getAttribute('data-add')), i;
+    if (!s) { return; }
+    for (i = 0; i < 6; i++) { if (st.party[i] && st.party[i].id === s.id) { st.party[i] = null; drawCrew(); drawPicker(); draw(); return; } }
+    for (i = 0; i < 6; i++) { if (!st.party[i]) { st.party[i] = s; break; } }
+    drawCrew(); drawPicker(); draw();
+  });
+  $('crew').addEventListener('click', function (e) {
+    var b = e.target.closest('button[data-rm]');
+    if (!b) { return; }
+    st.party[+b.getAttribute('data-rm')] = null; drawCrew(); drawPicker(); draw();
+  });
+  document.querySelector('.tools').addEventListener('click', function (e) {
+    var b = e.target.closest('button[data-grid]');
+    if (!b) { return; }
+    st.grid = +b.getAttribute('data-grid');
+    var all = this.querySelectorAll('button[data-grid]');
+    for (var i = 0; i < all.length; i++) {
+      all[i].setAttribute('aria-pressed', all[i] === b ? 'true' : 'false');
+    }
+  });
+
+  // マウス。**ホイールは拡大**（DevTools の Performance と同じ）。
+  // 横に動かすのは Shift+ホイールと中ボタンのドラッグ
+  var view = $('view');
+  view.addEventListener('wheel', function (e) {
+    if (e.shiftKey) { view.scrollLeft += (e.deltaY || e.deltaX); e.preventDefault(); return; }
+    e.preventDefault();
+    zoomAt(e.clientX, e.deltaY < 0 ? 1.18 : 1 / 1.18);
+  }, { passive: false });
+  view.addEventListener('mousemove', function (e) {
+    if (st.pin != null) { return; }
+    var box = view.getBoundingClientRect();
+    movePh((e.clientX - box.left + view.scrollLeft) / st.px, true);
+  });
+  view.addEventListener('click', function (e) {
+    var box = view.getBoundingClientRect(), t = (e.clientX - box.left + view.scrollLeft) / st.px;
+    st.pin = st.pin == null ? t : null;
+    movePh(t, true);
+    view.focus();
+  });
+  var drag = null;
+  view.addEventListener('mousedown', function (e) {
+    if (e.button !== 1) { return; }
+    drag = { x: e.clientX, l: view.scrollLeft }; e.preventDefault();
+  });
+  window.addEventListener('mousemove', function (e) {
+    if (!drag) { return; }
+    view.scrollLeft = drag.l - (e.clientX - drag.x);
+  });
+  window.addEventListener('mouseup', function () { drag = null; });
+
+  // キーボード
+  view.addEventListener('keydown', function (e) {
+    var r = diff(), dur = r.dur || 240, f = 1 / B.fps;
+    var d = e.ctrlKey || e.metaKey ? 1 : (e.shiftKey ? f * 3 : f);
+    var t = st.pin == null ? 0 : st.pin, done = true;
+    if (e.key === 'ArrowRight') { st.pin = Math.min(dur, t + d); }
+    else if (e.key === 'ArrowLeft') { st.pin = Math.max(0, t - d); }
+    else if (e.key === 'Home') { st.pin = 0; }
+    else if (e.key === 'End') { st.pin = dur; }
+    else if (e.key === 'f' || e.key === 'F') { fit(); return; }
+    else if (e.key === '+' || e.key === '=') { zoomAt(view.getBoundingClientRect().left + view.clientWidth / 2, 1.25); return; }
+    else if (e.key === '-') { zoomAt(view.getBoundingClientRect().left + view.clientWidth / 2, 1 / 1.25); return; }
+    else if (e.key === 'Escape') { st.pin = null; $('phbox').hidden = true; $('ph').style.left = '-10px'; return; }
+    else { done = false; }
+    if (!done) { return; }
+    e.preventDefault();
+    movePh(st.pin, true);
+    var x = st.pin * st.px;
+    if (x < view.scrollLeft + 40) { view.scrollLeft = x - 40; }
+    if (x > view.scrollLeft + view.clientWidth - 40) { view.scrollLeft = x - view.clientWidth + 40; }
+  });
+  window.addEventListener('resize', function () { clearTimeout(window.__tlrz); window.__tlrz = setTimeout(fit, 120); });
 })();
 </script>
 
