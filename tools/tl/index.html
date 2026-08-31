@@ -440,7 +440,8 @@
             <label>Lv<select id="g-lv"></select></label>
             <label>★<select id="g-star"></select></label>
             <label>装備<select id="g-eq"></select></label>
-            <label>固有武器<select id="g-wlv"></select></label>
+            <label>固有武器<select id="g-wlv"></select><select id="g-wstar"></select></label>
+            <label>パッシブ<select id="g-plv"></select></label>
             <label>愛用品<select id="g-gear"><option value="1">あり</option><option value="0">なし</option></select></label>
             <label>絆<select id="g-bond"></select></label>
           </span>
@@ -545,12 +546,20 @@
       <li><b>育成の中身</b> — 装備は <code>equipment.min.json</code> の各段の上限レベルの値、
         固有武器・愛用品・絆は <code>students.min.json</code>。星の伸びは SchaleDB の既定値
         （生徒ごとの <code>Transcendence</code> は日本版のデータに 1 件もありませんでした）</li>
-      <li><b>確かめ方</b> — SchaleDB の <code>common.js</code> をそのまま Node で走らせて、
-        151 人ぶんの最終攻撃力とダメージを突き合わせました。<b>攻撃力は 151/151、
-        ダメージは 150/151 が一致</b>します。残る 1 件（チアキ）は
-        <code>CriticalCheck: "Never"</code> のスキルで、こちらは会心倍率を掛けていません</li>
-      <li><b>まだ入っていないもの</b> — バフ・デバフ、NS と SS のダメージ、遮蔽、
-        キサキ枠（EX スキルダメージ量増加）。<b>実戦の数字より小さく出ます</b></li>
+      <li><b>常時のパッシブ</b> — パッシブと固有武器パッシブ（固有武器★2 以上）を乗せています。
+        同じ（スキルの枠, <code>Channel</code>）が 2 回来たら先に来たほうが勝つ、という
+        SchaleDB の扱い（<code>common.js</code> 7723 行）に合わせました。
+        <code>Condition</code> や <code>Restrictions</code> が付く 30 件は
+        <b>条件を確かめる術がないので乗せていません</b>。
+        弱点を突いたときだけ乗る「◯◯特効増加」も入れています</li>
+      <li><b>確かめ方</b> — SchaleDB の <code>common.js</code> から
+        <code>CharacterStats</code> ／ <code>MathHelper</code> ／ <code>getBondStats</code> を
+        切り出して Node で走らせ、151 人ぶんを突き合わせました。
+        <b>最終攻撃力は 151/151、ダメージは 150/151 が一致</b>します。残る 1 件（チアキ）は
+        <code>CriticalCheck: "Never"</code> のスキルで、参照側は会心倍率を必ず掛けますが
+        こちらは掛けません。SchaleDB 自身のスキル表示も <code>Never</code> は会心率 0 にしています</li>
+      <li><b>まだ入っていないもの</b> — スキルで掛ける時限のバフ・デバフ、NS と SS のダメージ、
+        遮蔽、キサキ枠（EX スキルダメージ量増加）。<b>実戦の数字より小さく出ます</b></li>
       <li><b>当てにしないでください</b> — 難易度ぶんのビヘイビアツリーが無いボスは Normal の木で埋めています。
         グレゴリオの Lunatic だけは木が無いので出せません</li>
     </ul>
@@ -625,7 +634,8 @@
              grid: 3, picking: null, filt: { q: '', role: '', bul: '', arm: '' },
              tl: [], sel: null, lv: 5, mk: [],
              // 育成設定の既定。**総力戦の上位を張る人の並み**に置いてある
-             lv90: 90, star: 5, slv: 5, eq: [9, 9, 9], wlv: 50, gear: true, bond: 20 };
+             lv90: 90, star: 5, slv: 5, eq: [9, 9, 9], wlv: 50, gear: true, bond: 20,
+             pLv: 10, wstar: 3 };
 
   // ------------------------------------------------------------ 置いたスキル
   // st.tl の 1 件は { i: 編成の枠 0-5, t: 秒 }。EX レーンにだけ置く
@@ -898,7 +908,8 @@
       var bp = st.party[run.bad[q].i];
       out.push(['e', 'コストが足りません: ' + ((bp && bp.n) || '?') + ' ' + run.bad[q].t.toFixed(2) + '秒']);
     }
-    out.push(['w', 'ダメージは EX だけです（NS・SS・バフはまだ数えていません）']);
+    out.push(['w', 'ダメージは EX だけ。常時のパッシブは入っていますが、' +
+      'スキルで掛ける時限のバフ・デバフはまだです']);
     out.push(['w', 'デバフ数・SS レーン・自動生成はこれからです']);
     $('errlog').innerHTML = out.map(function (x) {
       return '<div class="' + x[0] + '">' + (x[0] === 'g' ? '✔ ' : (x[0] === 'e' ? '✕ ' : '▸ ')) + esc(x[1]) + '</div>';
@@ -957,6 +968,10 @@
     var flat = ['AccuracyPoint', 'DodgePoint', 'CriticalPoint', 'CriticalDamageRate',
                 'StabilityPoint', 'StabilityRate', 'Range'];
     for (i = 0; i < flat.length; i++) { set(flat[i], a[SK[flat[i]]]); }
+    // 特効増加・与ダメージ・被ダメージは 10000 が既定（SchaleDB の CharacterStats と同じ）
+    var base1 = ['EnhanceExplosionRate', 'EnhancePierceRate', 'EnhanceMysticRate',
+                 'EnhanceSonicRate', 'DamageRatio', 'AttackSpeed'];
+    for (i = 0; i < base1.length; i++) { set(base1[i], 10000); }
     // 装備 3 枠
     for (i = 0; i < (bd.eqp || []).length; i++) {
       var cat = B.eqp[bd.eqp[i]], t = (o.eq || [])[i] || 0;
@@ -983,6 +998,18 @@
     }
     if (fv[0][0]) { add(fv[0][0], b1); }
     if (fv[0][1]) { add(fv[0][1], b2); }
+    // 常時のパッシブ。同じ（枠, Channel）は先に来たほうが勝つ
+    var seen = {};
+    for (i = 0; i < (o.extra || []).length; i++) {
+      var ex = o.extra[i], key = ex.slot + '/' + ex.ch;
+      if (ex.ch != null && seen[key]) { continue; }
+      if (ex.ch != null) { seen[key] = 1; }
+      // 固有武器パッシブの CriticalPoint_Base だけ別枠固定（common.js 7769 行）
+      if (ex.slot === 'WeaponPassive' && ex.stat === 'CriticalPoint_Base') {
+        if (!stats.CriticalPoint) { set('CriticalPoint', 0); }
+        stats.CriticalPoint[3] += ex.v;
+      } else { add(ex.stat, ex.v); }
+    }
     function tot(k) {
       var v = stats[k];
       if (!v) { return 0; }
@@ -990,14 +1017,60 @@
     }
     return { get: tot, adapt: ad, star: star, lv: lv };
   }
+  // ------------------------------------------------------------ 常時のパッシブ
+  // **効かせ方は SchaleDB の statpreview に合わせる**。
+  //   ・パッシブは常に効く（レベルは共通の 1 本で持つ）
+  //   ・固有武器パッシブは 固有武器★2 以上のときだけ
+  //   ・同じ（スキルの枠, Channel）が 2 回来たら**先に来たほうが勝つ**
+  //     （common.js 7723 行。あとから来たものは discount される）
+  //   ・ExtraPassive は SchaleDB の preview が触っていないので**乗せていない**
+  var PASS = ['Passive', 'WeaponPassive'];
+  function passiveList() {
+    var out = [], i, k, q;
+    for (i = 0; i < 6; i++) {
+      var p = st.party[i];
+      if (!p) { continue; }
+      var bk = B.buf[p.id];
+      if (!bk) { continue; }
+      for (k = 0; k < PASS.length; k++) {
+        var slot = PASS[k];
+        if (slot === 'WeaponPassive' && !(st.wstar >= 2 && st.wlv > 0)) { continue; }
+        var list = bk[slot] || [];
+        for (q = 0; q < list.length; q++) {
+          var e = list[q], vals = e[3] || [];
+          var lv = Math.min(st.pLv, vals.length) || 1;
+          out.push({ owner: i, slot: slot, tg: e[0] || [], stat: e[1],
+                     ch: e[2], v: vals[lv - 1] || 0 });
+        }
+      }
+    }
+    return out;
+  }
+  // idx 番の枠に効く常時バフだけを取り出す
+  function passiveFor(idx) {
+    var all = passiveList(), out = [], i;
+    var want = idx < 4 ? 'AllyMain' : 'AllySupport';
+    for (i = 0; i < all.length; i++) {
+      var e = all[i], hit = false, q;
+      for (q = 0; q < e.tg.length; q++) {
+        if (e.tg[q] === want) { hit = true; }
+        if (e.tg[q] === 'Self' && e.owner === idx) { hit = true; }
+      }
+      if (!e.tg.length && e.owner === idx) { hit = true; }
+      if (hit) { out.push(e); }
+    }
+    return out;
+  }
   function buildOpt() {
     return { lv: st.lv90, star: st.star, eq: st.eq, wlv: st.wlv,
              gear: st.gear, bond: st.bond };
   }
   var _sc = {};
-  function statsOf(id) {
-    var k = id + '|' + JSON.stringify(buildOpt());
-    if (!_sc[k]) { _sc[k] = mkStats(id, buildOpt()); }
+  function statsOf(id, idx) {
+    var o = buildOpt();
+    o.extra = idx == null ? [] : passiveFor(idx);
+    var k = id + '|' + idx + '|' + JSON.stringify(o);
+    if (!_sc[k]) { _sc[k] = mkStats(id, o); }
     return _sc[k];
   }
   function sinf(id, key) {
@@ -1018,17 +1091,22 @@
     var g = B.ter[terrGrade(id, env, cs)];
     return g ? g[2] / 10000 : 1;
   }
-  function effMod(id, armor) {
+  // **弱点のときだけ「◯◯特効増加」が乗る**（SchaleDB common.js 910 行の getEffectiveMod）。
+  // 爆発→軽装甲・貫通→重装甲・神秘→非武装・振動→弾力装甲 の 4 組だけ
+  var ENH = { Explosion: 'LightArmor', Pierce: 'HeavyArmor',
+              Mystic: 'Unarmed', Sonic: 'ElasticArmor' };
+  function effMod(id, armor, cs) {
     if (armor === 'Structure') { return 1; }
-    var t = B.bam[sinf(id, 'BulletType')];
-    var v = t && t[armor];
-    return v ? v[0] / 10000 : 1;
+    var bt = sinf(id, 'BulletType'), t = B.bam[bt], v = t && t[armor];
+    var e = v ? v[0] : 10000;
+    if (cs && ENH[bt] === armor) { e += cs.get('Enhance' + bt + 'Rate') - 10000; }
+    return e / 10000;
   }
   // 支援値。SPECIAL（編成の 5・6 枠）の最終値に万分率を掛けて切り捨て、STRIKER に乗る
   function support(stat, lv, r) {
     var f = (B.trans[r.ext || 'Base'] || B.trans.Base || {})[stat] || 0, sum = 0;
     for (var i = 4; i < 6; i++) {
-      var cs = st.party[i] && statsOf(st.party[i].id);
+      var cs = st.party[i] && statsOf(st.party[i].id, i);
       if (cs) { sum += Math.floor(cs.get(stat) * f / 10000); }
     }
     return sum;
@@ -1040,7 +1118,7 @@
     var effs = (B.dmg[p.id] || {}).Ex;
     if (!effs || !effs.length) { return null; }
     var lv = st.lv90 || 90, slv = st.slv || 5, bs = r.bs || {};
-    var cs = statsOf(p.id);
+    var cs = statsOf(p.id, idx);
     if (!cs) { return null; }
     var atk = cs.get('AttackPower');
     if (idx < 4) { atk += support('AttackPower', lv, r); }
@@ -1048,7 +1126,7 @@
     var pen = cs.get('DefensePenetration');
     var def = Math.max((bs.def || 0) - pen, 0);
     var defMod = 10000000 / (def * 6000 + 10000000);
-    var tm = terrMod(p.id, r.env, cs), em = effMod(p.id, bs.armor);
+    var tm = terrMod(p.id, r.env, cs), em = effMod(p.id, bs.armor, cs);
     var stab = cs.get('StabilityPoint'), stabR = cs.get('StabilityRate');
     var sMin = clamp(stab / (stab + 1000) + stabR / 10000, 0, 1);
     var acc = cs.get('AccuracyPoint');
@@ -1207,7 +1285,7 @@
     for (i = 0; i < 6; i++) {
       var v = st.party[i];
       if (!v) { continue; }
-      var cs = statsOf(v.id);
+      var cs = statsOf(v.id, i);
       su += '<div class="card">' + img(v.id) + '<div class="t"><b>Lv' + st.lv90 +
             ' ★' + st.star + '</b><br>' +
             esc(v.n) + '<br><span class="g">EX コスト ' + (v.c ? v.c[4] : '—') +
@@ -1260,6 +1338,8 @@
     var wl = [0];
     for (i = 1; i <= 50; i++) { wl.push(i); }
     opt('g-wlv', wl, st.wlv, function (v) { return v ? 'Lv' + v : 'なし'; });
+    opt('g-wstar', [0, 1, 2, 3], st.wstar, function (v) { return '★' + v; });
+    opt('g-plv', [1, 2, 3, 4, 5, 6, 7, 8, 9, 10], st.pLv, function (v) { return 'Lv' + v; });
     $('g-gear').value = st.gear ? '1' : '0';
     var bl = [];
     for (i = 1; i <= 100; i++) { bl.push(i); }
@@ -1334,6 +1414,8 @@
     on('g-star', function (v) { st.star = +v; });
     on('g-eq', function (v) { st.eq = [+v, +v, +v]; });
     on('g-wlv', function (v) { st.wlv = +v; });
+    on('g-wstar', function (v) { st.wstar = +v; });
+    on('g-plv', function (v) { st.pLv = +v; });
     on('g-gear', function (v) { st.gear = v === '1'; });
     on('g-bond', function (v) { st.bond = +v; });
   })();

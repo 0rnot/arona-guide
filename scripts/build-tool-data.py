@@ -4393,6 +4393,7 @@ def build_tl():
     ADAPT = ["D", "C", "B", "A", "S", "SS"]
     stu = as_list(get_json(SD.format("students")))
     st_out, dmg_out, ndmg, sinfo, build = {}, {}, 0, {}, {}
+    buf_out, nbuf, nskip = {}, 0, 0
     # 装備。段ごとの効果。**値は SchaleDB と同じく `StatValue[i][1]`（その段の上限レベル）**
     eqp_out = {}
     for e in as_list(get_json(SD.format("equipment"))):
@@ -4433,7 +4434,7 @@ def build_tl():
             ADAPT[x.get(k)] if isinstance(x.get(k), int) and 0 <= x.get(k) < 6 else x.get(k)
             for k in ("StreetBattleAdaptation", "OutdoorBattleAdaptation",
                       "IndoorBattleAdaptation")]
-        per_skill = {}
+        per_skill, per_buff = {}, {}
         for kind, sk in (x.get("Skills") or {}).items():
             if not isinstance(sk, dict):
                 continue
@@ -4443,9 +4444,31 @@ def build_tl():
             if eff:
                 per_skill[kind] = eff
                 ndmg += len(eff)
+            # ---- バフ・デバフ。**`Condition` や `Restrictions` が付くものは飛ばす。**
+            # 条件を確かめる術がないので、推測で乗せない（2026-09-01 の判断）
+            bl = []
+            for e in (sk.get("Effects") or []):
+                if e.get("Type") != "Buff" or not e.get("Stat"):
+                    continue
+                if e.get("Condition") or e.get("Restrictions") or e.get("Period"):
+                    nskip += 1
+                    continue
+                v = e.get("Value") or []
+                if not v or not isinstance(v[0], list):
+                    nskip += 1
+                    continue
+                bl.append([e.get("Target") or [], e["Stat"], e.get("Channel"),
+                           v[0], e.get("Duration"), e.get("ApplyFrame") or 0])
+                nbuf += 1
+            if bl:
+                per_buff[kind] = bl
         if per_skill:
             dmg_out[sid] = per_skill
+        if per_buff:
+            buf_out[sid] = per_buff
     print(f"  生徒 {len(st_out)} 人 / ダメージを持つ生徒 {len(dmg_out)} 人・効果 {ndmg} 件")
+    print(f"  バフ {nbuf} 件（条件つき・周期ものを {nskip} 件외した）"
+          .replace("외した", "外した"))
 
     used = sorted({g for x in bosses for r in x["d"] for g in r["ex"]}
                   | {r["ns"] for x in bosses for r in x["d"] if r["ns"]})
@@ -4468,7 +4491,8 @@ def build_tl():
                       "StreetBattleAdaptation", "OutdoorBattleAdaptation",
                       "IndoorBattleAdaptation"],
         "bam": bam, "ter": ter, "trans": trans,
-        "build": build, "eqp": eqp_out,
+        "build": build, "eqp": eqp_out, "buf": buf_out,
+        "bufKeys": ["Target", "Stat", "Channel", "Value", "Duration", "ApplyFrame"],
         # 星の伸び。SchaleDB の CharacterStats の既定値（生徒別の Transcendence は
         # jp のデータに 1 件も無いことを 2026-09-01 に確かめた）
         "tc": [[0, 1000, 1200, 1400, 1700], [0, 500, 700, 900, 1400],
