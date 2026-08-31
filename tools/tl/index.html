@@ -133,6 +133,9 @@
 .b.sk:hover { filter:brightness(1.15); }
 .b.sk.sel { outline:2px solid #fff; outline-offset:-1px; z-index:3; }
 .b.sk.bad { background:var(--red); }
+.b.ns { background:var(--grn); color:#fff; justify-content:center; padding:0;
+  font-size:9px; font-weight:700; }
+.b.ns.flat { background:var(--tan); }
 .ln.exlane { cursor:copy; }
 .ln.exlane:hover { background:rgba(90,140,255,.07); }
 .plot { position:absolute; inset:0; width:100%; height:100%; display:block; }
@@ -574,7 +577,13 @@
         <b>同じ（スキルの枠, <code>Channel</code>）が重なったら、後から掛けたほうが勝ちます</b>
         （原則後掛け優先。常時のパッシブだけは SchaleDB に合わせて先勝ちです）。
         敵に乗ったぶんは「デバフ数」のレーンに本数で出しています</li>
-      <li><b>まだ入っていないもの</b> — NS と SS のダメージ、遮蔽、
+      <li><b>通常スキル（NS）の周期</b> — <code>LevelSkill/&lt;PublicSkillGroupId&gt;.json</code> の
+        <code>AutoUseRule</code>。<code>ConditionType: "Interval"</code> なら
+        <code>ConditionArgument</code> がフレームで、750 なら 25 秒ごとです。
+        272 人がこの型で、残る 68 件は <code>OnAttackIng</code>・<code>HpUnder</code> など
+        <b>間隔で決まらない型なので置いていません</b>（その生徒がいると左の欄に出ます）。
+        愛用品 T2 で通常スキルが変わる子は、そちらを使います</li>
+      <li><b>まだ入っていないもの</b> — SS のダメージ、遮蔽、
         キサキ枠（EX スキルダメージ量増加）、条件つきのバフ 30 件。
         <b>実戦の数字より小さく出ます</b></li>
       <li><b>当てにしないでください</b> — 難易度ぶんのビヘイビアツリーが無いボスは Normal の木で埋めています。
@@ -890,8 +899,22 @@
               inner + '</div>';
       }
       cv += lane(H.row, sb, 'alt exlane" data-mem="' + i + '');
-      side += lbl(H.row, mini + '<span class="nm">NS</span>');
-      cv += lane(H.row, '');
+      var nb = '', nsn = p ? nsInfo(p.id) : null;
+      if (p && nsn) {
+        var nts = nsTimes(p.id, dur), nw = Math.max(10, nsDur(p.id) / B.fps * px);
+        var nsk = nsKind(p.id), hasD = !!(B.dmg[p.id] || {})[nsk];
+        for (var nq = 0; nq < nts.length; nq++) {
+          nb += '<div class="b ns' + (hasD ? '' : ' flat') + '" style="left:' +
+                (nts[nq] * px).toFixed(1) + 'px;width:' + nw.toFixed(1) + 'px" title="通常スキル／' +
+                (nsn[2] / B.fps).toFixed(1) + '秒ごと／' + nts[nq].toFixed(1) + '秒">' +
+                (nw >= 26 ? ((nq + 1) + '') : '') + '</div>';
+        }
+      }
+      side += lbl(H.row, mini + '<span class="nm">NS</span>' +
+        (p && nsn && nsn[1] === 'Interval' && nsn[2] > 1
+          ? '<span class="mb">' + (nsn[2] / B.fps).toFixed(0) + 's</span>'
+          : (p ? '<span class="mb">—</span>' : '')));
+      cv += lane(H.row, nb);
     }
     side += lbl(H.ss, '<b>SS</b>');
     cv += lane(H.ss, '');
@@ -946,10 +969,11 @@
                '<span class="num mut">—</span></span></td>';
         }
       } else if (st.tab === 0) {
+        var ve = t.ex[RROW[i][1]], vn = t.ns[RROW[i][1]];
         h += cell(Math.max(0, hp - v) / hp, n0(Math.max(0, hp - v)));
         h += cell(Math.min(1, v / hp), n0(v));
-        h += cell(v ? 1 : 0, n0(v));
-        h += cell(0, '0');
+        h += cell(v ? ve / v : 0, n0(ve));
+        h += cell(v ? vn / v : 0, n0(vn));
         h += cell(0, '0');
       } else {
         var rate = goal ? v / goal : 0;
@@ -967,8 +991,8 @@
     if (!hp) { g.textContent = '目標: — ／ ダメージ計算がまだなので空です'; return; }
     g.textContent = '目標: ' + n0(goal) + ' ダメージ ／ ' + mmss(sec, 0) + ' 以内' +
       (st.goal ? '' : '（既定はボスの最大HPと制限時間）') +
-      '　置いた EX ' + st.tl.length + ' 発のうち ' + t.n +
-      ' 発ぶんを数えました（残りはダメージを持たないスキルです。NS と SS はまだ）';
+      '　EX ' + t.ex.n + ' 発＋NS ' + t.ns.n + ' 発を数えました' +
+      '（置いた EX ' + st.tl.length + ' 発のうち、ダメージを持つのは ' + t.ex.n + ' 発。SS はまだ）';
   }
   function cell(frac, txt) {
     return '<td class="v"><span class="cell"><span class="bar"><i style="width:' +
@@ -995,7 +1019,15 @@
       out.push(['e', 'コストが足りません: ' + ((bp && bp.n) || '?') + ' ' + run.bad[q].t.toFixed(2) + '秒']);
     }
     var eb0 = enemyAt(r, 0);
-    out.push(['w', 'ダメージは EX だけです（NS と SS はまだ数えていません）']);
+    var nsng = 0;
+    for (var y = 0; y < 6; y++) {
+      var yp = st.party[y], yn = yp && nsInfo(yp.id);
+      if (yp && (!yn || yn[1] !== 'Interval' || !(yn[2] > 1))) { nsng++; }
+    }
+    if (nsng) {
+      out.push(['w', 'この編成の ' + nsng + ' 人は通常スキルが間隔で決まらない型なので、' +
+        'NS レーンに置いていません']);
+    }
     out.push(['w', 'SS レーン・遮蔽・条件つきのバフはこれからです']);
     $('errlog').innerHTML = out.map(function (x) {
       return '<div class="' + x[0] + '">' + (x[0] === 'g' ? '✔ ' : (x[0] === 'e' ? '✕ ' : '▸ ')) + esc(x[1]) + '</div>';
@@ -1198,13 +1230,49 @@
     }
     return sum;
   }
+  // ------------------------------------------------------------ 通常スキル（NS）
+  // **自動発動の周期は `LevelSkill/<PublicSkillGroupId>.json` の `AutoUseRule`。**
+  // `ConditionType: "Interval"` なら `ConditionArgument` がフレーム（750 = 25 秒）。
+  // `OnAttackIng` など間隔で決まらない型は、周期が出せないので置かない
+  function nsKind(id) {
+    return (st.gear && (B.dmg[id] || {}).GearPublic) ? 'GearPublic' : 'Public';
+  }
+  function nsInfo(id) {
+    var rows = (B.ns || {})[id] || [], want = st.gear ? 2 : 0, got = null;
+    for (var i = 0; i < rows.length; i++) {
+      if ((rows[i][0] || 0) <= want) { got = rows[i]; }
+    }
+    return got;
+  }
+  function nsTimes(id, dur) {
+    var n = nsInfo(id), out = [];
+    if (!n || n[1] !== 'Interval' || !n[2] || n[2] < 2) { return out; }
+    var step = n[2] / B.fps;
+    for (var t = step; t <= dur; t += step) { out.push(+t.toFixed(4)); }
+    return out;
+  }
+  function nsDur(id) {
+    var n = nsInfo(id);
+    return (n && n[3] && n[3] < 100000) ? n[3] : 60;
+  }
+
   // ------------------------------------------------------------ 時限のバフ・デバフ
   // 置いた EX が掛けるバフは `ApplyFrame` ぶん遅れて始まり、`Duration`(ms) 続く。
   // **同じ（スキルの枠, Channel）が重なったら後から掛けたほうが勝つ**
   // （原則後掛け優先。Zenn 7228e2 のコラム）。常時のパッシブは先勝ちで、
   // そちらは SchaleDB の扱いに合わせてある
+  // 置いた EX と、自動で回る NS を 1 本にまとめる（k で種類を分ける）
   function usesSorted() {
-    return st.tl.slice().sort(function (a, b) { return a.t - b.t; });
+    var out = [], i, k;
+    for (i = 0; i < st.tl.length; i++) { out.push({ i: st.tl[i].i, t: st.tl[i].t, k: 'Ex' }); }
+    var dur = diff().dur || 240;
+    for (i = 0; i < 6; i++) {
+      var p = st.party[i];
+      if (!p) { continue; }
+      var ts = nsTimes(p.id, dur), kd = nsKind(p.id);
+      for (k = 0; k < ts.length; k++) { out.push({ i: i, t: ts[k], k: kd }); }
+    }
+    return out.sort(function (a, b) { return a.t - b.t; });
   }
   // t 秒の時点で生きているバフ。to は 'ally<枠>' か 'enemy'
   function liveBuffs(t, to) {
@@ -1212,7 +1280,7 @@
     for (i = 0; i < us.length; i++) {
       var u = us[i], p = st.party[u.i];
       if (!p) { continue; }
-      var list = (B.buf[p.id] || {}).Ex || [];
+      var list = (B.buf[p.id] || {})[u.k || 'Ex'] || [];
       for (q = 0; q < list.length; q++) {
         var e = list[q], st0 = u.t + (e[5] || 0) / B.fps;
         var dur = e[4] == null ? Infinity : e[4] / 1000;
@@ -1227,7 +1295,7 @@
         }
         if (!hit) { continue; }
         var vals = e[3] || [], lv = Math.min(st.slv, vals.length) || 1;
-        out.push({ slot: 'Ex', ch: e[2], stat: e[1], v: vals[lv - 1] || 0, at: st0 });
+        out.push({ slot: u.k || 'Ex', ch: e[2], stat: e[1], v: vals[lv - 1] || 0, at: st0 });
       }
     }
     // 後掛け優先。同じ（枠, Channel）は遅く始まったほうを残す
@@ -1268,10 +1336,10 @@
   }
 
   // 1 人の EX スキル 1 回ぶん。会心と乱数の組み合わせで 5 通り返す
-  function dmgOf(idx, r, at) {
+  function dmgOf(idx, r, at, kind) {
     var p = st.party[idx];
     if (!p) { return null; }
-    var effs = (B.dmg[p.id] || {}).Ex;
+    var effs = (B.dmg[p.id] || {})[kind || 'Ex'];
     if (!effs || !effs.length) { return null; }
     var lv = st.lv90 || 90, slv = st.slv || 5, bs = r.bs || {};
     var cs = statsOf(p.id, idx, at);
@@ -1312,16 +1380,19 @@
     return o;
   }
   // 置いた EX を全部足す
+  var KS = ['min', 'avg0', 'avg', 'avgC', 'max'];
+  function zero() { return { min: 0, avg0: 0, avg: 0, avgC: 0, max: 0, n: 0 }; }
   function total(r) {
-    var o = { min: 0, avg0: 0, avg: 0, avgC: 0, max: 0 }, n = 0, ks = ['min', 'avg0', 'avg', 'avgC', 'max'];
-    for (var i = 0; i < st.tl.length; i++) {
-      var d = dmgOf(st.tl[i].i, r, st.tl[i].t);
+    var ex = zero(), ns = zero(), all = zero(), us = usesSorted(), i, k;
+    for (i = 0; i < us.length; i++) {
+      var u = us[i], d = dmgOf(u.i, r, u.t, u.k);
       if (!d) { continue; }
-      n++;
-      for (var k = 0; k < ks.length; k++) { o[ks[k]] += d[ks[k]]; }
+      var box = u.k === 'Ex' ? ex : ns;
+      box.n++; all.n++;
+      for (k = 0; k < KS.length; k++) { box[KS[k]] += d[KS[k]]; all[KS[k]] += d[KS[k]]; }
     }
-    o.n = n;
-    return o;
+    all.ex = ex; all.ns = ns;
+    return all;
   }
 
   // ------------------------------------------------------------ 書き出し・読み込み

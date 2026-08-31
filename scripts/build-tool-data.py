@@ -4273,8 +4273,13 @@ def build_tl():
     bt = {}
     for r in as_list(get_json(BADB.format("BossExternalBTExcelTable"))):
         bt.setdefault(r["ExternalBTId"], []).append(r)
-    csl = {r["CharacterSkillListGroupId"]: r
-           for r in as_list(get_json(BADB.format("CharacterSkillListExcelTable")))}
+    csl_rows = as_list(get_json(BADB.format("CharacterSkillListExcelTable")))
+    csl = {r["CharacterSkillListGroupId"]: r for r in csl_rows}
+    # **生徒は 1 人につき最大 8 行ある**（愛用品の段と固有武器の星で分かれる）。
+    # 通常スキル(NS)の周期を引くのに、行ごとの Public を全部拾う
+    csl_all = {}
+    for r in csl_rows:
+        csl_all.setdefault(r["CharacterSkillListGroupId"], []).append(r)
     stat = {r["CharacterId"]: r
             for r in as_list(get_json(BADB.format("CharacterStatExcelTable")))}
     # **登場に 20 フレームかかる**（ビナー。`AppearFrame`）。実物の TL の時刻と
@@ -4394,6 +4399,7 @@ def build_tl():
     stu = as_list(get_json(SD.format("students")))
     st_out, dmg_out, ndmg, sinfo, build = {}, {}, 0, {}, {}
     buf_out, nbuf, nskip = {}, 0, 0
+    ns_out, nns = {}, 0
     # 装備。段ごとの効果。**値は SchaleDB と同じく `StatValue[i][1]`（その段の上限レベル）**
     eqp_out = {}
     for e in as_list(get_json(SD.format("equipment"))):
@@ -4413,6 +4419,28 @@ def build_tl():
         st_out[sid] = [x.get(k) for k in SD_STAT] + [
             dbs.get("StabilityRate", 2000), dbs.get("DefensePenetration1", 0),
             dbs.get("DefensePenetration100", 0)]
+        # ---- 通常スキル(NS)の自動発動。**`LevelSkill/<PublicSkillGroupId>.json` の
+        # `AutoUseRule`**。`ConditionType: "Interval"` なら `ConditionArgument` が
+        # フレーム（750 = 25 秒）。`Duration` が 1 発の長さ（フレーム）。
+        # 愛用品 T2 で別のスキルに変わる子がいるので、要る段ごとに入れる
+        seen_g = {}
+        for row in csl_all.get(x["Id"], []):
+            pg = (row.get("PublicSkillGroupId") or [None])[0]
+            if not pg:
+                continue
+            mg = row.get("MinimumTierCharacterGear") or 0
+            if mg in seen_g:
+                continue
+            d = get_json(BALS.format(pg)) or {}
+            au = d.get("AutoUseRule") or {}
+            arg = au.get("ConditionArgument")
+            try:
+                arg = int(arg)
+            except (TypeError, ValueError):
+                arg = None
+            seen_g[mg] = [mg, au.get("ConditionType"), arg, d.get("Duration")]
+            nns += 1
+        ns_out[sid] = [seen_g[k] for k in sorted(seen_g)]
         # ---- 育成の中身。**適用の仕方は SchaleDB の CharacterStats そのまま**
         #   eqp … 装備の枠 3 つ（Hat / Hairpin / Watch など）
         #   wp  … 固有武器 [攻撃1, 攻撃100, HP1, HP100, 治癒1, 治癒100, 伸び方, 地形, 段数]
@@ -4467,8 +4495,10 @@ def build_tl():
         if per_buff:
             buf_out[sid] = per_buff
     print(f"  生徒 {len(st_out)} 人 / ダメージを持つ生徒 {len(dmg_out)} 人・効果 {ndmg} 件")
-    print(f"  バフ {nbuf} 件（条件つき・周期ものを {nskip} 件외した）"
-          .replace("외した", "外した"))
+    print(f"  バフ {nbuf} 件（条件つき・周期ものを {nskip} 件外した）")
+    import collections as _c
+    print("  NS の自動発動 " + str(nns) + " 件 / 内訳 "
+          + str(_c.Counter(v[1] for l in ns_out.values() for v in l).most_common()))
 
     used = sorted({g for x in bosses for r in x["d"] for g in r["ex"]}
                   | {r["ns"] for x in bosses for r in x["d"] if r["ns"]})
@@ -4492,6 +4522,9 @@ def build_tl():
                       "IndoorBattleAdaptation"],
         "bam": bam, "ter": ter, "trans": trans,
         "build": build, "eqp": eqp_out, "buf": buf_out,
+        "ns": ns_out,
+        "nsKeys": ["MinimumTierCharacterGear", "ConditionType",
+                   "ConditionArgument(フレーム)", "Duration(フレーム)"],
         "bufKeys": ["Target", "Stat", "Channel", "Value", "Duration", "ApplyFrame"],
         # 星の伸び。SchaleDB の CharacterStats の既定値（生徒別の Transcendence は
         # jp のデータに 1 件も無いことを 2026-09-01 に確かめた）
