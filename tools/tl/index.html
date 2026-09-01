@@ -4059,6 +4059,21 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
         who = whoIn(arrow[0], crew, arrow[0].replace(/[（(][^）)]*[)）]/g, ' '));
         if (who < 0) { res.skipped.push([ln, '撃つ子が編成にいません']); continue; }
       }
+      // **「セイア(コタマ)」型の渡し先。**「→」より、こちらの書き方のほうが多い
+      // （クラウさんの TL はどのボスも全部これ。2026-09-01 に大決戦ホドで気づいた）。
+      // **括弧の中がその編成の別の子として読めたときだけ**渡し先にする。
+      // 「コタマ(キャンプ)」のような名前の一部や、「(下側の柱)」「(ボス)」は外れる。
+      // **「バフは全て◯◯指定」がある TL では触らない**——そちらが優先だから
+      if (!toL.length && res.bufTo == null) {
+        var pg = cut.match(/[（(][^）)]*[)）]/g) || [], pz2, pz3;
+        for (pz2 = 0; pz2 < pg.length; pz2++) {
+          var inner = pg[pz2].replace(/^[（(]|[)）]$/g, '').split(/[＋+,、・]|\sと\s/);
+          for (pz3 = 0; pz3 < inner.length; pz3++) {
+            var w3 = whoIn(inner[pz3], crew, inner[pz3]);
+            if (w3 >= 0 && w3 !== who && toL.indexOf(w3) < 0) { toL.push(w3); }
+          }
+        }
+      }
       res.uses.push({ i: who, md: tm.md, t: tm.t == null ? 0 : tm.t,
                       to: toL.length ? (toL.length > 1 ? toL : toL[0]) : null,
                       cv: tm.cv == null ? null : tm.cv,
