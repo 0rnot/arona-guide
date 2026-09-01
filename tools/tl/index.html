@@ -1006,6 +1006,7 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
           <label>サブ<select id="g-sslv"></select></label>
           <label>愛用品<select id="g-gear"></select></label>
           <label>絆<select id="g-bond"></select></label>
+          <label>潜在<select id="g-pot"></select></label>
         </div>
         <p class="mut tiny" id="build-note"></p>
       </div></div>
@@ -1144,27 +1145,46 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
           <li><b>SPECIAL（サポーター）は通常攻撃をしません。</b>数えていたぶん、
             序盤の削りが多すぎました（<code>SquadType</code> が <code>Support</code>）</li>
           <li><b>グロッキー中は確定会心にしました</b>（下の「会心」の項）</li>
-          <li>それでも、TL 1 ページ目が終わった時点（経過 57.3 秒）の残 HP は
-            <b>実測 14,639,773 に対して「平均」16,960,898・「全会心平均」14,063,170</b>。
-            最後まで（経過 85.1 秒）の累計も 実測 20,245,147 に対して
-            「平均」15,032,033・「全会心平均」19,138,656 で、同じ寄り方をします。
+          <li>いまの当たり方は、<b>実測が「全会心平均」の線に沿っています。</b>
+            経過 85.07 秒までの累計が 実測 <b>20,245,147</b> に対して
+            「平均」14,179,470・「全会心平均」<b>19,942,308</b>（−1.5%）・「最大」22,645,648。
+            経過 69.6 秒で +0.2%、79.7 秒で +0.4% と、途中も「全会心平均」に付いてきます。
             会心率の計算は 50.3%（ネル（制服）の会心値 695、ビナーの会心抵抗値 20）、
             会心の倍率は 3.53 倍（会心ダメージ率 43,269 − ボスの会心ダメージ抵抗率 8,000）。
-            <b>この 1.3 倍がどこから来るのかは、まだ分かっていません。</b>
-            式は全 19 章と突き合わせて合っているので、
-            残るのは 1 発の中でバフが切れる扱い（この道具は演出の長さ 7.63 秒を
-            8 つに割って平均しています）か、TL の再現そのものだと思います</li>
+            <b>この TL はボスをグロッキーにしてからネルを撃つ組み方</b>で
+            （TL 本文の「即ネル ※ボスグロッキーでミサイルを止めます」）、
+            グロッキー中は確定会心なので、実測が上側に寄るのは筋が通ります。
+            <b>ただしグロッキーがいつ入るかは、計算したダメージ自体で決まります。</b>
+            この道具は「平均」で経過 66.4 秒と 87.7 秒、「全会心平均」で 54.3 秒と 80.0 秒に置きます。
+            <b>ここが 1 発ずれると累計が 2〜3 割動きます</b>——「平均」の線が低いのは、
+            主砲 2 発ぶんがグロッキーの外に落ちるからです</li>
           <li><b>ボスによって外れる向きが逆です。</b>大決戦ホド Torment 貫通・屋内
-            （<a href="https://www.youtube.com/watch?v=-9BCKnp6Ll8" target="_blank" rel="noopener">動画</a>）の
-            TL は「ミカ最終弾後ホド HP7.5M 以下（上振れたら 7.1M くらいまで減ります）」と
-            書いていますが、計算では <b>6,074,012</b> で<b>多めに出ます</b>。
-            ホドは防御力が 100 しかないぶん通常攻撃の取り分が大きく
-            （計算では経過 100 秒までの 37%）、その通常攻撃を
-            <b>撃ちっぱなしの前提で数えている</b>ぶんが効きます</li>
+            （<a href="https://www.youtube.com/watch?v=-9BCKnp6Ll8" target="_blank" rel="noopener">動画</a>）は、
+            TL が「ミカ最終弾後ホド HP7.5M 以下（上振れたら 7.1M くらいまで減ります）」と
+            書いていて、<b>映像の実測も経過 106.5 秒で 7,322,787</b> と一致します。
+            計算は <b>5,547,062</b> で<b>多めに出ます</b>。
+            この TL は「9.5 Cミカ（下側の柱）」「即ミカ（上側の柱）」と<b>柱に撃っています</b>が、
+            この道具は当たる先をいつもボス 1 体にしているので、そのぶん多く数えます。
+            実測の HP バーも経過 95 秒まではほとんど動かず（18,000,000 → 17,606,707）、
+            そこから 106.5 秒までの 11.5 秒で 10.3M 落ちます</li>
           <li>逆に序盤（EX のダメージが出る前）は、実測 141,519 に対して計算 222,082 で
             <b>57% ほど多く</b>出ます。実測では最初の 1 発が経過 5.3 秒で、
             <b>盤に出てから射程に入るまでの移動時間はデータに無いので 0 秒から数えています</b>。
             絶対量では全体の 1% 未満です</li>
+          <li><b>当たる先はいつもボス 1 体です。</b>
+            <code>raids.min.json</code> の <code>EnemyList</code> を Torment で数えると、
+            <b>敵が 1 体なのは 14 体のうちビナーだけ</b>で、ホドは 2、ヒエロニムスとクロカゲと
+            グレゴリオとペロロジラは 3、ゴズは 4、KAITEN FX Mk.0 とケセドとホバークラフトは 6〜7、
+            イェソドは 8、ドラム缶ガニは 9 です。柱・壺・分身に撃つぶんも、
+            この道具ではボスに当たった扱いになります</li>
+          <li><b>ボス側の被ダメージ率の変化も入っていません。</b>
+            <code>raids.min.json</code> の <code>RaidSkills</code> を Torment で見ると、
+            <b>14 体のうち 11 体</b>が <code>DamagedRatio</code> を動かすスキルを持っています。
+            持っていないのはビナー・ゴズ・クロカゲの 3 体だけです。
+            たとえばホド Torment の「栄光の裏側」は
+            <b>CC 状態を 20 秒ぶん溜めると 30 秒間 被ダメージ率 +300%</b>（＝4 倍）で、
+            ホドの TL が柱を割ってから一気に削るのはこれが理由です。
+            <b>ビナーに突き合わせを寄せているのは、この 2 つが無い唯一のボスだからです</b></li>
           <li><b>フェーズは飛んでいませんでした。</b>60%（13,800,000）を越えたのが
             経過 67.6〜67.9 秒、25%（5,750,000）を越えたのが 80.4 秒で、
             <b>12.8 秒あいています</b>。25% のほうは 3 秒の全画面演出（TL の「ーー移行ーー」）が
@@ -1316,7 +1336,32 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
         固有2 の子まで 1 段上がっていました）と、<b>★4 の追加ステータス</b>
         （<code>DB/CharacterWeaponExcelTable.json</code> の <code>StatType</code>／
         <code>StatValue</code> の 4 番目。ネル（制服）は貫通特効 +1000、
-        リオとイブキ（水着）はコスト上限 +5000。SchaleDB のデータには入っていません）</li>
+        リオとイブキ（水着）はコスト上限 +5000。SchaleDB のデータには入っていません）。
+        <b>固有武器のレベル上限も星で決まります</b>——★1 が Lv30、★2 が 40、★3 が 50、★4 が 60
+        （SchaleDB <code>common.js</code> 9269 行の <code>let level = 20 + (weaponstars*10)</code>、
+        上限は <code>config.min.json</code> の <code>WeaponMaxLevel: 60</code>）。
+        <b>2026-09-01 まで星を見ずに Lv50 で計算していました。</b>
+        <b>潜在能力（限界突破）も入れました</b>——素の補間値の 0.2%／1 段を固定値で足し、
+        Lv90 未満では付かず、上限は 25
+        （<code>getPotentialStatAmount</code>、<code>common.js</code> 847 行と 7649 行、
+        <code>config.min.json</code> の <code>PotentialMax: 25</code>）。
+        TL を読み込むときの既定は 25 で、概要欄が「全WB25」「攻撃/治癒WB25」のように
+        書いていればそのとおりに入ります</li>
+      <li><b>育成の再現を概要欄の実測値で確かめました</b>（2026-09-01）——
+        クラウさんの動画の「使用生徒詳細」には、生徒の攻撃力・HP・治癒力がそのまま
+        書いてあることがあります。<b>7 件と突き合わせました</b>（固有武器のレベル上限と
+        潜在能力 25 を入れたあとの値）。
+        <ul>
+          <li>イロハ（水着） 固有4 絆50 …… 概要欄 攻撃 7,308 ／ 計算 7,308（<b>差 0</b>）</li>
+          <li>シロコ＊テラー 固有3 絆48 …… 概要欄 攻撃 6,123 ／ 計算 6,123（<b>差 0</b>）</li>
+          <li>ケイ 固有1 …… 概要欄 HP 46,439 ／ 計算 46,373（−0.14%）</li>
+          <li>マコト（水着） 固有3 …… 概要欄 攻撃 8,748 ／ 計算 8,720（−0.32%）</li>
+          <li>マコト（水着） 固有4 …… 概要欄 攻撃 8,975 ／ 計算 8,924（−0.57%）</li>
+          <li>マリー（アイドル） 固有2 絆50 …… 概要欄 HP 61,032 ／ 計算 61,225（+0.32%）</li>
+          <li>ネル（制服） 固有4 絆50 …… 概要欄 攻撃 8,538 ／ 計算 8,450（−1.03%）、
+            HP 63,893 ／ 計算 62,800（−1.71%）</li>
+        </ul>
+        <b>直す前は −2.2%〜−7.5% でした。</b>残る差は絆と装備の段が書いていないぶんです</li>
       <li><b>常時のパッシブ</b> — パッシブと固有武器パッシブ（固有武器★2 以上）を乗せています。
         同じ（スキルの枠, <code>Channel</code>）が 2 回来たら先に来たほうが勝つ、という
         SchaleDB の扱い（<code>common.js</code> 7723 行）に合わせました。
@@ -1540,6 +1585,8 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
   function mkSlot() {
     return { id: null, ex: 5, sk: 10, w4: false, tier: [3, 3, 3, 3, 3, 3], on: true,
              lv: 90, star: 5, eq: 9, wlv: 50, wstar: 3, plv: 10, sslv: 10, gear: 3, bond: 20,
+             // **潜在能力（限界突破）。**HP・攻撃・治癒それぞれ 0〜25
+             pot: [0, 0, 0],
              // **通常スキルが「味方1人」のとき、その渡し先。**null なら誰にも乗らない
              nsto: null,
              // **条件でダメージが変わるスキルの、選んだ候補。**{ スキル枠: 番号 }
@@ -2773,12 +2820,17 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
     }
     out.push(['w', 'バフは EX・NS・PS・固有武器・SS の全部を見ています。' +
       '乗せていないのは SS の発動ぶん 87 件（引き金が要るもの）だけです']);
-    out.push(['w', 'SS のダメージ・遮蔽・グロッキー中の被ダメージ増加はまだ入っていません']);
-    // **実測 1 本との突き合わせ**（2026-09-01）。下の「数字の出どころ」に詳しい
+    out.push(['w', 'SS のダメージと遮蔽はまだ入っていません']);
+    out.push(['w', '当たる先はいつもボス 1 体です。Torment で敵が 1 体なのはビナーだけで、' +
+      'ホドの柱・ヒエロニムスの壺のような別の的に撃つぶんも、ボスに当たった扱いで数えます']);
+    out.push(['w', 'ボス側の被ダメージ率の変化は入っていません。' +
+      '14 体のうち 11 体が持っていて、たとえばホド Torment の「栄光の裏側」は ' +
+      'CC を 20 秒ぶん溜めると 30 秒間 被ダメージ率 +300% です']);
+    // **実測 2 本との突き合わせ**（2026-09-01）。下の「数字の出どころ」に詳しい
     out.push(['w', '実物の TL 2 本と突き合わせています。大決戦ビナー Torment 貫通・屋外は ' +
-      'TL 1 ページ目が終わった時点の残 HP が 実測 14,639,773 に対して計算 16,960,898 で ' +
-      '少なめに、大決戦ホド Torment 貫通・屋内は TL の「ミカ最終弾後 7.5M 以下」に対して ' +
-      '計算 6,074,012 で多めに出ます。ホドは通常攻撃の取り分が大きいボスです']);
+      'TL 1 ページ目が終わった時点の残 HP が 実測 14,639,773 に対して 平均 16,694,374、' +
+      '大決戦ホド Torment 貫通・屋内は「ミカ最終弾後」の残 HP が 実測 7,322,787 に対して ' +
+      '平均 5,547,062 です']);
     $('errlog').innerHTML = out.map(function (x) {
       return '<div class="' + x[0] + '">' + (x[0] === 'g' ? '✔ ' : (x[0] === 'e' ? '✕ ' : '▸ ')) + esc(x[1]) + '</div>';
     }).join('');
@@ -2875,6 +2927,20 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
     }
     if (fv[0][0]) { add(fv[0][0], b1); }
     if (fv[0][1]) { add(fv[0][1], b2); }
+    // 潜在能力（限界突破）。**素の補間値の 0.2% ／ 1 段**を固定値として足す。
+    // 星の係数は掛けない（SchaleDB の `getPotentialStatAmount`、common.js 847 行
+    // `interpolateStat(character[stat1], character[stat100], level) * (potentialLevel * 0.002)`）。
+    // **Lv90 未満では付かない**（同 7649 行 `if (level >= 90)`）。上限は 25
+    // （`config.min.json` の `PotentialMax`、Jp）
+    var pt = o.pot || [0, 0, 0], PK = ['MaxHP', 'AttackPower', 'HealPower'];
+    if (lv >= 90) {
+      for (i = 0; i < 3; i++) {
+        var pl = Math.min(pt[i] || 0, 25);
+        if (!pl) { continue; }
+        add(PK[i] + '_Base',
+            Math.round(ipol(a[SK[PK[i] + '1']], a[SK[PK[i] + '100']], lv, 1) * pl * 0.002));
+      }
+    }
     // 常時のパッシブ。同じ（枠, Channel）は先に来たほうが勝つ
     var seen = {};
     for (i = 0; i < (o.extra || []).length; i++) {
@@ -2955,13 +3021,28 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
     }
     return out;
   }
+  // **固有武器のレベル上限は星で決まる**（★1→Lv30、★2→40、★3→50、★4→60）。
+  // SchaleDB の `changeStatPreviewStars`（common.js 9269 行）が
+  // `let level = 20 + (weaponstars*10)` をスライダーの max にしている。
+  // 上限は `config.min.json` の `WeaponMaxLevel: 60`（Jp）と揃う。
+  // **2026-09-01 まで星に関係なく Lv50 で計算していました**（固有1 の子は
+  // 20 段ぶん過大、固有4 の子は 10 段ぶん過小）
+  function wlvMax(ws) { return (ws || 0) > 0 ? 20 + (ws || 0) * 10 : 0; }
+  // 潜在能力。**枠は [HP, 攻撃, 治癒] の 3 本**で、古い保存は数値 1 つのことがある
+  function potOf(b) {
+    var v = b ? b.pot : null;
+    if (v == null) { return [0, 0, 0]; }
+    if (typeof v === 'number') { return [v, v, v]; }
+    return [v[0] || 0, v[1] || 0, v[2] || 0];
+  }
   function buildOpt(idx) {
     var b = (idx == null ? null : slotOf(idx)) || mkSlot();
     // **装備は 3 枠それぞれ段が違うことがある**（貼った TL の「t6/10/10」）。
     // 画面の選択は 1 つなので数値で入るが、読み込みからは配列で入る
-    return { lv: b.lv, star: b.star, wlv: b.wlv, wstar: b.wstar || 0,
+    return { lv: b.lv, star: b.star, wlv: Math.min(b.wlv, wlvMax(b.wstar)),
+             wstar: b.wstar || 0,
              eq: (b.eq && b.eq.length === 3) ? b.eq.slice() : [b.eq, b.eq, b.eq],
-             gear: b.gear > 0, bond: b.bond };
+             gear: b.gear > 0, bond: b.bond, pot: potOf(b) };
   }
   var _sc = {};
   function statsOf(id, idx, at) {
@@ -4000,7 +4081,9 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
       // 固有武器。「固有4」「固有4/50」「UE4」
       mm = rest.match(/(?:固有|UE)\s*(\d)(?:\s*[\/／]\s*(\d+))?/i);
       if (mm) {
-        b.star = 5; b.wstar = +mm[1]; b.wlv = mm[2] ? +mm[2] : 50;
+        b.star = 5; b.wstar = +mm[1];
+        // **段が書いていなければ、その星の上限**（wlvMax の注記に出典）
+        b.wlv = mm[2] ? Math.min(+mm[2], wlvMax(b.wstar)) : wlvMax(b.wstar);
       } else {
         mm = rest.match(/★\s*(\d)/);
         if (mm) { b.star = +mm[1]; b.wstar = 0; b.wlv = 0; }
@@ -4014,6 +4097,23 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
       mm = rest.match(/(?:PS|パッシブ)\s*(\d+)/i); if (mm) { b.plv = +mm[1]; }
       mm = rest.match(/(?:SS|サブ)\s*(\d+)/i); if (mm) { b.sslv = +mm[1]; }
       mm = rest.match(/(?:絆|Bond)\s*(\d+)/i); if (mm) { b.bond = +mm[1]; }
+      // 潜在能力。**クラウさんの概要欄は「WB」と書く**（「全WB25」「攻撃/治癒WB25」
+      // 「HP/治癒WB25」）。「潜在25」「限界突破25」も同じものとして読む
+      // **書いていないときは 25（上限）**。TL を出す人の生徒はまず開けきっていて、
+      // 概要欄の実測値と突き合わせると 25 でぴたりと合う（イロハ（水着）攻撃 7308 と
+      // シロコ＊テラー 攻撃 6123 が誤差 0、ケイ HP 46439 が −0.14%。
+      // 2026-09-01 にクラウさんの概要欄 7 件で確かめた）
+      b.pot = [25, 25, 25];
+      mm = rest.match(/([^\s　]*)(?:WB|潜在|限界突破)\s*(\d+)/i);
+      if (mm) {
+        var pv = Math.min(+mm[2], 25), tg = mm[1] || '';
+        if (!tg || /全|ALL/i.test(tg)) { b.pot = [pv, pv, pv]; }
+        else {
+          b.pot = [/HP|ＨＰ|体力/i.test(tg) ? pv : 0,
+                   /攻撃|ATK/i.test(tg) ? pv : 0,
+                   /治癒|回復|HEAL/i.test(tg) ? pv : 0];
+        }
+      }
       if (/愛用品|Gear/i.test(rest)) {
         mm = rest.match(/(?:愛用品|Gear)\s*(\d)/i); b.gear = mm ? +mm[1] : 3;
       }
@@ -4458,16 +4558,19 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
   }
   function fillBuild() {
     fillWho();
-    var b = whoSlot(), lvs = [], i, wl = [], bl = [];
+    var b = whoSlot(), lvs = [], i, wl = [], bl = [], pl = [];
     for (i = 1; i <= 90; i++) { lvs.push(i); }
-    for (i = 0; i <= 50; i++) { wl.push(i); }
+    // **固有武器の段は星が決める上限まで**（wlvMax の注記に出典）
+    for (i = 0; i <= wlvMax(b.wstar); i++) { wl.push(i); }
     for (i = 1; i <= 100; i++) { bl.push(i); }
+    for (i = 0; i <= 25; i++) { pl.push(i); }
     opt('g-lv', lvs, b.lv);
     opt('g-star', [1, 2, 3, 4, 5], b.star, function (v) { return '★' + v; });
     // 3 枠バラバラのときは低いほうを出す。**選び直せば 3 枠とも揃う**
     var eqShow = (b.eq && b.eq.length === 3) ? Math.min(b.eq[0], b.eq[1], b.eq[2]) : b.eq;
     opt('g-eq', [0,1,2,3,4,5,6,7,8,9,10], eqShow, function (v) { return v ? 'T' + v : 'なし'; });
-    opt('g-wlv', wl, b.wlv, function (v) { return v ? 'Lv' + v : 'なし'; });
+    opt('g-wlv', wl, Math.min(b.wlv, wlvMax(b.wstar)),
+        function (v) { return v ? 'Lv' + v : 'なし'; });
     opt('g-wstar', [0, 1, 2, 3, 4], b.wstar, function (v) { return '★' + v; });
     opt('g-ex', [1, 2, 3, 4, 5], b.ex, function (v) { return 'Lv' + v; });
     opt('g-sk', [1,2,3,4,5,6,7,8,9,10], b.sk, function (v) { return 'Lv' + v; });
@@ -4475,6 +4578,8 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
     opt('g-sslv', [1,2,3,4,5,6,7,8,9,10], b.sslv, function (v) { return 'Lv' + v; });
     opt('g-gear', [0, 1, 2, 3], b.gear, function (v) { return v ? 'T' + v : 'なし'; });
     opt('g-bond', bl, b.bond);
+    // 潜在は 3 本あるが、選ぶのは 1 つ。**読み込みだけが枠ごとに違う値を入れる**
+    opt('g-pot', pl, Math.max.apply(null, potOf(b)));
     var p = st.who < 0 ? null : st.party[st.who];
     var cs = p ? statsOf(p.id, st.who) : null;
     $('build-note').innerHTML = p
@@ -5042,14 +5147,15 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
   (function () {
     var KEY = { 'g-lv': 'lv', 'g-star': 'star', 'g-eq': 'eq', 'g-wlv': 'wlv', 'g-wstar': 'wstar',
                 'g-ex': 'ex', 'g-sk': 'sk', 'g-plv': 'plv', 'g-sslv': 'sslv',
-                'g-gear': 'gear', 'g-bond': 'bond' };
+                'g-gear': 'gear', 'g-bond': 'bond', 'g-pot': 'pot' };
     function bind(id) {
       $(id).addEventListener('change', function () {
         mark();
         var k = KEY[id], v = +this.value, b = whoSlot();
         b[k] = v;
-        if (k === 'wstar') { b.w4 = v >= 4; }
+        if (k === 'wstar') { b.w4 = v >= 4; b.wlv = Math.min(b.wlv, wlvMax(v)); }
         if (k === 'gear') { b.tier = [v, v, v, v, v, v]; }
+        if (k === 'pot') { b.pot = [v, v, v]; }
         bump(); fillBuild(); drawCrew(); draw();
       });
     }
