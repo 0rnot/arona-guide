@@ -4367,30 +4367,74 @@ def build_tl():
     # ペロロジラ屋外・カイテンジャー屋内は**丸ごと選べなかった。**
     # `RaidBossGroup` で割ると 14 体 → 22 通りになる
     TER_JA = {"Street": "市街地", "Outdoor": "屋外", "Indoor": "屋内"}
+    # **大決戦は「装甲を選べる総力戦」。**表は別（`EliminateRaidStageExcelTable`）で
+    # `RaidBossGroup` が `Binah_Outdoor_HeavyArmor` の形。
+    # **中身は装甲以外まったく同じ**——`DevName` の「素の名前＋難易度」で束ねて
+    # 1,168 組・1,100 回突き合わせて**不一致 0**（HP・攻撃・防御・会心抵抗・
+    # 会心ダメージ抵抗・グロッキー・安定・命中・回避・地形適性・防御貫通抵抗）。
+    # スコアの 4 定数も同じ（2026-09-01 に確かめた）。
+    # だから枝は「ボス × 地形」のまま増やさず、**装甲だけを選べるようにする**。
+    # 地形の組み合わせは大決戦のほうが多い（ケセド屋内・カイテンジャー屋外・
+    # シロクロ市街地・ペロロジラ屋内・ゴズ屋内は大決戦にしか無い）
+    ARMORS = ["LightArmor", "HeavyArmor", "Unarmed", "ElasticArmor"]
+    TERRS = ("Street", "Outdoor", "Indoor")
+
+    def _grp_base(g0):
+        """`RaidBossGroup` から装甲と地形を落として「ボスの素の名前」を返す。"""
+        q = (g0 or "").split("_")
+        if len(q) > 1 and q[-1] in ARMORS:
+            q = q[:-1]
+        if len(q) > 1 and q[-1] in TERRS:
+            q = q[:-1]
+        return "_".join(q)
+
     stage_rows = as_list(get_json(BADB.format("RaidStageExcelTable")))
-    grp = {}
-    for r in stage_rows:
-        g0 = r.get("RaidBossGroup")
-        if not g0:
-            continue
-        g = ground.get(r.get("GroundId")) or {}
-        # スコア。**1 秒あたりの減点は `PerSecondMinusScore` の 1/10**
-        # （根拠は build_raid_score のコメント。同じ表・同じ列を読んでいる）
-        ps_raw = r.get("PerSecondMinusScore") or 0
-        if ps_raw % 10:
-            raise SystemExit(f"PerSecondMinusScore が 10 で割り切れない: {r.get('Id')} {ps_raw}")
-        sc = None
-        if r.get("DefaultClearScore"):
-            sc = [r["DefaultClearScore"], r.get("HPPercentScore") or 0,
-                  ps_raw // 10, r.get("MaximumScore") or 0]
-        grp.setdefault(g0, []).append({
-            "df": r.get("Difficulty", ""),
-            "cids": [c for c in ([r.get("RaidCharacterId")]
-                                 + list(r.get("BossCharacterId") or [])) if c],
-            "lv": g.get("LevelBoss"), "env": g.get("StageTopography"),
-            "ext": r.get("EchelonExtensionType") or "Base", "sc": sc,
-            "dur": (r.get("BattleDuration") or 0) // 1000,
-        })
+    elim_rows = as_list(get_json(BADB.format("EliminateRaidStageExcelTable")))
+    grp, grp_arm = {}, {}
+    for _rows, _elim in ((stage_rows, False), (elim_rows, True)):
+        for r in _rows:
+            g0 = r.get("RaidBossGroup")
+            if not g0:
+                continue
+            g = ground.get(r.get("GroundId")) or {}
+            env = g.get("StageTopography")
+            # **枝の名前は「素の名前＋地形」に揃える。**総力戦の `Binah` と
+            # 大決戦の `Binah_Outdoor` は同じ枝
+            key = _grp_base(g0) + ("_" + env if env else "")
+            df = r.get("Difficulty", "")
+            cids = [c for c in ([r.get("RaidCharacterId")]
+                                + list(r.get("BossCharacterId") or [])) if c]
+            if _elim:
+                # 装甲だけ覚える。ステータスは総力戦と同じなので枝は増やさない
+                arm = (g0.split("_") or [""])[-1]
+                if arm in ARMORS:
+                    grp_arm.setdefault(key, {}).setdefault(df, {})[arm] = cids
+            # **同じ枝に同じ難易度が 2 度来ることがある**（総力戦の `Goz` と
+            # `Goz_Outdoor` は `RaidCharacterId` まで同じ）。先に来たほうを使う
+            if key in grp and any(x["df"] == df for x in grp[key]):
+                continue
+            # スコア。**1 秒あたりの減点は `PerSecondMinusScore` の 1/10**
+            # （根拠は build_raid_score のコメント。同じ表・同じ列を読んでいる）
+            ps_raw = r.get("PerSecondMinusScore") or 0
+            if ps_raw % 10:
+                raise SystemExit(f"PerSecondMinusScore が 10 で割り切れない: {r.get('Id')} {ps_raw}")
+            sc = None
+            if r.get("DefaultClearScore"):
+                sc = [r["DefaultClearScore"], r.get("HPPercentScore") or 0,
+                      ps_raw // 10, r.get("MaximumScore") or 0]
+            grp.setdefault(key, []).append({
+                "df": df, "cids": cids,
+                # **枝にボスが 2 体いることがある**（シロ＆クロ、カイテンジャー、
+                # ホバークラフトの前半・後半）。`RaidCharacterId` がその 2 体と
+                # 別 id なら、それは HP を合算した「集計」の行
+                "boss": [c for c in (r.get("BossCharacterId") or []) if c],
+                "agg": (r.get("RaidCharacterId")
+                        if r.get("RaidCharacterId") not in (r.get("BossCharacterId") or [])
+                        else None),
+                "lv": g.get("LevelBoss"), "env": env,
+                "ext": r.get("EchelonExtensionType") or "Base", "sc": sc,
+                "dur": (r.get("BattleDuration") or 0) // 1000,
+            })
     # `RaidBossGroup` の綴りは Raid の DevName と揃っていない
     # （カイテンジャー・ホバークラフトで外れる。build_raid_score と同じ）
     GRP_ALIAS = {"kaitenger": "kaitenfxmk0", "hovercraft": "raidhovercraft"}
@@ -4419,62 +4463,274 @@ def build_tl():
           f"支援値 {len(trans)} 種／ボスの枝 {len(grp)} 通り "
           f"（{sum(len(v) for v in grp.values())} 段）")
 
+    # ---- 部位（パーツ）。**同じ Ground の中で、ボス以外の行**
+    # id は「Ground の 7 桁 ＋ 通し 2 桁」なので、下 2 桁を落とすと同じ枝が並ぶ
+    # （総力戦は 7 桁 ＝ 5 桁＋2 桁）。名前は `LocalizeEtcExcelTable` の `NameJp`、
+    # `LocalizeError` のときは SchaleDB の `enemies` に同じ役どころの行があれば
+    # そちらの日本語名を使う（ホドの柱＝インベイドピラーがこれ）
+    _loc_etc = {r.get("Key"): r for r in
+                as_list(get_json(BADB.format("LocalizeEtcExcelTable")))}
+    _by_pre = {}
+    for _cid in stat:
+        _by_pre.setdefault(str(_cid)[:-2], []).append(_cid)
+
+    def _dev_role(dn):
+        """`Hod_TemporaryTower_Summon_HeavyArmor_Torment` → `hod_temporarytower_summon`"""
+        q = [x for x in (dn or "").split("_")
+             if x not in ARMORS and x not in TERRS
+             and x not in ("Normal", "Hard", "VeryHard", "Hardcore", "Extreme",
+                           "Insane", "Torment", "Lunatic", "default")]
+        return "_".join(q).lower()
+
+    _enemies = get_json(SD.format("enemies")).get("Enemies") or {}
+    if isinstance(_enemies, list):
+        _enemies = {str(e["Id"]): e for e in _enemies if e.get("Id")}
+    _sd_name = {}
+    for _e in (_enemies or {}).values():
+        if _e.get("Name") and _e.get("DevName"):
+            _sd_name.setdefault(_dev_role(_e["DevName"]), _e["Name"])
+
+    def _pname(cid):
+        c = ch_all.get(cid) or {}
+        # SchaleDB の enemies は敵 Id そのものが鍵で、部位名（「フンドシ（フェーズ1）」
+        # 「インベイドピラー」）まで入っている。DevName 経由より当たりが良いので先に見る
+        nm = (_enemies.get(str(cid)) or {}).get("Name")
+        if nm:
+            return nm
+        l = _loc_etc.get(c.get("LocalizeEtcId")) or {}
+        nm = l.get("NameJp")
+        if nm and nm != "LocalizeError":
+            return nm
+        _r = _dev_role(c.get("DevName"))
+        return (_sd_name.get(_r) or _sd_name.get(re.sub(r"\d+$", "", _r))
+                or _sd_name.get(re.sub(r"\d+$", "", _r) + "01")
+                or c.get("DevName") or str(cid))
+
+    def _subs(cid, skip):
+        """その枝の部位。`skip` はボス本体と集計行の id。
+           **同じ中身の行は畳む**（ペロロジラの中型 30 体は 1 行にする）"""
+        out, seen = [], {}
+        for k in sorted(_by_pre.get(str(cid)[:-2], [])):
+            if k in skip or k == cid:
+                continue
+            c = ch_all.get(k) or {}
+            sr = stat.get(k) or {}
+            if not sr.get("MaxHP1"):
+                continue
+            # **畳むのは「同じ役どころの連番」だけ。**末尾の数字を落とした
+            # 役どころ名まで見ないと、ドラム缶ガニのフンドシと船体のように
+            # HP と防御がたまたま同じ別物まで 1 行になる
+            _role = re.sub(r"\d+$", "", _dev_role(c.get("DevName")))
+            _key = (_role, sr.get("MaxHP1"), sr.get("DefensePower1"),
+                    c.get("ArmorType"), c.get("TacticEntityType"))
+            if _key in seen:
+                _p = out[seen[_key]]
+                _p["cnt"] = _p.get("cnt", 1) + 1
+                # 日本語名が後から出てきたらそちらを採る
+                if _p["n"] == _p["dn"]:
+                    _nm = _pname(k)
+                    if _nm != c.get("DevName"):
+                        _p["n"] = _nm
+                continue
+            seen[_key] = len(out)
+            out.append({
+                "id": k, "n": _pname(k), "dn": c.get("DevName"),
+                "k": c.get("TacticEntityType") or "", "hp": sr.get("MaxHP1"),
+                "def": sr.get("DefensePower1"), "armor": c.get("ArmorType"),
+                "stab": sr.get("StabilityPoint"), "stabR": sr.get("StabilityRate"),
+                "dodge": sr.get("DodgePoint"),
+                "crR": sr.get("CriticalResistPoint"),
+                "cdR": sr.get("CriticalDamageResistRate"),
+                "defpr": sr.get("DefensePenetrationResist1") or 0,
+                "ad": [sr.get("StreetBattleAdaptation"),
+                       sr.get("OutdoorBattleAdaptation"),
+                       sr.get("IndoorBattleAdaptation")],
+            })
+        return out
+
+    # 同じボスの別地形。**部位が片方の枝にしか無いことがある**
+    # （ホドのインベイドピラーは市街地の番号にしか無いが、屋内の TL も柱を撃つ）
+    _sib = {}
+    for _g in grp:
+        _sib.setdefault(_grp_base(_g), []).append(_g)
+
+    # ---- ギミックの候補。**ボスの被ダメージ率などを動かす行を、説明文から拾う**
+    # （2026-09-01）。`Raid[].RaidSkillList[難易度]` がスキル名の並びで、
+    # 実体は `RaidSkills`（名前が鍵）。`<d:DamagedRatio>が300%増加（30秒間）` の形を
+    # 読んで「ボスの状態」の窓に入れる候補にする。**自動では効かせない。**
+    # いつ入るかは TL 次第なので、秒は画面で先生が指定する
+    GIM_K = {"DamagedRatio": "damaged",
+             "CriticalChanceResistPoint": "crR",
+             "CriticalDamageResistRate": "cdR",
+             "DEF": "def"}
+    # **`<d:DamagedRatio>` のようなタグが値そのもの**なので、先に中身を残して開く。
+    # 素朴に全部のタグを消すと `が300%増加` だけが残って何のことか分からなくなる
+    _gim_stat = re.compile(r"<[bdcs]:([A-Za-z_]+)>")
+    _gim_tag = re.compile(r"<[^>]*>")
+    _gim_pat = re.compile(
+        r"(DamagedRatio|CriticalChanceResistPoint|CriticalDamageResistRate|DEF)"
+        r"[をがはのにより、\s]*([\d,]+)\s*(%?)\s*(増加|減少)")
+    _gim_dur = re.compile(r"[（(](\d+)秒間[）)]")
+    _gim_cache = {}
+
+    def _gim(rd, df):
+        """そのボス・その難易度で、ボス側の被ダメージ率などを動かす行を返す。"""
+        lst = rd.get("RaidSkillList") or []
+        di = next((i for i, x in enumerate(TL_DIFF) if x.lower() == (df or "").lower()), None)
+        if di is None or di >= len(lst):
+            return []
+        ck = (id(rd), di)
+        if ck in _gim_cache:
+            return _gim_cache[ck]
+        out, seen = [], set()
+        bnm = rd.get("Name") or ""
+        for nm in lst[di] or []:
+            sk = rsk.get(nm) or {}
+            # **「味方1人に対して…／また DEF を 9,999 減少」のように、行をまたいで
+            # 相手が続くことがある。**（ペロロジラの白熱眼光・ビナーの浄化の嵐）。
+            # 味方が出てきたら、ボスの名前が出てくるまでその説明は味方あて扱いにする
+            ally = False
+            for ln in (sk.get("Desc") or "").split("\n"):
+                txt = _gim_tag.sub("", _gim_stat.sub(r"\1", ln)).strip()
+                if not txt:
+                    continue
+                if bnm and bnm in txt:
+                    ally = False
+                if any(w in txt for w in ("味方", "チーム", "生徒", "レイバー")):
+                    ally = True
+                    continue
+                if ally:
+                    continue
+                for m in _gim_pat.finditer(txt):
+                    k = GIM_K.get(m.group(1))
+                    if not k:
+                        continue
+                    v = int(m.group(2).replace(",", ""))
+                    if m.group(4) == "減少":
+                        v = -v
+                    # **秒はすぐ後ろに書いてある**（「300%増加（30秒間）」）。
+                    # 離れたところの秒は別の効果のものなので拾わない
+                    d = _gim_dur.match(txt[m.end():m.end() + 12].lstrip("、/ "))
+                    dur = int(d.group(1)) if d else 0
+                    sig = (k, v, dur, txt)
+                    if sig in seen:
+                        continue
+                    seen.add(sig)
+                    out.append({"n": sk.get("Name") or nm, "k": k, "v": v,
+                                "d": dur, "t": txt})
+        _gim_cache[ck] = out
+        return out
+
     fcache = {}
     bosses, ok, half, ng = [], 0, 0, []
     for g0 in grp_order:
         b = grp_base[g0]
-        rows = []
+        # **1 つの枝にボスが 2 体以上いることがある。**シロ＆クロ、
+        # カイテンジャー（レンジャー隊と FX Mk.0）、ホバークラフト（前半と後半）、
+        # イェソド。TL も前半・後半で別に書くので、**枝を分ける**
+        nb = 1
         for sg in grp[g0]:
-            got = None
-            for cid in sg["cids"]:
-                got = tl_one(cid, bt, csl, stat, fcache, appear)
-                if got:
-                    break
-            df = sg["df"]
-            if not got:
-                ng.append(f"{b.get('Name')} {g0} {df}")
+            nb = max(nb, len(sg.get("boss") or []))
+        _seen_cid = set()
+        for bx in range(nb):
+            rows = []
+            for sg in grp[g0]:
+                bl = sg.get("boss") or []
+                got, cid0 = None, (bl[bx] if bx < len(bl) else None)
+                if cid0:
+                    got = tl_one(cid0, bt, csl, stat, fcache, appear)
+                if not got and bx == 0:
+                    # **集計の行しか引けないことがある。**そのときは並び順に落とす
+                    for cid in sg["cids"]:
+                        got = tl_one(cid, bt, csl, stat, fcache, appear)
+                        if got:
+                            break
+                df = sg["df"]
+                if not got:
+                    if bx == 0:
+                        ng.append(f"{b.get('Name')} {g0} {df}")
+                    continue
+                got["df"] = df
+                got["dur"] = sg["dur"]
+                got["cool"] = {g: cool[g] for g in got["ex"] if g in cool}
+                # EX 1 発の長さ（フレーム）。**帯の幅に使う。**
+                # 通常スキルと違って、こちらはトップレベルの `Duration` が
+                # そのまま入っている
+                got["exd"] = [tl_frames(g, fcache) for g in got["ex"]]
+                # ---- ボス側の素の値。ダメージ計算はここから引く
+                sr = stat.get(got["cid"]) or {}
+                cr = ch_all.get(got["cid"]) or {}
+                got["lv"] = sg.get("lv")
+                got["env"] = sg.get("env")
+                got["ext"] = sg.get("ext") or "Base"
+                got["sc"] = sg.get("sc")
+                got["bs"] = {
+                    "armor": cr.get("ArmorType"), "bullet": cr.get("BulletType"),
+                    # **`Size` はバフの `Restrictions` が見る**（ツクヨ・ミネ）。
+                    # 2026-09-01 に足した
+                    "size": cr.get("Size"),
+                    "groggy": sr.get("GroggyGauge"), "groggyT": sr.get("GroggyTime"),
+                    "hp": sr.get("MaxHP1"), "atk": sr.get("AttackPower1"),
+                    "def": sr.get("DefensePower1"),
+                    "defpr": sr.get("DefensePenetrationResist1") or 0,
+                    "stab": sr.get("StabilityPoint"), "stabR": sr.get("StabilityRate"),
+                    "dodge": sr.get("DodgePoint"), "acc": sr.get("AccuracyPoint"),
+                    "crR": sr.get("CriticalResistPoint"),
+                    "cdR": sr.get("CriticalDamageResistRate"),
+                    "ad": [sr.get("StreetBattleAdaptation"),
+                           sr.get("OutdoorBattleAdaptation"),
+                           sr.get("IndoorBattleAdaptation")],
+                }
+                # **選べる装甲**（大決戦がある枝だけ）。中身は総力戦と同じなので
+                # 変えるのは `armor` の字だけ
+                got["gim"] = _gim(b, df)
+                got["arm"] = sorted((grp_arm.get(g0, {}).get(df) or {}).keys(),
+                                    key=lambda a: ARMORS.index(a))
+                # **部位。**この枝の Ground → 大決戦の枝 → 同じボスの別地形 の順に探す
+                _skip = set(sg["cids"])
+                got["sub"] = _subs(got["cid"], _skip)
+                if not got["sub"]:
+                    for _a in got["arm"]:
+                        _ac = (grp_arm.get(g0, {}).get(df) or {}).get(_a) or []
+                        if _ac:
+                            got["sub"] = _subs(_ac[0], set(_ac))
+                        if got["sub"]:
+                            break
+                if not got["sub"]:
+                    for _sg2 in _sib.get(_grp_base(g0), []):
+                        if _sg2 == g0:
+                            continue
+                        for _row2 in grp[_sg2]:
+                            if _row2["df"] != df:
+                                continue
+                            got["sub"] = _subs((_row2.get("boss") or _row2["cids"])[0],
+                                               set(_row2["cids"]))
+                            if got["sub"]:
+                                break
+                        if got["sub"]:
+                            break
+                rows.append(got)
+                ok += 1 if got["per"] else 0
+                half += 0 if got["per"] else 1
+            if not rows:
                 continue
-            got["df"] = df
-            got["dur"] = sg["dur"]
-            got["cool"] = {g: cool[g] for g in got["ex"] if g in cool}
-            # EX 1 発の長さ（フレーム）。**帯の幅に使う。**
-            # 通常スキルと違って、こちらはトップレベルの `Duration` がそのまま入っている
-            got["exd"] = [tl_frames(g, fcache) for g in got["ex"]]
-            # ---- ボス側の素の値。ダメージ計算はここから引く
-            sr = stat.get(got["cid"]) or {}
-            cr = ch_all.get(got["cid"]) or {}
-            got["lv"] = sg.get("lv")
-            got["env"] = sg.get("env")
-            got["ext"] = sg.get("ext") or "Base"
-            got["sc"] = sg.get("sc")
-            got["bs"] = {
-                "armor": cr.get("ArmorType"), "bullet": cr.get("BulletType"),
-                # **`Size` はバフの `Restrictions` が見る**（ツクヨ・ミネ）。
-                # 2026-09-01 に足した
-                "size": cr.get("Size"),
-                "groggy": sr.get("GroggyGauge"), "groggyT": sr.get("GroggyTime"),
-                "hp": sr.get("MaxHP1"), "atk": sr.get("AttackPower1"),
-                "def": sr.get("DefensePower1"),
-                "defpr": sr.get("DefensePenetrationResist1") or 0,
-                "stab": sr.get("StabilityPoint"), "stabR": sr.get("StabilityRate"),
-                "dodge": sr.get("DodgePoint"), "acc": sr.get("AccuracyPoint"),
-                "crR": sr.get("CriticalResistPoint"),
-                "cdR": sr.get("CriticalDamageResistRate"),
-                "ad": [sr.get("StreetBattleAdaptation"), sr.get("OutdoorBattleAdaptation"),
-                       sr.get("IndoorBattleAdaptation")],
-            }
-            rows.append(got)
-            ok += 1 if got["per"] else 0
-            half += 0 if got["per"] else 1
-        if rows:
+            # **同じ体を 2 度出さない。**カイテンジャーのレンジャー隊は
+            # 行動のデータが引けず、落とし先が FX Mk.0 と同じになる
+            if rows[0]["cid"] in _seen_cid:
+                continue
+            _seen_cid.add(rows[0]["cid"])
             # グロッキーゲージの溜まり方。**ゲーム内の文をそのまま出す**
             _gc = _groggy_loc.get(b.get("DevName") or "", "")
             _wk = b.get("BulletType") or ""
             _ter = TER_JA.get(rows[0].get("env") or "", "")
             _nm = b.get("Name")
+            if nb > 1:
+                # ボスが 2 体以上の枝は、その体の名前で呼ぶ
+                _nm = _pname(rows[0]["cid"]) or _nm
             if n_of_base.get(b["Id"], 1) > 1 and _ter:
                 _nm = f"{_nm}（{_ter}）"
-            bosses.append({"id": b["Id"], "g": g0, "n": _nm, "dev": b.get("DevName"),
+            bosses.append({"id": b["Id"], "g": g0 if bx == 0 else f"{g0}#{bx}",
+                           "n": _nm, "dev": b.get("DevName"),
                            "path": b.get("PathName"), "gc": _gc, "gwk": _wk, "d": rows})
     # **生徒の素ステータスとダメージ倍率。**`tools/cost-timeline/data.js` には
     # バフと着弾しか入っていないので、ダメージを出すのに要るぶんだけここに足す。

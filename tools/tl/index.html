@@ -1077,6 +1077,7 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
           <label class="f"><span>ボス</span><select id="i-boss"></select></label>
           <label class="f"><span>難易度</span><select id="i-diff"></select></label>
           <label class="f"><span>地形</span><select id="i-terr"></select></label>
+          <label class="f"><span>装甲</span><select id="i-armor"></select></label>
           <label class="f"><span>フェーズ</span><select id="i-phase"><option>なし</option></select></label>
           <label class="f"><span>敵Lv</span><span id="i-lv" class="val">—</span></label>
           <label class="f"><span>制限</span><select id="i-lim"></select></label>
@@ -1086,6 +1087,13 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
           <span class="mut tiny" id="ph-boss"></span>
         </div>
         <div class="mut tiny" id="groggy" style="margin-top:4px"></div>
+        <div class="row" style="margin-top:6px;align-items:center">
+          <h2 class="sect inline"><i></i>ボスの状態</h2>
+          <select id="bst-pick" title="このボスの説明文から拾ったギミック"></select>
+          <button type="button" class="btn2" data-act="bstadd">＋ 足す</button>
+          <span class="mut tiny">ギミックで変わるぶんを、効いている間だけ置きます</span>
+        </div>
+        <div class="fields wrapf" id="bstate"></div>
       </div></div>
 
       <div class="pane"><div class="bd">
@@ -1171,19 +1179,32 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
             <b>57% ほど多く</b>出ます。実測では最初の 1 発が経過 5.3 秒で、
             <b>盤に出てから射程に入るまでの移動時間はデータに無いので 0 秒から数えています</b>。
             絶対量では全体の 1% 未満です</li>
-          <li><b>当たる先はいつもボス 1 体です。</b>
+          <li><b>当たる先は帯ごとに選べます。</b>
             <code>raids.min.json</code> の <code>EnemyList</code> を Torment で数えると、
             <b>敵が 1 体なのは 14 体のうちビナーだけ</b>で、ホドは 2、ヒエロニムスとクロカゲと
             グレゴリオとペロロジラは 3、ゴズは 4、KAITEN FX Mk.0 とケセドとホバークラフトは 6〜7、
-            イェソドは 8、ドラム缶ガニは 9 です。柱・壺・分身に撃つぶんも、
-            この道具ではボスに当たった扱いになります</li>
-          <li><b>ボス側の被ダメージ率の変化も入っていません。</b>
+            イェソドは 8、ドラム缶ガニは 9 です。部位の一覧は
+            <code>DB/CharacterStatExcelTable.json</code> の、そのボスと同じ Ground 番号の行から
+            作っています（名前は <code>schaledb.com/data/jp/enemies.min.json</code> の
+            <code>Name</code>、無いものは <code>LocalizeEtcExcelTable</code> の
+            <code>NameJp</code>、それも無ければ <code>DevName</code> をそのまま出します）。
+            <b>ただし通常攻撃はいつもボス本体に当たる前提のままです</b></li>
+          <li><b>ボス側の被ダメージ率は「ボスの状態」で置きます。</b>
             <code>raids.min.json</code> の <code>RaidSkills</code> を Torment で見ると、
             <b>14 体のうち 11 体</b>が <code>DamagedRatio</code> を動かすスキルを持っています。
             持っていないのはビナー・ゴズ・クロカゲの 3 体だけです。
             たとえばホド Torment の「栄光の裏側」は
             <b>CC 状態を 20 秒ぶん溜めると 30 秒間 被ダメージ率 +300%</b>（＝4 倍）で、
             ホドの TL が柱を割ってから一気に削るのはこれが理由です。
+            この道具は <code>RaidSkillList</code> がその難易度で指す説明文から
+            <code>DamagedRatio</code>・<code>DEF</code>・<code>CriticalChanceResistPoint</code>・
+            <code>CriticalDamageResistRate</code> の増減と（N 秒間）を読んで
+            <b>候補として並べます</b>が、<b>いつ入るかは自動では決めません</b>。
+            引き金が「CC を 20 秒ぶん」「柱を壊したら」のような盤面の条件で、
+            データからは時刻が出せないからです。効いている間は自分で置いてください。
+            計算は <code>DamagedRatio</code> の値を 100 倍して引く形で入れています
+            （SchaleDB の <code>calculateDamage</code> と同じ
+            <code>(20000 − DamagedRatio) ÷ 10000</code>）。
             <b>ビナーに突き合わせを寄せているのは、この 2 つが無い唯一のボスだからです</b></li>
           <li><b>フェーズは飛んでいませんでした。</b>60%（13,800,000）を越えたのが
             経過 67.6〜67.9 秒、25%（5,750,000）を越えたのが 80.4 秒で、
@@ -1604,7 +1625,9 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
              grid: 3, filt: { q: '', role: '', bul: '', arm: '', sch: '', sq: '', star: '', sort: 'n' },
              more: false, who: -1, sel: null, lv: 5, mk: [], slv: 5, tab: 0, goal: null,
              // **フェーズは既定で自動**（削った量で移る）。数値を入れると固定
-             phFix: null, scen: null };
+             // `arm` は大決戦の装甲（null なら総力戦の既定）
+             // `bst` は「ボスの状態」（被ダメージ率アップなどの窓）
+             phFix: null, scen: null, arm: null, bst: [] };
   st.slots = st.parties[0].slots;
   st.tl = st.parties[0].tl;
   st.start = st.parties[0].start;
@@ -1761,7 +1784,36 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
   }
 
   function boss() { return B.bosses[st.bi]; }
-  function diff() { return boss().d[st.di]; }
+  // **大決戦は「装甲を選べる総力戦」。**表は `EliminateRaidStageExcelTable` と
+  // 別だが、`DevName` の「素の名前＋難易度」で束ねて 1,100 回突き合わせて
+  // **装甲以外まったく同じ**だった（HP・防御・会心抵抗・グロッキー・
+  // スコアの 4 定数まで。2026-09-01）。だから枝は増やさず、字だけ差し替える
+  var ARMJA = { LightArmor: '軽装備', HeavyArmor: '重装甲', Unarmed: '特殊装甲',
+                ElasticArmor: '弾力装甲' };
+  var _dfC = null, _dfK = '';
+  function diff() {
+    var r0 = boss().d[st.di];
+    if (!st.arm || !r0 || !r0.bs || r0.bs.armor === st.arm) { return r0; }
+    var k = st.bi + '|' + st.di + '|' + st.arm;
+    if (_dfK === k && _dfC) { return _dfC; }
+    var r = {}, q, bs = {};
+    for (q in r0) { if (has(r0, q)) { r[q] = r0[q]; } }
+    for (q in r0.bs) { if (has(r0.bs, q)) { bs[q] = r0.bs[q]; } }
+    bs.armor = st.arm;
+    r.bs = bs;
+    // 部位の装甲も揃える（部位のステータスも装甲では変わらない）
+    if (r0.sub && r0.sub.length) {
+      r.sub = r0.sub.map(function (x) {
+        var y = {}, q2;
+        for (q2 in x) { if (has(x, q2)) { y[q2] = x[q2]; } }
+        y.armor = st.arm;
+        return y;
+      });
+    }
+    _dfK = k; _dfC = r;
+    return r;
+  }
+  function has(o, k) { return Object.prototype.hasOwnProperty.call(o, k); }
   function tormentIdx(b) {
     for (var i = 0; i < b.d.length; i++) { if (b.d[i].df === 'Torment') { return i; } }
     return b.d.length - 1;
@@ -1983,7 +2035,10 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
   function dmgCurve0(r, key) {
     var pts = [], us = usesSorted(), i, q;
     for (i = 0; i < us.length; i++) {
-      var u = us[i], d = dmgOf(u.i, r, u.t, u.k, u.pk);
+      var u = us[i];
+      // **部位（柱・装置・聖遺物…）に当てた発は、ボスの HP から引かない**
+      if (u.tg != null) { continue; }
+      var d = dmgOf(u.i, r, u.t, u.k, u.pk, null);
       if (d) { pts.push([u.t, d[key]]); }
     }
     var dur = r.dur || 240, STEP = 5;
@@ -2830,6 +2885,34 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
       out.push(['e', zn.join('・') + ' は形態を選ばないとダメージが 0 のままです' +
         '（帯をクリックして「形態」を選びます）']);
     }
+    // **部位に当てたぶんの集計。**ボスの HP からは引いていないので、
+    // どれだけ当てたかはここで出す（2026-09-01）
+    var subs0 = r.sub || [];
+    if (subs0.length) {
+      var acc = {}, us0 = usesSorted(), z2, key0 = scen().key;
+      for (z2 = 0; z2 < us0.length; z2++) {
+        var u0 = us0[z2];
+        if (u0.tg == null) { continue; }
+        var d0 = dmgOf(u0.i, r, u0.t, u0.k, u0.pk, u0.tg);
+        if (!d0) { continue; }
+        if (!acc[u0.tg]) { acc[u0.tg] = { n: 0, v: 0 }; }
+        acc[u0.tg].n++; acc[u0.tg].v += d0[key0];
+      }
+      var kz;
+      for (kz in acc) {
+        var sb0 = subs0[kz] || {};
+        out.push([acc[kz].v >= (sb0.hp || 0) ? 'g' : 'w',
+          sb0.n + '（HP ' + n0(sb0.hp) + '）へ ' + acc[kz].n + ' 発・' +
+          n0(Math.round(acc[kz].v)) + '　' +
+          (acc[kz].v >= (sb0.hp || 0) ? '壊せます' : '壊しきれません') +
+          '。ここに当てたぶんはボスの HP から引いていません']);
+      }
+      if (!Object.keys(acc).length) {
+        out.push(['w', 'このボスには部位が ' + subs0.length + ' 種あります（' +
+          subs0.map(function (x) { return x.n; }).join('・') +
+          '）。柱や装置に撃つ行は、帯をクリックして「当たる先」を選びます']);
+      }
+    }
     var nalt = altList().length;
     if (nalt) {
       out.push(['w', '条件でダメージが変わるスキルが ' + nalt +
@@ -2839,11 +2922,25 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
     out.push(['w', 'バフは EX・NS・PS・固有武器・SS の全部を見ています。' +
       '乗せていないのは SS の発動ぶん 87 件（引き金が要るもの）だけです']);
     out.push(['w', 'SS のダメージと遮蔽はまだ入っていません']);
-    out.push(['w', '当たる先はいつもボス 1 体です。Torment で敵が 1 体なのはビナーだけで、' +
-      'ホドの柱・ヒエロニムスの壺のような別の的に撃つぶんも、ボスに当たった扱いで数えます']);
-    out.push(['w', 'ボス側の被ダメージ率の変化は入っていません。' +
-      '14 体のうち 11 体が持っていて、たとえばホド Torment の「栄光の裏側」は ' +
-      'CC を 20 秒ぶん溜めると 30 秒間 被ダメージ率 +300% です']);
+    if (st.bst.length) {
+      var bh = [], z3;
+      for (z3 = 0; z3 < st.bst.length; z3++) {
+        var w3 = st.bst[z3];
+        bh.push(bstLabel(w3.k) + ' ' + (w3.v >= 0 ? '+' : '') + w3.v +
+                (w3.k === 'damaged' || w3.k === 'def' ? '%' : '') +
+                '（' + (+w3.t0).toFixed(1) + '〜' + (+w3.t1).toFixed(1) + '秒）');
+      }
+      out.push(['g', 'ボスの状態を ' + st.bst.length + ' つ置いています：' + bh.join('・')]);
+    } else {
+      var gmN = (diff().gim || []).length;
+      out.push(['w', 'ボスの状態は置いていません。' + (gmN
+        ? 'このボスの説明文からは ' + gmN + ' 件の候補が拾えています（「ギミックから選ぶ」）。'
+        : '14 体のうち 11 体が被ダメージ率を動かします。') +
+        '**引き金はデータから時刻を決められない**ので、' +
+        '「ボスの状態」で効いている間を置いてください']);
+    }
+    out.push(['w', '通常攻撃はいつもボス本体に当たる前提です。' +
+      '柱や装置に撃つ EX は、帯をクリックして「当たる先」を選べます']);
     // **実測 2 本との突き合わせ**（2026-09-01）。下の「数字の出どころ」に詳しい
     out.push(['w', '実物の TL 2 本と突き合わせています。大決戦ビナー Torment 貫通・屋外は ' +
       'TL 1 ページ目が終わった時点の残 HP が 実測 14,639,773 に対して 平均 16,694,374、' +
@@ -3344,7 +3441,9 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
       }
       out.push({ i: sl0,
                  t: (r0 && r0.at != null) ? r0.at : st.tl[i].t,
-                 k: kd0, bto: st.tl[i].bto, pk: pk0 });
+                 k: kd0, bto: st.tl[i].bto, pk: pk0,
+                 // **当たる先。**null ならボス本体
+                 tg: st.tl[i].tg == null ? null : st.tl[i].tg });
     }
     var dur = diff().dur || 240;
     for (i = 0; i < SLOTS; i++) {
@@ -3495,8 +3594,21 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
     return keep;
   }
   // ボスの実効ステータス。t 秒の時点で乗っているデバフを入れる
-  function enemyAt(r, t) {
-    var bs = r.bs || {}, m = {}, i;
+  /** 当たる先。`tg` が null ならボス本体、数字なら `r.sub[tg]`（部位）。
+      **部位は装甲も防御も別物**なので、ここで丸ごと差し替える
+      （`DB/CharacterStatExcelTable.json` の部位の行。2026-09-01 に足した） */
+  function aimOf(r, tg) {
+    if (tg == null) { return r.bs || {}; }
+    var x = (r.sub || [])[tg];
+    return x || (r.bs || {});
+  }
+  function aimName(r, tg) {
+    if (tg == null) { return (boss() || {}).n || 'ボス'; }
+    var x = (r.sub || [])[tg];
+    return x ? x.n : '？';
+  }
+  function enemyAt(r, t, tg) {
+    var bs = aimOf(r, tg), m = {}, i;
     function set(k, v) { m[k] = [v || 0, 0, 1]; }
     set('DefensePower', bs.def); set('DodgePoint', bs.dodge);
     set('CriticalChanceResistPoint', bs.crR);
@@ -3508,6 +3620,20 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
       if (!m[k]) { continue; }
       if (q[1] === 'Coefficient') { m[k][2] += db[i].v / 10000; }
       else { m[k][1] += db[i].v; }
+    }
+    // **ボスの状態。**ギミックで変わるぶんを手で置いた窓（`st.bst`）。
+    // 引き金（CC の累積・部位破壊・被弾回数・弱体の数）はボスごとに違って
+    // データからは時刻を決められないので、**値はデータ・時刻は人**にしている
+    // （2026-09-01）。`DamagedRatio` は「減らすほど食らう」向きなので、
+    // 被ダメージ率 +N% は素の 10000 から N×100 を引く
+    // （`(20000 − DamagedRatio) ÷ 10000`。SchaleDB `calculateDamage` 858 行）
+    for (i = 0; i < (st.bst || []).length; i++) {
+      var w = st.bst[i];
+      if (t == null || t < w.t0 - 1e-9 || t >= w.t1) { continue; }
+      if (w.k === 'damaged') { m.DamagedRatio[1] -= (w.v || 0) * 100; }
+      else if (w.k === 'def') { m.DefensePower[2] += (w.v || 0) / 100; }
+      else if (w.k === 'crR') { m.CriticalChanceResistPoint[1] += (w.v || 0); }
+      else if (w.k === 'cdR') { m.CriticalDamageResistRate[1] += (w.v || 0); }
     }
     function tot(k) {
       var v = m[k];
@@ -3622,19 +3748,19 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
   // +1 = 全部いちばん高い候補（2026-09-01 の先生の指示
   // 「上振れシナリオと下振れシナリオ」）。**総当たりするのは達成率の表だけ**
   var PICKF = 0;
-  function dmgOf(idx, r, at, kind, upk) {
+  function dmgOf(idx, r, at, kind, upk, tg) {
     var p = st.party[idx];
     if (!p) { return null; }
     var kd = kind || 'Ex';
     var alt = altOf(p.id, kd);
     if (!PICKF || !alt || alt.v.length < 2) {
-      return dmgOf1(idx, r, at, kd, alt ? pickOf(idx, kd, upk) : 0);
+      return dmgOf1(idx, r, at, kd, alt ? pickOf(idx, kd, upk) : 0, tg);
     }
     // **候補ごとに最後まで計算して比べる。**倍率（`Scale`）だけで比べると、
     // 発数・防御無視・会心の有無が候補ごとに違うぶんを取りこぼす
     var best = null, i;
     for (i = 0; i < alt.v.length; i++) {
-      var d = dmgOf1(idx, r, at, kd, i);
+      var d = dmgOf1(idx, r, at, kd, i, tg);
       if (!d) { continue; }
       if (!best || (PICKF > 0 ? d.avg > best.avg : d.avg < best.avg)) { best = d; }
     }
@@ -3676,16 +3802,16 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
     if (a) { for (i = 0; i < a.v.length; i++) { look(a.v[i]); } }
     return (n >= 4 && formDur(id, kind) >= 1) ? SLICE : 1;
   }
-  function dmgOf1(idx, r, at, kind, pick) {
+  function dmgOf1(idx, r, at, kind, pick, tg) {
     var p0 = st.party[idx];
     if (!p0) { return null; }
     var kd0 = kind || 'Ex';
     var ns = at == null ? 1 : sliceOf(p0.id, kd0);
-    if (ns <= 1) { return dmgAt(idx, r, at, kd0, pick); }
+    if (ns <= 1) { return dmgAt(idx, r, at, kd0, pick, tg); }
     var D = formDur(p0.id, kd0), dur0 = r.dur || 240, acc = null, k, q2;
     for (k = 0; k < ns; k++) {
       var ts = Math.min(at + D * (k + 0.5) / ns, dur0);
-      var d0 = dmgAt(idx, r, ts, kd0, pick);
+      var d0 = dmgAt(idx, r, ts, kd0, pick, tg);
       if (!d0) { return null; }
       if (!acc) { acc = { min: 0, avg0: 0, avg: 0, avgC: 0, max: 0,
                           hit: d0.hit, crit: d0.crit, name: d0.name }; }
@@ -3693,7 +3819,7 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
     }
     return acc;
   }
-  function dmgAt(idx, r, at, kind, pick) {
+  function dmgAt(idx, r, at, kind, pick, tg) {
     var p = st.party[idx];
     if (!p) { return null; }
     var kd = kind || 'Ex';
@@ -3707,9 +3833,10 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
     var slv = lvlOf(idx, kd);
     var cs = statsOf(p.id, idx, at);
     if (!cs) { return null; }
-    var eb = at == null ? { def: bs.def, dodge: bs.dodge, crR: bs.crR, cdR: bs.cdR,
-                            damaged: 10000, damaged2: 10000, armor: bs.armor, n: 0 }
-                        : enemyAt(r, at);
+    var tb = aimOf(r, tg);
+    var eb = at == null ? { def: tb.def, dodge: tb.dodge, crR: tb.crR, cdR: tb.cdR,
+                            damaged: 10000, damaged2: 10000, armor: tb.armor, n: 0 }
+                        : enemyAt(r, at, tg);
     var atk = cs.get('AttackPower');
     if (isMain(idx)) { atk += support('AttackPower', lv, r); }
     var lvMod = clamp(1 - ((r.lv || lv) - lv) * 0.02, 0.4, 1);
@@ -3828,7 +3955,9 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
   function total0(r) {
     var ex = zero(), ns = zero(), na = zero(), all = zero(), us = usesSorted(), i, k, q;
     for (i = 0; i < us.length; i++) {
-      var u = us[i], d = dmgOf(u.i, r, u.t, u.k, u.pk);
+      var u = us[i];
+      if (u.tg != null) { continue; }
+      var d = dmgOf(u.i, r, u.t, u.k, u.pk, null);
       if (!d) { continue; }
       // **形態違いは `Ex1` / `Ex2`。**`=== 'Ex'` で比べると NS 側に入っていた
       var box = /^Ex\d*$/.test(u.k) ? ex : ns;
@@ -3864,8 +3993,8 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
 
   // ------------------------------------------------------------ 書き出し・読み込み
   function snapshot() {
-    return { v: 2, boss: boss().id, grp: boss().g, diff: diff().df,
-             mode: st.mode, pi: st.pi,
+    return { v: 2, boss: boss().id, grp: boss().g, diff: diff().df, arm: st.arm,
+             mode: st.mode, pi: st.pi, bst: st.bst,
              parties: st.parties, mk: st.mk, goal: st.goal };
   }
   function restore(o) {
@@ -3881,7 +4010,8 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
     for (k = 0; k < B.bosses[bi].d.length; k++) { if (B.bosses[bi].d[k].df === o.diff) { di = k; } }
     if (di < 0) { throw new Error('知らない難易度です: ' + o.diff); }
     mark();
-    st.bi = bi; st.di = di;
+    st.bi = bi; st.di = di; _dfK = '';
+    st.arm = (o.arm && (B.bosses[bi].d[di].arm || []).indexOf(o.arm) >= 0) ? o.arm : null;
     if (o.v === 2) {
       st.mode = o.mode === 10 ? 10 : 6;
       st.parties = [];
@@ -3938,6 +4068,13 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
       if (mk2 && isFinite(mk2.t)) { st.mk.push({ t: +mk2.t, n: String(mk2.n || '') }); }
     }
     st.goal = (o.goal && isFinite(o.goal.dmg)) ? { dmg: +o.goal.dmg, sec: +o.goal.sec } : null;
+    st.bst = [];
+    for (i = 0; i < (o.bst || []).length; i++) {
+      var w2 = o.bst[i];
+      if (w2 && isFinite(w2.t0) && isFinite(w2.t1)) {
+        st.bst.push({ t0: +w2.t0, t1: +w2.t1, k: String(w2.k || 'damaged'), v: +w2.v || 0 });
+      }
+    }
     st.sel = null; usePartyRef(); bump();
     fillBoss(); fillBuild(); drawParty(); drawCrew(); drawPicker(); draw();
   }
@@ -4331,6 +4468,113 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
       'AUTO の ON/OFF。<b>読めなかった行は下に全部出します</b></div>'
   ].join('');
   /** 読み込みの窓。**JSON でも、文章で書いた TL でも受ける。** */
+  // ------------------------------------------------- 画面から TL を組む
+  /* **文章を貼る以外の入口**（2026-09-01 の先生の指示「読み込むの TL は
+     テキスト以外に、サイト内 UI からも入力できるようにして」）。
+     フォームは**文章を組み立てて `parseTL` に渡すだけ**にしてある。
+     読み取りの実装を 2 本に増やすと、片方だけ直す事故が起きる。 */
+  var IMF = { crew: [], start: [], rows: [] };
+  function stuOpts(sel, blank) {
+    var lst = S.students.slice().sort(function (a, b) {
+      return a.n < b.n ? -1 : (a.n > b.n ? 1 : 0);
+    });
+    var h = blank ? '<option value="">' + esc(blank) + '</option>' : '', i;
+    for (i = 0; i < lst.length; i++) {
+      h += '<option value="' + lst[i].id + '"' +
+           (String(sel) === String(lst[i].id) ? ' selected' : '') + '>' +
+           esc(lst[i].n) + '</option>';
+    }
+    return h;
+  }
+  function imfCrewOpts(sel) {
+    var h = '<option value="">—</option>', i;
+    for (i = 0; i < IMF.crew.length; i++) {
+      var sd = _byid[IMF.crew[i].id];
+      if (!sd) { continue; }
+      h += '<option value="' + i + '"' + (String(sel) === String(i) ? ' selected' : '') +
+           '>' + esc(sd.n) + '</option>';
+    }
+    return h;
+  }
+  /** フォームの中身を、貼り付けと同じ文章に組み立てる */
+  function imfText() {
+    var L = ['使用生徒詳細'], i;
+    for (i = 0; i < IMF.crew.length; i++) {
+      var c = IMF.crew[i], sd = _byid[c.id];
+      if (!sd) { continue; }
+      L.push(sd.n + '　' + (c.ws > 0 ? '固有' + c.ws : '★5') + '　MMMM　t10/10/10' +
+             '　絆' + c.bond + '　全WB' + c.pot);
+    }
+    var ss = [];
+    for (i = 0; i < IMF.start.length; i++) {
+      var sd2 = _byid[(IMF.crew[IMF.start[i]] || {}).id];
+      if (sd2) { ss.push(CIRC.charAt(i) + sd2.n); }
+    }
+    if (ss.length) { L.push('', '開始SET：' + ss.join(' ')); }
+    L.push('', 'TL1ページ目');
+    for (i = 0; i < IMF.rows.length; i++) {
+      var rw = IMF.rows[i], sd3 = _byid[(IMF.crew[rw.who] || {}).id];
+      if (!sd3) { continue; }
+      var head = rw.md === 'c' ? (rw.cv >= 1 && rw.cv <= 20 && rw.cv === Math.round(rw.cv)
+                                  ? CIRC.charAt(rw.cv - 1) : String(rw.cv) + ' ')
+               : (rw.md === 't' ? 't' + rw.t + ' ' : '即');
+      var to = '';
+      if (rw.to != null && IMF.crew[rw.to] && _byid[IMF.crew[rw.to].id]) {
+        to = '(' + _byid[IMF.crew[rw.to].id].n + ')';
+      }
+      L.push(head + (rw.copy ? 'C' : '') + sd3.n + to);
+    }
+    return L.join('\n');
+  }
+  function imfDraw(w) {
+    var h = '', i;
+    h += '<div class="fields wrapf" style="margin-bottom:6px">' +
+         '<b class="tiny">使用生徒</b>' +
+         '<button type="button" class="btn2" data-im="cadd">＋ 生徒</button></div>';
+    for (i = 0; i < IMF.crew.length; i++) {
+      var c = IMF.crew[i];
+      h += '<div class="fields wrapf" style="margin-bottom:3px">' +
+        '<select data-im="cid" data-i="' + i + '">' + stuOpts(c.id) + '</select>' +
+        '<label class="f"><span>固有</span><select data-im="cws" data-i="' + i + '">' +
+        [0, 1, 2, 3, 4].map(function (v) {
+          return '<option value="' + v + '"' + (c.ws === v ? ' selected' : '') + '>★' + v + '</option>';
+        }).join('') + '</select></label>' +
+        '<label class="f"><span>絆</span><input type="number" data-im="cbond" data-i="' + i +
+        '" min="1" max="50" value="' + c.bond + '" style="width:58px"></label>' +
+        '<label class="f"><span>潜在</span><input type="number" data-im="cpot" data-i="' + i +
+        '" min="0" max="25" value="' + c.pot + '" style="width:58px"></label>' +
+        '<button type="button" class="btn2 sq" data-im="cdel" data-i="' + i + '">×</button></div>';
+    }
+    h += '<div class="fields wrapf" style="margin:6px 0 3px"><b class="tiny">開始SET</b>';
+    for (i = 0; i < 5; i++) {
+      h += '<select data-im="sset" data-i="' + i + '">' +
+           imfCrewOpts(IMF.start[i] == null ? '' : IMF.start[i]) + '</select>';
+    }
+    h += '</div>';
+    h += '<div class="fields wrapf" style="margin:6px 0 3px"><b class="tiny">TL</b>' +
+         '<button type="button" class="btn2" data-im="radd">＋ 行</button></div>';
+    for (i = 0; i < IMF.rows.length; i++) {
+      var rw = IMF.rows[i];
+      h += '<div class="fields wrapf" style="margin-bottom:3px">' +
+        '<span class="mut tiny" style="width:22px">' + (i + 1) + '</span>' +
+        '<select data-im="rwho" data-i="' + i + '">' + imfCrewOpts(rw.who) + '</select>' +
+        '<select data-im="rmd" data-i="' + i + '">' +
+        '<option value="c"' + (rw.md === 'c' ? ' selected' : '') + '>コスト</option>' +
+        '<option value="t"' + (rw.md === 't' ? ' selected' : '') + '>秒</option>' +
+        '<option value="e"' + (rw.md === 'e' ? ' selected' : '') + '>即</option>' +
+        '</select>' +
+        (rw.md === 'e' ? '' :
+          '<input type="number" data-im="rv" data-i="' + i + '" step="0.5" min="0" value="' +
+          (rw.md === 'c' ? rw.cv : rw.t) + '" style="width:64px">') +
+        '<label class="f"><span>渡す</span><select data-im="rto" data-i="' + i + '">' +
+        imfCrewOpts(rw.to == null ? '' : rw.to) + '</select></label>' +
+        '<label class="f"><span>複製</span><input type="checkbox" data-im="rcopy" data-i="' + i +
+        '"' + (rw.copy ? ' checked' : '') + '></label>' +
+        '<button type="button" class="btn2 sq" data-im="rdel" data-i="' + i + '">×</button></div>';
+    }
+    w.querySelector('#imform').innerHTML = h;
+    w.querySelector('textarea').value = imfText();
+  }
   function importSheet() {
     var w = document.createElement('div');
     w.className = 'sheet';
@@ -4341,11 +4585,55 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
       '支援値は編成から計算するので書かなくて構いません。' +
       '<a href="#" data-x="fmt">書き方を見る</a></p>' +
       '<div class="errlog" id="imfmt" hidden style="margin-bottom:6px">' + FMT_HELP + '</div>' +
+      '<div class="tabs" id="imtabs" style="margin-bottom:6px">' +
+      '<button type="button" class="t on" data-im="tab" data-v="0">文章を貼る</button>' +
+      '<button type="button" class="t" data-im="tab" data-v="1">画面から組む</button></div>' +
+      '<div id="imform" hidden style="max-height:300px;overflow:auto"></div>' +
       '<textarea spellcheck="false"></textarea>' +
       '<div class="row"><button type="button" class="btn2" data-x="ok">読み込む</button>' +
       '<button type="button" class="btn2" data-x="no">閉じる</button></div>' +
       '<div class="errlog" id="imlog" style="margin-top:6px;display:none"></div></div>';
     var ta = w.querySelector('textarea'), log = w.querySelector('#imlog');
+    // ---- 「画面から組む」。触るたびに文章を組み直して textarea に流す
+    w.addEventListener('click', function (e) {
+      var t = e.target.closest('[data-im]');
+      if (!t) { return; }
+      var k = t.getAttribute('data-im'), i = +t.getAttribute('data-i');
+      if (k === 'tab') {
+        var v = t.getAttribute('data-v') === '1';
+        var bs = w.querySelectorAll('#imtabs .t'), z;
+        for (z = 0; z < bs.length; z++) { bs[z].className = 't' + (bs[z] === t ? ' on' : ''); }
+        w.querySelector('#imform').hidden = !v;
+        ta.readOnly = v;
+        if (v) { imfDraw(w); }
+        return;
+      }
+      if (k === 'cadd') { IMF.crew.push({ id: S.students[0].id, ws: 3, bond: 20, pot: 25 }); }
+      else if (k === 'cdel') { IMF.crew.splice(i, 1); IMF.start = []; IMF.rows = []; }
+      else if (k === 'radd') { IMF.rows.push({ who: 0, md: 'c', cv: 10, t: 0, to: null, copy: false }); }
+      else if (k === 'rdel') { IMF.rows.splice(i, 1); }
+      else { return; }
+      imfDraw(w);
+    });
+    w.addEventListener('change', function (e) {
+      var t = e.target.closest('[data-im]');
+      if (!t || t.getAttribute('data-im') === 'tab') { return; }
+      var k = t.getAttribute('data-im'), i = +t.getAttribute('data-i');
+      var c = IMF.crew[i], rw = IMF.rows[i];
+      if (k === 'cid' && c) { c.id = +t.value; }
+      else if (k === 'cws' && c) { c.ws = +t.value; }
+      else if (k === 'cbond' && c) { c.bond = Math.max(1, Math.min(50, +t.value || 1)); }
+      else if (k === 'cpot' && c) { c.pot = Math.max(0, Math.min(25, +t.value || 0)); }
+      else if (k === 'sset') { IMF.start[i] = t.value === '' ? null : +t.value; }
+      else if (k === 'rwho' && rw) { rw.who = t.value === '' ? 0 : +t.value; }
+      else if (k === 'rmd' && rw) { rw.md = t.value; }
+      else if (k === 'rv' && rw) {
+        if (rw.md === 'c') { rw.cv = +t.value || 0; } else { rw.t = +t.value || 0; }
+      } else if (k === 'rto' && rw) { rw.to = t.value === '' ? null : +t.value; }
+      else if (k === 'rcopy' && rw) { rw.copy = t.checked; }
+      else { return; }
+      imfDraw(w);
+    });
     function say(rows) {
       log.style.display = '';
       log.innerHTML = rows.join('');
@@ -4754,6 +5042,18 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
       }
       h2 += '<label class="f"><span>形態</span><select data-us="f">' + fh + '</select></label>';
     }
+    // **当たる先。**ボスに部位があるときだけ出す（ホドの柱、ホバークラフトの
+    // ミサイル誘導装置、ヒエロニムスの聖遺物…）。部位に当てたぶんは
+    // ボスの HP から引かない
+    var subs = (diff().sub || []);
+    if (subs.length) {
+      var th = '<option value="">' + esc(boss().n) + '（本体）</option>', ti;
+      for (ti = 0; ti < subs.length; ti++) {
+        th += '<option value="' + ti + '"' + (String(u.tg) === String(ti) ? ' selected' : '') +
+              '>' + esc(subs[ti].n) + '（HP ' + n0(subs[ti].hp) + '）</option>';
+      }
+      h2 += '<label class="f"><span>当たる先</span><select data-us="tg">' + th + '</select></label>';
+    }
     if (er && er.grant) {
       h2 += '<label class="f"><span>コスト' + (er.grant.vt === 'coef' ? '減少' : '増加') +
         'カードを渡す</span><select data-us="to"' +
@@ -4858,13 +5158,91 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
     $('i-phase').innerHTML = pk;
     $('i-phase').value = st.phFix == null ? '' : String(st.phFix);
     $('i-lv').textContent = r.lv == null ? '—' : ('Lv' + r.lv);
-    drawGroggy();
+    // 装甲。**大決戦がある枝だけ選べる**（`arm` はそこから入る）
+    var raw = boss().d[st.di], arms = raw.arm || [], ah = '', ai;
+    if (arms.length) {
+      ah = '<option value="">総力戦（' + (ARMJA[(raw.bs || {}).armor] ||
+           (raw.bs || {}).armor || '—') + '）</option>';
+      for (ai = 0; ai < arms.length; ai++) {
+        ah += '<option value="' + arms[ai] + '">大決戦 ' +
+              (ARMJA[arms[ai]] || arms[ai]) + '</option>';
+      }
+    } else {
+      ah = '<option value="">' + (ARMJA[(raw.bs || {}).armor] ||
+           (raw.bs || {}).armor || '—') + '</option>';
+    }
+    $('i-armor').innerHTML = ah;
+    $('i-armor').value = st.arm || '';
+    drawGroggy(); drawBstate(); drawBstPick();
   }
   // **グロッキーで何が起きるかはボスごとに違う**（2026-09-01 の先生の指摘）。
   // 中身は `DB/BossExternalBTExcelTable.json` の引き金 `ApplyGroggy`。
   // **被ダメージが増える指定はどのボスにも無い**ので、そう書く
   var GGJA = { AddActiveGauge: 'EX ゲージを引く', ChangePhase: '別のフェーズへ移る',
                ClearNormalSkill: '通常攻撃を止める', ForceChangePhase: '別のフェーズへ移る' };
+  // **ボスの状態。**被ダメージ率などを、効いている間だけ置く
+  var BSTJA = [['damaged', '被ダメージ率', '%', 300],
+               ['def', '防御力', '%', -50],
+               ['crR', '会心抵抗値', '', -400],
+               ['cdR', '会心ダメージ抵抗率', '', -2000]];
+  function bstLabel(k) {
+    for (var i = 0; i < BSTJA.length; i++) { if (BSTJA[i][0] === k) { return BSTJA[i][1]; } }
+    return k;
+  }
+  // ボスの説明文（`RaidSkills`）から拾ったギミックの候補。**自動では効かせない。**
+  // いつ入るかは TL 次第なので、選んだら窓を 1 つ置いて、秒は自分で動かす
+  function esc2(t) {
+    return String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+  function gimLabel(g) {
+    var u = (g.k === 'damaged' || g.k === 'def') ? '%' : '';
+    // 説明文が「ホド：…」「インベイドピラー：…」のように相手で分かれていることがある
+    // （ホドの「栄光の裏側」は本体と柱で 2 行。名前だけだと見分けが付かない）
+    var m = String(g.t || '').match(/^[-－]?([^：:]{1,12})[：:]/);
+    return g.n + (m ? '（' + m[1] + '）' : '') + ' / ' + bstLabel(g.k) + ' ' +
+      (g.v >= 0 ? '+' : '') + g.v + u + (g.d ? ' ' + g.d + '秒' : '');
+  }
+  function drawBstPick() {
+    var el = $('bst-pick'), gm = (diff().gim || []), h, i;
+    if (!el) { return; }
+    if (!gm.length) {
+      el.innerHTML = '<option value="">ギミックの候補なし</option>';
+      el.disabled = true; return;
+    }
+    el.disabled = false;
+    h = '<option value="">ギミックから選ぶ…（' + gm.length + '）</option>';
+    for (i = 0; i < gm.length; i++) {
+      h += '<option value="' + i + '" title="' + esc2(gm[i].t) + '">' +
+        esc2(gimLabel(gm[i])) + '</option>';
+    }
+    el.innerHTML = h;
+  }
+  function drawBstate() {
+    var h = '', i, j, dur = diff().dur || 240;
+    for (i = 0; i < st.bst.length; i++) {
+      var w = st.bst[i], sel = '';
+      for (j = 0; j < BSTJA.length; j++) {
+        sel += '<option value="' + BSTJA[j][0] + '"' +
+               (w.k === BSTJA[j][0] ? ' selected' : '') + '>' + BSTJA[j][1] + '</option>';
+      }
+      h += '<span class="f"><select data-bst="k" data-i="' + i + '">' + sel + '</select>' +
+        '<input type="number" data-bst="v" data-i="' + i + '" step="10" value="' +
+        (w.v || 0) + '" style="width:78px" title="増やす量">' +
+        '<span class="mut tiny">' + (w.k === 'damaged' || w.k === 'def' ? '%' : '') + '</span>' +
+        '<span class="mut tiny">　</span>' +
+        '<input type="number" data-bst="t0" data-i="' + i + '" step="0.1" min="0" max="' +
+        dur + '" value="' + (+w.t0).toFixed(2) + '" style="width:72px" title="始まり（秒）">' +
+        '<span class="mut tiny">〜</span>' +
+        '<input type="number" data-bst="t1" data-i="' + i + '" step="0.1" min="0" max="' +
+        dur + '" value="' + (+w.t1).toFixed(2) + '" style="width:72px" title="終わり（秒）">' +
+        '<button type="button" class="btn2 sq" data-bst="del" data-i="' + i + '">×</button>' +
+        '</span>';
+    }
+    $('bstate').innerHTML = h ||
+      '<span class="mut tiny">まだありません。ホド Torment の「栄光の裏側」なら ' +
+      '被ダメージ率 +300%・30 秒です</span>';
+  }
   function drawGroggy() {
     var b = boss(), r = diff(), bs = r.bs || {}, gg = r.gg || [];
     if (!bs.groggy) { $('groggy').innerHTML = ''; return; }
@@ -4915,7 +5293,39 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
   setTimeout(fit, 60);
 
   $('i-boss').addEventListener('change', function () {
-    st.bi = +this.value; st.di = tormentIdx(boss()); fillBoss(); fit();
+    st.bi = +this.value; st.di = tormentIdx(boss()); st.arm = null; fillBoss(); fit();
+  });
+  $('bstate').addEventListener('change', function (e) {
+    var el = e.target.closest('[data-bst]');
+    if (!el) { return; }
+    var i = +el.getAttribute('data-i'), k = el.getAttribute('data-bst'), w = st.bst[i];
+    if (!w) { return; }
+    mark();
+    if (k === 'k') { w.k = el.value; } else { w[k] = +el.value || 0; }
+    if (w.t1 < w.t0) { w.t1 = w.t0; }
+    drawBstate(); draw();
+  });
+  $('bstate').addEventListener('click', function (e) {
+    var el = e.target.closest('[data-bst="del"]');
+    if (!el) { return; }
+    mark();
+    st.bst.splice(+el.getAttribute('data-i'), 1);
+    drawBstate(); draw();
+  });
+  $('bst-pick').addEventListener('change', function () {
+    var gm = diff().gim || [], g = this.value === '' ? null : gm[+this.value];
+    this.value = '';
+    if (!g) { return; }
+    mark();
+    // 説明文に秒が書いてあればその長さで、無ければ戦闘の終わりまで
+    var d0 = diff().dur || 240, last = 0, i;
+    for (i = 0; i < st.bst.length; i++) { last = Math.max(last, st.bst[i].t1); }
+    st.bst.push({ k: g.k, v: g.v, t0: last,
+                  t1: Math.min(d0, g.d ? last + g.d : d0) });
+    drawBstate(); draw();
+  });
+  $('i-armor').addEventListener('change', function () {
+    st.arm = this.value || null; _dfK = ''; fillBoss(); draw();
   });
   $('i-diff').addEventListener('change', function () { st.di = +this.value; fillBoss(); draw(); });
   $('i-phase').addEventListener('change', function () {
@@ -5287,6 +5697,12 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
       if (a === 'delsel') { delSel(); }
       if (a === 'clear') { mark(); st.tl.length = 0; st.sel = null; st.mk = []; draw(); }
       if (a === 'auto') { autoFill(); }
+      if (a === 'bstadd') {
+        mark();
+        var d0 = diff().dur || 240;
+        st.bst.push({ k: 'damaged', v: 300, t0: 0, t1: Math.min(30, d0) });
+        drawBstate(); draw();
+      }
       if (a === 'goal') {
         var r0 = diff(), hp0 = (r0.bs && r0.bs.hp) || 0;
         var cur = st.goal || { dmg: hp0, sec: r0.dur || 240 };
@@ -5344,6 +5760,8 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
   document.querySelector('.tools2').addEventListener('click', onAct);
   $('b-goal').addEventListener('click', onAct);
   $('useedit').addEventListener('click', onAct);
+  // 「ボスの状態」の ＋ 足す も同じ入口から
+  $('bstate').parentNode.addEventListener('click', onAct);
 
   // **Ctrl+Z / Ctrl+Y は画面のどこにいても効く。**入力欄の中だけは横取りしない
   document.addEventListener('keydown', function (e) {
