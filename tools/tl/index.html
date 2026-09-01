@@ -4002,9 +4002,15 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
     var hit = clamp(2000 / (Math.max((eb.dodge || 0) - acc, 0) * 3 + 2000), 0, 1);
     var cp = cs.get('CriticalPoint');
     var cRate = clamp(1 - 4000000 / (Math.max(cp - (eb.crR || 0), 0) * 6000 + 4000000), 0, 1);
-    var cdm = (cs.get('CriticalDamageRate') - (eb.cdR || 0)) / 10000;
-    // **1 倍の下限は写し元（SchaleDB の calculateDamage）に無いので置かない**
-    // （2026-09-01 に外した）
+    // **会心の倍率には 1 倍の下限を置いている。**写し元（SchaleDB の
+    // `calculateDamage`）にもけーさんの本にも下限は無いが、下限が無いと
+    // **合計ダメージが負になる**。イェソド Torment は会心ダメージ抵抗率が
+    // 30,000 で、生徒の会心ダメージ率 20,000 を上回るので
+    // `(20000 - 30000) / 10000 = -1` になり、`1 + (cdm - 1)` が -1 倍になる。
+    // 全会心平均が -14.9%（HP 36,000,000 に対して -5,364,000）まで沈んだ。
+    // **会心が通常より弱くなることは無い**という扱いにして 1 で止める。
+    // 元の式に戻すなら、この `Math.max(..., 1)` を外す（2026-09-01）
+    var cdm = Math.max((cs.get('CriticalDamageRate') - (eb.cdR || 0)) / 10000, 1);
     // **`var` はこの 1 発のダメージの分散。**突破率（HP を削り切る確率）を出すのに要る。
     // 中身の乱れは 3 つ:
     //   ・ダメージのばらつき … 安定値から 1 倍までの一様乱数（`sMin`〜1）
@@ -4511,28 +4517,40 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
       var raw = lines[i], body = raw.replace(/[※#].*$/, '');
       // **育成の行かどうか。**書き方は 1 つに縛らない（2026-09-01 の先生の指示
       // 「TL はみんないろんな書き方してるから特化しなくていい」）
-      if (!/固有\s*\d|★\s*\d|MMMM|[Tt]\s*\d+\s*\/|Lv\s*\d|装備\s*\d|絆\s*\d|EX\s*\d/i
+      if (!/固有\s*\d|[★☆]\s*\d|MMMM|[Tt]\s*\d+\s*\/|Lv\s*\d|装備\s*\d|絆\s*\d|EX\s*\d/i
            .test(body)) { continue; }
-      var nm = body.split(/[\s　]+/).filter(function (x) { return x; })[0];
-      // **空白が無いまま育成が続くことがある**（「レイサ(マジカル)固有2　MMMM」）。
-      // 育成の書き出しに当たったら、そこで名前を切る（2026-09-01）
-      if (nm) {
-        var cutm = nm.match(/^(.+?)(?:固有|UE\d|★|MMMM|Lv\d|装備\d|絆\d|EX\d)/i);
-        if (cutm && cutm[1]) { nm = cutm[1]; }
+      // **名前が行頭にあるとは限らない。**実物の概要欄はこれだけ形が違う。
+      //   「⑤ヒナ(ドレス) 固有4 MMMM」   枠の番号が頭に付く
+      //   「❺カンナ（水着）☆5 MMMM」     黒丸の番号＋☆
+      //   「Lv.90 ☆5 レイサ / 5MMM」      名前が 3 つ目
+      //   「水着ミカ（レンタル）：固有4」   名前のうしろが「：」
+      //   「レイサ(マジカル)固有2　MMMM」  空白が無いまま育成が続く
+      // **前から順に試して、生徒として引けた語を名前にする**（2026-09-01）
+      var toks = body.split(/[\s　\/／|｜]+/).filter(function (x) { return x; });
+      var nm = '', sd = null, tq, cand, cutm, probe = [];
+      for (tq = 0; tq < toks.length && !sd; tq++) {
+        //   「90ミカ　固有3　T999」        レベルが名前の頭に付く（区切り無し）
+        // 生徒の名前が数字で始まることは無いので、頭の数字は落としてよい
+        cand = toks[tq].replace(/^[①-⑳❶-❿〇○●◯・\-]+/, '')
+                       .replace(/^\d+/, '').replace(/[：:、,]+$/, '');
+        cutm = cand.match(/^(.+?)(?:固有|UE\d|[★☆]|MMMM|Lv|装備\d|絆\d|EX\d)/i);
+        if (cutm && cutm[1]) { cand = cutm[1].replace(/[：:、,]+$/, ''); }
+        if (!cand || /^[\d.]+$/.test(cand)) { continue; }
+        sd = findStudent(cand, probe);
+        if (sd) { nm = cand; }
       }
-      if (!nm) { continue; }
-      var sd = findStudent(nm, res.notes);
-      if (!sd) { res.skipped.push([raw, '生徒が見つかりません: ' + nm]); continue; }
+      if (!sd) { res.skipped.push([raw, '生徒が見つかりません: ' + (toks[0] || '')]); continue; }
+      findStudent(nm, res.notes);   // 引けた語のぶんだけ注記を戻す
       var b = { id: sd.id, name: sd.n };
       var rest = body.replace(nm, ' '), mm;
       // 固有武器。「固有4」「固有4/50」「UE4」
-      mm = rest.match(/(?:固有|UE)\s*(\d)(?:\s*[\/／]\s*(\d+))?/i);
+      mm = rest.match(/(?:固有|UE)\s*[★☆]?\s*(\d)(?:\s*(?:[\/／]|Lv)\s*(\d+))?/i);
       if (mm) {
         b.star = 5; b.wstar = +mm[1];
         // **段が書いていなければ、その星の上限**（wlvMax の注記に出典）
         b.wlv = mm[2] ? Math.min(+mm[2], wlvMax(b.wstar)) : wlvMax(b.wstar);
       } else {
-        mm = rest.match(/★\s*(\d)/);
+        mm = rest.match(/[★☆]\s*(\d)/);
         if (mm) { b.star = +mm[1]; b.wstar = 0; b.wlv = 0; }
       }
       mm = rest.match(/Lv\s*(\d+)/i);
@@ -4568,8 +4586,14 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
       mm = rest.match(/(?:装備|[Tt])\s*(\d+)\s*[\/／]\s*(\d+)\s*[\/／]\s*(\d+)/);
       if (mm) { b.eq = [+mm[1], +mm[2], +mm[3]]; }
       else {
-        mm = rest.match(/装備\s*(\d+)/) || rest.match(/(?:^|[\s　])[Tt](\d+)(?![\/／\d])/);
-        if (mm && +mm[1] <= 10) { b.eq = +mm[1]; }
+        // **「T998」は 3 枠ぶんを続けて書いたもの**（9・9・8）。装備は 1〜10 なので
+        // 3 桁がぜんぶ 1〜9 なら 1 枠ずつに割る（2026-09-01、総力戦ホドの概要欄）
+        mm = rest.match(/(?:^|[\s　])[Tt]([1-9])([1-9])([1-9])(?![\/／\d])/);
+        if (mm) { b.eq = [+mm[1], +mm[2], +mm[3]]; }
+        else {
+          mm = rest.match(/装備\s*(\d+)/) || rest.match(/(?:^|[\s　])[Tt](\d+)(?![\/／\d])/);
+          if (mm && +mm[1] <= 10) { b.eq = +mm[1]; }
+        }
       }
       res.crew.push(b);
     }
