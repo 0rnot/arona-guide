@@ -4763,7 +4763,8 @@ def build_tl():
                                     key=lambda a: ARMORS.index(a))
                 # **部位。**この枝の Ground → 大決戦の枝 → 同じボスの別地形 の順に探す
                 _skip = set(sg["cids"])
-                got["sub"] = _subs(got["cid"], _skip)
+                _own = _subs(got["cid"], _skip)
+                got["sub"] = _own
                 if not got["sub"]:
                     for _a in got["arm"]:
                         _ac = (grp_arm.get(g0, {}).get(df) or {}).get(_a) or []
@@ -4784,6 +4785,13 @@ def build_tl():
                                 break
                         if got["sub"]:
                             break
+                # **借りた部位の装甲は本体に揃える。**大決戦の枝から借りると、
+                # その枝の装甲（並びの先頭＝LightArmor）が付いてくる。ペロロジラ屋外と
+                # ケセド屋外がそれで、本体が Unarmed／HeavyArmor なのに部位だけ
+                # LightArmor だった（2026-09-02）。部位の中身は装甲で変わらない
+                if got["sub"] and not _own:
+                    for _x in got["sub"]:
+                        _x["armor"] = got["bs"]["armor"]
                 # **転移**。説明文の「◯◯」が部位の名前に入っていたら、その率を乗せる
                 for _src, _rate, _why in _trans(b, df):
                     for _x in got["sub"]:
@@ -4979,11 +4987,18 @@ def build_tl():
                 #     落としていて 1 発ぶんしか数えていなかった（2026-09-01 の全キャラ照合）
                 #   Zone … 範囲が居座るもの（ミサキ EX）。
                 #     `ZoneDuration / ZoneHitInterval` 回、`Hits` の数だけ範囲がある
+                #   Stab … `ApplyStability` が false のものは
+                #     **安定値のばらつきを受けず、いつも最大ダメージ**
+                #     （説明文が「この攻撃は安定値に影響されず最大ダメージが適用される」）。
+                #     運んでいなかったので、その発が 1.26 倍ぶん少なく出ていた。
+                #     **SchaleDB の students に 3 件だけある**（ヒナ（ドレス）の
+                #     CH0230Ex02/03/04。2026-09-02 に全件数えて確かめた）
                 return [e.get("Scale"), e.get("Hits"), e.get("CriticalCheck"),
                         e.get("Block"), e.get("Period"), e.get("Duration"),
                         e.get("IgnoreDef"), e.get("HitFrames"),
                         [e["ZoneDuration"], e["ZoneHitInterval"]]
-                        if e.get("ZoneDuration") else None]
+                        if e.get("ZoneDuration") else None,
+                        0 if e.get("ApplyStability") is False else None]
             # **`Group` は「何段目か」で、足すものではなく択一。**
             # ネル（制服）の Ex1 は Group 0〜4 × 条件 2 通りの 10 件あって、
             # 全部足すと 1 発 5,727,546（ボス HP の 25%）になっていた。
@@ -5167,7 +5182,7 @@ def build_tl():
                                "DefensePenetration100"],
         "dmg": dmg_out,
         "dmgKeys": ["Scale", "Hits", "CriticalCheck", "Block", "Period",
-                    "Duration", "IgnoreDef", "HitFrames", "Zone"],
+                    "Duration", "IgnoreDef", "HitFrames", "Zone", "Stab"],
         # 条件でダメージが変わるもの。**画面のバーで 1 つ選ぶ。**
         # `c` は条件の原文、`v[i]` はその候補ぶんの効果（`dmg` と同じ並び）
         "dmgalt": alt_out,

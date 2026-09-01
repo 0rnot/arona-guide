@@ -2099,7 +2099,16 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
       var tr = trOf(r, u.tg) * (u.mc || 1);
       if (u.tg != null && !tr) { continue; }
       var d = dmgOf(u.i, r, u.t, u.k, u.pk, u.tg);
-      if (d) { pts.push([u.t, tr ? d[key] * tr : d[key]]); }
+      var v0 = d ? (tr ? d[key] * tr : d[key]) : 0;
+      // **直線に伸びる攻撃は、部位を貫いてボス本体にも当たる**（ヒナ（ドレス）の
+      // 射撃など）。当たるかどうかは盤の上の話でデータから決まらないので、
+      // **置くのは使う人**（帯の「ボス本体にも当たる」。2026-09-02 の先生の見立て）。
+      // ボスと部位で防御が違うことがあるので、本体ぶんは本体の数字で出す
+      if (d && u.tg != null && u.hb) {
+        var db = dmgOf(u.i, r, u.t, u.k, u.pk, null);
+        if (db) { v0 += db[key]; }
+      }
+      if (d) { pts.push([u.t, v0]); }
     }
     var dur = r.dur || 240, STEP = 5;
     for (i = 0; i < SLOTS; i++) {
@@ -3577,7 +3586,9 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
                  // **当たる先。**null ならボス本体
                  tg: st.tl[i].tg == null ? null : st.tl[i].tg,
                  // **何体に当たったか。**転移する部位に AoE で当てたときだけ効く
-                 mc: st.tl[i].mc == null ? 1 : st.tl[i].mc });
+                 mc: st.tl[i].mc == null ? 1 : st.tl[i].mc,
+                 // **部位を貫いてボス本体にも当たるか**（置くのは使う人）
+                 hb: st.tl[i].hb ? 1 : 0 });
     }
     var dur = diff().dur || 240;
     for (i = 0; i < SLOTS; i++) {
@@ -4085,8 +4096,12 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
       var cr = e[2] === 'Never' ? 0
              : (e[2] === 'Always' || ggCritAt(at) ? 1 : cRate);
       var cm = e[2] === 'Never' ? 1 : cdm;
-      var mid = (sMin + 1) / 2;
-      o.min += base * sMin;
+      // **安定値に影響されない攻撃がある**（ヒナ（ドレス）の CH0230Ex02/03/04。
+      // 説明文が「この攻撃は安定値に影響されず最大ダメージが適用される」と書いている）。
+      // データ全体で 3 件だけ（2026-09-02 に数えて確かめた）
+      var sN = e[9] === 0 ? 1 : sMin;
+      var mid = (sN + 1) / 2;
+      o.min += base * sN;
       o.max += base * cm;
       o.avg0 += base * mid * hit;
       o.avgC += base * cm * mid * hit;
@@ -4099,7 +4114,7 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
       for (q = 0; q < hs.length; q++) { hsum += hs[q]; hsq += hs[q] * hs[q]; }
       var hf2 = (hs.length > 1 && hsum > 0) ? hsq / (hsum * hsum) : 1;
       var n1 = Math.max(1, tick), b1 = base / n1;
-      var eR = mid, eR2 = (1 - sMin) * (1 - sMin) / 12 + mid * mid;
+      var eR = mid, eR2 = (1 - sN) * (1 - sN) / 12 + mid * mid;
       var eC = 1 + (cm - 1) * cr, eC2 = (1 - cr) + cr * cm * cm;
       var m1 = b1 * eR * hit * eC;
       var m2 = b1 * b1 * hf2 * eR2 * hit * eC2;
@@ -4720,7 +4735,7 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
         partyCut = i; break;
       }
     }
-    var seenStart = false, prevT = 0, lastWho = null, pendT = null;
+    var seenStart = false, prevT = 0, lastWho = null, lastShot = null, pendT = null;
     for (i = 0; i < lines.length; i++) {
       if (partyCut >= 0 && i >= partyCut) {
         res.notes.push('「' + lines[partyCut].trim() + '」から先は読んでいません。' +
@@ -4770,8 +4785,14 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
       // ように 1 回の EX を何発かに分けて撃つ子で、TL は名前を書かずに
       // 「即 2射目(左聖歌隊 5体)」と続ける（2026-09-01 にグレゴリオと
       // カイテンジャーの TL で気づいた）
-      if (who < 0 && lastWho != null && /[0-9０-９一二三四五六七八九]\s*射/.test(cut)) {
-        who = lastWho;
+      // **直前に名前が出た子ではなく、「何発かに分けて撃つ子」に付ける。**
+      // 「即キサキ」の次に「1射目(右5体)」と続く TL では、射目はキサキではなく
+      // その前に置いたヒナ（ドレス）の続き。キサキの EX にはダメージが無いので、
+      // 誤帰属すると 15 行のうち 6 行が丸ごと 0 になる
+      // （2026-09-02、総力戦グレゴリオ。直すと +40,701,489）
+      if (who < 0 && /[0-9０-９一二三四五六七八九]\s*射/.test(cut)) {
+        if (lastShot != null) { who = lastShot; }
+        else if (lastWho != null) { who = lastWho; }
       }
       if (who < 0) {
         // **黙って捨てない。**編成に入らなかった生徒の行がそのまま消えて、
@@ -4870,6 +4891,11 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
         if (frm != null) { autoF[pid] = (fl2[frm] || {}).n; }
       }
       lastWho = who;
+      // **「何発かに分けて撃つ子」を覚えておく。**ダメージのある形態が 2 つ以上ある子
+      // （ヒナ（ドレス）・ホシノ（臨戦）など）。射目行はこの子の続きとして読む
+      var pidS = idBy[who], nd = 0, fq, flS = pidS != null ? formsOf(pidS) : [];
+      for (fq = 0; fq < flS.length; fq++) { if (formHasDmg(pidS, fq)) { nd++; } }
+      if (nd >= 2) { lastShot = who; }
       // 【7】**「A/B」は「渡し先」か「2 人同時」か。**書き方が同じなので、
       // **左の子の EX にダメージがあるかで分ける**（データから決まる）。
       //   「マリー/ホシノ」  マリー（アイドル）の EX はダメージ無し → 渡し先
@@ -5648,6 +5674,10 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
         h2 += '<label class="f"><span>当たる数</span><input type="number" data-us="mc" ' +
           'min="1" max="99" step="1" style="width:64px" value="' + (u.mc == null ? 1 : u.mc) +
           '"><span class="mut tiny">体</span></label>';
+        // **直線に伸びる攻撃は部位を貫いて本体にも当たる。**当たるかは盤の上の話
+        h2 += '<label class="f"><span>ボス本体にも</span><select data-us="hb">' +
+          '<option value="0"' + (u.hb ? '' : ' selected') + '>当たらない</option>' +
+          '<option value="1"' + (u.hb ? ' selected' : '') + '>当たる</option></select></label>';
       }
     }
     if (er && er.grant) {
