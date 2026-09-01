@@ -4310,6 +4310,9 @@ def build_tl():
         csl_all.setdefault(r["CharacterSkillListGroupId"], []).append(r)
     stat = {r["CharacterId"]: r
             for r in as_list(get_json(BADB.format("CharacterStatExcelTable")))}
+    # 固有武器の星ごとの追加ステータス（★3 が地形適性、★4 がその他）
+    _cweapon = {r["Id"]: r
+                for r in as_list(get_json(BADB.format("CharacterWeaponExcelTable")))}
     # **登場に 20 フレームかかる**（ビナー。`AppearFrame`）。実物の TL の時刻と
     # 突き合わせると、これを足したほうが 1 本目の 29.0 秒に近づいた（2026-08-31）
     appear = {r["Id"]: r.get("AppearFrame")
@@ -4542,12 +4545,21 @@ def build_tl():
         #   gr  … 愛用品 [[効果, T2 の値], …]（未実装の生徒は空）
         #   fav … 絆 [[統計1, 統計2], 区切りごとの伸び]
         w = x.get("Weapon") or {}
+        # **固有武器★4 の追加ステータス**は SchaleDB の students.min.json に無い。
+        # `DB/CharacterWeaponExcelTable.json` の `StatType` / `StatValue` の
+        # 4 番目（★4 のぶん）から取る。ネル（制服）は `EnhancePierceRate_Base`
+        # 1000、リオ・イブキ（水着）は `MaxCostIncrease_Base` 5000。
+        # 3 番目は地形適性 +1 で、そちらは SchaleDB の AdaptationType/Value と同じ
+        _wr = _cweapon.get(int(sid)) or {}
+        _w4t = (_wr.get("StatType") or [None] * 5)[3]
+        _w4v = (_wr.get("StatValue") or [0] * 5)[3]
         build[sid] = {
             "eqp": x.get("Equipment") or [],
             "wp": [w.get("AttackPower1"), w.get("AttackPower100"), w.get("MaxHP1"),
                    w.get("MaxHP100"), w.get("HealPower1"), w.get("HealPower100"),
                    w.get("StatLevelUpType"), w.get("AdaptationType"),
-                   w.get("AdaptationValue")] if w else None,
+                   w.get("AdaptationValue"),
+                   _w4t if _w4t and _w4t != "None" else None, _w4v] if w else None,
             "gr": [[t, (x["Gear"]["StatValue"][i] or [0, 0])[1]]
                    for i, t in enumerate((x.get("Gear") or {}).get("StatType") or [])],
             "fav": [x.get("FavorStatType") or [], x.get("FavorStatValue") or []],

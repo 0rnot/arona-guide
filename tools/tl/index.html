@@ -1134,18 +1134,33 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
           <li><b>支援値はスキルのパッシブを乗せる前の値から出ていました。</b>
             パッシブ抜きで HP 13,667・攻撃 1,135・防御 58・治癒 893 となって、
             TL の 13,753／1,143／58／898 と 4 つとも合います
-            （パッシブ込みだと攻撃 1,583・治癒 993 で、攻撃だけ 4 割ずれていました）</li>
+            （パッシブ込みだと攻撃 1,583・治癒 993 で、攻撃だけ 4 割ずれていました）。
+            <b>ほかの 2 編成でも確かめました</b>——
+            総力戦ペロロジラ Torment（TL 13,091／1,292／136／1,006 に対して
+            12,900／1,279／136／998）、
+            大決戦クロカゲ Torment 2 凸目（TL 13,067／1,233／54／971 に対して
+            13,003／1,220／54／959）。<b>防御は 3 編成とも 1 の位まで一致</b>、
+            残りも 1.5% 以内です（絆と装備の差ぶん、こちらが少し低く出ます）</li>
           <li><b>SPECIAL（サポーター）は通常攻撃をしません。</b>数えていたぶん、
             序盤の削りが多すぎました（<code>SquadType</code> が <code>Support</code>）</li>
           <li><b>グロッキー中は確定会心にしました</b>（下の「会心」の項）</li>
           <li>それでも、TL 1 ページ目が終わった時点（経過 57.3 秒）の残 HP は
-            <b>実測 14,639,773 に対して「平均」17,151,895・「全会心平均」14,346,949</b>。
-            <b>実測は「全会心平均」の側です。</b>最後まで（経過 85.1 秒）の累計も
-            実測 20,245,147 に対して「平均」14,501,846・「全会心平均」18,469,974 で、
-            同じ寄り方をします。会心率の計算は 50.3%（ネル（制服）の会心値 695、
-            ビナーの会心抵抗値 20）、会心の倍率は 3.53 倍
-            （会心ダメージ率 43,269 − ボスの会心ダメージ抵抗率 8,000）。
-            <b>この 1.4 倍がどこから来るのかは、まだ分かっていません</b></li>
+            <b>実測 14,639,773 に対して「平均」16,960,898・「全会心平均」14,063,170</b>。
+            最後まで（経過 85.1 秒）の累計も 実測 20,245,147 に対して
+            「平均」15,032,033・「全会心平均」19,138,656 で、同じ寄り方をします。
+            会心率の計算は 50.3%（ネル（制服）の会心値 695、ビナーの会心抵抗値 20）、
+            会心の倍率は 3.53 倍（会心ダメージ率 43,269 − ボスの会心ダメージ抵抗率 8,000）。
+            <b>この 1.3 倍がどこから来るのかは、まだ分かっていません。</b>
+            式は全 19 章と突き合わせて合っているので、
+            残るのは 1 発の中でバフが切れる扱い（この道具は演出の長さ 7.63 秒を
+            8 つに割って平均しています）か、TL の再現そのものだと思います</li>
+          <li><b>ボスによって外れる向きが逆です。</b>大決戦ホド Torment 貫通・屋内
+            （<a href="https://www.youtube.com/watch?v=-9BCKnp6Ll8" target="_blank" rel="noopener">動画</a>）の
+            TL は「ミカ最終弾後ホド HP7.5M 以下（上振れたら 7.1M くらいまで減ります）」と
+            書いていますが、計算では <b>6,074,012</b> で<b>多めに出ます</b>。
+            ホドは防御力が 100 しかないぶん通常攻撃の取り分が大きく
+            （計算では経過 100 秒までの 37%）、その通常攻撃を
+            <b>撃ちっぱなしの前提で数えている</b>ぶんが効きます</li>
           <li>逆に序盤（EX のダメージが出る前）は、実測 141,519 に対して計算 222,082 で
             <b>57% ほど多く</b>出ます。実測では最初の 1 発が経過 5.3 秒で、
             <b>盤に出てから射程に入るまでの移動時間はデータに無いので 0 秒から数えています</b>。
@@ -1172,7 +1187,14 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
         <code>getHitChance</code> ／ <code>getStabilityMinDamageMod</code> ／
         <code>getEffectiveMod</code> ／ <code>interpolateStat</code>）を写しています。
         <b>式は自前で作っていません。</b>日本語の解説は
-        <a href="https://zenn.dev/1m_lcei/books/b380b976c908d9" target="_blank" rel="noopener">けーさんの本</a>です。
+        <a href="https://zenn.dev/1m_lcei/books/b380b976c908d9" target="_blank" rel="noopener">けーさんの本</a>で、
+        <b>2026-09-01 に全 19 章と 1 つずつ突き合わせました。</b>
+        乱数下限（<code>安定値 ÷ (1000 + 安定値) + 0.2</code>）、
+        会心率（<code>3Δ ÷ (3Δ + 2000)</code>、Δ ＝ 会心値 − 会心抵抗値）、
+        会心ダメージ倍率、レベル差補正、装甲相性（Weak 20000 に特効値を足す）、
+        地形（D 0.8 〜 SS 1.3）、防御倍率、与ダメージ倍率 A・B、
+        EX スキルダメージ倍率、固定値への割合の適用（合計してから四捨五入、
+        デバフ上限 −80%）まで、<b>すべて一致しました。</b>
         <b>SchaleDB は 1 発ぶんの表示なので、TL の合計に要る倍率が 3 つ足りません。</b>
         そこはこの本の章立てに合わせて足しました（2026-09-01）
         <ul>
@@ -1287,7 +1309,14 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
       <li><b>育成の中身</b> — 装備は <code>equipment.min.json</code> の各段の上限レベルの値、
         固有武器・愛用品・絆は <code>students.min.json</code>。星の伸びは SchaleDB の既定値
         （生徒ごとの <code>Transcendence</code> は日本版のデータに 1 件もありませんでした）。
-        <b>育成は生徒ごとに持っています</b>（左の「育成」で対象を選んで変えます）</li>
+        <b>育成は生徒ごとに持っています</b>（左の「育成」で対象を選んで変えます）。
+        固有武器の星は 2 つのぶんが別に付きます（2026-09-01 に直しました）。
+        <b>★3 で地形適性 +1</b>（SchaleDB <code>common.js</code> 7812 行の
+        <code>if (statPreviewWeaponGrade &gt;= 3)</code>。星を見ずに足していて、
+        固有2 の子まで 1 段上がっていました）と、<b>★4 の追加ステータス</b>
+        （<code>DB/CharacterWeaponExcelTable.json</code> の <code>StatType</code>／
+        <code>StatValue</code> の 4 番目。ネル（制服）は貫通特効 +1000、
+        リオとイブキ（水着）はコスト上限 +5000。SchaleDB のデータには入っていません）</li>
       <li><b>常時のパッシブ</b> — パッシブと固有武器パッシブ（固有武器★2 以上）を乗せています。
         同じ（スキルの枠, <code>Channel</code>）が 2 回来たら先に来たほうが勝つ、という
         SchaleDB の扱い（<code>common.js</code> 7723 行）に合わせました。
@@ -2746,10 +2775,10 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
       '乗せていないのは SS の発動ぶん 87 件（引き金が要るもの）だけです']);
     out.push(['w', 'SS のダメージ・遮蔽・グロッキー中の被ダメージ増加はまだ入っていません']);
     // **実測 1 本との突き合わせ**（2026-09-01）。下の「数字の出どころ」に詳しい
-    out.push(['w', '実物の戦闘 1 本（大決戦 ビナー Torment 貫通・屋外）の HP バーを ' +
-      '読み取って突き合わせました。TL 1 ページ目が終わった時点の残 HP が ' +
-      '実測 14,639,773 に対して「平均」17,151,895・「全会心平均」14,346,949 で、' +
-      '実測は「全会心平均」の側です。この 1.4 倍の出どころはまだ分かっていません']);
+    out.push(['w', '実物の TL 2 本と突き合わせています。大決戦ビナー Torment 貫通・屋外は ' +
+      'TL 1 ページ目が終わった時点の残 HP が 実測 14,639,773 に対して計算 16,960,898 で ' +
+      '少なめに、大決戦ホド Torment 貫通・屋内は TL の「ミカ最終弾後 7.5M 以下」に対して ' +
+      '計算 6,074,012 で多めに出ます。ホドは通常攻撃の取り分が大きいボスです']);
     $('errlog').innerHTML = out.map(function (x) {
       return '<div class="' + x[0] + '">' + (x[0] === 'g' ? '✔ ' : (x[0] === 'e' ? '✕ ' : '▸ ')) + esc(x[1]) + '</div>';
     }).join('');
@@ -2827,7 +2856,13 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
       add('AttackPower_Base', Math.round(w[0] + (w[1] - w[0]) * ls));
       add('MaxHP_Base', Math.round(w[2] + (w[3] - w[2]) * ls));
       add('HealPower_Base', Math.round(w[4] + (w[5] - w[4]) * ls));
-      if (w[7]) { ad[w[7]] = (ad[w[7]] || 0) + (w[8] || 0); }
+      // **地形適性 +1 が付くのは固有武器★3 から**（SchaleDB common.js 7812 行
+      // `if (statPreviewWeaponGrade >= 3)`）。星に関係なく足していて、
+      // 固有2 の子まで 1 段上がっていた（2026-09-01）
+      if (w[7] && (o.wstar || 0) >= 3) { ad[w[7]] = (ad[w[7]] || 0) + (w[8] || 0); }
+      // **★4 の追加ステータス。**`DB/CharacterWeaponExcelTable.json` の
+      // `StatType` / `StatValue` の 4 番目。ネル（制服）は貫通特効 +1000
+      if (w[9] && (o.wstar || 0) >= 4) { add(w[9], w[10] || 0); }
     }
     // 愛用品
     if (o.gear) { for (i = 0; i < (bd.gr || []).length; i++) { add(bd.gr[i][0], bd.gr[i][1]); } }
@@ -2924,7 +2959,7 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
     var b = (idx == null ? null : slotOf(idx)) || mkSlot();
     // **装備は 3 枠それぞれ段が違うことがある**（貼った TL の「t6/10/10」）。
     // 画面の選択は 1 つなので数値で入るが、読み込みからは配列で入る
-    return { lv: b.lv, star: b.star, wlv: b.wlv,
+    return { lv: b.lv, star: b.star, wlv: b.wlv, wstar: b.wstar || 0,
              eq: (b.eq && b.eq.length === 3) ? b.eq.slice() : [b.eq, b.eq, b.eq],
              gear: b.gear > 0, bond: b.bond };
   }
@@ -4730,7 +4765,7 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
   syncUndo();
   // 突き合わせ用。**SchaleDB の実装と数字が合うかを外から確かめるため**に出している
   window.__TLDBG = { statsOf: statsOf, dmgOf: dmgOf, total: total, diff: diff,
-                     terrMod: terrMod, effMod: effMod, passiveFor: passiveFor, phaseSpans: phaseSpans, ggRuns: ggRuns, ggAt: ggAt, ggCritAt: ggCritAt, ggSolve: ggSolve, dmgCurve: dmgCurve, parseTL: parseTL, st: st, stu: stu, sim: sim, engIn: engIn, costPts: costPts,
+                     terrMod: terrMod, effMod: effMod, passiveFor: passiveFor, phaseSpans: phaseSpans, ggRuns: ggRuns, ggAt: ggAt, ggCritAt: ggCritAt, ggSolve: ggSolve, support: support, dmgCurve: dmgCurve, parseTL: parseTL, st: st, stu: stu, sim: sim, engIn: engIn, costPts: costPts,
                      busyOf: busyOf, naTimes: naTimes, naRuns: naRuns, nsTimes: nsTimes,
                      nsInfo: nsInfo, naInfo: naInfo, altOf: altOf, pickOf: pickOf,
                      usesSorted: usesSorted, liveBuffs: liveBuffs, draw: draw,
