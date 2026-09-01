@@ -4272,9 +4272,19 @@ def tl_one(cid, bt, csl, stat, fcache, ch_appear):
         ph[str(p)] = {"ev": ev, "g": g, "hp": hp, "raw": raw}
     if not ph:
         return None
+    # **グロッキーで何が起きるかはボスごとに違う**（2026-09-01 の先生の指摘
+    # 「各ボスグロッキー時の状態は変わる」）。木の `ApplyGroggy` に入っている。
+    #   AddActiveGauge  … EX ゲージを引く（-100 / -900 / -999）
+    #   ChangePhase     … グロッキー専用のフェーズへ移る（シロ&クロは 6 / 7）
+    #   ClearNormalSkill… 通常攻撃を止める
+    # **被ダメージが増える指定はどのボスにも無い**（`CharacterStatExcelTable` /
+    # `ConstCombatExcelTable` / `logiceffectdata` / `SkillExcelTable` を
+    # 2026-09-01 に全部見た。あるのは `GroggyGauge` と `GroggyTime` だけ）
+    gg = [[r["AIPhase"], r["ExternalBehavior"], r["BehaviorArgument"]]
+          for r in rows if r["ExternalBTTrigger"] == "ApplyGroggy"]
     return {"cid": cid, "hp": st.get("MaxHP1"), "ns": ns, "nf": nf,
             "spd": st.get("NormalAttackSpeed") or 10000,
-            "ap": ch_appear.get(cid),
+            "ap": ch_appear.get(cid), "gg": gg,
             "per": round(per, 3) if per else None, "ex": ex, "ph": ph, "fb": fb}
 
 
@@ -4308,6 +4318,8 @@ def build_tl():
             cool[g] = [a, c]
     raids = get_json(SD.format("raids"))
     rsk = raids.get("RaidSkills") or {}
+    # グロッキーゲージの溜まり方（ボスごとの文）。キーはボスの DevName
+    _groggy_loc = (get_json(SD.format("localization")).get("GroggyCondition") or {})
     # ステータスの日本語名。**画面で「誰の何のバフか」を出すのに使う**（2026-09-01）
     stat_ja = get_json(SD.format("localization")).get("Stat") or {}
     # ---- ダメージ計算に要る表。**どれも DB/ の実物から取る**（2026-09-01）
@@ -4400,8 +4412,11 @@ def build_tl():
             ok += 1 if got["per"] else 0
             half += 0 if got["per"] else 1
         if rows:
+            # グロッキーゲージの溜まり方。**ゲーム内の文をそのまま出す**
+            _gc = _groggy_loc.get(b.get("DevName") or "", "")
+            _wk = b.get("BulletType") or ""
             bosses.append({"id": b["Id"], "n": b.get("Name"), "dev": b.get("DevName"),
-                           "path": b.get("PathName"), "d": rows})
+                           "path": b.get("PathName"), "gc": _gc, "gwk": _wk, "d": rows})
     # **生徒の素ステータスとダメージ倍率。**`tools/cost-timeline/data.js` には
     # バフと着弾しか入っていないので、ダメージを出すのに要るぶんだけここに足す。
     # ページは両方の data.js を読む（変数は `TL` と `TLBOSS` で分けてある）。

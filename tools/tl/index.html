@@ -434,6 +434,133 @@
 .tlapp details.src p, .tlapp details.src li { color:var(--tx2); }
 .tlapp details.src code { background:var(--bg2); color:var(--tx); border:1px solid var(--ln); }
 .tlapp details.src a { color:var(--acc2); }
+
+/* ============================================================
+   透明感で揃える（2026-09-01 の先生の指摘
+   「立体感ってより透明感！ボタンの配置とか形とか丸角とかの統一感が無い！」）。
+
+   **落ち影と内側のハイライトは全部やめる。**面は「薄いガラス」1 種類にして、
+   白の透過（--g1〜--g3）と白の細い枠だけで段を作る。
+   **丸角は 4 つの token しか使わない。**部品の高さも 1 つに揃える。
+   ============================================================ */
+.tlapp {
+  --r1:3px;    /* いちばん小さいもの: 帯・アイコン・目盛り */
+  --r2:6px;    /* 部品: ボタン・入力・タイル・カード */
+  --r3:10px;   /* 面: パネル・盤・シート */
+  --rp:999px;  /* 錠剤 */
+  --h:22px;    /* 部品の高さ。**ここだけで揃える** */
+  --g1:rgba(255,255,255,.038);  /* 面 */
+  --g2:rgba(255,255,255,.065);  /* 部品 */
+  --g3:rgba(255,255,255,.105);  /* 押されている部品 */
+  --gb:rgba(255,255,255,.09);   /* 枠 */
+  --gb2:rgba(255,255,255,.15);  /* 強い枠 */
+  /* ガラスが効くように、地に薄い明暗を置く */
+  background:
+    radial-gradient(1200px 600px at 12% -6%, rgba(47,143,158,.16), transparent 62%),
+    radial-gradient(900px 520px at 96% 4%, rgba(201,138,46,.10), transparent 60%),
+    #0b0e15;
+  background-attachment:fixed;
+}
+
+/* ---- 面 */
+.tlapp .pane, .tlapp .stage, .tlapp .kpi, .tlapp .sheet .card {
+  background:var(--g1); border:1px solid var(--gb); border-radius:var(--r3);
+  box-shadow:none; backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);
+}
+.tlapp .stage { overflow:hidden; }
+.tlapp .side { background:rgba(255,255,255,.022); border-right:1px solid var(--gb); }
+.tlapp .axis { background:rgba(255,255,255,.03); }
+.tlapp .errlog { background:rgba(0,0,0,.22); border:1px solid var(--gb); border-radius:var(--r2); }
+.tlapp .lb, .tlapp .ln { border-bottom:1px solid rgba(255,255,255,.055); }
+.tlapp .ln.alt { background:rgba(255,255,255,.028); }
+.tlapp .tk { background:rgba(255,255,255,.06); }
+.tlapp .tk.m { background:rgba(255,255,255,.13); }
+
+/* ---- 部品。**高さ・丸角・枠・地をひとそろいにする** */
+.tlapp .btn2, .tlapp select, .tlapp input[type="text"], .tlapp input[type="number"],
+.tlapp .tabs .t, .tlapp .startsk .s, .tlapp .lb .mb, .tlapp .tools2 .sq {
+  height:var(--h); border-radius:var(--r2); border:1px solid var(--gb);
+  background:var(--g2); color:var(--tx); font:inherit; font-size:11px;
+  padding:0 8px; line-height:calc(var(--h) - 2px); white-space:nowrap;
+  transition:background .12s, border-color .12s;
+}
+.tlapp .btn2:hover, .tlapp .tabs .t:hover { background:var(--g3); border-color:var(--gb2); }
+.tlapp .btn2[aria-pressed="true"], .tlapp .tabs .t.on {
+  background:rgba(47,143,158,.30); border-color:rgba(90,205,220,.55); color:#eaf7fa; }
+.tlapp .btn2.danger { border-color:rgba(220,90,110,.45); color:#ff97a5; background:rgba(195,56,74,.14); }
+.tlapp select { padding-right:4px; }
+.tlapp .tabsm .btn2 { padding:0 7px; font-size:10px; }
+.tlapp .lb .mb { height:16px; line-height:14px; padding:0 4px; font-size:8.5px;
+  border-radius:var(--r1); color:var(--tx3); }
+.tlapp .startsk .s { padding:0 4px; gap:3px; }
+.tlapp .startsk .s select { height:18px; line-height:16px; font-size:9.5px; padding:0 3px;
+  border-radius:var(--r1); }
+.tlapp .pill { height:var(--h); line-height:calc(var(--h) - 2px); padding:0 10px;
+  border-radius:var(--rp); border:1px solid var(--gb); background:var(--g2); }
+.tlapp .keys kbd { border-radius:var(--r1); border:1px solid var(--gb); background:var(--g2); }
+
+/* ---- タイル・カード */
+.tlapp .picker button { border-radius:var(--r2); border:1px solid var(--gb); background:var(--g2); }
+.tlapp .picker button:hover { background:var(--g3); border-color:var(--gb2); }
+.tlapp .crew .c { border-radius:var(--r2); border:1px solid var(--gb); }
+.tlapp .setup .card { border-radius:var(--r2); border:1px solid var(--gb); background:var(--g2); }
+.tlapp .alt { border-radius:var(--r2); border:1px solid var(--gb); background:var(--g2); }
+.tlapp .tools2 { border-radius:var(--r2); border:1px solid var(--gb); background:var(--g2); }
+.tlapp .tools2 .mini, .tlapp .alt img.ic, .tlapp .lb .ic, .tlapp .b.sk .ic,
+.tlapp .setup .card img { border-radius:var(--r1); }
+
+/* ---- 帯。**角丸は 1 種類（--r1）だけ。**影は付けない */
+.tlapp .b { border-radius:var(--r1); box-shadow:none; }
+.tlapp .b.sk { border-radius:var(--r1); }
+.tlapp .b.sk:hover { box-shadow:none; filter:brightness(1.12); }
+.tlapp .b.sk.sel { outline:0; box-shadow:0 0 0 1px rgba(0,0,0,.55), 0 0 0 2px #f2c14e; }
+
+/* ---- バー */
+.tlapp .rate .bar, .tlapp .rate .bar i, .tlapp .gaugebar, .tlapp .gaugebar i,
+.tlapp .kpi .kbar, .tlapp .kpi .kbar i { border-radius:var(--rp); }
+.tlapp .rate .bar, .tlapp .gaugebar, .tlapp .kpi .kbar { background:rgba(255,255,255,.07); }
+
+/* ---- 上の帯もガラスに寄せる */
+.topbar { background:rgba(11,14,21,.72); backdrop-filter:blur(12px);
+  -webkit-backdrop-filter:blur(12px); border-bottom:1px solid var(--gb); }
+.topbar-tools { border-radius:var(--rp); }
+.topbar .share { border-radius:var(--rp); }
+
+/* ---- 余白と大きさをそろえる（2026-09-01 の先生の指摘
+   「ボタンの大きさとか！」「余白とか！」）。**目盛りは 4 の倍数の 3 つだけ。** */
+.tlapp { --s1:4px; --s2:8px; --s3:12px; padding:var(--s2) clamp(var(--s2),1.2vw,var(--s3)) 40px; }
+
+/* 面のあいだ・面の中 */
+.tltop, .tlmain { gap:var(--s2); margin-bottom:0; }
+.tltop { margin-bottom:var(--s2); }
+.tlleft, .tlright { gap:var(--s2); }
+.tlapp .pane > .bd { padding:var(--s2) var(--s3) var(--s3); }
+.tlapp .pane > .ttl { padding:var(--s2) var(--s3); }
+.tlapp .kpi { padding:var(--s3) var(--s3) var(--s2); margin-bottom:var(--s2); }
+.tlapp h2.sect { margin:0 0 var(--s2); padding-bottom:var(--s1); }
+
+/* 並び */
+.tlapp .row { gap:var(--s2); }
+.tlapp .fields.wrapf { gap:var(--s1) var(--s2); }
+.tlapp .filt { gap:var(--s1) var(--s2); }
+.tlapp .crewline { gap:var(--s2); margin-bottom:var(--s1); }
+.tlapp .crew { gap:var(--s1); }
+.tlapp .tools2 { padding:var(--s1) var(--s2); gap:var(--s1) var(--s2); }
+.tlapp .tools2 .r { gap:var(--s1) var(--s2); }
+.tlapp .seg { gap:var(--s1); background:none; border:0; border-radius:0; padding:0; }
+.tlapp .tabsm { gap:var(--s1); }
+.tlapp #alts, .tlapp #nstos { gap:var(--s1); }
+.tlapp .alt { gap:var(--s2); padding:var(--s1) var(--s2); }
+.tlapp .startsk { gap:var(--s1); }
+.tlapp .errlog { padding:var(--s1) var(--s2); }
+.tlapp .keys { gap:var(--s1) var(--s2); }
+
+/* ボタン。**文字だけのものは横 10px、記号 1 つのものは正方形** */
+.tlapp .btn2 { padding:0 10px; min-width:var(--h); text-align:center; }
+.tlapp .tabsm .btn2 { padding:0 var(--s2); }
+.tlapp .btn2.sq, .tlapp #b-addparty { padding:0; width:var(--h); min-width:var(--h); }
+.tlapp select, .tlapp input[type="text"], .tlapp input[type="number"] { padding:0 var(--s2); }
+.tlapp .f { gap:2px; }
 </style>
 </head>
 <body>
@@ -598,7 +725,7 @@
       <div class="pane" id="altpane" hidden><div class="bd">
         <h2 class="sect"><i></i>倍率の幅
           <span style="flex:1 1 auto"></span>
-          <span class="mut tiny">条件でダメージが変わるもの</span>
+          <span class="mut tiny">条件でダメージが変わるもの。ここは既定で、1 発ずつは帯をクリック</span>
         </h2>
         <div id="alts"></div>
       </div></div>
@@ -668,6 +795,7 @@
           <span style="flex:1 1 auto"></span>
           <span class="mut tiny" id="ph-boss"></span>
         </div>
+        <div class="mut tiny" id="groggy" style="margin-top:4px"></div>
       </div></div>
 
       <div class="pane"><div class="bd">
@@ -818,6 +946,16 @@
         拾って、<b>1 人のものは渡す相手を選ばせています</b>（EX は帯をクリック、
         通常スキルは左の「バフを渡す相手」）。<b>選ぶまでは誰にも乗りません。</b>
         全部で 51 枠（EX 21・通常スキル 30）あります</li>
+      <li><b>どの枠のバフを乗せているか</b> — EX・NS（ノーマル／ノーマル＋）・
+        PS（パッシブ）・固有武器パッシブ・SS（サブスキル）の全部です。
+        <b>常時のもの（<code>Duration</code> が無いもの）はステータスに乗せ、
+        時間があるものは発動した時刻から乗せます。</b>
+        内訳は パッシブ 291 件（全部常時）／固有武器パッシブ 281 件（全部常時）／
+        SS 240 件（常時 153・発動 87）／ノーマル 178 件（発動 172・常時 6）／
+        ノーマル＋ 55 件（発動 52・常時 3）／EX 147 件（発動 137・常時 10）。
+        <b>乗せていないのは SS の発動ぶん 87 件だけ</b>で、
+        これは引き金（何回攻撃したら、HP がいくつを切ったら…）が要るので
+        時刻が決まりません</li>
       <li><b>まだ入っていないもの</b> — SS のダメージ、遮蔽、
         <b>グロッキー中の被ダメージ増加</b>。グロッキーはゲージ量（ビナー Torment は
         6,500,000）と時間（10 秒）まではデータにありますが、
@@ -1675,6 +1813,8 @@
       out.push(['w', '条件でダメージが変わるスキルが ' + nalt +
         ' つあります。左の「倍率の幅」のバーで選べます（既定は一番低い倍率）']);
     }
+    out.push(['w', 'バフは EX・NS・PS・固有武器・SS の全部を見ています。' +
+      '乗せていないのは SS の発動ぶん 87 件（引き金が要るもの）だけです']);
     out.push(['w', 'SS のダメージ・遮蔽・グロッキー中の被ダメージ増加はまだ入っていません']);
     $('errlog').innerHTML = out.map(function (x) {
       return '<div class="' + x[0] + '">' + (x[0] === 'g' ? '✔ ' : (x[0] === 'e' ? '✕ ' : '▸ ')) + esc(x[1]) + '</div>';
@@ -2074,7 +2214,7 @@
       var r0 = rowOf[i];
       out.push({ i: st.tl[i].i,
                  t: (r0 && r0.at != null) ? r0.at : st.tl[i].t,
-                 k: exKind(r0 ? r0.fi : 0), bto: st.tl[i].bto });
+                 k: exKind(r0 ? r0.fi : 0), bto: st.tl[i].bto, pk: st.tl[i].pk });
     }
     var dur = diff().dur || 240;
     for (i = 0; i < SLOTS; i++) {
@@ -2234,11 +2374,13 @@
     if (kind === 'ExtraPassive') { return sl.sslv || 10; }
     return sl.sk || 10;
   }
-  function pickOf(idx, kind) {
+  // **その 1 発の指定が先、無ければ枠の既定**（2026-09-01 の先生の指示
+  // 「倍率の幅は打つ EX 毎に決めたい」）。`upk` は置いた 1 発の `pk`
+  function pickOf(idx, kind, upk) {
     var sl = idx == null ? null : st.slots[idx];
-    var v = sl && sl.pk ? sl.pk[kind] : 0;
     var a = sl && sl.id ? altOf(sl.id, kind) : null;
     if (!a) { return 0; }
+    var v = (upk && upk[kind] != null) ? upk[kind] : (sl && sl.pk ? sl.pk[kind] : 0);
     return Math.max(0, Math.min(+v || 0, a.v.length - 1));
   }
   // その候補の実質倍率（1/100 %）。**候補の中のダメージ効果を全部足す。**
@@ -2273,14 +2415,14 @@
   }
 
   // 1 人の EX スキル 1 回ぶん。会心と乱数の組み合わせで 5 通り返す
-  function dmgOf(idx, r, at, kind) {
+  function dmgOf(idx, r, at, kind, upk) {
     var p = st.party[idx];
     if (!p) { return null; }
     var kd = kind || 'Ex';
     var effs = ((B.dmg[p.id] || {})[kd] || []).slice();
     // **条件でダメージが変わるぶんは、選んだ候補を 1 つだけ足す**（既定は先頭）
     var alt = altOf(p.id, kd);
-    if (alt) { effs = effs.concat(alt.v[pickOf(idx, kd)] || []); }
+    if (alt) { effs = effs.concat(alt.v[pickOf(idx, kd, upk)] || []); }
     if (!effs.length) { return null; }
     var lv = slotOf(idx).lv || 90, bs = r.bs || {};
     // **スキルの段数はスキルごとに別。**NS を EX のレベルで引くと 5 段目になる
@@ -2361,7 +2503,7 @@
   function total(r) {
     var ex = zero(), ns = zero(), na = zero(), all = zero(), us = usesSorted(), i, k, q;
     for (i = 0; i < us.length; i++) {
-      var u = us[i], d = dmgOf(u.i, r, u.t, u.k);
+      var u = us[i], d = dmgOf(u.i, r, u.t, u.k, u.pk);
       if (!d) { continue; }
       // **形態違いは `Ex1` / `Ex2`。**`=== 'Ex'` で比べると NS 側に入っていた
       var box = /^Ex\d*$/.test(u.k) ? ex : ns;
@@ -2825,7 +2967,7 @@
             (u.bto == null ? '<span class="warn tiny">相手を選ぶまで、このバフは誰にも乗りません</span>' : '');
     }
     if (er) {
-      var dk = exKind(er.fi), dd = dmgOf(u.i, diff(), er.at, dk);
+      var dk = exKind(er.fi), dd = dmgOf(u.i, diff(), er.at, dk, u.pk);
       h2 += '<span class="mut tiny">ダメージ ' +
         (dd ? '<b>' + n0(dd.avg) + '</b>（最小 ' + n0(dd.min) + '／最大 ' + n0(dd.max) +
               '・会心率 ' + (dd.crit * 100).toFixed(1) + '%）'
@@ -2834,10 +2976,10 @@
     if (er) {
       var ak = exKind(er.fi), aa = altOf(d.id, ak);
       if (aa && aa.v.length > 1) {
-        var apk = pickOf(u.i, ak), asc = altScale(d.id, ak, apk, lvlOf(u.i, ak));
+        var apk = pickOf(u.i, ak, u.pk), asc = altScale(d.id, ak, apk, lvlOf(u.i, ak));
         h2 += '<label class="f"><span>倍率の幅</span>' +
           '<input type="range" min="0" max="' + (aa.v.length - 1) + '" value="' + apk +
-          '" data-alt="' + u.i + '|' + ak + '" style="width:110px">' +
+          '" data-alt="' + u.i + '|' + ak + '|use" style="width:110px">' +
           '<b style="margin-left:5px">' + (asc == null ? '—' : (asc / 100).toFixed(0) + '%') +
           '</b><span class="mut" style="margin-left:4px">' + (apk + 1) + '/' + aa.v.length +
           '</span></label>' +
@@ -2898,6 +3040,32 @@
     }
     $('i-phase').innerHTML = pk || '<option>なし</option>';
     $('i-lv').textContent = r.lv == null ? '—' : ('Lv' + r.lv);
+    drawGroggy();
+  }
+  // **グロッキーで何が起きるかはボスごとに違う**（2026-09-01 の先生の指摘）。
+  // 中身は `DB/BossExternalBTExcelTable.json` の引き金 `ApplyGroggy`。
+  // **被ダメージが増える指定はどのボスにも無い**ので、そう書く
+  var GGJA = { AddActiveGauge: 'EX ゲージを引く', ChangePhase: '別のフェーズへ移る',
+               ClearNormalSkill: '通常攻撃を止める', ForceChangePhase: '別のフェーズへ移る' };
+  function drawGroggy() {
+    var b = boss(), r = diff(), bs = r.bs || {}, gg = r.gg || [];
+    if (!bs.groggy) { $('groggy').innerHTML = ''; return; }
+    var seen = {}, acts = [], i;
+    for (i = 0; i < gg.length; i++) {
+      var key = gg[i][1] + '/' + gg[i][2];
+      if (seen[key]) { continue; }
+      seen[key] = 1;
+      acts.push((GGJA[gg[i][1]] || gg[i][1]) + '（' + gg[i][2] + '）');
+    }
+    var wk = (S.labels && S.labels.BulletType && S.labels.BulletType[b.gwk]) || b.gwk || '';
+    var how = b.gc || (wk ? wk + 'ダメージを受けると増加する。' : '');
+    $('groggy').innerHTML =
+      '<b>グロッキー</b> ゲージ ' + n0(bs.groggy) + '／' +
+      ((bs.groggyT || 0) / 1000) + ' 秒' +
+      (how ? '　' + esc(how) : '') +
+      '　' + (acts.length ? esc(acts.join('・'))
+                          : 'このボスは木に分岐が無く、行動は変わりません') +
+      '　<span class="warn">被ダメージが増える指定はデータにありません</span>';
   }
 
   // ------------------------------------------------------------ つなぐ
@@ -3000,11 +3168,19 @@
     var r = e.target.closest('input[data-alt]');
     if (!r) { return; }
     var q = r.getAttribute('data-alt').split('|'), i = +q[0], kind = q[1];
-    var sl = st.slots[i];
-    if (!sl) { return; }
     mark();
-    if (!sl.pk) { sl.pk = {}; }
-    sl.pk[kind] = +r.value;
+    if (q[2] === 'use') {
+      // **その 1 発だけ**（左のパネルは編成ぜんぶの既定）
+      var u = st.sel == null ? null : st.tl[st.sel];
+      if (!u) { return; }
+      if (!u.pk) { u.pk = {}; }
+      u.pk[kind] = +r.value;
+    } else {
+      var sl = st.slots[i];
+      if (!sl) { return; }
+      if (!sl.pk) { sl.pk = {}; }
+      sl.pk[kind] = +r.value;
+    }
     bump(); draw();
   }
   $('alts').addEventListener('input', onAlt);
