@@ -1122,6 +1122,27 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
       <li><b>EX の並び</b> — <code>DB/CharacterSkillListExcelTable.json</code> の <code>ExSkillGroupId</code></li>
       <li><b>ボスの HP と通常攻撃の速さ</b> — <code>DB/CharacterStatExcelTable.json</code> の
         <code>MaxHP1</code> と <code>NormalAttackSpeed</code></li>
+      <li><b>実物の戦闘との突き合わせ</b>（2026-09-01） —
+        <a href="https://www.youtube.com/watch?v=vAQ-dnWy5GM" target="_blank" rel="noopener">
+        大決戦 ビナー Torment 貫通(重装甲) 屋外</a>（ボス HP 23,000,000、戦闘時間
+        <code>01:26.633</code>、RankingPoint <code>39,508,080</code>）の映像を 5fps で切って、
+        ボスの HP バーと残り時間を読み取りました。<b>実測 259 点</b>です。
+        <ul>
+          <li>TL 1 ページ目（11 発）が終わった時点の残 HP が
+            <b>実測 14,269,174 に対して計算 14,524,005（差 1.8%）</b></li>
+          <li>中盤以降の累計は<b>「全会心平均」がいちばん近く、差は ±8%</b>。
+            「平均」は 30% ほど低く出ます。会心率の計算は 50.3% で、
+            この編成に会心値を上げるスキルは 1 つもありません
+            （上げているのは会心ダメージ率のほう）。
+            <b>なぜ実測が全会心に寄るのかは、まだ分かっていません</b></li>
+          <li>逆に序盤（EX のダメージが出る前）は、実測 141,519 に対して計算 233,390 で
+            <b>60% ほど多く</b>出ます。通常攻撃を撃ちっぱなしで数えているぶんです</li>
+          <li><b>フェーズは飛んでいませんでした。</b>60%（13,800,000）を越えたのが
+            経過 67.6〜67.9 秒、25%（5,750,000）を越えたのが 80.4 秒で、
+            <b>12.8 秒あいています</b>。25% のほうは 3 秒の全画面演出（TL の「ーー移行ーー」）が
+            入りますが、60% のほうは演出が無く HP バーも出たままなので、
+            見ただけでは移行に気づきません</li>
+        </ul></li>
       <li><b>スコア</b> — <code>DB/RaidStageExcelTable.json</code> の
         <code>DefaultClearScore ＋ HPPercentScore ＋ max(0, MaximumScore − 経過秒 × PerSecondMinusScore÷10)</code>。
         <a href="../raid-score/">総力戦スコア計算機</a>と同じ値です（総力戦 109 段ぜんぶで一致）。
@@ -2648,11 +2669,17 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
     var nalt = altList().length;
     if (nalt) {
       out.push(['w', '条件でダメージが変わるスキルが ' + nalt +
-        ' つあります。左の「倍率の幅」のバーで選べます（既定は一番低い倍率）']);
+        ' つあります。左の「倍率の幅」のバーで選べます' +
+        '（段だけで割れているものは、撃った回数から自動で決めています）']);
     }
     out.push(['w', 'バフは EX・NS・PS・固有武器・SS の全部を見ています。' +
       '乗せていないのは SS の発動ぶん 87 件（引き金が要るもの）だけです']);
     out.push(['w', 'SS のダメージ・遮蔽・グロッキー中の被ダメージ増加はまだ入っていません']);
+    // **実測 1 本との突き合わせ**（2026-09-01）。下の「数字の出どころ」に詳しい
+    out.push(['w', '実物の戦闘 1 本（大決戦 ビナー Torment 貫通・屋外、23,000,000 を ' +
+      '01:26.633 で撃破）の HP バーを読み取って突き合わせました。' +
+      '中盤以降は「全会心平均」がいちばん近く（差 ±8%）、「平均」は 30% ほど低く出ます。' +
+      '序盤は逆に、通常攻撃を撃ちっぱなしで数えているぶん 60% ほど多く出ます']);
     $('errlog').innerHTML = out.map(function (x) {
       return '<div class="' + x[0] + '">' + (x[0] === 'g' ? '✔ ' : (x[0] === 'e' ? '✕ ' : '▸ ')) + esc(x[1]) + '</div>';
     }).join('');
@@ -4603,6 +4630,7 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
                      nsInfo: nsInfo, naInfo: naInfo, altOf: altOf, pickOf: pickOf,
                      usesSorted: usesSorted, liveBuffs: liveBuffs, draw: draw,
                      boss: boss, scen: scen, killAt: killAt, scoreOf: scoreOf,
+                     enemyAt: enemyAt, mkStats: mkStats, danMax: danMax,
                      B: B };
 
   function syncTabs() {
