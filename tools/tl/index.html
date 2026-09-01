@@ -849,6 +849,9 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
 /* 倒しきったときだけ出るスコアの箱 */
 .tlapp .kpi .k.win .kv { color:var(--acc2); }
 .tlapp .kpi .k.win .kl { color:var(--acc2); }
+/* 突破率が 50% を切ったとき。**注意の色は「危ない」ではなく「足りない」** */
+.tlapp .kpi .k.bad .kv { color:var(--warn, #d97757); }
+.tlapp .kpi .k.bad .kl { color:var(--warn, #d97757); }
 /* 「通常」の見出しがレーンの高さに入りきらず潰れていた */
 .tlapp .side .lb.na { font-size:8px; line-height:1; }
 .tlapp .side .lb.na .nm { color:var(--tx3); }
@@ -2782,6 +2785,37 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
     }
     // **倒しきったときだけスコアを出す**（2026-09-01 の先生の指示）。
     // 削り切れないタイムでは「クリアぶん」が入らないので、数字を出す意味がない
+    /** **突破率。**1 発ごとの平均と分散を足して、合計ダメージを正規分布とみなし
+        「HP を削り切る確率」を出す（`clearStat`）。**ダメージの振れだけ**で、
+        TL が時間内に成立するかは別。 */
+    function pct1(v) {
+      var x = v * 100;
+      return x >= 99.95 ? '99.9+' : (x <= 0.05 && x > 0 ? '0.1-' : x.toFixed(1));
+    }
+    function probBox() {
+      if (!hp || !t.n) { return ''; }
+      var cs2 = clearStat(r, 0);
+      if (!(cs2.sd > 0)) { return ''; }
+      var pc = cs2.p * 100;
+      var cls = pc >= 90 ? ' win' : (pc < 50 ? ' bad' : '');
+      // **条件つきのスキルがあるときは、下と上の引きでも出す。**
+      // どの枝を引くかは盤の状態で決まるので、確率にはできない
+      var sub = '平均 ' + n0(Math.round(cs2.mu)) + '・ばらつき ±' +
+                n0(Math.round(cs2.sd)) + '（' + cs2.n + ' 発）';
+      if (altList().length) {
+        var lo2 = clearStat(r, -1), hi2 = clearStat(r, 1);
+        if (Math.abs(hi2.p - lo2.p) > 0.001) {
+          sub = '倍率の幅が 下振れなら ' + pct1(lo2.p) + '%・上振れなら ' +
+                pct1(hi2.p) + '%　' + sub;
+        }
+      }
+      return '<div class="k' + cls + '"><span class="kl">突破率' +
+        '<i class="hint" title="置いた TL で HP を削り切る確率です。' +
+        '1 発ごとのダメージの振れ・命中・会心を足し合わせて、合計を正規分布とみなしています。' +
+        'TL が時間内に成立するか、盤の上で何体に当たるかは入っていません">?</i>' +
+        '</span><b class="kv">' + pct1(cs2.p) + '%</b>' +
+        '<span class="ks">' + sub + '</span></div>';
+    }
     function scoreBox() {
       if (!(real >= 100)) { return ''; }
       var k = killAt(r);
@@ -2808,6 +2842,7 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
           'EX ' + ts.ex.n + '・NS ' + ts.ns.n + '・通常 ' + ts.na.n + ' 発' + band) +
       box('ボス HP に対して', hp ? real.toFixed(1) + '%' : '—',
           hp ? (real >= 100 ? '倒しきれます（HP ' + n0(hp) + '）' : n0(hp)) : '—') +
+      probBox() +
       scoreBox() +
       box('置いた EX', st.tl.length + ' 発',
           run.bad.length ? run.bad.length + ' 発がコスト不足でずれます' : '詰まりなし') +
@@ -3902,9 +3937,11 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
       var ts = Math.min(at + D * (k + 0.5) / ns, dur0);
       var d0 = dmgAt(idx, r, ts, kd0, pick, tg);
       if (!d0) { return null; }
-      if (!acc) { acc = { min: 0, avg0: 0, avg: 0, avgC: 0, max: 0,
+      if (!acc) { acc = { min: 0, avg0: 0, avg: 0, avgC: 0, max: 0, va: 0,
                           hit: d0.hit, crit: d0.crit, name: d0.name }; }
       for (q2 = 0; q2 < KS.length; q2++) { acc[KS[q2]] += d0[KS[q2]] / ns; }
+      // **切り分けは同じ 1 発をバフ違いで見ているだけ**なので、分散は足さずに平均する
+      acc.va += (d0.va || 0) / ns;
     }
     return acc;
   }
@@ -3968,7 +4005,16 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
     var cdm = (cs.get('CriticalDamageRate') - (eb.cdR || 0)) / 10000;
     // **1 倍の下限は写し元（SchaleDB の calculateDamage）に無いので置かない**
     // （2026-09-01 に外した）
-    var o = { min: 0, avg0: 0, avg: 0, avgC: 0, max: 0, hit: hit, crit: cRate, name: p.en };
+    // **`var` はこの 1 発のダメージの分散。**突破率（HP を削り切る確率）を出すのに要る。
+    // 中身の乱れは 3 つ:
+    //   ・ダメージのばらつき … 安定値から 1 倍までの一様乱数（`sMin`〜1）
+    //   ・命中 … 確率 `hit` で 0 になる
+    //   ・会心 … 確率 `cr` で倍率が `cm` になる
+    // **3 つとも独立**として E[X²] − E[X]² を積む。`tick`（継続ダメージの回数）と
+    // `HitFrames` のぶんは**別々に振られる**ので、1 回ぶんの分散を回数だけ足す
+    // （まとめて 1 発として扱うと分散が回数倍に膨らむ）
+    var o = { min: 0, avg0: 0, avg: 0, avgC: 0, max: 0, va: 0,
+              hit: hit, crit: cRate, name: p.en };
     for (var k = 0; k < effs.length; k++) {
       // **`Scale` の段数はスキルによって違う。**通常攻撃は 1 段しかないので、
       // EX のレベルで引くと範囲外になって 0 になる（2026-09-01 に踏んだ）
@@ -4028,8 +4074,83 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
       o.avg0 += base * mid * hit;
       o.avgC += base * cm * mid * hit;
       o.avg += (base * mid + base * mid * (cm - 1) * cr) * hit;
+      // 1 回ぶん（`tick` で割ったもの）の平均と 2 乗平均
+      // **多段は 1 発ずつ別々に振られる。**まとめて 1 発として扱うと分散が
+      // 発数の 2 乗で効いてしまう（ネル（制服）は `Hits` が 46 個）。
+      // 各段の取り分を `hs[q]/sum` として、分散は Σ(hs²)/(Σhs)² 倍
+      var hsum = 0, hsq = 0;
+      for (q = 0; q < hs.length; q++) { hsum += hs[q]; hsq += hs[q] * hs[q]; }
+      var hf2 = (hs.length > 1 && hsum > 0) ? hsq / (hsum * hsum) : 1;
+      var n1 = Math.max(1, tick), b1 = base / n1;
+      var eR = mid, eR2 = (1 - sMin) * (1 - sMin) / 12 + mid * mid;
+      var eC = 1 + (cm - 1) * cr, eC2 = (1 - cr) + cr * cm * cm;
+      var m1 = b1 * eR * hit * eC;
+      var m2 = b1 * b1 * hf2 * eR2 * hit * eC2;
+      o.va += n1 * Math.max(0, m2 - m1 * m1 * hf2);
     }
     return o;
+  }
+  /** **突破率。**置いた TL で、ボスの HP を削り切れる確率。
+      1 発ごとの平均と分散（`dmgAt` の `va`）を足し合わせて、
+      **合計ダメージを正規分布とみなして** `P(合計 ≥ HP)` を返す。
+      発数が数十〜数百あるので中心極限定理が効く（ビナーの TL で EX 21 発＋
+      通常攻撃 401 発）。**独立と見なしているので、同じバフの乗り外れで
+      まとめて動くぶんは入っていない。**
+      戦闘時間内に TL が成立するかどうかは別の話で、ここには入れていない。 */
+  function erf(x) {
+    // Abramowitz & Stegun 7.1.26（絶対誤差 1.5e-7）
+    var s = x < 0 ? -1 : 1, a = Math.abs(x);
+    var t = 1 / (1 + 0.3275911 * a);
+    var y = 1 - (((((1.061405429 * t - 1.453152027) * t) + 1.421413741) * t
+                  - 0.284496736) * t + 0.254829592) * t * Math.exp(-a * a);
+    return s * y;
+  }
+  function normCdf(z) { return 0.5 * (1 + erf(z / Math.SQRT2)); }
+  function clearStat(r, pf) {
+    var sv = PICKF;
+    ggSolve(r);
+    PICKF = pf || 0;
+    try {
+      var mu = 0, va = 0, n = 0, us = usesSorted(), i, q;
+      for (i = 0; i < us.length; i++) {
+        var u = us[i], tr = trOf(r, u.tg), mc = u.mc || 1;
+        if (u.tg != null && !tr) { continue; }
+        var d = dmgOf(u.i, r, u.t, u.k, u.pk, u.tg);
+        if (!d) { continue; }
+        n++;
+        if (u.tg != null) {
+          // **範囲攻撃は当たった数だけ別々に振られる。**平均は ×mc、分散も ×mc。
+          // 転移率は定数なので分散は 2 乗で効く
+          mu += d.avg * tr * mc;
+          va += (d.va || 0) * tr * tr * mc;
+        } else {
+          mu += d.avg; va += d.va || 0;
+        }
+      }
+      var dur = r.dur || 240, STEP = 5;
+      for (i = 0; i < SLOTS; i++) {
+        if (!st.party[i]) { continue; }
+        var ts = naTimes(i, dur);
+        if (!ts.length) { continue; }
+        var bucket = {};
+        for (q = 0; q < ts.length; q++) {
+          var b = Math.floor(ts[q] / STEP);
+          bucket[b] = (bucket[b] || 0) + 1;
+        }
+        for (var bk in bucket) {
+          var dn = dmgOf(i, r, Math.min((+bk + 0.5) * STEP, dur), 'Normal');
+          if (!dn) { break; }
+          // 通常攻撃は 1 発ずつ別々に振られるので、分散も発数ぶん足す
+          mu += dn.avg * bucket[bk];
+          va += (dn.va || 0) * bucket[bk];
+          n += bucket[bk];
+        }
+      }
+      var hp = (r.bs && r.bs.hp) || 0, sd = Math.sqrt(Math.max(0, va));
+      var p = (!hp || sd <= 0) ? (mu >= hp ? 1 : 0)
+                               : 1 - normCdf((hp - mu) / sd);
+      return { mu: mu, sd: sd, n: n, hp: hp, p: clamp(p, 0, 1) };
+    } finally { PICKF = sv; }
   }
   // 置いた EX を全部足す
   var KS = ['min', 'avg0', 'avg', 'avgC', 'max'];
@@ -5539,6 +5660,7 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
                      nsInfo: nsInfo, naInfo: naInfo, altOf: altOf, pickOf: pickOf,
                      usesSorted: usesSorted, liveBuffs: liveBuffs, draw: draw,
                      applyTL: applyTL, fillBoss: fillBoss, findStudent: findStudent,
+                     clearStat: clearStat, trOf: trOf,
                      boss: boss, scen: scen, killAt: killAt, scoreOf: scoreOf,
                      enemyAt: enemyAt, mkStats: mkStats, danMax: danMax,
                      B: B };
