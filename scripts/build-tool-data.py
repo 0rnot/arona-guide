@@ -4565,7 +4565,17 @@ def build_tl():
         # 形態 `fi` の枠は `fi ? "Ex" + fi : "Ex"` で引ける（2026-09-01）
         skills_map = dict(x.get("Skills") or {})
         _ex = skills_map.get("Ex")
+        # **形態が変わる EX の「変わった先」は、変わる引き金の `Special` が
+        # 必ず付いている。**本体 `Ex` が配る `Special` の `Key` を控えておいて、
+        # 形態側のダメージ条件がその Key の有無を見ているときは決着が付く
+        # （2026-09-01。ネル（制服）の Ex1 が `CH0280_Ex_01` の有無 2 通り ×
+        # 段 5 通りの 10 候補になっていて、既定が「無いとき」＝ 1 発 12% 低い
+        # ほうだった。形態 `Ex1` を撃てている時点で `CH0280_Ex_01` はある）
+        _form_keys = set()
         if isinstance(_ex, dict):
+            for _e in (_ex.get("Effects") or []):
+                if _e.get("Type") == "Special" and _e.get("Key"):
+                    _form_keys.add(_e["Key"])
             _fi = 0
             for _xs in (_ex.get("ExtraSkills") or []):
                 if not _xs.get("Cost"):
@@ -4573,6 +4583,16 @@ def build_tl():
                 _fi += 1
                 skills_map["Ex" + str(_fi)] = _xs
                 nform += 1
+
+        def _form_cond(kind, c):
+            """形態側スキルの条件を「決着済み(True/False)」か「不明(None)」で返す。"""
+            if not (isinstance(c, dict) and re.match(r"^Ex\d+$", kind or "")):
+                return None
+            if c.get("Type") != "Special" or c.get("Operand") != "Exists":
+                return None
+            if c.get("Parameter") not in _form_keys:
+                return None
+            return bool(c.get("Value"))
         per_skill, per_buff, per_alt = {}, {}, {}
         for kind, sk in skills_map.items():
             if not isinstance(sk, dict):
@@ -4589,8 +4609,14 @@ def build_tl():
             # （2026-09-01 の先生の指示「幅がある場合は、バーで倍率を選択できるように」）
             dmg_all = [e for e in (sk.get("Effects") or [])
                        if str(e.get("Type", "")).startswith("Damage")]
-            plain = [e for e in dmg_all if not e.get("Condition")]
-            cond = [e for e in dmg_all if e.get("Condition")]
+            # 形態側スキルで決着の付く条件は、ここで畳む。
+            # False（有り得ない）は捨て、True（必ず成り立つ）は条件なし扱い
+            dmg_all = [e for e in dmg_all
+                       if _form_cond(kind, e.get("Condition")) is not False]
+            plain = [e for e in dmg_all if not e.get("Condition")
+                     or _form_cond(kind, e.get("Condition")) is True]
+            cond = [e for e in dmg_all if e.get("Condition")
+                    and _form_cond(kind, e.get("Condition")) is None]
             def _row(e):
                 # **6〜8 番目は 2026-09-01 に足した。**
                 #   Period/Duration … `DamageDebuff` は継続ダメージ。
@@ -4630,7 +4656,9 @@ def build_tl():
                 # **条件や段をまたいで足さない**
                 order, group = [], {}
                 for e in cond + stack:
-                    lab = cond_label(e.get("Condition")) if e.get("Condition") else ""
+                    lab = (cond_label(e.get("Condition"))
+                           if e.get("Condition")
+                           and _form_cond(kind, e.get("Condition")) is None else "")
                     if e.get("Group") is not None:
                         lab = (lab + " / " if lab else "") + f"段 {e['Group'] + 1}"
                     if lab not in group:

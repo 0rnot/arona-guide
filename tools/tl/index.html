@@ -1127,16 +1127,29 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
         大決戦 ビナー Torment 貫通(重装甲) 屋外</a>（ボス HP 23,000,000、戦闘時間
         <code>01:26.633</code>、RankingPoint <code>39,508,080</code>）の映像を 5fps で切って、
         ボスの HP バーと残り時間を読み取りました。<b>実測 259 点</b>です。
+        貼った TL 自体が書いている目安（「ネル後ボス HP 15.3M 以上＝下振れ／
+        14.5M 以下＝上振れ」「支援値：HP13753　攻撃1143　防御58　治癒898」）も
+        突き合わせに使っています。<b>ここで 3 つ直しました。</b>
         <ul>
-          <li>TL 1 ページ目（11 発）が終わった時点の残 HP が
-            <b>実測 14,269,174 に対して計算 14,524,005（差 1.8%）</b></li>
-          <li>中盤以降の累計は<b>「全会心平均」がいちばん近く、差は ±8%</b>。
-            「平均」は 30% ほど低く出ます。会心率の計算は 50.3% で、
-            この編成に会心値を上げるスキルは 1 つもありません
-            （上げているのは会心ダメージ率のほう）。
-            <b>なぜ実測が全会心に寄るのかは、まだ分かっていません</b></li>
-          <li>逆に序盤（EX のダメージが出る前）は、実測 141,519 に対して計算 233,390 で
-            <b>60% ほど多く</b>出ます。通常攻撃を撃ちっぱなしで数えているぶんです</li>
+          <li><b>支援値はスキルのパッシブを乗せる前の値から出ていました。</b>
+            パッシブ抜きで HP 13,667・攻撃 1,135・防御 58・治癒 893 となって、
+            TL の 13,753／1,143／58／898 と 4 つとも合います
+            （パッシブ込みだと攻撃 1,583・治癒 993 で、攻撃だけ 4 割ずれていました）</li>
+          <li><b>SPECIAL（サポーター）は通常攻撃をしません。</b>数えていたぶん、
+            序盤の削りが多すぎました（<code>SquadType</code> が <code>Support</code>）</li>
+          <li><b>グロッキー中は確定会心にしました</b>（下の「会心」の項）</li>
+          <li>それでも、TL 1 ページ目が終わった時点（経過 57.3 秒）の残 HP は
+            <b>実測 14,639,773 に対して「平均」17,151,895・「全会心平均」14,346,949</b>。
+            <b>実測は「全会心平均」の側です。</b>最後まで（経過 85.1 秒）の累計も
+            実測 20,245,147 に対して「平均」14,501,846・「全会心平均」18,469,974 で、
+            同じ寄り方をします。会心率の計算は 50.3%（ネル（制服）の会心値 695、
+            ビナーの会心抵抗値 20）、会心の倍率は 3.53 倍
+            （会心ダメージ率 43,269 − ボスの会心ダメージ抵抗率 8,000）。
+            <b>この 1.4 倍がどこから来るのかは、まだ分かっていません</b></li>
+          <li>逆に序盤（EX のダメージが出る前）は、実測 141,519 に対して計算 222,082 で
+            <b>57% ほど多く</b>出ます。実測では最初の 1 発が経過 5.3 秒で、
+            <b>盤に出てから射程に入るまでの移動時間はデータに無いので 0 秒から数えています</b>。
+            絶対量では全体の 1% 未満です</li>
           <li><b>フェーズは飛んでいませんでした。</b>60%（13,800,000）を越えたのが
             経過 67.6〜67.9 秒、25%（5,750,000）を越えたのが 80.4 秒で、
             <b>12.8 秒あいています</b>。25% のほうは 3 秒の全画面演出（TL の「ーー移行ーー」）が
@@ -1268,7 +1281,9 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
       <li><b>敵のレベル</b> — <code>DB/RaidStageExcelTable.json</code> の <code>GroundId</code> →
         <code>DB/GroundExcelTable.json</code> の <code>LevelBoss</code>（ビナー Torment は 90）</li>
       <li><b>支援値</b> — <code>DB/CharacterStatsTransExcelTable.json</code>。
-        SPECIAL の最終値の HP・攻撃 10%、防御・治癒 5% を切り捨てて STRIKER に足します</li>
+        SPECIAL の HP・攻撃 10%、防御・治癒 5% を切り捨てて STRIKER に足します。
+        <b>元になるのはスキルのパッシブを乗せる前の値</b>（実物の TL の見出しと
+        4 つとも一致。2026-09-01）</li>
       <li><b>育成の中身</b> — 装備は <code>equipment.min.json</code> の各段の上限レベルの値、
         固有武器・愛用品・絆は <code>students.min.json</code>。星の伸びは SchaleDB の既定値
         （生徒ごとの <code>Transcendence</code> は日本版のデータに 1 件もありませんでした）。
@@ -1372,10 +1387,22 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
         <b>乗せていないのは SS の発動ぶん 87 件だけ</b>で、
         これは引き金（何回攻撃したら、HP がいくつを切ったら…）が要るので
         時刻が決まりません</li>
+      <li><b>会心</b> — <code>1 − 4,000,000 ÷ ((会心値 − 会心抵抗値) × 6,000 + 4,000,000)</code>、
+        倍率は <code>(会心ダメージ率 − 会心ダメージ抵抗率) ÷ 10,000</code>
+        （SchaleDB <code>common.js</code> の <code>getCriticalRate</code> と
+        <code>calculateDamage</code>）。<b>グロッキーの間は確定会心にしています。</b>
+        出どころはボス個別の攻略記事で、
+        <a href="https://kamigame.jp/bluearchive/page/291958223466948853.html" target="_blank" rel="noopener">kamigame のクロカゲ</a>が
+        「グロッキー状態中は全ての敵の会心率が最大となる。」、gamerch の同じ記事が
+        「グロッキー中はこちらの攻撃すべてが確定会心となる」と書いています。
+        <b>ゲームの表には入っていません</b>（<code>ConstCombatExcelTable</code> の
+        <code>CriticalConstA〜D</code> にも SchaleDB にもグロッキーの分岐はありません）。
+        ゲージはダメージで貯まり、そのダメージが会心で変わるので、
+        グロッキー無しで 1 度引いてから区間を入れて引き直す、を繰り返して決めています</li>
       <li><b>まだ入っていないもの</b> — SS のダメージ、遮蔽、
-        <b>グロッキー中の被ダメージ増加</b>。グロッキーはゲージ量（ビナー Torment は
-        6,500,000）と時間（10 秒）まではデータにありますが、
-        <b>増加率の出どころが見つかっていません。</b>
+        <b>グロッキー中の被ダメージ増加</b>（増加率の出どころが見つかっていません）、
+        <b>形態が変わっている間の通常攻撃</b>（ネル（制服）は決闘中だけ倍率 120% ですが、
+        画面の候補では固定です）。
         EX と NS の 1 発ずつの数字は SchaleDB と突き合わせて合っています</li>
       <li><b>当てにしないでください</b> — 難易度ぶんのビヘイビアツリーが無いボスは Normal の木で埋めています。
         グレゴリオの Lunatic だけは木が無いので出せません</li>
@@ -1873,6 +1900,7 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
   function scen() { return SCEN[scenIx()]; }
   function dmgCurve(r) {
     var sv = PICKF, sc = scen();
+    ggSolve(r);
     PICKF = sc.pf;
     try { return dmgCurve0(r, sc.key); } finally { PICKF = sv; }
   }
@@ -2002,6 +2030,48 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
       }
     }
     return { g: g, pts: pts, hits: hits, base: base };
+  }
+  /* **グロッキーの間は会心が確定する。**
+     出典（どれもボス個別の攻略記事で、ゲームの表には無い）——
+       kamigame クロカゲ https://kamigame.jp/bluearchive/page/291958223466948853.html
+         「グロッキー状態中は全ての敵の会心率が最大となる。」
+       gamerch クロカゲ 「グロッキー中はこちらの攻撃すべてが確定会心となる」
+     **グローバルな定数表には無い**（`Excel/ConstCombatExcelTable.json` の
+     `CriticalConstA〜D` に groggy の分岐は 1 つも無く、SchaleDB の
+     `getCriticalRate` にも無い。2026-09-01 に全文を見た）。
+     手元の実測もこれを指している——大決戦ビナー Torment の録画で、
+     累計ダメージがゲージ 6,500,000 に届く 55 秒あたりを境に、
+     実測が「平均」から「全会心平均」の線へ乗り換わる（49.2 秒で 平均 −1.1%、
+     59.6 秒で 全会心平均 +3.0%）。
+     **ゲージはダメージで貯まり、ダメージは会心で変わるので、堂々巡りになる。**
+     グロッキー無しで 1 度引いてから、出た区間を入れて引き直す、を繰り返す */
+  var GGSP = null, GGBUSY = false;
+  function ggCritAt(t) {
+    if (!GGSP || !GGSP.length || t == null) { return false; }
+    for (var i = 0; i < GGSP.length; i++) {
+      if (t >= GGSP[i][0] - 1e-9 && t < GGSP[i][1]) { return true; }
+    }
+    return false;
+  }
+  function ggSolve(r) {
+    if (GGBUSY) { return; }
+    GGBUSY = true;
+    try {
+      var pass, i, prev = null;
+      GGSP = null;
+      for (pass = 0; pass < 4; pass++) {
+        var hits = ggRuns(r).hits, ns = [], same = !!prev && prev.length === hits.length;
+        for (i = 0; i < hits.length; i++) { ns.push([hits[i].t, hits[i].until]); }
+        if (same) {
+          for (i = 0; i < ns.length; i++) {
+            if (Math.abs(prev[i][0] - ns[i][0]) > 1e-6) { same = false; }
+          }
+        }
+        prev = ns;
+        GGSP = ns;
+        if (same) { break; }
+      }
+    } finally { GGBUSY = false; }
   }
   /** ある時刻でゲージがどれだけ貯まっているか。**先生が見たいのはこれ。** */
   function ggAt(runs, t) {
@@ -2676,10 +2746,10 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
       '乗せていないのは SS の発動ぶん 87 件（引き金が要るもの）だけです']);
     out.push(['w', 'SS のダメージ・遮蔽・グロッキー中の被ダメージ増加はまだ入っていません']);
     // **実測 1 本との突き合わせ**（2026-09-01）。下の「数字の出どころ」に詳しい
-    out.push(['w', '実物の戦闘 1 本（大決戦 ビナー Torment 貫通・屋外、23,000,000 を ' +
-      '01:26.633 で撃破）の HP バーを読み取って突き合わせました。' +
-      '中盤以降は「全会心平均」がいちばん近く（差 ±8%）、「平均」は 30% ほど低く出ます。' +
-      '序盤は逆に、通常攻撃を撃ちっぱなしで数えているぶん 60% ほど多く出ます']);
+    out.push(['w', '実物の戦闘 1 本（大決戦 ビナー Torment 貫通・屋外）の HP バーを ' +
+      '読み取って突き合わせました。TL 1 ページ目が終わった時点の残 HP が ' +
+      '実測 14,639,773 に対して「平均」17,151,895・「全会心平均」14,346,949 で、' +
+      '実測は「全会心平均」の側です。この 1.4 倍の出どころはまだ分かっていません']);
     $('errlog').innerHTML = out.map(function (x) {
       return '<div class="' + x[0] + '">' + (x[0] === 'g' ? '✔ ' : (x[0] === 'e' ? '✕ ' : '▸ ')) + esc(x[1]) + '</div>';
     }).join('');
@@ -2898,12 +2968,22 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
     if (cs && ENH[bt] === armor) { e += cs.get('Enhance' + bt + 'Rate') - 10000; }
     return e / 10000;
   }
-  // 支援値。SPECIAL（編成の 5・6 枠）の最終値に万分率を掛けて切り捨て、STRIKER に乗る
+  // 支援値。SPECIAL（編成の 5・6 枠）の最終値に万分率を掛けて切り捨て、STRIKER に乗る。
+  // **元になるのはスキルのパッシブを乗せる前の値**（2026-09-01 に確かめた）。
+  // 貼った TL の見出しにある「支援値：HP13753　攻撃1143　防御58　治癒898」と、
+  // パッシブ抜きなら HP13667・攻撃1135・防御58・治癒893 で 4 つとも合う。
+  // パッシブ込みだと攻撃 1583・治癒 993 で、攻撃だけ 4 割ずれていた
   function support(stat, lv, r) {
     var f = (B.trans[r.ext || 'Base'] || B.trans.Base || {})[stat] || 0, sum = 0;
     for (var i = MAIN_MAX; i < SLOTS; i++) {
       if (!live(i)) { continue; }
-      var cs = st.party[i] && statsOf(st.party[i].id, i);
+      var p0 = st.party[i];
+      if (!p0) { continue; }
+      var o0 = buildOpt(i);
+      o0.extra = [];
+      var k0 = 'sup|' + p0.id + '|' + JSON.stringify(o0);
+      if (!_sc[k0]) { _sc[k0] = mkStats(p0.id, o0); }
+      var cs = _sc[k0];
       if (cs) { sum += Math.floor(cs.get(stat) * f / 10000); }
     }
     return sum;
@@ -3041,6 +3121,13 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
   function naTimes(idx, dur) {
     var p = st.party[idx];
     if (!p) { return []; }
+    // **SPECIAL（サポーター）は通常攻撃をしない。**盤に出ているのは EX を
+    // 撃つあいだだけで、あとは引っ込んでいる。データの側でも
+    // `DB/CharacterExcelTable.json` の `SquadType` が `Support`（STRIKER は
+    // `Main`）で、STRIKER への `支援値` に変換される側になっている。
+    // **数えていたぶん、序盤の削りが実物の 2 倍近くあった**（2026-09-01、
+    // 大決戦ビナー Torment の録画と突き合わせて分かった）
+    if (!isMain(idx)) { return []; }
     var a = naInfo(p.id);
     if (!a || a.per <= 0) { return []; }
     var busy = busyOf(idx), out = [], t = a.ent, k = 0, guard = 0;
@@ -3577,7 +3664,9 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
       var ig = e[6] ? (e[6][Math.min(slv, e[6].length) - 1] || 10000) : null;
       var base = atk * tm * em * (sc / 10000) * mult * defModOf(ig) *
                  drA * drB * exM * baM * lvMod * tick;
-      var cr = e[2] === 'Never' ? 0 : (e[2] === 'Always' ? 1 : cRate);
+      // **グロッキー中は確定会心**（この関数の上、ggCritAt の注記に出典）
+      var cr = e[2] === 'Never' ? 0
+             : (e[2] === 'Always' || ggCritAt(at) ? 1 : cRate);
       var cm = e[2] === 'Never' ? 1 : cdm;
       var mid = (sMin + 1) / 2;
       o.min += base * sMin;
@@ -3594,6 +3683,7 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
   // `pf` は倍率の幅の振り方（`PICKF`）。表の行ごとに差し替える
   function total(r, pf) {
     var sv = PICKF;
+    ggSolve(r);
     PICKF = pf || 0;
     try { return total0(r); } finally { PICKF = sv; }
   }
@@ -4625,7 +4715,7 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
   syncUndo();
   // 突き合わせ用。**SchaleDB の実装と数字が合うかを外から確かめるため**に出している
   window.__TLDBG = { statsOf: statsOf, dmgOf: dmgOf, total: total, diff: diff,
-                     terrMod: terrMod, effMod: effMod, passiveFor: passiveFor, phaseSpans: phaseSpans, ggRuns: ggRuns, ggAt: ggAt, dmgCurve: dmgCurve, parseTL: parseTL, st: st, stu: stu, sim: sim, engIn: engIn, costPts: costPts,
+                     terrMod: terrMod, effMod: effMod, passiveFor: passiveFor, phaseSpans: phaseSpans, ggRuns: ggRuns, ggAt: ggAt, ggCritAt: ggCritAt, ggSolve: ggSolve, dmgCurve: dmgCurve, parseTL: parseTL, st: st, stu: stu, sim: sim, engIn: engIn, costPts: costPts,
                      busyOf: busyOf, naTimes: naTimes, naRuns: naRuns, nsTimes: nsTimes,
                      nsInfo: nsInfo, naInfo: naInfo, altOf: altOf, pickOf: pickOf,
                      usesSorted: usesSorted, liveBuffs: liveBuffs, draw: draw,
