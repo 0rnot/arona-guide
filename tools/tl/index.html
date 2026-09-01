@@ -46,7 +46,8 @@
 }
 .tlapp *, .tlapp *::before, .tlapp *::after { box-sizing:border-box; }
 .tlapp h2 { font-size:12.5px; font-weight:700; margin:0; color:var(--tx); }
-.tlapp .pane { background:var(--bg1); border:1px solid var(--ln); border-radius:4px; }
+.tlapp .pane { background:var(--bg1); border:1px solid var(--ln); border-radius:4px;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.045), 0 1px 2px rgba(0,0,0,.45); }
 .tlapp .pane > .ttl { display:flex; align-items:center; gap:8px; padding:6px 9px;
   border-bottom:1px solid var(--ln); }
 .tlapp .pane > .ttl .sub { font-size:10.5px; color:var(--tx3); font-weight:400; }
@@ -61,13 +62,15 @@
   border:1px solid var(--ln2); background:var(--bg2); color:var(--tx); }
 .tlapp .mut { color:var(--tx2); }
 
-/* **見出しは左の細い柱で示す。**枠を並べるより縦が詰まるし、
-   相手のツールとも見た目が別物になる（2026-09-01 の先生の指示） */
-.tlapp h2.sect { display:flex; align-items:center; gap:6px; margin:0 0 5px;
-  font-size:11px; letter-spacing:.04em; }
-.tlapp h2.sect > i { width:3px; height:12px; border-radius:2px; background:var(--acc);
-  flex:0 0 auto; }
-.tlapp h2.sect.inline { margin:0; }
+/* **見出しは字詰めと髪の毛線で示す。**左の色柱はやめた
+   （2026-09-01。全パネルに例外なく付いていて、いかにも生成物の見た目だった）。
+   罫は幅いっぱいに引いて、見出し自体は小さく詰める */
+.tlapp h2.sect { display:flex; align-items:center; gap:6px; margin:0 0 6px;
+  font-size:10px; font-weight:700; letter-spacing:.15em; color:var(--tx2);
+  padding-bottom:4px; border-bottom:1px solid var(--ln); }
+.tlapp h2.sect > i { display:none; }
+.tlapp h2.sect.inline { margin:0; padding-bottom:0; border-bottom:0;
+  letter-spacing:.04em; font-size:11px; color:var(--tx); }
 .tabsm { display:flex; gap:3px; }
 .tabsm .btn2 { padding:1px 6px; font-size:10px; }
 .vr { width:1px; align-self:stretch; background:var(--ln); margin:0 3px; }
@@ -101,9 +104,12 @@
 
 /* ---------- 達成率の表 ---------- */
 .rate { width:100%; border-collapse:collapse; font-size:10.5px; }
-.rate th, .rate td { border:1px solid var(--ln); padding:2px 6px; text-align:right; }
-.rate th { background:var(--bg2); color:var(--tx2); font-weight:600; text-align:center; }
-.rate td.n { text-align:left; color:var(--tx2); }
+/* **縦罫は 1 本だけ。**行間と右揃えで読ませる（2026-09-01） */
+.rate th, .rate td { border:0; border-bottom:1px solid var(--ln); padding:3px 7px; text-align:right; }
+.rate th { background:transparent; color:var(--tx3); font-weight:700; text-align:center;
+  font-size:9.5px; letter-spacing:.06em; border-bottom:1.5px solid var(--ln2); }
+.rate tr:last-child td { border-bottom:0; }
+.rate td.n { text-align:left; color:var(--tx2); border-right:1px solid var(--ln); }
 .rate .bar { display:block; height:7px; border-radius:3px; background:var(--bg3);
   overflow:hidden; min-width:70px; }
 .rate .bar i { display:block; height:100%; border-radius:3px; }
@@ -135,7 +141,10 @@
 .tk b { position:absolute; top:2px; left:3px; font-size:10px; color:var(--tx2); font-weight:600; }
 .vg { position:absolute; top:0; bottom:0; width:1px; background:#ffffff0a; pointer-events:none; }
 .vg.m { background:#ffffff18; }
-.b { position:absolute; top:2px; bottom:2px; border-radius:3px; display:flex; align-items:center;
+/* **帯の角は落とす。**プロファイラや DAW の帯と同じで、角丸だと
+   時間の切れ目が読みにくい（2026-09-01）。上に光・下に影の 1px で面にする */
+.b { position:absolute; top:2px; bottom:2px; border-radius:0; display:flex; align-items:center;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.15), inset 0 -1px 0 rgba(0,0,0,.32);
   gap:3px; padding:0 4px; overflow:hidden; white-space:nowrap; font-size:10px;
   border:1px solid #0007; cursor:default; }
 .b.name { background:var(--teal); color:#fff; font-weight:700; }
@@ -144,13 +153,15 @@
 .b.ps { background:var(--grn); color:#fff; }
 .b.gro { background:var(--ylw); color:#221900; font-weight:700; }
 .b.dbf { background:var(--pur); color:#fff; justify-content:center; padding:0; }
-.b.sk { background:var(--acc2); color:#171004; cursor:grab; gap:2px; padding:0 2px;
+.b.sk { border-radius:2px; background:var(--acc2); color:#171004; cursor:grab; gap:2px; padding:0 2px;
   overflow:hidden; }
 .b.sk .ic { width:12px; height:12px; border-radius:2px; flex:0 0 auto; }
 .b.sk .cs { font-size:9px; font-weight:700; flex:0 0 auto; }
 .b.sk .nm { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.b.sk:hover { filter:brightness(1.15); }
-.b.sk.sel { outline:2px solid #fff; outline-offset:-1px; z-index:3; }
+.b.sk:hover { filter:none;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.3), 0 2px 5px rgba(0,0,0,.45); }
+.b.sk.sel { outline:0; z-index:3;
+  box-shadow:0 0 0 1px var(--bg0), 0 0 0 2px #f2c14e, 0 3px 8px rgba(0,0,0,.55); }
 .b.sk .cs { color:#171004; }
 .b.sk.bad { background:var(--red); }
 .b.ns { background:var(--grn); color:#fff; justify-content:center; padding:0;
@@ -200,6 +211,9 @@
 .crew .c { position:relative; aspect-ratio:1/1; border:1px solid var(--ln2); border-radius:5px;
   background:var(--bg2); overflow:hidden; }
 .crew .c img { width:100%; height:100%; object-fit:cover; }
+/* **数字は写真の下端に沈める。**黒い錠剤を重ねない（2026-09-01） */
+.crew .c::after { content:""; position:absolute; left:0; right:0; bottom:0; height:44%;
+  background:linear-gradient(180deg,transparent,rgba(0,0,0,.62)); pointer-events:none; }
 .crew .c .x { position:absolute; top:0; right:0; width:13px; height:13px; border:0; padding:0;
   background:#c3384ae0; color:#fff; font-size:9px; line-height:13px; cursor:pointer;
   border-radius:0 4px 0 4px; }
@@ -288,17 +302,21 @@
 .gaugebar { height:6px; border-radius:3px; background:var(--bg3); overflow:hidden; }
 .gaugebar i { display:block; height:100%; background:linear-gradient(90deg,#3aa76d,#7bd88f); }
 /* ---------- 概況の帯。**数字だけ先に読める**ようにする（上の表より前に置く） */
-.kpi { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:5px;
+.kpi { display:grid; grid-template-columns:1.7fr 1fr 1fr 1fr 1fr; gap:0 0;
   background:var(--bg1); border:1px solid var(--ln); border-radius:4px;
   padding:7px 9px 8px; margin-bottom:5px; position:relative; }
 .kpi .k { display:flex; flex-direction:column; gap:1px; min-width:0; }
+/* **主は「与ダメージ」1 つだけ。**5 つ同格だと何を読めばいいか決まらない */
+.kpi .k + .k { border-left:1px solid var(--ln); padding-left:11px; margin-left:11px; }
+.kpi .k:first-child .kv { font-size:24px; letter-spacing:-.015em; }
 .kpi .kl { font-size:9px; color:var(--tx3); letter-spacing:.03em; }
-.kpi .kv { font-size:17px; font-weight:700; color:var(--tx); line-height:1.15;
+.kpi .kv { font-size:15px; font-weight:700; color:var(--tx); line-height:1.15;
   font-variant-numeric:tabular-nums; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .kpi .ks { font-size:9px; color:var(--tx2); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.kpi .kbar { grid-column:1/-1; height:3px; border-radius:2px; background:var(--bg3); overflow:hidden; }
-.kpi .kbar i { display:block; height:100%; background:linear-gradient(90deg,var(--teal),var(--acc2)); }
-@media (max-width:999px) { .kpi { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+.kpi .kbar { grid-column:1/-1; height:3px; margin-top:7px; background:var(--bg3); overflow:hidden; }
+.kpi .kbar i { display:block; height:100%; background:var(--acc2); }
+@media (max-width:999px) { .kpi { grid-template-columns:repeat(2,minmax(0,1fr)); gap:5px; }
+  .kpi .k + .k { border-left:0; padding-left:0; margin-left:0; } }
 
 /* ---------- 編成。STRIKER と SPECIAL を別の行にする */
 .crewline { display:flex; align-items:center; gap:5px; margin-bottom:4px; }
@@ -325,8 +343,8 @@
 /* ---------- 生徒を選ぶ */
 .filt.f2 { grid-template-columns:repeat(4,1fr); }
 .picker button.pk { position:relative; }
-.picker button.pk::before { content:''; position:absolute; left:0; top:0; width:3px; height:100%;
-  border-radius:5px 0 0 5px; }
+.picker button.pk::before { content:''; position:absolute; left:0; top:0; width:2px; height:100%;
+  border-radius:5px 0 0 5px; opacity:.75; }
 /* **左の帯は攻撃タイプ。**配置（ストライカー／スペシャル）は詳細フィルターへ移した
    （2026-09-01 の先生の指示）。色は SchaleDB の攻撃タイプの並びに合わせている */
 .picker button.pk.bt-Explosion::before { background:#d64f3f; }
@@ -401,12 +419,21 @@
 .topbar { z-index:40; backdrop-filter:none; background:#0a0e18;
   border-bottom:1px solid var(--ln); }
 .topbar-inner { max-width:none; padding:0 10px; gap:8px; height:26px; }
-.topbar-name { font-size:11px; font-weight:700; color:var(--tx2); }
-.topbar-name:hover { color:var(--tx); }
+.topbar-name { font-size:11px; font-weight:700; color:#98a2b3; }
+.topbar-name:hover { color:#e8ecf2; }
 .topbar-tools { margin-left:8px; padding:1px 8px; font-size:10px; gap:4px; }
 .topbar-tools svg { width:10px; height:10px; }
 .topbar .share { padding:1px 9px; font-size:10px; gap:4px; }
 .topbar .share-icon { width:10px; height:10px; }
+/* ---------- 「数字の出どころ」。**明色スキームだと見出しが消えていた**
+   （tool.css の `details.src b { color:var(--fg) }` が、常に暗いこの画面で
+   明色の文字色になる）。ここで閉じる（2026-09-01 にラムネが見つけた） */
+.tlapp details.src { border-top-color:var(--ln); }
+.tlapp details.src summary { color:var(--tx2); }
+.tlapp details.src b { color:var(--tx); }
+.tlapp details.src p, .tlapp details.src li { color:var(--tx2); }
+.tlapp details.src code { background:var(--bg2); color:var(--tx); border:1px solid var(--ln); }
+.tlapp details.src a { color:var(--acc2); }
 </style>
 </head>
 <body>
@@ -514,6 +541,32 @@
       </div></div>
 
       <div class="pane"><div class="bd">
+        <h2 class="sect"><i></i>生徒を選ぶ
+          <span style="flex:1 1 auto"></span>
+          <span class="mut tiny" id="pick-n"></span>
+        </h2>
+        <div class="filt">
+          <label class="f"><span>検索</span><input type="text" id="i-find" placeholder="アカネ、バニー…"></label>
+          <label class="f"><span>攻撃</span><select id="i-bul"></select></label>
+          <label class="f"><span>防御</span><select id="i-arm"></select></label>
+          <label class="f"><span>クラス</span><select id="i-role"></select></label>
+        </div>
+        <div class="filt f2" id="filt2" hidden>
+          <label class="f"><span>学校</span><select id="i-sch"></select></label>
+          <label class="f"><span>配置</span><select id="i-sq"></select></label>
+          <label class="f"><span>レアリティ</span><select id="i-star"></select></label>
+          <label class="f"><span>並び</span><select id="i-sort">
+            <option value="n">名前</option><option value="c">EXコスト</option>
+            <option value="d">EX演出の長さ</option><option value="id">実装順</option></select></label>
+        </div>
+        <div class="row" style="margin-bottom:5px">
+          <button type="button" class="btn2" id="b-more" aria-pressed="false">詳細フィルター</button>
+          <button type="button" class="btn2" id="b-reset">条件をクリア</button>
+        </div>
+        <div class="picker" id="picker"></div>
+      </div></div>
+
+      <div class="pane"><div class="bd">
         <h2 class="sect"><i></i>育成
           <select id="g-who" class="who"></select>
           <span style="flex:1 1 auto"></span>
@@ -548,32 +601,6 @@
           <span class="mut tiny">条件でダメージが変わるもの</span>
         </h2>
         <div id="alts"></div>
-      </div></div>
-
-      <div class="pane"><div class="bd">
-        <h2 class="sect"><i></i>生徒を選ぶ
-          <span style="flex:1 1 auto"></span>
-          <span class="mut tiny" id="pick-n"></span>
-        </h2>
-        <div class="filt">
-          <label class="f"><span>検索</span><input type="text" id="i-find" placeholder="アカネ、バニー…"></label>
-          <label class="f"><span>攻撃</span><select id="i-bul"></select></label>
-          <label class="f"><span>防御</span><select id="i-arm"></select></label>
-          <label class="f"><span>クラス</span><select id="i-role"></select></label>
-        </div>
-        <div class="filt f2" id="filt2" hidden>
-          <label class="f"><span>学校</span><select id="i-sch"></select></label>
-          <label class="f"><span>配置</span><select id="i-sq"></select></label>
-          <label class="f"><span>レアリティ</span><select id="i-star"></select></label>
-          <label class="f"><span>並び</span><select id="i-sort">
-            <option value="n">名前</option><option value="c">EXコスト</option>
-            <option value="d">EX演出の長さ</option><option value="id">実装順</option></select></label>
-        </div>
-        <div class="row" style="margin-bottom:5px">
-          <button type="button" class="btn2" id="b-more" aria-pressed="false">詳細フィルター</button>
-          <button type="button" class="btn2" id="b-reset">条件をクリア</button>
-        </div>
-        <div class="picker" id="picker"></div>
       </div></div>
 
       <div class="pane"><div class="bd">
@@ -1324,7 +1351,8 @@
       '<polyline class="rec0" points="' + poly([[0, rec], [dur, rec]], px, H.rec, ymax, 8) + '"/>' +
       '<polyline class="rec" points="' + poly(recPts, px, H.rec, ymax, 8) + '"/></svg>' +
       '<span class="vl" style="left:44px;top:' +
-      (H.rec - 8 - (rec / ymax) * (H.rec - 16) - 10) + 'px">常時 ' + rec +
+      clamp(H.rec - 8 - (rec / ymax) * (H.rec - 16) - 10, 1, H.rec - 12) +
+      'px">常時 ' + rec +
       (recMax > rec ? '／最大 ' + recMax : '') + '</span>');
     void recNow;
 
@@ -1342,12 +1370,16 @@
     for (var z2 = 0; z2 < sm.rows.length; z2++) {
       if (sm.rows[z2].e && sm.rows[z2].e._ix != null) { rowOf[sm.rows[z2].e._ix] = sm.rows[z2]; }
     }
+    var nlane = 0;
+    void nlane;
     for (var i = 0; i < SLOTS; i++) {
-      if (!live(i)) { continue; }
+      // **空き枠のレーンは描かない**（2026-09-01。初期画面の縦 6 割が
+      // 空の EX・NS・通常の 3 本 × 6 人ぶんで埋まっていた）
+      if (!live(i) || !st.party[i]) { continue; }
+      nlane++;
       var p = st.party[i];
-      side += lbl(H.row, (p ? img(p.id, 'ic') : '') +
-        '<span class="nm">' + (p ? esc(p.n) : '<span class="mut">（' +
-          (isMain(i) ? 'ST' : 'SP') + ' 空き）</span>') + '</span>' +
+      side += lbl(H.row, img(p.id, 'ic') +
+        '<span class="nm">' + esc(p.n) + '</span>' +
         '<span class="mb">EX</span>');
       var sb = '';
       for (var u2 = 0; u2 < st.tl.length; u2++) {
