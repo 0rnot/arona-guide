@@ -4356,11 +4356,20 @@ def build_tl():
             r["TransSupportStats"]] = r["TransSupportStatsFactor"]
     # 敵のレベル（レベル差補正に要る）。RaidStage の GroundId → Ground の LevelBoss
     ground = {r["Id"]: r for r in as_list(get_json(BADB.format("GroundExcelTable")))}
-    # **キーはキャラクター ID。**RaidBossGroup の綴りは Raid の DevName と揃っていない
-    # （シロ&クロ・ヒエロニムスで外れた。2026-09-01）。地形は GroundExcelTable の
-    # `StageTopography`（`TacticEnvironment` は "None" が入っている）
-    stage = {}
-    for r in as_list(get_json(BADB.format("RaidStageExcelTable"))):
+    # **総力戦は「ボス × 地形」で別物。**同じボスでも屋内と市街地では敵の ID も HP も
+    # 違い、地形適性でダメージが変わる。2026-09-01 まで SchaleDB の `Raid.EnemyList`
+    # から作っていて、**ヒエロニムスが Insane まで屋内・Torment から市街地**という
+    # ちぐはぐな並びになっていた（EnemyList に両方が入っていて、先に引けたほうを
+    # 採っていた）。ビナー市街地・ケセド屋外・ホド屋内・シロクロ屋内・ゴズ屋外・
+    # ペロロジラ屋外・カイテンジャー屋内は**丸ごと選べなかった。**
+    # `RaidBossGroup` で割ると 14 体 → 22 通りになる
+    TER_JA = {"Street": "市街地", "Outdoor": "屋外", "Indoor": "屋内"}
+    stage_rows = as_list(get_json(BADB.format("RaidStageExcelTable")))
+    grp = {}
+    for r in stage_rows:
+        g0 = r.get("RaidBossGroup")
+        if not g0:
+            continue
         g = ground.get(r.get("GroundId")) or {}
         # スコア。**1 秒あたりの減点は `PerSecondMinusScore` の 1/10**
         # （根拠は build_raid_score のコメント。同じ表・同じ列を読んでいる）
@@ -4371,31 +4380,59 @@ def build_tl():
         if r.get("DefaultClearScore"):
             sc = [r["DefaultClearScore"], r.get("HPPercentScore") or 0,
                   ps_raw // 10, r.get("MaximumScore") or 0]
-        v = {"lv": g.get("LevelBoss"), "env": g.get("StageTopography"),
-             "ext": r.get("EchelonExtensionType") or "Base", "sc": sc}
-        ids = [r.get("RaidCharacterId")] + list(r.get("BossCharacterId") or [])
-        for cid in ids:
-            if cid:
-                stage.setdefault(cid, v)
+        grp.setdefault(g0, []).append({
+            "df": r.get("Difficulty", ""),
+            "cids": [c for c in ([r.get("RaidCharacterId")]
+                                 + list(r.get("BossCharacterId") or [])) if c],
+            "lv": g.get("LevelBoss"), "env": g.get("StageTopography"),
+            "ext": r.get("EchelonExtensionType") or "Base", "sc": sc,
+            "dur": (r.get("BattleDuration") or 0) // 1000,
+        })
+    # `RaidBossGroup` の綴りは Raid の DevName と揃っていない
+    # （カイテンジャー・ホバークラフトで外れる。build_raid_score と同じ）
+    GRP_ALIAS = {"kaitenger": "kaitenfxmk0", "hovercraft": "raidhovercraft"}
+    raid_by_dev = {}
+    for r in raids.get("Raid") or []:
+        if r.get("DevName"):
+            raid_by_dev[r["DevName"].lower()] = r
+    grp_base = {}
+    for g0 in grp:
+        b0 = g0.split("_")[0].lower()
+        grp_base[g0] = raid_by_dev.get(GRP_ALIAS.get(b0, b0)) or raid_by_dev.get(b0)
+    lost = sorted(g for g0, v in grp_base.items() if not v for g in [g0])
+    if lost:
+        raise SystemExit(f"Raid の DevName に結び付かない RaidBossGroup: {lost}")
+    # 同じボスの枝が 2 つ以上あるときだけ、名前に地形を添える
+    n_of_base = {}
+    for g0, rd in grp_base.items():
+        n_of_base[rd["Id"]] = n_of_base.get(rd["Id"], 0) + 1
+    # SchaleDB の Raid の並び（＝実装順）を保って、その中で枝を並べる
+    grp_order = []
+    for rd in raids.get("Raid") or []:
+        for g0 in sorted(grp, key=lambda x: (len(x), x)):
+            if grp_base[g0] is rd:
+                grp_order.append(g0)
     print(f"  特効 {sum(len(v) for v in bam.values())} 組／地形 {len(ter)} 段／"
-          f"支援値 {len(trans)} 種／ステージ {len(stage)} 件")
+          f"支援値 {len(trans)} 種／ボスの枝 {len(grp)} 通り "
+          f"（{sum(len(v) for v in grp.values())} 段）")
 
     fcache = {}
     bosses, ok, half, ng = [], 0, 0, []
-    for b in raids.get("Raid") or []:
+    for g0 in grp_order:
+        b = grp_base[g0]
         rows = []
-        for i, ids in enumerate(b.get("EnemyList") or []):
+        for sg in grp[g0]:
             got = None
-            for cid in (ids if isinstance(ids, list) else [ids]):
+            for cid in sg["cids"]:
                 got = tl_one(cid, bt, csl, stat, fcache, appear)
                 if got:
                     break
-            df = TL_DIFF[i] if i < len(TL_DIFF) else str(i)
+            df = sg["df"]
             if not got:
-                ng.append(f"{b.get('Name')} {df}")
+                ng.append(f"{b.get('Name')} {g0} {df}")
                 continue
             got["df"] = df
-            got["dur"] = (b.get("BattleDuration") or [None] * (i + 1))[i]
+            got["dur"] = sg["dur"]
             got["cool"] = {g: cool[g] for g in got["ex"] if g in cool}
             # EX 1 発の長さ（フレーム）。**帯の幅に使う。**
             # 通常スキルと違って、こちらはトップレベルの `Duration` がそのまま入っている
@@ -4403,7 +4440,6 @@ def build_tl():
             # ---- ボス側の素の値。ダメージ計算はここから引く
             sr = stat.get(got["cid"]) or {}
             cr = ch_all.get(got["cid"]) or {}
-            sg = stage.get(got["cid"]) or {}
             got["lv"] = sg.get("lv")
             got["env"] = sg.get("env")
             got["ext"] = sg.get("ext") or "Base"
@@ -4431,7 +4467,11 @@ def build_tl():
             # グロッキーゲージの溜まり方。**ゲーム内の文をそのまま出す**
             _gc = _groggy_loc.get(b.get("DevName") or "", "")
             _wk = b.get("BulletType") or ""
-            bosses.append({"id": b["Id"], "n": b.get("Name"), "dev": b.get("DevName"),
+            _ter = TER_JA.get(rows[0].get("env") or "", "")
+            _nm = b.get("Name")
+            if n_of_base.get(b["Id"], 1) > 1 and _ter:
+                _nm = f"{_nm}（{_ter}）"
+            bosses.append({"id": b["Id"], "g": g0, "n": _nm, "dev": b.get("DevName"),
                            "path": b.get("PathName"), "gc": _gc, "gwk": _wk, "d": rows})
     # **生徒の素ステータスとダメージ倍率。**`tools/cost-timeline/data.js` には
     # バフと着弾しか入っていないので、ダメージを出すのに要るぶんだけここに足す。

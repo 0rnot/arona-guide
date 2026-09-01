@@ -1263,7 +1263,21 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
         <code>ConditionArgument</code> がフレームで、750 なら 25 秒ごとです。
         272 人がこの型で、残る 68 件は <code>OnAttackIng</code>・<code>HpUnder</code> など
         <b>間隔で決まらない型なので置いていません</b>（その生徒がいると左の欄に出ます）。
-        愛用品 T2 で通常スキルが変わる子は、そちらを使います</li>
+        愛用品 T2 で通常スキルが変わる子は、そちらを使います。
+        <b>次の 25 秒は「実際に発動した時刻」から数え直します</b>——EX で押し出されたら
+        そのぶん以降がまるごとずれます（2026-09-01 に直しました。それまでは絶対的な
+        25 秒の格子で、押し出したぶんが次で戻っていました）。根拠は実測の 2 本で、
+        <a href="https://www.youtube.com/watch?v=qe-A_vBW94U" target="_blank" rel="noopener">
+        ONIABlue「EX によるノーマルスキル発動を調整する方法」</a>の
+        <b>マキ（EX の <code>Duration</code> 110 フレーム ＝ 3.6667 秒）</b>で、
+        2:35.166 に EX → NS が 2:31.4（計算 2:31.499）、その次も 2:05 まで遅れています。
+        <a href="https://www.youtube.com/watch?v=qadvU1vkMRc" target="_blank" rel="noopener">
+        みじん子「NS 遅延テクニック」</a>も同じことを言っています。
+        <b>入れていない例外が 2 つあります。</b>タイマーのリセットは吹き出しより前
+        （銃を下ろし始めた瞬間）なので、その短い窓に EX を入れるとその回だけ遅れて
+        次は元どおりです。吹き出しから発射までに EX を入れると NS 自体が消えます。
+        どちらも「窓の長さ」がデータに無いので置いていません。
+        移動・通常攻撃・接敵でもずれます（素の実測が 25.0 でなく 25.2 秒でした）</li>
       <li><b>通常攻撃（オートアタック）</b> — 周期は SchaleDB の
         <code>students.min.json</code> の <code>Skills.Normal.Frames</code>
         （＝ ba-data の <code>LevelSkill/&lt;NormalSkillGroupId&gt;.json</code> の
@@ -2915,10 +2929,21 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
         if (hit == null) { break; }
         y = hit;
       }
-      if (y <= dur) { out.push(+y.toFixed(4)); }
+      if (y > dur) { return null; }
+      y = +y.toFixed(4);
+      out.push(y);
+      return y;
     }
     if (n.iv <= 0) { if (n.st <= dur) { push(n.st); } return out; }
-    for (t = n.st; t <= dur; t += n.iv) { push(t); }
+    // **次の 25 秒は「実際に発動した時刻」から数える。**格子のままだと、
+    // EX で押し出されたぶんが次で戻ってしまう（2026-09-01 の先生の指摘）。
+    // 出どころは下の「数字の出どころ」に書いた実測動画 2 本
+    var guard2 = 0;
+    for (t = n.st; t <= dur && guard2++ < 400;) {
+      var y2 = push(t);
+      if (y2 == null) { break; }
+      t = y2 + n.iv;
+    }
     return out;
   }
   function nsDur(id) {
@@ -3544,13 +3569,19 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
 
   // ------------------------------------------------------------ 書き出し・読み込み
   function snapshot() {
-    return { v: 2, boss: boss().id, diff: diff().df, mode: st.mode, pi: st.pi,
+    return { v: 2, boss: boss().id, grp: boss().g, diff: diff().df,
+             mode: st.mode, pi: st.pi,
              parties: st.parties, mk: st.mk, goal: st.goal };
   }
   function restore(o) {
     if (!o || (o.v !== 1 && o.v !== 2)) { throw new Error('形式が違います（v:1 か v:2 ではありません）'); }
     var bi = -1, di = -1, i, k;
-    for (i = 0; i < B.bosses.length; i++) { if (B.bosses[i].id === o.boss) { bi = i; } }
+    for (i = 0; i < B.bosses.length; i++) {
+      if (o.grp ? B.bosses[i].g === o.grp : B.bosses[i].id === o.boss) { bi = i; }
+    }
+    if (bi < 0 && o.grp) {
+      for (i = 0; i < B.bosses.length; i++) { if (B.bosses[i].id === o.boss) { bi = i; } }
+    }
     if (bi < 0) { throw new Error('知らないボスです: ' + o.boss); }
     for (k = 0; k < B.bosses[bi].d.length; k++) { if (B.bosses[bi].d[k].df === o.diff) { di = k; } }
     if (di < 0) { throw new Error('知らない難易度です: ' + o.diff); }
@@ -4522,7 +4553,9 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
                      terrMod: terrMod, effMod: effMod, passiveFor: passiveFor, phaseSpans: phaseSpans, ggRuns: ggRuns, ggAt: ggAt, dmgCurve: dmgCurve, parseTL: parseTL, st: st, stu: stu, sim: sim, engIn: engIn, costPts: costPts,
                      busyOf: busyOf, naTimes: naTimes, naRuns: naRuns, nsTimes: nsTimes,
                      nsInfo: nsInfo, naInfo: naInfo, altOf: altOf, pickOf: pickOf,
-                     usesSorted: usesSorted, liveBuffs: liveBuffs, draw: draw };
+                     usesSorted: usesSorted, liveBuffs: liveBuffs, draw: draw,
+                     boss: boss, scen: scen, killAt: killAt, scoreOf: scoreOf,
+                     B: B };
 
   function syncTabs() {
     var bs = document.querySelectorAll('#rtabs .t');
