@@ -780,7 +780,11 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
 /* 通常スキルのバー: 濃いところが発動（演出）、薄いところが効果の持続
    （2026-09-01 の先生の指示「NSとかの発動時間と効果時間は色を薄くしたりして分けて、
    そのバー内で区別できるようにして」） */
-.tlapp .b.ns { position:relative; overflow:hidden; }
+/* **`position` を触らない。**`.b` は absolute で left/width を持っているので、
+   relative にすると left が効かなくなって帯が左から順に並び、全部重なった
+   （2026-09-01 の先生の指摘「めちゃくちゃ被ってる」）。
+   中の `.cst` の基準は absolute のままの `.b` でよい */
+.tlapp .b.ns { overflow:hidden; }
 .tlapp .b.ns.eff { background:rgba(47,139,88,.16);
   box-shadow:inset 0 0 0 1px rgba(47,139,88,.45); }
 .tlapp .b.ns.eff.flat { background:rgba(122,92,62,.16);
@@ -2284,6 +2288,14 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
     var r = diff(), hp = (r.bs && r.bs.hp) || 0, t = total(r), run = costRun(r.dur || 240);
     // **100% で止めるのは棒だけ。**数字は本当の値を出す（超えたら倒しきれる）
     var v = t.avg, real = hp ? v / hp * 100 : 0, pct = Math.min(100, real);
+    // **幅を持つスキルがあるときは、1 つの数字だけ出さない。**
+    // 既定は候補のいちばん低いほうなので、そのまま読むと実測より小さく出る
+    // （2026-09-01。ネル（制服）の段が 1〜5 あって、先生の実測は段 4〜5 相当だった）
+    var lo = total(r, -1).avg, hi = total(r, 1).avg, band = '';
+    if (hp && t.n && hi - lo > 1) {
+      band = '　幅 ' + n0(lo) + '〜' + n0(hi) +
+             '（' + (lo / hp * 100).toFixed(1) + '〜' + (hi / hp * 100).toFixed(1) + '%）';
+    }
     function box(lbl2, val, sub) {
       return '<div class="k"><span class="kl">' + lbl2 + '</span><b class="kv">' + val + '</b>' +
              (sub ? '<span class="ks">' + sub + '</span>' : '') + '</div>';
@@ -2302,7 +2314,7 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
       '<span class="bd">' + esc(r.df) + '</span></div>' +
       '<div class="kres">' +
       box('与ダメージ（平均）', t.n ? n0(v) : '—',
-          'EX ' + t.ex.n + '・NS ' + t.ns.n + '・通常 ' + t.na.n + ' 発') +
+          'EX ' + t.ex.n + '・NS ' + t.ns.n + '・通常 ' + t.na.n + ' 発' + band) +
       box('ボス HP に対して', hp ? real.toFixed(1) + '%' : '—',
           hp ? (real >= 100 ? '倒しきれます（HP ' + n0(hp) + '）' : n0(hp)) : '—') +
       box('置いた EX', st.tl.length + ' 発',
