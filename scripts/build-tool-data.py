@@ -4398,7 +4398,9 @@ def build_tl():
     ADAPT = ["D", "C", "B", "A", "S", "SS"]
     stu = as_list(get_json(SD.format("students")))
     st_out, dmg_out, ndmg, sinfo, build = {}, {}, 0, {}, {}
-    buf_out, nbuf, nskip = {}, 0, 0
+    buf_out, nbuf, nskip, ncond = {}, 0, 0, 0
+    na_out, nna = {}, 0
+    nform = 0
     ns_out, nns = {}, 0
     skname = {}
     # 装備。段ごとの効果。**値は SchaleDB と同じく `StatValue[i][1]`（その段の上限レベル）**
@@ -4463,13 +4465,38 @@ def build_tl():
             ADAPT[x.get(k)] if isinstance(x.get(k), int) and 0 <= x.get(k) < 6 else x.get(k)
             for k in ("StreetBattleAdaptation", "OutdoorBattleAdaptation",
                       "IndoorBattleAdaptation")]
+        # **EX が途中で変わる子は、形態ごとにダメージもバフも別物。**
+        # SchaleDB は `Skills.Ex.ExtraSkills[]` に持っている。ネル（制服）の
+        # 「怪我しても知らねえからな」は倍率 1983%・46 ヒットで、この編成の主砲。
+        # **採番は `tools/cost-timeline/data.js` の `xs` と同じ**（コストを持つ行だけ
+        # 数えて、1 番目が `Ex1`）。engine の `forms()` が `[本体, xs[0], …]` なので
+        # 形態 `fi` の枠は `fi ? "Ex" + fi : "Ex"` で引ける（2026-09-01）
+        skills_map = dict(x.get("Skills") or {})
+        _ex = skills_map.get("Ex")
+        if isinstance(_ex, dict):
+            _fi = 0
+            for _xs in (_ex.get("ExtraSkills") or []):
+                if not _xs.get("Cost"):
+                    continue
+                _fi += 1
+                skills_map["Ex" + str(_fi)] = _xs
+                nform += 1
         per_skill, per_buff = {}, {}
-        for kind, sk in (x.get("Skills") or {}).items():
+        for kind, sk in skills_map.items():
             if not isinstance(sk, dict):
                 continue
+            # **同じスキルに `Condition` つきのダメージが並ぶことがある。**
+            # ネル（制服）の通常攻撃は「EX の状態でないとき 100%／であるとき 120%」の
+            # 2 件で、全部足すと 2.2 倍になっていた（2026-09-01 に実物の TL を
+            # 写していて気づいた）。**条件なしを優先し、無ければ先頭 1 件だけ使う。**
+            # 外したぶんは数えて出す。推測で条件を判定しない
+            dmg_all = [e for e in (sk.get("Effects") or [])
+                       if str(e.get("Type", "")).startswith("Damage")]
+            plain = [e for e in dmg_all if not e.get("Condition")]
+            use = plain if plain else dmg_all[:1]
+            ncond += len(dmg_all) - len(use)
             eff = [[e.get("Scale"), e.get("Hits"), e.get("CriticalCheck"), e.get("Block")]
-                   for e in (sk.get("Effects") or [])
-                   if str(e.get("Type", "")).startswith("Damage")]
+                   for e in use]
             if eff:
                 per_skill[kind] = eff
                 ndmg += len(eff)
@@ -4500,16 +4527,46 @@ def build_tl():
             dmg_out[sid] = per_skill
         if per_buff:
             buf_out[sid] = per_buff
+        # ---- 通常攻撃（オートアタック）。**周期は `Skills.Normal.Frames`。**
+        # SchaleDB の `students.min.json` が `LevelSkill/<NormalSkillGroupId>.json` の
+        # `AnimationFrames` をそのまま持っているので、ここから引ける（274 人ぶん
+        # LevelSkill を叩き直さなくてよい。2026-09-01 に確かめた）。
+        #   AttackEnterDuration        構えるまで（戦闘開始と、動いたあとの 1 回）
+        #   AttackStartDuration        撃ち始め
+        #   AttackIngDuration          **1 回の攻撃**。この中で `Hits` のぶんが飛ぶ
+        #   AttackEndDuration          撃ち終わり
+        #   AttackBurstRoundOverDelay  弾倉を撃ち切ったあとの待ち
+        #   AttackReloadDuration       リロード
+        # 弾倉 1 本で撃てる回数は `AmmoCount / AmmoCost`（ネル（制服）は 60/12 = 5 回）。
+        # `NormalAttackSpeed` は `DB/CharacterStatExcelTable`（10000 = 等倍）。
+        # **`Skills.Normal` が無い生徒は通常攻撃をしない**（SPECIAL に多い）
+        nsk = (x.get("Skills") or {}).get("Normal")
+        if isinstance(nsk, dict) and (nsk.get("Frames") or {}).get("AttackIngDuration"):
+            fr = nsk["Frames"]
+            na_out[sid] = {
+                "ing": fr.get("AttackIngDuration"),
+                "ent": fr.get("AttackEnterDuration"),
+                "st": fr.get("AttackStartDuration"),
+                "end": fr.get("AttackEndDuration"),
+                "brd": fr.get("AttackBurstRoundOverDelay"),
+                "rel": fr.get("AttackReloadDuration"),
+                "ammo": x.get("AmmoCount"), "cost": x.get("AmmoCost"),
+                "spd": dbs.get("NormalAttackSpeed") or 10000,
+                "n": nsk.get("Name") or "通常攻撃",
+            }
+            nna += 1
         # スキルの名前（EX・ノーマル・ノーマル＋・サブ）。レーンの札に使う
         nm = {}
-        for kind in ("Ex", "Public", "GearPublic", "ExtraPassive"):
-            sk2 = (x.get("Skills") or {}).get(kind)
+        for kind, sk2 in skills_map.items():
             if isinstance(sk2, dict) and sk2.get("Name"):
                 nm[kind] = sk2["Name"]
         if nm:
             skname[sid] = nm
     print(f"  生徒 {len(st_out)} 人 / ダメージを持つ生徒 {len(dmg_out)} 人・効果 {ndmg} 件")
     print(f"  バフ {nbuf} 件（条件つき・周期ものを {nskip} 件外した）")
+    print(f"  条件つきで重なるダメージ効果を {ncond} 件外した（同じスキルに 2 通り以上あるぶん）")
+    print(f"  通常攻撃（オートアタック）が引けた生徒 {nna} 人 / {len(st_out)} 人")
+    print(f"  EX の形態違い {nform} 件（Skills.Ex.ExtraSkills）")
     import collections as _c
     print("  NS の自動発動 " + str(nns) + " 件 / 内訳 "
           + str(_c.Counter(v[1] for l in ns_out.values() for v in l).most_common()))
@@ -4537,6 +4594,8 @@ def build_tl():
         "bam": bam, "ter": ter, "trans": trans,
         "build": build, "eqp": eqp_out, "buf": buf_out,
         "ns": ns_out, "skname": skname,
+        # 通常攻撃。**フレームは 30fps。`spd` は 10000 が等倍**
+        "na": na_out,
         "nsKeys": ["MinimumTierCharacterGear", "ConditionType",
                    "ConditionArgument(フレーム)", "Duration(フレーム)"],
         "bufKeys": ["Target", "Stat", "Channel", "Value", "Duration", "ApplyFrame"],

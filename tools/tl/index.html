@@ -363,6 +363,15 @@
 .ghost::before { content:''; position:absolute; left:0; top:-4px; width:2px; height:10px;
   background:var(--tx3); }
 .b.sk.late { box-shadow:inset 0 0 0 1px var(--tx3); opacity:.92; }
+
+/* 通常攻撃（オートアタック）。弾倉ごとの塊 */
+.b.na { background:#2b4a7a; color:#cfe0f5; font-size:8px; }
+.b.na.flat { background:#3a3f4a; color:var(--tx3); }
+
+/* 回復力。薄い線が常時ぶん、濃い線が時間で変わるぶん */
+.plot .rec0 { fill:none; stroke:var(--tx3); stroke-width:1; stroke-dasharray:3 3; opacity:.6; }
+#useedit input[type="number"] { background:var(--bg2); color:var(--tx); border:1px solid var(--ln2);
+  border-radius:3px; padding:1px 4px; font:inherit; font-size:10.5px; }
 </style>
 </head>
 <body>
@@ -676,11 +685,35 @@
         272 人がこの型で、残る 68 件は <code>OnAttackIng</code>・<code>HpUnder</code> など
         <b>間隔で決まらない型なので置いていません</b>（その生徒がいると左の欄に出ます）。
         愛用品 T2 で通常スキルが変わる子は、そちらを使います</li>
-      <li><b>まだ入っていないもの</b> — <b>通常攻撃（オートアタック）</b>、SS のダメージ、遮蔽、
+      <li><b>通常攻撃（オートアタック）</b> — 周期は SchaleDB の
+        <code>students.min.json</code> の <code>Skills.Normal.Frames</code>
+        （＝ ba-data の <code>LevelSkill/&lt;NormalSkillGroupId&gt;.json</code> の
+        <code>AnimationFrames</code>）。<b>1 回の攻撃 ＝ <code>AttackIngDuration</code></b> で、
+        その中で <code>Hits</code>（分割率。合計 10000）のぶんが飛びます。
+        弾倉 1 本で撃てる回数は <code>AmmoCount ÷ AmmoCost</code>
+        （ネル（制服）は 60 ÷ 12 ＝ 5 回）で、撃ち切ると
+        <code>AttackBurstRoundOverDelay ＋ AttackReloadDuration</code> だけ空きます。
+        戦闘開始と、EX の演出が明けたあとは <code>AttackEnterDuration</code> ぶん構え直します。
+        速さは <code>NormalAttackSpeed</code>（<code>DB/CharacterStatExcelTable</code>。
+        10000 が等倍）と、バフで動く <code>AttackSpeed</code> で割ります。
+        <b><code>AttackStartDuration</code> と <code>AttackEndDuration</code> は入れていません</b> —
+        1 回ごとに入るのか弾倉ごとに 1 回なのかがデータから決められないためです
+        （入れると 1 回 1.03 秒が 2.60 秒／1.86 秒に伸びます）。
+        <b>移動・遮蔽・射程外・敵の数は数えていません。</b>ずっと撃ち続けられる前提の、
+        上限寄りの数字です。<code>Skills.Normal</code> を持たない生徒（SPECIAL に多い）は
+        通常攻撃をしません（274 人中 187 人が持っています）</li>
+      <li><b>EX が途中で変わる子のダメージ</b> — <code>Skills.Ex.ExtraSkills[]</code>。
+        コストを持つ行だけを数えて、1 番目が形態 2 です
+        （<code>tools/cost-timeline/data.js</code> の <code>xs</code> と同じ採番）。
+        ネル（制服）の「怪我しても知らねえからな」は倍率 1983%・46 ヒットで、
+        本体の「かかって来いよ」にはダメージがありません</li>
+      <li><b>同じスキルに条件つきのダメージが並ぶとき</b> — <code>Condition</code> の無いものを使い、
+        全部に条件が付いていれば先頭の 1 件だけを使います。<b>足し合わせません。</b>
+        ネル（制服）の通常攻撃は「EX の状態でないとき 100%／であるとき 120%」の 2 件で、
+        足すと 2.2 倍になっていました（2026-09-01 に直しました。全体で 42 件）</li>
+      <li><b>まだ入っていないもの</b> — SS のダメージ、遮蔽、
         キサキ枠（EX スキルダメージ量増加）、条件つきのバフ 30 件、
-        形態ごとに違う EX のダメージ（コストと演出時間と回復力バフは形態ぶんが効きます）。
-        総力戦の実際のスコアは通常攻撃がかなりの割合を占めるので、
-        <b>ここの合計は実戦よりかなり小さく出ます</b>。
+        条件で倍率が変わるダメージ（上の 42 件は低いほうを採っています）。
         EX と NS の 1 発ずつの数字は SchaleDB と突き合わせて合っています</li>
       <li><b>当てにしないでください</b> — 難易度ぶんのビヘイビアツリーが無いボスは Normal の木で埋めています。
         グレゴリオの Lunatic だけは木が無いので出せません</li>
@@ -753,7 +786,8 @@
   }
 
   // レーンの高さ。**詰めて置く**（2026-09-01 の先生の指示「UI はツメツメでいい」）
-  var H = { axis: 18, name: 16, ex: 16, ps: 16, dbf: 13, rec: 52, cost: 58, row: 16, ss: 18 };
+  var H = { axis: 18, name: 16, ex: 16, ps: 16, dbf: 13, rec: 52, cost: 58, row: 16,
+            na: 14, ss: 18 };
   var REC_DELAY = 2;      // ConstCombat の PlayerRegenCostDelay = 2000ms
   var PER_MEMBER = 700;   // RegenCost。6 人で 4200
   var CAP = 10;           // ConstCombat の EchelonMaxCommonCost
@@ -866,7 +900,7 @@
   function addUse(i, t) {
     if (!st.party[i]) { return; }
     mark();
-    var u = { i: i, t: snap(t), to: null, ov: null, f: null, bt: null };
+    var u = { i: i, t: snap(t), to: null, ov: null, f: null, bt: null, md: 't', cv: null };
     st.tl.push(u);
     st.sel = st.tl.length - 1;
     fixUse(u);
@@ -970,13 +1004,48 @@
     sim.IN = IN;
     return sim;
   }
-  // 置いてある TL を engine の order にする
+  // 1 件を engine の order 行にする
+  function ordRow(u, t) {
+    return { i: u.i, t: t, to: u.to == null ? null : u.to, ov: u.ov == null ? null : u.ov,
+             f: u.f == null ? null : u.f, bt: u.bt == null ? null : u.bt,
+             _ix: st.tl.indexOf(u) };
+  }
+  // コストが target に届く最初の時刻。**after より後ろだけ見る。**
+  // engine の segs は最後の EX で止まるので、そこから先は上限まで外挿する
+  function costReach(sm, target, after, dur) {
+    var g = sm.segs, i, a, b;
+    for (i = 1; i < g.length; i++) {
+      a = g[i - 1]; b = g[i];
+      if (b.t <= after + 1e-9) { continue; }
+      if (b.c >= target - 1e-9 && b.c > a.c) {
+        var k = (target - a.c) / (b.c - a.c);
+        return Math.max(after, a.t + (b.t - a.t) * k);
+      }
+      if (b.c >= target - 1e-9 && b.t > after) { return Math.max(after, b.t); }
+    }
+    var last = g[g.length - 1] || { t: 0, c: 0, r: 0 };
+    var rate = sm.rate;
+    if (last.c >= target - 1e-9) { return Math.max(after, last.t); }
+    if (!(rate > 0) || target > sm.cap + 1e-9) { return null; }
+    var tt = last.t + (target - last.c) / rate;
+    return tt > dur ? null : Math.max(after, tt);
+  }
+  // **置いた 1 件ずつタイミングを決める。**「コストで指定」は、それより前の
+  // ぶんだけを走らせてコスト曲線を出し、届く時刻を読む（2026-09-01 の先生の指示）
   function orderOf() {
-    return tlSorted().map(function (u) {
-      return { i: u.i, t: u.t, to: u.to == null ? null : u.to, ov: u.ov == null ? null : u.ov,
-               f: u.f == null ? null : u.f, bt: u.bt == null ? null : u.bt,
-               _ix: st.tl.indexOf(u) };
-    });
+    var dur = diff().dur || 240, rows = tlSorted(), out = [], i, prev = -1;
+    for (i = 0; i < rows.length; i++) {
+      var u = rows[i], t = u.t;
+      if (u.md === 'e') { t = null; }
+      else if (u.md === 'c') {
+        var got = costReach(simOf(out, dur), +u.cv || 0, prev, dur);
+        t = got == null ? null : snapUp(got);
+        u._rt = t;
+      }
+      if (t != null && t > prev) { prev = t; }
+      out.push(ordRow(u, t));
+    }
+    return out;
   }
   // **「間に合いません」の理由を分ける。**コストが足りないのか、前の EX の
   // 演出が終わっていないのか。実物の TL を写すと、詰まるのはほとんど後者だった
@@ -1152,14 +1221,32 @@
     side += lbl(H.dbf, '<span class="nm">デバフ数</span>');
     cv += lane(H.dbf, dseg);
 
-    var rec = recPower(), ymax = 15000;
-    side += lbl(H.rec, '<b>回復力</b>');
+    var run = costRun(dur), sm = run.sim;
+    // **回復力は時間で変わる。**セイアのような「◯秒間コスト回復力増加」が
+    // 乗っている間だけ段が上がる（2026-09-01 の先生の指摘。それまで常時ぶんの
+    // 水平線 1 本しか描いていなくて、山がまったく見えなかった）
+    var rec = recPower(), recPts = [], recMax = rec, rq;
+    for (rq = 0; rq < sm.segs.length; rq++) {
+      var sg = sm.segs[rq], rv = Math.round((sg.r || 0) * 10000);
+      if (recPts.length && recPts[recPts.length - 1][1] === rv) { continue; }
+      if (recPts.length) { recPts.push([sg.t, recPts[recPts.length - 1][1]]); }
+      recPts.push([sg.t, rv]);
+      if (rv > recMax) { recMax = rv; }
+    }
+    if (!recPts.length) { recPts = [[0, rec]]; }
+    recPts.push([dur, recPts[recPts.length - 1][1]]);
+    var ymax = Math.max(8000, Math.ceil(recMax / 2000) * 2000 + 2000);
+    var recNow = recPts[recPts.length - 1][1];
+    side += lbl(H.rec, '<b>回復力</b><span class="mb">最大 ' + recMax + '</span>');
     cv += lane(H.rec,
       '<svg class="plot" viewBox="0 0 ' + W + ' ' + H.rec + '" preserveAspectRatio="none">' +
-      '<polyline class="rec" points="' + poly([[0, rec], [dur, rec]], px, H.rec, ymax, 8) + '"/></svg>' +
-      '<span class="vl" style="left:44px;top:' + (H.rec - 8 - (rec / ymax) * (H.rec - 16)) + 'px">' + rec + '</span>');
+      '<polyline class="rec0" points="' + poly([[0, rec], [dur, rec]], px, H.rec, ymax, 8) + '"/>' +
+      '<polyline class="rec" points="' + poly(recPts, px, H.rec, ymax, 8) + '"/></svg>' +
+      '<span class="vl" style="left:44px;top:' +
+      (H.rec - 8 - (rec / ymax) * (H.rec - 16) - 10) + 'px">常時 ' + rec +
+      (recMax > rec ? '／最大 ' + recMax : '') + '</span>');
+    void recNow;
 
-    var run = costRun(dur), sm = run.sim;
     side += lbl(H.cost, '<b>コスト</b>');
     cv += lane(H.cost,
       '<svg class="plot" viewBox="0 0 ' + W + ' ' + H.cost + '" preserveAspectRatio="none">' +
@@ -1186,8 +1273,13 @@
         var uu = st.tl[u2];
         if (uu.i !== i || uu.t > dur) { continue; }
         var er = rowOf[u2] || null, ek = kindOf(er);
-        var showT = (er && er.at != null) ? er.at : uu.t;
+        var showT = (er && er.at != null) ? er.at
+                  : (uu._rt != null ? uu._rt : uu.t);
+        var putT = (uu.md === 't' || !uu.md) ? uu.t
+                 : (uu._rt != null ? uu._rt : showT);
         var fnm = er && er.sk ? er.sk.n : (p && p.en) || '';
+        var fk = exKind(er ? er.fi : 0);
+        var hasDmg = !!(B.dmg[p.id] || {})[fk];
         var fdu = er && er.sk ? er.sk.d : exDur(p);
         var fc = er ? er.need : exCost(p);
         var uw = Math.max(26, (fdu || 60) / B.fps * px);
@@ -1199,12 +1291,13 @@
           '\n置いた ' + uu.t.toFixed(2) + '秒（残り ' + mmss(dur, uu.t) + '）' +
           (er && er.at != null && Math.abs(er.at - uu.t) > 0.01
             ? '\n実際に出る ' + er.at.toFixed(2) + '秒' : '') +
+          (hasDmg ? '' : '\nこの形態にダメージのデータはありません') +
           (er && er.why ? '\n⚠ ' + whyOf(er) : '');
-        if (Math.abs(showT - uu.t) > 0.01) {
+        if (Math.abs(showT - putT) > 0.01) {
           // **置いた時刻の印。**どこでタップしたつもりかが消えないように残す
-          sb += '<div class="ghost" style="left:' + (uu.t * px).toFixed(1) + 'px;width:' +
-                Math.max(2, (showT - uu.t) * px).toFixed(1) + 'px" title="' +
-                '置いたのは ' + uu.t.toFixed(2) + '秒／出るのは ' + showT.toFixed(2) + '秒"></div>';
+          sb += '<div class="ghost" style="left:' + (putT * px).toFixed(1) + 'px;width:' +
+                Math.max(2, (showT - putT) * px).toFixed(1) + 'px" title="' +
+                '置いたのは ' + putT.toFixed(2) + '秒／出るのは ' + showT.toFixed(2) + '秒"></div>';
         }
         sb += '<div class="b sk' + (st.sel === u2 ? ' sel' : '') +
               (ek === 'over' || ek === 'cost' || ek === 'both' ? ' bad' : '') +
@@ -1230,6 +1323,26 @@
         (p ? '<span class="mb"' + (nsn ? '' : ' title="' + esc(nsWhy(p.id)) + '"') + '>' +
              (nsn ? nsn.iv.toFixed(0) + 's' : '条件') + '</span>' : ''));
       cv += lane(H.row, nb);
+
+      // 通常攻撃（オートアタック）。**弾倉ごとの塊で描く。**発数は札に出す
+      var nab = '', naI = p ? naInfo(p.id) : null, naN = 0;
+      if (p && naI) {
+        var runs = naRuns(i, dur), hasN = !!(B.dmg[p.id] || {}).Normal;
+        for (var rq = 0; rq < runs.length; rq++) {
+          var rn = runs[rq], rw = Math.max(1.5, (Math.min(rn.b, dur) - rn.a) * px);
+          naN += rn.n;
+          nab += '<div class="b na' + (hasN ? '' : ' flat') + '" style="left:' +
+                 (rn.a * px).toFixed(1) + 'px;width:' + rw.toFixed(1) + 'px" title="' +
+                 esc(naI.nm) + '\n' + rn.n + ' 回（' + rn.a.toFixed(1) + '〜' +
+                 Math.min(rn.b, dur).toFixed(1) + '秒）\n1 回 ' + naI.per.toFixed(2) +
+                 '秒・弾倉 ' + naI.mag + ' 回・リロード ' + naI.rel.toFixed(2) + '秒' +
+                 (hasN ? '' : '\nこの生徒の通常攻撃にダメージのデータがありません') + '">' +
+                 (rw >= 22 ? rn.n : '') + '</div>';
+        }
+      }
+      side += lbl(H.na, '<span class="nm">通常</span>' +
+        (naI ? '<span class="mb">' + naN + '発</span>' : (p ? '<span class="mb">—</span>' : '')));
+      cv += lane(H.na, nab);
     }
     // SS = サブスキル。常時効いているものは端から端までの帯にする
     side += lbl(H.ss, '<b>SS</b><span class="mb">サブスキル</span>');
@@ -1293,28 +1406,29 @@
   function n0(v) { return Math.round(v).toLocaleString('ja-JP'); }
   var RROW = [['最小', 'min'], ['0会心平均', 'avg0'], ['平均', 'avg'],
               ['全会心平均', 'avgC'], ['最大', 'max']];
-  var RHEAD = [['残HP／階層HP', '与ダメージ', 'EX合計', 'NS合計', 'SS合計'],
-               ['目標までの残り', '達成率', '与ダメージ', '目標ダメージ', '制限時間']];
+  var RHEAD = [['残HP／階層HP', '与ダメージ', 'EX合計', 'NS合計', '通常合計', 'SS合計'],
+               ['目標までの残り', '達成率', '与ダメージ', '目標ダメージ', '1秒あたり', '制限時間']];
   function drawRate() {
     var r = diff(), hp = (r.bs && r.bs.hp) || 0, t = total(r), h = '', i, k;
     var goal = (st.goal && st.goal.dmg) || hp, sec = (st.goal && st.goal.sec) || (r.dur || 240);
     var hd = '<tr><th style="width:96px"></th>';
-    for (i = 0; i < 5; i++) { hd += '<th>' + RHEAD[st.tab][i] + '</th>'; }
+    for (i = 0; i < 6; i++) { hd += '<th>' + RHEAD[st.tab][i] + '</th>'; }
     hd += '</tr>';
     for (i = 0; i < RROW.length; i++) {
       var v = t[RROW[i][1]];
       h += '<tr><td class="n">' + RROW[i][0] + '</td>';
       if (!t.n || !hp) {
-        for (k = 0; k < 5; k++) {
+        for (k = 0; k < 6; k++) {
           h += '<td class="v"><span class="cell"><span class="bar"><i style="width:0%"></i></span>' +
                '<span class="num mut">—</span></span></td>';
         }
       } else if (st.tab === 0) {
-        var ve = t.ex[RROW[i][1]], vn = t.ns[RROW[i][1]];
+        var ve = t.ex[RROW[i][1]], vn = t.ns[RROW[i][1]], va = t.na[RROW[i][1]];
         h += cell(Math.max(0, hp - v) / hp, n0(Math.max(0, hp - v)));
         h += cell(Math.min(1, v / hp), n0(v));
         h += cell(v ? ve / v : 0, n0(ve));
         h += cell(v ? vn / v : 0, n0(vn));
+        h += cell(v ? va / v : 0, n0(va));
         h += cell(0, '0');
       } else {
         var rate = goal ? v / goal : 0;
@@ -1322,6 +1436,7 @@
         h += cell(Math.min(1, rate), (rate * 100).toFixed(2) + '%');
         h += cell(Math.min(1, v / (goal || 1)), n0(v));
         h += cell(1, n0(goal));
+        h += cell(1, n0(v / (sec || 1)));
         h += cell(1, mmss(sec, 0));
       }
       h += '</tr>';
@@ -1332,7 +1447,7 @@
     if (!hp) { g.textContent = '目標: — ／ ダメージ計算がまだなので空です'; return; }
     g.textContent = '目標: ' + n0(goal) + ' ダメージ ／ ' + mmss(sec, 0) + ' 以内' +
       (st.goal ? '' : '（既定はボスの最大HPと制限時間）') +
-      '　EX ' + t.ex.n + ' 発＋NS ' + t.ns.n + ' 発ぶんのダメージ' +
+      '　EX ' + t.ex.n + ' 発＋NS ' + t.ns.n + ' 発＋通常攻撃 ' + t.na.n + ' 発ぶん' +
       '（置いた EX ' + st.tl.length + ' 発のうち、ダメージを持つのは ' + t.ex.n +
       ' 発。SS は常時ぶんをステータスに乗せています）';
   }
@@ -1350,7 +1465,8 @@
              (sub ? '<span class="ks">' + sub + '</span>' : '') + '</div>';
     }
     $('kpi').innerHTML =
-      box('与ダメージ（平均）', t.n ? n0(v) : '—', 'EX ' + t.ex.n + ' 発＋NS ' + t.ns.n + ' 発') +
+      box('与ダメージ（平均）', t.n ? n0(v) : '—',
+          'EX ' + t.ex.n + '・NS ' + t.ns.n + '・通常 ' + t.na.n + ' 発') +
       box('ボス HP に対して', hp ? pct.toFixed(1) + '%' : '—', hp ? n0(hp) : '—') +
       (function () {
         var nb = 0, nw = 0, q2;
@@ -1436,8 +1552,9 @@
       if (!yp || nsInfo(yp.id)) { continue; }
       out.push(['w', yp.n + ' の通常スキルは置いていません：' + nsWhy(yp.id)]);
     }
-    out.push(['w', '通常攻撃（オートアタック）・SS のダメージ・遮蔽・条件つきのバフは' +
-      'まだ数えていません。合計は実戦よりかなり小さく出ます']);
+    out.push(['w', '通常攻撃は「ずっと撃ち続けられる」前提で数えています。移動・遮蔽・' +
+      '射程外・敵の数は入っていないので、そのぶん多めに出ます']);
+    out.push(['w', 'SS のダメージ・キサキ枠・条件つきのバフ 30 件はまだ入っていません']);
     $('errlog').innerHTML = out.map(function (x) {
       return '<div class="' + x[0] + '">' + (x[0] === 'g' ? '✔ ' : (x[0] === 'e' ? '✕ ' : '▸ ')) + esc(x[1]) + '</div>';
     }).join('');
@@ -1719,15 +1836,104 @@
     return n ? n.du : 60;
   }
 
+  // ------------------------------------------------------------ 通常攻撃
+  // **出どころは SchaleDB の `students.min.json` の `Skills.Normal.Frames`**
+  // （＝ ba-data の `LevelSkill/<NormalSkillGroupId>.json` の `AnimationFrames`）と
+  // `AmmoCount` / `AmmoCost`、`DB/CharacterStatExcelTable` の `NormalAttackSpeed`。
+  //
+  // **周期は `AttackIngDuration` 1 本で回す。**ボス側の実装（`build_tl` の
+  // `per = AttackIngDuration / 30 / (NormalAttackSpeed / 10000)`）と同じ扱いに
+  // そろえてある。`AttackStartDuration` と `AttackEndDuration` が 1 回ごとに
+  // 入るのか、弾倉ごとに 1 回なのかは**データからは決められない**ので入れていない。
+  // 入れると 1 回あたり 1.67 秒が 2.6 秒（毎回）／1.86 秒（弾倉ごと）に伸びる。
+  // 使った値は下の「数字の出どころ」に全部出している。
+  //
+  // **移動・遮蔽・射程外は数えていない。**ずっと撃ち続けられる前提の上限寄りの数字
+  function naInfo(id) {
+    var a = (B.na || {})[id];
+    if (!a || !a.ing) { return null; }
+    var spd = (a.spd || 10000) / 10000;
+    var mag = Math.max(1, Math.floor((a.ammo || 1) / (a.cost || 1)));
+    return { per: a.ing / B.fps / spd, mag: mag,
+             rel: ((a.brd || 0) + (a.rel || 0)) / B.fps / spd,
+             ent: (a.ent || 0) / B.fps / spd, nm: a.n, raw: a, spd: spd };
+  }
+  // その枠が EX を撃っている区間。**撃っている本人は通常攻撃をしない**
+  function busyOf(idx) {
+    var sm = sim(), out = [], i;
+    for (i = 0; i < sm.rows.length; i++) {
+      var r0 = sm.rows[i];
+      if (!r0.d || r0.e.i !== idx || r0.at == null) { continue; }
+      out.push([r0.at, r0.at + ((r0.sk && r0.sk.d) || 0) / B.fps]);
+    }
+    return out;
+  }
+  // 通常攻撃が出る時刻。**弾倉を撃ち切ったらリロードのぶん空く**
+  function naTimes(idx, dur) {
+    var p = st.party[idx];
+    if (!p) { return []; }
+    var a = naInfo(p.id);
+    if (!a || a.per <= 0) { return []; }
+    var busy = busyOf(idx), out = [], t = a.ent, k = 0, guard = 0;
+    function block(x) {
+      for (var q = 0; q < busy.length; q++) {
+        if (x >= busy[q][0] - 1e-9 && x < busy[q][1] - 1e-9) { return busy[q][1]; }
+      }
+      return null;
+    }
+    // **攻撃速度（`AttackSpeed`）のバフで通常攻撃は速くなる。**素は 10000。
+    // 発ごとに引き直すと重いので 2 秒刻みに丸めて引く
+    function mul(x) {
+      var cs = statsOf(p.id, idx, Math.floor(x / 2) * 2);
+      if (!cs) { return 1; }
+      return Math.max(0.1, cs.get('AttackSpeed') / 10000);
+    }
+    while (t <= dur && guard++ < 8000) {
+      var b = block(t);
+      // **演出が明けたら構え直す**（AttackEnterDuration をもう一度)
+      if (b != null) { t = b + a.ent; k = 0; continue; }
+      out.push(+t.toFixed(3));
+      var m = mul(t);
+      t += a.per / m; k++;
+      if (k % a.mag === 0) { t += a.rel / m; }
+    }
+    return out;
+  }
+  // 弾倉ごとの区間（撃っている間・リロード中）。レーンに描くのに使う
+  function naRuns(idx, dur) {
+    var ts = naTimes(idx, dur), p = st.party[idx];
+    if (!ts.length) { return []; }
+    var a = naInfo(p.id), runs = [], cur = null, i;
+    for (i = 0; i < ts.length; i++) {
+      if (!cur) { cur = { a: ts[i], b: ts[i] + a.per, n: 1 }; continue; }
+      if (ts[i] - cur.b < a.per * 0.5) { cur.b = ts[i] + a.per; cur.n++; }
+      else { runs.push(cur); cur = { a: ts[i], b: ts[i] + a.per, n: 1 }; }
+    }
+    if (cur) { runs.push(cur); }
+    return runs;
+  }
+
   // ------------------------------------------------------------ 時限のバフ・デバフ
   // 置いた EX が掛けるバフは `ApplyFrame` ぶん遅れて始まり、`Duration`(ms) 続く。
   // **同じ（スキルの枠, Channel）が重なったら後から掛けたほうが勝つ**
   // （原則後掛け優先。Zenn 7228e2 のコラム）。常時のパッシブは先勝ちで、
   // そちらは SchaleDB の扱いに合わせてある
   // 置いた EX と、自動で回る NS を 1 本にまとめる（k で種類を分ける）
+  // **形態が変わる子は、撃つ形態でダメージもバフも別物。**engine が決めた形態
+  // （`fi`）で枠を選び、時刻も engine が出した「実際に出る時刻」を使う
+  function exKind(fi) { return fi ? 'Ex' + fi : 'Ex'; }
   function usesSorted() {
     var out = [], i, k;
-    for (i = 0; i < st.tl.length; i++) { out.push({ i: st.tl[i].i, t: st.tl[i].t, k: 'Ex' }); }
+    var sm = sim(), rowOf = {};
+    for (i = 0; i < sm.rows.length; i++) {
+      if (sm.rows[i].e && sm.rows[i].e._ix != null) { rowOf[sm.rows[i].e._ix] = sm.rows[i]; }
+    }
+    for (i = 0; i < st.tl.length; i++) {
+      var r0 = rowOf[i];
+      out.push({ i: st.tl[i].i,
+                 t: (r0 && r0.at != null) ? r0.at : st.tl[i].t,
+                 k: exKind(r0 ? r0.fi : 0) });
+    }
     var dur = diff().dur || 240;
     for (i = 0; i < SLOTS; i++) {
       var p = st.party[i];
@@ -1828,7 +2034,11 @@
     if (cdm < 1) { cdm = 1; }
     var o = { min: 0, avg0: 0, avg: 0, avgC: 0, max: 0, hit: hit, crit: cRate, name: p.en };
     for (var k = 0; k < effs.length; k++) {
-      var e = effs[k], sc = (e[0] || [])[slv - 1] || 0, hs = e[1] || [10000], sum = 0, q;
+      // **`Scale` の段数はスキルによって違う。**通常攻撃は 1 段しかないので、
+      // EX のレベルで引くと範囲外になって 0 になる（2026-09-01 に踏んだ）
+      var e = effs[k], arr0 = e[0] || [];
+      var sc = arr0[Math.min(slv, arr0.length) - 1] || 0;
+      var hs = e[1] || [10000], sum = 0, q;
       for (q = 0; q < hs.length; q++) { sum += hs[q]; }
       var base = atk * tm * em * (sc / 10000) * (sum / 10000) * defMod * dr * ddr * lvMod;
       var cr = e[2] === 'Never' ? 0 : (e[2] === 'Always' ? 1 : cRate);
@@ -1846,15 +2056,39 @@
   var KS = ['min', 'avg0', 'avg', 'avgC', 'max'];
   function zero() { return { min: 0, avg0: 0, avg: 0, avgC: 0, max: 0, n: 0 }; }
   function total(r) {
-    var ex = zero(), ns = zero(), all = zero(), us = usesSorted(), i, k;
+    var ex = zero(), ns = zero(), na = zero(), all = zero(), us = usesSorted(), i, k, q;
     for (i = 0; i < us.length; i++) {
       var u = us[i], d = dmgOf(u.i, r, u.t, u.k);
       if (!d) { continue; }
-      var box = u.k === 'Ex' ? ex : ns;
+      // **形態違いは `Ex1` / `Ex2`。**`=== 'Ex'` で比べると NS 側に入っていた
+      var box = /^Ex\d*$/.test(u.k) ? ex : ns;
       box.n++; all.n++;
       for (k = 0; k < KS.length; k++) { box[KS[k]] += d[KS[k]]; all[KS[k]] += d[KS[k]]; }
     }
-    all.ex = ex; all.ns = ns;
+    // **通常攻撃（オートアタック）。**発ごとにステータスを引き直すと重いので、
+    // 5 秒ごとに 1 回だけ計算して、その間の発数を掛ける（バフの出入りは追える）
+    var dur = r.dur || 240, STEP = 5;
+    for (i = 0; i < SLOTS; i++) {
+      if (!st.party[i]) { continue; }
+      var ts = naTimes(i, dur);
+      if (!ts.length) { continue; }
+      var bucket = {};
+      for (q = 0; q < ts.length; q++) {
+        var b = Math.floor(ts[q] / STEP);
+        bucket[b] = (bucket[b] || 0) + 1;
+      }
+      for (var bk in bucket) {
+        var at = (+bk + 0.5) * STEP;
+        var dn = dmgOf(i, r, Math.min(at, dur), 'Normal');
+        if (!dn) { break; }
+        na.n += bucket[bk]; all.n += bucket[bk];
+        for (k = 0; k < KS.length; k++) {
+          na[KS[k]] += dn[KS[k]] * bucket[bk];
+          all[KS[k]] += dn[KS[k]] * bucket[bk];
+        }
+      }
+    }
+    all.ex = ex; all.ns = ns; all.na = na;
     return all;
   }
 
@@ -2184,6 +2418,24 @@
       '／演出 ' + (((er && er.sk ? er.sk.d : d.d) || 0) / B.fps).toFixed(2) + '秒' +
       (er && er.at != null && Math.abs(er.at - u.t) > 0.01
         ? '　実際に出るのは ' + er.at.toFixed(2) + '秒' : '') + '</span>';
+    // **撃つタイミング。**秒・コスト・最短の 3 通り（2026-09-01 の先生の指示）
+    var md = u.md || 't';
+    h2 += '<label class="f"><span>撃つタイミング</span><select data-us="md">' +
+      '<option value="t"' + (md === 't' ? ' selected' : '') + '>秒で指定</option>' +
+      '<option value="c"' + (md === 'c' ? ' selected' : '') + '>コストで指定</option>' +
+      '<option value="e"' + (md === 'e' ? ' selected' : '') + '>最短</option>' +
+      '</select></label>';
+    if (md === 't') {
+      h2 += '<label class="f"><span>秒</span><input type="number" data-us="t" step="0.1" min="0" ' +
+        'value="' + u.t.toFixed(2) + '" style="width:72px"></label>';
+    } else if (md === 'c') {
+      h2 += '<label class="f"><span>コスト</span><input type="number" data-us="cv" step="0.5" min="0" ' +
+        'value="' + (u.cv == null ? 10 : u.cv) + '" style="width:72px"></label>' +
+        '<span class="mut tiny">' + (u._rt == null ? 'そのコストには届きません' :
+          '届くのは ' + u._rt.toFixed(2) + '秒') + '</span>';
+    } else {
+      h2 += '<span class="mut tiny">前の 1 発が終わって、コストが足りたらすぐ</span>';
+    }
     var fl = TE.forms(d);
     if (fl.length > 1) {
       var fh = '<option value="">自動（' + esc(fl[er ? er.auto : 0].n) + '）</option>';
@@ -2206,6 +2458,13 @@
     if (d.sp && d.sp.copy) {
       h2 += '<label class="f"><span>カードを複製する相手</span><select data-us="bt">' +
             memOpts(u.bt, 'main') + '</select></label>';
+    }
+    if (er) {
+      var dk = exKind(er.fi), dd = dmgOf(u.i, diff(), er.at, dk);
+      h2 += '<span class="mut tiny">ダメージ ' +
+        (dd ? '<b>' + n0(dd.avg) + '</b>（最小 ' + n0(dd.min) + '／最大 ' + n0(dd.max) +
+              '・会心率 ' + (dd.crit * 100).toFixed(1) + '%）'
+            : 'この形態にダメージのデータはありません') + '</span>';
     }
     var bfs = (er && er.sk && er.sk.bf) || d.bf || [];
     if (bfs.length) {
@@ -2432,11 +2691,23 @@
 
   // ---- 選んだ 1 発の設定
   $('useedit').addEventListener('change', function (e) {
-    var sel = e.target.closest('select[data-us]');
-    if (!sel || st.sel == null) { return; }
+    var el = e.target.closest('[data-us]');
+    if (!el || st.sel == null) { return; }
     mark();
-    var k = sel.getAttribute('data-us'), v = sel.value === '' ? null : +sel.value;
-    st.tl[st.sel][k] = v;
+    var k = el.getAttribute('data-us'), raw = el.value;
+    var u = st.tl[st.sel];
+    if (k === 'md') {
+      u.md = raw;
+      if (raw === 'c' && u.cv == null) { u.cv = 10; }
+      // 秒に戻すときは、いま出ている時刻をそのまま引き継ぐ
+      if (raw === 't' && u._rt != null) { u.t = u._rt; }
+    } else if (k === 't') {
+      u.t = Math.max(0, +raw || 0);
+    } else if (k === 'cv') {
+      u.cv = Math.max(0, +raw || 0);
+    } else {
+      u[k] = raw === '' ? null : +raw;
+    }
     draw();
   });
 
@@ -2554,7 +2825,7 @@
     var u = st.tl[sdrag.ix];
     if (!u) { sdrag = null; return; }
     var nt = snap(Math.max(0, sdrag.t0 + dt));
-    if (nt !== u.t) { u.t = nt; draw(); }
+    if (nt !== u.t) { u.t = nt; u.md = 't'; draw(); }
   });
   window.addEventListener('mouseup', function () {
     if (sdrag && sdrag.moved && st.tl[sdrag.ix]) { fixUse(st.tl[sdrag.ix]); draw(); }

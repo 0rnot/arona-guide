@@ -34,6 +34,7 @@
 
      simulate(IN)          -> { rows, segs, end, cap, rate, deck, ovWin }
                              行の `lockTo` は「前の EX の演出が終わる時刻」
+                             `segs[].r` はその点から先の回復量（コスト/秒）
      collectBars(IN, sim)  -> 帯の配列。sim が null なら EX 抜き
      playHand(deck)        -> 手札の模擬（hand / isCopy / copyAt / use / copy）
      Recovery(ms, base, gb, gc) -> コスト回復力の入れもの
@@ -604,7 +605,9 @@
        コストを −5 まで超過して払える。全枠が埋まっていないと立たない。 */
     var ovWin = [], curOv = -1;
 
-    var t = 0, cost = Math.min(cap, start), lock = 0, out = [], segs = [{ t: 0, c: cost }];
+    // `segs` の `r` は**その点から先の回復量（コスト/秒）**。画面が回復力の
+    // レーンを階段で描くのに要る（2026-09-01 に足した。判定には使っていない）
+    var t = 0, cost = Math.min(cap, start), lock = 0, out = [], segs = [{ t: 0, c: cost, r: 0 }];
 
     function syncGims() {
       while (gAt < gEdges.length && gEdges[gAt].t <= t + 1e-9) { rec.addFlat(gEdges[gAt].v); gAt++; }
@@ -641,7 +644,7 @@
         t = b;
         rec.expire(t);
         syncGims();
-        segs.push({ t: t, c: cost });
+        segs.push({ t: t, c: cost, r: rateNow() });
       }
       if (t < target) t = target;
     }
@@ -710,12 +713,12 @@
       }
       var rateAt = 0, over = false;
       if (at !== null) {
-        segs.push({ t: at, c: cost });
+        segs.push({ t: at, c: cost, r: rateNow() });
         // **`fl`（形態の一覧）と名前をぶつけない。**ぶつけると行の「形態」欄が消える
         var flr = floorAt(at, e.i);
         cost = Math.max(flr, cost - need);
         over = cost < -1e-9;
-        segs.push({ t: at, c: cost });
+        segs.push({ t: at, c: cost, r: rateNow() });
         lock = at + (sk.d || 0) / FPS;
         rateAt = rec.rate();
         // **撃った瞬間からバフが立つ。**同じ効果が生きていたら切れる時刻だけ延ばす
