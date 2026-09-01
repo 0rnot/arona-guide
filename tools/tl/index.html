@@ -2812,6 +2812,24 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
       if (!isSingle(np.id, 'Public') && !isSingle(np.id, 'GearPublic')) { continue; }
       out.push(['w', np.n + '：通常スキルのバフを渡す相手が決まっていません（左の「バフを渡す相手」で選びます）']);
     }
+    // **形態を選ばないとダメージが 0 のままの子がいる**（2026-09-01）。
+    // アリス（臨戦）・ミカ（水着）・ラブ・キサキ（水着）・シュン（水着）・トキ・
+    // ノア（パジャマ）・イブキ は、本体の EX が「選択メニュー」だったり、
+    // 何発目でどの形態になるかが回数で決まらなかったりするので、engine が
+    // `pick` として形態 1 のまま置く（`tools/tl-engine.js` の `FORM_RULE`）。
+    // **黙って 0 になると、貼った TL が丸ごと軽く出る**ので名指しで出す
+    var zf = {}, zn = [];
+    for (var z1 = 0; z1 < run.sim.rows.length; z1++) {
+      var zr = run.sim.rows[z1];
+      if (!zr.d || zr.at == null || !zr.fl || zr.fl.length < 2) { continue; }
+      var zk = exKind(zr.fi);
+      if ((B.dmg[zr.d.id] || {})[zk] || altOf(zr.d.id, zk)) { continue; }
+      if (!zf[zr.d.n]) { zf[zr.d.n] = 1; zn.push(zr.d.n); }
+    }
+    if (zn.length) {
+      out.push(['e', zn.join('・') + ' は形態を選ばないとダメージが 0 のままです' +
+        '（帯をクリックして「形態」を選びます）']);
+    }
     var nalt = altList().length;
     if (nalt) {
       out.push(['w', '条件でダメージが変わるスキルが ' + nalt +
