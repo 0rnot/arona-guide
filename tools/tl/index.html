@@ -918,9 +918,6 @@
         if (rows[k].e && rows[k].e._ix != null && st.tl[rows[k].e._ix] === u) { me = rows[k]; }
       }
       if (!me || !me.why || me.soon == null) { return; }
-      // **演出待ちは寄せない。**engine が自動で後ろへ出してくれるし、
-      // 実物の TL は「タップした時刻」で書かれているので、置いた位置を残したい
-      if (kindOf(me) === 'wait') { return; }
       var nt = snapUp(Math.max(u.t + st.grid / B.fps * 0.5, me.soon));
       if (nt > dur || nt <= u.t) { return; }
       u.t = nt;
@@ -1051,30 +1048,22 @@
   // 演出が終わっていないのか。実物の TL を写すと、詰まるのはほとんど後者だった
   // （2026-09-01。総力戦の TL は「タップした時刻」で書かれているので、
   //  演出を直列に積むこちらとは 1 発ごとにずれる）
-  // 置いた時刻に出せなかったとき、その理由は 3 通り。**扱いを変える。**
-  //   over … コストの上限を超えていて、どう待っても撃てない（本当のエラー）
-  //   wait … 前の EX の演出が終わっていないだけ（順番は成立している）
-  //   cost … コストが貯まっていない
+  // 置いた時刻に出せなかったとき、理由は 2 通り。
+  //   over … コストの上限を超えていて、どう待っても撃てない
+  //   cost … コストがまだ貯まっていない（待てば撃てる）
+  // **「前の EX の演出待ち」は無い**（2026-09-01 の先生の指摘
+  // 「コストさえあれば、EX は連続で発動できる／前の EX の演出を待つ必要はない」）。
+  // それまで engine が演出を全員ぶん直列に積んでいて、実物の TL を写すと
+  // 11 発中 8 発が後ろにずれていた
   function kindOf(row) {
     if (!row || !row.why) { return ''; }
-    if (row.why.indexOf('上限') >= 0) { return 'over'; }
-    var late = row.lockTo != null && row.e.t != null && row.lockTo > row.e.t + 1e-6;
-    if (late && row.soon != null && Math.abs(row.soon - row.lockTo) < 0.05) { return 'wait'; }
-    return late ? 'both' : 'cost';
+    return row.why.indexOf('上限') >= 0 ? 'over' : 'cost';
   }
   function whyOf(row) {
     var k = kindOf(row);
     if (!k) { return ''; }
     if (k === 'over') { return 'コストの上限を超えていて撃てません'; }
-    var at = row.at == null ? null : row.at;
-    if (k === 'wait') {
-      return '前の EX の演出待ち。実際に出るのは ' + TE.n1(at) + ' 秒（' +
-             TE.n1(at - row.e.t) + ' 秒あと）';
-    }
-    if (k === 'both') {
-      return 'コストと演出の両方が足りず、実際に出るのは ' + TE.n1(at) + ' 秒';
-    }
-    return 'コストが足りず、実際に出るのは ' + TE.n1(at) + ' 秒';
+    return 'コストが足りず、実際に出るのは ' + TE.n1(row.at) + ' 秒';
   }
   var _simC = null, _simK = '';
   function sim() {
@@ -1300,8 +1289,7 @@
                 '置いたのは ' + putT.toFixed(2) + '秒／出るのは ' + showT.toFixed(2) + '秒"></div>';
         }
         sb += '<div class="b sk' + (st.sel === u2 ? ' sel' : '') +
-              (ek === 'over' || ek === 'cost' || ek === 'both' ? ' bad' : '') +
-              (ek === 'wait' ? ' late' : '') + (er && er.isCopy ? ' cp' : '') +
+              (ek ? ' bad' : '') + (er && er.isCopy ? ' cp' : '') +
               '" data-ix="' + u2 + '" style="left:' + (showT * px).toFixed(1) +
               'px;width:' + uw.toFixed(1) + 'px" title="' + tips + '">' + inner + '</div>';
       }
@@ -1468,14 +1456,8 @@
       box('与ダメージ（平均）', t.n ? n0(v) : '—',
           'EX ' + t.ex.n + '・NS ' + t.ns.n + '・通常 ' + t.na.n + ' 発') +
       box('ボス HP に対して', hp ? pct.toFixed(1) + '%' : '—', hp ? n0(hp) : '—') +
-      (function () {
-        var nb = 0, nw = 0, q2;
-        for (q2 = 0; q2 < run.bad.length; q2++) {
-          if (kindOf(run.bad[q2]) === 'wait') { nw++; } else { nb++; }
-        }
-        return box('置いた EX', st.tl.length + ' 発',
-          nb ? nb + ' 発が撃てません' : (nw ? nw + ' 発が演出待ちでずれます' : '詰まりなし'));
-      })() +
+      box('置いた EX', st.tl.length + ' 発',
+          run.bad.length ? run.bad.length + ' 発がコスト不足でずれます' : '詰まりなし') +
       box('終わりのコスト', run.end.toFixed(2), '上限 ' + run.cap.toFixed(1)) +
       box('編成', crewCount() + ' / ' + (LAY[st.mode].main + LAY[st.mode].sup) + ' 人',
           'パーティー ' + (st.pi + 1) + ' / ' + st.parties.length) +
@@ -1495,18 +1477,11 @@
     } else {
       out.push(['g', 'スキルを ' + st.tl.length + ' 個置いています（終わりのコスト ' + run.end.toFixed(2) + '）']);
     }
-    var nWait = 0, lastAt = null;
     for (var q = 0; q < run.bad.length; q++) {
       var br = run.bad[q], bp = st.party[br.e.i], bk = kindOf(br);
-      if (bk === 'wait') { nWait++; lastAt = br.at; continue; }
       out.push([bk === 'over' ? 'e' : 'w',
         ((bp && bp.n) || '?') + ' ' + (br.e.t == null ? '' : br.e.t.toFixed(2) + '秒') +
         '：' + whyOf(br)]);
-    }
-    if (nWait) {
-      out.push(['w', nWait + ' 発が前の EX の演出待ちで後ろにずれます' +
-        (lastAt == null ? '' : '（最後の 1 発が出るのは ' + lastAt.toFixed(1) + ' 秒）') +
-        '。コストは足りているので、順番としては成立しています']);
     }
     // **渡し先が決まっていないものを名指しで出す。**実物の TL を写していて、
     // セイアのコスト減少カードの渡し先を決め忘れると、後半が 20 秒ぶんまるごと
@@ -2416,6 +2391,7 @@
       (er ? Math.round(er.need * 10) / 10 : '—') +
       (er && er.isCopy ? '（複製カード −1）' : '') +
       '／演出 ' + (((er && er.sk ? er.sk.d : d.d) || 0) / B.fps).toFixed(2) + '秒' +
+      '（この間もほかの EX は撃てます）' +
       (er && er.at != null && Math.abs(er.at - u.t) > 0.01
         ? '　実際に出るのは ' + er.at.toFixed(2) + '秒' : '') + '</span>';
     // **撃つタイミング。**秒・コスト・最短の 3 通り（2026-09-01 の先生の指示）

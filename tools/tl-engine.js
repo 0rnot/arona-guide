@@ -33,7 +33,6 @@
    ---------- 出すもの
 
      simulate(IN)          -> { rows, segs, end, cap, rate, deck, ovWin }
-                             行の `lockTo` は「前の EX の演出が終わる時刻」
                              `segs[].r` はその点から先の回復量（コスト/秒）
      collectBars(IN, sim)  -> 帯の配列。sim が null なら EX 抜き
      playHand(deck)        -> 手札の模擬（hand / isCopy / copyAt / use / copy）
@@ -426,9 +425,13 @@
     return !!(d && d.sp && d.sp.draw && !d.sp.drawCond && fi === 0);
   }
 
-  /* コストの都合だけで、上から順に置いていく。
-     撃っている間もコストは貯まり、次の EX はその演出が終わるまで撃てない。
-     時刻を指定した行は、その時刻に足りているかを見て、足りなければ最短へずらす。 */
+  /* コストの都合だけで、上から順に置いていく。撃っている間もコストは貯まる。
+     時刻を指定した行は、その時刻に足りているかを見て、足りなければ最短へずらす。
+
+     **コストさえあれば EX は連続で発動できる**（2026-09-01 の先生の指摘）。
+     それまでは「次の EX は前の演出が終わるまで撃てない」として全員ぶんを直列に
+     積んでいて、公開されている実物の TL を写すと 11 発中 8 発が後ろへずれていた。
+     同じ子が続けて撃てないのは手札のほう（`playHand`）が見ている。 */
   /** スキルコストを下げる効果。**時間ではなく「使用 N 回ぶん」で切れる。**
       `coef` は 10000 分率（-5000 ＝ 50% 引き）で、**減る量のほうを切り捨てる**
       （スキル文の「ただし減少値は小数点以下切り捨て」がこれ）。
@@ -607,7 +610,7 @@
 
     // `segs` の `r` は**その点から先の回復量（コスト/秒）**。画面が回復力の
     // レーンを階段で描くのに要る（2026-09-01 に足した。判定には使っていない）
-    var t = 0, cost = Math.min(cap, start), lock = 0, out = [], segs = [{ t: 0, c: cost, r: 0 }];
+    var t = 0, cost = Math.min(cap, start), out = [], segs = [{ t: 0, c: cost, r: 0 }];
 
     function syncGims() {
       while (gAt < gEdges.length && gEdges[gAt].t <= t + 1e-9) { rec.addFlat(gEdges[gAt].v); gAt++; }
@@ -698,11 +701,7 @@
       var mine = cut[e.i];
       var need = costAfter(raw, mine);
       if (mine) { mine.n--; if (mine.n <= 0) delete cut[e.i]; }
-      // **前の EX の演出が終わるまで撃てない。**その「終わる時刻」を行にも入れて
-      // 返す（2026-09-01）。画面側が「コストが足りない」と「演出待ち」を
-      // 言い分けるのに要る。**判定そのものは変えていない。**
-      var lockTo = lock;
-      var t0 = Math.max(t, lock);
+      var t0 = t;
       curOv = e.i;
       var soon = reach(need, t0);
       var at = soon, why = '';
@@ -719,7 +718,6 @@
         cost = Math.max(flr, cost - need);
         over = cost < -1e-9;
         segs.push({ t: at, c: cost, r: rateNow() });
-        lock = at + (sk.d || 0) / FPS;
         rateAt = rec.rate();
         // **撃った瞬間からバフが立つ。**同じ効果が生きていたら切れる時刻だけ延ばす
         var mine2 = (timedOn[e.i] || [])
@@ -755,7 +753,7 @@
       out.push({ e: e, d: d, s: s, sk: sk, fi: fi, auto: auto, fl: fl, nth: u + 1,
                  need: need, raw: raw, cut: mine, at: at, soon: soon, why: why,
                  over: over, left: at === null ? 0 : cost, idx: idx, rate: rateAt,
-                 lockTo: lockTo, t0: t0,
+                 t0: t0,
                  hand: hand, handCp: handCp, inHand: drawn, grant: gr, to: to,
                  isCopy: isCopy, kept: !!(drawn && keep), madeCopy: !!(drawn && mkCopy) });
     });
