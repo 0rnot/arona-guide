@@ -1131,6 +1131,34 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
       <li><b>EX の並び</b> — <code>DB/CharacterSkillListExcelTable.json</code> の <code>ExSkillGroupId</code></li>
       <li><b>ボスの HP と通常攻撃の速さ</b> — <code>DB/CharacterStatExcelTable.json</code> の
         <code>MaxHP1</code> と <code>NormalAttackSpeed</code></li>
+      <li><b>14 体ぜんぶを TL 動画と突き合わせた結果</b>（2026-09-01） —
+        クラウさんの Torment 動画から、<b>固定コメントに TL の本文があるもの</b>を
+        ボスごとに 1 本ずつ選び、概要欄の育成をそのまま入れて計算と比べました。
+        <b>合うボスと、大きく足りないボスがはっきり分かれます。</b>
+        <ul>
+          <li><b>合ったもの（誤差 5% 以内）</b> —
+            <b>ホド</b>（大決戦 貫通・屋内）は「ミカ最終弾後」の残 HP が
+            実測 7,322,787 に対して「平均」7,765,262 で <b>−4.1%</b>。
+            <b>ビナー</b>（大決戦 貫通・屋外）は TL 1 ページ目の終わりが
+            実測 残 2,754,853 に対して「全会心平均」3,057,691 で <b>−1.5%</b></li>
+          <li><b>幅の中に入ったもの</b> —
+            <b>ホバークラフト前半</b>（大決戦 神秘）は 20,000,000 に対して
+            「全会心平均」17,568,575（87.8%）・「最大」19,612,617（98.1%）。
+            動画の説明が「アリスのダメージ幅がとにかく大きいので試行回数を求められる」と
+            書いているとおり、<b>上振れが要る TL</b> です</li>
+          <li><b>大きく足りないもの</b> — 240 秒ぶん撃ち切って「全会心平均」で、
+            <b>カイテンジャー 1 凸目</b> 37.8%、<b>ヒエロニムス</b> 26.8%、
+            <b>ペロロジラ</b> 18.5%、<b>クロカゲ</b> 7.2%、<b>グレゴリオ</b> 7.3%。
+            <b>原因はどれも「盤の上で起きること」です</b>——
+            範囲攻撃が何体に当たるか、ボスのギミックがいつ入るか、
+            部位がいつ出てくるか。<b>データからは時刻も体数も出ません。</b>
+            画面の「当たる先」「当たる数」「ボスの状態」で置けば近づきますが、
+            置くのは人です</li>
+          <li><b>TL の本文が取れないボスが 6 体あります</b> —
+            <b>ゴズ・ケセド・イェソド・ゲブラ・シロクロ・ドラム缶ガニ</b>。
+            動画はありますが TL が焼き込み字幕にしかなく、
+            <b>文章として取れないので突き合わせていません</b></li>
+        </ul></li>
       <li><b>実物の戦闘との突き合わせ</b>（2026-09-01） —
         <a href="https://www.youtube.com/watch?v=vAQ-dnWy5GM" target="_blank" rel="noopener">
         大決戦 ビナー Torment 貫通(重装甲) 屋外</a>（ボス HP 23,000,000、戦闘時間
@@ -1166,14 +1194,15 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
             この道具は「平均」で経過 66.4 秒と 87.7 秒、「全会心平均」で 54.3 秒と 80.0 秒に置きます。
             <b>ここが 1 発ずれると累計が 2〜3 割動きます</b>——「平均」の線が低いのは、
             主砲 2 発ぶんがグロッキーの外に落ちるからです</li>
-          <li><b>ボスによって外れる向きが逆です。</b>大決戦ホド Torment 貫通・屋内
-            （<a href="https://www.youtube.com/watch?v=-9BCKnp6Ll8" target="_blank" rel="noopener">動画</a>）は、
+          <li><b>大決戦ホド Torment 貫通・屋内は 4% 以内に入りました。</b>
+            （<a href="https://www.youtube.com/watch?v=-9BCKnp6Ll8" target="_blank" rel="noopener">動画</a>）
             TL が「ミカ最終弾後ホド HP7.5M 以下（上振れたら 7.1M くらいまで減ります）」と
             書いていて、<b>映像の実測も経過 106.5 秒で 7,322,787</b> と一致します。
-            計算は <b>5,547,062</b> で<b>多めに出ます</b>。
-            この TL は「9.5 Cミカ（下側の柱）」「即ミカ（上側の柱）」と<b>柱に撃っています</b>が、
-            この道具は当たる先をいつもボス 1 体にしているので、そのぶん多く数えます。
-            実測の HP バーも経過 95 秒まではほとんど動かず（18,000,000 → 17,606,707）、
+            計算は「平均」で <b>7,765,262</b>（<b>−4.1%</b>）です。
+            この TL は「9.5 Cミカ（下側の柱）」「即ミカ（上側の柱）」と<b>柱に撃っています</b>。
+            <b>読み込みが括弧の中を読んで「当たる先」を柱にする</b>ようにしたら、
+            それまでの 5,547,062（+16.6% 多い）から縮みました。
+            実測の HP バーは経過 95 秒まではほとんど動かず（18,000,000 → 17,606,707）、
             そこから 106.5 秒までの 11.5 秒で 10.3M 落ちます</li>
           <li>逆に序盤（EX のダメージが出る前）は、実測 141,519 に対して計算 222,082 で
             <b>57% ほど多く</b>出ます。実測では最初の 1 発が経過 5.3 秒で、
@@ -2032,14 +2061,26 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
     PICKF = sc.pf;
     try { return dmgCurve0(r, sc.key); } finally { PICKF = sv; }
   }
+  /** その部位に当てたぶんが、ボスの HP から何 % 減るか（0 なら減らない）。
+      **ペロロジラのミニオン・グレゴリオの聖歌隊・ホバークラフトのミサイル誘導装置・
+      クロカゲの片鱗**は、部位の被ダメージがそのままボスへ転移する。
+      出どころは `raids.min.json` の `RaidSkills` の説明文で、
+      `d[].sub[].trw` にその一文がそのまま入っている（2026-09-01）。 */
+  function trOf(r, tg) {
+    if (tg == null) { return 0; }
+    var sb = (r.sub || [])[tg];
+    return (sb && sb.tr) ? sb.tr / 100 : 0;
+  }
   function dmgCurve0(r, key) {
     var pts = [], us = usesSorted(), i, q;
     for (i = 0; i < us.length; i++) {
       var u = us[i];
-      // **部位（柱・装置・聖遺物…）に当てた発は、ボスの HP から引かない**
-      if (u.tg != null) { continue; }
-      var d = dmgOf(u.i, r, u.t, u.k, u.pk, null);
-      if (d) { pts.push([u.t, d[key]]); }
+      // **部位（柱・装置・聖遺物…）に当てた発は、ボスの HP から引かない。**
+      // ただし転移する部位だけは、その率のぶんボスへ入れる
+      var tr = trOf(r, u.tg) * (u.mc || 1);
+      if (u.tg != null && !tr) { continue; }
+      var d = dmgOf(u.i, r, u.t, u.k, u.pk, u.tg);
+      if (d) { pts.push([u.t, tr ? d[key] * tr : d[key]]); }
     }
     var dur = r.dur || 240, STEP = 5;
     for (i = 0; i < SLOTS; i++) {
@@ -2874,11 +2915,24 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
     // `pick` として形態 1 のまま置く（`tools/tl-engine.js` の `FORM_RULE`）。
     // **黙って 0 になると、貼った TL が丸ごと軽く出る**ので名指しで出す
     var zf = {}, zn = [];
+    function zHas(id, k) { return !!((B.dmg[id] || {})[k] || altOf(id, k)); }
     for (var z1 = 0; z1 < run.sim.rows.length; z1++) {
       var zr = run.sim.rows[z1];
       if (!zr.d || zr.at == null || !zr.fl || zr.fl.length < 2) { continue; }
-      var zk = exKind(zr.fi);
-      if ((B.dmg[zr.d.id] || {})[zk] || altOf(zr.d.id, zk)) { continue; }
+      // **自分で形態を選んである行は言わない**（アリス（臨戦）の「(チャージ)」は
+      // ダメージ 0 で正しい）。engine が回数で決めている子（`hold`/`alt`）も
+      // 選びようがないので言わない。残るのは `pick` で未指定のときだけ
+      if (zr.e && zr.e.f != null) { continue; }
+      if (TE.FORM_RULE[zr.d.id] !== 'pick') { continue; }
+      if (zHas(zr.d.id, exKind(zr.fi))) { continue; }
+      // **そもそも全部の形態にダメージが無い子は、選んでも 0 のまま。**
+      // イブキ（水着）の「イブキのお友達！／どれがいいかな？」がそれで、
+      // 支援の子を名指ししても直しようがない（2026-09-01 にビナーの TL で気づいた）
+      var zAny = false;
+      for (var z2 = 0; z2 < zr.fl.length; z2++) {
+        if (zHas(zr.d.id, exKind(z2))) { zAny = true; break; }
+      }
+      if (!zAny) { continue; }
       if (!zf[zr.d.n]) { zf[zr.d.n] = 1; zn.push(zr.d.n); }
     }
     if (zn.length) {
@@ -2895,8 +2949,9 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
         if (u0.tg == null) { continue; }
         var d0 = dmgOf(u0.i, r, u0.t, u0.k, u0.pk, u0.tg);
         if (!d0) { continue; }
-        if (!acc[u0.tg]) { acc[u0.tg] = { n: 0, v: 0 }; }
-        acc[u0.tg].n++; acc[u0.tg].v += d0[key0];
+        if (!acc[u0.tg]) { acc[u0.tg] = { n: 0, v: 0, mc: 0 }; }
+        acc[u0.tg].n++; acc[u0.tg].v += d0[key0] * (u0.mc || 1);
+        acc[u0.tg].mc = Math.max(acc[u0.tg].mc, u0.mc || 1);
       }
       var kz;
       for (kz in acc) {
@@ -2904,8 +2959,10 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
         out.push([acc[kz].v >= (sb0.hp || 0) ? 'g' : 'w',
           sb0.n + '（HP ' + n0(sb0.hp) + '）へ ' + acc[kz].n + ' 発・' +
           n0(Math.round(acc[kz].v)) + '　' +
-          (acc[kz].v >= (sb0.hp || 0) ? '壊せます' : '壊しきれません') +
-          '。ここに当てたぶんはボスの HP から引いていません']);
+          (acc[kz].v >= (sb0.hp || 0) ? '壊せます' : '壊しきれません') + '。' +
+          (sb0.tr
+            ? 'ここに当てたぶんは ' + sb0.tr + '% がボスへ転移します（' + sb0.trw + '）'
+            : 'ここに当てたぶんはボスの HP から引いていません')]);
       }
       if (!Object.keys(acc).length) {
         out.push(['w', 'このボスには部位が ' + subs0.length + ' 種あります（' +
@@ -2942,10 +2999,11 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
     out.push(['w', '通常攻撃はいつもボス本体に当たる前提です。' +
       '柱や装置に撃つ EX は、帯をクリックして「当たる先」を選べます']);
     // **実測 2 本との突き合わせ**（2026-09-01）。下の「数字の出どころ」に詳しい
-    out.push(['w', '実物の TL 2 本と突き合わせています。大決戦ビナー Torment 貫通・屋外は ' +
-      'TL 1 ページ目が終わった時点の残 HP が 実測 14,639,773 に対して 平均 16,694,374、' +
-      '大決戦ホド Torment 貫通・屋内は「ミカ最終弾後」の残 HP が 実測 7,322,787 に対して ' +
-      '平均 5,547,062 です']);
+    out.push(['w', '実物の TL と突き合わせています。大決戦ホド Torment 貫通・屋内は ' +
+      '「ミカ最終弾後」の残 HP が 実測 7,322,787 に対して 平均 7,765,262（−4.1%）、' +
+      '大決戦ビナー Torment 貫通・屋外は TL 1 ページ目の終わりが ' +
+      '実測 残 2,754,853 に対して 全会心平均 3,057,691（−1.5%）です。' +
+      'ボスによっては、これより大きく外れます（下の「数字の出どころ」）']);
     $('errlog').innerHTML = out.map(function (x) {
       return '<div class="' + x[0] + '">' + (x[0] === 'g' ? '✔ ' : (x[0] === 'e' ? '✕ ' : '▸ ')) + esc(x[1]) + '</div>';
     }).join('');
@@ -3443,7 +3501,9 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
                  t: (r0 && r0.at != null) ? r0.at : st.tl[i].t,
                  k: kd0, bto: st.tl[i].bto, pk: pk0,
                  // **当たる先。**null ならボス本体
-                 tg: st.tl[i].tg == null ? null : st.tl[i].tg });
+                 tg: st.tl[i].tg == null ? null : st.tl[i].tg,
+                 // **何体に当たったか。**転移する部位に AoE で当てたときだけ効く
+                 mc: st.tl[i].mc == null ? 1 : st.tl[i].mc });
     }
     var dur = diff().dur || 240;
     for (i = 0; i < SLOTS; i++) {
@@ -3956,9 +4016,14 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
     var ex = zero(), ns = zero(), na = zero(), all = zero(), us = usesSorted(), i, k, q;
     for (i = 0; i < us.length; i++) {
       var u = us[i];
-      if (u.tg != null) { continue; }
-      var d = dmgOf(u.i, r, u.t, u.k, u.pk, null);
+      var tr2 = trOf(r, u.tg) * (u.mc || 1);
+      if (u.tg != null && !tr2) { continue; }
+      var d = dmgOf(u.i, r, u.t, u.k, u.pk, u.tg);
       if (!d) { continue; }
+      if (tr2) {
+        d = { min: d.min * tr2, avg0: d.avg0 * tr2, avg: d.avg * tr2,
+              avgC: d.avgC * tr2, max: d.max * tr2 };
+      }
       // **形態違いは `Ex1` / `Ex2`。**`=== 'Ex'` で比べると NS 側に入っていた
       var box = /^Ex\d*$/.test(u.k) ? ex : ns;
       box.n++; all.n++;
@@ -4129,9 +4194,16 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
       .replace(/[\s　]/g, '');
   }
   // 「セイア(水着)」に対して ['セイア(水着)', '水着セイア'] を返す。base は 'セイア'
+  // **「ホシノ（臨戦）／アタッカー」のように「／」で枝分かれする子がいる。**
+  // TL は「臨戦ホシノ」としか書かないので、「／」から後ろを落とした形も候補に
+  // 入れる（2026-09-01。入れる前は 1 人も当たらなかった）
   function aliasOf(nm) {
-    var n = nrm(nm), m = n.match(/^(.+?)\((.+)\)$/);
-    return { full: n, base: m ? m[1] : n, alts: m ? [n, m[2] + m[1]] : [n] };
+    var n = nrm(nm), core = n.replace(/[／/].*$/, '');
+    var m = core.match(/^(.+?)\((.+)\)$/);
+    var alts = [n];
+    if (core !== n) { alts.push(core); }
+    if (m) { alts.push(m[2] + m[1]); }
+    return { full: n, base: m ? m[1] : core, alts: alts };
   }
   /** 行の中から編成の誰かを見つける。**先に名乗った子を採る。**
       2026-09-01 の先生の TL で「開始イブキ指定(通常セイア＋ネル)」が
@@ -4214,6 +4286,71 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
     return null;
   }
   /** 貼られた文章を読む。**状態は変えない。** */
+  /** 括弧の中が「当たる先」（部位）なら、その番号を返す。無ければ -1。
+      **TL の書き方から採った言い換えだけを見る**（2026-09-01 にクラウさんの
+      TL 8 本を読んで拾った語）。当てずっぽうで広げない。
+        「9.5 Cミカ(下側の柱)」「即ミカ(上側の柱)」 → インベイドピラー（召喚）
+        「⑧ Cマリー(緑壺)」「④ イロハ(紫壺)」     → 聖遺物
+        「5.2シロコ(装置)」                        → ミサイル誘導装置
+        「2:39.000 3射目(左聖歌隊 5体)」           → 聖歌隊
+      「(ボス)」「(本体)」は本体を名指ししている＝部位ではない。 */
+  var AIMWORD = [['柱', 'ピラー'], ['壺', '聖遺物'], ['装置', '誘導装置'],
+                 ['聖歌隊', '聖歌隊'], ['ミニオン', 'ミニオン'], ['ペロロ', 'ミニオン'],
+                 ['片鱗', '片鱗'], ['ハサミ', 'ハサミ'], ['船体', '船体'],
+                 ['フンドシ', 'フンドシ'], ['ドラム缶', 'ドラム缶'],
+                 ['灯火', '灯火'], ['ドローン', 'ドローン'], ['タワー', 'タワー']];
+  function aimIn(inner, subs) {
+    var q = nrm(inner), i, j;
+    if (!q || !subs || !subs.length) { return -1; }
+    if (/^(ボス|本体)$/.test(q)) { return -1; }
+    // 1. 部位の名前がそのまま入っている（「(インベイドピラー)」）
+    for (i = 0; i < subs.length; i++) {
+      var n = nrm(subs[i].n || '').split('(')[0];
+      if (n.length >= 2 && (q.indexOf(n) >= 0 || n.indexOf(q) >= 0)) { return i; }
+    }
+    // 2. TL の言い換え
+    for (j = 0; j < AIMWORD.length; j++) {
+      if (q.indexOf(AIMWORD[j][0]) < 0) { continue; }
+      for (i = 0; i < subs.length; i++) {
+        if (nrm(subs[i].n || '').indexOf(AIMWORD[j][1]) >= 0) { return i; }
+      }
+    }
+    return -1;
+  }
+  /** その子の EX の形態一覧（`tl-engine.js` の `forms` と同じ並び）。 */
+  function formsOf(id) {
+    var d = null, i, ss = S.students;
+    for (i = 0; i < ss.length; i++) { if (ss[i].id === id) { d = ss[i]; break; } }
+    if (!d) { return []; }
+    var out = [{ n: d.en }], xs = d.xs || [];
+    for (i = 0; i < xs.length; i++) { out.push({ n: xs[i].n }); }
+    return out;
+  }
+  var EXK = ['Ex', 'Ex1', 'Ex2', 'Ex3', 'Ex4'];
+  function formHasDmg(id, j) {
+    return !!((B.dmg[id] || {})[EXK[j]] || altOf(id, EXK[j]));
+  }
+  /** 「アリス(チャージ)」「ネル(VS付与)」のように、**括弧が形態を指していることがある。**
+      形態の名前そのものか、TL でよく使う言い換えだけを見る（2026-09-01 に
+      クラウさんの TL 8 本から拾った）。当てずっぽうで広げない。 */
+  var FORMWORD = [['チャージ', 'charge'], ['ため', 'charge'], ['溜め', 'charge'],
+                  ['貯め', 'charge'], ['タメ', 'charge']];
+  function formIn(inner, id) {
+    var q = nrm(inner), fl = formsOf(id), i, j;
+    if (!q || fl.length < 2) { return -1; }
+    for (i = 0; i < fl.length; i++) {
+      var n = nrm(fl[i].n || '');
+      if (n.length >= 2 && (q.indexOf(n) >= 0 || n.indexOf(q) >= 0)) { return i; }
+    }
+    for (j = 0; j < FORMWORD.length; j++) {
+      if (q.indexOf(FORMWORD[j][0]) < 0) { continue; }
+      // 「チャージ」＝ **元の形態**（選択メニューのほう）。アリス（臨戦）は
+      // 「光の勇者」で溜めて「覚醒：スーパーノヴァ」で撃つ。元の形態に
+      // ダメージが無いときだけ、そこへ戻す
+      if (!formHasDmg(id, 0)) { return 0; }
+    }
+    return -1;
+  }
   function parseTL(txt) {
     var dur = diff().dur || 240;
     var lines = String(txt).replace(/\r/g, '').split('\n');
@@ -4226,10 +4363,15 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
       // 「TL はみんないろんな書き方してるから特化しなくていい」）
       if (!/固有\s*\d|★\s*\d|MMMM|[Tt]\s*\d+\s*\/|Lv\s*\d|装備\s*\d|絆\s*\d|EX\s*\d/i
            .test(body)) { continue; }
-      var nm = body.replace(/[（(].*?[)）]/g, function (x) { return x; })
-                   .split(/[\s　]+/).filter(function (x) { return x; })[0];
+      var nm = body.split(/[\s　]+/).filter(function (x) { return x; })[0];
+      // **空白が無いまま育成が続くことがある**（「レイサ(マジカル)固有2　MMMM」）。
+      // 育成の書き出しに当たったら、そこで名前を切る（2026-09-01）
+      if (nm) {
+        var cutm = nm.match(/^(.+?)(?:固有|UE\d|★|MMMM|Lv\d|装備\d|絆\d|EX\d)/i);
+        if (cutm && cutm[1]) { nm = cutm[1]; }
+      }
       if (!nm) { continue; }
-      var sd = findStudent(nm);
+      var sd = findStudent(nm, res.notes);
       if (!sd) { res.skipped.push([raw, '生徒が見つかりません: ' + nm]); continue; }
       var b = { id: sd.id, name: sd.n };
       var rest = body.replace(nm, ' '), mm;
@@ -4293,6 +4435,10 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
       res.crew[i].idx = idx;
       crew.push({ idx: idx, a: aliasOf(res.crew[i].name) });
     }
+    var idBy = {}, autoF = {};
+    for (i = 0; i < res.crew.length; i++) {
+      if (res.crew[i].idx != null) { idBy[res.crew[i].idx] = res.crew[i].id; }
+    }
     // ---- 2. バフの渡し先
     for (i = 0; i < lines.length; i++) {
       var bm = nrm(lines[i]).match(/バフ.*?(?:全て|すべて)(.+?)指定/);
@@ -4315,7 +4461,7 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
       break;
     }
     // ---- 4. タイムライン
-    var seenStart = false, prevT = 0;
+    var seenStart = false, prevT = 0, lastWho = null;
     for (i = 0; i < lines.length; i++) {
       var ln = lines[i];
       if (/開始\s*SET/i.test(nrm(ln))) { seenStart = true; continue; }
@@ -4333,6 +4479,13 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
         continue;
       }
       var who = whoIn(cut, crew, noParen);
+      // **「1射目」「2射目」は直前の子の続き。**ヒナ（ドレス）やホシノ（臨戦）の
+      // ように 1 回の EX を何発かに分けて撃つ子で、TL は名前を書かずに
+      // 「即 2射目(左聖歌隊 5体)」と続ける（2026-09-01 にグレゴリオと
+      // カイテンジャーの TL で気づいた）
+      if (who < 0 && lastWho != null && /[0-9０-９一二三四五六七八九]\s*射/.test(cut)) {
+        who = lastWho;
+      }
       if (who < 0) { continue; }                    // 見出しや余談。黙って飛ばす
       var tm = timeIn(noParen, dur);
       if (!tm) { res.skipped.push([ln, 'タイミングが読めません']); continue; }
@@ -4358,28 +4511,88 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
       // **括弧の中がその編成の別の子として読めたときだけ**渡し先にする。
       // 「コタマ(キャンプ)」のような名前の一部や、「(下側の柱)」「(ボス)」は外れる。
       // **「バフは全て◯◯指定」がある TL では触らない**——そちらが優先だから
-      if (!toL.length && res.bufTo == null) {
-        var pg = cut.match(/[（(][^）)]*[)）]/g) || [], pz2, pz3;
-        for (pz2 = 0; pz2 < pg.length; pz2++) {
-          var inner = pg[pz2].replace(/^[（(]|[)）]$/g, '').split(/[＋+,、・]|\sと\s/);
-          for (pz3 = 0; pz3 < inner.length; pz3++) {
-            var w3 = whoIn(inner[pz3], crew, inner[pz3]);
-            if (w3 >= 0 && w3 !== who && toL.indexOf(w3) < 0) { toL.push(w3); }
+      // **括弧の中は「渡し先」か「当たる先」のどちらか。**
+      // 編成の子として読めれば渡し先、部位として読めれば当たる先
+      var pg = cut.match(/[（(][^）)]*[)）]/g) || [], pz2, pz3, aim = null, frm = null, mcn = 1;
+      var subsP = diff().sub || [];
+      for (pz2 = 0; pz2 < pg.length; pz2++) {
+        var inner = pg[pz2].replace(/^[（(]|[)）]$/g, '').split(/[＋+,、・]|\sと\s/);
+        for (pz3 = 0; pz3 < inner.length; pz3++) {
+          var w3 = whoIn(inner[pz3], crew, inner[pz3]);
+          if (w3 >= 0) {
+            if (!toL.length && res.bufTo == null && w3 !== who && toL.indexOf(w3) < 0) {
+              toL.push(w3);
+            }
+            continue;
+          }
+          if (aim == null) {
+            var a3 = aimIn(inner[pz3], subsP);
+            if (a3 >= 0) {
+              aim = a3;
+              // **「(左聖歌隊 5体)」の「5体」。**転移する部位に範囲攻撃を当てると、
+              // 当たった数だけボスへ入る（2026-09-01。グレゴリオとペロロジラの
+              // TL はどれもこの書き方）
+              var mm3 = nrm(inner[pz3]).match(/(\d+)体/);
+              if (mm3) { mcn = Math.max(1, +mm3[1]); }
+              continue;
+            }
+          }
+          if (frm == null && idBy[who]) {
+            var f3 = formIn(inner[pz3], idBy[who]);
+            if (f3 >= 0) { frm = f3; }
           }
         }
       }
-      res.uses.push({ i: who, md: tm.md, t: tm.t == null ? 0 : tm.t,
+      if (aim != null) {
+        res.notes.push('「' + ln.trim() + '」は ' + subsP[aim].n + ' に当てる行として読みました' +
+          (subsP[aim].tr ? '（' + subsP[aim].tr + '% がボスへ転移します）'
+                         : '（ボスの HP からは引きません）'));
+      }
+      // **形態を選ばないとダメージが 0 になる子がいる。**engine が `pick` として
+      // 形態 1 のまま置く子（アリス（臨戦）・ミカ（水着）・ラブ・キサキ（水着）・
+      // シュン（水着）・トキ・ノア（パジャマ）・イブキ）で、形態 1 にダメージが
+      // 無いときは、**ダメージのある形態を既定にする**。黙って 0 にするより良い
+      // （2026-09-01。ホバークラフト前半のアリスがこれで 42.9% → 87.8% になった）
+      var pid = idBy[who];
+      if (frm == null && pid && TE.FORM_RULE[pid] === 'pick' && !formHasDmg(pid, 0)) {
+        var fl2 = formsOf(pid), fz;
+        for (fz = 1; fz < fl2.length; fz++) {
+          if (formHasDmg(pid, fz)) { frm = fz; break; }
+        }
+        if (frm != null) { autoF[pid] = (fl2[frm] || {}).n; }
+      }
+      lastWho = who;
+      res.uses.push({ i: who, md: tm.md, t: tm.t == null ? 0 : tm.t, tg: aim, f: frm, mc: mcn,
                       to: toL.length ? (toL.length > 1 ? toL : toL[0]) : null,
                       cv: tm.cv == null ? null : tm.cv,
                       copy: /C[^\s]*$/i.test(nrm(noParen).replace(/^[^C]*?(?=C)/, '')) &&
                             /(^|[^A-Za-z])C/.test(nrm(noParen)),
                       line: ln.trim(), note: note.trim() });
     }
+    for (i in autoF) {
+      if (has(autoF, i)) {
+        res.notes.push('形態の指定が無いので「' + autoF[i] +
+                       '」にしました（ダメージのある形態です。帯をクリックすると変えられます）');
+      }
+    }
     if (!res.uses.length) { return { err: 'タイムラインの行が 1 つも読めませんでした' }; }
     return res;
   }
   /** 名前から生徒を探す。**括弧の全半角と「水着セイア」型を吸収する。** */
-  function findStudent(nm) {
+  /** **「／」で枝分かれしている子がいる。**「ホシノ（臨戦）／アタッカー」と
+      「ホシノ（臨戦）／タンク」がそれで、TL は「ホシノ(臨戦)」としか書かない。
+      名前だけでは決められないので、**先に並んでいるほうを採って、
+      選んだことと候補を `notes` に出す**（2026-09-01）。
+      はっきりさせたいときは「ホシノ(臨戦)／タンク」と書けばそちらを採る。 */
+  function slashKin(n) {
+    var out = [], i;
+    for (i = 0; i < S.students.length; i++) {
+      var w = nrm(S.students[i].n);
+      if (w.indexOf(n + '/') === 0 || w.indexOf(n + '／') === 0) { out.push(S.students[i]); }
+    }
+    return out;
+  }
+  function findStudent(nm, notes) {
     var n = nrm(nm), i, byBase = [];
     for (i = 0; i < S.students.length; i++) {
       var a = aliasOf(S.students[i].n);
@@ -4389,7 +4602,18 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
     for (i = 0; i < byBase.length; i++) {
       if (nrm(byBase[i].n) === n) { return byBase[i]; }
     }
-    return byBase.length === 1 ? byBase[0] : null;
+    if (byBase.length === 1) { return byBase[0]; }
+    var kin = slashKin(n);
+    if (kin.length) {
+      if (kin.length > 1 && notes) {
+        var ns = [];
+        for (i = 0; i < kin.length; i++) { ns.push(kin[i].n); }
+        notes.push(nm + ' は ' + ns.join('・') + ' のうち ' + kin[0].n +
+                   ' にしました（分けたいときは名前まで書いてください）');
+      }
+      return kin[0];
+    }
+    return null;
   }
   /** 読んだものを実際に入れる。**戻すのは中身の要約。** */
   function applyTL(p) {
@@ -4416,7 +4640,9 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
       var u = p.uses[i];
       var tt2 = u.to == null ? p.bufTo : u.to;
       var row = { i: u.i, t: u.md === 't' ? u.t : Math.min(dur, prev + 0.01),
-                  to: tt2, ov: tt2, f: null, bt: tt2, bto: tt2,
+                  to: tt2, ov: tt2, f: u.f == null ? null : u.f,
+                  tg: u.tg == null ? null : u.tg, mc: u.mc == null ? 1 : u.mc,
+                  bt: tt2, bto: tt2,
                   md: u.md, cv: u.cv };
       st.tl.push(row);
       var rr = simOf(orderOf(), dur).rows, at = null, q2;
@@ -5050,9 +5276,18 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
       var th = '<option value="">' + esc(boss().n) + '（本体）</option>', ti;
       for (ti = 0; ti < subs.length; ti++) {
         th += '<option value="' + ti + '"' + (String(u.tg) === String(ti) ? ' selected' : '') +
-              '>' + esc(subs[ti].n) + '（HP ' + n0(subs[ti].hp) + '）</option>';
+              (subs[ti].trw ? ' title="' + esc(subs[ti].trw) + '"' : '') +
+              '>' + esc(subs[ti].n) + '（HP ' + n0(subs[ti].hp) +
+              (subs[ti].tr ? '・ボスへ転移 ' + subs[ti].tr + '%' : '') + '）</option>';
       }
       h2 += '<label class="f"><span>当たる先</span><select data-us="tg">' + th + '</select></label>';
+      // **転移する部位のときだけ「当たる数」を出す。**範囲攻撃が何体に当たったかで
+      // ボスへ入る量が変わる（聖歌隊 5 体・ペロロミニオン…）
+      if (u.tg != null && (subs[u.tg] || {}).tr) {
+        h2 += '<label class="f"><span>当たる数</span><input type="number" data-us="mc" ' +
+          'min="1" max="99" step="1" style="width:64px" value="' + (u.mc == null ? 1 : u.mc) +
+          '"><span class="mut tiny">体</span></label>';
+      }
     }
     if (er && er.grant) {
       h2 += '<label class="f"><span>コスト' + (er.grant.vt === 'coef' ? '減少' : '増加') +
@@ -5274,6 +5509,7 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
                      busyOf: busyOf, naTimes: naTimes, naRuns: naRuns, nsTimes: nsTimes,
                      nsInfo: nsInfo, naInfo: naInfo, altOf: altOf, pickOf: pickOf,
                      usesSorted: usesSorted, liveBuffs: liveBuffs, draw: draw,
+                     applyTL: applyTL, fillBoss: fillBoss, findStudent: findStudent,
                      boss: boss, scen: scen, killAt: killAt, scoreOf: scoreOf,
                      enemyAt: enemyAt, mkStats: mkStats, danMax: danMax,
                      B: B };

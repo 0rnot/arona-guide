@@ -4489,6 +4489,22 @@ def build_tl():
     for _e in (_enemies or {}).values():
         if _e.get("Name") and _e.get("DevName"):
             _sd_name.setdefault(_dev_role(_e["DevName"]), _e["Name"])
+    # **末尾の役どころを 1 つ落とした形も引けるようにする。**
+    # `en0005_choir_center` は enemies にあるが `_left` `_right` は無い。
+    # **同じ短縮形に別の名前がぶら下がるときは登録しない**（取り違えるので）
+    _sd_short = {}
+    for _k, _v in _sd_name.items():
+        _q = _k.split("_")
+        if len(_q) > 1:
+            _sd_short.setdefault("_".join(_q[:-1]), set()).add(_v)
+    for _k, _v in _sd_short.items():
+        if len(_v) == 1 and _k not in _sd_name:
+            _sd_name[_k] = next(iter(_v))
+
+    # 末尾に付く役どころの言い換え。**当てはまらない語はそのまま出す**
+    _SUF_JA = {"summon": "召喚", "left": "左", "right": "右", "center": "中央",
+               "cannon": "砲台", "railgun": "レールガン", "move": "移動",
+               "boss": "本体", "front": "前", "back": "後"}
 
     def _pname(cid):
         c = ch_all.get(cid) or {}
@@ -4502,9 +4518,26 @@ def build_tl():
         if nm and nm != "LocalizeError":
             return nm
         _r = _dev_role(c.get("DevName"))
-        return (_sd_name.get(_r) or _sd_name.get(re.sub(r"\d+$", "", _r))
-                or _sd_name.get(re.sub(r"\d+$", "", _r) + "01")
-                or c.get("DevName") or str(cid))
+        nm = (_sd_name.get(_r) or _sd_name.get(re.sub(r"\d+$", "", _r))
+              or _sd_name.get(re.sub(r"\d+$", "", _r) + "01"))
+        if nm:
+            return nm
+        # **末尾の役どころを 1 つずつ落として引き直す。**
+        # `EN0005_choir_Torment_Left` は enemies に無いが `_Center` はあり、
+        # 中身は同じ聖歌隊。落とした語は括弧で添えて、どれか分かるようにする
+        q = _r.split("_")
+        tail = []
+        # **落とすのは末尾 2 つまで。**それ以上削ると
+        # `en0005_choir_left` が `en0005`（グレゴリオ本体）に化ける
+        while len(q) > 1 and len(tail) < 2:
+            tail.insert(0, q.pop())
+            base = "_".join(q)
+            nm = (_sd_name.get(base) or _sd_name.get(re.sub(r"\d+$", "", base))
+                  or _sd_name.get(re.sub(r"\d+$", "", base) + "01"))
+            if nm:
+                lab = "・".join(_SUF_JA.get(t.lower(), t) for t in tail)
+                return nm + "（" + lab + "）"
+        return c.get("DevName") or str(cid)
 
     def _subs(cid, skip):
         """その枝の部位。`skip` はボス本体と集計行の id。
@@ -4621,6 +4654,48 @@ def build_tl():
         _gim_cache[ck] = out
         return out
 
+    # ---- ダメージの転移。**部位に当てたぶんがボスの HP から減るボスがいる**
+    # （2026-09-01）。ペロロジラのミニオン・グレゴリオの聖歌隊・ホバークラフトの
+    # ミサイル誘導装置・クロカゲの片鱗がそれで、**これを入れないと TL が
+    # 桁で足りなくなる**（グレゴリオは実測の 22 分の 1 しか出なかった）。
+    # 説明文の 3 通りの書き方だけを読む。**読めなかったら転移なし**（憶測しない）
+    _TR_PATS = [
+        re.compile(r"(.+?)(?:は|の).*?被ダメージの(\d+)%分を(.+?)に転移"),
+        re.compile(r"(.+?)に与えたダメージの(\d+)%分が(.+?)に転移"),
+        re.compile(r"([^、。は]+)はダメージを受けると(.+?)に転移"),
+    ]
+
+    def _trans(rd, df):
+        """[(部位の名前に含まれる語, 率, 出典の文)] を返す。宛先がボス本人のときだけ。"""
+        lst = rd.get("RaidSkillList") or []
+        di = next((i for i, x in enumerate(TL_DIFF) if x.lower() == (df or "").lower()), None)
+        if di is None or di >= len(lst):
+            return []
+        bnm, out, seen = rd.get("Name") or "", [], set()
+        for nm in lst[di] or []:
+            sk = rsk.get(nm) or {}
+            for ln in (sk.get("Desc") or "").split("\n"):
+                txt = _gim_tag.sub("", _gim_stat.sub(r"\1", ln)).strip()
+                if "転移" not in txt:
+                    continue
+                for pi, pat in enumerate(_TR_PATS):
+                    m = pat.search(txt)
+                    if not m:
+                        continue
+                    if pi == 2:
+                        src, rate, dst = m.group(1), 100, m.group(2)
+                    else:
+                        src, rate, dst = m.group(1), int(m.group(2)), m.group(3)
+                    # **宛先がボス本人でなければ拾わない。**味方どうしの転移もある
+                    if not bnm or bnm not in dst:
+                        break
+                    if (src, rate) in seen:
+                        break
+                    seen.add((src, rate))
+                    out.append((src, rate, txt))
+                    break
+        return out
+
     fcache = {}
     bosses, ok, half, ng = [], 0, 0, []
     for g0 in grp_order:
@@ -4709,6 +4784,13 @@ def build_tl():
                                 break
                         if got["sub"]:
                             break
+                # **転移**。説明文の「◯◯」が部位の名前に入っていたら、その率を乗せる
+                for _src, _rate, _why in _trans(b, df):
+                    for _x in got["sub"]:
+                        _n = (_x.get("n") or "").split("（")[0]
+                        if len(_n) >= 2 and (_n in _src or _src in _n):
+                            _x["tr"] = _rate
+                            _x["trw"] = _why
                 rows.append(got)
                 ok += 1 if got["per"] else 0
                 half += 0 if got["per"] else 1
