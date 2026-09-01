@@ -764,6 +764,18 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
   letter-spacing:.02em; white-space:nowrap; }
 .tlapp .kpi .kboss .bd { font-size:8.5px; color:var(--tx3); white-space:nowrap; }
 
+
+/* 達成率の表の区切り見出し（下振れ・上振れ／個別設定） */
+.rate tr.sep td { text-align:left; background:var(--bg2); color:var(--tx3);
+  font-size:9.5px; font-weight:700; letter-spacing:.04em; padding:4px 7px 3px;
+  border-bottom:1px solid var(--ln); }
+.rate tr.sep + tr td { border-top:0; }
+
+/* 達成率の表の棒に色が付いていなかった（`.rate .bar i` に background が
+   どこにも無く、ずっと透明のまま出ていた。2026-09-01 に気づいた）。
+   上振れ・下振れの 2 行だけは別の色にして、個別設定の 5 行と見分ける */
+.tlapp .rate .bar i { background:var(--acc2); }
+.tlapp .rate tr.lohi .bar i { background:var(--acc); }
 </style>
 </head>
 <body>
@@ -1206,7 +1218,13 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
         条件は <code>Condition</code> の原文をそのままバーに添えています。
         ネル（制服）の「怪我しても知らねえからな」は 1983% から 4334% までの 10 段、
         通常攻撃は「EX の状態でないとき 100%／であるとき 120%」の 2 段です。
-        <b>足し合わせません</b> — 以前は全部足していて、通常攻撃が 2.2 倍になっていました</li>
+        <b>足し合わせません</b> — 以前は全部足していて、通常攻撃が 2.2 倍になっていました。
+        <b>この「幅」をどこまで振るとどうなるかは、「シナリオ別達成率」の上 2 行で見られます。</b>
+        <b>下振れ</b>は幅を持つスキルを全部いちばん低い候補にして会心も無しにしたとき、
+        <b>上振れ</b>は全部いちばん高い候補にして全部会心したとき。
+        真ん中の 5 行（最小〜最大）は<b>今の個別設定のまま</b>で、会心と乱数だけを振ったものです。
+        候補は倍率だけでなく、発数・防御無視・会心の有無も候補ごとに違うので、
+        <b>候補ごとに最後までダメージを計算して比べています</b></li>
       <li><b>「味方1人」のスキル</b> — <b>何人に当たるかは説明文にしか書いていません。</b>
         <code>Effects[].Target</code> は <code>AllyMain</code> ／ <code>AllySupport</code>
         としか持っておらず、人数も「自分を含むか」も入っていません（2026-09-01 に
@@ -2116,26 +2134,54 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
   }
 
   function n0(v) { return Math.round(v).toLocaleString('ja-JP'); }
+  // 会心と乱数の振れ幅。**倍率の幅（段・条件）は動かさない**
   var RROW = [['最小', 'min'], ['0会心平均', 'avg0'], ['平均', 'avg'],
               ['全会心平均', 'avgC'], ['最大', 'max']];
   var RHEAD = [['残HP／階層HP', '与ダメージ', 'EX合計', 'NS合計', '通常合計', 'SS合計'],
                ['目標までの残り', '達成率', '与ダメージ', '目標ダメージ', '1秒あたり', '制限時間']];
   function drawRate() {
-    var r = diff(), hp = (r.bs && r.bs.hp) || 0, t = total(r), h = '', i, k;
+    var r = diff(), hp = (r.bs && r.bs.hp) || 0, h = '', i, k;
+    var cache = {};
+    function tot(pf) {
+      var key = String(pf);
+      if (!cache[key]) { cache[key] = total(r, pf); }
+      return cache[key];
+    }
+    var t = tot(0);
+    // **置いた中に幅を持つ 1 発も無ければ、上振れ・下振れは真ん中の行と同じ数字になる。**
+    // 枠の数だけで決めると、幅のあるスキルを 1 発も置いていないときに同じ行が並ぶ
+    // （2026-09-01）
+    var spread = altList().length > 0 && tot(-1).avg !== tot(1).avg;
     var goal = (st.goal && st.goal.dmg) || hp, sec = (st.goal && st.goal.sec) || (r.dur || 240);
-    var hd = '<tr><th style="width:96px"></th>';
+    var hd = '<tr><th style="width:112px"></th>';
     for (i = 0; i < 6; i++) { hd += '<th>' + RHEAD[st.tab][i] + '</th>'; }
     hd += '</tr>';
-    for (i = 0; i < RROW.length; i++) {
-      var v = t[RROW[i][1]];
-      h += '<tr><td class="n">' + RROW[i][0] + '</td>';
-      if (!t.n || !hp) {
+    // 行の並び。`pf` は倍率の幅の振り方、`sep` はその上に挟む見出し
+    var rows = [], j;
+    if (spread) {
+      rows.push({ lab: '下振れ', key: 'min', pf: -1, tip: '倍率の幅をぜんぶいちばん低い候補にして、会心も無しにしたとき',
+                  sep: '倍率の幅も振ったとき' });
+      rows.push({ lab: '上振れ', key: 'max', pf: 1, tip: '倍率の幅をぜんぶいちばん高い候補にして、ぜんぶ会心したとき' });
+    }
+    for (j = 0; j < RROW.length; j++) {
+      rows.push({ lab: RROW[j][0], key: RROW[j][1], pf: 0,
+                  sep: (spread && j === 0) ? '個別設定（今の倍率の幅のまま）' : null });
+    }
+    for (i = 0; i < rows.length; i++) {
+      var row = rows[i], tt = tot(row.pf), v = tt[row.key];
+      if (row.sep) {
+        h += '<tr class="sep"><td colspan="7">' + esc(row.sep) + '</td></tr>';
+      }
+      h += '<tr' + (row.pf ? ' class="lohi"' : '') + '><td class="n"' +
+           (row.tip ? ' title="' + esc(row.tip) + '"' : '') + '>' +
+           esc(row.lab) + '</td>';
+      if (!tt.n || !hp) {
         for (k = 0; k < 6; k++) {
           h += '<td class="v"><span class="cell"><span class="bar"><i style="width:0%"></i></span>' +
                '<span class="num mut">—</span></span></td>';
         }
       } else if (st.tab === 0) {
-        var ve = t.ex[RROW[i][1]], vn = t.ns[RROW[i][1]], va = t.na[RROW[i][1]];
+        var ve = tt.ex[row.key], vn = tt.ns[row.key], va = tt.na[row.key];
         h += cell(Math.max(0, hp - v) / hp, n0(Math.max(0, hp - v)));
         h += cell(Math.min(1, v / hp), n0(v));
         h += cell(v ? ve / v : 0, n0(ve));
@@ -2162,7 +2208,10 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
       (st.goal ? '' : '（既定はボスの最大HPと制限時間）') +
       '　EX ' + t.ex.n + ' 発＋NS ' + t.ns.n + ' 発＋通常攻撃 ' + t.na.n + ' 発ぶん' +
       '（置いた EX ' + st.tl.length + ' 発のうち、ダメージを持つのは ' + t.ex.n +
-      ' 発。SS は常時ぶんをステータスに乗せています）';
+      ' 発。SS は常時ぶんをステータスに乗せています）' +
+      (spread ? '　倍率の幅を持つスキルが ' + altList().length +
+        ' 枠あります。真ん中の 5 行は今の個別設定のままで会心と乱数だけを振ったもの、' +
+        '上の 2 行は幅もいちばん低い／高い候補に寄せたときです。' : '');
   }
   function cell(frac, txt) {
     return '<td class="v"><span class="cell"><span class="bar"><i style="width:' +
@@ -2973,14 +3022,36 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
   }
 
   // 1 人の EX スキル 1 回ぶん。会心と乱数の組み合わせで 5 通り返す
+  // 倍率の幅をどう振るか。0 = 個別設定のまま、-1 = 全部いちばん低い候補、
+  // +1 = 全部いちばん高い候補（2026-09-01 の先生の指示
+  // 「上振れシナリオと下振れシナリオ」）。**総当たりするのは達成率の表だけ**
+  var PICKF = 0;
   function dmgOf(idx, r, at, kind, upk) {
+    var p = st.party[idx];
+    if (!p) { return null; }
+    var kd = kind || 'Ex';
+    var alt = altOf(p.id, kd);
+    if (!PICKF || !alt || alt.v.length < 2) {
+      return dmgOf1(idx, r, at, kd, alt ? pickOf(idx, kd, upk) : 0);
+    }
+    // **候補ごとに最後まで計算して比べる。**倍率（`Scale`）だけで比べると、
+    // 発数・防御無視・会心の有無が候補ごとに違うぶんを取りこぼす
+    var best = null, i;
+    for (i = 0; i < alt.v.length; i++) {
+      var d = dmgOf1(idx, r, at, kd, i);
+      if (!d) { continue; }
+      if (!best || (PICKF > 0 ? d.avg > best.avg : d.avg < best.avg)) { best = d; }
+    }
+    return best;
+  }
+  function dmgOf1(idx, r, at, kind, pick) {
     var p = st.party[idx];
     if (!p) { return null; }
     var kd = kind || 'Ex';
     var effs = ((B.dmg[p.id] || {})[kd] || []).slice();
     // **条件でダメージが変わるぶんは、選んだ候補を 1 つだけ足す**（既定は先頭）
     var alt = altOf(p.id, kd);
-    if (alt) { effs = effs.concat(alt.v[pickOf(idx, kd, upk)] || []); }
+    if (alt) { effs = effs.concat(alt.v[pick || 0] || []); }
     if (!effs.length) { return null; }
     var lv = slotOf(idx).lv || 90, bs = r.bs || {};
     // **スキルの段数はスキルごとに別。**NS を EX のレベルで引くと 5 段目になる
@@ -3096,7 +3167,13 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
   // 置いた EX を全部足す
   var KS = ['min', 'avg0', 'avg', 'avgC', 'max'];
   function zero() { return { min: 0, avg0: 0, avg: 0, avgC: 0, max: 0, n: 0 }; }
-  function total(r) {
+  // `pf` は倍率の幅の振り方（`PICKF`）。表の行ごとに差し替える
+  function total(r, pf) {
+    var sv = PICKF;
+    PICKF = pf || 0;
+    try { return total0(r); } finally { PICKF = sv; }
+  }
+  function total0(r) {
     var ex = zero(), ns = zero(), na = zero(), all = zero(), us = usesSorted(), i, k, q;
     for (i = 0; i < us.length; i++) {
       var u = us[i], d = dmgOf(u.i, r, u.t, u.k, u.pk);
