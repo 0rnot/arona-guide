@@ -810,7 +810,7 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
 
 /* 編成: STRIKER と SPECIAL を横に並べて、枠の数だけ列を作る
    （2026-09-01 の先生の指摘「余白もったいない」） */
-.crewbox { margin-bottom:4px; }
+.crewbox { margin-bottom:6px; }
 .crewhead { display:grid; grid-template-columns:repeat(var(--n,6), minmax(0,1fr));
   gap:3px; margin-bottom:3px; }
 .crewhead .h { font-size:8.5px; font-weight:700; letter-spacing:.04em;
@@ -821,9 +821,12 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
 /* 札とその下の「開始スキルの番号」 */
 .crew .cw { display:flex; flex-direction:column; gap:2px; min-width:0; }
 .crew .cw > .c { width:100%; }
-.crew .stn { width:100%; min-width:0; font-size:9px; padding:0; text-align:center;
-  background:var(--bg2); color:var(--tx); border:1px solid var(--ln2);
-  border-radius:3px; height:15px; }
+.crew .stn { width:100%; min-width:0; font-size:9.5px; padding:0 2px; text-align:center;
+  text-align-last:center; background:var(--bg2); color:var(--tx2);
+  border:1px solid var(--ln2); border-radius:3px; height:17px; line-height:15px;
+  appearance:none; -webkit-appearance:none; }
+.crew .stn:hover { border-color:var(--acc); color:var(--tx); }
+.crew .cw { gap:3px; }
 .crew .stn:disabled { opacity:.35; }
 /* 概況: 右の札まで空きが出ないように、箱を横いっぱいに散らす */
 .tlapp .kpi .kres { flex:1 1 auto; justify-content:space-between; }
@@ -3273,7 +3276,56 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
     }
     return best;
   }
+  /** その形態の演出の長さ（秒）。**ダメージが何秒かけて出るか** */
+  function formDur(id, kind) {
+    var sd = _byid[id];
+    if (!sd) { return 0; }
+    if (kind === 'Ex') { return (sd.d || 0) / B.fps; }
+    var m = /^Ex(\d)$/.exec(String(kind));
+    if (m) {
+      var x = (sd.xs || [])[+m[1] - 1];
+      return x ? (x.d || 0) / B.fps : 0;
+    }
+    return 0;
+  }
+  /** **発数が多いスキルは、演出の長さいっぱいに撃ち続ける。**
+      ネル（制服）の「怪我しても知らねえからな」は `Hits` が 46 個で、
+      演出は 229 フレーム＝7.63 秒。**撃ち始めた瞬間のバフだけで計算すると、
+      その最中に乗ったバフが 1 発ぶんも効かない**（2026-09-01。先生の TL は
+      カンナ → Cネル → セイア → 水着セイア の順で、Cネル の最中に
+      EXスキル与ダメージ倍率 +74.15% と 防御力 -47.81% が乗る作りだった）。
+      演出を 6 つに割って、それぞれの時点のバフで計算して平均する。 */
+  var SLICE = 6;
+  function sliceOf(id, kind) {
+    var effs = ((B.dmg[id] || {})[kind] || []), a = altOf(id, kind), i, q, n = 0;
+    function look(list) {
+      for (q = 0; q < list.length; q++) {
+        var h = list[q][1] || [];
+        if (h.length > n) { n = h.length; }
+      }
+    }
+    look(effs);
+    if (a) { for (i = 0; i < a.v.length; i++) { look(a.v[i]); } }
+    return (n >= 4 && formDur(id, kind) >= 1) ? SLICE : 1;
+  }
   function dmgOf1(idx, r, at, kind, pick) {
+    var p0 = st.party[idx];
+    if (!p0) { return null; }
+    var kd0 = kind || 'Ex';
+    var ns = at == null ? 1 : sliceOf(p0.id, kd0);
+    if (ns <= 1) { return dmgAt(idx, r, at, kd0, pick); }
+    var D = formDur(p0.id, kd0), dur0 = r.dur || 240, acc = null, k, q2;
+    for (k = 0; k < ns; k++) {
+      var ts = Math.min(at + D * (k + 0.5) / ns, dur0);
+      var d0 = dmgAt(idx, r, ts, kd0, pick);
+      if (!d0) { return null; }
+      if (!acc) { acc = { min: 0, avg0: 0, avg: 0, avgC: 0, max: 0,
+                          hit: d0.hit, crit: d0.crit, name: d0.name }; }
+      for (q2 = 0; q2 < KS.length; q2++) { acc[KS[q2]] += d0[KS[q2]] / ns; }
+    }
+    return acc;
+  }
+  function dmgAt(idx, r, at, kind, pick) {
     var p = st.party[idx];
     if (!p) { return null; }
     var kd = kind || 'Ex';
