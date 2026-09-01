@@ -4692,7 +4692,9 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
     }
     // ---- 2. バフの渡し先
     for (i = 0; i < lines.length; i++) {
-      var bm = nrm(lines[i]).match(/バフ.*?(?:全て|すべて)(.+?)指定/);
+      // **「指定」と書かない人もいる**（「バフは全てヒナへ」。2026-09-02、大決戦クロカゲ。
+      // 拾えないうえに、この行が「即ヒナ」の 1 発として置かれていた）
+      var bm = nrm(lines[i]).match(/バフ.*?(?:全て|すべて)(.+?)(?:指定|へ|に)$/);
       if (bm) {
         var to = whoIn(bm[1], crew);
         if (to >= 0) { res.bufTo = to; res.notes.push('バフの渡し先を全部 ' + bm[1] + ' にしました'); }
@@ -4715,35 +4717,24 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
     // **2 部隊目から先は読まない。**凸を重ねる TL を 1 本の時間軸に乗せると、
     // 2 部隊ぶんの EX が同じボスに足されて 2 倍以上に膨らむ
     // （2026-09-02。ホバークラフトが 262〜273% と出ていた原因。凸で切ると 118〜128%）。
-    // 「TL2ページ目」は同じ部隊の続きなので切らない
-    // **探すのは「開始SET」より後ろだけ。**目次や編成表に「■ 2凸目」と書く人がいて、
-    // 頭から探すと TL の手前で切れて 1 行も読めなくなる
-    // （2026-09-02、56 本のうち 13 本がこれで全滅した）
-    var partyCut = -1, startAt = 0;
-    for (i = 0; i < lines.length; i++) {
-      if (/開始\s*(?:SET|スキル|セット)/i.test(nrm(lines[i]))) { startAt = i + 1; break; }
-    }
-    for (i = startAt; i < lines.length; i++) {
-      var lc = nrm(lines[i]);
-      if (/ページ/.test(lc)) { continue; }
-      if (/[2-9２-９]\s*(?:凸目?|部隊目?|チーム目?)/.test(lc) && lc.length <= 24) {
-        partyCut = i; break;
-      }
-      // **別分岐も同じ**。「※超上振れでフェーズ2スキップした場合※」以降 7 行が
-      // 本編の続きとして積まれていた（2026-09-02、大決戦ビナー）
-      if (/^※.*(?:場合|とき|パターン|ルート).*$/.test(lc) && lc.length <= 40) {
-        partyCut = i; break;
-      }
+    // **切るのは「1 発でも置いたあと」に出てきた見出しだけ。**目次や育成状況に
+    // 「2凸目」と書く人がいて、頭から探すと TL の手前で切れて 1 行も読めなくなる
+    // （56 本のうち 13 本がこれで全滅した）。「TL2ページ目」は同じ部隊の続きなので切らない
+    function isCut(lc) {
+      if (/ページ/.test(lc) || lc.length > 40) { return false; }
+      if (/[2-9２-９]\s*(?:凸目?|部隊目?|チーム目?)/.test(lc) && lc.length <= 24) { return true; }
+      // 別分岐（「※超上振れでフェーズ2スキップした場合※」）も同じ扱い
+      return /^※.*(?:場合|とき|パターン|ルート)/.test(lc);
     }
     var seenStart = false, prevT = 0, lastWho = null, lastShot = null, pendT = null;
     for (i = 0; i < lines.length; i++) {
-      if (partyCut >= 0 && i >= partyCut) {
-        res.notes.push('「' + lines[partyCut].trim() + '」から先は読んでいません。' +
+      var ln = lines[i];
+      if (res.uses.length && isCut(nrm(ln))) {
+        res.notes.push('「' + ln.trim() + '」から先は読んでいません。' +
           '2 部隊目は同じボスの続きではないので、別に貼ってください' +
           '（1 本にすると 2 部隊ぶんが同じボスに足されます）');
         break;
       }
-      var ln = lines[i];
       if (/開始\s*(?:SET|スキル|セット)/i.test(nrm(ln))) { seenStart = true; continue; }
       if (!seenStart) { continue; }
       var cut = ln.replace(/[※].*$/, '');
@@ -4754,6 +4745,8 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
       // **行動ではない行。**「ネル後ボスHP(参考程度)」が名前と「後」を持っていて
       // 1 発ぶん余計に置かれていた（2026-09-01 に実物を読ませて気づいた）
       if (/参考|下振れ|上振れ|ページ目|移行|支援値|使用生徒|リスタート/.test(cut)) { continue; }
+      // 渡し先をまとめて書いた行は、上の 2. で読んである。1 発には数えない
+      if (/バフ.*?(?:全て|すべて)/.test(nrm(cut))) { continue; }
       // **地の文を 1 発にしない。**「2本目の柱に対して発動するコタマEXとネルEXの
       // タイミングが遅いとずれます。」がコスト 2 の コタマ EX になっていた
       // （2026-09-02、総力戦ホド）
