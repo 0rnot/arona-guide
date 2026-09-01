@@ -4701,8 +4701,14 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
     // 2 部隊ぶんの EX が同じボスに足されて 2 倍以上に膨らむ
     // （2026-09-02。ホバークラフトが 262〜273% と出ていた原因。凸で切ると 118〜128%）。
     // 「TL2ページ目」は同じ部隊の続きなので切らない
-    var partyCut = -1;
+    // **探すのは「開始SET」より後ろだけ。**目次や編成表に「■ 2凸目」と書く人がいて、
+    // 頭から探すと TL の手前で切れて 1 行も読めなくなる
+    // （2026-09-02、56 本のうち 13 本がこれで全滅した）
+    var partyCut = -1, startAt = 0;
     for (i = 0; i < lines.length; i++) {
+      if (/開始\s*(?:SET|スキル|セット)/i.test(nrm(lines[i]))) { startAt = i + 1; break; }
+    }
+    for (i = startAt; i < lines.length; i++) {
       var lc = nrm(lines[i]);
       if (/ページ/.test(lc)) { continue; }
       if (/[2-9２-９]\s*(?:凸目?|部隊目?|チーム目?)/.test(lc) && lc.length <= 24) {
@@ -4742,6 +4748,15 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
         res.notes.push('AUTO の切り替えは行として持てないので飛ばしました: ' + ln.trim());
         continue;
       }
+      // **合図の行は使用ではない。**「ハナコNS」「ハナコの銃が床についたら」は
+      // 次の行の引き金で、その子が EX を撃つという意味ではない
+      // （2026-09-02、大決戦ケセド。t=173 秒の使用として入っていた）
+      var cue = nrm(noParen);
+      if (/(?:NS|ノーマル)$/i.test(cue) ||
+          /(?:したら|ついたら|見えたら|なったら|出たら|直後|入ったら)$/.test(cue)) {
+        res.notes.push('「' + ln.trim() + '」は合図の行として読みました（1 発には数えていません）');
+        continue;
+      }
       // **時刻だけの行を覚えておく。**「02 : 16.000」だけの行の次に行動が来る
       // 書き方がある（2026-09-02、大決戦カイテンジャー）
       var only = nrm(noParen).replace(/[^0-9:.]/g, '');
@@ -4758,7 +4773,14 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
       if (who < 0 && lastWho != null && /[0-9０-９一二三四五六七八九]\s*射/.test(cut)) {
         who = lastWho;
       }
-      if (who < 0) { continue; }                    // 見出しや余談。黙って飛ばす
+      if (who < 0) {
+        // **黙って捨てない。**編成に入らなかった生徒の行がそのまま消えて、
+        // 使う人が「足りない」ことに気づけなかった（2026-09-02、12 本のうち 5 本）。
+        // 生徒として引ける名前が書いてあるのに編成にいない行だけ知らせる
+        var sd2 = findStudent(nrm(cut).replace(/[0-9０-９:.秒即最速]/g, ''), null);
+        if (sd2) { res.skipped.push([ln.trim(), '編成にいません: ' + sd2.n]); }
+        continue;
+      }
       var tm = timeIn(noParen, dur);
       // **時刻だけを 1 行に書く人がいる**（「02 : 16.000」の次の行が行動）。
       // 生徒の名前が無い行は上の `who < 0` で落ちているので、ここに来るのは
@@ -4918,7 +4940,13 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
     return out;
   }
   function findStudent(nm, notes) {
-    var n = nrm(nm), i, byBase = [];
+    // **名前に飾りが付く。**「リオ（助っ人）」「水着ミカ（レンタル）：固有4」
+    // 「[助]マコト固有３」「シロコテラー」（正しくは シロコ＊テラー）。
+    // 落としてから引く（2026-09-02、総力戦ゴズ・大決戦ケセドで 5 本が壊れていた）
+    var n = nrm(nm)
+      .replace(/\[[^\]]*\]/g, '').replace(/[（(](?:助っ?人|レンタル|助|借り)[)）]/g, '')
+      .replace(/[：:].*$/, '').replace(/[＊*・]/g, ''), i, byBase = [];
+    if (!n) { return null; }
     for (i = 0; i < S.students.length; i++) {
       var a = aliasOf(S.students[i].n);
       if (a.alts.indexOf(n) >= 0) { return S.students[i]; }
@@ -4928,6 +4956,14 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
       if (nrm(byBase[i].n) === n) { return byBase[i]; }
     }
     if (byBase.length === 1) { return byBase[0]; }
+    // **括弧の中だけで呼ぶ通称**（「臨戦」＝ ホシノ（臨戦）、「ドレス」＝ …）。
+    // **1 人に決まるときだけ**採る（2026-09-02、総力戦ペロロジラで 12 行が消えていた）
+    var inn = [];
+    for (i = 0; i < S.students.length; i++) {
+      var m4 = nrm(S.students[i].n).match(/^(.+?)\((.+)\)/);
+      if (m4 && m4[2].split(/[／\/]/)[0] === n) { inn.push(S.students[i]); }
+    }
+    if (inn.length === 1) { return inn[0]; }
     var kin = slashKin(n);
     if (kin.length) {
       if (kin.length > 1 && notes) {
