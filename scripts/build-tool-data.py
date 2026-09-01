@@ -4362,8 +4362,17 @@ def build_tl():
     stage = {}
     for r in as_list(get_json(BADB.format("RaidStageExcelTable"))):
         g = ground.get(r.get("GroundId")) or {}
+        # スコア。**1 秒あたりの減点は `PerSecondMinusScore` の 1/10**
+        # （根拠は build_raid_score のコメント。同じ表・同じ列を読んでいる）
+        ps_raw = r.get("PerSecondMinusScore") or 0
+        if ps_raw % 10:
+            raise SystemExit(f"PerSecondMinusScore が 10 で割り切れない: {r.get('Id')} {ps_raw}")
+        sc = None
+        if r.get("DefaultClearScore"):
+            sc = [r["DefaultClearScore"], r.get("HPPercentScore") or 0,
+                  ps_raw // 10, r.get("MaximumScore") or 0]
         v = {"lv": g.get("LevelBoss"), "env": g.get("StageTopography"),
-             "ext": r.get("EchelonExtensionType") or "Base"}
+             "ext": r.get("EchelonExtensionType") or "Base", "sc": sc}
         ids = [r.get("RaidCharacterId")] + list(r.get("BossCharacterId") or [])
         for cid in ids:
             if cid:
@@ -4398,6 +4407,7 @@ def build_tl():
             got["lv"] = sg.get("lv")
             got["env"] = sg.get("env")
             got["ext"] = sg.get("ext") or "Base"
+            got["sc"] = sg.get("sc")
             got["bs"] = {
                 "armor": cr.get("ArmorType"), "bullet": cr.get("BulletType"),
                 # **`Size` はバフの `Restrictions` が見る**（ツクヨ・ミネ）。
