@@ -796,6 +796,27 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
 .tlapp .b.ns > .nl { position:relative; z-index:1; }
 /* 通常攻撃は細く。字は出さない */
 .tlapp .b.na { font-size:0; }
+
+/* 概況のシナリオ切り替え */
+.tlapp .kpi .kl select { width:auto; min-width:0; max-width:9em;
+  background:var(--bg2); border:1px solid var(--ln2); color:var(--tx);
+  font-size:10px; border-radius:var(--rp,3px); padding:0 2px; margin-left:2px; }
+.tlapp .kpi .kl { display:flex; align-items:center; gap:2px; }
+.tlapp .rate tr[data-scen] { cursor:pointer; }
+.tlapp .rate tr[data-scen]:hover td { background:rgba(255,255,255,.04); }
+.tlapp .rate tr.now td { background:rgba(201,138,46,.13); }
+.tlapp .rate tr.now td.n { color:var(--tx); font-weight:700;
+  box-shadow:inset 2px 0 0 var(--acc2); }
+
+/* 編成: STRIKER と SPECIAL を横に並べて、枠の数だけ列を作る
+   （2026-09-01 の先生の指摘「余白もったいない」） */
+.crewbox { display:flex; gap:8px; align-items:flex-start; }
+.crewbox > .crewline { flex:1 1 0; min-width:0; margin-bottom:4px; }
+.crew { grid-template-columns:repeat(var(--n,6), minmax(0,1fr)); }
+@media (max-width:719px) { .crewbox { display:block; }
+  .crewbox > .crewline { flex:none; } }
+/* 概況: 右の札まで空きが出ないように、箱を横いっぱいに散らす */
+.tlapp .kpi .kres { flex:1 1 auto; justify-content:space-between; }
 </style>
 </head>
 <body>
@@ -901,8 +922,10 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
             <button type="button" class="btn2" data-mode="10">10人</button>
           </span>
         </h2>
-        <div class="crewline"><span class="h st">STRIKER</span><div class="crew" id="crew-m"></div></div>
-        <div class="crewline"><span class="h sp">SPECIAL</span><div class="crew" id="crew-s"></div></div>
+        <div class="crewbox">
+          <div class="crewline"><span class="h st">STRIKER</span><div class="crew" id="crew-m"></div></div>
+          <div class="crewline"><span class="h sp">SPECIAL</span><div class="crew" id="crew-s"></div></div>
+        </div>
         <div class="startsk" id="startsk"></div>
       </div></div>
 
@@ -1034,7 +1057,6 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
         <div class="row" style="align-items:flex-start">
           <div style="min-width:0">
             <h2 class="sect"><i></i>シナリオ別達成率</h2>
-            <p class="goal" id="goal-note">目標: —</p>
           </div>
           <span style="flex:1 1 auto"></span>
           <div class="tabs" id="rtabs"><button type="button" class="t on" data-tab="0">会心/EX/NS</button><button type="button" class="t" data-tab="1">目標</button></div>
@@ -1043,6 +1065,7 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
         <div style="overflow-x:auto">
           <table class="rate" id="rate"></table>
         </div>
+        <p class="goal" id="goal-note">目標: —</p>
       </div></div>
     </div>
   </div>
@@ -1392,7 +1415,7 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
              grid: 3, filt: { q: '', role: '', bul: '', arm: '', sch: '', sq: '', star: '', sort: 'n' },
              more: false, who: -1, sel: null, lv: 5, mk: [], slv: 5, tab: 0, goal: null,
              // **フェーズは既定で自動**（削った量で移る）。数値を入れると固定
-             phFix: null };
+             phFix: null, scen: null };
   st.slots = st.parties[0].slots;
   st.tl = st.parties[0].tl;
   st.start = st.parties[0].start;
@@ -1743,11 +1766,35 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
      3 発目から始まっています。通しの数え方だと 2 つめ以降のフェーズは
      入った瞬間に全部出てしまうので、**フェーズごとに数え直す読み方**を採りました。
      ここはこちらの読みです（ゲーム内での実測ではありません）。 */
+  /* **HP から決まる表示（フェーズの移り・グロッキー）は、どの振れ方で見るかで変わる。**
+     1 発で 2 段ぶん削るとフェーズを飛ばすので、平均で見ているかぎり出ない
+     （2026-09-01 の先生の指摘「動画だとフェーズ2をスキップしてフェーズ1から
+     フェーズ3に行ってる」）。バーで切り替える */
+  // 並びは「シナリオ別達成率」の行と同じ。**上の数字も図もここで切り替える**
+  // （2026-09-01 の先生の指示「上の数字を平均だけじゃなくてシナリオを選べるように」）
+  var SCEN = [{ lab: '下振れ', pf: -1, key: 'min', wide: true },
+              { lab: '最小', pf: 0, key: 'min' },
+              { lab: '0会心平均', pf: 0, key: 'avg0' },
+              { lab: '平均', pf: 0, key: 'avg' },
+              { lab: '全会心平均', pf: 0, key: 'avgC' },
+              { lab: '最大', pf: 0, key: 'max' },
+              { lab: '上振れ', pf: 1, key: 'max', wide: true }];
+  var SCEN_DEF = 3;
+  function scenIx() {
+    var i = st.scen == null ? SCEN_DEF : st.scen;
+    return (i >= 0 && i < SCEN.length) ? i : SCEN_DEF;
+  }
+  function scen() { return SCEN[scenIx()]; }
   function dmgCurve(r) {
+    var sv = PICKF, sc = scen();
+    PICKF = sc.pf;
+    try { return dmgCurve0(r, sc.key); } finally { PICKF = sv; }
+  }
+  function dmgCurve0(r, key) {
     var pts = [], us = usesSorted(), i, q;
     for (i = 0; i < us.length; i++) {
       var u = us[i], d = dmgOf(u.i, r, u.t, u.k, u.pk);
-      if (d) { pts.push([u.t, d.avg]); }
+      if (d) { pts.push([u.t, d[key]]); }
     }
     var dur = r.dur || 240, STEP = 5;
     for (i = 0; i < SLOTS; i++) {
@@ -1762,7 +1809,7 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
       for (bk in bucket) {
         var dn = dmgOf(i, r, (+bk + 0.5) * STEP, 'Normal');
         if (!dn) { break; }
-        for (q = 0; q < bucket[bk].length; q++) { pts.push([bucket[bk][q], dn.avg]); }
+        for (q = 0; q < bucket[bk].length; q++) { pts.push([bucket[bk][q], dn[key]]); }
       }
     }
     pts.sort(function (a, b) { return a[0] - b[0]; });
@@ -1782,14 +1829,26 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
     while (guard++ < 12) {
       var list = ((r.ph[cur] || {}).hp) || [];
       if (!list.length) { break; }
-      var need = hp0 - list[0][0], at = null, i;
-      for (i = 0; i < cv.length; i++) { if (cv[i][1] >= need) { at = cv[i][0]; break; } }
+      var need = hp0 - list[0][0], at = null, acc = 0, i;
+      for (i = 0; i < cv.length; i++) { if (cv[i][1] >= need) { at = cv[i][0]; acc = cv[i][1]; break; } }
       if (at == null || at > dur) {
         out.push({ p: cur, t0: t0, t1: dur, need: need, miss: true });
         return out;
       }
-      out.push({ p: cur, t0: t0, t1: at, need: need });
-      cur = String(list[0][1]); t0 = at;
+      // **同じ瞬間に出たぶんは全部いっしょに数える。**`dmgCurve` は 1 発ごとに
+      // 点を置くので、同時刻の点が続く（複製カードと本体が重なるときがこれ）
+      for (; i + 1 < cv.length && cv[i + 1][0] <= at + 1e-9; i++) { acc = cv[i + 1][1]; }
+      // **1 発で 2 段ぶん削ったら、間のフェーズは飛ばす**（2026-09-01 の先生の指摘
+      // 「動画だとフェーズ2をスキップしてフェーズ1からフェーズ3に行ってる」）。
+      // いちばん深く越えた境目を採る
+      var nx = list[0][1], deep = need, q;
+      for (q = 0; q < list.length; q++) {
+        var nd = hp0 - list[q][0];
+        if (acc >= nd && nd >= deep) { nx = list[q][1]; deep = nd; }
+      }
+      out.push({ p: cur, t0: t0, t1: at, need: need,
+                 skip: String(nx) !== String(list[0][1]) });
+      cur = String(nx); t0 = at;
       if (!r.ph[cur]) { break; }
     }
     out.push({ p: cur, t0: t0, t1: dur, need: null });
@@ -2190,23 +2249,24 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
     var hd = '<tr><th style="width:112px"></th>';
     for (i = 0; i < 6; i++) { hd += '<th>' + RHEAD[st.tab][i] + '</th>'; }
     hd += '</tr>';
-    // 行の並び。`pf` は倍率の幅の振り方、`sep` はその上に挟む見出し
-    var rows = [], j;
-    if (spread) {
-      rows.push({ lab: '下振れ', key: 'min', pf: -1, tip: '倍率の幅をぜんぶいちばん低い候補にして、会心も無しにしたとき',
-                  sep: '倍率の幅も振ったとき' });
-      rows.push({ lab: '上振れ', key: 'max', pf: 1, tip: '倍率の幅をぜんぶいちばん高い候補にして、ぜんぶ会心したとき' });
-    }
-    for (j = 0; j < RROW.length; j++) {
-      rows.push({ lab: RROW[j][0], key: RROW[j][1], pf: 0,
-                  sep: (spread && j === 0) ? '個別設定（今の倍率の幅のまま）' : null });
+    // 行の並びは `SCEN` そのもの。`pf` は倍率の幅の振り方、`sep` は上に挟む見出し
+    var rows = [], j, TIP = { '下振れ': '倍率の幅をぜんぶいちばん低い候補にして、会心も無しにしたとき',
+                              '上振れ': '倍率の幅をぜんぶいちばん高い候補にして、ぜんぶ会心したとき' };
+    // **区切りの見出しは入れない**（2026-09-01。下振れ・上振れは色と名前で分かるし、
+    // 意味は表の下の一文に書いてある）
+    for (j = 0; j < SCEN.length; j++) {
+      var sc2 = SCEN[j];
+      if (sc2.wide && !spread) { continue; }
+      rows.push({ lab: sc2.lab, key: sc2.key, pf: sc2.pf, ix: j,
+                  tip: TIP[sc2.lab] || null, sep: null });
     }
     for (i = 0; i < rows.length; i++) {
       var row = rows[i], tt = tot(row.pf), v = tt[row.key];
       if (row.sep) {
         h += '<tr class="sep"><td colspan="7">' + esc(row.sep) + '</td></tr>';
       }
-      h += '<tr' + (row.pf ? ' class="lohi"' : '') + '><td class="n"' +
+      h += '<tr class="' + (row.pf ? 'lohi ' : '') +
+           (row.ix === scenIx() ? 'now' : '') + '" data-scen="' + row.ix + '"><td class="n"' +
            (row.tip ? ' title="' + esc(row.tip) + '"' : '') + '>' +
            esc(row.lab) + '</td>';
       if (!tt.n || !hp) {
@@ -2287,14 +2347,20 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
   function kpi() {
     var r = diff(), hp = (r.bs && r.bs.hp) || 0, t = total(r), run = costRun(r.dur || 240);
     // **100% で止めるのは棒だけ。**数字は本当の値を出す（超えたら倒しきれる）
-    var v = t.avg, real = hp ? v / hp * 100 : 0, pct = Math.min(100, real);
-    // **幅を持つスキルがあるときは、1 つの数字だけ出さない。**
-    // 既定は候補のいちばん低いほうなので、そのまま読むと実測より小さく出る
-    // （2026-09-01。ネル（制服）の段が 1〜5 あって、先生の実測は段 4〜5 相当だった）
-    var lo = total(r, -1).avg, hi = total(r, 1).avg, band = '';
+    // **見せる数字はシナリオで切り替える**（2026-09-01 の先生の指示）。
+    // 図（フェーズの移り・グロッキー）も同じシナリオで引き直す
+    var sc = scen(), ts = total(r, sc.pf), v = ts[sc.key];
+    var real = hp ? v / hp * 100 : 0, pct = Math.min(100, real);
+    // 幅を持つスキルがあるときは、下と上も添える
+    var lo = total(r, -1).min, hi = total(r, 1).max, band = '';
     if (hp && t.n && hi - lo > 1) {
-      band = '　幅 ' + n0(lo) + '〜' + n0(hi) +
+      band = '　下振れ ' + n0(lo) + '〜 上振れ ' + n0(hi) +
              '（' + (lo / hp * 100).toFixed(1) + '〜' + (hi / hp * 100).toFixed(1) + '%）';
+    }
+    var so = '', sq;
+    for (sq = 0; sq < SCEN.length; sq++) {
+      so += '<option value="' + sq + '"' + (sq === scenIx() ? ' selected' : '') + '>' +
+            esc(SCEN[sq].lab) + '</option>';
     }
     function box(lbl2, val, sub) {
       return '<div class="k"><span class="kl">' + lbl2 + '</span><b class="kv">' + val + '</b>' +
@@ -2313,8 +2379,9 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
       '<span class="bn">' + esc(bb.dev || bb.n) + '</span>' +
       '<span class="bd">' + esc(r.df) + '</span></div>' +
       '<div class="kres">' +
-      box('与ダメージ（平均）', t.n ? n0(v) : '—',
-          'EX ' + t.ex.n + '・NS ' + t.ns.n + '・通常 ' + t.na.n + ' 発' + band) +
+      box('与ダメージ　<select id="k-scen" title="どの振れ方で見るか">' + so + '</select>',
+          t.n ? n0(v) : '—',
+          'EX ' + ts.ex.n + '・NS ' + ts.ns.n + '・通常 ' + ts.na.n + ' 発' + band) +
       box('ボス HP に対して', hp ? real.toFixed(1) + '%' : '—',
           hp ? (real >= 100 ? '倒しきれます（HP ' + n0(hp) + '）' : n0(hp)) : '—') +
       box('置いた EX', st.tl.length + ' 発',
@@ -3884,11 +3951,18 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
       '<span class="x" data-rm="' + i + '" role="button" aria-label="外す">×</span></button>';
   }
   function drawCrew() {
-    var hm = '', hs = '', i;
-    for (i = 0; i < MAIN_MAX; i++) { if (live(i)) { hm += slotCard(i); } }
-    for (i = MAIN_MAX; i < SLOTS; i++) { if (live(i)) { hs += slotCard(i); } }
+    var hm = '', hs = '', nm = 0, ns = 0, i;
+    for (i = 0; i < MAIN_MAX; i++) { if (live(i)) { hm += slotCard(i); nm++; } }
+    for (i = MAIN_MAX; i < SLOTS; i++) { if (live(i)) { hs += slotCard(i); ns++; } }
     $('crew-m').innerHTML = hm;
     $('crew-s').innerHTML = hs;
+    // **枠の数だけ列を作って、2 行を横に並べる。**6 列固定にしていたので
+    // STRIKER 4 ＋ SPECIAL 2 のとき右に 4 列ぶんの空きが出ていた
+    // （2026-09-01 の先生の指摘「余白もったいない」）
+    $('crew-m').style.setProperty('--n', nm || 1);
+    $('crew-s').style.setProperty('--n', ns || 1);
+    $('crew-m').parentNode.style.flexGrow = nm || 1;
+    $('crew-s').parentNode.style.flexGrow = ns || 1;
     drawStart();
   }
   // 開始スキル。**並べたとおりに撃てる人数は engine の LAYOUT.start**
@@ -4698,6 +4772,25 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
       all[i].setAttribute('aria-pressed', all[i] === b ? 'true' : 'false');
     }
   }
+  // シナリオの切り替え。**上の数字も達成率の表も図も同じものを見る**
+  $('kpi').addEventListener('change', function (e) {
+    if (e.target.id !== 'k-scen') { return; }
+    st.scen = +e.target.value;
+    try { localStorage.setItem('tl-scen', String(st.scen)); } catch (e2) { void e2; }
+    draw();
+  });
+  $('rate').addEventListener('click', function (e) {
+    var tr = e.target.closest('tr[data-scen]');
+    if (!tr) { return; }
+    st.scen = +tr.getAttribute('data-scen');
+    try { localStorage.setItem('tl-scen', String(st.scen)); } catch (e2) { void e2; }
+    draw();
+  });
+  (function () {
+    var v = null;
+    try { v = localStorage.getItem('tl-scen'); } catch (e) { void e; }
+    if (v != null && isFinite(+v)) { st.scen = +v; }
+  })();
   document.querySelector('.tools2').addEventListener('click', onAct);
   $('b-goal').addEventListener('click', onAct);
   $('useedit').addEventListener('click', onAct);
