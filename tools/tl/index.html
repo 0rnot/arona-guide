@@ -627,7 +627,6 @@
   border-right:4px solid transparent; border-top:5px solid var(--tx2);
   transition:transform .12s; }
 .tlapp .fold[aria-expanded="false"] .cv { transform:rotate(-90deg); }
-.tlapp .pane.folded > .bd > *:not(h2.sect) { display:none; }
 .tlapp .pane.folded h2.sect { margin:0; padding-bottom:0; border-bottom:0; }
 .tlapp .pane.folded > .bd { padding:var(--s1) var(--s3); }
 .tlapp .leftbar { display:flex; align-items:center; gap:var(--s1); padding:0 var(--s1); }
@@ -664,14 +663,19 @@
 }
 
 /* 畳んだパネルの中身は **ID 指定より強く**消す。
-   `#bset { display:grid }` に負けていて、育成だけ畳めなかった（先生の指摘） */
-.tlapp .pane.folded > .bd > *:not(h2.sect) { display:none !important; }
+   `#bset { display:grid }` に負けていて、育成だけ畳めなかった（先生の指摘）。
+   **`[data-hdr]` は見出しを含む枠**で、ここだけ残す。「相手」と
+   「シナリオ別達成率」は見出しが `.bd` の直下に無く、かたまりごと隠すと
+   摘みまで消えて開けなくなっていた（2026-09-01） */
+.tlapp .pane.folded > .bd > *:not(h2.sect):not([data-hdr]) { display:none !important; }
+.tlapp .pane.folded > .bd [data-hdr] > *:not(h2.sect):not([data-hdr]) { display:none !important; }
+.tlapp .pane.folded { height:auto !important; }
 
 /* ---- 列の仕切り。**独立した行にすると右のツールバーと段差になる**ので、
    左の列の右端に重ねる。摘みもここに乗せる（2026-09-01 の先生の指摘） */
-.tlapp .tlmain { grid-template-columns:var(--lw, 22%) minmax(0,1fr) !important; }
-@media (min-width:1600px) { .tlapp .tlmain { --lw:340px; } }
-.tlapp .tlmain.wide { --lw:14px; }
+.tlapp .tlmain { grid-template-columns:var(--lcol, 22%) minmax(0,1fr) !important; }
+@media (min-width:1600px) { .tlapp .tlmain { --lcol:340px; } }
+.tlapp .tlmain.wide { --lcol:14px; }
 .tlapp .tlleft { position:relative; }
 .tlapp .tlleft.shut > .pane { display:none; }
 .tlapp .cgrip { position:absolute; top:0; bottom:0; right:calc(var(--s2) * -1);
@@ -691,9 +695,19 @@
 .tlapp .vgrip::after { content:''; position:absolute; left:0; right:0;
   top:calc(50% - .5px); height:1px; background:transparent; transition:background .12s; }
 .tlapp .vgrip:hover::after, .tlapp .vgrip.drag::after { background:var(--acc); }
-.tlapp .pane.sized > .bd { overflow:auto; height:100%; }
 .tlapp .pane.sized { display:flex; flex-direction:column; }
-.tlapp .stage.sized { overflow:hidden; }
+.tlapp .pane.sized > .bd { overflow:auto; flex:1 1 auto; min-height:0; }
+/* **中の巻物の頭打ちを外す。**伸ばしたのに一覧だけ 270px のままで、
+   下が丸ごと空いていた（2026-09-01 の先生の指摘）。
+   **入れ子の巻物にはしない**——中で潰れる。パネルごと 1 本で巻く */
+.tlapp .pane.sized .picker,
+.tlapp .pane.sized .errlog { max-height:none; overflow:visible; }
+
+/* タイムラインの摘みは **`overflow:hidden` の内側**に置く。外に出すと切られて掴めない */
+.tlapp .stage > .vgrip { bottom:0; }
+.tlapp .stage { position:relative; }
+.tlapp .stage.sized { overflow:auto; }
+.tlapp .stage.sized > .grid2 { min-height:100%; }
 body.rz, body.rz * { cursor:col-resize !important; user-select:none !important; }
 body.rz.row, body.rz.row * { cursor:row-resize !important; }
 
@@ -915,6 +929,8 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
           <span style="flex:1 1 auto"></span>
           <button type="button" class="btn2" data-act="export">書き出し</button>
           <button type="button" class="btn2" data-act="import">読み込み</button>
+          <button type="button" class="btn2" data-act="uireset"
+                  title="畳んだ・大きさを変えた、を全部もとに戻す">表示を戻す</button>
           <button type="button" class="btn2 sq" data-act="keys" title="キー操作の一覧">?</button>
         </div>
       </div></div>
@@ -1914,10 +1930,37 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
            '<span class="num">' + esc(txt) + '</span></span></td>';
   }
 
+  // **畳んだ・広げた・大きさを変えた、を全部戻す。**localStorage を消して
+  // DOM も戻すので、開けなくなっても必ずここから復帰できる（2026-09-01）
+  function uiReset() {
+    var i, ks = [], k;
+    try {
+      for (i = 0; i < localStorage.length; i++) {
+        k = localStorage.key(i);
+        if (k && (k.indexOf('tl-fold-') === 0 || k.indexOf('tl-sz-') === 0 || k === 'tl-shut')) {
+          ks.push(k);
+        }
+      }
+      for (i = 0; i < ks.length; i++) { localStorage.removeItem(ks[i]); }
+    } catch (e) { void e; }
+    var ps = document.querySelectorAll('.tlapp .pane, .tlapp .stage');
+    for (i = 0; i < ps.length; i++) {
+      ps[i].classList.remove('folded', 'sized');
+      ps[i].style.height = '';
+      var b = ps[i].querySelector('h2.sect > .fold');
+      if (b) { b.setAttribute('aria-expanded', 'true'); }
+    }
+    $('tlmain').classList.remove('wide');
+    $('tlmain').style.removeProperty('--lcol');
+    $('tlleft').classList.remove('shut');
+    $('b-side').setAttribute('aria-expanded', 'true');
+    fit();
+  }
   function keyHelp() { alert('Ctrl+Z 戻す／Ctrl+Y（Ctrl+Shift+Z）進む／' +
         'Ctrl+ホイール 拡大／Shift+ホイール・中ドラッグ 横移動／W S 拡大／A D 横移動／' +
         '←→ 1コマ（Shift で 10 コマ、Ctrl で 1 秒）／Home 全体／End 末尾／' +
-        'EX レーンをクリックでスキルを置く／バーをドラッグで移動／Delete で消す／Esc 解除'); }
+        'EX レーンをクリックでスキルを置く／バーをドラッグで移動／Delete で消す／Esc 解除／' +
+        '畳んだ・大きさを変えたのを戻すのは上の「表示を戻す」'); }
   function kpi() {
     var r = diff(), hp = (r.bs && r.bs.hp) || 0, t = total(r), run = costRun(r.dur || 240);
     // **100% で止めるのは棒だけ。**数字は本当の値を出す（超えたら倒しきれる）
@@ -3384,6 +3427,15 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
       var h = ps[i].querySelector('h2.sect');
       if (!h) { continue; }
       ps[i].setAttribute('data-fold', 'p' + i);
+      // **見出しは `.bd` の直下とは限らない。**「相手」と「シナリオ別達成率」は
+      // `.fields.wrapf` / `.row` の中にあって、そのかたまりごと隠すと**摘みまで
+      // 消えて開けなくなる**（2026-09-01 の先生の指摘）。
+      // 畳むときに残す枠に印を付けておく
+      var bd = ps[i].querySelector(':scope > .bd') || h.parentNode;
+      // **見出しへの道すじを全部たどって印を付ける。**「シナリオ別達成率」は
+      // `.bd > .row > div > h2` と 2 段深い
+      var hdr = h.parentNode;
+      while (hdr && hdr !== bd) { hdr.setAttribute('data-hdr', '1'); hdr = hdr.parentNode; }
       var btn = document.createElement('button');
       btn.type = 'button'; btn.className = 'fold'; btn.setAttribute('aria-expanded', 'true');
       btn.title = '畳む／出す';
@@ -3432,18 +3484,18 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
   (function () {
     var g = $('cgrip'), m = $('tlmain'), from = 0, base = 0;
     var saved = loadSize('lw');
-    if (saved) { m.style.setProperty('--lw', saved + 'px'); }
+    if (saved) { m.style.setProperty('--lcol', saved + 'px'); }
     function move(e) {
       // **下限は摘みが押せる幅、上限は画面の半分。**それ以上は右が読めなくなる
       var w = Math.max(150, Math.min(window.innerWidth * 0.5, base + (e.clientX - from)));
-      m.style.setProperty('--lw', Math.round(w) + 'px');
+      m.style.setProperty('--lcol', Math.round(w) + 'px');
     }
     function up() {
       document.removeEventListener('mousemove', move);
       document.removeEventListener('mouseup', up);
       document.body.classList.remove('rz');
       g.classList.remove('drag');
-      saveSize('lw', parseInt(m.style.getPropertyValue('--lw'), 10) || null);
+      saveSize('lw', parseInt(m.style.getPropertyValue('--lcol'), 10) || null);
       fit();
     }
     g.addEventListener('mousedown', function (e) {
@@ -3457,7 +3509,7 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
     });
     g.addEventListener('dblclick', function (e) {
       if (e.target.closest('.fold')) { return; }
-      m.style.removeProperty('--lw'); saveSize('lw', null); fit();
+      m.style.removeProperty('--lcol'); saveSize('lw', null); fit();
     });
   })();
   // 縦の高さ。**掴むのは隙間そのもの**（余白を増やさない）
@@ -3722,6 +3774,7 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
           });
       }
       if (a === 'keys') { keyHelp(); }
+      if (a === 'uireset') { uiReset(); }
       if (a === 'export') { sheet('書き出し', JSON.stringify(snapshot()), null); }
       if (a === 'import') { sheet('読み込み', '', function (o) { restore(o); }); }
       if (a === 'mark') {
