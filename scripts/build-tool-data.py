@@ -4431,6 +4431,7 @@ def build_tl():
     ADAPT = ["D", "C", "B", "A", "S", "SS"]
     stu = as_list(get_json(SD.format("students")))
     st_out, dmg_out, ndmg, sinfo, build = {}, {}, 0, {}, {}
+    ncond = nstack = 0
     buf_out, nbuf, nskip, ncond, nrst = {}, 0, 0, 0, 0
     na_out, nna = {}, 0
     nform = 0
@@ -4551,23 +4552,39 @@ def build_tl():
                         e.get("IgnoreDef"), e.get("HitFrames"),
                         [e["ZoneDuration"], e["ZoneHitInterval"]]
                         if e.get("ZoneDuration") else None]
-            eff = [_row(e) for e in plain]
+            # **`Group` は「何段目か」で、足すものではなく択一。**
+            # ネル（制服）の Ex1 は Group 0〜4 × 条件 2 通りの 10 件あって、
+            # 全部足すと 1 発 5,727,546（ボス HP の 25%）になっていた。
+            # 正しくは 1 つだけ乗る（2026-09-01。先生の実測「ネル後ボス HP 15.3M」
+            # と 2 倍以上ずれていたのを追って見つけた）。
+            # 写し元の SchaleDB も `stackEffectIndex[key][stackCount-1]` で
+            # **1 つだけ出している**（common.js 2820 行）。
+            #
+            #   条件も段も無い  → `dmg`。**必ず乗るぶん**
+            #   どちらかがある  → `dmgalt`。**画面のバーで 1 つ選ぶ**
+            plain0 = [e for e in plain if e.get("Group") is None]
+            stack = [e for e in plain if e.get("Group") is not None]
+            eff = [_row(e) for e in plain0]
             if eff:
                 per_skill[kind] = eff
                 ndmg += len(eff)
-            if cond:
-                # **同じ条件のものは 1 つの候補にまとめて足す。**
-                # ネル（制服）の EX は「Ex_01 が無いとき」5 件・「あるとき」5 件で、
-                # 1 発の中で同時に出るぶんは足すのが正しい。**条件をまたいで足さない**
+            if cond or stack:
+                # **同じ（条件, 段）のものは 1 つの候補にまとめて足す。**
+                # 1 発の中で同時に出るぶんは足すのが正しい。
+                # **条件や段をまたいで足さない**
                 order, group = [], {}
-                for e in cond:
-                    lab = cond_label(e.get("Condition"))
+                for e in cond + stack:
+                    lab = cond_label(e.get("Condition")) if e.get("Condition") else ""
+                    if e.get("Group") is not None:
+                        lab = (lab + " / " if lab else "") + f"段 {e['Group'] + 1}"
                     if lab not in group:
                         order.append(lab)
                         group[lab] = []
                     group[lab].append(_row(e))
                 per_alt[kind] = {"c": order, "v": [group[l] for l in order]}
-                ncond += len(cond)
+                ncond += len(cond) + len(stack)
+                if stack:
+                    nstack += 1
             # ---- バフ・デバフ。
             # **`Restrictions` は飛ばさない。**中身は「相手の Id / Size /
             # BulletType / ArmorType / TacticRole がこうなら乗る」という条件で、
@@ -4653,6 +4670,19 @@ def build_tl():
         #   tg … 「味方 N 人」の N。書いていなければ None（範囲・全体・自分だけ）
         #   sx … 「自身を除く」と書いてあれば 1
         # 画面はこれを見て、1 人だけのものに「渡す相手」を選ばせる
+        #
+        # **人数が別の枠に書いてあることがある**（2026-09-01 の先生の指摘
+        # 「イブキのお友達！は対象を 2 体選択するけど、選択できなくない？」）。
+        # イブキ（水着）は `Ex` が「編成したストライカーの味方2人まで
+        # <s:CH0347_Ex_03>に指定」で、**バフ本体は形態違いの `Ex1`** の
+        # 「<s:CH0347_Ex_03>の生徒の会心ダメージ率を増加」。
+        # 目印（`<s:…>`）で結んで、人数を借りる
+        marks = {}
+        for _k, _sk in skills_map.items():
+            if not isinstance(_sk, dict):
+                continue
+            for _m in re.finditer(r"(\d+)人まで<s:([A-Za-z0-9_]+)>", _sk.get("Desc") or ""):
+                marks[_m.group(2)] = int(_m.group(1))
         tg = {}
         for kind, sk2 in skills_map.items():
             if not isinstance(sk2, dict):
@@ -4663,14 +4693,20 @@ def build_tl():
                        for e in eff2 for t in (e.get("Target") or [])):
                 continue
             m = re.search(r"味方(\d+)人", ds)
-            tg[kind] = [int(m.group(1)) if m else None, 1 if "自身を除" in ds else 0]
+            n_ally = int(m.group(1)) if m else None
+            if n_ally is None:
+                for _mk, _n in marks.items():
+                    if ("<s:%s>" % _mk) in ds:
+                        n_ally = _n
+                        break
+            tg[kind] = [n_ally, 1 if "自身を除" in ds else 0]
         if tg:
             tgt_out[sid] = tg
     print(f"  生徒 {len(st_out)} 人 / ダメージを持つ生徒 {len(dmg_out)} 人・効果 {ndmg} 件")
     print(f"  バフ {nbuf} 件（条件つき・周期ものを {nskip} 件外した／"
           f"相手の条件つき {nrst} 件は判定して乗せる）")
-    print(f"  条件つきのダメージ {ncond} 件を候補にした（生徒 {len(alt_out)} 人・"
-          f"スキル {sum(len(v) for v in alt_out.values())} 枠）")
+    print(f"  条件つき・段つきのダメージ {ncond} 件を候補にした（生徒 {len(alt_out)} 人・"
+          f"スキル {sum(len(v) for v in alt_out.values())} 枠／うち段つき {nstack} 枠）")
     print(f"  通常攻撃（オートアタック）が引けた生徒 {nna} 人 / {len(st_out)} 人")
     print(f"  EX の形態違い {nform} 件（Skills.Ex.ExtraSkills）")
     _one = sum(1 for v in tgt_out.values() for r in v.values() if r[0] == 1)

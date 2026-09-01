@@ -744,6 +744,26 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
 .tlapp .lb .tag { font-size:8px; color:var(--tx3); border:1px solid var(--gb);
   border-radius:var(--r1); padding:0 3px; margin-left:3px; white-space:nowrap; }
 
+
+/* 相手を 2 人以上選ぶスキル（イブキ（水着）の「イブキのお友達！」など） */
+.tlapp .two2 { display:flex; gap:var(--s1); min-width:0; flex-wrap:wrap; }
+.tlapp .two2 > select { flex:1 1 0; min-width:64px; }
+
+
+/* 「倍率の幅」で、いま選んでいる段 */
+.tlapp .alt .g .pick { color:var(--acc); font-weight:700; }
+
+
+/* 概況の左端。**ボスの顔と英語表記**（2026-09-01 の先生の要望） */
+.tlapp .kpi .kboss { display:flex; flex-direction:column; align-items:center;
+  gap:2px; flex:0 0 auto; padding-right:var(--s3); margin-right:var(--s1);
+  border-right:1px solid var(--ln); align-self:center; min-width:64px; }
+.tlapp .kpi .kboss img { width:42px; height:42px; border-radius:var(--r2);
+  object-fit:cover; background:var(--g2); border:1px solid var(--gb); display:block; }
+.tlapp .kpi .kboss .bn { font-size:9.5px; font-weight:700; color:var(--tx);
+  letter-spacing:.02em; white-space:nowrap; }
+.tlapp .kpi .kboss .bd { font-size:8.5px; color:var(--tx3); white-space:nowrap; }
+
 </style>
 </head>
 <body>
@@ -904,7 +924,7 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
       <div class="pane" id="nstopane" hidden><div class="bd">
         <h2 class="sect"><i></i>バフを渡す相手
           <span style="flex:1 1 auto"></span>
-          <span class="mut tiny">通常スキルが「味方1人」の子</span>
+          <span class="mut tiny">相手を選ぶスキルを持つ子</span>
         </h2>
         <div id="nstos"></div>
       </div></div>
@@ -1048,6 +1068,32 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
             <code>Duration</code> は 16〜120 秒。<b>戦闘の終わりで打ち切ります</b></li>
           <li><b>防御無視</b>（<code>IgnoreDef</code>、28 件）は
             <code>getDefenseDamageReductionMod</code> の第 2 引数として渡します</li>
+          <li><b>コスト回復が動き出すのは戦闘開始から 2.0 秒後</b>
+            （<code>Excel/ConstCombatExcelTable.json</code> の
+            <code>PlayerRegenCostDelay: 2000</code>）。
+            2026-08-30 は kur-3dcg の TL 作成支援ツールの
+            <code>RECOVERY_DELAY_MS = 2033</code> に合わせていましたが、
+            <b>2026-09-01 に 2.0 へ戻しました。</b>
+            ぱちみ（@pach_8353）の「総力戦 TL Planner」に入っているビナー
+            TORMENT の実例 TL 21 発と突き合わせたところ、<b>8 発が揃って
+            0.0330 秒（＝1 フレーム）ぶんこちらが遅く</b>、差はすべてこの定数ぶんでした。
+            コスト 4 ÷ 0.42/秒 ＝ 9.5238 秒で、向こうの 11.5238 秒は遅れ 2.000 秒ちょうどです</li>
+          <li><b>「何段目か」（<code>Group</code>）は足すものではなく択一</b>です。
+            ネル（制服）の「怪我しても知らねえからな」は <code>Group</code> 0〜4 ×
+            条件 2 通りの 10 件があり、<b>2026-09-01 まで 5 件とも足していて
+            1 発 5,727,546（ボス HP の 25%）</b>になっていました。
+            写し元の SchaleDB も <code>stackEffectIndex[key][stackCount-1]</code> で
+            1 つだけ出しています。<b>同じ作りの枠が 20 あります</b>（アリス・ミサキ・
+            チセ（水着）・ハスミ（体操服）・トキ・ミナ・ミノリ・ユカリ・マコト・
+            ヨシミ（バンド）・ミネ（アイドル）・サツキ・ネル（制服）・ノゾミ・
+            フィーナ（ガイド）・ニヤ・エリ・ミサキ（水着）・アリス（臨戦）・シュン（水着））。
+            <b>何段目で撃つかは左の「倍率の幅」で選びます。既定は一番低い段です</b></li>
+          <li><b>「味方N人」の N は、別の枠に書いてあることがあります。</b>
+            イブキ（水着）は <code>Ex</code>「イブキのお友達！」が
+            「編成したストライカーの味方2人まで <code>&lt;s:CH0347_Ex_03&gt;</code> に指定」で、
+            バフ本体は <code>Ex1</code>「どれがいいかな？」と <code>Public</code>
+            「イブキも手伝う！」の側にあります。目印で結んで人数を借りています。
+            <b>「味方1人」は選ぶまで誰にも乗らず、2 人以上は選ばなければ全員に乗ります</b></li>
           <li><b>フェーズの切り替わり</b>は、削った量が
             <code>DB/BossExternalBTExcelTable.json</code> の <code>HPUnder</code> を
             下回った時刻で移します（移り先は <code>ChangePhase</code> の引数）。
@@ -2167,7 +2213,14 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
       return '<span class="pill"><b>' + val + '</b> ' + lbl2 + '</span>';
     }
     var sb0 = run.sim.IN._sb, recP = recPower(), lay = LAY[st.mode];
+    // **左端にボスの顔と英語表記。**難易度ごとに数字だけ並んでいると
+    // どのボスを見ているか分からなかった（2026-09-01 の先生の指摘）
+    var bb = boss();
     $('kpi').innerHTML =
+      '<div class="kboss" title="' + esc(bb.n + '　' + r.df) + '">' +
+      '<img src="../img/bossicon_' + esc(bb.path) + '.webp" alt="" loading="lazy">' +
+      '<span class="bn">' + esc(bb.dev || bb.n) + '</span>' +
+      '<span class="bd">' + esc(r.df) + '</span></div>' +
       '<div class="kres">' +
       box('与ダメージ（平均）', t.n ? n0(v) : '—',
           'EX ' + t.ex.n + '・NS ' + t.ns.n + '・通常 ' + t.na.n + ' 発') +
@@ -2190,6 +2243,15 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
       '</div>' +
       '<div class="kbar"><i style="width:' + pct.toFixed(1) + '%"></i></div>';
   }
+  /** その 1 発を「いつ指定したか」。**最速・コスト指定は秒を持たない**ので、
+      そのまま出すと「ネル（制服） ：…」と空いた（2026-09-01 の先生の指摘） */
+  function whenOf(row) {
+    if (row.e && row.e.t != null) { return row.e.t.toFixed(2) + '秒'; }
+    var u = row.e && row.e._ix != null ? st.tl[row.e._ix] : null;
+    if (u && u.md === 'c') { return 'コスト ' + (u.cv == null ? '?' : u.cv) + ' 指定'; }
+    if (u && u.md === 'e') { return '最速指定'; }
+    return '';
+  }
   function drawErr() {
     var r = diff(), out = [];
     out.push(['g', boss().n + ' ' + r.df + ' を読み込みました']);
@@ -2207,8 +2269,7 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
     for (var q = 0; q < run.bad.length; q++) {
       var br = run.bad[q], bp = st.party[br.e.i], bk = kindOf(br);
       out.push([bk === 'over' ? 'e' : 'w',
-        ((bp && bp.n) || '?') + ' ' + (br.e.t == null ? '' : br.e.t.toFixed(2) + '秒') +
-        '：' + whyOf(br)]);
+        ((bp && bp.n) || '?') + ' ' + whenOf(br) + '：' + whyOf(br)]);
     }
     // **渡し先が決まっていないものを名指しで出す。**実物の TL を写していて、
     // セイアのコスト減少カードの渡し先を決め忘れると、後半が 20 秒ぶんまるごと
@@ -2217,16 +2278,16 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
       var wr = run.sim.rows[w1];
       if (!wr.d || wr.at == null) { continue; }
       if (wr.grant && wr.grant.sd !== 'self' && wr.to == null) {
-        out.push(['w', wr.d.n + ' ' + wr.e.t.toFixed(2) + '秒：コスト' +
+        out.push(['w', wr.d.n + ' ' + whenOf(wr) + '：コスト' +
           (wr.grant.vt === 'coef' ? '減少' : '増加') + 'カードの渡し先が決まっていません' +
           '（帯をクリックして選びます）']);
       }
       if (TE.ovlMs(wr.d) && wr.e.ov == null) {
-        out.push(['w', wr.d.n + ' ' + wr.e.t.toFixed(2) + '秒：オーバーコストの渡し先が' +
+        out.push(['w', wr.d.n + ' ' + whenOf(wr) + '：オーバーコストの渡し先が' +
           '決まっていません（帯をクリックして選びます）']);
       }
       if (wr.d.sp && wr.d.sp.copy && wr.e.bt == null) {
-        out.push(['w', wr.d.n + ' ' + wr.e.t.toFixed(2) + '秒：カードを複製する相手が' +
+        out.push(['w', wr.d.n + ' ' + whenOf(wr) + '：カードを複製する相手が' +
           '決まっていません（帯をクリックして選びます）']);
       }
     }
@@ -2715,14 +2776,35 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
     var a = tgtOf(id, kind);
     return !!(a && a[0] === 1);
   }
-  // その枠のスキルが「味方1人」のとき、いま選んである相手。無ければ null
-  function buffTo(u) {
-    if (!u) { return null; }
-    if (u.k === 'Public' || u.k === 'GearPublic') {
-      var sl = st.slots[u.i];
-      return sl && sl.nsto != null ? +sl.nsto : null;
+  /** 「味方N人」の N。説明文に書いていなければ 0。 */
+  function tgtN(id, kind) {
+    var a = tgtOf(id, kind);
+    return (a && a[0]) || 0;
+  }
+  /** 相手の指定を必ず配列にする。**1 人ぶんの数値でも入れられる**（古い保存） */
+  function toList(v) {
+    if (v == null) { return []; }
+    if (Object.prototype.toString.call(v) === '[object Array]') {
+      var o = [], i;
+      for (i = 0; i < v.length; i++) { if (v[i] != null && v[i] !== '') { o.push(+v[i]); } }
+      return o;
     }
-    return u.bto == null ? null : +u.bto;
+    return [+v];
+  }
+  /** その枠のスキルの、いま選んである相手。**必ず配列で返す。**
+      「味方1人」は今までどおり、選ぶまで誰にも乗らない。
+      **「味方2人」以上は、選んでいなければ今までどおり全員に乗る**
+      （イブキ（水着）の「イブキのお友達！」が編成したストライカー 2 人まで、
+      のように選べていなかった。2026-09-01 の先生の指摘） */
+  function buffTo(u) {
+    if (!u) { return []; }
+    var sl = st.slots[u.i];
+    if (u.k === 'Public' || u.k === 'GearPublic') { return toList(sl && sl.nsto); }
+    // **EX でも、1 発ごとに決めていなければ枠の指定を使う。**
+    // イブキ（水着）は `Ex` が「戦闘中ずっと」2 人を指定する作りで、
+    // 1 発ごとではなく枠に持たせるほうが合う（2026-09-01）
+    var per = toList(u.bto);
+    return per.length ? per : toList(sl && sl.nsto);
   }
   // **相手の条件（`Restrictions`）を当てはめる。**中身は
   // 「相手の Id / Size / BulletType / ArmorType / TacticRole がこうなら乗る」で、
@@ -2763,8 +2845,10 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
       if (!p) { continue; }
       var kd = u.k || 'Ex';
       var list = (B.buf[p.id] || {})[kd] || [];
-      // **「味方1人」は選んだ相手だけ。**選んでいなければ誰にも乗らない
-      var one = isSingle(p.id, kd), pick = one ? buffTo(u) : null;
+      // **「味方1人」は選んだ相手だけ。**選んでいなければ誰にも乗らない。
+      // **「味方2人」以上は、選んであればその人だけ**（選んでいなければ全員）
+      var nT = tgtN(p.id, kd), pick = nT ? buffTo(u) : [];
+      var limit = nT === 1 || (nT >= 2 && pick.length > 0);
       for (q = 0; q < list.length; q++) {
         var e = list[q], st0 = u.t + (e[5] || 0) / B.fps;
         // **固有武器パッシブの「効果時間延長」を掛ける**（味方向けは eb、
@@ -2785,7 +2869,8 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
           if (tg[z] === 'AllyMain' && isMain(idx)) { hit = true; }
           if (tg[z] === 'AllySupport' && !isMain(idx)) { hit = true; }
         }
-        if (hit && one && tg.indexOf('Self') < 0 && +to.slice(4) !== pick) { hit = false; }
+        if (hit && limit && tg.indexOf('Self') < 0 &&
+            pick.indexOf(+to.slice(4)) < 0) { hit = false; }
         if (hit && !fits(e[6], to, r)) { hit = false; }
         if (!hit) { continue; }
         // **掛けた本人のスキルレベルで引く。**画面の共通スライダーではない
@@ -3077,7 +3162,12 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
           if (u && isFinite(u.t) && u.i >= 0 && u.i < SLOTS) {
             np.tl.push({ i: +u.i, t: +u.t, to: u.to == null ? null : +u.to,
                          ov: u.ov == null ? null : +u.ov, f: u.f == null ? null : +u.f,
-                         bt: u.bt == null ? null : +u.bt });
+                         bt: u.bt == null ? null : +u.bt,
+                         // **渡し先は 1 人とは限らない**（イブキ（水着）は 2 人）。
+                         // 指定の仕方（秒・コスト・最速）も持ち越す
+                         bto: u.bto == null ? null : u.bto,
+                         md: u.md || 't', cv: u.cv == null ? null : +u.cv,
+                         pk: u.pk || undefined });
           }
         }
         for (q = 0; q < (src.start || []).length; q++) { np.start.push(src.start[q]); }
@@ -3172,7 +3262,11 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
     return { full: n, base: m ? m[1] : n, alts: m ? [n, m[2] + m[1]] : [n] };
   }
   /** 行の中から編成の誰かを見つける。**いちばん長く当たったものを採る。** */
-  function whoIn(line, crew) {
+  function whoIn(line, crew, bare) {
+    // **括弧つきの名前は、括弧を落とす前の行で当てる。**
+    // 「c8 セイア（水着）」の括弧を先に落として素のセイアに当たっていた
+    // （2026-09-01）。括弧を落とした行は、余談の中の名前を拾わないための保険で、
+    // **括弧なしの呼び方（「セイア」「イブキ」）を当てるときだけ使う**
     var s = nrm(line), best = null, i, q;
     for (i = 0; i < crew.length; i++) {
       var a = crew[i].a;
@@ -3185,9 +3279,9 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
     if (best) { return best.idx; }
     // 括弧を落とした呼び方（「セイア」「イブキ」）。**同じ base が 2 人いたら
     // 括弧の無いほうを採る**（セイア と セイア(水着) が両方いる編成がこれ）
-    var hit = [];
+    var sb = nrm(bare == null ? line : bare), hit = [];
     for (i = 0; i < crew.length; i++) {
-      if (s.indexOf(crew[i].a.base) >= 0) { hit.push(crew[i]); }
+      if (sb.indexOf(crew[i].a.base) >= 0) { hit.push(crew[i]); }
     }
     if (!hit.length) { return -1; }
     if (hit.length === 1) { return hit[0].idx; }
@@ -3198,17 +3292,24 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
   }
   /** 1 行からタイミングを読む。読めなければ null。 */
   function timeIn(line, dur) {
-    var s = nrm(line);
-    var m = s.match(/(\d+):(\d{1,2})(?:\.(\d{1,3}))?/);
+    var s = nrm(line), m;
+    // 残り時間「2:30.100」／経過「t35」「35秒」
+    m = s.match(/(\d+):(\d{1,2})(?:\.(\d{1,3}))?/);
     if (m) {
       var rest = (+m[1]) * 60 + (+m[2]) + (m[3] ? +('0.' + m[3]) : 0);
       return { md: 't', t: Math.max(0, dur - rest) };
     }
+    m = s.match(/(?:^|[^A-Za-z0-9])[tT](\d+(?:\.\d+)?)(?![\d\/])/);
+    if (m) { return { md: 't', t: Math.min(dur, +m[1]) }; }
     if (/^開始/.test(s)) { return { md: 't', t: 0 }; }
+    // コスト「⑦」「c7」「コスト7」
     var k = CIRC.indexOf(s.charAt(0));
     if (k >= 0) { return { md: 'c', cv: k + 1 }; }
-    if (/^AUTO/i.test(s) || /^即/.test(s) || /後/.test(s)) { return { md: 'e' }; }
-    m = s.match(/^(\d+(?:\.\d+)?)/);
+    m = s.match(/(?:^|[^A-Za-z0-9])(?:[cC]|コスト)\s*(\d+(?:\.\d+)?)/);
+    if (m) { return { md: 'c', cv: +m[1] }; }
+    // 最速「即」「最速」「AUTO」「〜後」
+    if (/^AUTO/i.test(s) || /^即|^最速/.test(s) || /後/.test(s)) { return { md: 'e' }; }
+    m = s.match(/^(\d+(?:\.\d+)?)秒?/);
     if (m) { return { md: 'rel', d: +m[1] }; }
     return null;
   }
@@ -3220,23 +3321,45 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
     var i, q;
     // ---- 1. 使用生徒詳細
     for (i = 0; i < lines.length; i++) {
-      var raw = lines[i], body = raw.replace(/[※].*$/, '');
-      if (!/固有\s*\d|★\s*\d|MMMM|t\s*\d+\s*\//i.test(body)) { continue; }
+      var raw = lines[i], body = raw.replace(/[※#].*$/, '');
+      // **育成の行かどうか。**書き方は 1 つに縛らない（2026-09-01 の先生の指示
+      // 「TL はみんないろんな書き方してるから特化しなくていい」）
+      if (!/固有\s*\d|★\s*\d|MMMM|[Tt]\s*\d+\s*\/|Lv\s*\d|装備\s*\d|絆\s*\d|EX\s*\d/i
+           .test(body)) { continue; }
       var nm = body.replace(/[（(].*?[)）]/g, function (x) { return x; })
                    .split(/[\s　]+/).filter(function (x) { return x; })[0];
       if (!nm) { continue; }
       var sd = findStudent(nm);
       if (!sd) { res.skipped.push([raw, '生徒が見つかりません: ' + nm]); continue; }
       var b = { id: sd.id, name: sd.n };
-      var mm = body.match(/固有\s*(\d)/);
-      if (mm) { b.star = 5; b.wstar = +mm[1]; b.wlv = 50; }
-      else {
-        mm = body.match(/★\s*(\d)/);
+      var rest = body.replace(nm, ' '), mm;
+      // 固有武器。「固有4」「固有4/50」「UE4」
+      mm = rest.match(/(?:固有|UE)\s*(\d)(?:\s*[\/／]\s*(\d+))?/i);
+      if (mm) {
+        b.star = 5; b.wstar = +mm[1]; b.wlv = mm[2] ? +mm[2] : 50;
+      } else {
+        mm = rest.match(/★\s*(\d)/);
         if (mm) { b.star = +mm[1]; b.wstar = 0; b.wlv = 0; }
       }
-      if (/MMMM/i.test(body)) { b.ex = 5; b.sk = 10; b.plv = 10; b.sslv = 10; }
-      mm = body.match(/t\s*(\d+)\s*\/\s*(\d+)\s*\/\s*(\d+)/i);
+      mm = rest.match(/Lv\s*(\d+)/i);
+      if (mm && +mm[1] <= 100) { b.lv = +mm[1]; }
+      // スキル。「MMMM」＝ 4 つとも上限。個別なら「EX5 NS10 PS10 SS10」
+      if (/MMMM/i.test(rest)) { b.ex = 5; b.sk = 10; b.plv = 10; b.sslv = 10; }
+      mm = rest.match(/EX\s*(\d)/i); if (mm) { b.ex = +mm[1]; }
+      mm = rest.match(/(?:NS|ノーマル)\s*(\d+)/i); if (mm) { b.sk = +mm[1]; }
+      mm = rest.match(/(?:PS|パッシブ)\s*(\d+)/i); if (mm) { b.plv = +mm[1]; }
+      mm = rest.match(/(?:SS|サブ)\s*(\d+)/i); if (mm) { b.sslv = +mm[1]; }
+      mm = rest.match(/(?:絆|Bond)\s*(\d+)/i); if (mm) { b.bond = +mm[1]; }
+      if (/愛用品|Gear/i.test(rest)) {
+        mm = rest.match(/(?:愛用品|Gear)\s*(\d)/i); b.gear = mm ? +mm[1] : 3;
+      }
+      // 装備。「t6/10/10」「装備9」「T9」——3 枠バラバラでも 1 つでも
+      mm = rest.match(/(?:装備|[Tt])\s*(\d+)\s*[\/／]\s*(\d+)\s*[\/／]\s*(\d+)/);
       if (mm) { b.eq = [+mm[1], +mm[2], +mm[3]]; }
+      else {
+        mm = rest.match(/装備\s*(\d+)/) || rest.match(/(?:^|[\s　])[Tt](\d+)(?![\/／\d])/);
+        if (mm && +mm[1] <= 10) { b.eq = +mm[1]; }
+      }
       res.crew.push(b);
     }
     if (!res.crew.length) { return { err: '「使用生徒詳細」の行が 1 つも読めませんでした' }; }
@@ -3290,13 +3413,25 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
         res.notes.push('AUTO の切り替えは行として持てないので飛ばしました: ' + ln.trim());
         continue;
       }
-      var who = whoIn(noParen, crew);
+      var who = whoIn(cut, crew, noParen);
       if (who < 0) { continue; }                    // 見出しや余談。黙って飛ばす
       var tm = timeIn(noParen, dur);
       if (!tm) { res.skipped.push([ln, 'タイミングが読めません']); continue; }
       if (tm.md === 'rel') { tm = { md: 't', t: Math.min(dur, prevT + tm.d) }; }
       if (tm.md === 't') { prevT = tm.t; }
+      // **その 1 発だけの渡し先。**「→ ネル」「>ネル」「→ ネル, セイア」
+      var arrow = cut.split(/→|->|＞|>/), toL = [];
+      if (arrow.length > 1) {
+        var pieces = arrow[arrow.length - 1].split(/[,、・]/), pz;
+        for (pz = 0; pz < pieces.length; pz++) {
+          var w2 = whoIn(pieces[pz], crew);
+          if (w2 >= 0) { toL.push(w2); }
+        }
+        who = whoIn(arrow[0], crew, arrow[0].replace(/[（(][^）)]*[)）]/g, ' '));
+        if (who < 0) { res.skipped.push([ln, '撃つ子が編成にいません']); continue; }
+      }
       res.uses.push({ i: who, md: tm.md, t: tm.t == null ? 0 : tm.t,
+                      to: toL.length ? (toL.length > 1 ? toL : toL[0]) : null,
                       cv: tm.cv == null ? null : tm.cv,
                       copy: /C[^\s]*$/i.test(nrm(noParen).replace(/^[^C]*?(?=C)/, '')) &&
                             /(^|[^A-Za-z])C/.test(nrm(noParen)),
@@ -3341,8 +3476,9 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
     var dur = diff().dur || 240, prev = 0;
     for (i = 0; i < p.uses.length; i++) {
       var u = p.uses[i];
+      var tt2 = u.to == null ? p.bufTo : u.to;
       var row = { i: u.i, t: u.md === 't' ? u.t : Math.min(dur, prev + 0.01),
-                  to: p.bufTo, ov: null, f: null, bt: p.bufTo, bto: p.bufTo,
+                  to: tt2, ov: tt2, f: null, bt: tt2, bto: tt2,
                   md: u.md, cv: u.cv };
       st.tl.push(row);
       var rr = simOf(orderOf(), dur).rows, at = null, q2;
@@ -3362,14 +3498,38 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
     return { n: p.uses.length, ng: ng };
   }
 
+  /* 書き方の案内。**1 つの書き方に縛らない**（2026-09-01 の先生の指示）。
+     下の形は「こう書けば必ず読める」という目安で、ふだんの書き方も大体通ります */
+  var FMT_HELP = [
+    '<div class="g">育成の行 — 名前と、分かるものだけ並べます</div>',
+    '<div>　<b>ネル（制服）　Lv90 固有4/50 装備10 EX5 NS10 PS10 SS10 絆20</b></div>',
+    '<div>　<b>カンナ（水着）　★3 MMMM t10/10/10</b>（MMMM ＝ 4 つとも上限）</div>',
+    '<div>　固有N ＝ 固有武器★N（Lv は /50 のように足せます）。' +
+      '★N ＝ 固有武器なしで神秘★N。装備は T9 でも 6/10/10 でも</div>',
+    '<div class="g">開始スキル</div>',
+    '<div>　<b>開始SET：①イブキ ②セイア ③ネル ④リオ ⑤水着セイア</b></div>',
+    '<div class="g">TL の行 — いつ撃つか＋誰が＋（渡す相手）</div>',
+    '<div>　<b>⑦セイア</b> ／ <b>c7 セイア</b> ／ <b>コスト7 セイア</b>　… コスト 7 で撃つ</div>',
+    '<div>　<b>2:30.100 リオ</b>　… 残り 2 分 30.1 秒　／　<b>t35 リオ</b>　… 開始 35 秒</div>',
+    '<div>　<b>9.5 ネル</b>　… 直前から 9.5 秒あと</div>',
+    '<div>　<b>即ネル</b> ／ <b>最速ネル</b> ／ <b>AUTO ネル</b>　… 撃てるいちばん早い時刻</div>',
+    '<div>　<b>c5 ネル → セイア</b>　… 渡す相手をその 1 発だけ指定（「,」で 2 人まで）</div>',
+    '<div>　<b>※バフは全てネル指定</b>　… 全部の渡し先をまとめて指定</div>',
+    '<div class="g">読まない行</div>',
+    '<div>　「※」から後ろ、支援値、ページ目、移行、参考、上振れ・下振れ、' +
+      'AUTO の ON/OFF。<b>読めなかった行は下に全部出します</b></div>'
+  ].join('');
   /** 読み込みの窓。**JSON でも、文章で書いた TL でも受ける。** */
   function importSheet() {
     var w = document.createElement('div');
     w.className = 'sheet';
     w.innerHTML = '<div class="card"><h3>読み込み</h3>' +
-      '<p class="mut tiny" style="margin:0 0 6px">' +
-      '「書き出し」の JSON か、<b>ふだん書いている文章の TL</b> をそのまま貼れます。' +
-      '文章のときは「使用生徒詳細」と「開始SET」も一緒に貼ってください。</p>' +
+      '<p class="mut tiny" style="margin:0 0 4px">' +
+      '「書き出し」の JSON か、<b>文章の TL</b> をそのまま貼れます。' +
+      '要るのは<b>育成・いつ（何コストで）撃つか・誰に渡すか</b>の 3 つだけです。' +
+      '支援値は編成から計算するので書かなくて構いません。' +
+      '<a href="#" data-x="fmt">書き方を見る</a></p>' +
+      '<div class="errlog" id="imfmt" hidden style="margin-bottom:6px">' + FMT_HELP + '</div>' +
       '<textarea spellcheck="false"></textarea>' +
       '<div class="row"><button type="button" class="btn2" data-x="ok">読み込む</button>' +
       '<button type="button" class="btn2" data-x="no">閉じる</button></div>' +
@@ -3384,6 +3544,12 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
     w.addEventListener('click', function (e) {
       if (e.target === w || e.target.getAttribute('data-x') === 'no') {
         document.body.removeChild(w); return;
+      }
+      if (e.target.getAttribute('data-x') === 'fmt') {
+        e.preventDefault();
+        var fm = w.querySelector('#imfmt');
+        fm.hidden = !fm.hidden;
+        return;
       }
       if (e.target.getAttribute('data-x') !== 'ok') { return; }
       var v = ta.value.replace(/^[\s\uFEFF]+/, '');
@@ -3605,30 +3771,44 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
   // **通常スキルが「味方1人」の子は、渡し先を枠ごとに決める。**
   // NS は自分では置けないので、育成ではなくここで持つ
   function drawNsTo() {
-    var h = '', i, k, KIND = ['Public', 'GearPublic'];
+    // **EX 形態も見る。**イブキ（水着）の「イブキのお友達！」は EX で 2 人を
+    // 指定して、バフは形態違いの「どれがいいかな？」に乗る（2026-09-01 の先生の指摘）
+    var h = '', i, k, KIND = ['Public', 'GearPublic', 'Ex', 'Ex1', 'Ex2', 'Ex3'];
     for (i = 0; i < SLOTS; i++) {
       var p = st.party[i];
       if (!p) { continue; }
       for (k = 0; k < KIND.length; k++) {
-        if (!isSingle(p.id, KIND[k])) { continue; }
+        var nT2 = tgtN(p.id, KIND[k]);
+        // **編成に入る人数まで選べるものだけ出す。**「味方6人」は選ぶ意味が無い
+        if (nT2 < 1 || nT2 >= crewCount()) { continue; }
         var ex1 = (tgtOf(p.id, KIND[k]) || [])[1];
-        var nm = ((B.skname || {})[p.id] || {})[KIND[k]] || '通常スキル';
-        var oh = '<option value="">—</option>', z;
-        for (z = 0; z < SLOTS; z++) {
-          if (!st.party[z] || !live(z)) { continue; }
-          if (ex1 && z === i) { continue; }
-          oh += '<option value="' + z + '"' +
-                (String(st.slots[i].nsto) === String(z) ? ' selected' : '') + '>' +
-                esc(st.party[z].n) + '</option>';
+        var nm = ((B.skname || {})[p.id] || {})[KIND[k]] ||
+                 (ALTJA[KIND[k]] || '通常スキル');
+        var cur = toList(st.slots[i].nsto), sels = '', n2, z;
+        for (n2 = 0; n2 < nT2; n2++) {
+          var oh = '<option value="">—</option>';
+          for (z = 0; z < SLOTS; z++) {
+            if (!st.party[z] || !live(z)) { continue; }
+            if (ex1 && z === i) { continue; }
+            oh += '<option value="' + z + '"' + (cur[n2] === z ? ' selected' : '') + '>' +
+                  esc(st.party[z].n) + '</option>';
+          }
+          sels += '<select data-nsto="' + i + '" data-slot="' + n2 + '">' + oh + '</select>';
         }
         h += '<div class="alt"><span class="t"><b>' + esc(p.n) + '</b>' +
-             '<span class="g">' + esc(nm) + '</span></span>' +
-             '<select data-nsto="' + i + '">' + oh + '</select></div>';
+             '<span class="g">' + esc(nm) + (nT2 > 1 ? '（味方' + nT2 + '人）' : '') +
+             '</span></span><span class="two2">' + sels + '</span></div>';
         break;
       }
     }
     $('nstos').innerHTML = h;
     $('nstopane').hidden = !h;
+  }
+  /** 候補の名札。**段（スタック）だけは短く出す。**条件の原文は吹き出しのまま */
+  function altShort(lab) {
+    if (!lab) { return ''; }
+    var m = String(lab).match(/段\s*(\d+)/);
+    return m ? '段 ' + m[1] : '';
   }
   function drawAlts() {
     var list = altList(), h = '', i;
@@ -3640,7 +3820,9 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
       h += '<div class="alt" title="' + esc(x.a.c[pk] || '') + '">' +
         img(x.p.id, 'ic') +
         '<span class="t"><b>' + esc(x.p.n) + '</b>' +
-        '<span class="g">' + esc(ALTJA[x.kind] || x.kind) + '　' + esc(nm) + '</span></span>' +
+        '<span class="g">' + esc(ALTJA[x.kind] || x.kind) + '　' + esc(nm) +
+        (altShort(x.a.c[pk]) ? '　<b class="pick">' + esc(altShort(x.a.c[pk])) + '</b>' : '') +
+        '</span></span>' +
         '<input type="range" min="0" max="' + (x.a.v.length - 1) + '" value="' + pk +
         '" data-alt="' + x.i + '|' + x.kind + '">' +
         '<span class="v">' + (sc == null ? '—' : (sc / 100).toFixed(0) + '%') +
@@ -3739,12 +3921,19 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
             memOpts(u.bt, 'main') + '</select></label>';
     }
     // **「味方1人」のバフは渡し先を選ばないと誰にも乗らない**（2026-09-01）
-    var bk = exKind(er ? er.fi : 0);
-    if (isSingle(d.id, bk)) {
-      var ex1 = (tgtOf(d.id, bk) || [])[1];
-      h2 += '<label class="f"><span>バフを渡す相手</span><select data-us="bto">' +
-            memOpts(u.bto, null, ex1 ? u.i : -1) + '</select></label>' +
-            (u.bto == null ? '<span class="warn tiny">相手を選ぶまで、このバフは誰にも乗りません</span>' : '');
+    var bk = exKind(er ? er.fi : 0), nB = tgtN(d.id, bk);
+    if (nB >= 1 && nB < crewCount()) {
+      var ex1 = (tgtOf(d.id, bk) || [])[1], curB = toList(u.bto), nb2, sB = '';
+      for (nb2 = 0; nb2 < nB; nb2++) {
+        sB += '<select data-us="bto" data-slot="' + nb2 + '">' +
+              memOpts(curB[nb2] == null ? null : curB[nb2], null, ex1 ? u.i : -1) + '</select>';
+      }
+      h2 += '<label class="f"><span>バフを渡す相手' + (nB > 1 ? '（' + nB + '人まで）' : '') +
+            '</span><span class="two2">' + sB + '</span></label>' +
+            (nB === 1 && !curB.length
+              ? '<span class="warn tiny">相手を選ぶまで、このバフは誰にも乗りません</span>'
+              : (nB > 1 && !curB.length
+                 ? '<span class="mut tiny">選ばなければ編成の全員に乗ります</span>' : ''));
     }
     if (er) {
       var dk = exKind(er.fi), dd = dmgOf(u.i, diff(), er.at, dk, u.pk);
@@ -3855,7 +4044,7 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
   syncUndo();
   // 突き合わせ用。**SchaleDB の実装と数字が合うかを外から確かめるため**に出している
   window.__TLDBG = { statsOf: statsOf, dmgOf: dmgOf, total: total, diff: diff,
-                     terrMod: terrMod, effMod: effMod, phaseSpans: phaseSpans, ggRuns: ggRuns, ggAt: ggAt, dmgCurve: dmgCurve, parseTL: parseTL, st: st, stu: stu, sim: sim, engIn: engIn, costPts: costPts,
+                     terrMod: terrMod, effMod: effMod, passiveFor: passiveFor, phaseSpans: phaseSpans, ggRuns: ggRuns, ggAt: ggAt, dmgCurve: dmgCurve, parseTL: parseTL, st: st, stu: stu, sim: sim, engIn: engIn, costPts: costPts,
                      busyOf: busyOf, naTimes: naTimes, naRuns: naRuns, nsTimes: nsTimes,
                      nsInfo: nsInfo, naInfo: naInfo, altOf: altOf, pickOf: pickOf,
                      usesSorted: usesSorted, liveBuffs: liveBuffs, draw: draw };
@@ -4110,8 +4299,12 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
     var r = e.target.closest('select[data-nsto]');
     if (!r) { return; }
     mark();
-    st.slots[+r.getAttribute('data-nsto')].nsto = r.value === '' ? null : +r.value;
-    bump(); draw();
+    var owner = +r.getAttribute('data-nsto'), sl = +r.getAttribute('data-slot');
+    var box = r.parentNode.querySelectorAll('select[data-nsto]'), lst = [], z;
+    for (z = 0; z < box.length; z++) { lst.push(box[z].value === '' ? null : +box[z].value); }
+    void sl;
+    st.slots[owner].nsto = lst.length > 1 ? lst : (lst[0] == null ? null : lst[0]);
+    draw();
   });
   (function () {
     var KEY = { 'g-lv': 'lv', 'g-star': 'star', 'g-eq': 'eq', 'g-wlv': 'wlv', 'g-wstar': 'wstar',
@@ -4218,6 +4411,10 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
       u.t = Math.max(0, +raw || 0);
     } else if (k === 'cv') {
       u.cv = Math.max(0, +raw || 0);
+    } else if (k === 'bto' && el.getAttribute('data-slot') != null) {
+      var bx = el.parentNode.querySelectorAll('select[data-us="bto"]'), lb = [], zz;
+      for (zz = 0; zz < bx.length; zz++) { lb.push(bx[zz].value === '' ? null : +bx[zz].value); }
+      u.bto = lb.length > 1 ? lb : (lb[0] == null ? null : lb[0]);
     } else {
       u[k] = raw === '' ? null : +raw;
     }
