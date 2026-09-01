@@ -729,6 +729,21 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
   padding-left:var(--s1); padding-right:2px; }
 #bset .two > select + select { flex:0 0 44px; }
 
+
+/* フェーズの帯。**削った量で移る**ので、区切りが見えるように色を分ける */
+.tlapp .b.name { font-size:9.5px; font-weight:700; letter-spacing:.02em; }
+.tlapp .b.name.ph0 { background:rgba(90,170,255,.20); border-left:0; }
+.tlapp .b.name.ph1 { background:rgba(255,170,90,.22); border-left:2px solid rgba(255,170,90,.85); }
+.tlapp .b.name.ph2 { background:rgba(255,110,140,.22); border-left:2px solid rgba(255,110,140,.85); }
+
+
+/* グロッキーのゲージ。**下から積み上がる帯**で、たまり切ると 0 に戻る */
+.tlapp .ggf { position:absolute; bottom:0; background:rgba(255,208,90,.45); }
+.tlapp .b.gg { background:rgba(255,208,90,.9); color:#20180a; font-weight:700;
+  font-size:8.5px; text-align:center; }
+.tlapp .lb .tag { font-size:8px; color:var(--tx3); border:1px solid var(--gb);
+  border-radius:var(--r1); padding:0 3px; margin-left:3px; white-space:nowrap; }
+
 </style>
 </head>
 <body>
@@ -1033,6 +1048,23 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
             <code>Duration</code> は 16〜120 秒。<b>戦闘の終わりで打ち切ります</b></li>
           <li><b>防御無視</b>（<code>IgnoreDef</code>、28 件）は
             <code>getDefenseDamageReductionMod</code> の第 2 引数として渡します</li>
+          <li><b>フェーズの切り替わり</b>は、削った量が
+            <code>DB/BossExternalBTExcelTable.json</code> の <code>HPUnder</code> を
+            下回った時刻で移します（移り先は <code>ChangePhase</code> の引数）。
+            <b>各フェーズの行動は、そのフェーズの頭からの時刻として描いています。</b>
+            元データの引き金は <code>UseNormalSkill</code> の「N 発目」で、どのフェーズも
+            3 発目から始まっているためです。通しで数えると 2 つめ以降が入った瞬間に
+            全部出てしまうので、フェーズごとに数え直す読み方を採りました。
+            <b>ここはこちらの読みで、ゲーム内での実測ではありません。</b>
+            上の「フェーズ」で 1 つに固定もできます</li>
+          <li><b>グロッキーゲージ</b>は <code>GroggyGauge</code>／
+            <code>GroggyTime</code>。<b>貯まり方はボスごとに違います。</b>
+            <code>GroggyCondition</code> が空のボス（ビナー・ゴズ・ゲブラ・イェソド・
+            ドラム缶ガニ）だけダメージで貯まるものとして線を引き、
+            「自律兵器が破壊されると増加する」「EX スキルが中断されると増加する」の
+            ように条文があるボスは<b>追いません</b>——この道具が持っていない出来事が
+            引き金だからです。ゲージの大きさと条文はそのまま出します。
+            貯まり切ったら 0 に戻し、<code>GroggyTime</code> ぶん続くものとしています</li>
           <li><b>1 回のスキルで何発出るか</b>は 3 通りあります
             （2026-09-01 に全 274 人・639 件を SchaleDB の実装と 1 件ずつ突き合わせて確定）
             <ul>
@@ -1241,7 +1273,7 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
   }
 
   // レーンの高さ。**詰めて置く**（2026-09-01 の先生の指示「UI はツメツメでいい」）
-  var H = { axis: 18, name: 16, ex: 16, ps: 16, dbf: 13, rec: 52, cost: 58, row: 16,
+  var H = { axis: 18, name: 16, ex: 16, ps: 16, gg: 18, dbf: 13, rec: 52, cost: 58, row: 16,
             na: 14, ss: 18 };
 
   // ------------------------------------------------------------ 枠とパーティー
@@ -1273,7 +1305,9 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
 
   var st = { bi: 0, di: 0, px: 6, pin: null, mode: 6, pi: 0, parties: [mkParty()],
              grid: 3, filt: { q: '', role: '', bul: '', arm: '', sch: '', sq: '', star: '', sort: 'n' },
-             more: false, who: -1, sel: null, lv: 5, mk: [], slv: 5, tab: 0, goal: null };
+             more: false, who: -1, sel: null, lv: 5, mk: [], slv: 5, tab: 0, goal: null,
+             // **フェーズは既定で自動**（削った量で移る）。数値を入れると固定
+             phFix: null };
   st.slots = st.parties[0].slots;
   st.tl = st.parties[0].tl;
   st.start = st.parties[0].start;
@@ -1605,6 +1639,115 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
     return s;
   }
 
+
+  // ------------------------------------------------------------ フェーズ
+  /* **削った量でフェーズが移る。**しきい値は
+     `DB/BossExternalBTExcelTable.json` の `HPUnder`（＝残り HP）で、
+     移り先は `ChangePhase` / `ForceChangePhase` の引数。
+     2026-09-01 の先生の指示「設定で切り替えるより削ったタイミングで
+     自動でタイムラインも移行したほうが使いやすい」。
+
+     **各フェーズの行動はそのフェーズの頭からの時刻として描きます。**
+     元データの引き金は `UseNormalSkill` の「N 発目」で、どのフェーズも
+     3 発目から始まっています。通しの数え方だと 2 つめ以降のフェーズは
+     入った瞬間に全部出てしまうので、**フェーズごとに数え直す読み方**を採りました。
+     ここはこちらの読みです（ゲーム内での実測ではありません）。 */
+  function dmgCurve(r) {
+    var pts = [], us = usesSorted(), i, q;
+    for (i = 0; i < us.length; i++) {
+      var u = us[i], d = dmgOf(u.i, r, u.t, u.k, u.pk);
+      if (d) { pts.push([u.t, d.avg]); }
+    }
+    var dur = r.dur || 240, STEP = 5;
+    for (i = 0; i < SLOTS; i++) {
+      if (!st.party[i]) { continue; }
+      var ts = naTimes(i, dur), bucket = {}, bk;
+      if (!ts.length) { continue; }
+      for (q = 0; q < ts.length; q++) {
+        var at0 = Math.min(ts[q], dur), b = Math.floor(at0 / STEP);
+        if (!bucket[b]) { bucket[b] = []; }
+        bucket[b].push(at0);
+      }
+      for (bk in bucket) {
+        var dn = dmgOf(i, r, (+bk + 0.5) * STEP, 'Normal');
+        if (!dn) { break; }
+        for (q = 0; q < bucket[bk].length; q++) { pts.push([bucket[bk][q], dn.avg]); }
+      }
+    }
+    pts.sort(function (a, b) { return a[0] - b[0]; });
+    var acc = 0, out = [];
+    for (i = 0; i < pts.length; i++) { acc += pts[i][1]; out.push([pts[i][0], acc]); }
+    return out;
+  }
+  /** フェーズの区間。`[{ p, t0, t1, need }]`。**手で固定したときはその 1 本だけ。** */
+  function phaseSpans(r) {
+    var dur = r.dur || 240;
+    if (st.phFix != null && r.ph[String(st.phFix)]) {
+      return [{ p: String(st.phFix), t0: 0, t1: dur, need: null, fix: true }];
+    }
+    var hp0 = (r.bs && r.bs.hp) || 0, cur = '0', out = [], t0 = 0, guard = 0;
+    if (!hp0 || !r.ph[cur]) { return [{ p: '0', t0: 0, t1: dur, need: null }]; }
+    var cv = dmgCurve(r);
+    while (guard++ < 12) {
+      var list = ((r.ph[cur] || {}).hp) || [];
+      if (!list.length) { break; }
+      var need = hp0 - list[0][0], at = null, i;
+      for (i = 0; i < cv.length; i++) { if (cv[i][1] >= need) { at = cv[i][0]; break; } }
+      if (at == null || at > dur) {
+        out.push({ p: cur, t0: t0, t1: dur, need: need, miss: true });
+        return out;
+      }
+      out.push({ p: cur, t0: t0, t1: at, need: need });
+      cur = String(list[0][1]); t0 = at;
+      if (!r.ph[cur]) { break; }
+    }
+    out.push({ p: cur, t0: t0, t1: dur, need: null });
+    return out;
+  }
+
+  /* **グロッキーの貯まり方はボスごとに違う**（2026-09-01 の先生の指摘）。
+     `gc`（`GroggyCondition` の原文）が空のボスだけ「ダメージで貯まる」ので、
+     そこだけ線を引く。**書いてあるボスは追わない**——「自律兵器が破壊されると
+     増加する」「EXスキルが中断されると増加する」のような、この道具が持っていない
+     出来事が引き金だから。ゲージの大きさと条文はそのまま出す。 */
+  function ggMode(r) {
+    var b = boss(), bs = r.bs || {};
+    if (!bs.groggy) { return { kind: 'なし' }; }
+    if (b.gc) { return { kind: '条件つき', why: b.gc, need: bs.groggy, sec: (bs.groggyT || 0) / 1000 }; }
+    if (bs.hp && bs.groggy > bs.hp * 20) { return { kind: '実質なし', need: bs.groggy }; }
+    return { kind: 'ダメージ', need: bs.groggy, sec: (bs.groggyT || 0) / 1000 };
+  }
+  /** ダメージで貯まるボスの、ゲージの折れ線と、たまり切った時刻。 */
+  function ggRuns(r) {
+    var g = ggMode(r);
+    if (g.kind !== 'ダメージ') { return { g: g, pts: [], hits: [] }; }
+    var cv = dmgCurve(r), base = 0, pts = [[0, 0]], hits = [], i;
+    for (i = 0; i < cv.length; i++) {
+      var v = cv[i][1] - base;
+      if (v >= g.need) {
+        pts.push([cv[i][0], g.need]);
+        hits.push({ t: cv[i][0], until: cv[i][0] + g.sec });
+        base = cv[i][1];
+        pts.push([cv[i][0], 0]);
+      } else {
+        pts.push([cv[i][0], v]);
+      }
+    }
+    return { g: g, pts: pts, hits: hits, base: base };
+  }
+  /** ある時刻でゲージがどれだけ貯まっているか。**先生が見たいのはこれ。** */
+  function ggAt(runs, t) {
+    if (!runs.pts.length) { return null; }
+    // **ちょうど貯まり切った時刻では、0 に戻る前の値を返す。**
+    // フェーズの移り目とグロッキーは同じダメージで動くので必ず重なる
+    var v = 0, i;
+    for (i = 0; i < runs.pts.length; i++) {
+      if (runs.pts[i][0] > t) { break; }
+      v = runs.pts[i][0] === t ? Math.max(v, runs.pts[i][1]) : runs.pts[i][1];
+    }
+    return v;
+  }
+
   // ------------------------------------------------------------ 盤
   function draw() {
     var r = diff(), dur = r.dur || 240, px = st.px, W = Math.max(200, Math.round(dur * px));
@@ -1624,38 +1767,89 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
     side += lbl(H.axis, '<b>時間軸</b>');
     cv += '<div class="ln axis" style="height:' + H.axis + 'px;width:' + W + 'px">' + ticks(dur, px) + '</div>';
 
+    var spans = phaseSpans(r), ggr = ggRuns(r);
     side += lbl(H.name, '<b>ボス</b>');
-    cv += lane(H.name, '<div class="b name" style="left:0;width:' + W + 'px">' +
-               esc(boss().n) + '　' + esc(r.df) + '</div>');
+    var nameBar = '';
+    for (var sp = 0; sp < spans.length; sp++) {
+      var sg = spans[sp], x0 = sg.t0 * px, x1 = Math.min(sg.t1, dur) * px;
+      var ggv = ggAt(ggr, sg.t0);
+      var ttl = 'フェーズ ' + (+sg.p + 1) +
+        (sg.need == null ? '' : '\n' + n0(sg.need) + ' 削ると次へ') +
+        (sg.t0 > 0 ? '\n' + sg.t0.toFixed(2) + '秒／残り ' + mmss(dur, sg.t0) : '') +
+        (ggv == null ? '' : '\nここでグロッキー ' + n0(Math.round(ggv)) + ' / ' +
+         n0(ggr.g.need) + '（' + (ggr.g.need ? (ggv / ggr.g.need * 100).toFixed(1) : '0') + '%）');
+      nameBar += '<div class="b name ph' + (+sg.p % 3) + '" style="left:' + x0.toFixed(1) +
+        'px;width:' + Math.max(2, x1 - x0).toFixed(1) + 'px" title="' + esc(ttl) + '">' +
+        (sp === 0 ? esc(boss().n) + '　' + esc(r.df) + '　' : '') +
+        'フェーズ ' + (+sg.p + 1) + '</div>';
+    }
+    cv += lane(H.name, nameBar);
 
-    var s = '';
-    for (var k = 0; k < ph0.ev.length; k++) {
-      var e = ph0.ev[k];
-      if (e[1] == null || e[1] > dur) { continue; }
-      for (var q = 0; q < e[2].length; q++) {
-        var gi = e[2][q], g = r.ex[gi] || ('?' + gi);
-        var w = Math.max(10, ((r.exd && r.exd[gi]) || 60) / B.fps * px);
-        s += '<div class="b ' + (gi === 0 ? 'ex' : 'ex2') + '" style="left:' + (e[1] * px).toFixed(1) +
-             'px;width:' + w.toFixed(1) + 'px" title="' + esc(skName(g)) + '（' + esc(g) + '）\n' +
-             '通常スキル ' + e[0] + ' 発目\n' + e[1].toFixed(1) + '秒／残り ' + mmss(dur, e[1]) + '">' +
-             esc(skName(g)) + '</div>';
+    // **フェーズごとに、そのフェーズの頭からの時刻で描く**（2026-09-01）
+    var s = '', s2 = '', spi, k, q;
+    for (spi = 0; spi < spans.length; spi++) {
+      var g0 = spans[spi], pd = r.ph[g0.p] || { ev: [], g: null };
+      var lim = Math.min(g0.t1, dur);
+      for (k = 0; k < (pd.ev || []).length; k++) {
+        var e = pd.ev[k];
+        if (e[1] == null) { continue; }
+        var tt = g0.t0 + e[1];
+        if (tt > lim) { continue; }
+        for (q = 0; q < e[2].length; q++) {
+          var gi = e[2][q], g = r.ex[gi] || ('?' + gi);
+          var w = Math.max(10, ((r.exd && r.exd[gi]) || 60) / B.fps * px);
+          s += '<div class="b ' + (gi === 0 ? 'ex' : 'ex2') + '" style="left:' + (tt * px).toFixed(1) +
+               'px;width:' + w.toFixed(1) + 'px" title="' + esc(skName(g)) + '（' + esc(g) + '）\n' +
+               'フェーズ ' + (+g0.p + 1) + ' の通常スキル ' + e[0] + ' 発目\n' +
+               tt.toFixed(1) + '秒／残り ' + mmss(dur, tt) + '">' + esc(skName(g)) + '</div>';
+        }
+      }
+      if (pd.g) {
+        var gi2 = pd.g[1][0], g2 = r.ex[gi2] || ('?' + gi2);
+        var w2 = Math.max(10, ((r.exd && r.exd[gi2]) || 60) / B.fps * px);
+        for (var t2 = g0.t0 + pd.g[0]; t2 <= lim; t2 += pd.g[0]) {
+          s2 += '<div class="b ps" style="left:' + (t2 * px).toFixed(1) + 'px;width:' + w2.toFixed(1) +
+                'px" title="' + esc(skName(g2)) + '（' + esc(g2) + '）\nフェーズ ' + (+g0.p + 1) +
+                '\n' + t2.toFixed(1) + '秒／残り ' + mmss(dur, t2) + '">' + esc(skName(g2)) + '</div>';
+        }
       }
     }
     side += lbl(H.ex, mini + '<span class="nm">EX</span>');
     cv += lane(H.ex, s);
-
-    var s2 = '';
-    if (ph0.g) {
-      var gi2 = ph0.g[1][0], g2 = r.ex[gi2] || ('?' + gi2);
-      var w2 = Math.max(10, ((r.exd && r.exd[gi2]) || 60) / B.fps * px);
-      for (var t2 = ph0.g[0]; t2 <= dur; t2 += ph0.g[0]) {
-        s2 += '<div class="b ps" style="left:' + (t2 * px).toFixed(1) + 'px;width:' + w2.toFixed(1) +
-              'px" title="' + esc(skName(g2)) + '（' + esc(g2) + '）\n' + t2.toFixed(1) +
-              '秒／残り ' + mmss(dur, t2) + '">' + esc(skName(g2)) + '</div>';
-      }
-    }
     side += lbl(H.ps, mini + '<span class="nm">PS</span>');
     cv += lane(H.ps, s2);
+
+    // グロッキー。**ダメージで貯まるボスだけ線を引く**（2026-09-01 の先生の要望）
+    var gs = '', gm = ggr.g;
+    if (gm.kind === 'ダメージ') {
+      var prevG = null, gi3;
+      for (gi3 = 0; gi3 < ggr.pts.length; gi3++) {
+        var pt = ggr.pts[gi3];
+        if (prevG && pt[0] > prevG[0]) {
+          gs += '<div class="ggf" style="left:' + (prevG[0] * px).toFixed(1) + 'px;width:' +
+                ((pt[0] - prevG[0]) * px).toFixed(1) + 'px;height:' +
+                (prevG[1] / gm.need * (H.gg - 2)).toFixed(1) + 'px" title="' +
+                n0(Math.round(prevG[1])) + ' / ' + n0(gm.need) + '（' +
+                (prevG[1] / gm.need * 100).toFixed(1) + '%）\n' +
+                prevG[0].toFixed(1) + '秒／残り ' + mmss(dur, prevG[0]) + '"></div>';
+        }
+        prevG = pt;
+      }
+      for (gi3 = 0; gi3 < ggr.hits.length; gi3++) {
+        var hh2 = ggr.hits[gi3];
+        gs += '<div class="b gg" style="left:' + (hh2.t * px).toFixed(1) + 'px;width:' +
+              Math.max(6, (Math.min(hh2.until, dur) - hh2.t) * px).toFixed(1) +
+              'px" title="グロッキー ' + hh2.t.toFixed(1) + '秒 〜 ' + hh2.until.toFixed(1) +
+              '秒（' + gm.sec + ' 秒）">グロッキー</div>';
+      }
+    }
+    var ggLbl = gm.kind === 'ダメージ'
+      ? '<span class="nm">グロッキー</span><span class="tag">' + n0(gm.need) + '</span>'
+      : '<span class="nm">グロッキー</span><span class="tag">' +
+        (gm.kind === 'なし' ? 'なし' : gm.kind === '実質なし' ? 'ダメージでは貯まらない' : '条件つき') +
+        '</span>';
+    side += lbl(H.gg, ggLbl);
+    cv += lane(H.gg, gs);
 
     // デバフ数。**`liveBuffs` と同じ材料から切れ目を作る**（2026-09-01。
     // それまで EX の本体しか見ておらず、形態違いも通常スキルも数に入らず、
@@ -2256,7 +2450,10 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
   }
   function buildOpt(idx) {
     var b = (idx == null ? null : slotOf(idx)) || mkSlot();
-    return { lv: b.lv, star: b.star, eq: [b.eq, b.eq, b.eq], wlv: b.wlv,
+    // **装備は 3 枠それぞれ段が違うことがある**（貼った TL の「t6/10/10」）。
+    // 画面の選択は 1 つなので数値で入るが、読み込みからは配列で入る
+    return { lv: b.lv, star: b.star, wlv: b.wlv,
+             eq: (b.eq && b.eq.length === 3) ? b.eq.slice() : [b.eq, b.eq, b.eq],
              gear: b.gear > 0, bond: b.bond };
   }
   var _sc = {};
@@ -2947,6 +3144,273 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
     if (onOK) { ta.focus(); } else { ta.select(); }
   }
 
+
+  // ------------------------------------------------- 文章で書いた TL を読む
+  /* 先生が使っている書き方をそのまま読む（2026-09-01 に実物をもらった）。
+     **読めなかった行は捨てずに全部返して画面に出す。**憶測で埋めない。
+
+     読める書き方
+       使用生徒詳細 の行 … 「セイア(水着)　固有1　MMMM　t6/10/10」
+       開始SET       … 「開始SET：①イブキ ②セイア ③ネル ④リオ ⑤水着セイア」
+       丸数字        … 「⑦セイア」＝ コスト 7 で撃つ（md:'c'）
+       残り時間      … 「2:30.100 リオ」＝ 残り 2 分 30.100 秒（md:'t'）
+       前からの秒数  … 「9.5 Cネル」＝ 直前の 9.5 秒あと（md:'t'）
+       即 / AUTO / 〜後 … 撃てる最短（md:'e'）。
+         AUTO は「次の順のスキルが最速で出る」なので最短と同じ扱い
+         （2026-09-01 の先生の説明）
+       C◯◯          … リオがコピーした◯◯。engine の play.copy がそのまま拾う
+       ※バフは全て◯◯指定 … 渡し先を全員ぶんまとめて◯◯へ */
+  var CIRC = '①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮⑯⑰⑱⑲⑳';
+  function nrm(s) {
+    return String(s == null ? '' : s)
+      .replace(/（/g, '(').replace(/）/g, ')')
+      .replace(/[\s　]/g, '');
+  }
+  // 「セイア(水着)」に対して ['セイア(水着)', '水着セイア'] を返す。base は 'セイア'
+  function aliasOf(nm) {
+    var n = nrm(nm), m = n.match(/^(.+?)\((.+)\)$/);
+    return { full: n, base: m ? m[1] : n, alts: m ? [n, m[2] + m[1]] : [n] };
+  }
+  /** 行の中から編成の誰かを見つける。**いちばん長く当たったものを採る。** */
+  function whoIn(line, crew) {
+    var s = nrm(line), best = null, i, q;
+    for (i = 0; i < crew.length; i++) {
+      var a = crew[i].a;
+      for (q = 0; q < a.alts.length; q++) {
+        if (s.indexOf(a.alts[q]) >= 0 && (!best || a.alts[q].length > best.len)) {
+          best = { idx: crew[i].idx, len: a.alts[q].length };
+        }
+      }
+    }
+    if (best) { return best.idx; }
+    // 括弧を落とした呼び方（「セイア」「イブキ」）。**同じ base が 2 人いたら
+    // 括弧の無いほうを採る**（セイア と セイア(水着) が両方いる編成がこれ）
+    var hit = [];
+    for (i = 0; i < crew.length; i++) {
+      if (s.indexOf(crew[i].a.base) >= 0) { hit.push(crew[i]); }
+    }
+    if (!hit.length) { return -1; }
+    if (hit.length === 1) { return hit[0].idx; }
+    for (i = 0; i < hit.length; i++) {
+      if (hit[i].a.full === hit[i].a.base) { return hit[i].idx; }
+    }
+    return -1;                       // 決められない。**当てずっぽうで選ばない**
+  }
+  /** 1 行からタイミングを読む。読めなければ null。 */
+  function timeIn(line, dur) {
+    var s = nrm(line);
+    var m = s.match(/(\d+):(\d{1,2})(?:\.(\d{1,3}))?/);
+    if (m) {
+      var rest = (+m[1]) * 60 + (+m[2]) + (m[3] ? +('0.' + m[3]) : 0);
+      return { md: 't', t: Math.max(0, dur - rest) };
+    }
+    if (/^開始/.test(s)) { return { md: 't', t: 0 }; }
+    var k = CIRC.indexOf(s.charAt(0));
+    if (k >= 0) { return { md: 'c', cv: k + 1 }; }
+    if (/^AUTO/i.test(s) || /^即/.test(s) || /後/.test(s)) { return { md: 'e' }; }
+    m = s.match(/^(\d+(?:\.\d+)?)/);
+    if (m) { return { md: 'rel', d: +m[1] }; }
+    return null;
+  }
+  /** 貼られた文章を読む。**状態は変えない。** */
+  function parseTL(txt) {
+    var dur = diff().dur || 240;
+    var lines = String(txt).replace(/\r/g, '').split('\n');
+    var res = { crew: [], start: [], uses: [], skipped: [], notes: [], bufTo: null };
+    var i, q;
+    // ---- 1. 使用生徒詳細
+    for (i = 0; i < lines.length; i++) {
+      var raw = lines[i], body = raw.replace(/[※].*$/, '');
+      if (!/固有\s*\d|★\s*\d|MMMM|t\s*\d+\s*\//i.test(body)) { continue; }
+      var nm = body.replace(/[（(].*?[)）]/g, function (x) { return x; })
+                   .split(/[\s　]+/).filter(function (x) { return x; })[0];
+      if (!nm) { continue; }
+      var sd = findStudent(nm);
+      if (!sd) { res.skipped.push([raw, '生徒が見つかりません: ' + nm]); continue; }
+      var b = { id: sd.id, name: sd.n };
+      var mm = body.match(/固有\s*(\d)/);
+      if (mm) { b.star = 5; b.wstar = +mm[1]; b.wlv = 50; }
+      else {
+        mm = body.match(/★\s*(\d)/);
+        if (mm) { b.star = +mm[1]; b.wstar = 0; b.wlv = 0; }
+      }
+      if (/MMMM/i.test(body)) { b.ex = 5; b.sk = 10; b.plv = 10; b.sslv = 10; }
+      mm = body.match(/t\s*(\d+)\s*\/\s*(\d+)\s*\/\s*(\d+)/i);
+      if (mm) { b.eq = [+mm[1], +mm[2], +mm[3]]; }
+      res.crew.push(b);
+    }
+    if (!res.crew.length) { return { err: '「使用生徒詳細」の行が 1 つも読めませんでした' }; }
+    // 枠を決める（STRIKER が先、SPECIAL が後）
+    var mainN = 0, supN = 0, crew = [];
+    for (i = 0; i < res.crew.length; i++) {
+      var s2 = _byid[res.crew[i].id], idx;
+      if (!s2) { continue; }
+      if (s2.sq === 'Support') { idx = MAIN_MAX + supN; supN++; }
+      else { idx = mainN; mainN++; }
+      if (!live(idx)) { res.skipped.push([res.crew[i].name, '枠が足りません']); continue; }
+      res.crew[i].idx = idx;
+      crew.push({ idx: idx, a: aliasOf(res.crew[i].name) });
+    }
+    // ---- 2. バフの渡し先
+    for (i = 0; i < lines.length; i++) {
+      var bm = nrm(lines[i]).match(/バフ.*?(?:全て|すべて)(.+?)指定/);
+      if (bm) {
+        var to = whoIn(bm[1], crew);
+        if (to >= 0) { res.bufTo = to; res.notes.push('バフの渡し先を全部 ' + bm[1] + ' にしました'); }
+        else { res.skipped.push([lines[i], 'バフの渡し先が編成にいません']); }
+        break;
+      }
+    }
+    // ---- 3. 開始スキル
+    for (i = 0; i < lines.length; i++) {
+      if (!/開始\s*SET/i.test(nrm(lines[i]))) { continue; }
+      var parts = nrm(lines[i]).split(/(?=[①-⑳])/);
+      for (q = 1; q < parts.length; q++) {
+        var w = whoIn(parts[q], crew);
+        if (w >= 0) { res.start.push(w); }
+        else { res.skipped.push([parts[q], '開始SET の生徒が編成にいません']); }
+      }
+      break;
+    }
+    // ---- 4. タイムライン
+    var seenStart = false, prevT = 0;
+    for (i = 0; i < lines.length; i++) {
+      var ln = lines[i];
+      if (/開始\s*SET/i.test(nrm(ln))) { seenStart = true; continue; }
+      if (!seenStart) { continue; }
+      var cut = ln.replace(/[※].*$/, '');
+      var note = (ln.match(/[※](.*)$/) || [])[1] || '';
+      var noParen = cut.replace(/[（(][^）)]*[)）]/g, ' ');
+      if (!nrm(noParen)) { continue; }
+      if (/固有\s*\d|★\s*\d|MMMM/i.test(cut)) { continue; }
+      // **行動ではない行。**「ネル後ボスHP(参考程度)」が名前と「後」を持っていて
+      // 1 発ぶん余計に置かれていた（2026-09-01 に実物を読ませて気づいた）
+      if (/参考|下振れ|上振れ|ページ目|移行|支援値|使用生徒|リスタート/.test(cut)) { continue; }
+      if (/を?(ON|OFF|オン|オフ)/i.test(nrm(noParen))) {
+        res.notes.push('AUTO の切り替えは行として持てないので飛ばしました: ' + ln.trim());
+        continue;
+      }
+      var who = whoIn(noParen, crew);
+      if (who < 0) { continue; }                    // 見出しや余談。黙って飛ばす
+      var tm = timeIn(noParen, dur);
+      if (!tm) { res.skipped.push([ln, 'タイミングが読めません']); continue; }
+      if (tm.md === 'rel') { tm = { md: 't', t: Math.min(dur, prevT + tm.d) }; }
+      if (tm.md === 't') { prevT = tm.t; }
+      res.uses.push({ i: who, md: tm.md, t: tm.t == null ? 0 : tm.t,
+                      cv: tm.cv == null ? null : tm.cv,
+                      copy: /C[^\s]*$/i.test(nrm(noParen).replace(/^[^C]*?(?=C)/, '')) &&
+                            /(^|[^A-Za-z])C/.test(nrm(noParen)),
+                      line: ln.trim(), note: note.trim() });
+    }
+    if (!res.uses.length) { return { err: 'タイムラインの行が 1 つも読めませんでした' }; }
+    return res;
+  }
+  /** 名前から生徒を探す。**括弧の全半角と「水着セイア」型を吸収する。** */
+  function findStudent(nm) {
+    var n = nrm(nm), i, byBase = [];
+    for (i = 0; i < S.students.length; i++) {
+      var a = aliasOf(S.students[i].n);
+      if (a.alts.indexOf(n) >= 0) { return S.students[i]; }
+      if (a.base === n) { byBase.push(S.students[i]); }
+    }
+    for (i = 0; i < byBase.length; i++) {
+      if (nrm(byBase[i].n) === n) { return byBase[i]; }
+    }
+    return byBase.length === 1 ? byBase[0] : null;
+  }
+  /** 読んだものを実際に入れる。**戻すのは中身の要約。** */
+  function applyTL(p) {
+    mark();
+    var i, k;
+    for (i = 0; i < SLOTS; i++) { st.slots[i] = mkSlot(); }
+    st.tl.length = 0; st.start.length = 0; st.sel = null; st.who = -1;
+    for (i = 0; i < p.crew.length; i++) {
+      var c = p.crew[i];
+      if (c.idx == null) { continue; }
+      var sl = st.slots[c.idx];
+      sl.id = c.id;
+      for (k in c) {
+        if (k !== 'id' && k !== 'idx' && k !== 'name' && c[k] != null) { sl[k] = c[k]; }
+      }
+      if (p.bufTo != null) { sl.nsto = p.bufTo; }
+    }
+    for (i = 0; i < p.start.length && i < 9; i++) { st.start.push(p.start[i]); }
+    // **書いてある順を守る。**`tlSorted()` は `t` で並べ替えるので、
+    // 「コストで指定」「最速」を `t: 0` のまま積むと順番が潰れる。
+    // 1 発ずつ engine に解かせて、決まった時刻を `t` に書き戻す
+    var dur = diff().dur || 240, prev = 0;
+    for (i = 0; i < p.uses.length; i++) {
+      var u = p.uses[i];
+      var row = { i: u.i, t: u.md === 't' ? u.t : Math.min(dur, prev + 0.01),
+                  to: p.bufTo, ov: null, f: null, bt: p.bufTo, bto: p.bufTo,
+                  md: u.md, cv: u.cv };
+      st.tl.push(row);
+      var rr = simOf(orderOf(), dur).rows, at = null, q2;
+      for (q2 = 0; q2 < rr.length; q2++) {
+        if (rr[q2].e && rr[q2].e._ix != null && st.tl[rr[q2].e._ix] === row) { at = rr[q2].at; }
+      }
+      if (u.md !== 't' && at != null) { row.t = at; }
+      if (row.t > prev) { prev = row.t; }
+    }
+    bump(); fillBuild(); drawCrew(); drawPicker(); draw();
+    var rows = simOf(orderOf(), diff().dur || 240).rows, ng = [];
+    for (i = 0; i < rows.length; i++) {
+      if (rows[i].d && (rows[i].why || rows[i].at == null)) {
+        ng.push(rows[i].d.n + (rows[i].why ? '（' + rows[i].why + '）' : '（置けません）'));
+      }
+    }
+    return { n: p.uses.length, ng: ng };
+  }
+
+  /** 読み込みの窓。**JSON でも、文章で書いた TL でも受ける。** */
+  function importSheet() {
+    var w = document.createElement('div');
+    w.className = 'sheet';
+    w.innerHTML = '<div class="card"><h3>読み込み</h3>' +
+      '<p class="mut tiny" style="margin:0 0 6px">' +
+      '「書き出し」の JSON か、<b>ふだん書いている文章の TL</b> をそのまま貼れます。' +
+      '文章のときは「使用生徒詳細」と「開始SET」も一緒に貼ってください。</p>' +
+      '<textarea spellcheck="false"></textarea>' +
+      '<div class="row"><button type="button" class="btn2" data-x="ok">読み込む</button>' +
+      '<button type="button" class="btn2" data-x="no">閉じる</button></div>' +
+      '<div class="errlog" id="imlog" style="margin-top:6px;display:none"></div></div>';
+    var ta = w.querySelector('textarea'), log = w.querySelector('#imlog');
+    function say(rows) {
+      log.style.display = '';
+      log.innerHTML = rows.join('');
+      log.scrollTop = 0;
+    }
+    function li(cls, t) { return '<div class="' + cls + '">' + esc(t) + '</div>'; }
+    w.addEventListener('click', function (e) {
+      if (e.target === w || e.target.getAttribute('data-x') === 'no') {
+        document.body.removeChild(w); return;
+      }
+      if (e.target.getAttribute('data-x') !== 'ok') { return; }
+      var v = ta.value.replace(/^[\s\uFEFF]+/, '');
+      if (v.charAt(0) === '{') {
+        try { restore(JSON.parse(v)); document.body.removeChild(w); }
+        catch (err) { say([li('e', String(err.message || err))]); }
+        return;
+      }
+      var p;
+      try { p = parseTL(v); } catch (err2) { say([li('e', String(err2.message || err2))]); return; }
+      if (p.err) { say([li('e', p.err)]); return; }
+      var r = applyTL(p), out = [], i;
+      out.push(li('g', '✔ 生徒 ' + p.crew.length + ' 人・開始スキル ' + p.start.length +
+                  ' 人ぶん・EX ' + r.n + ' 発を読みました'));
+      for (i = 0; i < p.notes.length; i++) { out.push(li('', '▸ ' + p.notes[i])); }
+      for (i = 0; i < p.skipped.length; i++) {
+        out.push(li('w', '⚠ 読めなかった行: ' + p.skipped[i][0].trim() +
+                    '　—　' + p.skipped[i][1]));
+      }
+      for (i = 0; i < r.ng.length; i++) { out.push(li('w', '⚠ 成立しません: ' + r.ng[i])); }
+      if (!p.skipped.length && !r.ng.length) { out.push(li('g', '✔ 全部そのまま置けました')); }
+      say(out);
+    });
+    document.body.appendChild(w);
+    ta.focus();
+  }
+
   // ------------------------------------------------------------ 再生ヘッド
   function costAt(t) {
     var pts = costPts(diff().dur || 240);
@@ -3117,7 +3581,9 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
     for (i = 1; i <= 100; i++) { bl.push(i); }
     opt('g-lv', lvs, b.lv);
     opt('g-star', [1, 2, 3, 4, 5], b.star, function (v) { return '★' + v; });
-    opt('g-eq', [0,1,2,3,4,5,6,7,8,9,10], b.eq, function (v) { return v ? 'T' + v : 'なし'; });
+    // 3 枠バラバラのときは低いほうを出す。**選び直せば 3 枠とも揃う**
+    var eqShow = (b.eq && b.eq.length === 3) ? Math.min(b.eq[0], b.eq[1], b.eq[2]) : b.eq;
+    opt('g-eq', [0,1,2,3,4,5,6,7,8,9,10], eqShow, function (v) { return v ? 'T' + v : 'なし'; });
     opt('g-wlv', wl, b.wlv, function (v) { return v ? 'Lv' + v : 'なし'; });
     opt('g-wstar', [0, 1, 2, 3, 4], b.wstar, function (v) { return '★' + v; });
     opt('g-ex', [1, 2, 3, 4, 5], b.ex, function (v) { return 'Lv' + v; });
@@ -3348,11 +3814,12 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
       (dur % 60 < 10 ? '0' : '') + (dur % 60) + '</option>';
     var envJa = { Street: '市街', Outdoor: '屋外', Indoor: '屋内' };
     $('i-terr').innerHTML = '<option>' + (envJa[r.env] || r.env || '—') + '</option>';
-    var ph = (r.ph && r.ph['0']) || {}, hp = ph.hp || [], pk = '';
-    for (i = 0; i <= hp.length; i++) {
-      pk += '<option value="' + i + '">フェーズ ' + (i + 1) + '</option>';
+    var pk = '<option value="">自動（削った量で移る）</option>', pn;
+    for (pn in (r.ph || {})) {
+      pk += '<option value="' + pn + '">フェーズ ' + (+pn + 1) + ' に固定</option>';
     }
-    $('i-phase').innerHTML = pk || '<option>なし</option>';
+    $('i-phase').innerHTML = pk;
+    $('i-phase').value = st.phFix == null ? '' : String(st.phFix);
     $('i-lv').textContent = r.lv == null ? '—' : ('Lv' + r.lv);
     drawGroggy();
   }
@@ -3388,7 +3855,7 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
   syncUndo();
   // 突き合わせ用。**SchaleDB の実装と数字が合うかを外から確かめるため**に出している
   window.__TLDBG = { statsOf: statsOf, dmgOf: dmgOf, total: total, diff: diff,
-                     terrMod: terrMod, effMod: effMod, st: st, stu: stu, sim: sim, engIn: engIn, costPts: costPts,
+                     terrMod: terrMod, effMod: effMod, phaseSpans: phaseSpans, ggRuns: ggRuns, ggAt: ggAt, dmgCurve: dmgCurve, parseTL: parseTL, st: st, stu: stu, sim: sim, engIn: engIn, costPts: costPts,
                      busyOf: busyOf, naTimes: naTimes, naRuns: naRuns, nsTimes: nsTimes,
                      nsInfo: nsInfo, naInfo: naInfo, altOf: altOf, pickOf: pickOf,
                      usesSorted: usesSorted, liveBuffs: liveBuffs, draw: draw };
@@ -3411,6 +3878,9 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
     st.bi = +this.value; st.di = tormentIdx(boss()); fillBoss(); fit();
   });
   $('i-diff').addEventListener('change', function () { st.di = +this.value; fillBoss(); draw(); });
+  $('i-phase').addEventListener('change', function () {
+    st.phFix = this.value === '' ? null : +this.value; draw();
+  });
   // ---- 畳む。**摘みは畳む対象の左肩に付ける**（2026-09-01 の先生の指摘
   // 「左を畳む が右にあるのキモい／トグルっポイアイコンで全パネル」）
   function foldKey(el) { return el.getAttribute('data-fold') || ''; }
@@ -3776,7 +4246,7 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
       if (a === 'keys') { keyHelp(); }
       if (a === 'uireset') { uiReset(); }
       if (a === 'export') { sheet('書き出し', JSON.stringify(snapshot()), null); }
-      if (a === 'import') { sheet('読み込み', '', function (o) { restore(o); }); }
+      if (a === 'import') { importSheet(); }
       if (a === 'mark') {
         var dur = diff().dur || 240;
         var t = st.pin != null ? st.pin :
