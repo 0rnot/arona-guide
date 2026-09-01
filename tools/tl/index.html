@@ -372,6 +372,21 @@
 .plot .rec0 { fill:none; stroke:var(--tx3); stroke-width:1; stroke-dasharray:3 3; opacity:.6; }
 #useedit input[type="number"] { background:var(--bg2); color:var(--tx); border:1px solid var(--ln2);
   border-radius:3px; padding:1px 4px; font:inherit; font-size:10.5px; }
+
+/* 倍率の幅。**バーで候補を選ぶ**（2026-09-01 の先生の指示） */
+#alts { display:flex; flex-direction:column; gap:4px; }
+.alt { display:flex; align-items:center; gap:5px; padding:2px 4px; border:1px solid var(--ln);
+  border-radius:4px; background:var(--bg2); }
+.alt img.ic { width:20px; height:20px; border-radius:2px; object-fit:cover; flex:0 0 auto; }
+.alt .t { display:flex; flex-direction:column; min-width:0; flex:0 0 92px; line-height:1.25; }
+.alt .t b { font-size:9.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.alt .t .g { font-size:8.5px; color:var(--tx3); white-space:nowrap; overflow:hidden;
+  text-overflow:ellipsis; }
+.alt input[type="range"] { flex:1 1 auto; min-width:40px; accent-color:var(--acc2); height:14px; }
+.alt .v { flex:0 0 auto; font-size:10px; font-variant-numeric:tabular-nums; text-align:right;
+  min-width:52px; color:var(--tx); }
+.alt .v i { display:block; font-style:normal; font-size:8px; color:var(--tx3); }
+#useedit input[type="range"] { accent-color:var(--acc2); vertical-align:middle; }
 </style>
 </head>
 <body>
@@ -503,6 +518,14 @@
           <label>絆<select id="g-bond"></select></label>
         </div>
         <p class="mut tiny" id="build-note"></p>
+      </div></div>
+
+      <div class="pane" id="altpane" hidden><div class="bd">
+        <h2 class="sect"><i></i>倍率の幅
+          <span style="flex:1 1 auto"></span>
+          <span class="mut tiny">条件でダメージが変わるもの</span>
+        </h2>
+        <div id="alts"></div>
       </div></div>
 
       <div class="pane"><div class="bd">
@@ -707,13 +730,16 @@
         （<code>tools/cost-timeline/data.js</code> の <code>xs</code> と同じ採番）。
         ネル（制服）の「怪我しても知らねえからな」は倍率 1983%・46 ヒットで、
         本体の「かかって来いよ」にはダメージがありません</li>
-      <li><b>同じスキルに条件つきのダメージが並ぶとき</b> — <code>Condition</code> の無いものを使い、
-        全部に条件が付いていれば先頭の 1 件だけを使います。<b>足し合わせません。</b>
-        ネル（制服）の通常攻撃は「EX の状態でないとき 100%／であるとき 120%」の 2 件で、
-        足すと 2.2 倍になっていました（2026-09-01 に直しました。全体で 42 件）</li>
+      <li><b>同じスキルに条件つきのダメージが並ぶとき</b> — <code>Condition</code> の無いものは
+        全部足し、<b>条件つきのぶんは「候補」として並べて 1 つだけ使います</b>。
+        どれが当たるかは戦況次第でデータからは決められないので、
+        左の「倍率の幅」のバーで選ぶ形にしました（既定は一番低い倍率）。
+        条件は <code>Condition</code> の原文をそのままバーに添えています。
+        ネル（制服）の「怪我しても知らねえからな」は 1983% から 4334% までの 10 段、
+        通常攻撃は「EX の状態でないとき 100%／であるとき 120%」の 2 段です。
+        <b>足し合わせません</b> — 以前は全部足していて、通常攻撃が 2.2 倍になっていました</li>
       <li><b>まだ入っていないもの</b> — SS のダメージ、遮蔽、
-        キサキ枠（EX スキルダメージ量増加）、条件つきのバフ 30 件、
-        条件で倍率が変わるダメージ（上の 42 件は低いほうを採っています）。
+        キサキ枠（EX スキルダメージ量増加）、条件つきのバフ 30 件。
         EX と NS の 1 発ずつの数字は SchaleDB と突き合わせて合っています</li>
       <li><b>当てにしないでください</b> — 難易度ぶんのビヘイビアツリーが無いボスは Normal の木で埋めています。
         グレゴリオの Lunatic だけは木が無いので出せません</li>
@@ -805,7 +831,9 @@
   // 1 枠。**engine が読む欄（id / ex / sk / w4 / tier / on）を素で持つ**
   function mkSlot() {
     return { id: null, ex: 5, sk: 10, w4: false, tier: [3, 3, 3, 3, 3, 3], on: true,
-             lv: 90, star: 5, eq: 9, wlv: 50, wstar: 3, plv: 10, sslv: 10, gear: 3, bond: 20 };
+             lv: 90, star: 5, eq: 9, wlv: 50, wstar: 3, plv: 10, sslv: 10, gear: 3, bond: 20,
+             // **条件でダメージが変わるスキルの、選んだ候補。**{ スキル枠: 番号 }
+             pk: {} };
   }
   function mkParty() {
     var a = [], i;
@@ -1387,7 +1415,7 @@
             'style="width:120px"></label>';
     }
     $('phases').innerHTML = pf || '<span class="mut" style="font-size:10px">このボスにはフェーズの切り替わりがありません。</span>';
-    drawRate(); drawErr(); kpi(); drawUse();
+    drawRate(); drawErr(); kpi(); drawUse(); drawAlts();
     if (st.pin != null) { movePh(st.pin, true); }
   }
 
@@ -1529,6 +1557,11 @@
     }
     out.push(['w', '通常攻撃は「ずっと撃ち続けられる」前提で数えています。移動・遮蔽・' +
       '射程外・敵の数は入っていないので、そのぶん多めに出ます']);
+    var nalt = altList().length;
+    if (nalt) {
+      out.push(['w', '条件でダメージが変わるスキルが ' + nalt +
+        ' つあります。左の「倍率の幅」のバーで選べます（既定は一番低い倍率）']);
+    }
     out.push(['w', 'SS のダメージ・キサキ枠・条件つきのバフ 30 件はまだ入っていません']);
     $('errlog').innerHTML = out.map(function (x) {
       return '<div class="' + x[0] + '">' + (x[0] === 'g' ? '✔ ' : (x[0] === 'e' ? '✕ ' : '▸ ')) + esc(x[1]) + '</div>';
@@ -1979,13 +2012,72 @@
              damaged: tot('DamagedRatio'), armor: bs.armor, n: db.length };
   }
 
+  // ------------------------------------------------------------ 倍率の幅
+  // **同じスキルに `Condition` 違いのダメージが並ぶことがある。**どれが当たるかは
+  // 戦況次第で、データからは決められない。**推測で決めずに選ばせる**
+  // （2026-09-01 の先生の指示「幅がある場合は、バーで倍率を選択できるように」）
+  function altOf(id, kind) {
+    var a = ((B.dmgalt || {})[id] || {})[kind];
+    return (a && a.v && a.v.length) ? a : null;
+  }
+  // そのスキル枠に効くレベル。**EX と NS と サブは別の欄**
+  function lvlOf(idx, kind) {
+    var sl = st.slots[idx] || {};
+    if (String(kind).indexOf('Ex') === 0) { return sl.ex || 5; }
+    if (kind === 'ExtraPassive') { return sl.sslv || 10; }
+    return sl.sk || 10;
+  }
+  function pickOf(idx, kind) {
+    var sl = idx == null ? null : st.slots[idx];
+    var v = sl && sl.pk ? sl.pk[kind] : 0;
+    var a = sl && sl.id ? altOf(sl.id, kind) : null;
+    if (!a) { return 0; }
+    return Math.max(0, Math.min(+v || 0, a.v.length - 1));
+  }
+  // その候補の実質倍率（1/100 %）。**候補の中のダメージ効果を全部足す。**
+  // `Hits` の配分は合計 10000 なので、足すのは `Scale` だけでいい
+  function altScale(id, kind, i, lv) {
+    var a = altOf(id, kind);
+    if (!a) { return null; }
+    var es = a.v[i] || [], sum = 0, k;
+    if (!es.length) { return null; }
+    for (k = 0; k < es.length; k++) {
+      var arr = es[k][0] || [];
+      sum += arr[Math.min(lv || 1, arr.length) - 1] || 0;
+    }
+    return sum;
+  }
+  // 編成にいる生徒のうち、幅を持つ（生徒, スキル枠）の一覧
+  var ALTK = ['Ex', 'Ex1', 'Ex2', 'Ex3', 'Normal', 'Public', 'GearPublic', 'ExtraPassive'];
+  var ALTJA = { Ex: 'EX', Ex1: 'EX 形態2', Ex2: 'EX 形態3', Ex3: 'EX 形態4',
+                Normal: '通常攻撃', Public: 'ノーマル', GearPublic: 'ノーマル＋',
+                ExtraPassive: 'サブ' };
+  function altList() {
+    var out = [], i, k;
+    for (i = 0; i < SLOTS; i++) {
+      var p = st.party[i];
+      if (!p) { continue; }
+      for (k = 0; k < ALTK.length; k++) {
+        var a = altOf(p.id, ALTK[k]);
+        if (a && a.v.length > 1) { out.push({ i: i, p: p, kind: ALTK[k], a: a }); }
+      }
+    }
+    return out;
+  }
+
   // 1 人の EX スキル 1 回ぶん。会心と乱数の組み合わせで 5 通り返す
   function dmgOf(idx, r, at, kind) {
     var p = st.party[idx];
     if (!p) { return null; }
-    var effs = (B.dmg[p.id] || {})[kind || 'Ex'];
-    if (!effs || !effs.length) { return null; }
-    var lv = slotOf(idx).lv || 90, slv = slotOf(idx).ex || 5, bs = r.bs || {};
+    var kd = kind || 'Ex';
+    var effs = ((B.dmg[p.id] || {})[kd] || []).slice();
+    // **条件でダメージが変わるぶんは、選んだ候補を 1 つだけ足す**（既定は先頭）
+    var alt = altOf(p.id, kd);
+    if (alt) { effs = effs.concat(alt.v[pickOf(idx, kd)] || []); }
+    if (!effs.length) { return null; }
+    var lv = slotOf(idx).lv || 90, bs = r.bs || {};
+    // **スキルの段数はスキルごとに別。**NS を EX のレベルで引くと 5 段目になる
+    var slv = lvlOf(idx, kd);
     var cs = statsOf(p.id, idx, at);
     if (!cs) { return null; }
     var eb = at == null ? { def: bs.def, dodge: bs.dodge, crR: bs.crR, cdR: bs.cdR,
@@ -2348,6 +2440,27 @@
         (b.wstar >= 4 && !isMain(st.who) ? '　固有★4 でコスト上限 +0.5' : '')
       : 'これから編成に入れる子に使う既定です。ここを変えても、いま入っている子は変わりません。';
   }
+  // **バーで倍率を選ぶ。**候補は左が一番低い倍率
+  function drawAlts() {
+    var list = altList(), h = '', i;
+    for (i = 0; i < list.length; i++) {
+      var x = list[i];
+      var pk = pickOf(x.i, x.kind);
+      var sc = altScale(x.p.id, x.kind, pk, lvlOf(x.i, x.kind));
+      var nm = ((B.skname || {})[x.p.id] || {})[x.kind] || (ALTJA[x.kind] || x.kind);
+      h += '<div class="alt" title="' + esc(x.a.c[pk] || '') + '">' +
+        img(x.p.id, 'ic') +
+        '<span class="t"><b>' + esc(x.p.n) + '</b>' +
+        '<span class="g">' + esc(ALTJA[x.kind] || x.kind) + '　' + esc(nm) + '</span></span>' +
+        '<input type="range" min="0" max="' + (x.a.v.length - 1) + '" value="' + pk +
+        '" data-alt="' + x.i + '|' + x.kind + '">' +
+        '<span class="v">' + (sc == null ? '—' : (sc / 100).toFixed(0) + '%') +
+        '<i>' + (pk + 1) + '/' + x.a.v.length + '</i></span></div>';
+    }
+    $('alts').innerHTML = h ||
+      '<p class="mut tiny" style="margin:0">いまの編成には、条件でダメージが変わるスキルはありません。</p>';
+    $('altpane').hidden = false;
+  }
   function fillFilters() {
     var L = S.labels || {}, ro = {}, bu = {}, ar = {}, sc = {}, i;
     for (i = 0; i < S.students.length; i++) {
@@ -2441,6 +2554,19 @@
         (dd ? '<b>' + n0(dd.avg) + '</b>（最小 ' + n0(dd.min) + '／最大 ' + n0(dd.max) +
               '・会心率 ' + (dd.crit * 100).toFixed(1) + '%）'
             : 'この形態にダメージのデータはありません') + '</span>';
+    }
+    if (er) {
+      var ak = exKind(er.fi), aa = altOf(d.id, ak);
+      if (aa && aa.v.length > 1) {
+        var apk = pickOf(u.i, ak), asc = altScale(d.id, ak, apk, lvlOf(u.i, ak));
+        h2 += '<label class="f"><span>倍率の幅</span>' +
+          '<input type="range" min="0" max="' + (aa.v.length - 1) + '" value="' + apk +
+          '" data-alt="' + u.i + '|' + ak + '" style="width:110px">' +
+          '<b style="margin-left:5px">' + (asc == null ? '—' : (asc / 100).toFixed(0) + '%') +
+          '</b><span class="mut" style="margin-left:4px">' + (apk + 1) + '/' + aa.v.length +
+          '</span></label>' +
+          '<span class="mut tiny" title="条件の原文">' + esc(aa.c[apk] || '') + '</span>';
+      }
     }
     var bfs = (er && er.sk && er.sk.bf) || d.bf || [];
     if (bfs.length) {
@@ -2576,6 +2702,19 @@
   $('g-who').addEventListener('change', function () {
     st.who = +this.value; fillBuild(); drawCrew();
   });
+  function onAlt(e) {
+    var r = e.target.closest('input[data-alt]');
+    if (!r) { return; }
+    var q = r.getAttribute('data-alt').split('|'), i = +q[0], kind = q[1];
+    var sl = st.slots[i];
+    if (!sl) { return; }
+    mark();
+    if (!sl.pk) { sl.pk = {}; }
+    sl.pk[kind] = +r.value;
+    bump(); draw();
+  }
+  $('alts').addEventListener('input', onAlt);
+  $('useedit').addEventListener('input', onAlt);
   (function () {
     var KEY = { 'g-lv': 'lv', 'g-star': 'star', 'g-eq': 'eq', 'g-wlv': 'wlv', 'g-wstar': 'wstar',
                 'g-ex': 'ex', 'g-sk': 'sk', 'g-plv': 'plv', 'g-sslv': 'sslv',

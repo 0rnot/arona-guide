@@ -4163,6 +4163,18 @@ TL_FPS = 30.0
 TL_DIFF = ["Normal", "Hard", "VeryHard", "Hardcore", "Extreme", "Insane", "Torment", "Lunatic"]
 
 
+def cond_label(c):
+    """`Condition` を 1 行にする。**訳さない。**データにある欄をそのまま並べる。"""
+    if not isinstance(c, dict):
+        return str(c)
+    out = []
+    for k in ("Type", "Parameter", "Operand", "Value", "Stat", "Target"):
+        v = c.get(k)
+        if v is not None and v != "":
+            out.append(f"{k}={v}")
+    return " ".join(out) or json.dumps(c, ensure_ascii=False)
+
+
 def tl_frames(group, cache):
     """通常スキル 1 発ぶんのフレーム数。引けなければ None。"""
     if group in cache:
@@ -4401,6 +4413,7 @@ def build_tl():
     buf_out, nbuf, nskip, ncond = {}, 0, 0, 0
     na_out, nna = {}, 0
     nform = 0
+    alt_out = {}
     ns_out, nns = {}, 0
     skname = {}
     # 装備。段ごとの効果。**値は SchaleDB と同じく `StatValue[i][1]`（その段の上限レベル）**
@@ -4481,25 +4494,43 @@ def build_tl():
                 _fi += 1
                 skills_map["Ex" + str(_fi)] = _xs
                 nform += 1
-        per_skill, per_buff = {}, {}
+        per_skill, per_buff, per_alt = {}, {}, {}
         for kind, sk in skills_map.items():
             if not isinstance(sk, dict):
                 continue
             # **同じスキルに `Condition` つきのダメージが並ぶことがある。**
             # ネル（制服）の通常攻撃は「EX の状態でないとき 100%／であるとき 120%」の
             # 2 件で、全部足すと 2.2 倍になっていた（2026-09-01 に実物の TL を
-            # 写していて気づいた）。**条件なしを優先し、無ければ先頭 1 件だけ使う。**
-            # 外したぶんは数えて出す。推測で条件を判定しない
+            # 写していて気づいた）。
+            #
+            #   条件なしのぶん → `dmg` に入れて**全部足す**
+            #   条件つきのぶん → `dmgalt` に**候補として並べる**。画面で 1 つ選ぶ
+            #
+            # **推測で条件を判定しない。**条件の中身は原文のまま持って画面にも出す
+            # （2026-09-01 の先生の指示「幅がある場合は、バーで倍率を選択できるように」）
             dmg_all = [e for e in (sk.get("Effects") or [])
                        if str(e.get("Type", "")).startswith("Damage")]
             plain = [e for e in dmg_all if not e.get("Condition")]
-            use = plain if plain else dmg_all[:1]
-            ncond += len(dmg_all) - len(use)
+            cond = [e for e in dmg_all if e.get("Condition")]
             eff = [[e.get("Scale"), e.get("Hits"), e.get("CriticalCheck"), e.get("Block")]
-                   for e in use]
+                   for e in plain]
             if eff:
                 per_skill[kind] = eff
                 ndmg += len(eff)
+            if cond:
+                # **同じ条件のものは 1 つの候補にまとめて足す。**
+                # ネル（制服）の EX は「Ex_01 が無いとき」5 件・「あるとき」5 件で、
+                # 1 発の中で同時に出るぶんは足すのが正しい。**条件をまたいで足さない**
+                order, group = [], {}
+                for e in cond:
+                    lab = cond_label(e.get("Condition"))
+                    if lab not in group:
+                        order.append(lab)
+                        group[lab] = []
+                    group[lab].append([e.get("Scale"), e.get("Hits"),
+                                       e.get("CriticalCheck"), e.get("Block")])
+                per_alt[kind] = {"c": order, "v": [group[l] for l in order]}
+                ncond += len(cond)
             # ---- バフ・デバフ。**`Condition` や `Restrictions` が付くものは飛ばす。**
             # 条件を確かめる術がないので、推測で乗せない（2026-09-01 の判断）
             bl = []
@@ -4525,6 +4556,8 @@ def build_tl():
                 per_buff[kind] = bl
         if per_skill:
             dmg_out[sid] = per_skill
+        if per_alt:
+            alt_out[sid] = per_alt
         if per_buff:
             buf_out[sid] = per_buff
         # ---- 通常攻撃（オートアタック）。**周期は `Skills.Normal.Frames`。**
@@ -4564,7 +4597,8 @@ def build_tl():
             skname[sid] = nm
     print(f"  生徒 {len(st_out)} 人 / ダメージを持つ生徒 {len(dmg_out)} 人・効果 {ndmg} 件")
     print(f"  バフ {nbuf} 件（条件つき・周期ものを {nskip} 件外した）")
-    print(f"  条件つきで重なるダメージ効果を {ncond} 件外した（同じスキルに 2 通り以上あるぶん）")
+    print(f"  条件つきのダメージ {ncond} 件を候補にした（生徒 {len(alt_out)} 人・"
+          f"スキル {sum(len(v) for v in alt_out.values())} 枠）")
     print(f"  通常攻撃（オートアタック）が引けた生徒 {nna} 人 / {len(st_out)} 人")
     print(f"  EX の形態違い {nform} 件（Skills.Ex.ExtraSkills）")
     import collections as _c
@@ -4587,6 +4621,9 @@ def build_tl():
         "statKeys": SD_STAT + ["StabilityRate", "DefensePenetration1",
                                "DefensePenetration100"],
         "dmg": dmg_out,
+        # 条件でダメージが変わるもの。**画面のバーで 1 つ選ぶ。**
+        # `c` は条件の原文、`v[i]` はその候補ぶんの効果（`dmg` と同じ並び）
+        "dmgalt": alt_out,
         "sinfo": sinfo,
         "sinfoKeys": ["BulletType", "ArmorType", "SquadType",
                       "StreetBattleAdaptation", "OutdoorBattleAdaptation",
