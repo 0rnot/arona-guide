@@ -561,6 +561,73 @@
 .tlapp .btn2.sq, .tlapp #b-addparty { padding:0; width:var(--h); min-width:var(--h); }
 .tlapp select, .tlapp input[type="text"], .tlapp input[type="number"] { padding:0 var(--s2); }
 .tlapp .f { gap:2px; }
+
+/* ---- 並んだボタンの形をそろえる（2026-09-01 の先生の指摘
+   「こういうのがキモいって言ってるの」。6人/10人、目標/目標設定、開始スキル）。
+
+   **切り替え（seg・tabs）は 1 つの枠の中で仕切る。**離して置かない。
+   **並ぶボタンは同じ幅にする。**中身の字数で幅が変わるのをやめる。 */
+.tlapp .seg, .tlapp .tabs {
+  display:inline-flex; gap:0; padding:0; overflow:hidden;
+  border:1px solid var(--gb); border-radius:var(--r2); background:rgba(0,0,0,.18);
+}
+.tlapp .seg .btn2, .tlapp .tabs .t {
+  border:0; border-radius:0; background:transparent; min-width:56px;
+  padding:0 var(--s3); color:var(--tx2); box-shadow:none;
+}
+.tlapp .seg .btn2 + .btn2, .tlapp .tabs .t + .t { border-left:1px solid var(--gb); }
+.tlapp .seg .btn2:hover, .tlapp .tabs .t:hover { background:rgba(255,255,255,.06); }
+.tlapp .seg .btn2[aria-pressed="true"], .tlapp .tabs .t.on {
+  background:rgba(47,143,158,.32); color:#eaf7fa; border-color:var(--gb); }
+.tlapp .tabs { margin-bottom:0; }
+
+/* 並ぶボタンは同じ幅。**字数で幅が変わらない** */
+.tlapp .tools2 .r .btn2, .tlapp .brand-btns .btn2 { min-width:76px; }
+.tlapp .tools2 .r .btn2.sq, .tlapp #b-addparty { min-width:var(--h); }
+.tlapp .tabsm .btn2 { min-width:30px; padding:0 var(--s2); }
+
+/* 開始スキル。**5 つを同じ幅で 1 列に。**入れ子の枠をやめる */
+.tlapp .startsk { display:grid; grid-template-columns:auto repeat(5, minmax(0,1fr));
+  gap:var(--s1); align-items:center; }
+.tlapp .startsk .h { font-size:9.5px; color:var(--tx3); white-space:nowrap; }
+.tlapp .startsk .s { display:grid; grid-template-columns:11px minmax(0,1fr); align-items:center;
+  gap:3px; border:0; background:none; padding:0; border-radius:0; height:var(--h); }
+.tlapp .startsk .s b { font-size:9px; color:var(--tx3); font-weight:700; text-align:right; }
+.tlapp .startsk .s select { width:100%; max-width:none; height:var(--h);
+  line-height:calc(var(--h) - 2px); font-size:10px; padding:0 var(--s1);
+  border-radius:var(--r2); border:1px solid var(--gb); background:var(--g2); }
+@media (max-width:1199px) {
+  .tlapp .startsk { grid-template-columns:repeat(3, minmax(0,1fr)); }
+  .tlapp .startsk .h { grid-column:1/-1; }
+}
+
+.tlapp #b-goal { min-width:76px; }
+.tlapp .rate .cell .bar { min-width:56px; }
+
+/* ---- 畳む摘み。**見出しの左肩に置く**（2026-09-01 の先生の指示） */
+.tlapp .fold { width:16px; height:16px; min-width:16px; padding:0; border:0; background:none;
+  cursor:pointer; display:inline-flex; align-items:center; justify-content:center;
+  border-radius:var(--r1); flex:0 0 auto; }
+.tlapp .fold:hover { background:rgba(255,255,255,.09); }
+.tlapp .fold .cv { width:0; height:0; border-left:4px solid transparent;
+  border-right:4px solid transparent; border-top:5px solid var(--tx2);
+  transition:transform .12s; }
+.tlapp .fold[aria-expanded="false"] .cv { transform:rotate(-90deg); }
+.tlapp .pane.folded > .bd > *:not(h2.sect) { display:none; }
+.tlapp .pane.folded h2.sect { margin:0; padding-bottom:0; border-bottom:0; }
+.tlapp .pane.folded > .bd { padding:var(--s1) var(--s3); }
+.tlapp .leftbar { display:flex; align-items:center; gap:var(--s1); padding:0 var(--s1); }
+.tlapp .leftbar .mut { letter-spacing:.14em; font-weight:700; }
+
+/* ---- 概況の帯。**空きを作らない**（2026-09-01 の先生の指摘「余白多すぎ」）。
+   幅いっぱいに引き延ばさず、中身の幅で並べて左に寄せる */
+.tlapp .kpi { grid-template-columns:repeat(5, max-content); column-gap:0;
+  padding:var(--s2) var(--s3); }
+.tlapp .kpi .k:first-child .kv { font-size:21px; }
+.tlapp .kpi .k + .k { margin-left:var(--s3); padding-left:var(--s3); }
+.tlapp .kpi .kl, .tlapp .kpi .ks { white-space:nowrap; }
+.tlapp .kpi .kbar { margin-top:var(--s1); }
+@media (max-width:999px) { .tlapp .kpi { grid-template-columns:repeat(2,minmax(0,1fr)); } }
 </style>
 </head>
 <body>
@@ -651,6 +718,11 @@
 
     <!-- ---------- 左 ---------- -->
     <div class="tlleft" id="tlleft">
+      <div class="leftbar">
+        <button type="button" class="fold" id="b-side" aria-expanded="true"
+                title="左の列を畳む／出す"><span class="cv"></span></button>
+        <span class="mut tiny">組み立て</span>
+      </div>
 
       <div class="pane"><div class="bd">
         <h2 class="sect"><i></i>編成
@@ -757,7 +829,6 @@
           <span style="flex:1 1 auto"></span>
           <button type="button" class="btn2" data-act="export">書き出し</button>
           <button type="button" class="btn2" data-act="import">読み込み</button>
-          <button type="button" class="btn2" id="b-side">左を畳む</button>
         </div>
         <div class="r sub">
           <span class="pill"><b id="o-rec">—</b> コスト回復力</span>
@@ -1233,8 +1304,21 @@
   }
   // ------------------------------------------------------------ エンジンへの入力
   // **画面の状態を tools/tl-engine.js が読む形にするだけ。**式はここに書かない
+  // **固有武器パッシブの「効果時間延長」は `slot.wp` を見ている。**
+  // TL エディタの枠にはその欄が無くて、engine でも画面でも延長が効いていなかった
+  // （2026-09-01。カンナ（水着）のデバフが 20 秒のまま。本当は +19% で 23.8 秒）
+  function wpSlots() {
+    var out = [], i, k;
+    for (i = 0; i < st.slots.length; i++) {
+      var a = st.slots[i], o = {};
+      for (k in a) { if (Object.prototype.hasOwnProperty.call(a, k)) { o[k] = a[k]; } }
+      o.wp = (a.wstar >= 2 && a.wlv > 0) ? (a.plv || 0) : 0;
+      out.push(o);
+    }
+    return out;
+  }
   function engIn(order, span) {
-    var IN = { D: S, mode: st.mode, slots: st.slots, order: order || [], gims: [],
+    var IN = { D: S, mode: st.mode, slots: wpSlots(), order: order || [], gims: [],
                base: S.base, gb: 0, gc: 0, show: { ex: 1, ns: 0, pv: 0 }, span: span || 240 };
     IN.cap = TE.capNow(IN);
     var sb = TE.startBonus(IN);
@@ -1435,19 +1519,26 @@
     side += lbl(H.ps, mini + '<span class="nm">PS</span>');
     cv += lane(H.ps, s2);
 
-    // デバフ数。置いた EX が敵に掛けるバフの、生きている本数を段で描く
+    // デバフ数。**`liveBuffs` と同じ材料から切れ目を作る**（2026-09-01。
+    // それまで EX の本体しか見ておらず、形態違いも通常スキルも数に入らず、
+    // 置いた時刻（実際に出る時刻ではない）で切っていた）
     var dseg = '', cuts = [0], di, dq;
-    for (di = 0; di < st.tl.length; di++) {
-      var du = st.tl[di], dp = st.party[du.i];
+    var dus = usesSorted();
+    for (di = 0; di < dus.length; di++) {
+      var du = dus[di], dp = st.party[du.i];
       if (!dp) { continue; }
-      var dl = (B.buf[dp.id] || {}).Ex || [];
+      var dl = (B.buf[dp.id] || {})[du.k || 'Ex'] || [];
       for (dq = 0; dq < dl.length; dq++) {
         var de = dl[dq], tg2 = de[0] || [], isE = false;
         for (var z3 = 0; z3 < tg2.length; z3++) { if (tg2[z3] === 'Enemy') { isE = true; } }
         if (!isE) { continue; }
         var s0 = du.t + (de[5] || 0) / B.fps;
         cuts.push(s0);
-        if (de[4] != null) { cuts.push(s0 + de[4] / 1000); }
+        if (de[4] != null) {
+          var wsl2 = st.slots[du.i] || {};
+          var wl2 = (wsl2.wstar >= 2 && wsl2.wlv > 0) ? (wsl2.plv || 0) : 0;
+          cuts.push(s0 + TE.extend(stu(dp.id) || {}, { wp: wl2 }, de[4], 'enemy') / 1000);
+        }
       }
     }
     cuts.push(dur);
@@ -2302,7 +2393,15 @@
       var one = isSingle(p.id, kd), pick = one ? buffTo(u) : null;
       for (q = 0; q < list.length; q++) {
         var e = list[q], st0 = u.t + (e[5] || 0) / B.fps;
-        var dur = e[4] == null ? Infinity : e[4] / 1000;
+        // **固有武器パッシブの「効果時間延長」を掛ける**（味方向けは eb、
+        // 敵向けは ed。2026-09-01 に足した）
+        var tg0 = e[0] || [], sd0 = 'ally', z0;
+        for (z0 = 0; z0 < tg0.length; z0++) { if (tg0[z0] === 'Enemy') { sd0 = 'enemy'; } }
+        var wsl = st.slots[u.i] || {};
+        var wlvl = (wsl.wstar >= 2 && wsl.wlv > 0) ? (wsl.plv || 0) : 0;
+        var duMs = e[4] == null ? null
+                 : TE.extend(stu(p.id) || {}, { wp: wlvl }, e[4], sd0);
+        var dur = duMs == null ? Infinity : duMs / 1000;
         if (t < st0 || t >= st0 + dur) { continue; }
         var tg = e[0] || [], hit = false, z;
         for (z = 0; z < tg.length; z++) {
@@ -3097,10 +3196,44 @@
     st.bi = +this.value; st.di = tormentIdx(boss()); fillBoss(); fit();
   });
   $('i-diff').addEventListener('change', function () { st.di = +this.value; fillBoss(); draw(); });
+  // ---- 畳む。**摘みは畳む対象の左肩に付ける**（2026-09-01 の先生の指摘
+  // 「左を畳む が右にあるのキモい／トグルっポイアイコンで全パネル」）
+  function foldKey(el) { return el.getAttribute('data-fold') || ''; }
+  function setFold(pane, on) {
+    pane.classList.toggle('folded', on);
+    var btn = pane.querySelector('h2.sect > .fold');
+    if (btn) { btn.setAttribute('aria-expanded', on ? 'false' : 'true'); }
+    try { localStorage.setItem('tl-fold-' + foldKey(pane), on ? '1' : '0'); } catch (e) { void e; }
+  }
+  // 見出しのあるパネル全部に摘みを足す
+  (function () {
+    var ps = document.querySelectorAll('.tlapp .pane'), i;
+    for (i = 0; i < ps.length; i++) {
+      var h = ps[i].querySelector('h2.sect');
+      if (!h) { continue; }
+      ps[i].setAttribute('data-fold', 'p' + i);
+      var btn = document.createElement('button');
+      btn.type = 'button'; btn.className = 'fold'; btn.setAttribute('aria-expanded', 'true');
+      btn.title = '畳む／出す';
+      btn.innerHTML = '<span class="cv"></span>';
+      h.insertBefore(btn, h.firstChild);
+      var was = null;
+      try { was = localStorage.getItem('tl-fold-p' + i); } catch (e2) { void e2; }
+      if (was === '1') { ps[i].classList.add('folded'); btn.setAttribute('aria-expanded', 'false'); }
+    }
+  })();
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest('h2.sect > .fold');
+    if (!b) { return; }
+    var pane = b.closest('.pane');
+    if (!pane) { return; }
+    setFold(pane, !pane.classList.contains('folded'));
+    setTimeout(fit, 0);
+  });
   $('b-side').addEventListener('click', function () {
     var m = $('tlmain'), on = m.classList.toggle('wide');
     $('tlleft').hidden = on;
-    this.textContent = on ? '左を出す' : '左を畳む';
+    this.setAttribute('aria-expanded', on ? 'false' : 'true');
     setTimeout(fit, 0);
   });
 
