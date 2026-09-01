@@ -4308,6 +4308,8 @@ def build_tl():
             cool[g] = [a, c]
     raids = get_json(SD.format("raids"))
     rsk = raids.get("RaidSkills") or {}
+    # ステータスの日本語名。**画面で「誰の何のバフか」を出すのに使う**（2026-09-01）
+    stat_ja = get_json(SD.format("localization")).get("Stat") or {}
     # ---- ダメージ計算に要る表。**どれも DB/ の実物から取る**（2026-09-01）
     ch_all = {r["Id"]: r for r in as_list(get_json(BADB.format("CharacterExcelTable")))}
     # 特効（弾種 × 装甲）。DamageFactorGroupId は "default" だけ
@@ -4380,6 +4382,10 @@ def build_tl():
             got["ext"] = sg.get("ext") or "Base"
             got["bs"] = {
                 "armor": cr.get("ArmorType"), "bullet": cr.get("BulletType"),
+                # **`Size` はバフの `Restrictions` が見る**（ツクヨ・ミネ）。
+                # 2026-09-01 に足した
+                "size": cr.get("Size"),
+                "groggy": sr.get("GroggyGauge"), "groggyT": sr.get("GroggyTime"),
                 "hp": sr.get("MaxHP1"), "atk": sr.get("AttackPower1"),
                 "def": sr.get("DefensePower1"),
                 "defpr": sr.get("DefensePenetrationResist1") or 0,
@@ -4410,12 +4416,13 @@ def build_tl():
     ADAPT = ["D", "C", "B", "A", "S", "SS"]
     stu = as_list(get_json(SD.format("students")))
     st_out, dmg_out, ndmg, sinfo, build = {}, {}, 0, {}, {}
-    buf_out, nbuf, nskip, ncond = {}, 0, 0, 0
+    buf_out, nbuf, nskip, ncond, nrst = {}, 0, 0, 0, 0
     na_out, nna = {}, 0
     nform = 0
     alt_out = {}
     ns_out, nns = {}, 0
     skname = {}
+    tgt_out = {}
     # 装備。段ごとの効果。**値は SchaleDB と同じく `StatValue[i][1]`（その段の上限レベル）**
     eqp_out = {}
     for e in as_list(get_json(SD.format("equipment"))):
@@ -4512,8 +4519,17 @@ def build_tl():
                        if str(e.get("Type", "")).startswith("Damage")]
             plain = [e for e in dmg_all if not e.get("Condition")]
             cond = [e for e in dmg_all if e.get("Condition")]
-            eff = [[e.get("Scale"), e.get("Hits"), e.get("CriticalCheck"), e.get("Block")]
-                   for e in plain]
+            def _row(e):
+                # **6〜8 番目は 2026-09-01 に足した。**
+                #   Period/Duration … `DamageDebuff` は継続ダメージ。
+                #     `Duration / Period` 回ぶん出る。1 回ぶんしか数えていなくて、
+                #     ヒビキ（応援団）で 30 分の 1 になっていた
+                #   IgnoreDef … 防御無視。写し元の
+                #     `getDefenseDamageReductionMod(base, rate)` の第 2 引数
+                return [e.get("Scale"), e.get("Hits"), e.get("CriticalCheck"),
+                        e.get("Block"), e.get("Period"), e.get("Duration"),
+                        e.get("IgnoreDef")]
+            eff = [_row(e) for e in plain]
             if eff:
                 per_skill[kind] = eff
                 ndmg += len(eff)
@@ -4527,17 +4543,23 @@ def build_tl():
                     if lab not in group:
                         order.append(lab)
                         group[lab] = []
-                    group[lab].append([e.get("Scale"), e.get("Hits"),
-                                       e.get("CriticalCheck"), e.get("Block")])
+                    group[lab].append(_row(e))
                 per_alt[kind] = {"c": order, "v": [group[l] for l in order]}
                 ncond += len(cond)
-            # ---- バフ・デバフ。**`Condition` や `Restrictions` が付くものは飛ばす。**
-            # 条件を確かめる術がないので、推測で乗せない（2026-09-01 の判断）
+            # ---- バフ・デバフ。
+            # **`Restrictions` は飛ばさない。**中身は「相手の Id / Size /
+            # BulletType / ArmorType / TacticRole がこうなら乗る」という条件で、
+            # **どれも手元のデータで判定できる**（2026-09-01 に 30 件すべてを
+            # 目で確かめた。イブキ（水着）の「アタッカーの味方に会心ダメージ」も
+            # これで、飛ばしていたぶんそのまま損をしていた）。7 番目に原文を
+            # そのまま渡して、画面側で当てはめる。
+            # **`Condition` と `Period` は今までどおり飛ばす。**こちらは戦闘中の
+            # 状態（HP・スタック・経過）で、データからは決められない
             bl = []
             for e in (sk.get("Effects") or []):
                 if e.get("Type") != "Buff" or not e.get("Stat"):
                     continue
-                if e.get("Condition") or e.get("Restrictions") or e.get("Period"):
+                if e.get("Condition") or e.get("Period"):
                     nskip += 1
                     continue
                 v = e.get("Value") or []
@@ -4549,8 +4571,14 @@ def build_tl():
                 tg = e.get("Target") or []
                 if isinstance(tg, str):
                     tg = [tg]
-                bl.append([tg, e["Stat"], e.get("Channel"),
-                           v[0], e.get("Duration"), e.get("ApplyFrame") or 0])
+                row = [tg, e["Stat"], e.get("Channel"),
+                       v[0], e.get("Duration"), e.get("ApplyFrame") or 0]
+                rs = e.get("Restrictions")
+                if rs:
+                    row.append([[r.get("Property"), r.get("Operand"), r.get("Value")]
+                                for r in rs])
+                    nrst += 1
+                bl.append(row)
                 nbuf += 1
             if bl:
                 per_buff[kind] = bl
@@ -4595,12 +4623,37 @@ def build_tl():
                 nm[kind] = sk2["Name"]
         if nm:
             skname[sid] = nm
+        # **「味方 N 人」は説明文にしか無い。**`Effects[].Target` は
+        # `AllyMain` / `AllySupport` としか書いておらず、**何人に当たるかも、
+        # 自分を含むかも入っていない**（2026-09-01 に `students.min.json` を
+        # 直接見て確かめた）。SchaleDB の画面もこの説明文を出している。
+        # ここで拾うのは 2 つだけで、**訳さず、数だけ取る**。
+        #   tg … 「味方 N 人」の N。書いていなければ None（範囲・全体・自分だけ）
+        #   sx … 「自身を除く」と書いてあれば 1
+        # 画面はこれを見て、1 人だけのものに「渡す相手」を選ばせる
+        tg = {}
+        for kind, sk2 in skills_map.items():
+            if not isinstance(sk2, dict):
+                continue
+            ds = sk2.get("Desc") or ""
+            eff2 = sk2.get("Effects") or []
+            if not any(t in ("AllyMain", "AllySupport")
+                       for e in eff2 for t in (e.get("Target") or [])):
+                continue
+            m = re.search(r"味方(\d+)人", ds)
+            tg[kind] = [int(m.group(1)) if m else None, 1 if "自身を除" in ds else 0]
+        if tg:
+            tgt_out[sid] = tg
     print(f"  生徒 {len(st_out)} 人 / ダメージを持つ生徒 {len(dmg_out)} 人・効果 {ndmg} 件")
-    print(f"  バフ {nbuf} 件（条件つき・周期ものを {nskip} 件外した）")
+    print(f"  バフ {nbuf} 件（条件つき・周期ものを {nskip} 件外した／"
+          f"相手の条件つき {nrst} 件は判定して乗せる）")
     print(f"  条件つきのダメージ {ncond} 件を候補にした（生徒 {len(alt_out)} 人・"
           f"スキル {sum(len(v) for v in alt_out.values())} 枠）")
     print(f"  通常攻撃（オートアタック）が引けた生徒 {nna} 人 / {len(st_out)} 人")
     print(f"  EX の形態違い {nform} 件（Skills.Ex.ExtraSkills）")
+    _one = sum(1 for v in tgt_out.values() for r in v.values() if r[0] == 1)
+    print(f"  味方に効くスキル {sum(len(v) for v in tgt_out.values())} 枠 / "
+          f"うち「味方1人」が {_one} 枠（説明文から）")
     import collections as _c
     print("  NS の自動発動 " + str(nns) + " 件 / 内訳 "
           + str(_c.Counter(v[1] for l in ns_out.values() for v in l).most_common()))
@@ -4621,6 +4674,8 @@ def build_tl():
         "statKeys": SD_STAT + ["StabilityRate", "DefensePenetration1",
                                "DefensePenetration100"],
         "dmg": dmg_out,
+        "dmgKeys": ["Scale", "Hits", "CriticalCheck", "Block", "Period",
+                    "Duration", "IgnoreDef"],
         # 条件でダメージが変わるもの。**画面のバーで 1 つ選ぶ。**
         # `c` は条件の原文、`v[i]` はその候補ぶんの効果（`dmg` と同じ並び）
         "dmgalt": alt_out,
@@ -4630,12 +4685,13 @@ def build_tl():
                       "IndoorBattleAdaptation"],
         "bam": bam, "ter": ter, "trans": trans,
         "build": build, "eqp": eqp_out, "buf": buf_out,
-        "ns": ns_out, "skname": skname,
+        "ns": ns_out, "skname": skname, "tgt": tgt_out, "statJA": stat_ja,
         # 通常攻撃。**フレームは 30fps。`spd` は 10000 が等倍**
         "na": na_out,
         "nsKeys": ["MinimumTierCharacterGear", "ConditionType",
                    "ConditionArgument(フレーム)", "Duration(フレーム)"],
-        "bufKeys": ["Target", "Stat", "Channel", "Value", "Duration", "ApplyFrame"],
+        "bufKeys": ["Target", "Stat", "Channel", "Value", "Duration", "ApplyFrame",
+                    "Restrictions([Property,Operand,Value])"],
         # 星の伸び。SchaleDB の CharacterStats の既定値（生徒別の Transcendence は
         # jp のデータに 1 件も無いことを 2026-09-01 に確かめた）
         "tc": [[0, 1000, 1200, 1400, 1700], [0, 500, 700, 900, 1400],

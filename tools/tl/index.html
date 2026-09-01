@@ -327,8 +327,14 @@
 .picker button.pk { position:relative; }
 .picker button.pk::before { content:''; position:absolute; left:0; top:0; width:3px; height:100%;
   border-radius:5px 0 0 5px; }
-.picker button.pk.m::before { background:var(--acc2); }
-.picker button.pk.s::before { background:var(--teal); }
+/* **左の帯は攻撃タイプ。**配置（ストライカー／スペシャル）は詳細フィルターへ移した
+   （2026-09-01 の先生の指示）。色は SchaleDB の攻撃タイプの並びに合わせている */
+.picker button.pk.bt-Explosion::before { background:#d64f3f; }
+.picker button.pk.bt-Pierce::before    { background:#d9a63c; }
+.picker button.pk.bt-Mystic::before    { background:#4a83cf; }
+.picker button.pk.bt-Sonic::before     { background:#a869d4; }
+.picker button.pk.bt-Normal::before    { background:#8d99a8; }
+.picker button.pk.bt-Chemical::before  { background:#48b58c; }
 .picker .cst { position:absolute; right:1px; top:1px; font-size:8px; padding:0 2px;
   border-radius:2px; background:rgba(0,0,0,.6); color:#e6ecf3; }
 
@@ -387,6 +393,20 @@
   min-width:52px; color:var(--tx); }
 .alt .v i { display:block; font-style:normal; font-size:8px; color:var(--tx3); }
 #useedit input[type="range"] { accent-color:var(--acc2); vertical-align:middle; }
+
+/* ---------- 上の帯。**この画面では細くする。**
+   タイムラインは縦がすべてなので、本編の 48px を 26px まで詰める
+   （2026-09-01 の先生の指摘「こうなってくるとヘッダーじゃまだな」）。
+   リンクは「ツール一覧」と「共有」だけ残す。 */
+.topbar { z-index:40; backdrop-filter:none; background:#0a0e18;
+  border-bottom:1px solid var(--ln); }
+.topbar-inner { max-width:none; padding:0 10px; gap:8px; height:26px; }
+.topbar-name { font-size:11px; font-weight:700; color:var(--tx2); }
+.topbar-name:hover { color:var(--tx); }
+.topbar-tools { margin-left:8px; padding:1px 8px; font-size:10px; gap:4px; }
+.topbar-tools svg { width:10px; height:10px; }
+.topbar .share { padding:1px 9px; font-size:10px; gap:4px; }
+.topbar .share-icon { width:10px; height:10px; }
 </style>
 </head>
 <body>
@@ -400,14 +420,8 @@
       </svg>
       ツール一覧
     </a>
-    <nav class="topbar-nav">
-      <a href="../../#can">機能</a>
-      <a href="../../#start">つかいはじめる</a>
-      <a href="../../#message">メッセージから</a>
-      <a href="../../#faq">よくある質問</a>
-    </nav>
-    <!-- 共有。**AronaBot 本体と同じ位置に置く。**押した先は環境で変える -->
-    <span class="share-nudge" aria-hidden="true">使えそうな人に、ぜひ</span>
+    <!-- **本編のナビと煽り文はこの画面には出さない。**タイムラインの縦を
+         1 ミリでも広く使いたい（2026-09-01 の先生の指摘「ヘッダーじゃまだな」） -->
     <a class="share" id="share-page" target="_blank" rel="noopener" aria-label="このページを共有する"
        href="https://x.com/intent/post?url=https%3A%2F%2Farona-bot.com%2Ftools%2F">
       <svg class="share-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -518,6 +532,14 @@
           <label>絆<select id="g-bond"></select></label>
         </div>
         <p class="mut tiny" id="build-note"></p>
+      </div></div>
+
+      <div class="pane" id="nstopane" hidden><div class="bd">
+        <h2 class="sect"><i></i>バフを渡す相手
+          <span style="flex:1 1 auto"></span>
+          <span class="mut tiny">通常スキルが「味方1人」の子</span>
+        </h2>
+        <div id="nstos"></div>
       </div></div>
 
       <div class="pane" id="altpane" hidden><div class="bd">
@@ -668,7 +690,25 @@
         <code>getHitChance</code> ／ <code>getStabilityMinDamageMod</code> ／
         <code>getEffectiveMod</code> ／ <code>interpolateStat</code>）を写しています。
         <b>式は自前で作っていません。</b>日本語の解説は
-        <a href="https://zenn.dev/1m_lcei/books/b380b976c908d9" target="_blank" rel="noopener">けーさんの本</a>です</li>
+        <a href="https://zenn.dev/1m_lcei/books/b380b976c908d9" target="_blank" rel="noopener">けーさんの本</a>です。
+        <b>SchaleDB は 1 発ぶんの表示なので、TL の合計に要る倍率が 3 つ足りません。</b>
+        そこはこの本の章立てに合わせて足しました（2026-09-01）
+        <ul>
+          <li><b>与ダメージ倍率は A 枠と B 枠の 2 つ</b>（13 章）。それぞれ
+            <code>(10000 ＋ 与ダメージ増加 − 被ダメージ減少) ÷ 10000</code> で、
+            A が敵側（<code>DamageRatio</code> ／ <code>DamagedRatio</code>）、
+            B が味方側（<code>DamageRatio2</code> ／ <code>DamagedRatio2</code>）です</li>
+          <li><b>EX スキルダメージ倍率</b>（14 章）＝ <code>EnhanceExDamageRate ÷ 10000</code>。
+            通称キサキ枠で、<b>EX 由来のダメージにだけ</b>掛かります。
+            セイア（水着）・ニコ・ココロも同じ枠です</li>
+          <li><b>継続ダメージ</b>（<code>DamageDebuff</code>）は
+            <code>Duration ÷ Period</code> 回ぶん出ます。<code>Period</code> はどれも 4 秒で、
+            <code>Duration</code> は 16〜120 秒。<b>戦闘の終わりで打ち切ります</b></li>
+          <li><b>防御無視</b>（<code>IgnoreDef</code>、28 件）は
+            <code>getDefenseDamageReductionMod</code> の第 2 引数として渡します</li>
+        </ul>
+        <b>通常攻撃側の <code>EnhanceBasicsDamageRate</code> だけは、本に章がありません。</b>
+        EX 枠と同じ形として通常攻撃に掛けています。ここだけこちらの当てはめです</li>
       <li><b>特効（弾種 × 装甲）</b> — <code>DB/BulletArmorDamageFactorExcelTable.json</code>。
         貫通 → 重装甲が 20000（＝200%）、貫通 → 軽装甲が 5000（＝50%）</li>
       <li><b>地形</b> — <code>DB/TerrainAdaptationFactorExcelTable.json</code> の
@@ -686,8 +726,13 @@
       <li><b>常時のパッシブ</b> — パッシブと固有武器パッシブ（固有武器★2 以上）を乗せています。
         同じ（スキルの枠, <code>Channel</code>）が 2 回来たら先に来たほうが勝つ、という
         SchaleDB の扱い（<code>common.js</code> 7723 行）に合わせました。
-        <code>Condition</code> や <code>Restrictions</code> が付く 30 件は
-        <b>条件を確かめる術がないので乗せていません</b>。
+        <code>Restrictions</code> が付く 30 件は<b>判定して乗せています</b>。
+        中身は「相手の <code>Id</code> ／ <code>Size</code> ／ <code>BulletType</code> ／
+        <code>ArmorType</code> ／ <code>TacticRole</code> がこうなら乗る」で、
+        どれも手元のデータで決まります（イブキ（水着）の
+        「アタッカーの味方に会心ダメージ増加」がこれです）。
+        <code>Condition</code>（戦闘中の状態）と <code>Period</code> が付くバフは、
+        いまも乗せていません。
         弱点を突いたときだけ乗る「◯◯特効増加」も入れています</li>
       <li><b>確かめ方</b> — SchaleDB の <code>common.js</code> から
         <code>CharacterStats</code> ／ <code>MathHelper</code> ／ <code>getBondStats</code> を
@@ -738,8 +783,18 @@
         ネル（制服）の「怪我しても知らねえからな」は 1983% から 4334% までの 10 段、
         通常攻撃は「EX の状態でないとき 100%／であるとき 120%」の 2 段です。
         <b>足し合わせません</b> — 以前は全部足していて、通常攻撃が 2.2 倍になっていました</li>
+      <li><b>「味方1人」のスキル</b> — <b>何人に当たるかは説明文にしか書いていません。</b>
+        <code>Effects[].Target</code> は <code>AllyMain</code> ／ <code>AllySupport</code>
+        としか持っておらず、人数も「自分を含むか」も入っていません（2026-09-01 に
+        <code>students.min.json</code> を直接見て確かめました）。SchaleDB の画面も
+        この説明文を出しています。そこで説明文から「味方◯人」と「自身を除く」だけを
+        拾って、<b>1 人のものは渡す相手を選ばせています</b>（EX は帯をクリック、
+        通常スキルは左の「バフを渡す相手」）。<b>選ぶまでは誰にも乗りません。</b>
+        全部で 51 枠（EX 21・通常スキル 30）あります</li>
       <li><b>まだ入っていないもの</b> — SS のダメージ、遮蔽、
-        キサキ枠（EX スキルダメージ量増加）、条件つきのバフ 30 件。
+        <b>グロッキー中の被ダメージ増加</b>。グロッキーはゲージ量（ビナー Torment は
+        6,500,000）と時間（10 秒）まではデータにありますが、
+        <b>増加率の出どころが見つかっていません。</b>
         EX と NS の 1 発ずつの数字は SchaleDB と突き合わせて合っています</li>
       <li><b>当てにしないでください</b> — 難易度ぶんのビヘイビアツリーが無いボスは Normal の木で埋めています。
         グレゴリオの Lunatic だけは木が無いので出せません</li>
@@ -814,9 +869,6 @@
   // レーンの高さ。**詰めて置く**（2026-09-01 の先生の指示「UI はツメツメでいい」）
   var H = { axis: 18, name: 16, ex: 16, ps: 16, dbf: 13, rec: 52, cost: 58, row: 16,
             na: 14, ss: 18 };
-  var REC_DELAY = 2;      // ConstCombat の PlayerRegenCostDelay = 2000ms
-  var PER_MEMBER = 700;   // RegenCost。6 人で 4200
-  var CAP = 10;           // ConstCombat の EchelonMaxCommonCost
 
   // ------------------------------------------------------------ 枠とパーティー
   // **コストの計算は tools/tl-engine.js に全部ある。**ここでは持たない。
@@ -832,6 +884,8 @@
   function mkSlot() {
     return { id: null, ex: 5, sk: 10, w4: false, tier: [3, 3, 3, 3, 3, 3], on: true,
              lv: 90, star: 5, eq: 9, wlv: 50, wstar: 3, plv: 10, sslv: 10, gear: 3, bond: 20,
+             // **通常スキルが「味方1人」のとき、その渡し先。**null なら誰にも乗らない
+             nsto: null,
              // **条件でダメージが変わるスキルの、選んだ候補。**{ スキル枠: 番号 }
              pk: {} };
   }
@@ -1033,6 +1087,8 @@
   function ordRow(u, t) {
     return { i: u.i, t: t, to: u.to == null ? null : u.to, ov: u.ov == null ? null : u.ov,
              f: u.f == null ? null : u.f, bt: u.bt == null ? null : u.bt,
+             // **engine は使わないが、画面が「渡し先」を引くのに要る**
+             bto: u.bto == null ? null : u.bto,
              _ix: st.tl.indexOf(u) };
   }
   // コストが target に届く最初の時刻。**after より後ろだけ見る。**
@@ -1085,12 +1141,18 @@
   // 11 発中 8 発が後ろにずれていた
   function kindOf(row) {
     if (!row || !row.why) { return ''; }
-    return row.why.indexOf('上限') >= 0 ? 'over' : 'cost';
+    if (row.why.indexOf('上限') >= 0) { return 'over'; }
+    // **同じ子が演出中で撃てない**（2026-09-01 に engine へ入れた枠ごとの待ち）
+    if (row.why.indexOf('演出') >= 0) { return 'busy'; }
+    return 'cost';
   }
   function whyOf(row) {
     var k = kindOf(row);
     if (!k) { return ''; }
     if (k === 'over') { return 'コストの上限を超えていて撃てません'; }
+    if (k === 'busy') {
+      return 'この子がまだ前のスキルの演出中なので、実際に出るのは ' + TE.n1(row.at) + ' 秒';
+    }
     return 'コストが足りず、実際に出るのは ' + TE.n1(row.at) + ' 秒';
   }
   var _simC = null, _simK = '';
@@ -1168,9 +1230,9 @@
     function lbl(hh, html, cls) {
       return '<div class="lb' + (cls ? ' ' + cls : '') + '" style="height:' + hh + 'px">' + html + '</div>';
     }
-    var mini = '<button type="button" class="mb" tabindex="-1" title="コピー">C</button>' +
-               '<button type="button" class="mb" tabindex="-1" title="詳細">詳細</button>' +
-               '<button type="button" class="mb" tabindex="-1" title="固定">\u{1F512}</button>';
+    // **押せるものだけ置く。**C・詳細・鍵は聞き手がいないボタンだった
+    // （2026-09-01 に外した）
+    var mini = '';
 
     side += lbl(H.axis, '<b>時間軸</b>');
     cv += '<div class="ln axis" style="height:' + H.axis + 'px;width:' + W + 'px">' + ticks(dur, px) + '</div>';
@@ -1254,7 +1316,9 @@
     recPts.push([dur, recPts[recPts.length - 1][1]]);
     var ymax = Math.max(8000, Math.ceil(recMax / 2000) * 2000 + 2000);
     var recNow = recPts[recPts.length - 1][1];
-    side += lbl(H.rec, '<b>回復力</b><span class="mb">最大 ' + recMax + '</span>');
+    side += lbl(H.rec, '<b title="戦闘開始から ' + TE.REC_DELAY +
+      ' 秒はコストが貯まりません（Excel/ConstCombatExcelTable の PlayerRegenCostDelay）。' +
+      'そのあいだレーンは 0 です">回復力</b><span class="mb">最大 ' + recMax + '</span>');
     cv += lane(H.rec,
       '<svg class="plot" viewBox="0 0 ' + W + ' ' + H.rec + '" preserveAspectRatio="none">' +
       '<polyline class="rec0" points="' + poly([[0, rec], [dur, rec]], px, H.rec, ymax, 8) + '"/>' +
@@ -1324,7 +1388,7 @@
       cv += lane(H.row, sb, 'alt exlane" data-mem="' + i + '');
       var nb = '', nsn = p ? nsInfo(p.id) : null;
       if (p && nsn) {
-        var nts = nsTimes(p.id, dur), nw = Math.max(10, nsDur(p.id) / B.fps * px);
+        var nts = nsTimes(p.id, dur, i), nw = Math.max(10, nsDur(p.id) / B.fps * px);
         var nsk = nsKind(p.id), hasD = !!(B.dmg[p.id] || {})[nsk];
         for (var nq = 0; nq < nts.length; nq++) {
           nb += '<div class="b ns' + (hasD ? '' : ' flat') + '" style="left:' +
@@ -1415,7 +1479,7 @@
             'style="width:120px"></label>';
     }
     $('phases').innerHTML = pf || '<span class="mut" style="font-size:10px">このボスにはフェーズの切り替わりがありません。</span>';
-    drawRate(); drawErr(); kpi(); drawUse(); drawAlts();
+    drawRate(); drawErr(); kpi(); drawUse(); drawAlts(); drawNsTo();
     if (st.pin != null) { movePh(st.pin, true); }
   }
 
@@ -1445,7 +1509,8 @@
         h += cell(v ? ve / v : 0, n0(ve));
         h += cell(v ? vn / v : 0, n0(vn));
         h += cell(v ? va / v : 0, n0(va));
-        h += cell(0, '0');
+        // **SS のダメージはまだ入れていない。**0 と書くと「0 ダメージ」に見える
+        h += cell(0, '—');
       } else {
         var rate = goal ? v / goal : 0;
         h += cell(Math.max(0, goal - v) / (goal || 1), n0(Math.max(0, goal - v)));
@@ -1475,7 +1540,8 @@
 
   function kpi() {
     var r = diff(), hp = (r.bs && r.bs.hp) || 0, t = total(r), run = costRun(r.dur || 240);
-    var v = t.avg, pct = hp ? Math.min(100, v / hp * 100) : 0;
+    // **100% で止めるのは棒だけ。**数字は本当の値を出す（超えたら倒しきれる）
+    var v = t.avg, real = hp ? v / hp * 100 : 0, pct = Math.min(100, real);
     function box(lbl2, val, sub) {
       return '<div class="k"><span class="kl">' + lbl2 + '</span><b class="kv">' + val + '</b>' +
              (sub ? '<span class="ks">' + sub + '</span>' : '') + '</div>';
@@ -1483,7 +1549,8 @@
     $('kpi').innerHTML =
       box('与ダメージ（平均）', t.n ? n0(v) : '—',
           'EX ' + t.ex.n + '・NS ' + t.ns.n + '・通常 ' + t.na.n + ' 発') +
-      box('ボス HP に対して', hp ? pct.toFixed(1) + '%' : '—', hp ? n0(hp) : '—') +
+      box('ボス HP に対して', hp ? real.toFixed(1) + '%' : '—',
+          hp ? (real >= 100 ? '倒しきれます（HP ' + n0(hp) + '）' : n0(hp)) : '—') +
       box('置いた EX', st.tl.length + ' 発',
           run.bad.length ? run.bad.length + ' 発がコスト不足でずれます' : '詰まりなし') +
       box('終わりのコスト', run.end.toFixed(2), '上限 ' + run.cap.toFixed(1)) +
@@ -1557,12 +1624,26 @@
     }
     out.push(['w', '通常攻撃は「ずっと撃ち続けられる」前提で数えています。移動・遮蔽・' +
       '射程外・敵の数は入っていないので、そのぶん多めに出ます']);
+    // **「味方1人」の渡し先が決まっていないものを名指しする**（2026-09-01）
+    for (var s1 = 0; s1 < run.sim.rows.length; s1++) {
+      var sr0 = run.sim.rows[s1];
+      if (!sr0.d || sr0.at == null || sr0.e.bto != null) { continue; }
+      if (!isSingle(sr0.d.id, exKind(sr0.fi))) { continue; }
+      out.push(['w', sr0.d.n + ' ' + (sr0.e.t == null ? '' : sr0.e.t.toFixed(2) + '秒') +
+        '：バフを渡す相手が決まっていません（帯をクリックして選びます）']);
+    }
+    for (var s2 = 0; s2 < SLOTS; s2++) {
+      var np = st.party[s2];
+      if (!np || st.slots[s2].nsto != null) { continue; }
+      if (!isSingle(np.id, 'Public') && !isSingle(np.id, 'GearPublic')) { continue; }
+      out.push(['w', np.n + '：通常スキルのバフを渡す相手が決まっていません（左の「バフを渡す相手」で選びます）']);
+    }
     var nalt = altList().length;
     if (nalt) {
       out.push(['w', '条件でダメージが変わるスキルが ' + nalt +
         ' つあります。左の「倍率の幅」のバーで選べます（既定は一番低い倍率）']);
     }
-    out.push(['w', 'SS のダメージ・キサキ枠・条件つきのバフ 30 件はまだ入っていません']);
+    out.push(['w', 'SS のダメージ・遮蔽・グロッキー中の被ダメージ増加はまだ入っていません']);
     $('errlog').innerHTML = out.map(function (x) {
       return '<div class="' + x[0] + '">' + (x[0] === 'g' ? '✔ ' : (x[0] === 'e' ? '✕ ' : '▸ ')) + esc(x[1]) + '</div>';
     }).join('');
@@ -1622,7 +1703,10 @@
     for (i = 0; i < flat.length; i++) { set(flat[i], a[SK[flat[i]]]); }
     // 特効増加・与ダメージ・被ダメージは 10000 が既定（SchaleDB の CharacterStats と同じ）
     var base1 = ['EnhanceExplosionRate', 'EnhancePierceRate', 'EnhanceMysticRate',
-                 'EnhanceSonicRate', 'DamageRatio', 'AttackSpeed'];
+                 'EnhanceSonicRate', 'DamageRatio', 'AttackSpeed',
+                 // 2026-09-01 に足した。EX スキルダメージ倍率（キサキ枠）と
+                 // 与ダメージ倍率の B 枠。どちらも 10000 が既定
+                 'DamageRatio2', 'EnhanceExDamageRate', 'EnhanceBasicsDamageRate'];
     for (i = 0; i < base1.length; i++) { set(base1[i], 10000); }
     // 装備 3 枠
     for (i = 0; i < (bd.eqp || []).length; i++) {
@@ -1739,7 +1823,9 @@
   function statsOf(id, idx, at) {
     var o = buildOpt(idx);
     o.extra = idx == null ? [] : passiveFor(idx);
-    if (idx != null && at != null) { o.extra = o.extra.concat(liveBuffs(at, 'ally' + idx)); }
+    if (idx != null && at != null) {
+      o.extra = o.extra.concat(liveBuffs(at, 'ally' + idx, diff()));
+    }
     var k = id + '|' + idx + '|' + at + '|' + JSON.stringify(o);
     if (!_sc[k]) { _sc[k] = mkStats(id, o); }
     return _sc[k];
@@ -1832,11 +1918,27 @@
     if (n && n.cond) { return '引き金つき（' + n.cond + '）なので時刻が決まりません'; }
     return '発動間隔が読めませんでした';
   }
-  function nsTimes(id, dur) {
+  // **EX と NS は同時に出せない**（2026-09-01 の先生の指摘）。1 人が 2 つの
+  // スキルを同時には出せないので、その子が EX の演出中に来た NS は演出明けへ送る。
+  // **周期そのものはずらさない**（次の発動は元の時計から数える）
+  function nsTimes(id, dur, idx) {
     var n = nsInfo(id), out = [], t;
     if (!n) { return out; }
-    if (n.iv <= 0) { return n.st <= dur ? [n.st] : []; }
-    for (t = n.st; t <= dur; t += n.iv) { out.push(+t.toFixed(4)); }
+    var busy = idx == null ? [] : busyOf(idx);
+    function push(x) {
+      var q, y = x, guard = 0;
+      while (guard++ < 20) {
+        var hit = null;
+        for (q = 0; q < busy.length; q++) {
+          if (y >= busy[q][0] - 1e-9 && y < busy[q][1] - 1e-9) { hit = busy[q][1]; }
+        }
+        if (hit == null) { break; }
+        y = hit;
+      }
+      if (y <= dur) { out.push(+y.toFixed(4)); }
+    }
+    if (n.iv <= 0) { if (n.st <= dur) { push(n.st); } return out; }
+    for (t = n.st; t <= dur; t += n.iv) { push(t); }
     return out;
   }
   function nsDur(id) {
@@ -1940,24 +2042,92 @@
       var r0 = rowOf[i];
       out.push({ i: st.tl[i].i,
                  t: (r0 && r0.at != null) ? r0.at : st.tl[i].t,
-                 k: exKind(r0 ? r0.fi : 0) });
+                 k: exKind(r0 ? r0.fi : 0), bto: st.tl[i].bto });
     }
     var dur = diff().dur || 240;
     for (i = 0; i < SLOTS; i++) {
       var p = st.party[i];
       if (!p) { continue; }
-      var ts = nsTimes(p.id, dur), kd = nsKind(p.id);
+      var ts = nsTimes(p.id, dur, i), kd = nsKind(p.id);
       for (k = 0; k < ts.length; k++) { out.push({ i: i, t: ts[k], k: kd }); }
     }
     return out.sort(function (a, b) { return a.t - b.t; });
   }
+  // ステータスの日本語名（SchaleDB の localization の `Stat`）と、その増減の書き方
+  function statJA(k) {
+    var q = String(k).split('_');
+    return (B.statJA || {})[q[0]] || q[0];
+  }
+  function statAmt(k, v) {
+    var q = String(k).split('_');
+    if (q[1] === 'Coefficient') { return (v >= 0 ? '+' : '') + (v / 100).toFixed(1) + '%'; }
+    return (v >= 0 ? '+' : '') + Math.round(v);
+  }
+
+  // ------------------------------------------------------------ 「味方1人」
+  // **何人に当たるかは説明文にしか無い。**`Effects[].Target` は `AllyMain` /
+  // `AllySupport` としか書いておらず、人数も「自分を含むか」も入っていない
+  // （2026-09-01 に `students.min.json` を直接見て確かめた）。builder が
+  // 説明文から `tgt[生徒][枠] = [人数, 自身を除く]` を作っている。
+  // **1 人だけのものは、渡す相手を選ばないと誰にも乗らない。**推測で配らない
+  function tgtOf(id, kind) {
+    var a = ((B.tgt || {})[id] || {})[kind];
+    return a || null;
+  }
+  function isSingle(id, kind) {
+    var a = tgtOf(id, kind);
+    return !!(a && a[0] === 1);
+  }
+  // その枠のスキルが「味方1人」のとき、いま選んである相手。無ければ null
+  function buffTo(u) {
+    if (!u) { return null; }
+    if (u.k === 'Public' || u.k === 'GearPublic') {
+      var sl = st.slots[u.i];
+      return sl && sl.nsto != null ? +sl.nsto : null;
+    }
+    return u.bto == null ? null : +u.bto;
+  }
+  // **相手の条件（`Restrictions`）を当てはめる。**中身は
+  // 「相手の Id / Size / BulletType / ArmorType / TacticRole がこうなら乗る」で、
+  // **どれも手元のデータで判定できる**（2026-09-01。それまで 30 件まるごと
+  // 飛ばしていて、イブキ（水着）の「アタッカーに会心ダメージ」も落ちていた）
+  function propOf(to, r) {
+    if (to === 'enemy') {
+      var bs = (r && r.bs) || {};
+      return { Id: null, Size: bs.size || null, BulletType: bs.bullet || null,
+               ArmorType: bs.armor || null, TacticRole: null };
+    }
+    var p = st.party[+to.slice(4)];
+    if (!p) { return null; }
+    return { Id: p.id, Size: null, BulletType: p.bt, ArmorType: p.at, TacticRole: p.ro };
+  }
+  function fits(rs, to, r) {
+    if (!rs || !rs.length) { return true; }
+    var pr = propOf(to, r);
+    if (!pr) { return false; }
+    for (var i = 0; i < rs.length; i++) {
+      var q = rs[i], v = pr[q[0]], w = q[2], op = q[1], ok;
+      // **分からない欄は「当たらない」。**推測で通さない
+      if (v == null) { return false; }
+      if (op === 'Equal') { ok = String(v) === String(w); }
+      else if (op === 'NotEqual') { ok = String(v) !== String(w); }
+      else if (op === 'Between') { ok = +v >= +w[0] && +v <= +w[1]; }
+      else if (op === 'NotBetween') { ok = !(+v >= +w[0] && +v <= +w[1]); }
+      else { return false; }
+      if (!ok) { return false; }
+    }
+    return true;
+  }
   // t 秒の時点で生きているバフ。to は 'ally<枠>' か 'enemy'
-  function liveBuffs(t, to) {
+  function liveBuffs(t, to, r) {
     var us = usesSorted(), out = [], i, q;
     for (i = 0; i < us.length; i++) {
       var u = us[i], p = st.party[u.i];
       if (!p) { continue; }
-      var list = (B.buf[p.id] || {})[u.k || 'Ex'] || [];
+      var kd = u.k || 'Ex';
+      var list = (B.buf[p.id] || {})[kd] || [];
+      // **「味方1人」は選んだ相手だけ。**選んでいなければ誰にも乗らない
+      var one = isSingle(p.id, kd), pick = one ? buffTo(u) : null;
       for (q = 0; q < list.length; q++) {
         var e = list[q], st0 = u.t + (e[5] || 0) / B.fps;
         var dur = e[4] == null ? Infinity : e[4] / 1000;
@@ -1970,9 +2140,13 @@
           if (tg[z] === 'AllyMain' && isMain(idx)) { hit = true; }
           if (tg[z] === 'AllySupport' && !isMain(idx)) { hit = true; }
         }
+        if (hit && one && tg.indexOf('Self') < 0 && +to.slice(4) !== pick) { hit = false; }
+        if (hit && !fits(e[6], to, r)) { hit = false; }
         if (!hit) { continue; }
-        var vals = e[3] || [], lv = Math.min(st.slv, vals.length) || 1;
-        out.push({ slot: u.k || 'Ex', ch: e[2], stat: e[1], v: vals[lv - 1] || 0, at: st0 });
+        // **掛けた本人のスキルレベルで引く。**画面の共通スライダーではない
+        var vals = e[3] || [], lv = Math.min(lvlOf(u.i, kd), vals.length) || 1;
+        out.push({ slot: kd, ch: e[2], stat: e[1], v: vals[lv - 1] || 0, at: st0,
+                   from: u.i, fromN: p.n, kind: kd });
       }
     }
     // 後掛け優先。同じ（枠, Channel）は遅く始まったほうを残す
@@ -1993,8 +2167,8 @@
     set('DefensePower', bs.def); set('DodgePoint', bs.dodge);
     set('CriticalChanceResistPoint', bs.crR);
     set('CriticalDamageResistRate', bs.cdR);
-    set('DamagedRatio', 10000);
-    var db = liveBuffs(t, 'enemy');
+    set('DamagedRatio', 10000); set('DamagedRatio2', 10000);
+    var db = liveBuffs(t, 'enemy', r);
     for (i = 0; i < db.length; i++) {
       var q = String(db[i].stat).split('_'), k = q[0];
       if (!m[k]) { continue; }
@@ -2009,7 +2183,8 @@
     }
     return { def: tot('DefensePower'), dodge: tot('DodgePoint'),
              crR: tot('CriticalChanceResistPoint'), cdR: tot('CriticalDamageResistRate'),
-             damaged: tot('DamagedRatio'), armor: bs.armor, n: db.length };
+             damaged: tot('DamagedRatio'), damaged2: tot('DamagedRatio2'),
+             armor: bs.armor, n: db.length };
   }
 
   // ------------------------------------------------------------ 倍率の幅
@@ -2081,16 +2256,31 @@
     var cs = statsOf(p.id, idx, at);
     if (!cs) { return null; }
     var eb = at == null ? { def: bs.def, dodge: bs.dodge, crR: bs.crR, cdR: bs.cdR,
-                            damaged: 10000, armor: bs.armor, n: 0 }
+                            damaged: 10000, damaged2: 10000, armor: bs.armor, n: 0 }
                         : enemyAt(r, at);
     var atk = cs.get('AttackPower');
     if (isMain(idx)) { atk += support('AttackPower', lv, r); }
     var lvMod = clamp(1 - ((r.lv || lv) - lv) * 0.02, 0.4, 1);
     var pen = cs.get('DefensePenetration');
-    var def = Math.max((eb.def || 0) - pen, 0);
-    var defMod = 10000000 / (def * 6000 + 10000000);
+    // **防御無視（`IgnoreDef`）は効果ごとに違う。**中で引き直す
+    function defModOf(ig) {
+      var d2 = Math.max(((eb.def || 0) - pen) * ((ig == null ? 10000 : ig) / 10000), 0);
+      return 10000000 / (d2 * 6000 + 10000000);
+    }
     var tm = terrMod(p.id, r.env, cs), em = effMod(p.id, eb.armor, cs);
-    var dr = cs.get('DamageRatio') / 10000, ddr = (20000 - eb.damaged) / 10000;
+    // 与ダメージ倍率。**A 枠と B 枠の 2 つ**で、それぞれ
+    // （10000 ＋ 与ダメージ増加 − 被ダメージ減少）÷ 10000
+    // （Zenn「ブルーアーカイブ ダメージ計算の仕組み」13 章）。
+    // SchaleDB の `calculateDamage` は A 枠を 2 つの掛け算にしているが、
+    // どちらも既定値では 1.0 で、突き合わせた 151 人の値は変わらない
+    var drA = (10000 + cs.get('DamageRatio') - eb.damaged) / 10000;
+    var drB = (10000 + cs.get('DamageRatio2') - (eb.damaged2 == null ? 10000 : eb.damaged2)) / 10000;
+    // EX スキルダメージ倍率（＝ キサキ枠）。**EX 由来のダメージにだけ掛かる**
+    // （同 14 章）。通常攻撃には掛からない
+    var exM = /^Ex\d*$/.test(kd) ? cs.get('EnhanceExDamageRate') / 10000 : 1;
+    // 通常攻撃側の同じ形の枠。**14 章に載っているのは EX だけ**で、
+    // こちらは同じ形として扱っている（データにある `EnhanceBasicsDamageRate`）
+    var baM = kd === 'Normal' ? cs.get('EnhanceBasicsDamageRate') / 10000 : 1;
     var stab = cs.get('StabilityPoint'), stabR = cs.get('StabilityRate');
     var sMin = clamp(stab / (stab + 1000) + stabR / 10000, 0, 1);
     var acc = cs.get('AccuracyPoint');
@@ -2098,7 +2288,8 @@
     var cp = cs.get('CriticalPoint');
     var cRate = clamp(1 - 4000000 / (Math.max(cp - (eb.crR || 0), 0) * 6000 + 4000000), 0, 1);
     var cdm = (cs.get('CriticalDamageRate') - (eb.cdR || 0)) / 10000;
-    if (cdm < 1) { cdm = 1; }
+    // **1 倍の下限は写し元（SchaleDB の calculateDamage）に無いので置かない**
+    // （2026-09-01 に外した）
     var o = { min: 0, avg0: 0, avg: 0, avgC: 0, max: 0, hit: hit, crit: cRate, name: p.en };
     for (var k = 0; k < effs.length; k++) {
       // **`Scale` の段数はスキルによって違う。**通常攻撃は 1 段しかないので、
@@ -2107,7 +2298,20 @@
       var sc = arr0[Math.min(slv, arr0.length) - 1] || 0;
       var hs = e[1] || [10000], sum = 0, q;
       for (q = 0; q < hs.length; q++) { sum += hs[q]; }
-      var base = atk * tm * em * (sc / 10000) * (sum / 10000) * defMod * dr * ddr * lvMod;
+      // **継続ダメージ（`DamageDebuff`）は `Duration ÷ Period` 回ぶん出る。**
+      // 1 回ぶんしか数えていなくて、ヒビキ（応援団）が 30 分の 1 だった
+      // （2026-09-01。`Period` は全部 4000ms、`Duration` は 16000〜120000）。
+      // **戦闘の終わりで打ち切る。**
+      var tick = 1;
+      if (e[4] && e[5]) {
+        tick = Math.floor(e[5] / e[4]);
+        if (at != null && r.dur) {
+          tick = Math.max(0, Math.min(tick, Math.floor((r.dur - at) * 1000 / e[4])));
+        }
+      }
+      var ig = e[6] ? (e[6][Math.min(slv, e[6].length) - 1] || 10000) : null;
+      var base = atk * tm * em * (sc / 10000) * (sum / 10000) * defModOf(ig) *
+                 drA * drB * exM * baM * lvMod * tick;
       var cr = e[2] === 'Never' ? 0 : (e[2] === 'Always' ? 1 : cRate);
       var cm = e[2] === 'Never' ? 1 : cdm;
       var mid = (sMin + 1) / 2;
@@ -2381,8 +2585,11 @@
     var h = '';
     for (i = 0; i < list.length; i++) {
       var s3 = list[i], on = !!inParty[s3.id];
-      h += '<button type="button" class="pk' + (s3.sq === 'Main' ? ' m' : ' s') + '" data-add="' + s3.id +
-           '" aria-pressed="' + on + '" title="' + esc(s3.n) + '\n' +
+      // **左の色帯は攻撃タイプ**（2026-09-01 の先生の指示）。
+      // ストライカーとスペシャルの絞り込みは詳細フィルターの「配置」にある
+      var bl = (S.labels && S.labels.BulletType && S.labels.BulletType[s3.bt]) || s3.bt || '';
+      h += '<button type="button" class="pk bt-' + esc(s3.bt || 'Normal') + '" data-add="' + s3.id +
+           '" aria-pressed="' + on + '" title="' + esc(s3.n) + '\n' + esc(bl) + '／' +
            (s3.sq === 'Main' ? 'STRIKER' : 'SPECIAL') + '／EX コスト ' + ((s3.c || [])[4] == null ? '—' : s3.c[4]) +
            '／演出 ' + (s3.d || '—') + 'f">' + img(s3.id) +
            '<span class="n">' + esc(s3.n) + '</span>' +
@@ -2441,6 +2648,34 @@
       : 'これから編成に入れる子に使う既定です。ここを変えても、いま入っている子は変わりません。';
   }
   // **バーで倍率を選ぶ。**候補は左が一番低い倍率
+  // **通常スキルが「味方1人」の子は、渡し先を枠ごとに決める。**
+  // NS は自分では置けないので、育成ではなくここで持つ
+  function drawNsTo() {
+    var h = '', i, k, KIND = ['Public', 'GearPublic'];
+    for (i = 0; i < SLOTS; i++) {
+      var p = st.party[i];
+      if (!p) { continue; }
+      for (k = 0; k < KIND.length; k++) {
+        if (!isSingle(p.id, KIND[k])) { continue; }
+        var ex1 = (tgtOf(p.id, KIND[k]) || [])[1];
+        var nm = ((B.skname || {})[p.id] || {})[KIND[k]] || '通常スキル';
+        var oh = '<option value="">—</option>', z;
+        for (z = 0; z < SLOTS; z++) {
+          if (!st.party[z] || !live(z)) { continue; }
+          if (ex1 && z === i) { continue; }
+          oh += '<option value="' + z + '"' +
+                (String(st.slots[i].nsto) === String(z) ? ' selected' : '') + '>' +
+                esc(st.party[z].n) + '</option>';
+        }
+        h += '<div class="alt"><span class="t"><b>' + esc(p.n) + '</b>' +
+             '<span class="g">' + esc(nm) + '</span></span>' +
+             '<select data-nsto="' + i + '">' + oh + '</select></div>';
+        break;
+      }
+    }
+    $('nstos').innerHTML = h;
+    $('nstopane').hidden = !h;
+  }
   function drawAlts() {
     var list = altList(), h = '', i;
     for (i = 0; i < list.length; i++) {
@@ -2487,11 +2722,12 @@
     for (i = 0; i < sm.rows.length; i++) {
       if (sm.rows[i].e && sm.rows[i].e._ix === st.sel) { er = sm.rows[i]; }
     }
-    function memOpts(cur, only) {
+    function memOpts(cur, only, skip) {
       var h = '<option value="">—</option>', k;
       for (k = 0; k < SLOTS; k++) {
         if (!live(k) || !st.party[k]) { continue; }
         if (only === 'main' && !isMain(k)) { continue; }
+        if (skip != null && k === skip) { continue; }
         if (only === 'other' && k === u.i) { continue; }
         h += '<option value="' + k + '"' + (String(cur) === String(k) ? ' selected' : '') + '>' +
              esc(st.party[k].n) + '</option>';
@@ -2548,6 +2784,14 @@
       h2 += '<label class="f"><span>カードを複製する相手</span><select data-us="bt">' +
             memOpts(u.bt, 'main') + '</select></label>';
     }
+    // **「味方1人」のバフは渡し先を選ばないと誰にも乗らない**（2026-09-01）
+    var bk = exKind(er ? er.fi : 0);
+    if (isSingle(d.id, bk)) {
+      var ex1 = (tgtOf(d.id, bk) || [])[1];
+      h2 += '<label class="f"><span>バフを渡す相手</span><select data-us="bto">' +
+            memOpts(u.bto, null, ex1 ? u.i : -1) + '</select></label>' +
+            (u.bto == null ? '<span class="warn tiny">相手を選ぶまで、このバフは誰にも乗りません</span>' : '');
+    }
     if (er) {
       var dk = exKind(er.fi), dd = dmgOf(u.i, diff(), er.at, dk);
       h2 += '<span class="mut tiny">ダメージ ' +
@@ -2577,6 +2821,21 @@
           Math.round((bfs[i].du || 0) / 1000) + '秒）');
       }
       h2 += '<span class="mut tiny">効果: ' + esc(names.join('　')) + '</span>';
+    }
+    // **その 1 発に、誰のバフが乗っているか。**先生の指示（2026-09-01）
+    if (er && er.at != null) {
+      var lb = liveBuffs(er.at, 'ally' + u.i, diff()), bn = [], seenb = {};
+      for (i = 0; i < lb.length; i++) {
+        var z = lb[i];
+        if (z.from === u.i && z.kind === bk) { continue; }
+        var who = z.from == null ? '育成' : ((st.party[z.from] || {}).n || '?');
+        var key = who + '/' + z.stat;
+        if (seenb[key]) { continue; }
+        seenb[key] = 1;
+        bn.push(who + ' の ' + statJA(z.stat) + ' ' + statAmt(z.stat, z.v));
+      }
+      h2 += '<span class="mut tiny">かかっているバフ: ' +
+        (bn.length ? esc(bn.join('　')) : 'なし') + '</span>';
     }
     if (er && er.why) { h2 += '<span class="warn tiny">⚠ ' + esc(whyOf(er)) + '</span>'; }
     h2 += '<span style="flex:1 1 auto"></span>' +
@@ -2615,7 +2874,10 @@
   syncUndo();
   // 突き合わせ用。**SchaleDB の実装と数字が合うかを外から確かめるため**に出している
   window.__TLDBG = { statsOf: statsOf, dmgOf: dmgOf, total: total, diff: diff,
-                     terrMod: terrMod, effMod: effMod, st: st, stu: stu, sim: sim, engIn: engIn, costPts: costPts };
+                     terrMod: terrMod, effMod: effMod, st: st, stu: stu, sim: sim, engIn: engIn, costPts: costPts,
+                     busyOf: busyOf, naTimes: naTimes, naRuns: naRuns, nsTimes: nsTimes,
+                     nsInfo: nsInfo, naInfo: naInfo, altOf: altOf, pickOf: pickOf,
+                     usesSorted: usesSorted, liveBuffs: liveBuffs, draw: draw };
 
   function syncTabs() {
     var bs = document.querySelectorAll('#rtabs .t');
@@ -2715,6 +2977,13 @@
   }
   $('alts').addEventListener('input', onAlt);
   $('useedit').addEventListener('input', onAlt);
+  $('nstos').addEventListener('change', function (e) {
+    var r = e.target.closest('select[data-nsto]');
+    if (!r) { return; }
+    mark();
+    st.slots[+r.getAttribute('data-nsto')].nsto = r.value === '' ? null : +r.value;
+    bump(); draw();
+  });
   (function () {
     var KEY = { 'g-lv': 'lv', 'g-star': 'star', 'g-eq': 'eq', 'g-wlv': 'wlv', 'g-wstar': 'wstar',
                 'g-ex': 'ex', 'g-sk': 'sk', 'g-plv': 'plv', 'g-sslv': 'sslv',
