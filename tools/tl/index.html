@@ -1,4 +1,18 @@
 <!DOCTYPE html>
+<!--
+  TL エディタ — AronaBot（https://0rnot.github.io/arona-guide/）
+  制作: @pe6cak / Discord @0r.not
+
+  このページの HTML・CSS・JavaScript と、tools/tl-engine.js のコスト計算・
+  ダメージ計算の実装は制作者の著作物です。**無断での複製・再配布・改変しての
+  再公開を禁じます。** 使いたい箇所があれば連絡してください。断ることは
+  たぶんありません。黙って持っていかれるのが困るだけです。
+
+  ゲーム内の画像・名称・数値の著作権は Nexon Games / Yostar に帰属します。
+  それらの引用元は SchaleDB と electricgoat/ba-data です（ページ下部に明記）。
+
+  wm: arona-guide/tl/2026-09-01/0rnot
+-->
 <html lang="ja">
 <head>
 <meta charset="utf-8">
@@ -628,6 +642,79 @@
 .tlapp .kpi .kl, .tlapp .kpi .ks { white-space:nowrap; }
 .tlapp .kpi .kbar { margin-top:var(--s1); }
 @media (max-width:999px) { .tlapp .kpi { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+
+/* ============ 2026-09-01 の直し ============ */
+
+/* 概況の帯と、ツールバーの 2 段目を 1 本にした（先生の「これ合体できるんじゃない？」）。
+   **左が結果、右が条件。**まん中で分ける */
+.tlapp .kpi { display:flex; align-items:flex-start; flex-wrap:wrap;
+  column-gap:var(--s3); row-gap:var(--s2); }
+.tlapp .kpi .kres { display:grid; grid-template-columns:repeat(5, max-content);
+  column-gap:0; align-items:start; flex:0 1 auto; min-width:0; }
+.tlapp .kpi .kcond { display:flex; flex-wrap:wrap; gap:var(--s1) var(--s2);
+  margin-left:auto; align-items:center; padding-left:var(--s3);
+  border-left:1px solid var(--ln); align-self:center; }
+.tlapp .kpi .kbar { flex:1 1 100%; grid-column:auto; margin-top:0; }
+@media (max-width:1199px) {
+  .tlapp .kpi .kcond { margin-left:0; padding-left:0; border-left:0; }
+}
+@media (max-width:999px) {
+  .tlapp .kpi .kres { grid-template-columns:repeat(2,minmax(0,1fr)); flex:1 1 100%; }
+  .tlapp .kpi .kres .k + .k { border-left:0; padding-left:0; margin-left:0; }
+}
+
+/* 畳んだパネルの中身は **ID 指定より強く**消す。
+   `#bset { display:grid }` に負けていて、育成だけ畳めなかった（先生の指摘） */
+.tlapp .pane.folded > .bd > *:not(h2.sect) { display:none !important; }
+
+/* ---- 列の仕切り。**独立した行にすると右のツールバーと段差になる**ので、
+   左の列の右端に重ねる。摘みもここに乗せる（2026-09-01 の先生の指摘） */
+.tlapp .tlmain { grid-template-columns:var(--lw, 22%) minmax(0,1fr) !important; }
+@media (min-width:1600px) { .tlapp .tlmain { --lw:340px; } }
+.tlapp .tlmain.wide { --lw:14px; }
+.tlapp .tlleft { position:relative; }
+.tlapp .tlleft.shut > .pane { display:none; }
+.tlapp .cgrip { position:absolute; top:0; bottom:0; right:calc(var(--s2) * -1);
+  width:var(--s2); cursor:col-resize; z-index:6; overflow:visible;
+  display:flex; justify-content:center; }
+.tlapp .cgrip::before { content:''; position:absolute; top:26px; bottom:0; left:50%;
+  width:1px; margin-left:-.5px; background:var(--gb); transition:background .12s; }
+.tlapp .cgrip:hover::before, .tlapp .cgrip.drag::before { background:var(--acc); }
+.tlapp .cgrip .fold { position:absolute; top:2px; left:50%; margin-left:-9px;
+  width:18px; height:18px; min-width:18px; cursor:pointer;
+  background:var(--g2); border:1px solid var(--gb); border-radius:var(--r1); }
+
+/* ---- パネルの高さ。**隙間そのものを掴む**（余白を増やさない） */
+.tlapp .pane { position:relative; }
+.tlapp .vgrip { position:absolute; left:0; right:0; bottom:calc(var(--s2) * -1);
+  height:var(--s2); cursor:row-resize; z-index:5; }
+.tlapp .vgrip::after { content:''; position:absolute; left:0; right:0;
+  top:calc(50% - .5px); height:1px; background:transparent; transition:background .12s; }
+.tlapp .vgrip:hover::after, .tlapp .vgrip.drag::after { background:var(--acc); }
+.tlapp .pane.sized > .bd { overflow:auto; height:100%; }
+.tlapp .pane.sized { display:flex; flex-direction:column; }
+.tlapp .stage.sized { overflow:hidden; }
+body.rz, body.rz * { cursor:col-resize !important; user-select:none !important; }
+body.rz.row, body.rz.row * { cursor:row-resize !important; }
+
+/* ---- スクロールバー。**既定の太い白は目立ちすぎる**（2026-09-01 の先生の指摘） */
+.tlapp * { scrollbar-width:thin; scrollbar-color:var(--gb2) transparent; }
+.tlapp *::-webkit-scrollbar { width:7px; height:7px; }
+.tlapp *::-webkit-scrollbar-track { background:transparent; }
+.tlapp *::-webkit-scrollbar-thumb { background:var(--gb2); border-radius:var(--rp); }
+.tlapp *::-webkit-scrollbar-thumb:hover { background:var(--acc); }
+.tlapp *::-webkit-scrollbar-corner { background:transparent; }
+
+/* 育成の入力を全部そろえる。**見出しの幅を固定して、選択肢の幅を 1 つに揃える** */
+#bset label { display:grid; grid-template-columns:46px minmax(0,1fr);
+  align-items:center; gap:var(--s1); }
+#bset label > select { width:100%; min-width:0; }
+#bset .two { display:flex; gap:3px; min-width:0; }
+/* 固有だけ 2 つ入る。**中身が切れないよう左右の余白を詰める** */
+#bset .two > select { flex:1 1 0; min-width:0; width:auto;
+  padding-left:var(--s1); padding-right:2px; }
+#bset .two > select + select { flex:0 0 44px; }
+
 </style>
 </head>
 <body>
@@ -718,10 +805,9 @@
 
     <!-- ---------- 左 ---------- -->
     <div class="tlleft" id="tlleft">
-      <div class="leftbar">
+      <div class="cgrip" id="cgrip" title="ドラッグで幅を変える／ダブルクリックで戻す">
         <button type="button" class="fold" id="b-side" aria-expanded="true"
                 title="左の列を畳む／出す"><span class="cv"></span></button>
-        <span class="mut tiny">組み立て</span>
       </div>
 
       <div class="pane"><div class="bd">
@@ -775,7 +861,7 @@
           <label>Lv<select id="g-lv"></select></label>
           <label>星<select id="g-star"></select></label>
           <label>装備<select id="g-eq"></select></label>
-          <label>固有<select id="g-wlv"></select><select id="g-wstar"></select></label>
+          <label>固有<span class="two"><select id="g-wlv"></select><select id="g-wstar"></select></span></label>
           <label>EX<select id="g-ex"></select></label>
           <label>ノーマル<select id="g-sk"></select></label>
           <label>パッシブ<select id="g-plv"></select></label>
@@ -829,15 +915,7 @@
           <span style="flex:1 1 auto"></span>
           <button type="button" class="btn2" data-act="export">書き出し</button>
           <button type="button" class="btn2" data-act="import">読み込み</button>
-        </div>
-        <div class="r sub">
-          <span class="pill"><b id="o-rec">—</b> コスト回復力</span>
-          <span class="pill"><b id="o-cap">—</b> コスト上限</span>
-          <span class="pill"><b id="o-start">—</b> 開始コスト</span>
-          <span class="pill"><b id="o-dur">—</b> 制限時間</span>
-          <span class="pill" id="o-crew">—</span>
-          <span style="flex:1 1 auto"></span>
-          <span class="keys"><kbd>Ctrl</kbd>+ホイール 拡大　<kbd>Shift</kbd>+ホイール 横移動　<kbd>W</kbd><kbd>S</kbd> 拡大　<kbd>A</kbd><kbd>D</kbd> 横移動　<kbd>Ctrl</kbd>+<kbd>Z</kbd>/<kbd>Y</kbd> 戻す・進む　<kbd>?</kbd> 一覧</span>
+          <button type="button" class="btn2 sq" data-act="keys" title="キー操作の一覧">?</button>
         </div>
       </div></div>
 
@@ -921,9 +999,16 @@
         そこはこの本の章立てに合わせて足しました（2026-09-01）
         <ul>
           <li><b>与ダメージ倍率は A 枠と B 枠の 2 つ</b>（13 章）。それぞれ
-            <code>(10000 ＋ 与ダメージ増加 − 被ダメージ減少) ÷ 10000</code> で、
-            A が敵側（<code>DamageRatio</code> ／ <code>DamagedRatio</code>）、
-            B が味方側（<code>DamageRatio2</code> ／ <code>DamagedRatio2</code>）です</li>
+            <b>与ダメージ側と被ダメージ側は別の掛け算</b>で、それぞれの中だけが足し算です
+            （<a href="https://docs.google.com/document/d/1Ui0FRgG8h8RB1-cA639F3ETDrVM7q9FKftg4vBKBAAQ/edit"
+            target="_blank" rel="noopener">ItJustWorks Library of Stats and Formulas</a>
+            2026-06-20 更新の Damage Reduction / Damage Amplification）。
+            <code>DmgAmpMod ＝ 1 ＋ Σ(与ダメージ増加)</code>、
+            <code>DmgRedMod ＝ 1 − Σ(被ダメージ減少)</code>。
+            A が <code>DamageRatio</code> ／ <code>DamagedRatio</code>、
+            B が <code>DamageRatio2</code> ／ <code>DamagedRatio2</code> です。
+            <b>2026-09-01 まで 1 本の足し算にまとめていました</b>——
+            与 +20% と 被 +20% が同時にかかると 1.40 と 1.44 で食い違います</li>
           <li><b>EX スキルダメージ倍率</b>（14 章）＝ <code>EnhanceExDamageRate ÷ 10000</code>。
             通称キサキ枠で、<b>EX 由来のダメージにだけ</b>掛かります。
             セイア（水着）・ニコ・ココロも同じ枠です</li>
@@ -932,6 +1017,24 @@
             <code>Duration</code> は 16〜120 秒。<b>戦闘の終わりで打ち切ります</b></li>
           <li><b>防御無視</b>（<code>IgnoreDef</code>、28 件）は
             <code>getDefenseDamageReductionMod</code> の第 2 引数として渡します</li>
+          <li><b>1 回のスキルで何発出るか</b>は 3 通りあります
+            （2026-09-01 に全 274 人・639 件を SchaleDB の実装と 1 件ずつ突き合わせて確定）
+            <ul>
+              <li><code>Hits</code> に <b>10000 が 1 つでもあれば</b>、各値は「フル発に対する
+                割合」。<b>合計ぶん</b>出ます。ヒビキの愛用品スキルが
+                <code>[10000, 5500, 1000, 1000, 1000]</code> ＝ 185% で、説明文の
+                「同じ対象にダメージを与える度にダメージが45%減少（最少で10%ダメージまで）」
+                と一致します。<b>SchaleDB はここを「10000 があれば全部フル発」と当てて
+                500% にしています</b>——こちらは説明文に合わせました</li>
+              <li>10000 が 1 つも無ければ <code>Hits</code> は <code>Scale</code> の
+                <b>配分</b>で、総量は <code>Scale</code> のまま。11 発 × 909 のように
+                端数が出るので、合計で割ると 0.04% ずれます</li>
+              <li><code>HitFrames</code> がある（「1 秒毎に N 秒間」型）ときは、その配列の
+                長さだけフル発。チセ・サヤ・サヤ（私服）・チェリノ（温泉）・メグの
+                5 人 6 枠がこれです。<code>ZoneDuration ÷ ZoneHitInterval</code>
+                （ミサキの EX）も同じ扱いで、<code>Hits</code> の数だけ範囲があります。
+                <b>どちらも戦闘の終わりで打ち切ります</b></li>
+            </ul></li>
         </ul>
         <b>通常攻撃側の <code>EnhanceBasicsDamageRate</code> だけは、本に章がありません。</b>
         EX 枠と同じ形として通常攻撃に掛けています。ここだけこちらの当てはめです</li>
@@ -983,7 +1086,8 @@
         <code>students.min.json</code> の <code>Skills.Normal.Frames</code>
         （＝ ba-data の <code>LevelSkill/&lt;NormalSkillGroupId&gt;.json</code> の
         <code>AnimationFrames</code>）。<b>1 回の攻撃 ＝ <code>AttackIngDuration</code></b> で、
-        その中で <code>Hits</code>（分割率。合計 10000）のぶんが飛びます。
+        その中で <code>Hits</code>（分割率。合計 10000）のぶんが飛びます
+        （読み方は上の「1 回のスキルで何発出るか」と同じ）。
         弾倉 1 本で撃てる回数は <code>AmmoCount ÷ AmmoCost</code>
         （ネル（制服）は 60 ÷ 12 ＝ 5 回）で、撃ち切ると
         <code>AttackBurstRoundOverDelay ＋ AttackReloadDuration</code> だけ空きます。
@@ -1075,6 +1179,24 @@
 <script src="data.js"></script>
 <script src="../cost-timeline/data.js"></script>
 <script src="../tl-engine.js?v=1"></script>
+<script>
+/* このツールの実装は AronaBot（@pe6cak）の著作物です。無断転載を禁じます。
+   wm: arona-guide/tl/2026-09-01/0rnot */
+(function () {
+  'use strict';
+  // **他所のサイトに枠で埋め込まれるのを断る。**GitHub Pages は HTTP ヘッダを
+  // 足せないので（`X-Frame-Options` も meta の `frame-ancestors` も効かない）、
+  // ここで自分から出るしかない
+  try {
+    if (window.top !== window.self) {
+      var ok = /(^|\.)0rnot\.github\.io$|^localhost$|^127\.0\.0\.1$/;
+      var host = '';
+      try { host = window.top.location.hostname; } catch (e) { host = ''; }
+      if (!ok.test(host)) { window.top.location = window.self.location.href; }
+    }
+  } catch (e2) { void e2; }
+})();
+</script>
 <script>
 (function () {
   'use strict';
@@ -1725,13 +1847,6 @@
     $('cv').innerHTML = cv;
     $('cv').style.width = W + 'px';
 
-    $('o-rec').textContent = rec ? String(rec) : '—';
-    $('o-dur').textContent = dur + '秒';
-    $('o-cap').textContent = run.cap.toFixed(1);
-    var sb0 = sm.IN._sb;
-    $('o-start').textContent = sb0 ? (Math.round(sb0.amt * 100) / 100) + '（' + sb0.d.n + '）' : '0';
-    $('o-crew').textContent = crewCount() + ' / ' + (LAY[st.mode].main + LAY[st.mode].sup) +
-      '人（ST ' + LAY[st.mode].main + '・SP ' + LAY[st.mode].sup + '）';
     $('ph-boss').textContent = boss().n + '　' + r.df;
     var pf = '';
     for (var z = 0; z < ph0.hp.length; z++) {
@@ -1799,6 +1914,10 @@
            '<span class="num">' + esc(txt) + '</span></span></td>';
   }
 
+  function keyHelp() { alert('Ctrl+Z 戻す／Ctrl+Y（Ctrl+Shift+Z）進む／' +
+        'Ctrl+ホイール 拡大／Shift+ホイール・中ドラッグ 横移動／W S 拡大／A D 横移動／' +
+        '←→ 1コマ（Shift で 10 コマ、Ctrl で 1 秒）／Home 全体／End 末尾／' +
+        'EX レーンをクリックでスキルを置く／バーをドラッグで移動／Delete で消す／Esc 解除'); }
   function kpi() {
     var r = diff(), hp = (r.bs && r.bs.hp) || 0, t = total(r), run = costRun(r.dur || 240);
     // **100% で止めるのは棒だけ。**数字は本当の値を出す（超えたら倒しきれる）
@@ -1807,7 +1926,12 @@
       return '<div class="k"><span class="kl">' + lbl2 + '</span><b class="kv">' + val + '</b>' +
              (sub ? '<span class="ks">' + sub + '</span>' : '') + '</div>';
     }
+    function chip(lbl2, val) {
+      return '<span class="pill"><b>' + val + '</b> ' + lbl2 + '</span>';
+    }
+    var sb0 = run.sim.IN._sb, recP = recPower(), lay = LAY[st.mode];
     $('kpi').innerHTML =
+      '<div class="kres">' +
       box('与ダメージ（平均）', t.n ? n0(v) : '—',
           'EX ' + t.ex.n + '・NS ' + t.ns.n + '・通常 ' + t.na.n + ' 発') +
       box('ボス HP に対して', hp ? real.toFixed(1) + '%' : '—',
@@ -1815,8 +1939,18 @@
       box('置いた EX', st.tl.length + ' 発',
           run.bad.length ? run.bad.length + ' 発がコスト不足でずれます' : '詰まりなし') +
       box('終わりのコスト', run.end.toFixed(2), '上限 ' + run.cap.toFixed(1)) +
-      box('編成', crewCount() + ' / ' + (LAY[st.mode].main + LAY[st.mode].sup) + ' 人',
-          'パーティー ' + (st.pi + 1) + ' / ' + st.parties.length) +
+      box('編成', crewCount() + ' / ' + (lay.main + lay.sup) + ' 人',
+          'ST ' + lay.main + '・SP ' + lay.sup + '　パーティー ' +
+          (st.pi + 1) + ' / ' + st.parties.length) +
+      '</div>' +
+      // **条件（動かす前から決まっている数字）は右にまとめる。**
+      // ツールバーの 2 段目にあったものをここへ寄せた
+      '<div class="kcond">' +
+      chip('コスト回復力', recP ? String(recP) : '—') +
+      chip('コスト上限', run.cap.toFixed(1)) +
+      chip('開始コスト', sb0 ? (Math.round(sb0.amt * 100) / 100) + '（' + sb0.d.n + '）' : '0') +
+      chip('制限時間', (r.dur || 240) + '秒') +
+      '</div>' +
       '<div class="kbar"><i style="width:' + pct.toFixed(1) + '%"></i></div>';
   }
   function drawErr() {
@@ -2546,8 +2680,18 @@
     // （Zenn「ブルーアーカイブ ダメージ計算の仕組み」13 章）。
     // SchaleDB の `calculateDamage` は A 枠を 2 つの掛け算にしているが、
     // どちらも既定値では 1.0 で、突き合わせた 151 人の値は変わらない
-    var drA = (10000 + cs.get('DamageRatio') - eb.damaged) / 10000;
-    var drB = (10000 + cs.get('DamageRatio2') - (eb.damaged2 == null ? 10000 : eb.damaged2)) / 10000;
+    // **与ダメージ側（DmgAmpMod）と被ダメージ側（DmgRedMod）は別の掛け算。**
+    // それぞれの中だけが足し算です（ItJustWorks Library of Stats and Formulas、
+    // 2026-06-20 更新の "Damage Reduction" / "Damage Amplification"）。
+    //   DmgAmpMod = 1 + Σ(与ダメージ増加)
+    //   DmgRedMod = 1 − Σ(被ダメージ減少)
+    //   Dmg Ceil = 攻撃力 × 地形 × 特効 × 倍率 × 1/発数 × 防御 × DmgRedMod ×
+    //              DmgAmpMod × Lv 差 × 会心
+    // **2026-09-01 まで 1 本の足し算にまとめていました**（両方が同時に効くと
+    // 食い違います。与 +20% と 被 +20% で 1.40 対 1.44）
+    var drA = (cs.get('DamageRatio') / 10000) * ((20000 - eb.damaged) / 10000);
+    var drB = (cs.get('DamageRatio2') / 10000) *
+              ((20000 - (eb.damaged2 == null ? 10000 : eb.damaged2)) / 10000);
     // EX スキルダメージ倍率（＝ キサキ枠）。**EX 由来のダメージにだけ掛かる**
     // （同 14 章）。通常攻撃には掛からない
     var exM = /^Ex\d*$/.test(kd) ? cs.get('EnhanceExDamageRate') / 10000 : 1;
@@ -2569,8 +2713,17 @@
       // EX のレベルで引くと範囲外になって 0 になる（2026-09-01 に踏んだ）
       var e = effs[k], arr0 = e[0] || [];
       var sc = arr0[Math.min(slv, arr0.length) - 1] || 0;
-      var hs = e[1] || [10000], sum = 0, q;
-      for (q = 0; q < hs.length; q++) { sum += hs[q]; }
+      var hs = e[1] || [10000], sum = 0, q, full = false;
+      for (q = 0; q < hs.length; q++) { sum += hs[q]; if (hs[q] === 10000) { full = true; } }
+      // **`Hits` の読み方は 2 通りある**（2026-09-01 の全キャラ照合で確定）。
+      //   10000 が 1 つでもある → 各値は「フル発に対する割合」。**合計ぶん出る**
+      //     ヒビキの愛用品スキルが [10000, 5500, 1000, 1000, 1000] で、
+      //     説明文の「同じ対象にダメージを与える度にダメージが45%減少（最少で10%
+      //     ダメージまで）」そのもの。合計 185%。
+      //     （SchaleDB は「10000 があれば全部フル発」と当てて 500% にしている）
+      //   1 つも無い → `Hits` は `Scale` の**配分**。総量は `Scale` のまま
+      //     11 発 × 909 のように端数が出るので、合計で割ると 0.04% ずれる
+      var mult = full ? sum / 10000 : 1;
       // **継続ダメージ（`DamageDebuff`）は `Duration ÷ Period` 回ぶん出る。**
       // 1 回ぶんしか数えていなくて、ヒビキ（応援団）が 30 分の 1 だった
       // （2026-09-01。`Period` は全部 4000ms、`Duration` は 16000〜120000）。
@@ -2582,8 +2735,27 @@
           tick = Math.max(0, Math.min(tick, Math.floor((r.dur - at) * 1000 / e[4])));
         }
       }
+      // **`HitFrames` は「1 秒毎に N 秒間」型。**書いてあるフレームの数だけフル発が出る。
+      // 落としていて 1 発ぶんしか数えていなかった（チセ・サヤ・サヤ（私服）・
+      // チェリノ（温泉）・メグの 5 人 6 枠。2026-09-01 の全キャラ照合）
+      if (e[7] && e[7].length) {
+        var hf = e[7], nh = 0;
+        for (q = 0; q < hf.length; q++) {
+          if (at == null || !r.dur || at + hf[q] / TE.FPS <= r.dur) { nh++; }
+        }
+        tick *= nh;
+      }
+      // **範囲が居座るもの**（ミサキ EX）。`ZoneDuration ÷ ZoneHitInterval` 回、
+      // `Hits` の数だけ範囲がある。単位はフレーム
+      if (e[8]) {
+        var zd = e[8][0], zi = e[8][1], nz = Math.ceil(zd / zi), k2;
+        if (at != null && r.dur) {
+          for (k2 = nz, nz = 0; nz < k2 && at + nz * zi / TE.FPS <= r.dur; nz++) { void 0; }
+        }
+        tick *= nz;
+      }
       var ig = e[6] ? (e[6][Math.min(slv, e[6].length) - 1] || 10000) : null;
-      var base = atk * tm * em * (sc / 10000) * (sum / 10000) * defModOf(ig) *
+      var base = atk * tm * em * (sc / 10000) * mult * defModOf(ig) *
                  drA * drB * exM * baM * lvMod * tick;
       var cr = e[2] === 'Never' ? 0 : (e[2] === 'Always' ? 1 : cRate);
       var cm = e[2] === 'Never' ? 1 : cdm;
@@ -3230,12 +3402,106 @@
     setFold(pane, !pane.classList.contains('folded'));
     setTimeout(fit, 0);
   });
-  $('b-side').addEventListener('click', function () {
+  $('b-side').addEventListener('click', function (e) {
+    // **摘みは仕切りの上に乗っている。**押したぶんが幅の変更にならないよう止める
+    e.stopPropagation();
     var m = $('tlmain'), on = m.classList.toggle('wide');
-    $('tlleft').hidden = on;
+    $('tlleft').classList.toggle('shut', on);
     this.setAttribute('aria-expanded', on ? 'false' : 'true');
+    try { localStorage.setItem('tl-shut', on ? '1' : '0'); } catch (e2) { void e2; }
     setTimeout(fit, 0);
   });
+  (function () {
+    var was = null;
+    try { was = localStorage.getItem('tl-shut'); } catch (e) { void e; }
+    if (was === '1') { $('b-side').click(); }
+  })();
+
+  // ---- 大きさを変える（2026-09-01 の先生の指示
+  //      「パネルとパネルの隙間をクリックドラッグで、中身のサイズ変更も崩れないように」）
+  function saveSize(k, v) {
+    try {
+      if (v == null) { localStorage.removeItem('tl-sz-' + k); }
+      else { localStorage.setItem('tl-sz-' + k, String(v)); }
+    } catch (e) { void e; }
+  }
+  function loadSize(k) {
+    try { return localStorage.getItem('tl-sz-' + k); } catch (e) { void e; return null; }
+  }
+  // 左右の幅
+  (function () {
+    var g = $('cgrip'), m = $('tlmain'), from = 0, base = 0;
+    var saved = loadSize('lw');
+    if (saved) { m.style.setProperty('--lw', saved + 'px'); }
+    function move(e) {
+      // **下限は摘みが押せる幅、上限は画面の半分。**それ以上は右が読めなくなる
+      var w = Math.max(150, Math.min(window.innerWidth * 0.5, base + (e.clientX - from)));
+      m.style.setProperty('--lw', Math.round(w) + 'px');
+    }
+    function up() {
+      document.removeEventListener('mousemove', move);
+      document.removeEventListener('mouseup', up);
+      document.body.classList.remove('rz');
+      g.classList.remove('drag');
+      saveSize('lw', parseInt(m.style.getPropertyValue('--lw'), 10) || null);
+      fit();
+    }
+    g.addEventListener('mousedown', function (e) {
+      if (e.target.closest('.fold')) { return; }
+      e.preventDefault();
+      from = e.clientX; base = $('tlleft').getBoundingClientRect().width;
+      document.addEventListener('mousemove', move);
+      document.addEventListener('mouseup', up);
+      document.body.classList.add('rz');
+      g.classList.add('drag');
+    });
+    g.addEventListener('dblclick', function (e) {
+      if (e.target.closest('.fold')) { return; }
+      m.style.removeProperty('--lw'); saveSize('lw', null); fit();
+    });
+  })();
+  // 縦の高さ。**掴むのは隙間そのもの**（余白を増やさない）
+  (function () {
+    var boxes = [], i;
+    var ls = document.querySelectorAll('.tlapp .tlleft > .pane');
+    var rs = document.querySelectorAll('.tlapp .tlright > .pane, .tlapp .tlright > .stage');
+    for (i = 0; i < ls.length; i++) { boxes.push(['L' + i, ls[i]]); }
+    for (i = 0; i < rs.length; i++) { boxes.push(['R' + i, rs[i]]); }
+    for (i = 0; i < boxes.length; i++) { arm(boxes[i][0], boxes[i][1]); }
+    function arm(key, el) {
+      var saved = loadSize(key);
+      if (saved) { el.style.height = saved + 'px'; el.classList.add('sized'); }
+      var g = document.createElement('div');
+      g.className = 'vgrip';
+      g.title = 'ドラッグで高さを変える／ダブルクリックで戻す';
+      el.appendChild(g);
+      var from = 0, base = 0;
+      function move(e) {
+        var h = Math.max(56, base + (e.clientY - from));
+        el.style.height = Math.round(h) + 'px';
+        el.classList.add('sized');
+      }
+      function up() {
+        document.removeEventListener('mousemove', move);
+        document.removeEventListener('mouseup', up);
+        document.body.classList.remove('rz', 'row');
+        g.classList.remove('drag');
+        saveSize(key, parseInt(el.style.height, 10) || null);
+        fit();
+      }
+      g.addEventListener('mousedown', function (e) {
+        e.preventDefault();
+        from = e.clientY; base = el.getBoundingClientRect().height;
+        document.addEventListener('mousemove', move);
+        document.addEventListener('mouseup', up);
+        document.body.classList.add('rz', 'row');
+        g.classList.add('drag');
+      });
+      g.addEventListener('dblclick', function () {
+        el.style.height = ''; el.classList.remove('sized'); saveSize(key, null); fit();
+      });
+    }
+  })();
 
   // ---- パーティーと編成モード
   $('ptabs').addEventListener('click', function (e) {
@@ -3455,6 +3721,7 @@
             st.goal = { dmg: +o.dmg, sec: +o.sec }; st.tab = 1; syncTabs(); draw();
           });
       }
+      if (a === 'keys') { keyHelp(); }
       if (a === 'export') { sheet('書き出し', JSON.stringify(snapshot()), null); }
       if (a === 'import') { sheet('読み込み', '', function (o) { restore(o); }); }
       if (a === 'mark') {
@@ -3582,10 +3849,7 @@
         return;
       case 'Escape': st.sel = null; st.pin = null; $('phbox').hidden = true;
         $('ph').style.left = '-10px'; draw(); return;
-      case '?': alert('Ctrl+Z 戻す／Ctrl+Y（Ctrl+Shift+Z）進む／' +
-        'Ctrl+ホイール 拡大／Shift+ホイール・中ドラッグ 横移動／W S 拡大／A D 横移動／' +
-        '←→ 1コマ（Shift で 10 コマ、Ctrl で 1 秒）／Home 全体／End 末尾／' +
-        'EX レーンをクリックでスキルを置く／バーをドラッグで移動／Delete で消す／Esc 解除'); return;
+      case '?': keyHelp(); break;
       default: hit = false;
     }
     if (!hit) { return; }

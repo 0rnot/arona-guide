@@ -4541,9 +4541,16 @@ def build_tl():
                 #     ヒビキ（応援団）で 30 分の 1 になっていた
                 #   IgnoreDef … 防御無視。写し元の
                 #     `getDefenseDamageReductionMod(base, rate)` の第 2 引数
+                #   HitFrames … 「1 秒毎に N 秒間」型。**その配列の長さだけフル発が出る。**
+                #     チセ・サヤ・サヤ（私服）・チェリノ（温泉）・メグの 5 人 6 枠で、
+                #     落としていて 1 発ぶんしか数えていなかった（2026-09-01 の全キャラ照合）
+                #   Zone … 範囲が居座るもの（ミサキ EX）。
+                #     `ZoneDuration / ZoneHitInterval` 回、`Hits` の数だけ範囲がある
                 return [e.get("Scale"), e.get("Hits"), e.get("CriticalCheck"),
                         e.get("Block"), e.get("Period"), e.get("Duration"),
-                        e.get("IgnoreDef")]
+                        e.get("IgnoreDef"), e.get("HitFrames"),
+                        [e["ZoneDuration"], e["ZoneHitInterval"]]
+                        if e.get("ZoneDuration") else None]
             eff = [_row(e) for e in plain]
             if eff:
                 per_skill[kind] = eff
@@ -4690,7 +4697,7 @@ def build_tl():
                                "DefensePenetration100"],
         "dmg": dmg_out,
         "dmgKeys": ["Scale", "Hits", "CriticalCheck", "Block", "Period",
-                    "Duration", "IgnoreDef"],
+                    "Duration", "IgnoreDef", "HitFrames", "Zone"],
         # 条件でダメージが変わるもの。**画面のバーで 1 つ選ぶ。**
         # `c` は条件の原文、`v[i]` はその候補ぶんの効果（`dmg` と同じ並び）
         "dmgalt": alt_out,
