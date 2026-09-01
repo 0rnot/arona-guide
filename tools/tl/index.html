@@ -841,6 +841,11 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
 /* タイムラインの縦の摘みが横スクロールバーに重なっていた
    （2026-09-01 の先生の指摘）。摘みのぶんだけ下に場所を空ける */
 .tlapp .stage { padding-bottom:var(--s2); }
+/* 「自動に戻す」のような、文の中に置く小さなボタン */
+.tlapp .lnk { background:none; border:0; padding:0; margin:0 0 0 4px;
+  color:var(--acc); font:inherit; font-size:9px; cursor:pointer;
+  text-decoration:underline; text-underline-offset:2px; }
+.tlapp .lnk:hover { color:var(--tx); }
 /* 倒しきったときだけ出るスコアの箱 */
 .tlapp .kpi .k.win .kv { color:var(--acc2); }
 .tlapp .kpi .k.win .kl { color:var(--acc2); }
@@ -1175,7 +1180,20 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
             チセ（水着）・ハスミ（体操服）・トキ・ミナ・ミノリ・ユカリ・マコト・
             ヨシミ（バンド）・ミネ（アイドル）・サツキ・ネル（制服）・ノゾミ・
             フィーナ（ガイド）・ニヤ・エリ・ミサキ（水着）・アリス（臨戦）・シュン（水着））。
-            <b>何段目で撃つかは左の「倍率の幅」で選びます。既定は一番低い段です</b></li>
+            <b>何段目で撃つかは、指定が無ければ「そのスキルを何発目に撃ったか」で
+            自動に決まります</b>（2026-09-01 に直しました。それまでは全部いちばん低い段で、
+            実物の TL の 3 分の 1 くらいしか出ていませんでした）。
+            根拠はスキルの説明文そのもので、ネル（制服）の「怪我しても知らねえからな」は
+            <b>「＜貝殻＞を1個獲得（＜貝殻＞は最大5個まで重複）」「スキルが
+            『かかって来いよ』に変更されると、＜貝殻＞は初期化されます」</b>、
+            サブスキル「狙いは正確ってな」が
+            <b>「＜貝殻＞を1個獲得する度に、スキル『怪我しても知らねえからな』の
+            与えるダメージを0.35倍加算」</b>です。
+            実際の倍率も <code>段N ＝ 549,119 ×(1 ＋ 0.35N)</code> で並んでいます
+            （段1 741,297／段2 933,475／段3 1,125,654／段4 1,317,840／段5 1,510,010）。
+            <b>形態が変わったら 1 段目に戻します。</b>
+            段だけで割れていない枠（条件と混ざっているもの）は自動にしません。
+            左の「倍率の幅」で動かすと、その値に固定されます（「自動に戻す」で戻ります）</li>
           <li><b>「味方N人」の N は、別の枠に書いてあることがあります。</b>
             イブキ（水着）は <code>Ex</code>「イブキのお友達！」が
             「編成したストライカーの味方2人まで <code>&lt;s:CH0347_Ex_03&gt;</code> に指定」で、
@@ -3046,17 +3064,39 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
   // **形態が変わる子は、撃つ形態でダメージもバフも別物。**engine が決めた形態
   // （`fi`）で枠を選び、時刻も engine が出した「実際に出る時刻」を使う
   function exKind(fi) { return fi ? 'Ex' + fi : 'Ex'; }
+  /** そのスキルの候補が「段」だけで割れているなら、その段数。違えば 0。
+      **段は撃った回数**で、スキルの説明文にそう書いてある（ネル（制服）の
+      「怪我しても知らねえからな」は「1個獲得（最大5個まで重複）」「スキルが
+      『かかって来いよ』に変更されると初期化されます」）。条件と混ざっている枠は
+      自動で決めない（2026-09-01） */
+  function danMax(id, kind) {
+    var a = altOf(id, kind), i, n = 0;
+    if (!a) { return 0; }
+    for (i = 0; i < a.c.length; i++) { if (/段 \d/.test(a.c[i])) { n++; } }
+    return (n && n === a.c.length) ? n : 0;
+  }
   function usesSorted() {
     var out = [], i, k;
     var sm = sim(), rowOf = {};
     for (i = 0; i < sm.rows.length; i++) {
       if (sm.rows[i].e && sm.rows[i].e._ix != null) { rowOf[sm.rows[i].e._ix] = sm.rows[i]; }
     }
+    // **段は「その形態で何発目か」。**形態が変わったら 1 に戻す
+    var cnt = {}, lastK = {};
     for (i = 0; i < st.tl.length; i++) {
-      var r0 = rowOf[i];
-      out.push({ i: st.tl[i].i,
+      var r0 = rowOf[i], sl0 = st.tl[i].i, kd0 = exKind(r0 ? r0.fi : 0);
+      if (lastK[sl0] !== kd0) { cnt[sl0] = 0; lastK[sl0] = kd0; }
+      cnt[sl0]++;
+      var pk0 = st.tl[i].pk, p0 = st.party[sl0], dn = p0 ? danMax(p0.id, kd0) : 0;
+      if (dn && (!pk0 || pk0[kd0] == null) &&
+          !(st.slots[sl0] && st.slots[sl0].pk && st.slots[sl0].pk[kd0] != null)) {
+        pk0 = { };
+        if (st.tl[i].pk) { for (k in st.tl[i].pk) { pk0[k] = st.tl[i].pk[k]; } }
+        pk0[kd0] = Math.min(cnt[sl0], dn) - 1;
+      }
+      out.push({ i: sl0,
                  t: (r0 && r0.at != null) ? r0.at : st.tl[i].t,
-                 k: exKind(r0 ? r0.fi : 0), bto: st.tl[i].bto, pk: st.tl[i].pk });
+                 k: kd0, bto: st.tl[i].bto, pk: pk0 });
     }
     var dur = diff().dur || 240;
     for (i = 0; i < SLOTS; i++) {
@@ -4321,13 +4361,21 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
     for (i = 0; i < list.length; i++) {
       var x = list[i];
       var pk = pickOf(x.i, x.kind);
+      var sl9 = st.slots[x.i];
+      var auto = danMax(x.p.id, x.kind) &&
+                 !(sl9 && sl9.pk && sl9.pk[x.kind] != null);
       var sc = altScale(x.p.id, x.kind, pk, lvlOf(x.i, x.kind));
       var nm = ((B.skname || {})[x.p.id] || {})[x.kind] || (ALTJA[x.kind] || x.kind);
-      h += '<div class="alt" title="' + esc(x.a.c[pk] || '') + '">' +
+      h += '<div class="alt" title="' + esc(auto ?
+             'このスキルを撃つたびに 1 段ずつ上がります（形態が変わると 1 に戻ります）' :
+             (x.a.c[pk] || '')) + '">' +
         img(x.p.id, 'ic') +
         '<span class="t"><b>' + esc(x.p.n) + '</b>' +
         '<span class="g">' + esc(ALTJA[x.kind] || x.kind) + '　' + esc(nm) +
-        (altShort(x.a.c[pk]) ? '　<b class="pick">' + esc(altShort(x.a.c[pk])) + '</b>' : '') +
+        (auto ? '　<b class="pick">段 自動</b>'
+              : (altShort(x.a.c[pk]) ? '　<b class="pick">' + esc(altShort(x.a.c[pk])) + '</b>' +
+                 '　<button type="button" class="lnk" data-autoalt="' + x.i + '|' +
+                 esc(x.kind) + '">自動に戻す</button>' : '')) +
         '</span></span>' +
         '<input type="range" min="0" max="' + (x.a.v.length - 1) + '" value="' + pk +
         '" data-alt="' + x.i + '|' + x.kind + '">' +
@@ -4781,6 +4829,12 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
     st.who = +this.value; fillBuild(); drawCrew();
   });
   function onAlt(e) {
+    var au = e.target.closest('[data-autoalt]');
+    if (au) {
+      var qa = au.getAttribute('data-autoalt').split('|'), sa = st.slots[+qa[0]];
+      if (sa && sa.pk) { mark(); delete sa.pk[qa[1]]; draw(); }
+      return;
+    }
     var r = e.target.closest('input[data-alt]');
     if (!r) { return; }
     var q = r.getAttribute('data-alt').split('|'), i = +q[0], kind = q[1];
@@ -4800,6 +4854,7 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
     bump(); draw();
   }
   $('alts').addEventListener('input', onAlt);
+  $('alts').addEventListener('click', onAlt);
   $('useedit').addEventListener('input', onAlt);
   $('nstos').addEventListener('change', function (e) {
     var r = e.target.closest('select[data-nsto]');
