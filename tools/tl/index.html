@@ -3766,6 +3766,7 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
       if (t == null || t < w.t0 - 1e-9 || t >= w.t1) { continue; }
       if (w.k === 'damaged') { m.DamagedRatio[1] -= (w.v || 0) * 100; }
       else if (w.k === 'def') { m.DefensePower[2] += (w.v || 0) / 100; }
+      else if (w.k === 'defAbs') { m.DefensePower[1] += (w.v || 0); }
       else if (w.k === 'crR') { m.CriticalChanceResistPoint[1] += (w.v || 0); }
       else if (w.k === 'cdR') { m.CriticalDamageResistRate[1] += (w.v || 0); }
     }
@@ -4354,9 +4355,16 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
        C◯◯          … リオがコピーした◯◯。engine の play.copy がそのまま拾う
        ※バフは全て◯◯指定 … 渡し先を全員ぶんまとめて◯◯へ */
   var CIRC = '①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮⑯⑰⑱⑲⑳';
+  // **黒丸数字でコストを書く人がいる**（2026-09-02、大決戦カイテンジャーの TL。
+  // 33 行すべてが「タイミングが読めません」で落ちていた）
+  var CIRC2 = '❶❷❸❹❺❻❼❽❾❿';
   function nrm(s) {
     return String(s == null ? '' : s)
       .replace(/（/g, '(').replace(/）/g, ')')
+      // **ゼロ幅空白を落とす。**YouTube の概要欄をコピーすると行頭に U+200B が
+      // 付いてくることがある（2026-09-02、グレゴリオの「​⑨ミネ」で気づいた。
+      // `charAt(0)` が丸数字にならず「タイミングが読めません」になっていた）
+      .replace(/[\u200b-\u200f\u2060\ufeff]/g, '')
       .replace(/[\s　]/g, '');
   }
   // 「セイア(水着)」に対して ['セイア(水着)', '水着セイア'] を返す。base は 'セイア'
@@ -4368,7 +4376,13 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
     var m = core.match(/^(.+?)\((.+)\)$/);
     var alts = [n];
     if (core !== n) { alts.push(core); }
-    if (m) { alts.push(m[2] + m[1]); }
+    if (m) {
+      alts.push(m[2] + m[1]);
+      // **括弧の中を 1 文字に縮める書き方**（「水セイア」「制ネル」「臨ホシノ」）。
+      // 同じ TL に セイア と セイア（水着）が両方いると、これが無いと素の
+      // セイア に当たって外す（2026-09-02、大決戦ビナー）
+      alts.push(m[2].charAt(0) + m[1]);
+    }
     return { full: n, base: m ? m[1] : core, alts: alts };
   }
   /** 行の中から編成の誰かを見つける。**先に名乗った子を採る。**
@@ -4437,11 +4451,17 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
     if (/^開始/.test(s)) { return { md: 'e' }; }
     // コスト「⑦」「c7」「コスト7」
     var k = CIRC.indexOf(s.charAt(0));
+    if (k < 0) { k = CIRC2.indexOf(s.charAt(0)); }
     if (k >= 0) { return { md: 'c', cv: k + 1 }; }
     m = s.match(/(?:^|[^A-Za-z0-9])(?:[cC]|コスト)\s*(\d+(?:\.\d+)?)/);
     if (m) { return { md: 'c', cv: +m[1] }; }
     // 最速「即」「最速」「AUTO」「〜後」
     if (/^AUTO/i.test(s) || /^即|^最速/.test(s) || /後/.test(s)) { return { md: 'e' }; }
+    // **「1射目」はコストではない。**1 回の EX を何発かに分けて撃つ子（ヒナ（ドレス）・
+    // ホシノ（臨戦））で、TL は名前を書かずに「1射目(右5体)」と続ける。
+    // 数字だけの行のコスト判定より前に置かないと、コスト 1 に化ける
+    // （2026-09-02、グレゴリオの TL3 ページ目で気づいた）
+    if (/^[0-9０-９一二三四五六七八九]+\s*射/.test(s)) { return { md: 'e' }; }
     // **数字だけの行はコスト。**TL では「⑦」が書けない端数をこう書く
     // （2026-09-01。先生の「9.5 Cネル」＝ コスト 9.5。前の行から 9.5 秒後、と
     // 読んでいて 10 秒ずれていた）。秒のつもりなら「9.5秒」と書く
@@ -4477,11 +4497,28 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
       var n = nrm(subs[i].n || '').split('(')[0];
       if (n.length >= 2 && (q.indexOf(n) >= 0 || n.indexOf(q) >= 0)) { return i; }
     }
-    // 2. TL の言い換え
+    // 2. TL の言い換え。**左右の区別があるボスでは、左右まで見る**
+    //    （グレゴリオの「聖歌隊（左）／（右）」、イェソドの「左の柱／右の柱」。
+    //    2026-09-02。区別する前は「右聖歌隊 5体」も「左聖歌隊 5体」も
+    //    同じ 1 つ目の部位に当たっていた）
+    var side = /左/.test(q) ? '左' : (/右/.test(q) ? '右' : '');
     for (j = 0; j < AIMWORD.length; j++) {
       if (q.indexOf(AIMWORD[j][0]) < 0) { continue; }
+      if (side) {
+        for (i = 0; i < subs.length; i++) {
+          var ns = nrm(subs[i].n || '');
+          if (ns.indexOf(AIMWORD[j][1]) >= 0 && ns.indexOf(side) >= 0) { return i; }
+        }
+      }
       for (i = 0; i < subs.length; i++) {
         if (nrm(subs[i].n || '').indexOf(AIMWORD[j][1]) >= 0) { return i; }
+      }
+    }
+    // 3. 部位の名前に左右が入っているボスでは、「(右5体)」のように
+    //    左右だけで指すことがある
+    if (side) {
+      for (i = 0; i < subs.length; i++) {
+        if (nrm(subs[i].n || '').indexOf(side) >= 0) { return i; }
       }
     }
     return -1;
@@ -4532,6 +4569,10 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
       // 「TL はみんないろんな書き方してるから特化しなくていい」）
       if (!/固有\s*\d|[★☆]\s*\d|MMMM|[Tt]\s*\d+\s*\/|Lv\s*\d|装備\s*\d|絆\s*\d|EX\s*\d/i
            .test(body)) { continue; }
+      // **地の文を育成行にしない。**「ナギサ固有2あるのであれば…の方がスコア高いです」が
+      // 育成行として通って、素の ナギサ が編成に入り、本命の ナギサ（水着）が
+      // 「枠が足りません」で落ちていた（2026-09-02、総力戦ヒエロニムス）
+      if (/です|ます|ません|ください|でしょう/.test(body) && nrm(body).length > 20) { continue; }
       // **名前が行頭にあるとは限らない。**実物の概要欄はこれだけ形が違う。
       //   「⑤ヒナ(ドレス) 固有4 MMMM」   枠の番号が頭に付く
       //   「❺カンナ（水着）☆5 MMMM」     黒丸の番号＋☆
@@ -4545,7 +4586,12 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
         //   「90ミカ　固有3　T999」        レベルが名前の頭に付く（区切り無し）
         // 生徒の名前が数字で始まることは無いので、頭の数字は落としてよい
         cand = toks[tq].replace(/^[①-⑳❶-❿〇○●◯・\-]+/, '')
-                       .replace(/^\d+/, '').replace(/[：:、,]+$/, '');
+                       .replace(/^\d+/, '').replace(/[：:、,]+$/, '')
+                       // **名前を「＿」で桁揃えする人がいる**（「シュン＿＿＿＿＿」）。
+                       // 末尾の丸数字は部隊の番号（「ホシノ（臨戦）②」）。
+                       // どちらも落とさないと生徒が引けない（2026-09-02、大決戦クロカゲ。
+                       // 編成 15 行のうち 10 行が落ちて 0.2% になっていた）
+                       .replace(/[＿_]+$/, '').replace(/[①-⑳❶-❿]+$/, '');
         cutm = cand.match(/^(.+?)(?:固有|UE\d|[★☆]|MMMM|Lv|装備\d|絆\d|EX\d)/i);
         if (cutm && cutm[1]) { cand = cutm[1].replace(/[：:、,]+$/, ''); }
         if (!cand || /^[\d.]+$/.test(cand)) { continue; }
@@ -4566,8 +4612,11 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
         mm = rest.match(/[★☆]\s*(\d)/);
         if (mm) { b.star = +mm[1]; b.wstar = 0; b.wlv = 0; }
       }
-      mm = rest.match(/Lv\s*(\d+)/i);
-      if (mm && +mm[1] <= 100) { b.lv = +mm[1]; }
+      // **「能力解放Lv0-0-25」の Lv を生徒レベルにしない**（2026-09-02、大決戦ビナー。
+      // 6 人中 5 人が Lv0〜25 になって 7.0% まで落ちていた）。
+      // 固有武器の段（「固有★3Lv50」）とも取り違えないよう、直前の語を見る
+      mm = rest.match(/(能力解放|潜在|限界突破|WB|固有|UE|[★☆]\s*\d)?\s*Lv\.?\s*(\d+)/i);
+      if (mm && !mm[1] && +mm[2] <= 100) { b.lv = +mm[2]; }
       // スキル。「MMMM」＝ 4 つとも上限。個別なら「EX5 NS10 PS10 SS10」
       if (/MMMM/i.test(rest)) { b.ex = 5; b.sk = 10; b.plv = 10; b.sslv = 10; }
       mm = rest.match(/EX\s*(\d)/i); if (mm) { b.ex = +mm[1]; }
@@ -4638,7 +4687,7 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
     }
     // ---- 3. 開始スキル
     for (i = 0; i < lines.length; i++) {
-      if (!/開始\s*SET/i.test(nrm(lines[i]))) { continue; }
+      if (!/開始\s*(?:SET|スキル|セット)/i.test(nrm(lines[i]))) { continue; }
       var parts = nrm(lines[i]).split(/(?=[①-⑳])/);
       for (q = 1; q < parts.length; q++) {
         var w = whoIn(parts[q], crew);
@@ -4648,10 +4697,33 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
       break;
     }
     // ---- 4. タイムライン
-    var seenStart = false, prevT = 0, lastWho = null;
+    // **2 部隊目から先は読まない。**凸を重ねる TL を 1 本の時間軸に乗せると、
+    // 2 部隊ぶんの EX が同じボスに足されて 2 倍以上に膨らむ
+    // （2026-09-02。ホバークラフトが 262〜273% と出ていた原因。凸で切ると 118〜128%）。
+    // 「TL2ページ目」は同じ部隊の続きなので切らない
+    var partyCut = -1;
     for (i = 0; i < lines.length; i++) {
+      var lc = nrm(lines[i]);
+      if (/ページ/.test(lc)) { continue; }
+      if (/[2-9２-９]\s*(?:凸目?|部隊目?|チーム目?)/.test(lc) && lc.length <= 24) {
+        partyCut = i; break;
+      }
+      // **別分岐も同じ**。「※超上振れでフェーズ2スキップした場合※」以降 7 行が
+      // 本編の続きとして積まれていた（2026-09-02、大決戦ビナー）
+      if (/^※.*(?:場合|とき|パターン|ルート).*$/.test(lc) && lc.length <= 40) {
+        partyCut = i; break;
+      }
+    }
+    var seenStart = false, prevT = 0, lastWho = null, pendT = null;
+    for (i = 0; i < lines.length; i++) {
+      if (partyCut >= 0 && i >= partyCut) {
+        res.notes.push('「' + lines[partyCut].trim() + '」から先は読んでいません。' +
+          '2 部隊目は同じボスの続きではないので、別に貼ってください' +
+          '（1 本にすると 2 部隊ぶんが同じボスに足されます）');
+        break;
+      }
       var ln = lines[i];
-      if (/開始\s*SET/i.test(nrm(ln))) { seenStart = true; continue; }
+      if (/開始\s*(?:SET|スキル|セット)/i.test(nrm(ln))) { seenStart = true; continue; }
       if (!seenStart) { continue; }
       var cut = ln.replace(/[※].*$/, '');
       var note = (ln.match(/[※](.*)$/) || [])[1] || '';
@@ -4661,8 +4733,21 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
       // **行動ではない行。**「ネル後ボスHP(参考程度)」が名前と「後」を持っていて
       // 1 発ぶん余計に置かれていた（2026-09-01 に実物を読ませて気づいた）
       if (/参考|下振れ|上振れ|ページ目|移行|支援値|使用生徒|リスタート/.test(cut)) { continue; }
+      // **地の文を 1 発にしない。**「2本目の柱に対して発動するコタマEXとネルEXの
+      // タイミングが遅いとずれます。」がコスト 2 の コタマ EX になっていた
+      // （2026-09-02、総力戦ホド）
+      if (/[。]\s*$/.test(cut) ||
+          (nrm(cut).length > 24 && /です|ます|ません|ください/.test(cut))) { continue; }
       if (/を?(ON|OFF|オン|オフ)/i.test(nrm(noParen))) {
         res.notes.push('AUTO の切り替えは行として持てないので飛ばしました: ' + ln.trim());
+        continue;
+      }
+      // **時刻だけの行を覚えておく。**「02 : 16.000」だけの行の次に行動が来る
+      // 書き方がある（2026-09-02、大決戦カイテンジャー）
+      var only = nrm(noParen).replace(/[^0-9:.]/g, '');
+      if (only.length >= 4 && !/[ぁ-んァ-ヶ一-龥A-Za-z]/.test(nrm(noParen))) {
+        var tp = timeIn(nrm(noParen), dur);
+        if (tp && tp.md === 't') { pendT = tp.t; }
         continue;
       }
       var who = whoIn(cut, crew, noParen);
@@ -4675,7 +4760,17 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
       }
       if (who < 0) { continue; }                    // 見出しや余談。黙って飛ばす
       var tm = timeIn(noParen, dur);
-      if (!tm) { res.skipped.push([ln, 'タイミングが読めません']); continue; }
+      // **時刻だけを 1 行に書く人がいる**（「02 : 16.000」の次の行が行動）。
+      // 生徒の名前が無い行は上の `who < 0` で落ちているので、ここに来るのは
+      // 名前がある行だけ。**時刻だけの行は、上の行から持ってくる**（2026-09-02）
+      if (!tm && pendT != null) { tm = { md: 't', t: pendT }; pendT = null; }
+      // **書いていなければ「即」。**行に名前があるのに落とすと、その 1 発が
+      // 黙って消える。大決戦カイテンジャーの TL は行頭が全角スペースで、
+      // 33 行のうち 30 行が消えていた（2026-09-02）
+      if (!tm) {
+        tm = { md: 'e' };
+        res.notes.push('「' + ln.trim() + '」はタイミングが書いていないので「即」として置きました');
+      }
       if (tm.guess === 'cost') {
         res.notes.push('「' + ln.trim() + '」はコスト ' + tm.cv +
                        ' として読みました（秒のつもりなら「' + tm.cv + '秒」と書いてください）');
@@ -4700,14 +4795,18 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
       // **「バフは全て◯◯指定」がある TL では触らない**——そちらが優先だから
       // **括弧の中は「渡し先」か「当たる先」のどちらか。**
       // 編成の子として読めれば渡し先、部位として読めれば当たる先
-      var pg = cut.match(/[（(][^）)]*[)）]/g) || [], pz2, pz3, aim = null, frm = null, mcn = 1;
+      // **角括弧で当たる先を書く人がいる**（「[→緑聖遺物]」）。丸括弧だけ見ていると
+      // 書き方の違いだけで結果が変わる（2026-09-02、総力戦ヒエロニムス）
+      var pg = cut.match(/[（(\[［][^）)\]］]*[)）\]］]/g) || [], pz2, pz3, aim = null, frm = null, mcn = 1;
       var subsP = diff().sub || [];
       for (pz2 = 0; pz2 < pg.length; pz2++) {
-        var inner = pg[pz2].replace(/^[（(]|[)）]$/g, '').split(/[＋+,、・]|\sと\s/);
+        var inner = pg[pz2].replace(/^[（(\[［]|[)）\]］]$/g, '').replace(/[→⇒➝]/g, '').split(/[＋+,、・]|\sと\s/);
         for (pz3 = 0; pz3 < inner.length; pz3++) {
           var w3 = whoIn(inner[pz3], crew, inner[pz3]);
           if (w3 >= 0) {
-            if (!toL.length && res.bufTo == null && w3 !== who && toL.indexOf(w3) < 0) {
+            // **渡し先は 2 人以上ありうる**（「イブキ指定（セイア＋ネル）」）。
+            // `applyTL` は配列を受けられる（2026-09-02）
+            if (res.bufTo == null && w3 !== who && toL.indexOf(w3) < 0) {
               toL.push(w3);
             }
             continue;
@@ -4749,12 +4848,51 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
         if (frm != null) { autoF[pid] = (fl2[frm] || {}).n; }
       }
       lastWho = who;
-      res.uses.push({ i: who, md: tm.md, t: tm.t == null ? 0 : tm.t, tg: aim, f: frm, mc: mcn,
-                      to: toL.length ? (toL.length > 1 ? toL : toL[0]) : null,
-                      cv: tm.cv == null ? null : tm.cv,
-                      copy: /C[^\s]*$/i.test(nrm(noParen).replace(/^[^C]*?(?=C)/, '')) &&
-                            /(^|[^A-Za-z])C/.test(nrm(noParen)),
-                      line: ln.trim(), note: note.trim() });
+      // 【7】**「A/B」は「渡し先」か「2 人同時」か。**書き方が同じなので、
+      // **左の子の EX にダメージがあるかで分ける**（データから決まる）。
+      //   「マリー/ホシノ」  マリー（アイドル）の EX はダメージ無し → 渡し先
+      //   「イブキ/ホシノ」  どちらも殴る子 → 2 人同時に撃つ
+      // 「アリス/溜」のように右が編成にいない語なら、どちらでもない（形態の指定）
+      var alsoWho = -1;
+      var sl = nrm(noParen).split(/[\/／]/);
+      if (sl.length === 2) {
+        var wR = whoIn(sl[1], crew);
+        if (wR >= 0 && wR !== who) {
+          var pidL = idBy[who];
+          if (pidL != null && formHasDmg(pidL, 0)) { alsoWho = wR; }
+          else if (toL.indexOf(wR) < 0) { toL.push(wR); }
+        }
+      }
+      // 【8】**「1～3射目」「3連射」は 1 行で何発も撃つ。**割らないと 2/3 が消える
+      var rep = 1, rm2 = nrm(cut).match(/([0-9０-９])\s*[～~〜\-]\s*([0-9０-９])\s*射/);
+      if (rm2) { rep = Math.max(1, +rm2[2] - +rm2[1] + 1); }
+      else {
+        rm2 = nrm(cut).match(/([0-9０-９])\s*連射/);
+        if (rm2) { rep = Math.max(1, +rm2[1]); }
+      }
+      var one = { i: who, md: tm.md, t: tm.t == null ? 0 : tm.t, tg: aim, f: frm, mc: mcn,
+                  to: toL.length ? (toL.length > 1 ? toL : toL[0]) : null,
+                  cv: tm.cv == null ? null : tm.cv,
+                  copy: /C[^\s]*$/i.test(nrm(noParen).replace(/^[^C]*?(?=C)/, '')) &&
+                        /(^|[^A-Za-z])C/.test(nrm(noParen)),
+                  line: ln.trim(), note: note.trim() };
+      res.uses.push(one);
+      for (var rq = 1; rq < rep; rq++) {
+        var cp2 = {}, ck;
+        for (ck in one) { if (has(one, ck)) { cp2[ck] = one[ck]; } }
+        cp2.md = 'e'; cp2.cv = null; cp2.t = 0;
+        res.uses.push(cp2);
+      }
+      if (rep > 1) {
+        res.notes.push('「' + ln.trim() + '」は ' + rep + ' 発として置きました');
+      }
+      if (alsoWho >= 0) {
+        var cp3 = {}, ck2;
+        for (ck2 in one) { if (has(one, ck2)) { cp3[ck2] = one[ck2]; } }
+        cp3.i = alsoWho; cp3.to = null; cp3.f = null; cp3.md = 'e'; cp3.cv = null; cp3.t = 0;
+        res.uses.push(cp3);
+        res.notes.push('「' + ln.trim() + '」は 2 人が続けて撃つ行として読みました');
+      }
     }
     for (i in autoF) {
       if (has(autoF, i)) {
@@ -5603,8 +5741,12 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
   var GGJA = { AddActiveGauge: 'EX ゲージを引く', ChangePhase: '別のフェーズへ移る',
                ClearNormalSkill: '通常攻撃を止める', ForceChangePhase: '別のフェーズへ移る' };
   // **ボスの状態。**被ダメージ率などを、効いている間だけ置く
+  // **ギミックの「DEF を 1,500 減少」は割合ではなく絶対値。**割合として掛けると
+  // 係数が `1 + (-1500/100) = -14` になって下限 0.2 に張り付く
+  // （2026-09-02、総力戦ヒエロニムスの「不浄なる光」。DEF 6,500 に対する正解は -23.1%）
   var BSTJA = [['damaged', '被ダメージ率', '%', 300],
                ['def', '防御力', '%', -50],
+               ['defAbs', '防御力（実数）', '', -1500],
                ['crR', '会心抵抗値', '', -400],
                ['cdR', '会心ダメージ抵抗率', '', -2000]];
   function bstLabel(k) {
@@ -5744,7 +5886,7 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
     // 説明文に秒が書いてあればその長さで、無ければ戦闘の終わりまで
     var d0 = diff().dur || 240, last = 0, i;
     for (i = 0; i < st.bst.length; i++) { last = Math.max(last, st.bst[i].t1); }
-    st.bst.push({ k: g.k, v: g.v, t0: last,
+    st.bst.push({ k: g.k === 'def' ? 'defAbs' : g.k, v: g.v, t0: last,
                   t1: Math.min(d0, g.d ? last + g.d : d0) });
     drawBstate(); draw();
   });
