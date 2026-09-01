@@ -776,6 +776,22 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
    上振れ・下振れの 2 行だけは別の色にして、個別設定の 5 行と見分ける */
 .tlapp .rate .bar i { background:var(--acc2); }
 .tlapp .rate tr.lohi .bar i { background:var(--acc); }
+
+/* 通常スキルのバー: 濃いところが発動（演出）、薄いところが効果の持続
+   （2026-09-01 の先生の指示「NSとかの発動時間と効果時間は色を薄くしたりして分けて、
+   そのバー内で区別できるようにして」） */
+.tlapp .b.ns { position:relative; overflow:hidden; }
+.tlapp .b.ns.eff { background:rgba(47,139,88,.16);
+  box-shadow:inset 0 0 0 1px rgba(47,139,88,.45); }
+.tlapp .b.ns.eff.flat { background:rgba(122,92,62,.16);
+  box-shadow:inset 0 0 0 1px rgba(122,92,62,.42); }
+.tlapp .b.ns.eff > .cst { position:absolute; left:0; top:0; bottom:0;
+  background:var(--grn); border-radius:inherit; min-width:3px; }
+.tlapp .b.ns.eff.flat > .cst { background:var(--tan); }
+.tlapp .b.ns > .nl { font-size:8px; color:var(--tx2); }
+.tlapp .b.ns > .nl { position:relative; z-index:1; }
+/* 通常攻撃は細く。字は出さない */
+.tlapp .b.na { font-size:0; }
 </style>
 </head>
 <body>
@@ -1337,8 +1353,9 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
   }
 
   // レーンの高さ。**詰めて置く**（2026-09-01 の先生の指示「UI はツメツメでいい」）
-  var H = { axis: 18, name: 16, ex: 16, ps: 16, gg: 18, dbf: 13, rec: 52, cost: 58, row: 16,
-            na: 14, ss: 18 };
+  // 2026-09-01 の先生の指示「通常攻撃はもっと細くていい／その分スキルのバーを太く」
+  var H = { axis: 18, name: 16, ex: 16, ps: 16, gg: 18, dbf: 13, rec: 52, cost: 58, row: 21,
+            na: 8, ss: 18 };
 
   // ------------------------------------------------------------ 枠とパーティー
   // **コストの計算は tools/tl-engine.js に全部ある。**ここでは持たない。
@@ -1610,6 +1627,12 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
       }
       if (t != null && t > prev) { prev = t; }
       out.push(ordRow(u, t));
+      // **最速の行も「ここまで進んだ」に数える。**数えていないと、そのあとの
+      // コスト指定が最速の行より前の時刻に解けて、順番が入れ替わる
+      // （2026-09-01。先生の TL で最後の「②カンナ」が 75.8 秒に解けて、
+      //  87.7 秒のネルより前に回っていた）
+      var rr = simOf(out, dur).rows, last = rr[rr.length - 1];
+      if (last && last.at != null && last.at > prev) { prev = last.at; }
     }
     return out;
   }
@@ -2045,15 +2068,22 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
       cv += lane(H.row, sb, 'alt exlane" data-mem="' + i + '');
       var nb = '', nsn = p ? nsInfo(p.id) : null;
       if (p && nsn) {
+        // **発動時間と効果時間を 1 本のバーの中で分ける**（2026-09-01 の先生の指示）。
+        // 濃いところが演出（`Duration`）、薄いところがバフの持続（`bf[].du`）
         var nts = nsTimes(p.id, dur, i), nw = Math.max(10, nsDur(p.id) / B.fps * px);
+        var nbd = nsBuffDur(p.id), ew = nbd > 0 ? nbd * px : 0;
         var nsk = nsKind(p.id), hasD = !!(B.dmg[p.id] || {})[nsk];
         for (var nq = 0; nq < nts.length; nq++) {
-          nb += '<div class="b ns' + (hasD ? '' : ' flat') + '" style="left:' +
-                (nts[nq] * px).toFixed(1) + 'px;width:' + nw.toFixed(1) + 'px" title="' +
+          nb += '<div class="b ns' + (hasD ? '' : ' flat') + (ew > 0 ? ' eff' : '') +
+                '" style="left:' + (nts[nq] * px).toFixed(1) + 'px;width:' +
+                (nw + ew).toFixed(1) + 'px" title="' +
                 esc(nsn.nm || '通常スキル') + '\n' + nsn.iv.toFixed(1) + '秒ごと（初回 ' +
                 nsn.st.toFixed(1) + '秒）／' + nts[nq].toFixed(1) + '秒' +
+                '\n発動 ' + (nsDur(p.id) / B.fps).toFixed(2) + '秒' +
+                (nbd > 0 ? '／効果 ' + nbd.toFixed(1) + '秒' : '') +
                 (hasD ? '' : '\nこのスキルはダメージを持ちません') + '">' +
-                (nw >= 26 ? ((nq + 1) + '') : '') + '</div>';
+                (ew > 0 ? '<i class="cst" style="width:' + nw.toFixed(1) + 'px"></i>' : '') +
+                (nw >= 26 ? '<span class="nl">' + (nq + 1) + '</span>' : '') + '</div>';
         }
       }
       side += lbl(H.row, mini + '<span class="nm">NS</span>' +
@@ -2074,11 +2104,12 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
                  Math.min(rn.b, dur).toFixed(1) + '秒）\n1 回 ' + naI.per.toFixed(2) +
                  '秒・弾倉 ' + naI.mag + ' 回・リロード ' + naI.rel.toFixed(2) + '秒' +
                  (hasN ? '' : '\nこの生徒の通常攻撃にダメージのデータがありません') + '">' +
-                 (rw >= 22 ? rn.n : '') + '</div>';
+                 '</div>';
         }
       }
-      side += lbl(H.na, '<span class="nm">通常</span>' +
-        (naI ? '<span class="mb">' + naN + '発</span>' : (p ? '<span class="mb">—</span>' : '')));
+      // **発数は出さない**（2026-09-01 の先生の指示。数はツールチップにある）
+      void naN;
+      side += lbl(H.na, '<span class="nm">通常</span>');
       cv += lane(H.na, nab);
     }
     // SS = サブスキル。常時効いているものは端から端までの帯にする
@@ -2089,22 +2120,21 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
       var vp = st.party[v2];
       if (!vp) { continue; }
       var cnt = ssCount(v2);
-      if (!cnt[0] && !cnt[1]) { continue; }
+      // **常時のものは出さない**（2026-09-01 の先生の指示
+      // 「サブスキルは常時発動は非表示でいい／常時発動じゃないサブスキルのみ表示して」）。
+      // 常時ぶんはステータスに乗っているので、帯にしても情報が増えない
+      if (!cnt[1]) { continue; }
       ssn++;
       var snm = ((B.skname || {})[vp.id] || {}).ExtraPassive || 'サブスキル';
       side += lbl(H.ss, img(vp.id, 'ic') + '<span class="nm">' + esc(vp.n) + '</span>');
-      cv += lane(H.ss, cnt[0]
-        ? '<div class="b ss" style="left:0;width:' + W + 'px" title="' + esc(snm) +
-          '\n常時 ' + cnt[0] + ' 件が効いています' +
-          (cnt[1] ? '／発動して効くもの ' + cnt[1] + ' 件は数えていません' : '') + '">' +
-          esc(snm) + '　常時 ' + cnt[0] + ' 件' +
-          (cnt[1] ? '（発動ぶん ' + cnt[1] + ' 件は未対応）' : '') + '</div>'
-        : '<div class="b ss off" style="left:0;width:' + W + 'px" title="' + esc(snm) +
-          '\n発動して効くもの ' + cnt[1] + ' 件だけなので、まだ数えていません">' +
-          esc(snm) + '　発動ぶん ' + cnt[1] + ' 件（未対応）</div>');
+      cv += lane(H.ss,
+        '<div class="b ss off" style="left:0;width:' + W + 'px" title="' + esc(snm) +
+        '\n発動して効くもの ' + cnt[1] + ' 件は、引き金が要るのでまだ数えていません' +
+        (cnt[0] ? '\n常時 ' + cnt[0] + ' 件はステータスに乗せています' : '') + '">' +
+        esc(snm) + '　発動ぶん ' + cnt[1] + ' 件（未対応）</div>');
     }
     if (!ssn) {
-      side += lbl(H.ss, '<span class="mut">（なし）</span>');
+      side += lbl(H.ss, '<span class="mut">（引き金つきは無し）</span>');
       cv += lane(H.ss, '');
     }
 
@@ -2692,6 +2722,15 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
     var n = nsInfo(id);
     return n ? n.du : 60;
   }
+  /** 通常スキルのバフの持続（秒）。**いちばん長いものを採る。**無ければ 0 */
+  function nsBuffDur(id) {
+    var sd = _byid[id], bf = sd && sd.ns && sd.ns.bf, i, mx = 0;
+    if (!bf) { return 0; }
+    for (i = 0; i < bf.length; i++) {
+      if (bf[i] && bf[i].du > 0 && bf[i].du < 1000000) { mx = Math.max(mx, bf[i].du / 1000); }
+    }
+    return mx;
+  }
 
   // ------------------------------------------------------------ 通常攻撃
   // **出どころは SchaleDB の `students.min.json` の `Skills.Normal.Frames`**
@@ -2970,9 +3009,50 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
   // **同じスキルに `Condition` 違いのダメージが並ぶことがある。**どれが当たるかは
   // 戦況次第で、データからは決められない。**推測で決めずに選ばせる**
   // （2026-09-01 の先生の指示「幅がある場合は、バーで倍率を選択できるように」）
+  // **印（`Parameter=CH0280_Ex_01`）が付いているかどうかは、TL から決められる。**
+  // 印の名前の頭が生徒の開発名（`CH0280` ＝ ネル（制服））なので、
+  // その子が編成にいて、印を付けるスキルを TL に置いていれば「あり」。
+  //   `_Ex…`         … その子の EX を 1 発でも置いていれば あり
+  //   `_Public`/`_NS` … 通常スキルが自動で出る子なら あり
+  //   `_ExtraPassive` … サブスキルは常時なので あり
+  // 決められないときは `null` を返して**候補を減らさない**（2026-09-01。
+  // ネル（制服）の「怪我しても知らねえからな」が対戦状態の有無 × 段 5 の 10 通りで、
+  // 既定が「対戦状態なし・段1」＝ 10 通りのうち最弱を選んでいた。
+  // 先生の TL は ⑤ネル(VS付与) を先に置くので、必ず「あり」側）
+  function markerOn(mk) {
+    var i, own = -1, dv = '';
+    for (i = 0; i < SLOTS; i++) {
+      var p = st.party[i], d = p && _byid[p.id];
+      if (d && d.dv && mk.indexOf(d.dv) === 0 && d.dv.length > dv.length) {
+        own = i; dv = d.dv;
+      }
+    }
+    if (own < 0) { return null; }
+    var tail = mk.slice(dv.length);
+    if (/^_?ExtraPassive/i.test(tail)) { return true; }
+    if (/^_?(Public|NS|Normal)/i.test(tail)) {
+      return nsTimes(st.party[own].id, diff().dur || 240, own).length > 0;
+    }
+    if (!/^_?Ex/i.test(tail)) { return null; }
+    for (i = 0; i < st.tl.length; i++) { if (st.tl[i].i === own) { return true; } }
+    return false;
+  }
+  function condOK(c) {
+    var m = /Parameter=([A-Za-z0-9_]+) Operand=Exists Value=(True|False)/.exec(String(c || ''));
+    if (!m) { return true; }
+    var on = markerOn(m[1]);
+    if (on == null) { return true; }
+    return on === (m[2] === 'True');
+  }
   function altOf(id, kind) {
     var a = ((B.dmgalt || {})[id] || {})[kind];
-    return (a && a.v && a.v.length) ? a : null;
+    if (!(a && a.v && a.v.length)) { return null; }
+    var keep = [], i;
+    for (i = 0; i < a.v.length; i++) { if (condOK(a.c[i])) { keep.push(i); } }
+    if (!keep.length || keep.length === a.v.length) { return a; }
+    var c2 = [], v2 = [];
+    for (i = 0; i < keep.length; i++) { c2.push(a.c[keep[i]]); v2.push(a.v[keep[i]]); }
+    return { c: c2, v: v2, cut: a.v.length - keep.length };
   }
   // そのスキル枠に効くレベル。**EX と NS と サブは別の欄**
   function lvlOf(idx, kind) {
@@ -3338,35 +3418,56 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
     var n = nrm(nm), m = n.match(/^(.+?)\((.+)\)$/);
     return { full: n, base: m ? m[1] : n, alts: m ? [n, m[2] + m[1]] : [n] };
   }
-  /** 行の中から編成の誰かを見つける。**いちばん長く当たったものを採る。** */
+  /** 行の中から編成の誰かを見つける。**先に名乗った子を採る。**
+      2026-09-01 の先生の TL で「開始イブキ指定(通常セイア＋ネル)」が
+      セイアと読まれていた。**いちばん長く当たったものを採る**だけだと、
+      括弧の中に書いてある「渡す相手」のほうが長ければそちらが勝ってしまう。
+      TL は「誰が」を先に書くので、**行の中で先に出てきたほうを採る**
+      （同じ位置なら長いほう）。括弧の中の名前は「撃つ子」の候補にしない
+      （「セイア（水着）」のような括弧つきの名前そのものは別で、これは当てる）。 */
   function whoIn(line, crew, bare) {
-    // **括弧つきの名前は、括弧を落とす前の行で当てる。**
-    // 「c8 セイア（水着）」の括弧を先に落として素のセイアに当たっていた
-    // （2026-09-01）。括弧を落とした行は、余談の中の名前を拾わないための保険で、
-    // **括弧なしの呼び方（「セイア」「イブキ」）を当てるときだけ使う**
-    var s = nrm(line), best = null, i, q;
+    var s = nrm(line), i, q, best = null, ties = [];
+    // 括弧の中かどうかの地図。**括弧つきの名前に当たったところは中に数えない**
+    var inP = [], depth = 0;
+    for (i = 0; i < s.length; i++) {
+      var ch = s.charAt(i);
+      if (ch === '(') { depth++; inP.push(true); continue; }
+      inP.push(depth > 0);
+      if (ch === ')') { depth = Math.max(0, depth - 1); }
+    }
+    function take(idx, pos, len, plain) {
+      if (pos < 0) { return; }
+      if (!best || pos < best.pos || (pos === best.pos && len > best.len)) {
+        best = { idx: idx, pos: pos, len: len, plain: plain }; ties = [best];
+      } else if (pos === best.pos && len === best.len) { ties.push({ idx: idx, plain: plain }); }
+    }
+    // 1. 括弧つき・入れ替え形（「セイア(水着)」「水着セイア」）。行のどこでも当てる
     for (i = 0; i < crew.length; i++) {
       var a = crew[i].a;
       for (q = 0; q < a.alts.length; q++) {
-        if (s.indexOf(a.alts[q]) >= 0 && (!best || a.alts[q].length > best.len)) {
-          best = { idx: crew[i].idx, len: a.alts[q].length };
-        }
+        take(crew[i].idx, s.indexOf(a.alts[q]), a.alts[q].length, false);
       }
     }
-    if (best) { return best.idx; }
-    // 括弧を落とした呼び方（「セイア」「イブキ」）。**同じ base が 2 人いたら
-    // 括弧の無いほうを採る**（セイア と セイア(水着) が両方いる編成がこれ）
-    var sb = nrm(bare == null ? line : bare), hit = [];
+    // 2. 括弧なしの呼び方（「セイア」「イブキ」）。**括弧の中は数えない**
+    var sb = bare == null ? null : nrm(bare);
     for (i = 0; i < crew.length; i++) {
-      if (sb.indexOf(crew[i].a.base) >= 0) { hit.push(crew[i]); }
+      var b2 = crew[i].a.base, at = -1;
+      while ((at = s.indexOf(b2, at + 1)) >= 0) {
+        if (inP[at]) { continue; }
+        // `bare` を渡されているときは、そちらにも残っている呼び方だけ採る
+        if (sb != null && sb.indexOf(b2) < 0) { break; }
+        take(crew[i].idx, at, b2.length, crew[i].a.full === b2);
+        break;
+      }
     }
-    if (!hit.length) { return -1; }
-    if (hit.length === 1) { return hit[0].idx; }
-    for (i = 0; i < hit.length; i++) {
-      if (hit[i].a.full === hit[i].a.base) { return hit[i].idx; }
-    }
+    if (!best) { return -1; }
+    if (ties.length === 1) { return best.idx; }
+    // **同じ base が 2 人**（セイア と セイア(水着)）。括弧の無いほうを採る
+    for (i = 0; i < ties.length; i++) { if (ties[i].plain) { return ties[i].idx; } }
     return -1;                       // 決められない。**当てずっぽうで選ばない**
   }
+  /** コストの上限。編成モードで変わる（通常 10・制約解除 20） */
+  function costCap() { return st.mode === 10 ? 20 : 10; }
   /** 1 行からタイミングを読む。読めなければ null。 */
   function timeIn(line, dur) {
     var s = nrm(line), m;
@@ -3378,7 +3479,9 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
     }
     m = s.match(/(?:^|[^A-Za-z0-9])[tT](\d+(?:\.\d+)?)(?![\d\/])/);
     if (m) { return { md: 't', t: Math.min(dur, +m[1]) }; }
-    if (/^開始/.test(s)) { return { md: 't', t: 0 }; }
+    // **「開始○○」は最速。**t=0 に置くとコストが 0 なので必ず「間に合いません」に
+    // なる（2026-09-01。先生の「開始イブキ指定」がこれ）
+    if (/^開始/.test(s)) { return { md: 'e' }; }
     // コスト「⑦」「c7」「コスト7」
     var k = CIRC.indexOf(s.charAt(0));
     if (k >= 0) { return { md: 'c', cv: k + 1 }; }
@@ -3386,6 +3489,11 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
     if (m) { return { md: 'c', cv: +m[1] }; }
     // 最速「即」「最速」「AUTO」「〜後」
     if (/^AUTO/i.test(s) || /^即|^最速/.test(s) || /後/.test(s)) { return { md: 'e' }; }
+    // **数字だけの行はコスト。**TL では「⑦」が書けない端数をこう書く
+    // （2026-09-01。先生の「9.5 Cネル」＝ コスト 9.5。前の行から 9.5 秒後、と
+    // 読んでいて 10 秒ずれていた）。秒のつもりなら「9.5秒」と書く
+    m = s.match(/^(\d+(?:\.\d+)?)(?!秒)/);
+    if (m && +m[1] <= costCap()) { return { md: 'c', cv: +m[1], guess: 'cost' }; }
     m = s.match(/^(\d+(?:\.\d+)?)秒?/);
     if (m) { return { md: 'rel', d: +m[1] }; }
     return null;
@@ -3494,6 +3602,10 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
       if (who < 0) { continue; }                    // 見出しや余談。黙って飛ばす
       var tm = timeIn(noParen, dur);
       if (!tm) { res.skipped.push([ln, 'タイミングが読めません']); continue; }
+      if (tm.guess === 'cost') {
+        res.notes.push('「' + ln.trim() + '」はコスト ' + tm.cv +
+                       ' として読みました（秒のつもりなら「' + tm.cv + '秒」と書いてください）');
+      }
       if (tm.md === 'rel') { tm = { md: 't', t: Math.min(dur, prevT + tm.d) }; }
       if (tm.md === 't') { prevT = tm.t; }
       // **その 1 発だけの渡し先。**「→ ネル」「>ネル」「→ ネル, セイア」
@@ -3562,17 +3674,27 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
       for (q2 = 0; q2 < rr.length; q2++) {
         if (rr[q2].e && rr[q2].e._ix != null && st.tl[rr[q2].e._ix] === row) { at = rr[q2].at; }
       }
-      if (u.md !== 't' && at != null) { row.t = at; }
+      // **書き戻す時刻は、前の行より必ず後ろにする。**`tlSorted()` は `t` で
+      // 並べ替えるので、素の解決時刻をそのまま書くと**書いてある順が入れ替わる**
+      // （2026-09-01。先生の TL で「即ネル」が 54.5 秒、次の「⑨リオ」が 46.2 秒に
+      // 解けて、リオがネルより前に回り「間に合いません」になっていた）。
+      // 実際に撃つ時刻は `md`／`cv` から毎回解き直すので、ここの `t` は並び順の札
+      if (u.md !== 't' && at != null) { row.t = Math.max(at, prev + 1e-4); }
       if (row.t > prev) { prev = row.t; }
     }
     bump(); fillBuild(); drawCrew(); drawPicker(); draw();
-    var rows = simOf(orderOf(), diff().dur || 240).rows, ng = [];
+    // **「置けない」と「後ろにずれる」を分ける。**ずれるだけのものまで
+    // 「成立しません」と出していて、読み込みが失敗したように見えていた
+    // （2026-09-01。実際は全部置けていて、演出待ちで数秒後ろになるだけ）
+    var rows = simOf(orderOf(), diff().dur || 240).rows, ng = [], slip = [];
     for (i = 0; i < rows.length; i++) {
-      if (rows[i].d && (rows[i].why || rows[i].at == null)) {
-        ng.push(rows[i].d.n + (rows[i].why ? '（' + rows[i].why + '）' : '（置けません）'));
+      if (!rows[i].d) { continue; }
+      if (rows[i].at == null) { ng.push(rows[i].d.n + '（置けません）'); }
+      else if (rows[i].why) {
+        slip.push(rows[i].d.n + ' ' + rows[i].at.toFixed(1) + '秒（' + rows[i].why + '）');
       }
     }
-    return { n: p.uses.length, ng: ng };
+    return { n: p.uses.length, ng: ng, slip: slip };
   }
 
   /* 書き方の案内。**1 つの書き方に縛らない**（2026-09-01 の先生の指示）。
@@ -3646,8 +3768,15 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
         out.push(li('w', '⚠ 読めなかった行: ' + p.skipped[i][0].trim() +
                     '　—　' + p.skipped[i][1]));
       }
-      for (i = 0; i < r.ng.length; i++) { out.push(li('w', '⚠ 成立しません: ' + r.ng[i])); }
-      if (!p.skipped.length && !r.ng.length) { out.push(li('g', '✔ 全部そのまま置けました')); }
+      for (i = 0; i < r.ng.length; i++) { out.push(li('w', '⚠ 置けません: ' + r.ng[i])); }
+      for (i = 0; i < (r.slip || []).length; i++) {
+        out.push(li('', '▸ 少し後ろにずれます: ' + r.slip[i]));
+      }
+      if (!p.skipped.length && !r.ng.length) {
+        out.push(li('g', r.slip && r.slip.length
+          ? '✔ 全部置けました（' + r.slip.length + ' 発は演出やコスト待ちで少し後ろにずれます）'
+          : '✔ 全部そのまま置けました'));
+      }
       say(out);
     });
     document.body.appendChild(w);
