@@ -3682,21 +3682,36 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
   }
 
   // ------------------------------------------------------------ 拡大・移動
+  // **自分で拡大したかどうかを覚えておく。**パネルを畳んだり大きさを変えたりする
+  // たびに `fit()` を呼んでいて、拡大した表示が毎回全体表示に戻っていた
+  // （2026-09-01 の先生の指摘「タイムラインを拡大した状態でトグルを閉じると
+  // 全体表示に戻っちゃう／開いても同様／パネルサイズを変えても同様」）
+  var userZoom = false;
   function fit() {
     var r = diff(), dur = r.dur || 240;
+    userZoom = false;
     st.px = Math.max(0.6, ($('view').clientWidth - 4) / dur);
     draw();
+  }
+  // 入れ物の大きさが変わったときの引き直し。**拡大しているなら倍率も位置も保つ**
+  function relayout() {
+    if (!userZoom) { fit(); return; }
+    var v = $('view'), sl = v ? v.scrollLeft : 0;
+    draw();
+    if (v) { v.scrollLeft = sl; }
   }
   function zoomAt(clientX, factor) {
     var v = $('view'), box = v.getBoundingClientRect();
     var mx = clientX - box.left + v.scrollLeft, t = mx / st.px;
     var np = Math.max(0.6, Math.min(160, st.px * factor));
     if (np === st.px) { return; }
+    userZoom = true;
     st.px = np; draw();
     v.scrollLeft = t * st.px - (clientX - box.left);
   }
   function zoomAtTime(t, factor) {
     var v = $('view'), keep = t * st.px - v.scrollLeft;
+    userZoom = true;
     st.px = Math.max(0.6, Math.min(160, st.px * factor)); draw();
     v.scrollLeft = t * st.px - keep;
   }
@@ -4188,7 +4203,7 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
     var pane = b.closest('.pane');
     if (!pane) { return; }
     setFold(pane, !pane.classList.contains('folded'));
-    setTimeout(fit, 0);
+    setTimeout(relayout, 0);
   });
   $('b-side').addEventListener('click', function (e) {
     // **摘みは仕切りの上に乗っている。**押したぶんが幅の変更にならないよう止める
@@ -4232,7 +4247,7 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
       document.body.classList.remove('rz');
       g.classList.remove('drag');
       saveSize('lw', parseInt(m.style.getPropertyValue('--lcol'), 10) || null);
-      fit();
+      relayout();
     }
     g.addEventListener('mousedown', function (e) {
       if (e.target.closest('.fold')) { return; }
@@ -4245,7 +4260,7 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
     });
     g.addEventListener('dblclick', function (e) {
       if (e.target.closest('.fold')) { return; }
-      m.style.removeProperty('--lcol'); saveSize('lw', null); fit();
+      m.style.removeProperty('--lcol'); saveSize('lw', null); relayout();
     });
   })();
   // 縦の高さ。**掴むのは隙間そのもの**（余白を増やさない）
@@ -4275,7 +4290,7 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
         document.body.classList.remove('rz', 'row');
         g.classList.remove('drag');
         saveSize(key, parseInt(el.style.height, 10) || null);
-        fit();
+        relayout();
       }
       g.addEventListener('mousedown', function (e) {
         e.preventDefault();
@@ -4286,7 +4301,7 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
         g.classList.add('drag');
       });
       g.addEventListener('dblclick', function () {
-        el.style.height = ''; el.classList.remove('sized'); saveSize(key, null); fit();
+        el.style.height = ''; el.classList.remove('sized'); saveSize(key, null); relayout();
       });
     }
   })();
@@ -4657,7 +4672,7 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
     if (x > view.scrollLeft + view.clientWidth - 40) { view.scrollLeft = x - view.clientWidth + 40; }
   });
   window.addEventListener('resize', function () {
-    clearTimeout(window.__tlrz); window.__tlrz = setTimeout(fit, 120);
+    clearTimeout(window.__tlrz); window.__tlrz = setTimeout(relayout, 120);
   });
 })();
 </script>
