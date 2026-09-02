@@ -858,6 +858,38 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
 .awy { position:absolute; top:0; bottom:0; z-index:5; pointer-events:none;
   background:repeating-linear-gradient(135deg, rgba(140,140,140,.22) 0 6px, transparent 6px 12px); }
 .awy.mob { background:repeating-linear-gradient(135deg, rgba(200,160,60,.18) 0 6px, transparent 6px 12px); }
+/* ---------- ボスの状態（2026-09-03） ---------- */
+/* **窓は帯にした。**数字の行が並んでいると、どの EX に乗るのかが見えない
+   （2026-09-01 の先生の指摘）。値と秒は帯の title に入れて、画面からは消す */
+.b.bst { background:var(--teal); color:#fff; padding:0; cursor:grab; }
+.b.bst.k-away, .b.bst.k-mob { background:#4a5265; }
+.b.bst.k-groggy { background:var(--ylw); color:#221900; }
+.b.bst .nm { flex:1 1 auto; overflow:hidden; text-overflow:ellipsis;
+  padding:0 2px; white-space:nowrap; }
+/* 端の摘み。ここを掴むと t0 / t1 が動く */
+.b.bst .gr { flex:0 0 auto; width:5px; align-self:stretch; cursor:ew-resize;
+  background:rgba(0,0,0,.35); }
+.b.bst .x { flex:0 0 auto; width:11px; text-align:center; cursor:pointer; opacity:.75; }
+.b.bst .x:hover { opacity:1; }
+/* 窓が 1 つも無いときのレーン。**高さは変えない**（1 行の薄い字だけ） */
+.lnnote { position:absolute; left:5px; top:0; font-size:9.5px; color:var(--tx3);
+  pointer-events:none; }
+/* ギミックの候補。見出しと同じ行に並べる */
+.gchips { display:flex; flex-wrap:wrap; gap:var(--s1,4px); align-items:center; min-width:0; }
+.tlapp .gchip { padding:0 7px; font-size:10px; }
+/* 「乗っているギミック」の☑。外すとその 1 発だけ窓が効かない */
+.gxl { display:flex; align-items:center; gap:3px; font-size:10px; color:var(--tx2);
+  white-space:nowrap; }
+/* ---------- 「入力」の TL 表（2026-09-03） ---------- */
+/* 行は st.tl そのもの。帯を動かせば行が動き、行を直せば帯が動く */
+.trow { display:flex; align-items:center; gap:var(--s1,4px); min-height:16px; }
+.trow > .ix { width:24px; text-align:right; color:var(--tx3); font-size:9.5px;
+  flex:0 0 auto; }
+.trow select, .trow input { font-size:10px; flex:0 0 auto; }
+.trow select[data-tr="md"] { width:76px; }
+.trow select[data-tr="who"] { width:150px; }
+.trow.on { background:#ffffff08; }
+.tdet { padding:4px 0 6px 28px; border-bottom:1px solid var(--ln); }
 </style>
 </head>
 <body>
@@ -1060,6 +1092,8 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
           <span style="flex:1 1 auto"></span>
           <button type="button" class="btn2" data-act="export">書き出し</button>
           <button type="button" class="btn2" data-act="import">読み込み</button>
+          <button type="button" class="btn2" data-act="rows" id="b-rows" aria-pressed="false"
+                  title="置いた EX を行で組む（タイムラインの下に開きます）">入力</button>
           <button type="button" class="btn2" data-act="uireset"
                   title="畳んだ・大きさを変えた、を全部もとに戻す">表示を戻す</button>
           <button type="button" class="btn2 sq" data-act="keys" title="キー操作の一覧">?</button>
@@ -1072,6 +1106,11 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
           <div class="view" id="view" tabindex="0"><div class="cv" id="cv"></div></div>
         </div>
       </div>
+
+      <!-- 「入力」で開く TL 表。行は st.tl そのもの（2026-09-03） -->
+      <div class="pane" id="rowpane" hidden><div class="bd">
+        <div id="rowlist"></div>
+      </div></div>
 
       <div class="pane" id="usepane" hidden><div class="bd">
         <div class="fields wrapf" id="useedit"></div>
@@ -1095,15 +1134,13 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
         <div class="mut tiny" id="groggy" style="margin-top:4px"></div>
         <div class="row" style="margin-top:6px;align-items:center">
           <h2 class="sect inline"><i></i>ボスの状態</h2>
-          <select id="bst-pick" title="このボスの説明文から拾ったギミック"></select>
-          <button type="button" class="btn2" data-act="bstadd">＋ 足す</button>
-          <span class="mut tiny">ギミックで変わるぶんと、ボスに当たらない区間を置きます</span>
-          <button type="button" class="qm" data-hint="ギミック（被ダメージ率・防御力・会心抵抗）は、効いている秒の間だけ掛かります。
-「ボスに当たらない」は、雑魚処理や移動でボスが盤に居ない区間です。その間の EX・NS・通常攻撃はボスの HP から引きません。
-ケセドは 152 秒のうち 121 秒がこれで、置かないと与ダメージが実測の 1.4 倍近くに出ます。
-どちらも、いつ入るかはデータに無いので置くのは先生です。">?</button>
+          <span class="gchips" id="bst-chips"></span>
+          <button type="button" class="qm" data-hint="押すと、その長さの帯をタイムラインの「ボスの状態」レーンに置きます。帯の端をドラッグすると始まりと終わりが動き、× で消えます。値と秒は帯にカーソルを当てると出ます。
+ギミック（被ダメージ率・防御力・会心抵抗）は、効いている秒の間だけ掛かります。
+「ボスに当たらない」は、雑魚処理や移動でボスが盤に居ない区間です。その間の EX・NS・通常攻撃はボスの HP から引きません。ケセドは 152 秒のうち 121 秒がこれで、置かないと与ダメージが実測の 1.4 倍近くに出ます。
+いつ入るかはデータに無いので置くのは先生です。
+値そのものを変えたいときは「書き出し」の JSON で bst の v を直して「読み込み」で戻します。">?</button>
         </div>
-        <div class="fields wrapf" id="bstate"></div>
       </div></div>
 
       <div class="pane"><div class="bd">
@@ -1644,8 +1681,9 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
 
   // レーンの高さ。**詰めて置く**（2026-09-01 の先生の指示「UI はツメツメでいい」）
   // 2026-09-01 の先生の指示「通常攻撃はもっと細くていい／その分スキルのバーを太く」
-  var H = { axis: 18, name: 16, ex: 16, ps: 16, gg: 18, dbf: 13, rec: 52, cost: 58, row: 21,
-            na: 11, ss: 18 };
+  // `bst`（ボスの状態）は EX / PS と同じ 16。**行を足しても高さは増やさない**
+  var H = { axis: 18, name: 16, ex: 16, ps: 16, bst: 16, gg: 18, dbf: 13, rec: 52, cost: 58,
+            row: 21, na: 11, ss: 18 };
 
   // ------------------------------------------------------------ 枠とパーティー
   // **コストの計算は tools/tl-engine.js に全部ある。**ここでは持たない。
@@ -2214,10 +2252,11 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
       居ない間は、EX・NS・通常攻撃のどれもボスの HP から引かない。
       ケセドは 152 秒のうち 121 秒がこれで、無いと EX を全部雑魚に向けても
       136% になる（2026-09-02）。**区間を置くのは使う人**（当たる先と同じ扱い） */
-  function awayAt(t, na) {
+  function awayAt(t, na, gx) {
     var i, w;
     for (i = 0; i < (st.bst || []).length; i++) {
       w = st.bst[i];
+      if (gx && gx.indexOf(i) >= 0) { continue; }
       if ((w.k === 'away' || (na && w.k === 'mob')) && t >= w.t0 - 1e-9 && t < w.t1) { return true; }
     }
     return false;
@@ -2232,9 +2271,9 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
     if (!o.sec) { return o; }
     var us = usesSorted();
     for (i = 0; i < us.length; i++) {
-      if (!awayAt(us[i].t, !/^Ex\d*$/.test(us[i].k))) { continue; }
+      if (!awayAt(us[i].t, !/^Ex\d*$/.test(us[i].k), us[i].gx)) { continue; }
       // ダメージの無い EX（バフ役）は数えない。総量の表と同じ数え方にする
-      if (!dmgOf(us[i].i, r, us[i].t, us[i].k, us[i].pk, us[i].tg)) { continue; }
+      if (!dmgOf(us[i].i, r, us[i].t, us[i].k, us[i].pk, us[i].tg, us[i].gx)) { continue; }
       if (/^Ex\d*$/.test(us[i].k)) { o.ex++; } else { o.ns++; }
     }
     for (i = 0; i < SLOTS; i++) {
@@ -2257,15 +2296,15 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
       // 通常攻撃の `naPool` と同じ。2026-09-02、大決戦シロクロで 8 発がシロの池に残っていた）
       var tr = trOf(r, u.tg) * (u.mc || 1), pp = u.tg == null ? (naPool(r, u.t, deadAt) || r.cid) : poolOf(r, u.tg);
       if (pp !== pid && !(pid === r.cid && u.tg != null && tr)) { continue; }
-      if (u.t > (r.dur || 240) + 1e-9 || awayAt(u.t, !/^Ex\d*$/.test(u.k))) { continue; }
-      var d = dmgOf(u.i, r, u.t, u.k, u.pk, u.tg);
+      if (u.t > (r.dur || 240) + 1e-9 || awayAt(u.t, !/^Ex\d*$/.test(u.k), u.gx)) { continue; }
+      var d = dmgOf(u.i, r, u.t, u.k, u.pk, u.tg, u.gx);
       var v0 = d ? (tr && pp !== pid ? d[key] * tr : d[key]) : 0;
       // **直線に伸びる攻撃は、部位を貫いてボス本体にも当たる**（ヒナ（ドレス）の
       // 射撃など）。当たるかどうかは盤の上の話でデータから決まらないので、
       // **置くのは使う人**（帯の「ボス本体にも当たる」。2026-09-02 の先生の見立て）。
       // ボスと部位で防御が違うことがあるので、本体ぶんは本体の数字で出す
       if (d && u.tg != null && u.hb) {
-        var db = dmgOf(u.i, r, u.t, u.k, u.pk, null);
+        var db = dmgOf(u.i, r, u.t, u.k, u.pk, null, u.gx);
         if (db) { v0 += db[key]; }
       }
       if (d) { pts.push([u.t, v0]); }
@@ -2525,6 +2564,28 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
     cv += lane(H.ex, s);
     side += lbl(H.ps, mini + '<span class="nm">PS</span>');
     cv += lane(H.ps, s2);
+
+    // ボスの状態。**窓を名前つきの帯で出す**（2026-09-03。数字の行だけだと
+    // どの EX に乗るのかが見えない）。端の摘みで t0 / t1、× で消す
+    var bsB = '', bwi;
+    for (bwi = 0; bwi < (st.bst || []).length; bwi++) {
+      var wq = st.bst[bwi];
+      if (wq.t0 >= dur) { continue; }
+      var qx0 = wq.t0 * px, qx1 = Math.min(wq.t1, dur) * px;
+      bsB += '<div class="b bst k-' + esc(wq.k) + '" data-bw="' + bwi + '" style="left:' +
+             qx0.toFixed(1) + 'px;width:' + Math.max(20, qx1 - qx0).toFixed(1) +
+             'px" title="' + esc(bstTip(wq, dur)) + '">' +
+             '<i class="gr" data-bg="0"></i>' +
+             '<span class="nm">' + esc(bstName(wq)) + '</span>' +
+             '<i class="x" data-bx="' + bwi + '">×</i>' +
+             '<i class="gr" data-bg="1"></i></div>';
+    }
+    side += lbl(H.bst, '<span class="nm">ボスの状態</span>' +
+      (st.bst.length ? '<span class="mb">' + st.bst.length + '</span>' : ''));
+    cv += lane(H.bst, bsB ||
+      '<span class="lnnote" style="line-height:' + H.bst + 'px">' +
+      ((diff().gim || []).length ? '上の「ボスの状態」の候補を押すと、ここに帯が出ます'
+                                 : 'このボスに候補はありません') + '</span>');
 
     // グロッキー。**ダメージで貯まるボスだけ線を引く**（2026-09-01 の先生の要望）
     var gs = '', gm = ggr.g;
@@ -2793,7 +2854,7 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
             'style="width:120px"></label>';
     }
     $('phases').innerHTML = pf || '<span class="mut" style="font-size:10px">このボスにはフェーズの切り替わりがありません。</span>';
-    drawRate(); drawErr(); kpi(); drawUse(); drawAlts(); drawNsTo();
+    drawRate(); drawErr(); kpi(); drawUse(); drawRows(); drawAlts(); drawNsTo();
     if (st.pin != null) { movePh(st.pin, true); }
   }
 
@@ -3202,7 +3263,7 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
       for (z2 = 0; z2 < us0.length; z2++) {
         var u0 = us0[z2];
         if (u0.tg == null) { continue; }
-        var d0 = dmgOf(u0.i, r, u0.t, u0.k, u0.pk, u0.tg);
+        var d0 = dmgOf(u0.i, r, u0.t, u0.k, u0.pk, u0.tg, u0.gx);
         if (!d0) { continue; }
         if (!acc[u0.tg]) { acc[u0.tg] = { n: 0, v: 0, mc: 0 }; }
         acc[u0.tg].n++; acc[u0.tg].v += d0[key0] * (u0.mc || 1);
@@ -3795,7 +3856,9 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
                  // **何体に当たったか。**転移する部位に AoE で当てたときだけ効く
                  mc: st.tl[i].mc == null ? 1 : st.tl[i].mc,
                  // **部位を貫いてボス本体にも当たるか**（置くのは使う人）
-                 hb: st.tl[i].hb ? 1 : 0 });
+                 hb: st.tl[i].hb ? 1 : 0,
+                 // **この 1 発だけ外したボスの状態の窓**（`st.bst` の番号。2026-09-03）
+                 gx: st.tl[i].gx || null });
     }
     var dur = diff().dur || 240;
     for (i = 0; i < SLOTS; i++) {
@@ -3961,7 +4024,7 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
     // 討伐に要る池を持つ部位はそう書く（レンジャーは 5 体で 40,000,000 を共有）
     return x.n + (x.kill ? '・討伐対象' + (x.phn && x.cnt > 1 ? '（' + x.cnt + ' 体で HP 共有）' : '') : '');
   }
-  function enemyAt(r, t, tg) {
+  function enemyAt(r, t, tg, gx) {
     var bs = aimOf(r, tg), m = {}, i;
     function set(k, v) { m[k] = [v || 0, 0, 1]; }
     set('DefensePower', bs.def); set('DodgePoint', bs.dodge);
@@ -3987,6 +4050,8 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
     for (i = 0; i < (st.bst || []).length; i++) {
       var w = st.bst[i];
       if (t == null || t < w.t0 - 1e-9 || t >= w.t1) { continue; }
+      // **その 1 発だけ外した窓は飛ばす**（EX の帯の「乗っているギミック」。2026-09-03）
+      if (gx && gx.indexOf(i) >= 0) { continue; }
       if (w.k === 'damaged') { m.DamagedRatio[1] -= (w.v || 0) * 100; }
       else if (w.k === 'def') { m.DefensePower[2] += (w.v || 0) / 100; }
       else if (w.k === 'defAbs') { m.DefensePower[1] += (w.v || 0); }
@@ -4136,19 +4201,19 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
   // +1 = 全部いちばん高い候補（2026-09-01 の先生の指示
   // 「上振れシナリオと下振れシナリオ」）。**総当たりするのは達成率の表だけ**
   var PICKF = 0;
-  function dmgOf(idx, r, at, kind, upk, tg) {
+  function dmgOf(idx, r, at, kind, upk, tg, gx) {
     var p = st.party[idx];
     if (!p) { return null; }
     var kd = kind || 'Ex';
     var alt = altOf(p.id, kd);
     if (!PICKF || !alt || alt.v.length < 2) {
-      return dmgOf1(idx, r, at, kd, alt ? pickOf(idx, kd, upk) : 0, tg);
+      return dmgOf1(idx, r, at, kd, alt ? pickOf(idx, kd, upk) : 0, tg, gx);
     }
     // **候補ごとに最後まで計算して比べる。**倍率（`Scale`）だけで比べると、
     // 発数・防御無視・会心の有無が候補ごとに違うぶんを取りこぼす
     var best = null, i;
     for (i = 0; i < alt.v.length; i++) {
-      var d = dmgOf1(idx, r, at, kd, i, tg);
+      var d = dmgOf1(idx, r, at, kd, i, tg, gx);
       if (!d) { continue; }
       if (!best || (PICKF > 0 ? d.avg > best.avg : d.avg < best.avg)) { best = d; }
     }
@@ -4190,16 +4255,16 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
     if (a) { for (i = 0; i < a.v.length; i++) { look(a.v[i]); } }
     return (n >= 4 && formDur(id, kind) >= 1) ? SLICE : 1;
   }
-  function dmgOf1(idx, r, at, kind, pick, tg) {
+  function dmgOf1(idx, r, at, kind, pick, tg, gx) {
     var p0 = st.party[idx];
     if (!p0) { return null; }
     var kd0 = kind || 'Ex';
     var ns = at == null ? 1 : sliceOf(p0.id, kd0);
-    if (ns <= 1) { return dmgAt(idx, r, at, kd0, pick, tg); }
+    if (ns <= 1) { return dmgAt(idx, r, at, kd0, pick, tg, gx); }
     var D = formDur(p0.id, kd0), dur0 = r.dur || 240, acc = null, k, q2;
     for (k = 0; k < ns; k++) {
       var ts = Math.min(at + D * (k + 0.5) / ns, dur0);
-      var d0 = dmgAt(idx, r, ts, kd0, pick, tg);
+      var d0 = dmgAt(idx, r, ts, kd0, pick, tg, gx);
       if (!d0) { return null; }
       if (!acc) { acc = { min: 0, avg0: 0, avg: 0, avgC: 0, max: 0, va: 0,
                           hit: d0.hit, crit: d0.crit, name: d0.name }; }
@@ -4209,7 +4274,7 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
     }
     return acc;
   }
-  function dmgAt(idx, r, at, kind, pick, tg) {
+  function dmgAt(idx, r, at, kind, pick, tg, gx) {
     var p = st.party[idx];
     if (!p) { return null; }
     var kd = kind || 'Ex';
@@ -4226,7 +4291,7 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
     var tb = aimOf(r, tg);
     var eb = at == null ? { def: tb.def, dodge: tb.dodge, crR: tb.crR, cdR: tb.cdR,
                             damaged: 10000, damaged2: 10000, armor: tb.armor, n: 0 }
-                        : enemyAt(r, at, tg);
+                        : enemyAt(r, at, tg, gx);
     var atk = cs.get('AttackPower');
     if (isMain(idx)) { atk += support('AttackPower', lv, r); }
     var lvMod = clamp(1 - ((r.lv || lv) - lv) * 0.02, 0.4, 1);
@@ -4404,8 +4469,8 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
       for (i = 0; i < us.length; i++) {
         var u = us[i], tr = trOf(r, u.tg), mc = u.mc || 1, pp = u.tg == null ? (naPool(r, u.t, deadAt) || r.cid) : poolOf(r, u.tg);
         if (pp !== pid && !(pid === r.cid && u.tg != null && tr)) { continue; }
-        if (u.t > (r.dur || 240) + 1e-9 || awayAt(u.t, !/^Ex\d*$/.test(u.k))) { continue; }
-        var d = dmgOf(u.i, r, u.t, u.k, u.pk, u.tg);
+        if (u.t > (r.dur || 240) + 1e-9 || awayAt(u.t, !/^Ex\d*$/.test(u.k), u.gx)) { continue; }
+        var d = dmgOf(u.i, r, u.t, u.k, u.pk, u.tg, u.gx);
         if (!d) { continue; }
         n++;
         if (u.tg != null && pp !== pid) {
@@ -4464,8 +4529,8 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
       var u = us[i];
       var tr2 = trOf(r, u.tg) * (u.mc || 1);
       if (u.tg != null && !tr2) { continue; }
-      if (u.t > (r.dur || 240) + 1e-9 || awayAt(u.t, !/^Ex\d*$/.test(u.k))) { continue; }
-      var d = dmgOf(u.i, r, u.t, u.k, u.pk, u.tg);
+      if (u.t > (r.dur || 240) + 1e-9 || awayAt(u.t, !/^Ex\d*$/.test(u.k), u.gx)) { continue; }
+      var d = dmgOf(u.i, r, u.t, u.k, u.pk, u.tg, u.gx);
       if (!d) { continue; }
       if (tr2) {
         d = { min: d.min * tr2, avg0: d.avg0 * tr2, avg: d.avg * tr2,
@@ -4545,6 +4610,12 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
                          // 指定の仕方（秒・コスト・最速）も持ち越す
                          bto: u.bto == null ? null : u.bto,
                          md: u.md || 't', cv: u.cv == null ? null : +u.cv,
+                         // **当たる先・当たる数・貫通と、その 1 発だけ外した窓**も
+                         // 持ち越す（2026-09-03。書き出しには入っていたのに読めていなかった）
+                         tg: u.tg == null ? null : +u.tg,
+                         mc: u.mc == null ? null : +u.mc,
+                         hb: u.hb ? 1 : 0,
+                         gx: (u.gx && u.gx.length) ? u.gx.slice() : null,
                          pk: u.pk || undefined });
           }
         }
@@ -4552,7 +4623,9 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
         for (q = 0; q < (src.bst || []).length; q++) {
           var wb = src.bst[q];
           if (wb && isFinite(wb.t0) && isFinite(wb.t1)) {
-            np.bst.push({ t0: +wb.t0, t1: +wb.t1, k: String(wb.k || 'damaged'), v: +wb.v || 0 });
+            // `n` はチップから置いたギミックの名前（2026-09-03）
+            np.bst.push({ t0: +wb.t0, t1: +wb.t1, k: String(wb.k || 'damaged'),
+                          v: +wb.v || 0, n: wb.n ? String(wb.n) : undefined });
           }
         }
         np.gu = !!src.gu;
@@ -4594,7 +4667,8 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
       for (i = 0; i < (o.bst || []).length; i++) {
         var w2 = o.bst[i];
         if (w2 && isFinite(w2.t0) && isFinite(w2.t1)) {
-          st.parties[0].bst.push({ t0: +w2.t0, t1: +w2.t1, k: String(w2.k || 'damaged'), v: +w2.v || 0 });
+          st.parties[0].bst.push({ t0: +w2.t0, t1: +w2.t1, k: String(w2.k || 'damaged'),
+                                   v: +w2.v || 0, n: w2.n ? String(w2.n) : undefined });
         }
       }
     }
@@ -5740,13 +5814,13 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
         if (ev.k === 'break') {
           nb++;
           if (nb === 3 && gAll) {
-            st.bst.push({ k: 'damaged', v: gAll.v, t0: ev.t, t1: durE });
+            st.bst.push({ k: 'damaged', v: gAll.v, t0: ev.t, t1: durE, n: gAll.n });
             evN.push('「' + ev.line + '」で 3 つ目の破壊なので、' + gAll.n + '（+' + gAll.v + '%）を ' +
                          ev.t.toFixed(1) + ' 秒から終わりまで置きました');
           }
         } else if (gEach) {
           nc++;
-          st.bst.push({ k: 'damaged', v: gEach.v, t0: ev.t, t1: durE });
+          st.bst.push({ k: 'damaged', v: gEach.v, t0: ev.t, t1: durE, n: gEach.n });
           evN.push('「' + ev.line + '」で ' + gEach.n + '（+' + gEach.v + '%、1 回 1 個とみなす）を ' +
                        ev.t.toFixed(1) + ' 秒から終わりまで置きました（' + nc + ' 個目）');
         }
@@ -6505,6 +6579,21 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
           '<option value="1"' + (u.hb ? ' selected' : '') + '>当たる</option></select></label>';
       }
     }
+    // **乗っているギミック**（2026-09-03）。この 1 発の時刻に重なっている窓は
+    // 自動で☑。外すと **その 1 発だけ** 効かない（`u.gx` に窓の番号が入る）。
+    // グロッキーは会心の解き直しに関わるので、ここでは外せない
+    var at9 = (er && er.at != null) ? er.at : u.t, gxh = '', gi9, gxs = u.gx || [];
+    for (gi9 = 0; gi9 < (st.bst || []).length; gi9++) {
+      var w9 = st.bst[gi9];
+      if (w9.k === 'groggy') { continue; }
+      if (at9 < w9.t0 - 1e-9 || at9 >= w9.t1) { continue; }
+      gxh += '<label class="gxl"><input type="checkbox" data-us="gx" data-w="' + gi9 + '"' +
+        (gxs.indexOf(gi9) >= 0 ? '' : ' checked') + '>' + esc(bstName(w9)) + '</label>';
+    }
+    if (gxh) {
+      h2 += '<label class="f"><span>乗っているギミック</span><span class="two2">' +
+        gxh + '</span></label>';
+    }
     if (er && er.grant) {
       h2 += '<label class="f"><span>コスト' + (er.grant.vt === 'coef' ? '減少' : '増加') +
         'カードを渡す</span><select data-us="to"' +
@@ -6535,7 +6624,7 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
                  ? '<span class="mut tiny">選ばなければ編成の全員に乗ります</span>' : ''));
     }
     if (er) {
-      var dk = exKind(er.fi), dd = dmgOf(u.i, diff(), er.at, dk, u.pk);
+      var dk = exKind(er.fi), dd = dmgOf(u.i, diff(), er.at, dk, u.pk, null, u.gx);
       h2 += '<span class="mut tiny">ダメージ ' +
         (dd ? '<b>' + n0(dd.avg) + '</b>（最小 ' + n0(dd.min) + '／最大 ' + n0(dd.max) +
               '・会心率 ' + (dd.crit * 100).toFixed(1) + '%）'
@@ -6583,7 +6672,95 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
     h2 += '<span style="flex:1 1 auto"></span>' +
       '<button type="button" class="btn2" data-act="delsel">この 1 発を消す</button>';
     $('useedit').innerHTML = h2;
-    $('usepane').hidden = false;
+    // **TL 表を開いている間は、同じ中身を行の下に出す**（2026-09-03）。
+    // 上下に 2 つ並べても情報が増えないので、片方だけ見せる
+    $('usepane').hidden = ROWS;
+  }
+
+  // ------------------------------------------------------------ 「入力」の TL 表
+  // **行は `st.tl` そのもの**（2026-09-03 の先生の要望「入力で TL を行で組む」）。
+  // 帯を動かせば行が動き、行を直せば帯が動く。別の窓は作らず、タイムラインの下に
+  // 折りたたみで出す。「詳細」は帯クリックの窓と同じ中身をそのまま置く
+  var ROWS = false;
+  function rowsToggle() {
+    ROWS = !ROWS;
+    $('b-rows').setAttribute('aria-pressed', ROWS ? 'true' : 'false');
+    $('rowpane').hidden = !ROWS;
+    drawUse(); drawRows();
+  }
+  /** 行に出す時刻。コスト指定・最短は engine が解いた時刻（`_rt`） */
+  function rowTime(u) {
+    return (u.md === 't' || !u.md) ? u.t : (u._rt != null ? u._rt : u.t);
+  }
+  /** 表示の並び（時刻の順）。中身は `st.tl` の番号 */
+  function rowOrder() {
+    var o = [], i;
+    for (i = 0; i < st.tl.length; i++) { o.push(i); }
+    o.sort(function (a, b) { return rowTime(st.tl[a]) - rowTime(st.tl[b]) || a - b; });
+    return o;
+  }
+  /** 生徒の欄。**編成の子から選ぶ。**編成外は下の「生徒を選ぶ」で探して編成に入れる
+      （`st.tl` の 1 件は編成の枠を指しているので、編成外の子は置けない） */
+  function rowWho(cur) {
+    var h = '', k;
+    for (k = 0; k < SLOTS; k++) {
+      if (!live(k) || !st.party[k]) { continue; }
+      h += '<option value="' + k + '"' + (k === cur ? ' selected' : '') + '>' +
+           esc(st.party[k].n) + '</option>';
+    }
+    return h + '<option value="find">編成外を探す…</option>';
+  }
+  function drawRows() {
+    if (!ROWS) { return; }
+    var h = '', ord = rowOrder(), i;
+    for (i = 0; i < ord.length; i++) {
+      var ix = ord[i], u = st.tl[ix], md = u.md || 't', on = st.sel === ix;
+      h += '<div class="trow' + (on ? ' on' : '') + '" data-ix="' + ix + '">' +
+        '<span class="ix">' + (i + 1) + '</span>' +
+        '<select data-tr="md" title="時間で置くか、コストが貯まったら置くか">' +
+        '<option value="t"' + (md === 't' ? ' selected' : '') + '>時間</option>' +
+        '<option value="c"' + (md === 'c' ? ' selected' : '') + '>コスト</option>' +
+        '<option value="e"' + (md === 'e' ? ' selected' : '') + '>最短</option></select>' +
+        (md === 'e' ? '<span class="mut tiny" style="width:64px">—</span>'
+          : '<input type="number" data-tr="v" min="0" step="' + (md === 'c' ? '0.5' : '0.1') +
+            '" style="width:64px" value="' +
+            (md === 'c' ? (u.cv == null ? 10 : u.cv) : (+u.t).toFixed(2)) + '">') +
+        '<select data-tr="who">' + rowWho(u.i) + '</select>' +
+        '<span class="mut tiny">' + (md === 't' ? '' : rowTime(u).toFixed(2) + '秒') + '</span>' +
+        '<span style="flex:1 1 auto"></span>' +
+        '<button type="button" class="btn2 gchip" data-tr="det">詳細 ' +
+        (on ? '▾' : '▸') + '</button>' +
+        '<button type="button" class="btn2 gchip" data-tr="del" title="この 1 発を消す">×</button>' +
+        '</div>' +
+        (on ? '<div class="fields wrapf tdet" id="trdet"></div>' : '');
+    }
+    h += '<div class="trow"><span class="ix"></span>' +
+      '<button type="button" class="btn2 gchip" data-tr="add" title="次の 1 発を足す">＋</button>' +
+      (ord.length ? '' : '<span class="mut tiny">まだ 1 発も置いていません</span>') + '</div>';
+    $('rowlist').innerHTML = h;
+    // 「詳細」は帯クリックの窓と同じ中身。**組み直さずにそのまま写す**
+    if ($('trdet')) { $('trdet').innerHTML = $('useedit').innerHTML; }
+  }
+  /** 末尾の「＋」。**時間の行は前の行＋刻み、コストの行はその値へ貯まる時刻**
+      （コストからの逆引きは `orderOf` の `costReach` がやる） */
+  function rowAdd() {
+    var dur = diff().dur || 240, ord = rowOrder(), i;
+    var last = ord.length ? st.tl[ord[ord.length - 1]] : null;
+    var lt = last ? rowTime(last) : 0, who = last ? last.i : -1;
+    if (who < 0 || !st.party[who] || !live(who)) {
+      who = -1;
+      for (i = 0; i < SLOTS; i++) { if (live(i) && st.party[i]) { who = i; break; } }
+    }
+    if (who < 0) { return; }
+    if (last && last.md === 'c') {
+      mark();
+      st.tl.push({ i: who, t: lt, to: null, ov: null, f: null, bt: null, md: 'c',
+                   // 既定は「この子の EX が撃てる最小のコスト」
+                   cv: Math.ceil(exCost(st.party[who]) * 2) / 2 });
+      st.sel = st.tl.length - 1;
+      draw(); return;
+    }
+    addUse(who, Math.min(dur, lt + st.grid / B.fps));
   }
 
   function fillBoss() {
@@ -6624,7 +6801,7 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
     }
     $('i-armor').innerHTML = ah;
     $('i-armor').value = st.arm || '';
-    drawGroggy(); drawBstate(); drawBstPick();
+    drawGroggy(); drawBstate();
   }
   // **グロッキーで何が起きるかはボスごとに違う**（2026-09-01 の先生の指摘）。
   // 中身は `DB/BossExternalBTExcelTable.json` の引き金 `ApplyGroggy`。
@@ -6651,6 +6828,21 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
     for (var i = 0; i < BSTJA.length; i++) { if (BSTJA[i][0] === k) { return BSTJA[i][1]; } }
     return k;
   }
+  /** 値を持つ種類かどうか。`away` / `mob` / `groggy` は区間だけで値が無い */
+  function bstHasV(k) { return k !== 'away' && k !== 'mob' && k !== 'groggy'; }
+  /** 帯に出す名前。**チップから置いたものはギミックの名前（`w.n`）を先に出す** */
+  function bstName(w) {
+    var u = (w.k === 'damaged' || w.k === 'def') ? '%' : '';
+    return (w.n ? w.n + ' / ' : '') + bstLabel(w.k) +
+      (bstHasV(w.k) ? ' ' + ((w.v || 0) >= 0 ? '+' : '') + (w.v || 0) + u : '');
+  }
+  /** 帯の title。**数字はここにだけ出す**（2026-09-03。数字の行は消した） */
+  function bstTip(w, dur) {
+    return bstName(w) + '\n' + (+w.t0).toFixed(2) + '〜' +
+      (+w.t1).toFixed(2) + '秒（' + Math.max(0, w.t1 - w.t0).toFixed(2) + '秒間）' +
+      (dur && w.t1 > dur ? '\n※ 制限時間 ' + dur + ' 秒を超えたぶんは効きません' : '') +
+      '\n端をドラッグで動かします／× で消します';
+  }
   // ボスの説明文（`RaidSkills`）から拾ったギミックの候補。**自動では効かせない。**
   // いつ入るかは TL 次第なので、選んだら窓を 1 つ置いて、秒は自分で動かす
   function esc2(t) {
@@ -6665,46 +6857,55 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
     return g.n + (m ? '（' + m[1] + '）' : '') + ' / ' + bstLabel(g.k) + ' ' +
       (g.v >= 0 ? '+' : '') + g.v + u + (g.d ? ' ' + g.d + '秒' : '');
   }
-  function drawBstPick() {
-    var el = $('bst-pick'), gm = (diff().gim || []), h, i;
+  /** **候補はチップ。**見出しと同じ行に並べる（2026-09-03。プルダウンと
+      「＋足す」は消した）。押すと、いま見えている範囲の先頭に帯を 1 本置く。
+      `gim` に無い「ボスに当たらない」「雑魚へ」「グロッキー」も同じ行に出す */
+  var BSTPLAIN = ['away', 'mob', 'groggy'];
+  function drawBstate() {
+    var el = $('bst-chips'), gm = (diff().gim || []), h = '', i;
     if (!el) { return; }
-    if (!gm.length) {
-      el.innerHTML = '<option value="">ギミックの候補なし</option>';
-      el.disabled = true; return;
-    }
-    el.disabled = false;
-    h = '<option value="">ギミックから選ぶ…（' + gm.length + '）</option>';
     for (i = 0; i < gm.length; i++) {
-      h += '<option value="' + i + '" title="' + esc2(gm[i].t) + '">' +
-        esc2(gimLabel(gm[i])) + '</option>';
+      h += '<button type="button" class="btn2 gchip" data-gim="' + i + '" title="' +
+        esc2(gm[i].t) + '">' + esc2(gimLabel(gm[i])) + '</button>';
+    }
+    for (i = 0; i < BSTPLAIN.length; i++) {
+      h += '<button type="button" class="btn2 gchip" data-gimk="' + BSTPLAIN[i] +
+        '" title="秒はデータに無いので、置いてから端をドラッグします">＋ ' +
+        bstLabel(BSTPLAIN[i]) + '</button>';
     }
     el.innerHTML = h;
   }
-  function drawBstate() {
-    var h = '', i, j, dur = diff().dur || 240;
-    for (i = 0; i < st.bst.length; i++) {
-      var w = st.bst[i], sel = '';
-      for (j = 0; j < BSTJA.length; j++) {
-        sel += '<option value="' + BSTJA[j][0] + '"' +
-               (w.k === BSTJA[j][0] ? ' selected' : '') + '>' + BSTJA[j][1] + '</option>';
+  /** チップを押したときに置く窓。**始まりは、いま見えている範囲の先頭
+      （または最後に置いた EX の時刻）**。長さは説明文の秒、無ければ戦闘の終わりまで */
+  function bstPut(w) {
+    var d0 = diff().dur || 240, at = 0, i;
+    var vw = $('view');
+    if (vw) { at = Math.max(0, Math.min(d0, vw.scrollLeft / st.px)); }
+    // 最後に置いた EX があれば、そこを始まりにする（置きたいのはたいてい直前の 1 発の近く）
+    for (i = 0; i < st.tl.length; i++) { if (st.tl[i].t > at) { at = Math.min(d0, st.tl[i].t); } }
+    mark();
+    w.t0 = +at.toFixed(2);
+    w.t1 = Math.min(d0, w.d ? at + w.d : d0);
+    delete w.d;
+    st.bst.push(w);
+    drawBstate(); draw();
+  }
+  /** 窓を消す。**`u.gx`（その 1 発だけ外した窓の番号）を詰め直す。**
+      番号は `st.bst` の並びを指しているので、消したままだと隣の窓を指す */
+  function bstDel(wi) {
+    st.bst.splice(wi, 1);
+    var i, q, g, o;
+    for (i = 0; i < st.tl.length; i++) {
+      g = st.tl[i].gx;
+      if (!g) { continue; }
+      o = [];
+      for (q = 0; q < g.length; q++) {
+        if (g[q] === wi) { continue; }
+        o.push(g[q] > wi ? g[q] - 1 : g[q]);
       }
-      h += '<span class="f"><select data-bst="k" data-i="' + i + '">' + sel + '</select>' +
-        (w.k === 'away' || w.k === 'mob' || w.k === 'groggy' ? '' :
-        '<input type="number" data-bst="v" data-i="' + i + '" step="10" value="' +
-        (w.v || 0) + '" style="width:78px" title="増やす量">' +
-        '<span class="mut tiny">' + (w.k === 'damaged' || w.k === 'def' ? '%' : '') + '</span>') +
-        '<span class="mut tiny">　</span>' +
-        '<input type="number" data-bst="t0" data-i="' + i + '" step="0.1" min="0" max="' +
-        dur + '" value="' + (+w.t0).toFixed(2) + '" style="width:72px" title="始まり（秒）">' +
-        '<span class="mut tiny">〜</span>' +
-        '<input type="number" data-bst="t1" data-i="' + i + '" step="0.1" min="0" max="' +
-        dur + '" value="' + (+w.t1).toFixed(2) + '" style="width:72px" title="終わり（秒）">' +
-        '<button type="button" class="btn2 sq" data-bst="del" data-i="' + i + '">×</button>' +
-        '</span>';
+      st.tl[i].gx = o.length ? o : null;
     }
-    $('bstate').innerHTML = h ||
-      '<span class="mut tiny">まだありません。ホド Torment の「栄光の裏側」なら ' +
-      '被ダメージ率 +300%・30 秒です</span>';
+    drawBstate(); draw();
   }
   function drawGroggy() {
     var b = boss(), r = diff(), bs = r.bs || {}, gg = r.gg || [];
@@ -6764,34 +6965,15 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
   $('i-boss').addEventListener('change', function () {
     st.bi = +this.value; st.di = tormentIdx(boss()); st.arm = null; fillBoss(); fit();
   });
-  $('bstate').addEventListener('change', function (e) {
-    var el = e.target.closest('[data-bst]');
+  // チップから窓を置く。**説明文に秒があればその長さ**、無ければ戦闘の終わりまで
+  $('bst-chips').addEventListener('click', function (e) {
+    var el = e.target.closest('[data-gim],[data-gimk]');
     if (!el) { return; }
-    var i = +el.getAttribute('data-i'), k = el.getAttribute('data-bst'), w = st.bst[i];
-    if (!w) { return; }
-    mark();
-    if (k === 'k') { w.k = el.value; } else { w[k] = +el.value || 0; }
-    if (w.t1 < w.t0) { w.t1 = w.t0; }
-    drawBstate(); draw();
-  });
-  $('bstate').addEventListener('click', function (e) {
-    var el = e.target.closest('[data-bst="del"]');
-    if (!el) { return; }
-    mark();
-    st.bst.splice(+el.getAttribute('data-i'), 1);
-    drawBstate(); draw();
-  });
-  $('bst-pick').addEventListener('change', function () {
-    var gm = diff().gim || [], g = this.value === '' ? null : gm[+this.value];
-    this.value = '';
+    var kk = el.getAttribute('data-gimk');
+    if (kk) { bstPut({ k: kk, v: 0 }); return; }
+    var g = (diff().gim || [])[+el.getAttribute('data-gim')];
     if (!g) { return; }
-    mark();
-    // 説明文に秒が書いてあればその長さで、無ければ戦闘の終わりまで
-    var d0 = diff().dur || 240, last = 0, i;
-    for (i = 0; i < st.bst.length; i++) { last = Math.max(last, st.bst[i].t1); }
-    st.bst.push({ k: g.k === 'def' ? 'defAbs' : g.k, v: g.v, t0: last,
-                  t1: Math.min(d0, g.d ? last + g.d : d0) });
-    drawBstate(); draw();
+    bstPut({ k: g.k === 'def' ? 'defAbs' : g.k, v: g.v, n: g.n, d: g.d });
   });
   $('i-armor').addEventListener('change', function () {
     st.arm = this.value || null; _dfK = ''; fillBoss(); draw();
@@ -7138,13 +7320,20 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
     if (sd) { addStudent(sd); }
   });
 
-  // ---- 選んだ 1 発の設定
-  $('useedit').addEventListener('change', function (e) {
+  // ---- 選んだ 1 発の設定。**「入力」の TL 表の「詳細」も同じ中身**なので関数にする
+  function onUse(e) {
     var el = e.target.closest('[data-us]');
     if (!el || st.sel == null) { return; }
     mark();
     var k = el.getAttribute('data-us'), raw = el.value;
     var u = st.tl[st.sel];
+    if (k === 'gx') {
+      // **☑ を外した窓の番号を持つ**（2026-09-03）。入っている＝この 1 発では効かない
+      var wn = +el.getAttribute('data-w'), lg = (u.gx || []).slice(), zg = lg.indexOf(wn);
+      if (el.checked) { if (zg >= 0) { lg.splice(zg, 1); } } else if (zg < 0) { lg.push(wn); }
+      u.gx = lg.length ? lg : null;
+      bump(); draw(); return;
+    }
     if (k === 'md') {
       u.md = raw;
       if (raw === 'c' && u.cv == null) { u.cv = 10; }
@@ -7162,6 +7351,51 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
       u[k] = raw === '' ? null : +raw;
     }
     draw();
+  }
+  $('useedit').addEventListener('change', onUse);
+
+  // ---- TL 表の行。**「詳細」の中身は `#useedit` と同じ**なので、
+  // 選んだ 1 発の入口（onUse / onAlt / onAct）をそのまま繋ぐ
+  $('rowlist').addEventListener('change', function (e) {
+    var el = e.target.closest('[data-tr]');
+    if (!el) { return; }
+    var row = el.closest('.trow'), u = row ? st.tl[+row.getAttribute('data-ix')] : null;
+    if (!u) { return; }
+    var k = el.getAttribute('data-tr');
+    if (k === 'who' && el.value === 'find') {
+      // 編成外の子は置けない。**下の「生徒を選ぶ」へ案内する**
+      var fi = $('i-find');
+      if (fi) { fi.scrollIntoView({ block: 'center' }); fi.focus(); }
+      drawRows(); return;
+    }
+    mark();
+    if (k === 'md') {
+      u.md = el.value;
+      if (u.md === 'c' && u.cv == null) { u.cv = 10; }
+      if (u.md === 't' && u._rt != null) { u.t = u._rt; }
+    } else if (k === 'v') {
+      if ((u.md || 't') === 'c') { u.cv = Math.max(0, +el.value || 0); }
+      else { u.t = Math.max(0, +el.value || 0); }
+    } else if (k === 'who') { u.i = +el.value; }
+    draw();
+  });
+  $('rowlist').addEventListener('change', onUse);
+  $('rowlist').addEventListener('input', onAlt);
+  $('rowlist').addEventListener('click', onAct);
+  $('rowlist').addEventListener('click', function (e) {
+    var b = e.target.closest('button[data-tr]');
+    if (!b) { return; }
+    var k = b.getAttribute('data-tr');
+    if (k === 'add') { rowAdd(); return; }
+    var row = b.closest('.trow'), ix = row ? +row.getAttribute('data-ix') : -1;
+    if (!st.tl[ix]) { return; }
+    if (k === 'del') {
+      mark();
+      st.tl.splice(ix, 1);
+      if (st.sel === ix) { st.sel = null; } else if (st.sel != null && st.sel > ix) { st.sel--; }
+      draw(); return;
+    }
+    if (k === 'det') { st.sel = (st.sel === ix ? null : ix); draw(); }
   });
 
   function onAct(e) {
@@ -7173,12 +7407,7 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
       if (a === 'delsel') { delSel(); }
       if (a === 'clear') { mark(); st.tl.length = 0; st.sel = null; st.mk = []; draw(); }
       if (a === 'auto') { autoFill(); }
-      if (a === 'bstadd') {
-        mark();
-        var d0 = diff().dur || 240;
-        st.bst.push({ k: 'damaged', v: 300, t0: 0, t1: Math.min(30, d0) });
-        drawBstate(); draw();
-      }
+      if (a === 'rows') { rowsToggle(); }
       if (a === 'goal') {
         var r0 = diff(), hp0 = (r0.bs && r0.bs.hp) || 0;
         var cur = st.goal || { dmg: hp0, sec: r0.dur || 240 };
@@ -7236,8 +7465,6 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
   document.querySelector('.tools2').addEventListener('click', onAct);
   $('b-goal').addEventListener('click', onAct);
   $('useedit').addEventListener('click', onAct);
-  // 「ボスの状態」の ＋ 足す も同じ入口から
-  $('bstate').parentNode.addEventListener('click', onAct);
 
   // **Ctrl+Z / Ctrl+Y は画面のどこにいても効く。**入力欄の中だけは横取りしない
   document.addEventListener('keydown', function (e) {
@@ -7278,12 +7505,26 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
     st.pin = st.pin == null ? t : null;
     movePh(t); view.focus();
   });
-  var drag = null, sdrag = null;
+  var drag = null, sdrag = null, bdrag = null;
   view.addEventListener('mousedown', function (e) {
     view.focus();
     if (e.button === 1) { drag = { x: e.clientX, l: view.scrollLeft }; e.preventDefault(); return; }
     if (e.button !== 0) { return; }
     if (e.target.closest('.mkt')) { return; }
+    // ボスの状態の帯。**端の摘みで t0 / t1、× で消す**（2026-09-03）
+    var bnd = e.target.closest('.b.bst');
+    if (bnd) {
+      e.preventDefault();
+      var wi = +bnd.getAttribute('data-bw'), wq = st.bst[wi];
+      if (!wq) { return; }
+      if (e.target.closest('.x')) { mark(); bstDel(wi); return; }
+      // 端の摘み（0 / 1）なら片側だけ、帯の中なら長さを変えずに丸ごと動かす（2）
+      var grp = e.target.closest('.gr');
+      mark();
+      bdrag = { i: wi, sd: grp ? +grp.getAttribute('data-bg') : 2,
+                x: e.clientX, t0: wq.t0, t1: wq.t1 };
+      return;
+    }
     var bar = e.target.closest('.b.sk');
     if (bar) {
       mark();
@@ -7301,6 +7542,22 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
   });
   window.addEventListener('mousemove', function (e) {
     if (drag) { view.scrollLeft = drag.l - (e.clientX - drag.x); return; }
+    if (bdrag) {
+      // **0.1 秒に吸い付く。**動画から起こす秒はそこまでしか読めない
+      var wq2 = st.bst[bdrag.i], d3 = diff().dur || 240;
+      if (!wq2) { bdrag = null; return; }
+      var dt3 = (e.clientX - bdrag.x) / st.px;
+      if (bdrag.sd === 2) {
+        var mv = Math.round((bdrag.t0 + dt3) * 10) / 10;
+        mv = Math.max(0, Math.min(d3 - (bdrag.t1 - bdrag.t0), mv));
+        wq2.t0 = mv; wq2.t1 = mv + (bdrag.t1 - bdrag.t0);
+        draw(); return;
+      }
+      var nv = (bdrag.sd ? bdrag.t1 : bdrag.t0) + dt3;
+      nv = Math.max(0, Math.min(d3, Math.round(nv * 10) / 10));
+      if (bdrag.sd) { wq2.t1 = Math.max(wq2.t0, nv); } else { wq2.t0 = Math.min(wq2.t1, nv); }
+      draw(); return;
+    }
     if (!sdrag) { return; }
     var dt = (e.clientX - sdrag.x) / st.px;
     if (Math.abs(e.clientX - sdrag.x) > 2) { sdrag.moved = true; }
@@ -7311,7 +7568,7 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
   });
   window.addEventListener('mouseup', function () {
     if (sdrag && sdrag.moved && st.tl[sdrag.ix]) { fixUse(st.tl[sdrag.ix]); draw(); }
-    drag = null; sdrag = null;
+    drag = null; sdrag = null; bdrag = null;
   });
 
   // ------------------------------------------------------------ キーボード
