@@ -4796,6 +4796,35 @@ def build_tl():
                 return True
         return False
 
+    # **味方側の「段階」バフ。**イェソドの「啓示」だけが持つ形で、灯火を壊すたびに
+    # 分析段階が 1 上がり、1 段階ごとに味方ストライカーの ATK が増える。
+    # `_gim` はボス側の窓しか拾わない（味方あての行は捨てる）ので、別に取る。
+    # **取るのは原文に数字で書いてある分だけ**（憶測で埋めない）。画面側はこれを
+    # 「ボスの被ダメージ率」の窓で代用する（味方側の窓が道具に無いため。2026-09-03）
+    _stg_atk = re.compile(r"1段階ごとに.{0,60}?ATKを(\d+)%増加")
+    _stg_max = re.compile(r"最大(\d+)段階")
+    _stg_cr = re.compile(r"会心率を(\d+)%増加")
+
+    def _stg(rd, df):
+        lst = rd.get("RaidSkillList") or []
+        di = next((i for i, x in enumerate(TL_DIFF) if x.lower() == (df or "").lower()), None)
+        if di is None or di >= len(lst):
+            return None
+        for nm in lst[di] or []:
+            sk = rsk.get(nm) or {}
+            for ln in (sk.get("Desc") or "").split("\n"):
+                txt = _gim_tag.sub("", _gim_stat.sub(r"\1", ln)).strip()
+                ma = _stg_atk.search(txt)
+                if not ma:
+                    continue
+                mx = _stg_max.search(txt)
+                mc = _stg_cr.search(txt)
+                return {"n": "分析段階" if "分析段階" in (sk.get("Desc") or "") else "段階",
+                        "sk": sk.get("Name") or nm, "atk": int(ma.group(1)),
+                        "cr": int(mc.group(1)) if mc else 0,
+                        "max": int(mx.group(1)) if mx else 5, "t": txt}
+        return None
+
     def _gim(rd, df):
         """そのボス・その難易度で、ボス側の被ダメージ率などを動かす行を返す。"""
         lst = rd.get("RaidSkillList") or []
@@ -4813,10 +4842,18 @@ def build_tl():
             # 相手が続くことがある。**（ペロロジラの白熱眼光・ビナーの浄化の嵐）。
             # 味方が出てきたら、ボスの名前が出てくるまでその説明は味方あて扱いにする
             ally = False
+            # **色は行をまたいで効いている。**ヒエロニムスの「不浄なる光」は
+            # 「紫色の聖遺物の場合、…」の次の行に「さらに、ヒエロニムスのDEFを1,500減少」
+            # と続く。色を覚えておかないと、緑の壺と紫の壺のどちらの窓かが分からない
+            # （2026-09-03、総力戦ヒエロニムス。TL の「(緑壺)」「(紫壺)」から窓を置くのに要る）
+            col = None
             for ln in (sk.get("Desc") or "").split("\n"):
                 txt = _gim_tag.sub("", _gim_stat.sub(r"\1", ln)).strip()
                 if not txt:
                     continue
+                mcol = re.search(r"([緑紫赤青黄白黒])色", txt)
+                if mcol:
+                    col = mcol.group(1)
                 # **ボスの名前は「シロ＆クロ」のように 2 体ぶんが 1 つになっている。**
                 # 片方の名前（「シロに跳ね返り」「クロ自身が」）が出てもボスあてに戻す
                 # （2026-09-02。シロクロの被ダメージ率 +50% が gim に出ていなかった）
@@ -4844,8 +4881,11 @@ def build_tl():
                     if sig in seen:
                         continue
                     seen.add(sig)
-                    out.append({"n": sk.get("Name") or nm, "k": k, "v": v,
-                                "d": dur, "t": txt})
+                    g1 = {"n": sk.get("Name") or nm, "k": k, "v": v,
+                          "d": dur, "t": txt}
+                    if col:
+                        g1["c"] = col
+                    out.append(g1)
         _gim_cache[ck] = out
         return out
 
@@ -4968,6 +5008,9 @@ def build_tl():
                 # **選べる装甲**（大決戦がある枝だけ）。中身は総力戦と同じなので
                 # 変えるのは `armor` の字だけ
                 got["gim"] = _gim(b, df)
+                _sg = _stg(b, df)
+                if _sg:
+                    got["stg"] = _sg
                 got["arm"] = sorted((grp_arm.get(g0, {}).get(df) or {}).keys(),
                                     key=lambda a: ARMORS.index(a))
                 # **部位。**この枝の Ground → 大決戦の枝 → 同じボスの別地形 の順に探す

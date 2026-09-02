@@ -5196,6 +5196,9 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
     // **`lastRem` は戦闘開始（残り = 制限時間）から始める。**「44.50ユウカ」のように M:SS を一度も
     // 書かない TL があり、前の行からの相対秒に化けていた（2026-09-02、総力戦ゴズ 9FiPLXveLBs）
     var seenStart = false, prevT = 0, lastWho = null, lastShot = null, pendT = null, lastRem = dur;
+    // **その部隊で、その子がいま何番目の形態まで進んだか。**「ヒナ①②③」の丸数字が
+    // 形態の番号なので、飛んでいるときに間の形態（0 コストでない「開演」）を補うのに要る
+    var lastForm = {};
     for (i = 0; i < lines.length; i++) {
       var ln = lines[i], lc0 = nrm(ln), ck = null;
       // 名簿の行（「1凸目 カヨコ/クルミ/アリス(臨戦)/ナギサ(水着)/キサキ」）。
@@ -5224,10 +5227,10 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
           // いまの部隊の番号の見出しが、数発置いたあとに来た。**前置きの行が 1 発に
           // 化けていた**ので捨てて、ここから本番として読み直す
           res.notes.push('「' + ln.trim() + '」より前の ' + cur.uses.length + ' 発は前置きとして捨てました');
-          cur.uses = []; skipping = false; prevT = 0; pendT = null; lastWho = null; lastShot = null;
+          cur.uses = []; skipping = false; prevT = 0; pendT = null; lastWho = null; lastShot = null; lastForm = {};
         } else {
           if (cur.uses.length) { parts.push(cur); cur = { start: [], uses: [], gu: false }; }
-          skipping = false; prevT = 0; pendT = null; lastWho = null; lastShot = null; lastRem = dur;
+          skipping = false; prevT = 0; pendT = null; lastWho = null; lastShot = null; lastRem = dur; lastForm = {};
         }
         if (!/開始\s*(?:SET|スキル|セット)/i.test(lc0)) { continue; }
       }
@@ -5494,21 +5497,85 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
         rm2 = nrm(cut).match(/([0-9０-９])\s*連射/) || nrm(cut).match(/[×x✕]\s*([0-9０-９])(?![0-9０-９:.])/);
         if (rm2) { rep = Math.max(1, +zen0(rm2[1])); }
       }
+      // 【8.5】**「ヒナ①②③」は 3 発。**名前のあとに丸数字が 2 つ以上続けて並ぶのは、
+      // **1 周の中の何発目か**（ヒナ（ドレス）＝ 開演：イシュ・ボシェテ → ①旋律の一音目・
+      // ②二音目・③終演の旋律）。丸数字 N ＝ 形態 N として、並んだぶんだけ発を置く。
+      // **飛んでいるときは間の形態を補う。**②③ の前には 0 コストでない「開演」が要る
+      // （FORM_RULE が 'alt' の子だけ。順に送って一周する子）。
+      // 1 発と読むと 3 周で 9 発のはずが 4 発になっていた
+      // （2026-09-03、総力戦ホバークラフト c3eN2Cf7QVc。動画 3 発目 1 発で 4.93M）。
+      // **単独の丸数字（「即ヒナ①」「❽チャージ①」）には手を出さない。**前者は今までどおり
+      // 1 発、後者は EX の名前側に付く番号で形態ではない
+      var fseq = null, pidF = idBy[who];
+      if (pidF != null) {
+        var nFm = formsOf(pidF).length, cmF = nrm(cut).match(/[①-⑳]{2,}/);
+        if (cmF && nFm > 1) {
+          var sq = [], okF = true, cz;
+          for (cz = 0; cz < cmF[0].length; cz++) {
+            var vN = CIRC.indexOf(cmF[0].charAt(cz)) + 1;
+            if (vN < 1 || vN >= nFm || (cz > 0 && vN !== sq[cz - 1] + 1)) { okF = false; break; }
+            sq.push(vN);
+          }
+          if (okF) { fseq = sq; }
+        }
+        if (fseq && TE.FORM_RULE[pidF] === 'alt') {
+          var expF = lastForm[who] == null ? 0 : (lastForm[who] + 1) % nFm, preF = [];
+          while (expF !== fseq[0] && preF.length < nFm) { preF.push(expF); expF = (expF + 1) % nFm; }
+          fseq = preF.concat(fseq);
+        }
+      }
+      if (fseq) { frm = fseq[0]; rep = fseq.length; }
       var one = { i: who, md: tm.md, t: tm.t == null ? 0 : tm.t, tg: aim, f: frm, mc: mcn,
                   to: toL.length ? (toL.length > 1 ? toL : toL[0]) : null,
                   cv: tm.cv == null ? null : tm.cv,
                   copy: (/C[^\s]*$/i.test(nrm(noParen).replace(/^[^C]*?(?=C)/, '')) &&
                         /(^|[^A-Za-z])C/.test(nrm(noParen))) || /コピー/.test(nrm(noParen)),
                   line: ln.trim(), note: note.trim() };
+      // **「(緑壺)」「(紫壺)」「［紫色の聖遺物］」は事象。**当たる先としてだけでなく、
+      // ボスの状態が変わる引き金でもある（ヒエロニムス: 緑の壺の回復で被ダメージ率
+      // +55%（最大 5 回）、紫の壺の破壊で DEF −1,500）。色を持たせておき、`applyTL` が
+      // 発射秒の決まったあとに `gim` の同じ色の行と突き合わせて窓を置く
+      // （2026-09-03。それまでは人が inputs で窓を置かないと 幅の中 にならなかった）
+      var colM = nrm(cut).match(/([緑紫赤青])(?:色)?(?:の)?(?:壺|つぼ|聖遺物)/);
+      if (colM) { one.col = colM[1]; }
+      // **味方側の「段階」を数える行**（イェソドの分析段階）。「即ハナコ 3」「4.1ハナコ 5 青」の
+      // ように**行の末尾に立っている 1 桁**が、壊した灯火の順番＝分析段階。
+      // ボスが段階のバフを持っているとき（`stg`）だけ読む
+      if (diff().stg) {
+        // **`nrm` は空白を全部落とすので、素の行で見る。**「即ハナコ 5 青」の
+        // 「5」は名前と離して書いてあり、そこが「段階」と「コスト・秒」の分かれ目
+        var stM = cut.replace(/[\u200b-\u200f\u2060\ufeff]/g, '')
+                     .match(/[\s　]([1-9])(?:[\s　]*([青赤]))?[\s　]*$/);
+        if (stM) { one.stg = +stM[1]; if (stM[2]) { one.stgb = stM[2]; } }
+      }
       cur.uses.push(one);
       for (var rq = 1; rq < rep; rq++) {
         var cp2 = {}, ck;
         for (ck in one) { if (has(one, ck)) { cp2[ck] = one[ck]; } }
         cp2.md = 'e'; cp2.cv = null; cp2.t = 0;
+        if (fseq) { cp2.f = fseq[rq]; }
         cur.uses.push(cp2);
       }
       if (rep > 1) {
-        res.notes.push('「' + ln.trim() + '」は ' + rep + ' 発として置きました');
+        if (fseq) {
+          var fnm = [], fl9 = formsOf(pidF), fz9;
+          for (fz9 = 0; fz9 < fseq.length; fz9++) { fnm.push((fl9[fseq[fz9]] || {}).n || fseq[fz9]); }
+          res.notes.push('「' + ln.trim() + '」の丸数字は形態の番号なので ' + rep + ' 発（' +
+                         fnm.join('→') + '）として置きました');
+        } else {
+          res.notes.push('「' + ln.trim() + '」は ' + rep + ' 発として置きました');
+        }
+      }
+      // 形態がどこまで進んだかを覚える（次の行の丸数字が飛んでいるかを見るため）
+      if (fseq) { lastForm[who] = fseq[fseq.length - 1]; }
+      else if (pidF != null && formsOf(pidF).length > 1) {
+        var nFm2 = formsOf(pidF).length, rq9;
+        for (rq9 = 0; rq9 < rep; rq9++) {
+          if (frm != null) { lastForm[who] = frm; }
+          else if (TE.FORM_RULE[pidF] === 'alt') {
+            lastForm[who] = lastForm[who] == null ? 0 : (lastForm[who] + 1) % nFm2;
+          }
+        }
       }
       if (alsoWho >= 0) {
         var cp3 = {}, ck2;
@@ -5709,6 +5776,76 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
       // 実際に撃つ時刻は `md`／`cv` から毎回解き直すので、ここの `t` は並び順の札
       if (u.md !== 't' && at != null) { row.t = Math.max(at, prev + 1e-4); }
       if (row.t > prev) { prev = row.t; }
+    }
+    // **色つきの的に当てた行から、ボスの状態の窓を置く**（2026-09-03、総力戦ヒエロニムス）。
+    // 発射秒は上の解き直しで `st.tl[i].t` に入っているので、ここで初めて分かる。
+    // 値も重ねる回数も `gim`（`RaidSkills` の原文）から取る。**色の付いていない
+    // ギミックには当てない**（緑の壺と紫の壺で効果が違うため）
+    var gmC = (diff().gim || []), nCol = {}, ic, jc;
+    for (ic = 0; ic < p.uses.length && ic < st.tl.length; ic++) {
+      if (!p.uses[ic].col) { continue; }
+      var hitG = false;
+      for (jc = 0; jc < gmC.length; jc++) {
+        var g2 = gmC[jc];
+        if (g2.c !== p.uses[ic].col) { continue; }
+        hitG = true;
+        var capM = String(g2.t || '').match(/最大で?(\d+)回/), t0c = +st.tl[ic].t;
+        var key2 = p.uses[ic].col + '/' + jc;
+        nCol[key2] = (nCol[key2] || 0) + 1;
+        if (capM && nCol[key2] > +capM[1]) {
+          evN.push('「' + p.uses[ic].line + '」は ' + g2.n + ' の重ねられる回数（' + capM[1] +
+                   ' 回）を超えるので置きませんでした');
+          continue;
+        }
+        st.bst.push({ k: g2.k === 'def' ? 'defAbs' : g2.k, v: g2.v,
+                      t0: t0c, t1: g2.d ? Math.min(dur, t0c + g2.d) : dur });
+        evN.push('「' + p.uses[ic].line + '」（' + p.uses[ic].col + '）で ' + g2.n + '（' +
+                 bstLabel(g2.k === 'def' ? 'defAbs' : g2.k) + ' ' + (g2.v >= 0 ? '+' : '') + g2.v +
+                 '）を ' + t0c.toFixed(1) + ' 秒から' + (g2.d ? ' ' + g2.d + ' 秒間' : '終わりまで') +
+                 '置きました（' + nCol[key2] + ' 回目）');
+      }
+      if (!hitG) {
+        evN.push('「' + p.uses[ic].line + '」の「' + p.uses[ic].col +
+                 '」に当たるギミックがデータに無いので、窓は置いていません');
+      }
+    }
+    // **味方側の「段階」を、ボスの被ダメージ率の窓で代用する**（2026-09-03、総力戦イェソド）。
+    // 分析段階は「1 段階ごとに味方ストライカーの ATK +40%・会心率 +20% …」で**味方側**の
+    // バフだが、道具にあるのはボス側の窓だけ。ATK の増加ぶんだけを被ダメージ率に置き換える
+    // （会心の増加ぶんは置けないので、そのぶん道具は低く出る。**注記に出す**）。
+    // 段階は「イェソドが次の EX を使う時に初期化」なので、**次に段階 1 が出る行まで**続ける
+    var sg = diff().stg;
+    if (sg && sg.atk) {
+      var mk = [], im;
+      for (im = 0; im < p.uses.length && im < st.tl.length; im++) {
+        if (p.uses[im].stg) {
+          mk.push({ n: p.uses[im].stg, t: +st.tl[im].t, b: p.uses[im].stgb || null,
+                    line: p.uses[im].line });
+        }
+      }
+      var cyc = [], cq;
+      for (im = 0; im < mk.length; im++) {
+        if (mk[im].n === 1 || !cyc.length) { cyc.push([]); }
+        cyc[cyc.length - 1].push(mk[im]);
+      }
+      // **効くのは「5 段階に達するか、EX を防いだ」瞬間から。**原文が
+      // 「該当効果は分析段階が5段階に達するか、イェソドのスキルを防いだ場合、到達段階の分適用」
+      // なので、1 段ずつ積み上げるのではなく、**引き金の秒からまとめて**乗せる。
+      // 引き金は「5 段まで数えた」か、行末の「青」「赤」（＝どの色で防いだか）
+      var nPut = 0;
+      for (im = 0; im < cyc.length; im++) {
+        var endC = im + 1 < cyc.length ? cyc[im + 1][0].t : dur;
+        var lastM = cyc[im][cyc[im].length - 1], nSt = Math.min(cyc[im].length, sg.max);
+        if (cyc[im].length < sg.max && !lastM.b) { continue; }
+        st.bst.push({ k: 'damaged', v: sg.atk * nSt, t0: lastM.t, t1: endC });
+        nPut++;
+      }
+      if (mk.length) {
+        evN.push(sg.n + 'を ' + cyc.length + ' 周・' + mk.length + ' 段ぶん読んで、' +
+                 nPut + ' 周ぶんの窓を置きました（' + sg.sk + 'の味方 ATK +' + sg.atk +
+                 '%／段を、道具に味方側の窓が無いのでボスの被ダメージ率で代用しています' +
+                 (sg.cr ? '。会心率 +' + sg.cr + '%／段は置けないので入っていません' : '') + '）');
+      }
     }
     bump();
     // **「置けない」と「後ろにずれる」を分ける。**ずれるだけのものまで
@@ -6604,6 +6741,10 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
                      clearStat: clearStat, trOf: trOf,
                      boss: boss, scen: scen, killAt: killAt, scoreOf: scoreOf,
                      enemyAt: enemyAt, mkStats: mkStats, danMax: danMax,
+                     // 池ごとの曲線（シロ→クロ、ワカモ→ホバークラフト）。
+                     // `dmgCurve` は本体の池しか返さないので、2 池目を外から比べるのに要る
+                     poolKills: poolKills, poolOrder: poolOrder, poolHp: poolHp,
+                     poolName: poolName, carryIn: carryIn,
                      B: B };
 
   function syncTabs() {
