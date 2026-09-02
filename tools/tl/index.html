@@ -2258,7 +2258,9 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
       // **部位（柱・装置・聖遺物…）に当てた発は、ボスの HP から引かない。**
       // ただし転移する部位だけは、その率のぶんボスへ入れる。
       // **池を持つ部位（レンジャー・クロ・ホバー後半）に当てた発は、その池へ**
-      var tr = trOf(r, u.tg) * (u.mc || 1), pp = poolOf(r, u.tg);
+      // **当たる先の無い発は、その時刻に生きている池へ**（シロが死んだあとの EX はクロへ。
+      // 通常攻撃の `naPool` と同じ。2026-09-02、大決戦シロクロで 8 発がシロの池に残っていた）
+      var tr = trOf(r, u.tg) * (u.mc || 1), pp = u.tg == null ? (naPool(r, u.t, deadAt) || r.cid) : poolOf(r, u.tg);
       if (pp !== pid && !(pid === r.cid && u.tg != null && tr)) { continue; }
       if (awayAt(u.t, !/^Ex\d*$/.test(u.k))) { continue; }
       var d = dmgOf(u.i, r, u.t, u.k, u.pk, u.tg);
@@ -2414,7 +2416,12 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
      グロッキー無しで 1 度引いてから、出た区間を入れて引き直す、を繰り返す */
   var GGSP = null, GGBUSY = false;
   function ggCritAt(t) {
-    if (!GGSP || !GGSP.length || t == null) { return false; }
+    if (t == null) { return false; }
+    for (var g = 0; g < (st.bst || []).length; g++) {
+      var wg = st.bst[g];
+      if (wg.k === 'groggy' && t >= wg.t0 - 1e-9 && t < wg.t1) { return true; }
+    }
+    if (!GGSP || !GGSP.length) { return false; }
     for (var i = 0; i < GGSP.length; i++) {
       if (t >= GGSP[i][0] - 1e-9 && t < GGSP[i][1]) { return true; }
     }
@@ -3259,7 +3266,7 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
       var bh = [], z3;
       for (z3 = 0; z3 < st.bst.length; z3++) {
         var w3 = st.bst[z3];
-        bh.push(bstLabel(w3.k) + (w3.k === 'away' || w3.k === 'mob' ? '' : ' ' + (w3.v >= 0 ? '+' : '') + w3.v +
+        bh.push(bstLabel(w3.k) + (w3.k === 'away' || w3.k === 'mob' || w3.k === 'groggy' ? '' : ' ' + (w3.v >= 0 ? '+' : '') + w3.v +
                 (w3.k === 'damaged' || w3.k === 'def' ? '%' : '')) +
                 '（' + (+w3.t0).toFixed(1) + '〜' + (+w3.t1).toFixed(1) + '秒）');
       }
@@ -3778,8 +3785,14 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
         if (st.tl[i].pk) { for (k in st.tl[i].pk) { pk0[k] = st.tl[i].pk[k]; } }
         pk0[kd0] = Math.min(cnt[sl0], dn) - 1;
       }
+      // **秒で書いてある行は、コスト待ちで後ろへ動かさない。**実物の TL の秒は
+      // タップした時刻で、動画ではその秒に出ている。道具の計算でコストが足りなくても
+      // 足りないのは道具側（回復力の取りこぼし）なので、書いてある秒に置いて、
+      // 不足は読み込みの欄で知らせる（2026-09-02、大決戦ケセド QnKBiKMMUQE で
+      // 6 発が 3〜9 秒後ろへずれて討伐時刻が合わなかった）
+      var keepT = st.tl[i].md === 't' && r0 && r0.why && kindOf(r0) === 'cost';
       out.push({ i: sl0,
-                 t: (r0 && r0.at != null) ? r0.at : st.tl[i].t,
+                 t: (r0 && r0.at != null && !keepT) ? r0.at : st.tl[i].t,
                  k: kd0, bto: st.tl[i].bto, pk: pk0,
                  // **当たる先。**null ならボス本体
                  tg: st.tl[i].tg == null ? null : st.tl[i].tg,
@@ -4390,7 +4403,7 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
     try {
       var mu = 0, va = 0, n = 0, us = usesSorted(), i, q;
       for (i = 0; i < us.length; i++) {
-        var u = us[i], tr = trOf(r, u.tg), mc = u.mc || 1, pp = poolOf(r, u.tg);
+        var u = us[i], tr = trOf(r, u.tg), mc = u.mc || 1, pp = u.tg == null ? (naPool(r, u.t, deadAt) || r.cid) : poolOf(r, u.tg);
         if (pp !== pid && !(pid === r.cid && u.tg != null && tr)) { continue; }
         if (awayAt(u.t, !/^Ex\d*$/.test(u.k))) { continue; }
         var d = dmgOf(u.i, r, u.t, u.k, u.pk, u.tg);
@@ -4662,6 +4675,8 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
       // 同じ TL に セイア と セイア（水着）が両方いると、これが無いと素の
       // セイア に当たって外す（2026-09-02、大決戦ビナー）
       alts.push(m[2].charAt(0) + m[1]);
+      // **「水ナギ」**（括弧の頭 1 文字＋名前の頭 2 文字。2026-09-02、大決戦シロクロ u6l8cRf7PME）
+      if (m[1].length >= 3) { alts.push(m[2].charAt(0) + m[1].slice(0, 2)); }
     }
     return { full: n, base: m ? m[1] : core, alts: alts };
   }
@@ -4672,7 +4687,7 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
       TL は「誰が」を先に書くので、**行の中で先に出てきたほうを採る**
       （同じ位置なら長いほう）。括弧の中の名前は「撃つ子」の候補にしない
       （「セイア（水着）」のような括弧つきの名前そのものは別で、これは当てる）。 */
-  function whoIn(line, crew, bare) {
+  function whoIn(line, crew, bare, pref) {
     var s = nrm(line), i, q, best = null, ties = [];
     // 括弧の中かどうかの地図。**括弧つきの名前に当たったところは中に数えない**
     var inP = [], depth = 0;
@@ -4709,6 +4724,19 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
     }
     if (!best) { return -1; }
     if (ties.length === 1) { return best.idx; }
+    // **同じ base が別の部隊に 1 人ずつ**（1 凸目に 制服ネル、2 凸目に ネル。どちらも
+    // TL では「ネル」）。育成の行は部隊ごとに 6 行ずつ固まって並ぶので、いま読んでいる
+    // 部隊の並び（`pref`＝その塊の真ん中）に近い行を採る。同じ塊の中で割れるときは
+    // 下の「括弧の無いほう」（2026-09-02、総力戦ホバークラフト zKyXAcWcxrU・ゲブラ）
+    if (pref != null) {
+      var blk = {}, nb = 0, bi = -1, bd = 1e9;
+      for (i = 0; i < ties.length; i++) {
+        var bk = Math.floor(ties[i].idx / 6), dd = Math.abs(ties[i].idx - pref);
+        if (!blk[bk]) { blk[bk] = 1; nb++; }
+        if (dd < bd) { bd = dd; bi = ties[i].idx; }
+      }
+      if (nb > 1) { return bi; }
+    }
     // **同じ base が 2 人**（セイア と セイア(水着)）。括弧の無いほうを採る
     for (i = 0; i < ties.length; i++) { if (ties[i].plain) { return ties[i].idx; } }
     return -1;                       // 決められない。**当てずっぽうで選ばない**
@@ -4828,6 +4856,10 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
       var n = nrm(fl[i].n || '');
       if (n.length >= 2 && (q.indexOf(n) >= 0 || n.indexOf(q) >= 0)) { return i; }
     }
+    // **「[自身]」「(連射モード)」「(自動で連射解除)」は連射態勢の切り替え**（ミカ（水着）の
+    // 「あなたとの思い出」。ダメージ 0）。撃つ形態にすると 1 発ぶん多く数える
+    // （2026-09-02、大決戦シロクロ。6 行が「星の軌跡」になっていた）
+    if (/自身|連射モード|連射態勢|連射解除|連射切/.test(q) && !formHasDmg(id, 0)) { return 0; }
     for (j = 0; j < FORMWORD.length; j++) {
       if (q.indexOf(FORMWORD[j][0]) < 0) { continue; }
       // 「チャージ」＝ **元の形態**（選択メニューのほう）。アリス（臨戦）は
@@ -4844,10 +4876,13 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
     var i, q;
     // ---- 1. 使用生徒詳細
     for (i = 0; i < lines.length; i++) {
-      var raw = lines[i], body = raw.replace(/[※#].*$/, '');
+      // **「サツキ※助っ人」の ※ は但し書きではない。**※ から後ろを落とすと育成が消えて
+      // 行ごと落ちる（2026-09-02、総力戦ゲブラ kH1hmTbIDJI）
+      var raw = lines[i], body = raw.replace(/[※＊]\s*(?:助っ?人|レンタル|借り|助)(?=[\s　]|$)/g, ' ').replace(/[※#].*$/, '');
       // **育成の行かどうか。**書き方は 1 つに縛らない（2026-09-01 の先生の指示
       // 「TL はみんないろんな書き方してるから特化しなくていい」）
-      if (!/固有\s*\d|[★☆]\s*\d|MMMM|[Tt]\s*\d+\s*\/|Lv\s*\d|装備\s*\d|絆\s*\d|EX\s*\d/i
+      // 「星3/M11M/T199」（星＋4 文字のスキル＋T と 3 桁）も育成行（2026-09-02、ゲブラ）
+      if (!/固有\s*\d|[★☆星]\s*[\d０-９]|MMMM|[Tt]\s*\d+\s*\/|Lv\s*\d|装備\s*\d|絆\s*\d|EX\s*\d|(?:^|[^A-Za-z0-9])[Tt]\d{3}(?![\d\/])|(?:^|[^A-Za-z0-9])(?=[M\d]{4}(?![A-Za-z0-9]))[M\d]*M/i
            .test(body)) { continue; }
       // **地の文を育成行にしない。**「ナギサ固有2あるのであれば…の方がスコア高いです」が
       // 育成行として通って、素の ナギサ が編成に入り、本命の ナギサ（水着）が
@@ -4873,11 +4908,20 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
                        // どちらも落とさないと生徒が引けない（2026-09-02、大決戦クロカゲ。
                        // 編成 15 行のうち 10 行が落ちて 0.2% になっていた）
                        .replace(/[＿_]+$/, '').replace(/[①-⑳❶-❿]+$/, '').replace(/[1-9１-９]番$/, '');
-        cutm = cand.match(/^(.+?)(?:固有|UE\d|[★☆]|MMMM|Lv|装備\d|絆\d|EX\d)/i);
+        cutm = cand.match(/^(.+?)(?:固有|UE\d|[★☆]|星[\d０-９]|MMMM|Lv|装備\d|絆\d|EX\d)/i);
         if (cutm && cutm[1]) { cand = cutm[1].replace(/[：:、,]+$/, ''); }
         if (!cand || /^[\d.]+$/.test(cand)) { continue; }
         sd = findStudent(cand, probe);
         if (sd) { nm = cand; }
+        // **括弧の後ろに役割が続く**（「ホシノ（臨戦）防御型」）。括弧までで引き、
+        // 「防御」「タンク」ならタンク側にする（2026-09-02、総力戦ゲブラ）
+        if (!sd) {
+          var pm = cand.match(/^(.+?[)）])(.+)$/);
+          if (pm) {
+            sd = (/防御|タンク/.test(pm[2]) ? findStudent(pm[1] + '／タンク', probe) : null) || findStudent(pm[1], probe);
+            if (sd) { nm = pm[1]; }
+          }
+        }
       }
       if (!sd) { res.skipped.push([raw, '生徒が見つかりません: ' + (toks[0] || '')]); continue; }
       findStudent(nm, res.notes);   // 引けた語のぶんだけ注記を戻す
@@ -4895,8 +4939,8 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
         // **段が書いていなければ、その星の上限**（wlvMax の注記に出典）
         b.wlv = mm[2] ? Math.min(+mm[2], wlvMax(b.wstar)) : wlvMax(b.wstar);
       } else {
-        mm = rest.match(/[★☆]\s*(\d)/);
-        if (mm) { b.star = +mm[1]; b.wstar = 0; b.wlv = 0; }
+        mm = rest.match(/[★☆星]\s*([\d０-９])/);   // 「★３」「星3」（2026-09-02）
+        if (mm) { b.star = +zen0(mm[1]); b.wstar = 0; b.wlv = 0; }
       }
       // **「能力解放Lv0-0-25」の Lv を生徒レベルにしない**（2026-09-02、大決戦ビナー。
       // 6 人中 5 人が Lv0〜25 になって 7.0% まで落ちていた）。
@@ -5097,7 +5141,11 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
       var body2 = lines[lz].replace(/[※].*$/, ''), note2 = (lines[lz].match(/[※].*$/) || [''])[0];
       var pcs = body2.split(/(?:→|➝|➡|⇒|->)(?![^\[\]]*\])/), pcs2 = [];
       for (lq = 0; lq < pcs.length; lq++) { if (nrm(pcs[lq])) { pcs2.push(pcs[lq].trim()); } }
-      if (pcs2.length < 3) { lines2.push(lines[lz]); continue; }
+      // **「ホシノ→即ミカ」の 2 つ目が「即」や秒で始まるなら渡し先ではなく連鎖**
+      // （2026-09-02、大決戦シロクロ B7GPFRbI1vk でミカ 13 発のうち 3 発が消えていた）
+      var chain2 = pcs2.length === 2 &&
+                   (/^(即|最速)/.test(nrm(pcs2[1])) || !!timeIn(pcs2[1].replace(/[（(\[［][^）)\]］]*[)）\]］]/g, ' '), dur));
+      if (pcs2.length < 3 && !chain2) { lines2.push(lines[lz]); continue; }
       for (lq = 0; lq < pcs2.length; lq++) {
         var pc = pcs2[lq];
         if (lq > 0 && !timeIn(pc.replace(/[（(\[［][^）)\]］]*[)）\]］]/g, ' '), dur)) { pc = '即 ' + pc; }
@@ -5105,6 +5153,26 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
       }
     }
     lines = lines2;
+    // **「以下を3回繰り返し」…「繰り返し後」**（2026-09-02、総力戦ゲブラ kH1hmTbIDJI）。
+    // 間の行を N 回並べる。終わりは「繰り返し後」の行。無ければ最初の空行まで
+    var lines3 = [], lr, rpM;
+    for (lr = 0; lr < lines.length; lr++) {
+      rpM = nrm(lines[lr]).match(/^以下を?([0-9０-９]+)回(?:繰り返|ループ)/);
+      if (!rpM) { lines3.push(lines[lr]); continue; }
+      var nRep = Math.min(20, +zen0(rpM[1])), le = -1, lb = -1, lz2;
+      for (lz2 = lr + 1; lz2 < lines.length; lz2++) {
+        if (/繰り返し(?:後|た後|終|完了)|ループ(?:後|終)/.test(nrm(lines[lz2]))) { le = lz2; break; }
+        if (cutKind(nrm(lines[lz2]))) { break; }
+        if (!nrm(lines[lz2]) && lb < 0) { lb = lz2; }
+      }
+      if (le < 0) { le = lb >= 0 ? lb : lines.length; }
+      var blk2 = [];
+      for (lz2 = lr + 1; lz2 < le; lz2++) { if (nrm(lines[lz2])) { blk2.push(lines[lz2]); } }
+      for (lz2 = 0; lz2 < nRep; lz2++) { lines3 = lines3.concat(blk2); }
+      res.notes.push('「' + lines[lr].trim() + '」の ' + blk2.length + ' 行を ' + nRep + ' 回並べました');
+      lr = le;   // 終わりの行は飛ばす
+    }
+    lines = lines3;
     // 節。1 つが 1 部隊。`gu` は「ギブアップ」で終わった印
     var parts = [], cur = { start: [], uses: [], gu: false }, skipping = false;
     var seenStart = false, prevT = 0, lastWho = null, lastShot = null, pendT = null, lastRem = null;
@@ -5160,10 +5228,11 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
       var note = (ln.match(/[※](.*)$/) || [])[1] || '';
       var noParen = cut.replace(/[（(][^）)]*[)）]/g, ' ');
       if (!nrm(noParen)) { continue; }
-      if (/固有\s*\d|★\s*\d|MMMM/i.test(cut)) { continue; }
+      if (/固有\s*\d|[★星]\s*[\d０-９]|MMMM/i.test(cut)) { continue; }
       // **行動ではない行。**「ネル後ボスHP(参考程度)」が名前と「後」を持っていて
       // 1 発ぶん余計に置かれていた（2026-09-01 に実物を読ませて気づいた）
-      if (/参考|下振れ|上振れ|ページ目|移行|支援値|使用生徒|リスタート/.test(cut)) { continue; }
+      if (/参考|下振れ|上振れ|ページ目|移行|支援値|使用生徒|リスタート|移動先|立ち位置|位置取り|撃ち切り|足元/.test(cut) ||
+          /[？?]\s*$/.test(cut)) { continue; }
       // 渡し先をまとめて書いた行は、上の 2. で読んである。1 発には数えない
       if (/バフ.*?(?:全て|すべて)/.test(nrm(cut))) { continue; }
       // **地の文を 1 発にしない。**「2本目の柱に対して発動するコタマEXとネルEXの
@@ -5192,7 +5261,8 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
         if (tp && tp.md === 't') { pendT = tp.t; if (/\d+:\d{1,2}/.test(nrm(noParen))) { lastRem = dur - tp.t; } }
         continue;
       }
-      var who = whoIn(cut, crew, noParen);
+      var prefC = parts.length * 6 + 2.5;
+      var who = whoIn(cut, crew, noParen, prefC);
       // **「1射目」「2射目」は直前の子の続き。**ヒナ（ドレス）やホシノ（臨戦）の
       // ように 1 回の EX を何発かに分けて撃つ子で、TL は名前を書かずに
       // 「即 2射目(左聖歌隊 5体)」と続ける（2026-09-01 にグレゴリオと
@@ -5223,6 +5293,15 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
             if (cA && cA[2] === nick) { nHit++; ci2 = crew[q].idx; }
           }
           if (nHit !== 1) { ci2 = -1; }
+        }
+        // **育成の行に無い子が TL に出てくる**（ゲブラ kH1hmTbIDJI の カンナ、ケセドの ハレ）。
+        // タイミングつきの短い行なら、その子を既定値で編成に足す。数字は当てずっぽうに
+        // なるので注記に出す（2026-09-02）
+        if (ci2 < 0 && sd2 && timeIn(noParen, dur) && nrm(cut).length <= 20) {
+          var bN = { id: sd2.id, name: sd2.n, pot: [25, 25, 25] };
+          res.crew.push(bN); ci2 = res.crew.length - 1;
+          crew.push({ idx: ci2, a: aliasOf(sd2.n) });
+          res.notes.push('「' + sd2.n + '」は育成の行が無いので既定値で編成に足しました（数字は自分で直してください）');
         }
         if (ci2 >= 0) { who = ci2; }
         else if (sd2) { res.skipped.push([ln.trim(), '編成にいません: ' + sd2.n]); }
@@ -5270,10 +5349,10 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
       if (arrow.length > 1) {
         var pieces = arrow[arrow.length - 1].split(/[,、・]/), pz;
         for (pz = 0; pz < pieces.length; pz++) {
-          var w2 = whoIn(pieces[pz], crew);
+          var w2 = whoIn(pieces[pz], crew, null, prefC);
           if (w2 >= 0) { toL.push(w2); }
         }
-        who = whoIn(arrow[0], crew, arrow[0].replace(/[（(][^）)]*[)）]/g, ' '));
+        who = whoIn(arrow[0], crew, arrow[0].replace(/[（(][^）)]*[)）]/g, ' '), prefC);
         if (who < 0) { res.skipped.push([ln, '撃つ子が編成にいません']); continue; }
       }
       // **「セイア(コタマ)」型の渡し先。**「→」より、こちらの書き方のほうが多い
@@ -5366,8 +5445,8 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
       var one = { i: who, md: tm.md, t: tm.t == null ? 0 : tm.t, tg: aim, f: frm, mc: mcn,
                   to: toL.length ? (toL.length > 1 ? toL : toL[0]) : null,
                   cv: tm.cv == null ? null : tm.cv,
-                  copy: /C[^\s]*$/i.test(nrm(noParen).replace(/^[^C]*?(?=C)/, '')) &&
-                        /(^|[^A-Za-z])C/.test(nrm(noParen)),
+                  copy: (/C[^\s]*$/i.test(nrm(noParen).replace(/^[^C]*?(?=C)/, '')) &&
+                        /(^|[^A-Za-z])C/.test(nrm(noParen))) || /コピー/.test(nrm(noParen)),
                   line: ln.trim(), note: note.trim() };
       cur.uses.push(one);
       for (var rq = 1; rq < rep; rq++) {
@@ -5548,7 +5627,13 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
       if (!rows[i].d) { continue; }
       if (rows[i].at == null) { ng.push(rows[i].d.n + '（置けません）'); }
       else if (rows[i].why) {
-        slip.push(rows[i].d.n + ' ' + rows[i].at.toFixed(1) + '秒（' + rows[i].why + '）');
+        var ix9 = rows[i].e && rows[i].e._ix != null ? rows[i].e._ix : -1;
+        if (ix9 >= 0 && st.tl[ix9] && st.tl[ix9].md === 't' && kindOf(rows[i]) === 'cost') {
+          slip.push(rows[i].d.n + ' は書いてある ' + (+st.tl[ix9].t).toFixed(1) + ' 秒のまま置きました' +
+                    '（道具の計算ではコストが足りず ' + rows[i].at.toFixed(1) + ' 秒。回復力の取りこぼしが疑わしいです）');
+        } else {
+          slip.push(rows[i].d.n + ' ' + rows[i].at.toFixed(1) + '秒（' + rows[i].why + '）');
+        }
       }
     }
     return { n: p.uses.length, ng: ng, slip: slip };
@@ -5778,7 +5863,7 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
       }
       for (i = 0; i < r.ng.length; i++) { out.push(li('w', '⚠ 置けません: ' + r.ng[i])); }
       for (i = 0; i < (r.slip || []).length; i++) {
-        out.push(li('', '▸ 少し後ろにずれます: ' + r.slip[i]));
+        out.push(li('', (r.slip[i].indexOf('のまま置きました') >= 0 ? '▸ ' : '▸ 少し後ろにずれます: ') + r.slip[i]));
       }
       if (!p.skipped.length && !r.ng.length) {
         out.push(li('g', r.slip && r.slip.length
@@ -6319,7 +6404,10 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
                // **ボスに当たらない区間。**雑魚処理や移動でボスが盤に居ない間
                ['away', 'ボスに当たらない', '', 0],
                // 雑魚を撃っている間（ボスは居るが通常攻撃・NS は雑魚へ。EX は当たる先で置く）
-               ['mob', '通常攻撃・NS が雑魚へ', '', 0]];
+               ['mob', '通常攻撃・NS が雑魚へ', '', 0],
+               // 条件つきでグロッキーになるボス（シロクロの跳ね返り・ゲージ）は時刻が解けないので、
+               // 動画で見た区間を置く。効くのは確定会心だけ（2026-09-02）
+               ['groggy', 'グロッキー（確定会心）', '', 0]];
   function bstLabel(k) {
     for (var i = 0; i < BSTJA.length; i++) { if (BSTJA[i][0] === k) { return BSTJA[i][1]; } }
     return k;
@@ -6362,7 +6450,7 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
                (w.k === BSTJA[j][0] ? ' selected' : '') + '>' + BSTJA[j][1] + '</option>';
       }
       h += '<span class="f"><select data-bst="k" data-i="' + i + '">' + sel + '</select>' +
-        (w.k === 'away' || w.k === 'mob' ? '' :
+        (w.k === 'away' || w.k === 'mob' || w.k === 'groggy' ? '' :
         '<input type="number" data-bst="v" data-i="' + i + '" step="10" value="' +
         (w.v || 0) + '" style="width:78px" title="増やす量">' +
         '<span class="mut tiny">' + (w.k === 'damaged' || w.k === 'def' ? '%' : '') + '</span>') +
