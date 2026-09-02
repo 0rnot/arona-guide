@@ -4822,6 +4822,14 @@ def build_tl():
                 if got["sub"] and not _own:
                     for _x in got["sub"]:
                         _x["armor"] = got["bs"]["armor"]
+                # **本体の HP の写しを部位の HP にしない。**ドラム缶ガニの操作盤・フンドシ・
+                # 錆びたドラム缶は `MaxHP1` が本体と同じ 240,000,000 で、画面に「操作盤 HP
+                # 240,000,000」と出ていた。動画の赤ゲージは 6,000,000／12,000,000 で、
+                # どの表とも一致しない（出どころ不明）。写しは null にして「不明」と出す
+                # （2026-09-02、グミの報告）
+                for _x in got["sub"] or []:
+                    if not _x.get("pool") and _x.get("hp") and _x["hp"] == got["bs"].get("hp"):
+                        _x["hp"] = None; _x["hpCopy"] = True
                 # ---- **討伐の池。**同じ段にボスが 2 体以上いるとき（`BossCharacterId` が
                 # 2 つ: シロ＆クロ、レンジャー隊＋FX Mk.0、ワカモ前半＋ホバー後半）、
                 # 相手の体を `sub` に足して `pool`（HP を 1 本持つ相手の id）と `kill: 1`
