@@ -4201,6 +4201,11 @@ def tl_frames(group, cache):
     return v
 
 
+def tl_names(ex, idxs):
+    """`BehaviorArgument` の添字を `ExSkillGroupId` の名前に。**訳さない。**"""
+    return "・".join(ex[i] if i < len(ex) else f"?{i}" for i in idxs)
+
+
 def tl_idxs(arg):
     """`BehaviorArgument` は "2" のほか "2,0" のように複数入ることがある。"""
     return [int(x) for x in str(arg).split(",") if x.strip().lstrip("-").isdigit()]
@@ -4216,13 +4221,81 @@ def tl_base_id(cid):
     return c - (d - 1) * 100 if d > 1 else None
 
 
-def tl_one(cid, bt, csl, stat, fcache, ch_appear):
+def tl_twins(bt, csl, stat):
+    """`{木の無い敵: 中身が同じで木のある敵}`。
+
+    **難易度ぶんの木が丸ごと抜けていることがある。**ヒエロニムス（屋内）の
+    Torment `7303700` は `DB/BossExternalBTExcelTable` に 1 行も無い
+    （2026-09-02 に 10,868 行・ボス 411 体を数えて確かめた）。地形違いの
+    同じ難易度、市街地 Torment `7403700` は
+
+        NormalSkillGroupId  ['HieronymusInsaneNormal01']
+        ExSkillGroupId      ['HieronymusInsaneEx01', 'HieronymusInsaneEx02',
+                             'HieronymusInsaneEx03', 'HieronymusInsaneEx04']
+        MaxHP1              42000000
+
+    が 1 文字も違わない（`7403700` の木の `HPUnder` は 21000000 ＝ その HP の
+    ちょうど半分で、ヒエロニムスの他の難易度と同じ組み方）。
+
+    **3 つが全部一致して、候補が 1 体だけのときしか埋めない。**部位のように
+    `NormalSkillGroupId` も `ExSkillGroupId` も空の敵は HP だけで何体にも
+    当たるので、先に外す。この条件で総力戦・大決戦を全部あたって、当たるのは
+    `7303700` → `7403700` の 1 件だけだった（2026-09-02）。
+    """
+    def key(c):
+        r = csl.get(c) or {}
+        return (tuple(r.get("NormalSkillGroupId") or []),
+                tuple(r.get("ExSkillGroupId") or []),
+                (stat.get(c) or {}).get("MaxHP1"))
+
+    def usable(k):
+        return bool(k[2]) and bool(k[0] or k[1])
+
+    by_key = {}
+    for c in bt:
+        k = key(c)
+        if usable(k):
+            by_key.setdefault(k, []).append(c)
+    out = {}
+    for c in set(csl) | set(stat):
+        if c in bt:
+            continue
+        k = key(c)
+        if not usable(k):
+            continue
+        cand = by_key.get(k) or []
+        if len(cand) == 1:
+            out[c] = cand[0]
+    return out
+
+
+# **通常スキルを数え直す木は、その 1 周を繰り返す。**
+# `UseNormalSkill C → ClearNormalSkill` が入っているフェーズは、C 発目で
+# 数えが 0 に戻るので、表に並んでいる 1 周ぶんがそのまま繰り返される。
+# 1 周の長さは「C 発ぶんの通常スキル ＋ その周で撃つ EX のモーション」。
+#
+# **動画 2 本で確かめた**（ヒエロニムス Torment、`UseNormalSkill 4` で
+# `ClearNormalSkill`、EX は `HieronymusInsaneEx02`＝ウルガータ・`Duration` 300
+# フレーム＝10.0 秒。1 周 ＝ 4 × 3.333 ＋ 10.0 ＝ 23.333 秒）。
+#   yuZnCpRh2YU  戦闘 11.033 秒（03:48.967）まだ無い／12.733 秒（03:47.267）
+#                 と 14.433 秒（03:45.567）で足元に金の魔法陣／27.700 秒
+#                 （03:32.300）には無い／36.633 秒（03:23.367）でまた出る
+#   qReSK-B24ts  戦闘 36.733 秒（03:23.267）で金の魔法陣
+# 1 発目 13.333 秒・2 発目 36.667 秒。**13.333 秒ごとに繰り返すだけの形では
+# 26.667〜36.667 秒が EX の最中になり、27.700 秒のコマと合わない。**
+TL_EV_LIMIT = 300.0
+
+
+def tl_one(cid, bt, csl, stat, fcache, ch_appear, twin=None):
     """敵 1 体ぶんの行動。出せなければ None。
 
     **難易度ぶんの木が無いときは Normal の木で埋める**（`fb` に残す）。
     HP のしきい値を無視して木を比べると、ペロロジラ・グレゴリオ・クロカゲ・
     ゲブラ・ドラム缶ガニは全難易度で同じ形をしていた。スキル名と HP は
     その難易度の表から取り直すので、埋めても名前と HP は正しい。
+
+    `twin` は「中身が同じ敵」の対応表（`tl_twins` が作る）。地形違いで木が
+    片方にしか無いときに使う。
     """
     fb = []
     rows = bt.get(cid)
@@ -4230,6 +4303,8 @@ def tl_one(cid, bt, csl, stat, fcache, ch_appear):
         b = tl_base_id(cid)
         if b and bt.get(b):
             rows, _ = bt[b], fb.append("bt=" + str(b))
+    if not rows and (twin or {}).get(cid):
+        rows, _ = bt[twin[cid]], fb.append("bt=" + str(twin[cid]))
     if not rows:
         return None
     sl = csl.get(cid)
@@ -4242,10 +4317,19 @@ def tl_one(cid, bt, csl, stat, fcache, ch_appear):
     ex = sl.get("ExSkillGroupId") or []
     ns = (sl.get("NormalSkillGroupId") or [None])[0]
     nf = tl_frames(ns, fcache) if ns else None
+    # EX 1 発のモーション。**トップレベルの `Duration` がそのまま入っている。**
+    # 1 周の長さを出すのに要るので、ここで引いておく（呼び出し側の `exd` と同じ）
+    exd = [tl_frames(g, fcache) for g in ex]
     st = stat.get(cid, {})
     spd = (st.get("NormalAttackSpeed") or 10000) / 10000.0
     per = (nf / TL_FPS / spd) if nf else None
     ph = {}
+    # **秒に直せなかった引き金**。画面のレーンを空にしないための言い訳を残す
+    why = []
+    if not per:
+        why.append(
+            f"通常スキルの長さが引けない（NormalSkillGroupId={ns} / AttackIngDuration も "
+            "Duration も無い）ので、UseNormalSkill N の EX を秒に直せない")
     for p in sorted({r["AIPhase"] for r in rows}):
         rs = [r for r in rows if r["AIPhase"] == p]
         ev = sorted(([int(r["TriggerArgument"]),
@@ -4254,6 +4338,43 @@ def tl_one(cid, bt, csl, stat, fcache, ch_appear):
                      for r in rs
                      if r["ExternalBTTrigger"] == "UseNormalSkill"
                      and r["ExternalBehavior"] == "UseSelectExSkill"), key=lambda x: x[0])
+        # 数え直し（`UseNormalSkill C → ClearNormalSkill`）。上の TL_EV_LIMIT の
+        # コメントに、動画で確かめた中身を書いてある
+        clr = sorted({int(r["TriggerArgument"]) for r in rs
+                      if r["ExternalBTTrigger"] == "UseNormalSkill"
+                      and r["ExternalBehavior"] == "ClearNormalSkill"})
+        # **その数でフェーズが変わるなら繰り返さない。**ペロロジラの
+        # フェーズ 12 は `UseNormalSkill 6` に `ClearNormalSkill` と
+        # `ChangePhase 11` の両方がぶら下がっていて、1 周でフェーズが終わる
+        ns_ph = any(r["ExternalBTTrigger"] == "UseNormalSkill"
+                    and r["ExternalBehavior"].startswith(("ChangePhase",
+                                                          "ForceChangePhase"))
+                    for r in rs)
+        # **EX のモーションが 1 つでも引けなければ、1 周の長さが出ない。**
+        # 足りないぶんを 0 で埋めると「EX が通常スキルを止めない」形になって、
+        # 動画と合わない（上の TL_EV_LIMIT のコメント参照）
+        exok = all(exd[i] for e in ev for i in e[2] if i < len(exd))
+        if (per and ev and len(clr) == 1 and ev[-1][0] <= clr[0]
+                and not ns_ph and exok):
+            span = clr[0] * per + sum((exd[i] or 0) for e in ev for i in e[2]) / TL_FPS
+            if span > 0:
+                # **足すのは丸める前の値。**丸めた 13.333 に足すと 2 周目が
+                # 36.666 になって、動画の 36.667 秒と 1 ミリ秒ずれる
+                base, t = list(ev), span
+                while base[0][0] * per + t <= TL_EV_LIMIT:
+                    ev += [[e[0], round(e[0] * per + t, 3), e[2]] for e in base]
+                    t += span
+                ev.sort(key=lambda x: x[1])
+        elif clr:
+            _c = "・".join(str(c) for c in clr)
+            _r = ("そこでフェーズが変わる" if ns_ph
+                  else "EX のモーション（LevelSkill の Duration）が引けない" if not exok
+                  else "通常スキルの長さが引けない" if not per
+                  else "戻る数が 1 通りでない" if len(clr) > 1
+                  else "EX を撃つ数のほうが大きい")
+            why.append(f"フェーズ {p + 1} は通常スキル {_c} 発目で数えが 0 に戻る"
+                       f"（UseNormalSkill → ClearNormalSkill）が、{_r} ので"
+                       "繰り返しを出していない")
         add = [r for r in rs if r["ExternalBTTrigger"] == "CheckPeriod"
                and r["ExternalBehavior"] == "AddActiveGauge"]
         over = [r for r in rs if r["ExternalBTTrigger"] == "CheckActiveGaugeOver"]
@@ -4263,9 +4384,58 @@ def tl_one(cid, bt, csl, stat, fcache, ch_appear):
             if amt:
                 g = [round(int(over[0]["TriggerArgument"]) / amt * (step / 1000.0), 3),
                      tl_idxs(over[0]["BehaviorArgument"])]
+                # **しきい値が 2 つ以上あるボスがいる**（ケセドは 50 で
+                # `ChesedInsaneExSkill02`、100 で `ChesedInsaneExSkill03`）。
+                # 画面は `g` を 1 本しか描かないので、残りは理由に落とす
+                for r in over[1:]:
+                    _g = tl_names(ex, tl_idxs(r["BehaviorArgument"]))
+                    why.append(
+                        f"フェーズ {p + 1} はゲージ {r['TriggerArgument']} でも EX を撃つ"
+                        f"（{r['ExternalBehavior']} → {_g}）が、画面はしきい値 "
+                        f"{over[0]['TriggerArgument']} の 1 本しか出していない")
+            # **ゲージの周期より EX のモーションのほうが長いことがある。**
+            # ビナー（屋外）Torment はゲージ 8.333 秒に対して
+            # `BinahInsaneExSkill03`（浄化の嵐）が 327 フレーム＝10.9 秒。
+            # 画面は周期ぶんだけ帯を並べるので、そのままだと帯が重なる。
+            # **どちらが正しいかは動画で確かめられていない**（2026-09-02、
+            # IrVUx0ywuyo の 戦闘 5.633 秒・9.0 秒のコマでは、ボスの HP バーの
+            # 上の四角が灰色のままで、ゲージかどうかも読めなかった）
+            for i in (g[1] if g else []):
+                if i < len(exd) and exd[i] and exd[i] / TL_FPS > g[0]:
+                    why.append(
+                        f"フェーズ {p + 1} はゲージの周期 {g[0]} 秒より "
+                        f"{ex[i] if i < len(ex) else '?'} のモーション "
+                        f"{exd[i]} フレーム（{round(exd[i] / TL_FPS, 3)} 秒）の"
+                        "ほうが長い。画面の帯は重なって出る")
+        elif over:
+            _t = "・".join(r["TriggerArgument"] for r in over)
+            why.append(f"フェーズ {p + 1} はゲージのしきい値（CheckActiveGaugeOver {_t}）"
+                       "はあるが、貯まり方（CheckPeriod → AddActiveGauge）が無い")
         hp = [[int(r["TriggerArgument"]), r["BehaviorArgument"]] for r in rs
               if r["ExternalBTTrigger"] == "HPUnder"
               and r["ExternalBehavior"].startswith(("ChangePhase", "ForceChangePhase"))]
+        # **HP を切ったら EX、という行がある**（ホドのフェーズ 3 は 9000000 から
+        # 100000 刻みで 8100000 まで 10 行）。HP は時刻に直せないので理由に落とす
+        for r in rs:
+            if (r["ExternalBTTrigger"] == "HPUnder"
+                    and r["ExternalBehavior"] == "UseSelectExSkill"):
+                _g = tl_names(ex, tl_idxs(r["BehaviorArgument"]))
+                why.append(f"フェーズ {p + 1} は HP {r['TriggerArgument']} を切ったら "
+                           f"{_g}（HP は時刻に直せない）")
+            elif r["ExternalBTTrigger"] == "None":
+                # Selector の外れ枝（`ExternalBTNodeType` が `SubNode`）。
+                # 親の `BehaviorRate` が 10000 のときは出ない
+                why.append(f"フェーズ {p + 1} は Selector の外れ枝"
+                           f"（SubNode・BehaviorRate {r['BehaviorRate']}）で "
+                           f"{r['ExternalBehavior']} {r['BehaviorArgument']} "
+                           "を撃つことがある（時刻に直せない）")
+            elif (r["ExternalBTTrigger"] not in
+                  ("UseNormalSkill", "CheckPeriod", "CheckActiveGaugeOver", "HPUnder")
+                  and r["ExternalBehavior"] in ("UseSelectExSkill", "ChangePhase",
+                                                "ForceChangePhase")):
+                why.append(f"フェーズ {p + 1} は {r['ExternalBTTrigger']} "
+                           f"{r['TriggerArgument']} で {r['ExternalBehavior']} "
+                           f"{r['BehaviorArgument']}（時刻に直せない）")
         # **上の 3 つで拾えなかった行は、そのまま残す。**
         # `OnSpawned` `ApplyGroggy` `DestroyParts` `CheckSummonCharacterCountUnder`
         # `CheckHallucinationCountOver` などは、時刻に直せないが画面には出したい
@@ -4288,9 +4458,16 @@ def tl_one(cid, bt, csl, stat, fcache, ch_appear):
     # 2026-09-01 に全部見た。あるのは `GroggyGauge` と `GroggyTime` だけ）
     gg = [[r["AIPhase"], r["ExternalBehavior"], r["BehaviorArgument"]]
           for r in rows if r["ExternalBTTrigger"] == "ApplyGroggy"]
+    seen_why, uniq_why = set(), []
+    for w in why:
+        if w not in seen_why:
+            seen_why.add(w)
+            uniq_why.append(w)
     return {"cid": cid, "hp": st.get("MaxHP1"), "ns": ns, "nf": nf,
             "spd": st.get("NormalAttackSpeed") or 10000,
             "ap": ch_appear.get(cid), "gg": gg,
+            # 秒に直せなかった引き金の言い分。**レーンを空にしないため**
+            "exWhy": uniq_why,
             "per": round(per, 3) if per else None, "ex": ex, "ph": ph, "fb": fb}
 
 
@@ -4715,6 +4892,8 @@ def build_tl():
         return out
 
     fcache = {}
+    # 木の無い敵を、中身が同じ敵の木で埋める（`tl_twins` の docstring に根拠）
+    twin = tl_twins(bt, csl, stat)
     bosses, ok, half, ng = [], 0, 0, []
     for g0 in grp_order:
         b = grp_base[g0]
@@ -4731,11 +4910,11 @@ def build_tl():
                 bl = sg.get("boss") or []
                 got, cid0 = None, (bl[bx] if bx < len(bl) else None)
                 if cid0:
-                    got = tl_one(cid0, bt, csl, stat, fcache, appear)
+                    got = tl_one(cid0, bt, csl, stat, fcache, appear, twin)
                 if not got and bx == 0:
                     # **集計の行しか引けないことがある。**そのときは並び順に落とす
                     for cid in sg["cids"]:
-                        got = tl_one(cid, bt, csl, stat, fcache, appear)
+                        got = tl_one(cid, bt, csl, stat, fcache, appear, twin)
                         if got:
                             break
                 df = sg["df"]
