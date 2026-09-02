@@ -4859,6 +4859,10 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
       // 付いてくることがある（2026-09-02、グレゴリオの「​⑨ミネ」で気づいた。
       // `charAt(0)` が丸数字にならず「タイミングが読めません」になっていた）
       .replace(/[\u200b-\u200f\u2060\ufeff]/g, '')
+      // **全角の数字を半角に。**「８　ホシノ」のようにコストを全角で書く TL があり、
+      // コストの読み取りが数字に当たらず全部「即」に化けていた（2026-09-03、初見の TL 4 本の
+      // 答え合わせで判明）。**丸数字（①②③）は形態の番号なので触らない。**
+      .replace(/[０-９]/g, function (c) { return String.fromCharCode(c.charCodeAt(0) - 0xFEE0); })
       .replace(/[\s　]/g, '');
   }
   // 「セイア(水着)」に対して ['セイア(水着)', '水着セイア'] を返す。base は 'セイア'
@@ -5196,7 +5200,13 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
       }
       res.crew.push(b);
     }
-    if (!res.crew.length) { return { err: '「使用生徒詳細」の行が 1 つも読めませんでした' }; }
+    // **育成表が無い TL でも読む。**世の中の TL は概要欄に育成を書かないものが多く、
+    // ここで止めると 1 行も読めなかった（2026-09-03、初見の TL 4 本すべてで発生）。
+    // 編成は下の「育成の行が無い子を既定値で足す」経路が TL の行から組む
+    if (!res.crew.length) {
+      res.crewAuto = true;
+      res.notes.push('育成の行が無いので、編成は TL に出てくる子から組みました（数字は既定値です）');
+    }
     // **枠はまだ決めない。**育成行は全部隊ぶんが一括で並ぶので、どの行がどの部隊かは
     // TL の節（「2凸目」）を読んでから決める（下の `assignParties`）。ここから先の
     // `who` は res.crew の添字で、枠の番号は最後に振り直す（2026-09-02）
@@ -5393,11 +5403,47 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
       lr = le;   // 終わりの行は飛ばす
     }
     lines = lines3;
+    // **1 行に何人も並べた TL を、1 人 1 行に開く。**「即　サツキ　ホシノ　カンナ(紫壺)」
+    // 「3:18.000 イロハ　サツキ　キサキ」のように、同じタイミングで続けて撃つぶんを
+    // 1 行に書く TL がある。開かないと「撃つ子が読めません」で行ごと落ちていた
+    // （2026-09-03、初見の TL の答え合わせで判明）。
+    // **開くのは、タイミングが書いてあって、名前が 2 人以上引ける短い行だけ。**
+    // 「サツキ→カンナ」は「撃つ子→渡し先」なので 1 つの塊として扱う。
+    // 2 人目からは「即」＝ 直後に続けて撃つ、として置く（TL の読み方に合わせた）
+    (function () {
+      var out = [], q, w;
+      for (q = 0; q < lines.length; q++) {
+        var ln0 = lines[q], body0 = ln0.replace(/[※#].*$/, ''), n0 = nrm(body0);
+        var head = timeIn(body0.replace(/[（(][^）)]*[)）]/g, ' '), dur) ||
+                   /^[\s　]*(?:即|コスト|cost)/i.test(body0);
+        if (!head || n0.length > 40 || /凸|部隊|開始/.test(n0)) { out.push(ln0); continue; }
+        // 塊に割る。空白・「、」・「・」で切り、「→」でつながるところは切らない
+        var toks = body0.split(/[\s　、,・]+/).filter(function (x) { return nrm(x); });
+        var hits = [], head0 = null;
+        for (w = 0; w < toks.length; w++) {
+          var t0 = toks[w], nm0 = t0.split(/[→>＞]/)[0];
+          var sd0 = /[ぁ-んァ-ヶ一-龥Ａ-Ｚａ-ｚA-Za-z]/.test(nrm(nm0)) ? findStudent(nm0, null) : null;
+          if (sd0) { hits.push(t0); }
+          else if (!hits.length) { head0 = (head0 == null ? '' : head0) + t0 + ' '; }
+        }
+        if (hits.length < 2) { out.push(ln0); continue; }
+        for (w = 0; w < hits.length; w++) {
+          out.push((w === 0 ? (head0 || '') : '即 ') + hits[w]);
+        }
+        res.notes.push('「' + ln0.trim() + '」は ' + hits.length + ' 発として読みました');
+      }
+      lines = out;
+    }());
     // 節。1 つが 1 部隊。`gu` は「ギブアップ」で終わった印
     var parts = [], cur = { start: [], uses: [], gu: false }, skipping = false;
     // **`lastRem` は戦闘開始（残り = 制限時間）から始める。**「44.50ユウカ」のように M:SS を一度も
     // 書かない TL があり、前の行からの相対秒に化けていた（2026-09-02、総力戦ゴズ 9FiPLXveLBs）
-    var seenStart = false, prevT = 0, lastWho = null, lastShot = null, pendT = null, lastRem = dur;
+    // **「開始スキル」の行が 1 つも無い TL は、最初から読む。**世の中の TL には
+    // 開始スキルを書かないものが多く、そこで `seenStart` が立たないまま全行が捨てられて
+    // 「タイムラインの行が 1 つも読めませんでした」になっていた（2026-09-03、初見の TL
+    // 4 本すべてで発生）。**書いてある TL の読み方は今までどおり**（見出しより前は捨てる）
+    var hasStart = lines.some(function (q) { return /開始\s*(?:SET|スキル|セット)/i.test(nrm(q)); });
+    var seenStart = !hasStart, prevT = 0, lastWho = null, lastShot = null, pendT = null, lastRem = dur;
     // **その部隊で、その子がいま何番目の形態まで進んだか。**「ヒナ①②③」の丸数字が
     // 形態の番号なので、飛んでいるときに間の形態（0 コストでない「開演」）を補うのに要る
     var lastForm = {};
@@ -5551,7 +5597,9 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
           }
           if (nCh === 1) { ci2 = cCh; chgF = true; }
         }
-        if (ci2 < 0 && sd2 && timeIn(noParen, dur) && nrm(cut).length <= 20) {
+        // **育成表が無い TL では、タイミングが無い行でも足す**（2026-09-03）。
+        // 「即ヒナ」「コスト5 アコ」のように数字を書かない行だけで組まれた TL がある
+        if (ci2 < 0 && sd2 && (res.crewAuto || timeIn(noParen, dur)) && nrm(cut).length <= 24) {
           var bN = { id: sd2.id, name: sd2.n, pot: [25, 25, 25] };
           res.crew.push(bN); ci2 = res.crew.length - 1;
           crew.push({ idx: ci2, a: aliasOf(sd2.n) });
