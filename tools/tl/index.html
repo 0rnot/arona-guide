@@ -905,8 +905,10 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
 .rate td.n .sub { display:block; font-size:8.5px; color:var(--tx3); line-height:1.3; }
 
 /* ---------- 概況の帯の「スキル順」（2026-09-03） ---------- */
-/* 左の箱を詰めて、空いた右に置く。**帯の高さは増やさない**ので、
-   マスは 12 個で窓を切り、カーソルの位置が真ん中に来るように滑らせる */
+/* 左の箱を詰めて、空いた右に置く。**帯の高さは増やさない**。
+   中身はゲームの手札の並び——**先頭 3 枚がいま選べるカード、残りが控え**。
+   見分けは明るさと枠と区切りだけで、言葉は置かない（先生の「注釈とか
+   マジでいらないから全箇所。文字使わずにアイコンとかで表記してくれよ」） */
 /* **場所は 300px ぶん先に取って、伸びない。**折り返すかどうかは伸び縮みの前の
    幅で決まるので、`auto` でも `1 1 300px` でも右の札（`.kcond`）が 2 段目に落ちて
    帯が 102px → 132px になった。0 から伸ばすと今度は札が 100px しか無くて読めない。
@@ -918,27 +920,31 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
 .tlapp .kpi .kord .kl { font-size:9px; color:var(--tx3); letter-spacing:.03em; }
 .tlapp .kpi .kord .ordrow { display:flex; align-items:flex-start; gap:var(--s2);
   min-width:0; overflow:hidden; }
-.ocs { display:flex; gap:2px; flex:0 0 auto; }
+.ocs { display:flex; gap:2px; flex:0 0 auto; align-items:flex-start; }
 .ocw { display:flex; flex-direction:column; align-items:center; gap:0; }
 .ocw > i { font-style:normal; font-size:7.5px; line-height:1.1; color:var(--tx3); }
+/* 控え。**沈める** */
 .oc { width:18px; height:18px; border-radius:3px; border:1px solid var(--gb);
   background:transparent; display:block; overflow:hidden; position:relative; }
-.oc img { width:100%; height:100%; object-fit:cover; opacity:.28; display:block;
+.oc img { width:100%; height:100%; object-fit:cover; opacity:.3; display:block;
   filter:grayscale(1); }
-/* 撃ったぶんは埋める（▓）、これからは白い枠（◻） */
-.oc.on { background:var(--acc2); border-color:var(--acc2); }
-.oc.on img { opacity:1; filter:none; }
-/* 次に撃つ 1 発 */
-.oc.nx { border-color:var(--acc); box-shadow:0 0 0 1px var(--acc); }
-.ocw.nx > i { color:var(--acc); font-weight:700; }
-/* 開始スキルで順番を決めたぶん。食い違っていれば色を変える */
-.ocw.hd > i { text-decoration:underline; text-underline-offset:1px; }
-.ocw.mm > i { color:var(--warn, #d97757); }
-/* カーソルが乗っている 1 発の札 */
+/* いま選べる 3 枚。**明るく、枠を立てる** */
+.oc.hd { border-color:var(--acc2); box-shadow:0 0 0 1px var(--acc2); }
+.oc.hd img { opacity:1; filter:none; }
+.ocw.hd > i { color:var(--acc2); font-weight:700; }
+/* 手札と控えの切れ目 */
+.ocw.gap { margin-left:7px; }
+/* カーソルが乗っている 1 発の札。**名前とコストと秒だけ** */
 .ocard { flex:1 1 auto; min-width:0; display:flex; align-items:center; gap:5px;
   font-size:9px; color:var(--tx2); overflow:hidden; }
-.ocard img { width:20px; height:20px; border-radius:3px; flex:0 0 auto; display:block;
+.ocard .oci { position:relative; flex:0 0 auto; display:block; }
+.ocard img { width:22px; height:22px; border-radius:3px; flex:0 0 auto; display:block;
   object-fit:cover; }
+/* コストはタイムラインの帯と同じ数字。**「コスト」と書かない。**
+   絵の中の右下に収める（外へ出すと隣の秒数と重なった） */
+.ocard .oci .cs { position:absolute; right:0; bottom:0; min-width:10px; padding:0 2px;
+  font-size:9px; line-height:11px; font-weight:700; text-align:center;
+  color:#171004; background:var(--acc2); border-radius:3px 0 3px 0; }
 .ocard .oct { min-width:0; overflow:hidden; }
 .ocard .oct b { display:block; font-size:10.5px; color:var(--tx); white-space:nowrap;
   overflow:hidden; text-overflow:ellipsis; }
@@ -6343,7 +6349,11 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
   // ------------------------------------------------------------ スキル順（概況の帯）
   /** カーソル（タイムラインの赤いバー）が指している秒。**まだ動かしていなければ null** */
   var PH_T = null, _ordK = '';
-  /** 置いた EX を時刻の順に並べたもの。`er` は engine が解いた行（実際に出る秒） */
+  // **画面で選べるカードは 3 枚**（2026-09-03 の先生の言葉「ゲーム画面で選べる
+  // スキルは３つだからその３つプラス裏で控えてる３人の順番って感じ」）。
+  // engine 側の `HAND` と同じ枚数
+  var HAND_N = 3;
+  /** 置いた EX を時刻の順に。`kept` は「撃っても手札に残る」（すぐにドロー） */
   function ordList() {
     var sm = sim(), ro = {}, out = [], i;
     for (i = 0; i < sm.rows.length; i++) {
@@ -6351,94 +6361,85 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
     }
     for (i = 0; i < st.tl.length; i++) {
       var u = st.tl[i], er = ro[i] || null;
-      out.push({ ix: i, i: u.i, er: er,
+      out.push({ ix: i, i: u.i, er: er, kept: !!(er && er.kept),
                  at: (er && er.at != null) ? er.at : (u._rt != null ? u._rt : u.t) });
     }
     out.sort(function (a, b) { return a.at - b.at || a.ix - b.ix; });
     return out;
   }
-  // 帯に収まるマスの数。**高さを増やさない**ので、多いときは窓を切って横に滑らせる
-  var ORD_MAX = 12;
+  /** 山札の初めの並び。**起点は開始スキルの指定**（`st.start`）。指定の無いところは
+      TL に出てくる順、それでも余る枠は編成の順で埋める（engine の `deckOrder` と
+      同じ考え方） */
+  function deck0(list) {
+    var q = [], seen = {}, i;
+    function put(k) {
+      if (k == null || seen[k] || !live(k) || !st.party[k]) { return; }
+      seen[k] = 1; q.push(k);
+    }
+    for (i = 0; i < st.start.length; i++) { put(st.start[i]); }
+    for (i = 0; i < list.length; i++) { put(list[i].i); }
+    for (i = 0; i < SLOTS; i++) { put(i); }
+    return q;
+  }
+  /** その秒の並び。**1 枚使うとその子は山札のいちばん下へ回り、次の子が手札に入る。**
+      engine の `playHand` と同じ回り方で、`kept`（すぐにドロー）の 1 発は回さない。
+      **置いた EX の時刻順ではなく、この回り方で決まる順番**（2026-09-03 の先生の
+      言葉「タイムライン基準ってよりは Auto の時の順番ってイメージ」） */
+  function ordAt(list, t) {
+    var q = deck0(list), i, k;
+    for (i = 0; i < list.length; i++) {
+      if (list[i].at > t + 1e-9) { break; }
+      if (list[i].kept) { continue; }
+      k = q.indexOf(list[i].i);
+      if (k >= 0) { q.splice(k, 1); q.push(list[i].i); }
+    }
+    return q;
+  }
   /** 概況の帯の「スキル順」（2026-09-03 の先生の要望）。
-      マスは置いた EX を時刻の順に並べたもので、**埋まっているのがその秒までに
-      撃ったぶん**、白いのがこれから。先頭の N マスは「開始スキル」（`st.start`）と
-      突き合わせて、合っていれば番号に下線、食い違っていれば色を変える。
-      カーソルが 1 発の演出の中にいれば、その札を右に出す */
+      マスは生徒のアイコンだけで、**先頭 `HAND_N` 枚がいま選べるカード**、
+      残りが控え。見分けは明るさと枠と区切りで、言葉は置かない。
+      カーソルが 1 発の演出の中にいれば、その札（名前・コスト・秒）を右に出す */
   function drawOrd(t) {
     var box = $('kord');
     if (!box) { return; }
-    var list = ordList(), nst = LAY[st.mode].start, i, dur = diff().dur || 240;
-    var cur = -1;
-    for (i = 0; i < list.length; i++) { if (list[i].at <= t + 1e-9) { cur = i; } }
+    var list = ordList(), i;
     // カーソルが乗っている 1 発（演出の中にいるもの）。無ければ null
     var on = null;
     for (i = 0; i < list.length; i++) {
       var q0 = list[i], p0 = st.party[q0.i];
       if (!p0) { continue; }
       var fd = q0.er && q0.er.sk ? q0.er.sk.d : exDur(p0);
-      var sec = Math.max(0.5, (fd || 0) / B.fps);
-      if (t >= q0.at - 1e-9 && t < q0.at + sec) { on = q0; }
+      if (t >= q0.at - 1e-9 && t < q0.at + Math.max(0.5, (fd || 0) / B.fps)) { on = q0; }
     }
+    var q = ordAt(list, t);
     // **同じ絵なら組み直さない。**マウスを動かすたびにアイコンを差し替えると散らつく
-    var key = [list.length, cur, on ? on.ix : -1, st.mode, st.pi, _pv].join('|');
+    var key = [q.join(','), on ? on.ix : -1, st.mode, st.pi, _pv].join('|');
     if (key === _ordK) { return; }
     _ordK = key;
-    if (!list.length) {
-      box.innerHTML = '<span class="kl">スキル順</span>' +
-        '<span class="ocard"><span class="oct"><span class="mut">' +
-        'EX レーンをクリックすると、ここに撃つ順番が出ます</span></span></span>';
-      return;
-    }
-    var a = 0;
-    if (list.length > ORD_MAX) {
-      a = Math.max(0, Math.min(list.length - ORD_MAX, cur - Math.floor(ORD_MAX / 2) + 1));
-    }
-    var b = Math.min(list.length, a + ORD_MAX), cells = '';
-    for (i = a; i < b; i++) {
-      var q = list[i], p = st.party[q.i], nm = q.er && q.er.sk ? q.er.sk.n : (p ? p.en : '');
-      var want = i < nst ? st.start[i] : null;
-      var hd = (want != null && want === q.i), mm = (want != null && want !== q.i);
-      var tip = (i + 1) + ' 番目　' + (p ? p.n : '?') + '　' + q.at.toFixed(2) + '秒' +
-        (nm ? '\n' + nm : '') +
-        (hd ? '\n開始スキル ' + (i + 1) + ' 番の指定どおり' : '') +
-        (mm ? '\n開始スキル ' + (i + 1) + ' 番は ' +
-              ((st.party[want] || {}).n || '?') + ' の指定です' : '');
-      cells += '<span class="ocw' + (i === cur + 1 ? ' nx' : '') + (hd ? ' hd' : '') +
-        (mm ? ' mm' : '') + '" title="' + esc(tip) + '">' +
-        '<span class="oc' + (i <= cur ? ' on' : '') + (i === cur + 1 ? ' nx' : '') + '">' +
+    var cells = '';
+    for (i = 0; i < q.length; i++) {
+      var p = st.party[q[i]];
+      cells += '<span class="ocw' + (i < HAND_N ? ' hd' : '') +
+        (i === HAND_N ? ' gap' : '') + '" title="' +
+        esc((i + 1) + '　' + ((p && p.n) || '')) + '">' +
+        '<span class="oc' + (i < HAND_N ? ' hd' : '') + '">' +
         (p ? img(p.id, 'ic') : '') + '</span><i>' + (i + 1) + '</i></span>';
     }
+    // **札は名前とコストと秒まで。**効果の列挙はやめた（2026-09-03 の先生の指示
+    // 「注釈とかマジでいらないから全箇所」）
     var card = '';
     if (on) {
       var pc = st.party[on.i], er2 = on.er;
       var cn = er2 && er2.sk ? er2.sk.n : (pc ? pc.en : '');
       var cc = er2 ? er2.need : (pc ? exCost(pc) : 0);
-      var kd2 = exKind(er2 ? er2.fi : 0);
-      var dd2 = pc ? dmgOf(on.i, diff(), on.at, kd2, st.tl[on.ix].pk,
-                           st.tl[on.ix].tg, st.tl[on.ix].gx) : null;
-      var bfs = (er2 && er2.sk && er2.sk.bf) || (pc && pc.bf) || [], bn = [], z;
-      for (z = 0; z < bfs.length; z++) {
-        bn.push(bfs[z].n + '（' + (bfs[z].sd === 'self' ? '自分' :
-          (bfs[z].sd === 'ally' ? '味方' : '敵')) + '・' +
-          Math.round((bfs[z].du || 0) / 1000) + '秒）');
-      }
-      card = '<span class="ocard">' + (pc ? img(pc.id, 'ic') : '') +
-        '<span class="oct"><b>' + esc(cn) + '</b>' +
-        '<span>コスト ' + (Math.round(cc * 10) / 10) + '　' + on.at.toFixed(2) + '秒' +
-        '（残り ' + mmss(dur, on.at) + '）' +
-        (dd2 ? '　ダメージ ' + n0(dd2.avg) : '') + '</span>' +
-        '<span>' + (bn.length ? esc(bn.join('　')) : '効果のデータはありません') +
-        '</span></span></span>';
-    } else {
-      var nx = list[cur + 1];
-      card = '<span class="ocard"><span class="oct"><span class="mut">' +
-        (cur < 0 ? 'まだ 1 発も撃っていません' : (cur + 1) + ' 発めまで') +
-        (nx ? '　次は ' + esc((st.party[nx.i] || {}).n || '?') + ' ' +
-              nx.at.toFixed(2) + '秒' : '　これで最後') +
-        '</span></span></span>';
+      // コストはタイムラインの帯と同じ「アイコンに乗せた数字」。言葉を足さずに済む
+      card = '<span class="ocard"><span class="oci">' +
+        (pc ? img(pc.id, 'ic') : '') +
+        '<b class="cs">' + (Math.round(cc * 10) / 10) + '</b></span>' +
+        '<span class="oct"><b>' + esc(cn) + '</b><span>' +
+        on.at.toFixed(2) + '秒</span></span></span>';
     }
-    box.innerHTML = '<span class="kl">スキル順　' +
-      (cur + 1) + ' / ' + list.length + ' 発（' + t.toFixed(1) + '秒）</span>' +
+    box.innerHTML = '<span class="kl">スキル順</span>' +
       '<span class="ordrow"><span class="ocs">' + cells + '</span>' + card + '</span>';
   }
 
