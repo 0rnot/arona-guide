@@ -4264,6 +4264,30 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
     // 討伐に要る池を持つ部位はそう書く（レンジャーは 5 体で 40,000,000 を共有）
     return x.n + (x.kill ? '・討伐対象' + (x.phn && x.cnt > 1 ? '（' + x.cnt + ' 体で HP 共有）' : '') : '');
   }
+  /** **弱体状態の数で変わるギミック。**説明文の「弱体状態N～M個」だけを読む
+      （2026-09-03）。データに数値の条件欄は無く、`gim` の `t` に日本語で書いてある。
+
+        グレゴリオ  -DebuffCountGreen（弱体状態6～7個）：DamagedRatioを250%増加
+        グレゴリオ  -DebuffCountYellow（弱体状態4～5個または8～9個）：DamagedRatioを100%増加/ATKを20%増加
+
+      **人に置かせない。**弱体の数を数えているのは道具のほう（「デバフ数」のレーン）で、
+      人が目で数えるより正確だから。27 通りのボスを数えて、この書き方が当たるのは
+      グレゴリオだけだった（KAITEN FX Mk.0 の「この弱体状態効果は…解除されない」は
+      数の条件ではないので当たらない）。**当てなかったせいで実測の 4 割しか出ていなかった**
+      （`verify.py Q13QQfKEaeI` で 136.3 秒 実測 90.8% 対 道具 36.3%） */
+  var GIMDEB = {};
+  function gimDeb(r) {
+    var key = r.cid, gl = r.gim || [], out = [], i, m;
+    if (GIMDEB[key]) { return GIMDEB[key]; }
+    for (i = 0; i < gl.length; i++) {
+      var g = gl[i], tx = String(g.t || ''), rg = [];
+      var re = /弱体状態\s*(\d+)\s*[～~〜]\s*(\d+)\s*個/g;
+      while ((m = re.exec(tx))) { rg.push([+m[1], +m[2]]); }
+      if (rg.length) { out.push({ k: g.k, v: g.v, rg: rg, n: g.n }); }
+    }
+    GIMDEB[key] = out;
+    return out;
+  }
   function enemyAt(r, t, tg, gx) {
     var bs = aimOf(r, tg), m = {}, i;
     function set(k, v) { m[k] = [v || 0, 0, 1]; }
@@ -4297,6 +4321,26 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
       else if (w.k === 'defAbs') { m.DefensePower[1] += (w.v || 0); }
       else if (w.k === 'crR') { m.CriticalChanceResistPoint[1] += (w.v || 0); }
       else if (w.k === 'cdR') { m.CriticalDamageResistRate[1] += (w.v || 0); }
+    }
+    // **弱体状態の数で決まるギミックは、道具が数えて自動で効かせる**（2026-09-03）。
+    // 窓（`st.bst`）と違って時刻ではなく「いま何本かかっているか」で決まるので、
+    // ここで `db.length` を見て当てる。**部位に当てた発（`tg`）には効かせない**——
+    // ギミックはボス本体の被ダメージの話で、部位の被ダメージは別
+    if (tg == null) {
+      var gmD = gimDeb(r), gq, gz, gHit;
+      for (gq = 0; gq < gmD.length; gq++) {
+        gHit = false;
+        for (gz = 0; gz < gmD[gq].rg.length; gz++) {
+          if (db.length >= gmD[gq].rg[gz][0] && db.length <= gmD[gq].rg[gz][1]) { gHit = true; }
+        }
+        if (!gHit) { continue; }
+        var gv = gmD[gq].v || 0;
+        if (gmD[gq].k === 'damaged') { m.DamagedRatio[1] -= gv * 100; }
+        else if (gmD[gq].k === 'def') { m.DefensePower[2] += gv / 100; }
+        else if (gmD[gq].k === 'defAbs') { m.DefensePower[1] += gv; }
+        else if (gmD[gq].k === 'crR') { m.CriticalChanceResistPoint[1] += gv; }
+        else if (gmD[gq].k === 'cdR') { m.CriticalDamageResistRate[1] += gv; }
+      }
     }
     function tot(k) {
       var v = m[k];
