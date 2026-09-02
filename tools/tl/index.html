@@ -857,6 +857,7 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
 .tlapp .side .lb.na .nm { color:var(--tx3); }
 .awy { position:absolute; top:0; bottom:0; z-index:5; pointer-events:none;
   background:repeating-linear-gradient(135deg, rgba(140,140,140,.22) 0 6px, transparent 6px 12px); }
+.awy.mob { background:repeating-linear-gradient(135deg, rgba(200,160,60,.18) 0 6px, transparent 6px 12px); }
 </style>
 </head>
 <body>
@@ -1672,7 +1673,7 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
     for (i = 0; i < SLOTS; i++) { a.push(mkSlot()); }
     // `bst` はボスの状態の窓（部隊ごとに時間軸が 0 から始まるので部隊に持たせる）。
     // `gu` は TL が「ギブアップ」で終わった印（2026-09-02）
-    return { slots: a, tl: [], start: [], bst: [], gu: false };
+    return { slots: a, tl: [], start: [], bst: [], gu: false, end: null };
   }
   function live(i) { return TE.live(st.mode, i); }
   function isMain(i) { return i < MAIN_MAX; }
@@ -1691,7 +1692,7 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
 
   // st.party は「枠 → 生徒データ」の読み取り専用の眺め。**中身は st.slots が正本。**
   var _pv = 0, _pcache = null, _pat = -1, _ppi = -1;
-  function bump() { _pv++; _sc = {}; }
+  function bump() { _pv++; _sc = {}; _pcV = {}; }
   Object.defineProperty(st, 'party', { get: function () {
     if (_pat !== _pv || _ppi !== st.pi) {
       _pcache = [];
@@ -2085,11 +2086,124 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
     return (i >= 0 && i < SCEN.length) ? i : SCEN_DEF;
   }
   function scen() { return SCEN[scenIx()]; }
-  function dmgCurve(r) {
-    var sv = PICKF, sc = scen();
-    ggSolve(r);
+  // ------------------------------------------------------------ 討伐の池
+  // **HP を 1 本持つ相手を「池」と呼ぶ。**ふつうはボス本体の 1 つだが、
+  // カイテンジャー（レンジャー 5 体で 40,000,000 を共有 → FX Mk.0 30,000,000）、
+  // シロ＆クロ、ワカモ前半 → ホバークラフト後半 は 2 つ。討伐は全部の池が 0。
+  // 出どころは `RaidStageExcelTable` の `BossCharacterId` の並び（`d[].korder`）と
+  // BT の `ConnectCharacterToDummy`（`sub[].pool` / `.phn`）。**順に出るか同時に
+  // いるかはデータに無い**ので、通常攻撃と NS は「並びの中で生きている最初の池」へ
+  // 向ける既定にして、EX の当たる先は使う人が置く（2026-09-02、plana の設計）
+  function poolOrder(r) {
+    var o = (r.korder || []).slice();
+    if (o.indexOf(r.cid) < 0) { o.unshift(r.cid); }
+    return o;
+  }
+  function poolOf(r, tg) {
+    if (tg == null) { return r.cid; }
+    var sb = (r.sub || [])[tg];
+    return sb && sb.pool ? sb.pool : null;
+  }
+  function poolHp(r, pid) {
+    if (pid === r.cid) { return (r.bs && r.bs.hp) || 0; }
+    var i, sb = r.sub || [];
+    for (i = 0; i < sb.length; i++) { if (sb[i].pool === pid) { return sb[i].phn || sb[i].hp || 0; } }
+    return 0;
+  }
+  function poolName(r, pid) {
+    if (pid === r.cid) { return (boss() || {}).n || 'ボス'; }
+    var i, sb = r.sub || [], ns = [];
+    for (i = 0; i < sb.length; i++) { if (sb[i].pool === pid) { ns.push(sb[i].n); } }
+    return ns.length > 1 ? ns[0] + ' ほか ' + ns.length + ' 体（HP 共有）' : (ns[0] || '？');
+  }
+  /** その時刻に通常攻撃・NS が向く池。並びの中で、前が全部死んでいて自分が生きている最初 */
+  function naPool(r, t, deadAt) {
+    var o = poolOrder(r), i;
+    for (i = 0; i < o.length; i++) {
+      var d = deadAt ? deadAt[o[i]] : null;
+      if (d == null || t < d) { return o[i]; }
+    }
+    return null;
+  }
+  function dmgCurveWith(r, sc, pid, deadAt) {
+    var sv = PICKF;
     PICKF = sc.pf;
-    try { return dmgCurve0(r, sc.key); } finally { PICKF = sv; }
+    try { return dmgCurve0(r, sc.key, pid, deadAt); } finally { PICKF = sv; }
+  }
+  function valueAt(cv, t) {
+    var v = 0, i;
+    for (i = 0; i < cv.length; i++) { if (cv[i][0] <= t + 1e-9) { v = cv[i][1]; } else { break; } }
+    return v;
+  }
+  /** 池を並びの順に解く。[{ pid, cv, kill, need, hp }]。`carry` は前の部隊が削ったぶん */
+  function poolKills(r, carry) {
+    var o = poolOrder(r), deadAt = {}, out = [], i, q, sc = scen(), dur = r.dur || 240;
+    for (i = 0; i < o.length; i++) {
+      var cv = dmgCurveWith(r, sc, o[i], deadAt);
+      var hp1 = poolHp(r, o[i]), need = hp1 - ((carry || {})[o[i]] || 0), kill = null;
+      if (need <= 0) { kill = 0; }
+      else { for (q = 0; q < cv.length; q++) { if (cv[q][1] >= need) { kill = cv[q][0]; break; } } }
+      if (kill != null && kill > dur) { kill = null; }
+      deadAt[o[i]] = kill;
+      out.push({ pid: o[i], cv: cv, kill: kill, need: need, hp: hp1 });
+    }
+    return out;
+  }
+  /** いまの部隊で、本体の池に入る累計。**フェーズ・グロッキー・描画が使う** */
+  function dmgCurve(r) {
+    ggSolve(r);
+    if (poolOrder(r).length <= 1 && st.pi === 0) { return dmgCurveWith(r, scen(), r.cid, {}); }
+    var pk = poolKills(r, carryIn(st.pi)), i;
+    for (i = 0; i < pk.length; i++) { if (pk[i].pid === r.cid) { return pk[i].cv; } }
+    return [];
+  }
+  // ------------------------------------------------------------ 部隊の持ち越し
+  // **部隊 k の結果**（終了時刻・撃破時刻・池ごとに削った量）。前の部隊が削ったぶんを
+  // 引いて求める。**終了時刻は撃破なら撃破時刻、人が置けばそれ、「ギブアップ」の TL なら
+  // 最後の EX の演出が終わる時刻、それ以外は制限時間**（2026-09-02）
+  var _pcV = {};
+  function partyCalc(k) {
+    var r = diff(), dur = r.dur || 240, p = st.parties[k];
+    if (!p) { return { end: 0, kill: null, dealt: {}, pools: [] }; }
+    var key = [_pv, st.bi, st.di, st.arm, scenIx(), k, p.end, JSON.stringify(p.tl),
+               JSON.stringify(p.bst), JSON.stringify(p.slots)].join('|');
+    if (_pcV[key]) { return _pcV[key]; }
+    var save = st.pi, gsp = GGSP, gbz = GGBUSY, out;
+    st.pi = k; usePartyRef(); GGSP = null; GGBUSY = false;
+    try {
+      var carry = carryIn(k);
+      ggSolve(r);
+      var pk = poolKills(r, carry), i, kill = 0, end, dealt = {};
+      for (i = 0; i < pk.length; i++) {
+        if (pk[i].kill == null) { kill = null; break; }
+        kill = Math.max(kill, pk[i].kill);
+      }
+      if (kill != null) { end = kill; }
+      else if (p.end != null && isFinite(p.end)) { end = Math.max(0, Math.min(+p.end, dur)); }
+      else if (p.gu) {
+        var us = usesSorted(), last = 0, q;
+        for (q = 0; q < us.length; q++) {
+          if (!/^Ex\d*$/.test(us[q].k)) { continue; }
+          var pq = st.party[us[q].i], sk = pq ? _byid[pq.id] : null;
+          last = Math.max(last, us[q].t + (sk ? formDur(pq.id, us[q].k) : 0));
+        }
+        end = Math.min(dur, last || dur);
+      } else { end = dur; }
+      for (i = 0; i < pk.length; i++) {
+        dealt[pk[i].pid] = Math.max(0, Math.min(pk[i].need, valueAt(pk[i].cv, end)));
+      }
+      out = { end: end, kill: kill, dealt: dealt, pools: pk, gu: !!p.gu, manual: p.end != null };
+    } finally { st.pi = save; usePartyRef(); GGSP = gsp; GGBUSY = gbz; }
+    _pcV[key] = out;
+    return out;
+  }
+  function carryIn(k) {
+    var c = {}, j, pid;
+    for (j = 0; j < k; j++) {
+      var d = partyCalc(j).dealt;
+      for (pid in d) { if (has(d, pid)) { c[pid] = (c[pid] || 0) + d[pid]; } }
+    }
+    return c;
   }
   /** その部位に当てたぶんが、ボスの HP から何 % 減るか（0 なら減らない）。
       **ペロロジラのミニオン・グレゴリオの聖歌隊・ホバークラフトのミサイル誘導装置・
@@ -2105,11 +2219,11 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
       居ない間は、EX・NS・通常攻撃のどれもボスの HP から引かない。
       ケセドは 152 秒のうち 121 秒がこれで、無いと EX を全部雑魚に向けても
       136% になる（2026-09-02）。**区間を置くのは使う人**（当たる先と同じ扱い） */
-  function awayAt(t) {
+  function awayAt(t, na) {
     var i, w;
     for (i = 0; i < (st.bst || []).length; i++) {
       w = st.bst[i];
-      if (w.k === 'away' && t >= w.t0 - 1e-9 && t < w.t1) { return true; }
+      if ((w.k === 'away' || (na && w.k === 'mob')) && t >= w.t0 - 1e-9 && t < w.t1) { return true; }
     }
     return false;
   }
@@ -2118,12 +2232,12 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
     var o = { sec: 0, ex: 0, ns: 0, na: 0 }, i, q, dur = r.dur || 240;
     for (i = 0; i < (st.bst || []).length; i++) {
       var w = st.bst[i];
-      if (w.k === 'away') { o.sec += Math.max(0, Math.min(w.t1, dur) - w.t0); }
+      if (w.k === 'away' || w.k === 'mob') { o.sec += Math.max(0, Math.min(w.t1, dur) - w.t0); }
     }
     if (!o.sec) { return o; }
     var us = usesSorted();
     for (i = 0; i < us.length; i++) {
-      if (!awayAt(us[i].t)) { continue; }
+      if (!awayAt(us[i].t, !/^Ex\d*$/.test(us[i].k))) { continue; }
       // ダメージの無い EX（バフ役）は数えない。総量の表と同じ数え方にする
       if (!dmgOf(us[i].i, r, us[i].t, us[i].k, us[i].pk, us[i].tg)) { continue; }
       if (/^Ex\d*$/.test(us[i].k)) { o.ex++; } else { o.ns++; }
@@ -2131,21 +2245,24 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
     for (i = 0; i < SLOTS; i++) {
       if (!st.party[i]) { continue; }
       var ts = naTimes(i, dur);
-      for (q = 0; q < ts.length; q++) { if (awayAt(ts[q])) { o.na++; } }
+      for (q = 0; q < ts.length; q++) { if (awayAt(ts[q], true)) { o.na++; } }
     }
     return o;
   }
-  function dmgCurve0(r, key) {
+  function dmgCurve0(r, key, pid, deadAt) {
     var pts = [], us = usesSorted(), i, q;
+    if (pid == null) { pid = r.cid; }
+    if (!deadAt) { deadAt = {}; }
     for (i = 0; i < us.length; i++) {
       var u = us[i];
       // **部位（柱・装置・聖遺物…）に当てた発は、ボスの HP から引かない。**
-      // ただし転移する部位だけは、その率のぶんボスへ入れる
-      var tr = trOf(r, u.tg) * (u.mc || 1);
-      if (u.tg != null && !tr) { continue; }
-      if (awayAt(u.t)) { continue; }
+      // ただし転移する部位だけは、その率のぶんボスへ入れる。
+      // **池を持つ部位（レンジャー・クロ・ホバー後半）に当てた発は、その池へ**
+      var tr = trOf(r, u.tg) * (u.mc || 1), pp = poolOf(r, u.tg);
+      if (pp !== pid && !(pid === r.cid && u.tg != null && tr)) { continue; }
+      if (awayAt(u.t, !/^Ex\d*$/.test(u.k))) { continue; }
       var d = dmgOf(u.i, r, u.t, u.k, u.pk, u.tg);
-      var v0 = d ? (tr ? d[key] * tr : d[key]) : 0;
+      var v0 = d ? (tr && pp !== pid ? d[key] * tr : d[key]) : 0;
       // **直線に伸びる攻撃は、部位を貫いてボス本体にも当たる**（ヒナ（ドレス）の
       // 射撃など）。当たるかどうかは盤の上の話でデータから決まらないので、
       // **置くのは使う人**（帯の「ボス本体にも当たる」。2026-09-02 の先生の見立て）。
@@ -2162,7 +2279,7 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
       var ts = naTimes(i, dur), bucket = {}, bk;
       if (!ts.length) { continue; }
       for (q = 0; q < ts.length; q++) {
-        if (awayAt(ts[q])) { continue; }
+        if (awayAt(ts[q], true) || naPool(r, ts[q], deadAt) !== pid) { continue; }
         var at0 = Math.min(ts[q], dur), b = Math.floor(at0 / STEP);
         if (!bucket[b]) { bucket[b] = []; }
         bucket[b].push(at0);
@@ -2180,13 +2297,8 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
   }
   /** ボスの HP をぜんぶ削り切る時刻。届かないなら null。 */
   function killAt(r) {
-    var hp = (r.bs && r.bs.hp) || 0;
-    if (!hp) { return null; }
-    var cv = dmgCurve(r), dur = r.dur || 240, i;
-    for (i = 0; i < cv.length; i++) {
-      if (cv[i][1] >= hp) { return cv[i][0] > dur ? null : cv[i][0]; }
-    }
-    return null;
+    if (!((r.bs && r.bs.hp) || 0)) { return null; }
+    return partyCalc(st.pi).kill;
   }
   /** そのタイムで倒しきったときのスコア。**式は総力戦スコア計算機と同じ**——
       `DefaultClearScore + HPPercentScore + max(0, MaximumScore - 経過秒 × PerSecondMinusScore/10)`。
@@ -2209,11 +2321,19 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
     }
     var hp0 = (r.bs && r.bs.hp) || 0, cur = '0', out = [], t0 = 0, guard = 0;
     if (!hp0 || !r.ph[cur]) { return [{ p: '0', t0: 0, t1: dur, need: null }]; }
-    var cv = dmgCurve(r);
+    var cv = dmgCurve(r), carry0 = (carryIn(st.pi)[r.cid] || 0);
     while (guard++ < 12) {
       var list = ((r.ph[cur] || {}).hp) || [];
       if (!list.length) { break; }
-      var need = hp0 - list[0][0], at = null, acc = 0, i;
+      // 前の部隊が削ったぶんは、この部隊の 0 秒時点で既に減っている
+      var need = hp0 - list[0][0] - carry0, at = null, acc = 0, i;
+      if (need <= 0) {
+        var nx0 = list[0][1], q0;
+        for (q0 = 0; q0 < list.length; q0++) { if (hp0 - list[q0][0] - carry0 <= 0) { nx0 = list[q0][1]; } }
+        cur = String(nx0);
+        if (!r.ph[cur]) { break; }
+        continue;
+      }
       for (i = 0; i < cv.length; i++) { if (cv[i][1] >= need) { at = cv[i][0]; acc = cv[i][1]; break; } }
       if (at == null || at > dur) {
         out.push({ p: cur, t0: t0, t1: dur, need: need, miss: true });
@@ -2653,8 +2773,8 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
     }
     for (var aw = 0; aw < st.bst.length; aw++) {
       var w9 = st.bst[aw];
-      if (w9.k !== 'away' || w9.t0 >= dur) { continue; }
-      cv += '<div class="awy" style="left:' + (w9.t0 * px).toFixed(1) + 'px;width:' +
+      if ((w9.k !== 'away' && w9.k !== 'mob') || w9.t0 >= dur) { continue; }
+      cv += '<div class="awy' + (w9.k === 'mob' ? ' mob' : '') + '" style="left:' + (w9.t0 * px).toFixed(1) + 'px;width:' +
             Math.max(1, (Math.min(w9.t1, dur) - w9.t0) * px).toFixed(1) + 'px" title="ボスに当たらない区間\n' +
             (+w9.t0).toFixed(1) + '〜' + Math.min(w9.t1, dur).toFixed(1) + '秒"></div>';
     }
@@ -2890,14 +3010,32 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
         '<span class="ks">' + sub + '</span></div>';
     }
     function scoreBox() {
-      if (!(real >= 100)) { return ''; }
       var k = killAt(r);
       if (k == null) { return ''; }
-      var sv = scoreOf(r, k);
+      // **複数部隊は全部隊の合計秒で減る。**前の部隊の終了時刻を足す
+      var secs = [], sum = 0, j;
+      for (j = 0; j < st.pi; j++) { var e0 = partyCalc(j).end; secs.push(secLab(e0)); sum += e0; }
+      secs.push(secLab(k)); sum += k;
+      var sv = scoreOf(r, sum);
       if (sv == null) { return ''; }
       return '<div class="k win"><span class="kl">スコア</span>' +
              '<b class="kv">' + n0(sv) + '</b>' +
-             '<span class="ks">' + secLab(k) + ' で撃破・1 部隊だけの数字</span></div>';
+             '<span class="ks">' + (st.pi > 0 ? secs.join(' + ') + ' = ' : '') + secLab(sum) +
+             ' で撃破' + (st.pi > 0 ? '（' + (st.pi + 1) + ' 部隊）' : '・1 部隊だけの数字') + '</span></div>';
+    }
+    // **池が 2 つ以上・部隊が 2 つ以上のときの内訳**
+    function poolBox() {
+      var pc = partyCalc(st.pi), o = poolOrder(r), lines = [], j, cr = carryIn(st.pi);
+      if (o.length <= 1 && st.pi === 0) { return ''; }
+      for (j = 0; j < pc.pools.length; j++) {
+        var pk1 = pc.pools[j], done = pc.dealt[pk1.pid] || 0;
+        lines.push(esc(poolName(r, pk1.pid)) + ' ' + n0(Math.round(done)) + ' / ' + n0(pk1.need) +
+          (cr[pk1.pid] ? '（持ち越し −' + n0(Math.round(cr[pk1.pid])) + '）' : '') +
+          (pk1.kill != null ? '　' + secLab(pk1.kill) + ' で撃破' : ''));
+      }
+      return box('討伐の内訳', pc.kill != null ? secLab(pc.kill) : '届かない',
+                 lines.join('<br>') + (st.pi < st.parties.length - 1 ?
+                 '<br>この部隊の終わり ' + secLab(pc.end) + (pc.manual ? '（手で指定）' : (pc.gu ? '（ギブアップ）' : '')) : ''));
     }
     var sb0 = run.sim.IN._sb, recP = recPower(), lay = LAY[st.mode];
     // **左端にボスの顔と英語表記。**難易度ごとに数字だけ並んでいると
@@ -2917,6 +3055,7 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
           hp ? (real >= 100 ? '倒しきれます（HP ' + n0(hp) + '）' : n0(hp)) : '—') +
       probBox() +
       scoreBox() +
+      poolBox() +
       box('置いた EX', st.tl.length + ' 発',
           run.bad.length ? run.bad.length + ' 発がコスト不足でずれます' : '詰まりなし') +
       box('終わりのコスト', run.end.toFixed(2), '上限 ' + run.cap.toFixed(1)) +
@@ -3120,7 +3259,7 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
       var bh = [], z3;
       for (z3 = 0; z3 < st.bst.length; z3++) {
         var w3 = st.bst[z3];
-        bh.push(bstLabel(w3.k) + (w3.k === 'away' ? '' : ' ' + (w3.v >= 0 ? '+' : '') + w3.v +
+        bh.push(bstLabel(w3.k) + (w3.k === 'away' || w3.k === 'mob' ? '' : ' ' + (w3.v >= 0 ? '+' : '') + w3.v +
                 (w3.k === 'damaged' || w3.k === 'def' ? '%' : '')) +
                 '（' + (+w3.t0).toFixed(1) + '〜' + (+w3.t1).toFixed(1) + '秒）');
       }
@@ -3809,7 +3948,9 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
   function aimName(r, tg) {
     if (tg == null) { return (boss() || {}).n || 'ボス'; }
     var x = (r.sub || [])[tg];
-    return x ? x.n : '？';
+    if (!x) { return '？'; }
+    // 討伐に要る池を持つ部位はそう書く（レンジャーは 5 体で 40,000,000 を共有）
+    return x.n + (x.kill ? '・討伐対象' + (x.phn && x.cnt > 1 ? '（' + x.cnt + ' 体で HP 共有）' : '') : '');
   }
   function enemyAt(r, t, tg) {
     var bs = aimOf(r, tg), m = {}, i;
@@ -3822,6 +3963,9 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
     for (i = 0; i < db.length; i++) {
       var q = String(db[i].stat).split('_'), k = q[0];
       if (!m[k]) { continue; }
+      // **ケセドは「この効果以外の DamagedRatio の増加効果を無効化」**（剥き出しの玉座）。
+      // 生徒の被ダメージ増加デバフはケセドに乗らない（`bs.dmgOnly`。2026-09-02）
+      if (bs.dmgOnly && k === 'DamagedRatio') { continue; }
       if (q[1] === 'Coefficient') { m[k][2] += db[i].v / 10000; }
       else { m[k][1] += db[i].v; }
     }
@@ -3846,10 +3990,17 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
       var r2 = Math.round(+(((v[0] + v[1]) * Math.max(v[2], 0.2)).toFixed(4)));
       return k === 'DamagedRatio' ? r2 : Math.max(r2, 0);
     }
+    // **素の被ダメージ率。**`CharacterStatExcelTable` の `DamagedRatio` は ケセド 19000（＝ 0.1 倍）、
+    // ホド 19000、ヒエロニムス 16000、ホバークラフト 17500、イェソド 19900 と 10000 でない
+    // ボスがいる。**動画で確かめられたのはケセドだけ**（グロッキー外の通常攻撃が道具の 1/9、
+    // 玉座の +900% で 1.0 倍に戻る。2026-09-02）。ホド・ヒエロニムス・イェソドは 1.0 倍の
+    // 計算で実クリア TL と合っているので、素の値は **「この効果以外の増加効果を無効化」と
+    // 書いてあるボス（`bs.dmgOnly`）だけ**に掛ける。他は不明のまま 1.0
+    var dbase = (bs.dmgOnly && bs.damaged) ? (20000 - bs.damaged) / 10000 : 1;
     return { def: tot('DefensePower'), dodge: tot('DodgePoint'),
              crR: tot('CriticalChanceResistPoint'), cdR: tot('CriticalDamageResistRate'),
              damaged: tot('DamagedRatio'), damaged2: tot('DamagedRatio2'),
-             armor: bs.armor, n: db.length };
+             dbase: dbase, armor: bs.armor, n: db.length };
   }
 
   // ------------------------------------------------------------ 倍率の幅
@@ -3884,18 +4035,38 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
     for (i = 0; i < st.tl.length; i++) { if (st.tl[i].i === own) { return true; } }
     return false;
   }
-  function condOK(c) {
+  // **スキルのレベルで決まる条件は、育成の欄から決める。**
+  // 「Type=SkillLevel Parameter=ExtraPassive Value=[10, 10]」は「サブが Lv10 のとき」で、
+  // ホシノ（臨戦）／アタッカー の EX がこの 2 択（[1,9] と [10,10]）。既定が先頭の
+  // 弱いほうになっていて、MMMM の子でも 1 段目の倍率で出ていた（2026-09-02、ペロロジラ
+  // 4 本で「ホシノ EX 1 発が実測の半分」の一因）
+  function condOK(c, idx) {
     var m = /Parameter=([A-Za-z0-9_]+) Operand=Exists Value=(True|False)/.exec(String(c || ''));
-    if (!m) { return true; }
-    var on = markerOn(m[1]);
-    if (on == null) { return true; }
-    return on === (m[2] === 'True');
+    if (m) {
+      var on = markerOn(m[1]);
+      if (on == null) { return true; }
+      return on === (m[2] === 'True');
+    }
+    m = /Type=SkillLevel Parameter=([A-Za-z]+) Value=\[(\d+),\s*(\d+)\]/.exec(String(c || ''));
+    if (m && idx != null && st.slots[idx]) {
+      var sl = st.slots[idx], lv = null;
+      if (/^Ex/.test(m[1])) { lv = sl.ex || 5; }
+      else if (m[1] === 'ExtraPassive') { lv = sl.sslv || 10; }
+      else if (m[1] === 'Passive') { lv = sl.plv || 10; }
+      else if (/^(Public|Normal|GearPublic)$/.test(m[1])) { lv = sl.sk || 10; }
+      if (lv != null) { return lv >= +m[2] && lv <= +m[3]; }
+    }
+    return true;
+  }
+  function slotIdxOf(id) {
+    for (var i = 0; i < SLOTS; i++) { if (st.slots[i] && st.slots[i].id === id && live(i)) { return i; } }
+    return null;
   }
   function altOf(id, kind) {
     var a = ((B.dmgalt || {})[id] || {})[kind];
     if (!(a && a.v && a.v.length)) { return null; }
-    var keep = [], i;
-    for (i = 0; i < a.v.length; i++) { if (condOK(a.c[i])) { keep.push(i); } }
+    var keep = [], i, idx = slotIdxOf(id);
+    for (i = 0; i < a.v.length; i++) { if (condOK(a.c[i], idx)) { keep.push(i); } }
     if (!keep.length || keep.length === a.v.length) { return a; }
     var c2 = [], v2 = [];
     for (i = 0; i < keep.length; i++) { c2.push(a.c[keep[i]]); v2.push(a.v[keep[i]]); }
@@ -4068,7 +4239,8 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
     //              DmgAmpMod × Lv 差 × 会心
     // **2026-09-01 まで 1 本の足し算にまとめていました**（両方が同時に効くと
     // 食い違います。与 +20% と 被 +20% で 1.40 対 1.44）
-    var drA = (cs.get('DamageRatio') / 10000) * ((20000 - eb.damaged) / 10000);
+    // 素の被ダメージ率（ケセド 0.1 倍）に、窓の +N% を**掛ける**。玉座 +900% で 0.1 × 10 = 1.0
+    var drA = (cs.get('DamageRatio') / 10000) * ((20000 - eb.damaged) / 10000) * (eb.dbase == null ? 1 : eb.dbase);
     var drB = (cs.get('DamageRatio2') / 10000) *
               ((20000 - (eb.damaged2 == null ? 10000 : eb.damaged2)) / 10000);
     // EX スキルダメージ倍率（＝ キサキ枠）。**EX 由来のダメージにだけ掛かる**
@@ -4198,19 +4370,33 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
   }
   function normCdf(z) { return 0.5 * (1 + erf(z / Math.SQRT2)); }
   function clearStat(r, pf) {
+    // **池ごとに出して掛け合わせる。**mu/sd/n は本体の池の値（表示用）
+    var pk = partyCalc(st.pi).pools, deadAt = {}, carry = carryIn(st.pi), i, out = null, p = 1;
+    for (i = 0; i < pk.length; i++) { deadAt[pk[i].pid] = pk[i].kill; }
+    var o = poolOrder(r);
+    for (i = 0; i < o.length; i++) {
+      var c1 = clearStat1(r, pf, o[i], deadAt, (poolHp(r, o[i]) - (carry[o[i]] || 0)));
+      p *= c1.p;
+      if (o[i] === r.cid) { out = c1; }
+    }
+    if (!out) { return { mu: 0, sd: 0, n: 0, hp: 0, p: 0 }; }
+    out.p = clamp(p, 0, 1);
+    return out;
+  }
+  function clearStat1(r, pf, pid, deadAt, hpNeed) {
     var sv = PICKF;
     ggSolve(r);
     PICKF = pf || 0;
     try {
       var mu = 0, va = 0, n = 0, us = usesSorted(), i, q;
       for (i = 0; i < us.length; i++) {
-        var u = us[i], tr = trOf(r, u.tg), mc = u.mc || 1;
-        if (u.tg != null && !tr) { continue; }
-        if (awayAt(u.t)) { continue; }
+        var u = us[i], tr = trOf(r, u.tg), mc = u.mc || 1, pp = poolOf(r, u.tg);
+        if (pp !== pid && !(pid === r.cid && u.tg != null && tr)) { continue; }
+        if (awayAt(u.t, !/^Ex\d*$/.test(u.k))) { continue; }
         var d = dmgOf(u.i, r, u.t, u.k, u.pk, u.tg);
         if (!d) { continue; }
         n++;
-        if (u.tg != null) {
+        if (u.tg != null && pp !== pid) {
           // **範囲攻撃は当たった数だけ別々に振られる。**平均は ×mc、分散も ×mc。
           // 転移率は定数なので分散は 2 乗で効く
           mu += d.avg * tr * mc;
@@ -4226,7 +4412,7 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
         if (!ts.length) { continue; }
         var bucket = {};
         for (q = 0; q < ts.length; q++) {
-          if (awayAt(ts[q])) { continue; }
+          if (awayAt(ts[q], true) || naPool(r, ts[q], deadAt) !== pid) { continue; }
           var b = Math.floor(ts[q] / STEP);
           bucket[b] = (bucket[b] || 0) + 1;
         }
@@ -4239,9 +4425,8 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
           n += bucket[bk];
         }
       }
-      var hp = (r.bs && r.bs.hp) || 0, sd = Math.sqrt(Math.max(0, va));
-      var p = (!hp || sd <= 0) ? (mu >= hp ? 1 : 0)
-                               : 1 - normCdf((hp - mu) / sd);
+      var hp = hpNeed == null ? ((r.bs && r.bs.hp) || 0) : hpNeed, sd = Math.sqrt(Math.max(0, va));
+      var p = (hp <= 0) ? 1 : ((sd <= 0) ? (mu >= hp ? 1 : 0) : 1 - normCdf((hp - mu) / sd));
       return { mu: mu, sd: sd, n: n, hp: hp, p: clamp(p, 0, 1) };
     } finally { PICKF = sv; }
   }
@@ -4257,11 +4442,17 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
   }
   function total0(r) {
     var ex = zero(), ns = zero(), na = zero(), all = zero(), us = usesSorted(), i, k, q;
+    // 池が 2 つ以上あるボスは、前の池が生きている間の通常攻撃はそちらへ向く
+    var deadAt = {};
+    if (poolOrder(r).length > 1) {
+      var pk0 = partyCalc(st.pi).pools;
+      for (i = 0; i < pk0.length; i++) { deadAt[pk0[i].pid] = pk0[i].kill; }
+    }
     for (i = 0; i < us.length; i++) {
       var u = us[i];
       var tr2 = trOf(r, u.tg) * (u.mc || 1);
       if (u.tg != null && !tr2) { continue; }
-      if (awayAt(u.t)) { continue; }
+      if (awayAt(u.t, !/^Ex\d*$/.test(u.k))) { continue; }
       var d = dmgOf(u.i, r, u.t, u.k, u.pk, u.tg);
       if (!d) { continue; }
       if (tr2) {
@@ -4282,7 +4473,7 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
       if (!ts.length) { continue; }
       var bucket = {};
       for (q = 0; q < ts.length; q++) {
-        if (awayAt(ts[q])) { continue; }
+        if (awayAt(ts[q], true) || naPool(r, ts[q], deadAt) !== r.cid) { continue; }
         var b = Math.floor(ts[q] / STEP);
         bucket[b] = (bucket[b] || 0) + 1;
       }
@@ -4353,6 +4544,7 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
           }
         }
         np.gu = !!src.gu;
+        np.end = (src.end != null && isFinite(src.end)) ? +src.end : null;
         st.parties.push(np);
       }
       if (!st.parties.length) { st.parties = [mkParty()]; }
@@ -4660,7 +4852,8 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
       // **地の文を育成行にしない。**「ナギサ固有2あるのであれば…の方がスコア高いです」が
       // 育成行として通って、素の ナギサ が編成に入り、本命の ナギサ（水着）が
       // 「枠が足りません」で落ちていた（2026-09-02、総力戦ヒエロニムス）
-      if (/です|ます|ません|ください|でしょう/.test(body) && nrm(body).length > 20) { continue; }
+      // 「セイア固有2以上の場合はTLずれます」（19 字）も地の文（2026-09-02、大決戦ペロロジラ）
+      if (/です|ます|ません|ください|でしょう|ずれる|場合/.test(body)) { continue; }
       // **名前が行頭にあるとは限らない。**実物の概要欄はこれだけ形が違う。
       //   「⑤ヒナ(ドレス) 固有4 MMMM」   枠の番号が頭に付く
       //   「❺カンナ（水着）☆5 MMMM」     黒丸の番号＋☆
@@ -4914,7 +5107,7 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
     lines = lines2;
     // 節。1 つが 1 部隊。`gu` は「ギブアップ」で終わった印
     var parts = [], cur = { start: [], uses: [], gu: false }, skipping = false;
-    var seenStart = false, prevT = 0, lastWho = null, lastShot = null, pendT = null;
+    var seenStart = false, prevT = 0, lastWho = null, lastShot = null, pendT = null, lastRem = null;
     for (i = 0; i < lines.length; i++) {
       var ln = lines[i], lc0 = nrm(ln), ck = null;
       // 名簿の行（「1凸目 カヨコ/クルミ/アリス(臨戦)/ナギサ(水着)/キサキ」）。
@@ -4946,7 +5139,7 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
           cur.uses = []; skipping = false; prevT = 0; pendT = null; lastWho = null; lastShot = null;
         } else {
           if (cur.uses.length) { parts.push(cur); cur = { start: [], uses: [], gu: false }; }
-          skipping = false; prevT = 0; pendT = null; lastWho = null; lastShot = null;
+          skipping = false; prevT = 0; pendT = null; lastWho = null; lastShot = null; lastRem = null;
         }
         if (!/開始\s*(?:SET|スキル|セット)/i.test(lc0)) { continue; }
       }
@@ -4996,7 +5189,7 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
       var only = nrm(noParen).replace(/[^0-9:.]/g, '');
       if (only.length >= 4 && !/[ぁ-んァ-ヶ一-龥A-Za-z]/.test(nrm(noParen))) {
         var tp = timeIn(nrm(noParen), dur);
-        if (tp && tp.md === 't') { pendT = tp.t; }
+        if (tp && tp.md === 't') { pendT = tp.t; if (/\d+:\d{1,2}/.test(nrm(noParen))) { lastRem = dur - tp.t; } }
         continue;
       }
       var who = whoIn(cut, crew, noParen);
@@ -5018,10 +5211,43 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
         // 使う人が「足りない」ことに気づけなかった（2026-09-02、12 本のうち 5 本）。
         // 生徒として引ける名前が書いてあるのに編成にいない行だけ知らせる
         var sd2 = findStudent(nrm(cut).replace(/[0-9０-９:.秒即最速]/g, ''), null);
-        if (sd2) { res.skipped.push([ln.trim(), '編成にいません: ' + sd2.n]); }
-        continue;
+        // **括弧の中だけの呼び名で編成の子に当たるなら、その子。**「23.50臨戦」の
+        // 臨戦 → ホシノ（臨戦）／アタッカー（2026-09-02、ペロロジラ）
+        var ci2 = -1, nick = nrm(cut).replace(/[0-9０-９:.秒即最速]/g, ''), nHit = 0;
+        if (sd2) { for (q = 0; q < crew.length; q++) { if (res.crew[crew[q].idx].id === sd2.id) { ci2 = crew[q].idx; break; } } }
+        // 生徒全体では 8 人に当たる「臨戦」も、編成の中では 1 人。括弧の中が一致する子が
+        // 編成に 1 人だけなら、その子
+        if (ci2 < 0 && nick) {
+          for (q = 0; q < crew.length; q++) {
+            var cA = nrm(res.crew[crew[q].idx].name).replace(/[／/].*$/, '').match(/^(.+?)\((.+)\)$/);
+            if (cA && cA[2] === nick) { nHit++; ci2 = crew[q].idx; }
+          }
+          if (nHit !== 1) { ci2 = -1; }
+        }
+        if (ci2 >= 0) { who = ci2; }
+        else if (sd2) { res.skipped.push([ln.trim(), '編成にいません: ' + sd2.n]); }
+        // **タイミングが書いてある行は黙って捨てない。**「23.50臨戦」のように名前が
+        // 引けない行が uses にも skipped にも出ず消えていた（2026-09-02、ペロロジラ）
+        else if (timeIn(noParen, dur)) { res.skipped.push([ln.trim(), '撃つ子が読めません']); }
+        if (who < 0) { continue; }
       }
       var tm = timeIn(noParen, dur);
+      // **分を省いて残り時間の秒だけ書く人がいる**（「33.00 マコト」「07.80 ホシノ」＝
+      // 残り 3:33.00・3:07.80。2026-09-02、ペロロジラ 4 本全部）。「dd.dd」の形で、
+      // その節に「M:SS」の残り時間が既に出ていれば、直前の残り時間より小さくなる
+      // いちばん大きい分を補う。「9.5 Cネル」（コスト）は形が違うので当たらない
+      var remM = nrm(noParen).match(/^(\d{2}\.\d{2})(?![\d:])/);
+      if (remM && lastRem != null) {
+        var secR = +remM[1], mR = Math.floor(lastRem / 60), remT = null;
+        while (mR >= 0) { if (mR * 60 + secR < lastRem - 1e-9) { remT = mR * 60 + secR; break; } mR--; }
+        if (remT != null) {
+          tm = { md: 't', t: Math.max(0, dur - remT) };
+          res.notes.push('「' + ln.trim() + '」は残り ' + Math.floor(remT / 60) + ':' +
+                         (remT % 60 < 10 ? '0' : '') + (remT % 60).toFixed(2) + ' として読みました');
+        }
+      }
+      if (tm && tm.md === 't' && /\d+:\d{1,2}/.test(nrm(noParen))) { lastRem = dur - tm.t; }
+      else if (tm && tm.md === 't' && remM) { lastRem = dur - tm.t; }
       // **時刻だけを 1 行に書く人がいる**（「02 : 16.000」の次の行が行動）。
       // 生徒の名前が無い行は上の `who < 0` で落ちているので、ここに来るのは
       // 名前がある行だけ。**時刻だけの行は、上の行から持ってくる**（2026-09-02）
@@ -5134,8 +5360,8 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
       var rep = 1, rm2 = nrm(cut).match(/([0-9０-９])\s*[～~〜\-]\s*([0-9０-９])\s*射/);
       if (rm2) { rep = Math.max(1, +rm2[2] - +rm2[1] + 1); }
       else {
-        rm2 = nrm(cut).match(/([0-9０-９])\s*連射/);
-        if (rm2) { rep = Math.max(1, +rm2[1]); }
+        rm2 = nrm(cut).match(/([0-9０-９])\s*連射/) || nrm(cut).match(/[×x✕]\s*([0-9０-９])(?![0-9０-９:.])/);
+        if (rm2) { rep = Math.max(1, +zen0(rm2[1])); }
       }
       var one = { i: who, md: tm.md, t: tm.t == null ? 0 : tm.t, tg: aim, f: frm, mc: mcn,
                   to: toL.length ? (toL.length > 1 ? toL : toL[0]) : null,
@@ -5220,6 +5446,25 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
       if (m4 && m4[2].split(/[／\/]/)[0] === n) { inn.push(S.students[i]); }
     }
     if (inn.length === 1) { return inn[0]; }
+    // **「臨戦」が ホシノ（臨戦）／アタッカー と ／タンク の 2 人に当たる。**括弧の前まで
+    // 同じなら同じ子なので先頭を採り、候補を注記に出す（2026-09-02、ペロロジラの
+    // 「23.50臨戦」6 行が黙って消えていた）
+    if (inn.length > 1) {
+      var sameBase = true, mm5, base5 = null;
+      for (i = 0; i < inn.length; i++) {
+        mm5 = nrm(inn[i].n).match(/^(.+?\(.+?\))/);
+        if (!mm5) { sameBase = false; break; }
+        if (base5 == null) { base5 = mm5[1]; } else if (base5 !== mm5[1]) { sameBase = false; break; }
+      }
+      if (sameBase) {
+        if (notes) {
+          var ns2 = [];
+          for (i = 0; i < inn.length; i++) { ns2.push(inn[i].n); }
+          notes.push(nm + ' は ' + ns2.join('・') + ' のうち ' + inn[0].n + ' にしました（分けたいときは名前まで書いてください）');
+        }
+        return inn[0];
+      }
+    }
     var kin = slashKin(n);
     if (kin.length) {
       if (kin.length > 1 && notes) {
@@ -5614,6 +5859,12 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
     for (i = 0; i < st.parties.length; i++) {
       h += '<button type="button" class="btn2" data-pt="' + i + '" aria-pressed="' +
            (i === st.pi) + '">P' + (i + 1) + '</button>';
+    }
+    // **最後でない部隊には「終わりの秒」。**空なら 撃破時刻／ギブアップ／制限時間 の順で決める
+    if (st.parties.length > 1 && st.pi < st.parties.length - 1) {
+      var pe = st.parties[st.pi].end;
+      h += '<input type="number" id="p-end" step="0.1" min="0" placeholder="終了秒" title="この部隊が終わる秒（空なら 撃破時刻・ギブアップ・制限時間）" style="width:64px" value="' +
+           (pe == null ? '' : pe) + '">';
     }
     $('ptabs').innerHTML = h;
     $('b-addparty').disabled = st.parties.length >= 4;
@@ -6066,7 +6317,9 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
                ['crR', '会心抵抗値', '', -400],
                ['cdR', '会心ダメージ抵抗率', '', -2000],
                // **ボスに当たらない区間。**雑魚処理や移動でボスが盤に居ない間
-               ['away', 'ボスに当たらない', '', 0]];
+               ['away', 'ボスに当たらない', '', 0],
+               // 雑魚を撃っている間（ボスは居るが通常攻撃・NS は雑魚へ。EX は当たる先で置く）
+               ['mob', '通常攻撃・NS が雑魚へ', '', 0]];
   function bstLabel(k) {
     for (var i = 0; i < BSTJA.length; i++) { if (BSTJA[i][0] === k) { return BSTJA[i][1]; } }
     return k;
@@ -6109,7 +6362,7 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
                (w.k === BSTJA[j][0] ? ' selected' : '') + '>' + BSTJA[j][1] + '</option>';
       }
       h += '<span class="f"><select data-bst="k" data-i="' + i + '">' + sel + '</select>' +
-        (w.k === 'away' ? '' :
+        (w.k === 'away' || w.k === 'mob' ? '' :
         '<input type="number" data-bst="v" data-i="' + i + '" step="10" value="' +
         (w.v || 0) + '" style="width:78px" title="増やす量">' +
         '<span class="mut tiny">' + (w.k === 'damaged' || w.k === 'def' ? '%' : '') + '</span>') +
@@ -6361,6 +6614,13 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
   })();
 
   // ---- パーティーと編成モード
+  $('ptabs').addEventListener('change', function (e) {
+    if (e.target.id !== 'p-end') { return; }
+    mark();
+    var v = e.target.value === '' ? null : +e.target.value;
+    st.parties[st.pi].end = (v == null || !isFinite(v)) ? null : Math.max(0, v);
+    bump(); draw();
+  });
   $('ptabs').addEventListener('click', function (e) {
     var b = e.target.closest('button[data-pt]');
     if (!b) { return; }

@@ -4607,6 +4607,18 @@ def build_tl():
     _gim_dur = re.compile(r"[（(](\d+)秒間[）)]")
     _gim_cache = {}
 
+    def _dmg_only(rd, df):
+        """「この効果以外の DamagedRatio の増加効果を無効化」を持つか（ケセドの剥き出しの玉座）。"""
+        lst = rd.get("RaidSkillList") or []
+        di = next((i for i, x in enumerate(TL_DIFF) if x.lower() == (df or "").lower()), None)
+        if di is None or di >= len(lst):
+            return False
+        for nm in lst[di] or []:
+            desc = (rsk.get(nm) or {}).get("Desc") or ""
+            if "この効果以外" in desc and "DamagedRatio" in desc and "無効" in desc:
+                return True
+        return False
+
     def _gim(rd, df):
         """そのボス・その難易度で、ボス側の被ダメージ率などを動かす行を返す。"""
         lst = rd.get("RaidSkillList") or []
@@ -4760,6 +4772,14 @@ def build_tl():
                     "ad": [sr.get("StreetBattleAdaptation"),
                            sr.get("OutdoorBattleAdaptation"),
                            sr.get("IndoorBattleAdaptation")],
+                    # **素の被ダメージ率**（`DamagedRatio`。10000 が 1.0 倍、19000 が 0.1 倍）。
+                    # ケセド 19000・ホド 19000・ヒエロニムス 16000・ホバークラフト 17500・
+                    # イェソド 19900。**画面側で掛けるのは `dmgOnly` のボスだけ**（ケセド。
+                    # 「この効果以外の DamagedRatio の増加効果を無効化」と書いてある）。
+                    # ホド・ヒエロニムス・イェソドは 1.0 倍の計算で実クリア TL と合っていて、
+                    # 素の値が効いていない理由は不明（2026-09-02、ケセドの動画で見つけた）
+                    "damaged": sr.get("DamagedRatio"),
+                    "dmgOnly": _dmg_only(b, df),
                 }
                 # **選べる装甲**（大決戦がある枝だけ）。中身は総力戦と同じなので
                 # 変えるのは `armor` の字だけ
@@ -4797,6 +4817,48 @@ def build_tl():
                 if got["sub"] and not _own:
                     for _x in got["sub"]:
                         _x["armor"] = got["bs"]["armor"]
+                # ---- **討伐の池。**同じ段にボスが 2 体以上いるとき（`BossCharacterId` が
+                # 2 つ: シロ＆クロ、レンジャー隊＋FX Mk.0、ワカモ前半＋ホバー後半）、
+                # 相手の体を `sub` に足して `pool`（HP を 1 本持つ相手の id）と `kill: 1`
+                # （討伐に要る）を付ける。`korder` は `BossCharacterId` の並びで、
+                # 通常攻撃と NS はその順で「生きている最初の池」へ向く。
+                # `ConnectCharacterToDummy`（BT）を持つ体は、ダミーが HP を 1 本持ち
+                # 繋がった体がそれを共有する（レンジャー 5 体 = 7304701 の 40,000,000。
+                # 集計 70,000,000 = 40,000,000 + FX 30,000,000 で辻褄が合う。
+                # 2026-09-02、plana の設計）。**順に出るか同時にいるかはデータに無い**
+                _bl = [c for c in (sg.get("boss") or []) if c]
+                got["korder"] = list(_bl)
+                for _oc in _bl:
+                    if _oc == got["cid"]:
+                        continue
+                    _conn = [int(x["BehaviorArgument"]) for x in bt.get(_oc, [])
+                             if x.get("ExternalBehavior") == "ConnectCharacterToDummy"
+                             and str(x.get("BehaviorArgument", "")).isdigit()]
+                    if _conn:
+                        _hit = False
+                        for _x in got["sub"]:
+                            if _x["id"] in _conn:
+                                _x["pool"] = _oc; _x["kill"] = 1
+                                _x["phn"] = (stat.get(_oc) or {}).get("MaxHP1")
+                                _hit = True
+                        if _hit:
+                            continue
+                    _sr2, _cr2 = stat.get(_oc) or {}, ch_all.get(_oc) or {}
+                    if not _sr2.get("MaxHP1"):
+                        continue
+                    got["sub"].append({
+                        "id": _oc, "n": _pname(_oc), "dn": _cr2.get("DevName"),
+                        "k": _cr2.get("TacticEntityType") or "", "hp": _sr2.get("MaxHP1"),
+                        "def": _sr2.get("DefensePower1"), "armor": got["bs"]["armor"],
+                        "size": _cr2.get("Size") or (_enemies.get(str(_oc)) or {}).get("Size"),
+                        "stab": _sr2.get("StabilityPoint"), "stabR": _sr2.get("StabilityRate"),
+                        "dodge": _sr2.get("DodgePoint"), "crR": _sr2.get("CriticalResistPoint"),
+                        "cdR": _sr2.get("CriticalDamageResistRate"),
+                        "defpr": _sr2.get("DefensePenetrationResist1") or 0,
+                        "ad": [_sr2.get("StreetBattleAdaptation"),
+                               _sr2.get("OutdoorBattleAdaptation"),
+                               _sr2.get("IndoorBattleAdaptation")],
+                        "pool": _oc, "kill": 1, "phn": _sr2.get("MaxHP1")})
                 # **転移**。説明文の「◯◯」が部位の名前に入っていたら、その率を乗せる
                 for _src, _rate, _why in _trans(b, df):
                     for _x in got["sub"]:
