@@ -2761,10 +2761,9 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
     }
     side += lbl(H.bst, '<span class="nm">ボスの状態</span>' +
       (st.bst.length ? '<span class="mb">' + st.bst.length + '</span>' : ''));
-    cv += lane(H.bst, bsB ||
-      '<span class="lnnote" style="line-height:' + H.bst + 'px">' +
-      ((diff().gim || []).length ? '上の「ボスの状態」の候補を押すと、ここに帯が出ます'
-                                 : 'このボスに候補はありません') + '</span>');
+    // **空のときは何も書かない。**先生の指示「注釈とかマジでいらないから全箇所」
+    // （2026-09-03）。候補が有るか無いかは上のチップの並びを見れば分かる
+    cv += lane(H.bst, bsB || '');
 
     // グロッキー。**ダメージで貯まるボスだけ線を引く**（2026-09-01 の先生の要望）
     var gs = '', gm = ggr.g;
@@ -6869,9 +6868,9 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
         '<span class="v">' + (sc == null ? '—' : (sc / 100).toFixed(0) + '%') +
         '<i>' + (pk + 1) + '/' + x.a.v.length + '</i></span></div>';
     }
-    $('alts').innerHTML = h ||
-      '<p class="mut tiny" style="margin:0">いまの編成には、条件でダメージが変わるスキルはありません。</p>';
-    $('altpane').hidden = false;
+    // **無いときはパネルごと出さない**（説明文を置かない。2026-09-03）
+    $('alts').innerHTML = h;
+    $('altpane').hidden = !h;
   }
   function fillFilters() {
     var L = S.labels || {}, ro = {}, bu = {}, ar = {}, sc = {}, i;
