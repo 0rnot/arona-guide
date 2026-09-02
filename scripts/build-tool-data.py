@@ -4181,6 +4181,61 @@ def cond_label(c):
     return " ".join(out) or json.dumps(c, ensure_ascii=False)
 
 
+# **説明文だけが「どちらか一方」と言っているダメージがある。**
+# マコト（水着）の EX「遥かなる水平線を目指して！」は
+# 「円形範囲内の敵の数によって、範囲内の敵に対してダメージ／2人以下：<?2>／3人以上：<?3>」
+# で、この 2 件は `Condition` も `Group` も持たない。データの形だけを見ると
+# 3 件とも足すことになり、EX Lv5 の 1 発が 1359%（275＋321＋762）になる。
+# 実際に乗るのはどちらか一方で、総力戦の 1 体相手なら 596%（275＋321）。
+#
+# **拾うのは説明文の「N人以下：」「N人以上：」の行だけ。**行頭が「…：」で
+# `<?n>` をちょうど 1 つ含み、その `n` が `DescParamId` と結び付く効果を
+# 択一の候補にする。**ほかの言い回しには手を出さない**——「その他の敵に対して」
+# 「ただし重複して受けたダメージは」などは、同時に乗るのか択一なのかが
+# 説明文からは決まらない（2026-09-03 に 13 組を目で見て決めた）。
+DESC_EXCL = re.compile(r"^([^：\n]*?\d+\s*人(?:以下|以上))\s*：")
+
+
+def tl_excl_desc(sk):
+    """`DescParamId` → 択一の見出し。択一だと読めないスキルは空の辞書。"""
+    out = {}
+    for line in (sk.get("Desc") or "").split("\n"):
+        m = DESC_EXCL.match(line.strip())
+        if not m:
+            continue
+        ids = re.findall(r"<\?(\d+)>", line)
+        if len(ids) != 1:
+            continue
+        out[int(ids[0])] = m.group(1)
+    return out if len(out) >= 2 else {}
+
+
+# **答え合わせの済み・未済**（2026-09-03）。`~/arona/tl-work/cards/<ボス>.md` の
+# `verify.py` の判定を人が読んで写したもの。**キーはボスの `DevName`** で、
+# 屋内・屋外・市街地をまとめて 1 件にしてある（模型が同じなので）。
+#   "ok"   … 動画と突き合わせて「幅の中」で閉じた
+#   "part" … 突き合わせたが、まだ実測に届いていない
+#   "none" … まだ突き合わせていない
+# **画面に出すのは印だけ**で、この文は丸に i の吹き出しの中にだけ入る
+# （2026-09-03 の先生の指示「注釈とかマジでいらないから全箇所」）。
+TL_VERIFY = {
+    "Binah": ("ok", "動画 2 本と突き合わせ済み"),
+    "Hieronymus": ("ok", "動画 2 本と突き合わせ済み"),
+    "HOD": ("ok", "動画 2 本と突き合わせ済み"),
+    "RaidHoverCraft": ("ok", "動画 2 本と突き合わせ済み"),
+    "Chesed": ("part", "突き合わせ 2 本のうち 1 本だけ合っています"),
+    "Shirokuro": ("part", "突き合わせ 1 本。終盤が実測に届きません"),
+    "EN0022": ("part", "突き合わせ 1 本。削る形が実測と違います"),
+    "EN0013": ("part", "突き合わせ 1 本。実測の半分ほどしか出ません"),
+    "KaitenFxMk0": ("none", "まだ突き合わせていません"),
+    "EN0005": ("none", "まだ突き合わせていません"),
+    "EN0006": ("none", "まだ突き合わせていません"),
+    "EN0010": ("none", "まだ突き合わせていません"),
+    "Goz": ("none", "まだ突き合わせていません"),
+    "Perorozilla": ("none", "まだ突き合わせていません"),
+}
+
+
 def tl_frames(group, cache):
     """通常スキル 1 発ぶんのフレーム数。引けなければ None。"""
     if group in cache:
@@ -5319,21 +5374,35 @@ def build_tl():
             #
             #   条件も段も無い  → `dmg`。**必ず乗るぶん**
             #   どちらかがある  → `dmgalt`。**画面のバーで 1 つ選ぶ**
+            # **説明文が「どちらか一方」と言っているぶんを抜く**（2026-09-03）。
+            # `Condition` も `Group` も持たないので、ここで抜かないと足してしまう
+            _excl = tl_excl_desc(sk)
+            xcand = ([e for e in plain
+                      if e.get("Group") is None and _excl.get(e.get("DescParamId"))]
+                     if _excl else [])
+            _xid = set()
+            if len(xcand) < 2:
+                xcand = []
+            else:
+                _xid = {id(e) for e in xcand}
+                plain = [e for e in plain if id(e) not in _xid]
             plain0 = [e for e in plain if e.get("Group") is None]
             stack = [e for e in plain if e.get("Group") is not None]
             eff = [_row(e) for e in plain0]
             if eff:
                 per_skill[kind] = eff
                 ndmg += len(eff)
-            if cond or stack:
+            if cond or stack or xcand:
                 # **同じ（条件, 段）のものは 1 つの候補にまとめて足す。**
                 # 1 発の中で同時に出るぶんは足すのが正しい。
                 # **条件や段をまたいで足さない**
                 order, group = [], {}
-                for e in cond + stack:
+                for e in xcand + cond + stack:
                     lab = (cond_label(e.get("Condition"))
                            if e.get("Condition")
                            and _form_cond(kind, e.get("Condition")) is None else "")
+                    if id(e) in _xid:
+                        lab = _excl[e["DescParamId"]]
                     if e.get("Group") is not None:
                         lab = (lab + " / " if lab else "") + f"段 {e['Group'] + 1}"
                     if lab not in group:
@@ -5496,6 +5565,9 @@ def build_tl():
         # 条件でダメージが変わるもの。**画面のバーで 1 つ選ぶ。**
         # `c` は条件の原文、`v[i]` はその候補ぶんの効果（`dmg` と同じ並び）
         "dmgalt": alt_out,
+        # 答え合わせの済み・未済。**キーはボスの `DevName`**、値は [印, 一言]。
+        # 表は `TL_VERIFY`（このファイルの上）にある。画面に出るのは印だけ
+        "vfy": {k: list(v) for k, v in TL_VERIFY.items()},
         "sinfo": sinfo,
         "sinfoKeys": ["BulletType", "ArmorType", "SquadType",
                       "StreetBattleAdaptation", "OutdoorBattleAdaptation",
