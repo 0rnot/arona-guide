@@ -4771,11 +4771,57 @@ def build_tl():
                 return nm + "（" + lab + "）"
         return c.get("DevName") or str(cid)
 
-    def _subs(cid, skip):
+    def _subs_df(cid, df, skip):
+        """**難易度ごとに別の枝へ並んでいる部位。**グレゴリオのパイプオルガンは
+        `EN0005_Subpipe_Torment` = 7309126 で、Normal の番号（73091xx）に 8 難易度ぶんが
+        並んでいる。Torment の枝（73097xx）を prefix で引く `_subs` からは見えず、
+        **オルガンを撃ったぶんがボス本体への直撃として満額数えられていた**
+        （2026-09-03、TL の「(オルガン+1体)」「（オルガン抜き）」で気づいた）。
+        DevName が同じ頭で始まり `_<難易度>` で終わるものだけを足す。"""
+        dev0 = ((ch_all.get(cid) or {}).get("DevName") or "").split("_")[0]
+        if not dev0:
+            return []
+        out = []
+        for k, c in ch_all.items():
+            if k in skip or k == cid:
+                continue
+            dn = c.get("DevName") or ""
+            if not dn.startswith(dev0 + "_") or not dn.endswith("_" + df):
+                continue
+            # **同じボスの番号の family だけ**（先頭 4 桁）。これが無いと
+            # 「DevName の頭が同じで難易度が同じ」だけで別地形・別装甲の枝まで
+            # 拾い、部位の行が 920 → 1,802 に倍増した（2026-09-03 に実測）
+            if str(k)[:4] != str(cid)[:4]:
+                continue
+            if not (stat.get(k) or {}).get("MaxHP1"):
+                continue
+            out.append(k)
+        return out
+
+    def _subs_extra(cid, skip, cand):
+        """`_subs_df` が拾った候補のうち、**その枝にまだ無い役どころだけ**を残す。
+        これが無いと、同じ役どころの別装甲・別地形の行まで並んで部位が倍増する
+        （2026-09-03、クロカゲ 24 → 96 行になった）。グレゴリオのパイプオルガンの
+        ように「その枝に 1 行も無い部位」だけを足すのが目的"""
+        have = set()
+        for k in _by_pre.get(str(cid)[:-2], []):
+            if k in skip or k == cid:
+                continue
+            have.add(re.sub(r"\d+$", "",
+                            _dev_role((ch_all.get(k) or {}).get("DevName"))))
+        out = []
+        for k in cand:
+            r0 = re.sub(r"\d+$", "", _dev_role((ch_all.get(k) or {}).get("DevName")))
+            if r0 and r0 not in have:
+                out.append(k)
+        return out
+
+    def _subs(cid, skip, extra=()):
         """その枝の部位。`skip` はボス本体と集計行の id。
-           **同じ中身の行は畳む**（ペロロジラの中型 30 体は 1 行にする）"""
+           **同じ中身の行は畳む**（ペロロジラの中型 30 体は 1 行にする）
+           `extra` は難易度ごとに別の枝へ並んでいる部位（`_subs_df`）"""
         out, seen = [], {}
-        for k in sorted(_by_pre.get(str(cid)[:-2], [])):
+        for k in sorted(set(_by_pre.get(str(cid)[:-2], [])) | set(extra)):
             if k in skip or k == cid:
                 continue
             c = ch_all.get(k) or {}
@@ -5070,7 +5116,9 @@ def build_tl():
                                     key=lambda a: ARMORS.index(a))
                 # **部位。**この枝の Ground → 大決戦の枝 → 同じボスの別地形 の順に探す
                 _skip = set(sg["cids"])
-                _own = _subs(got["cid"], _skip)
+                _own = _subs(got["cid"], _skip,
+                             _subs_extra(got["cid"], _skip,
+                                         _subs_df(got["cid"], df, _skip)))
                 got["sub"] = _own
                 if not got["sub"]:
                     for _a in got["arm"]:
