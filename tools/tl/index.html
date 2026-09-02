@@ -1670,7 +1670,9 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
   function mkParty() {
     var a = [], i;
     for (i = 0; i < SLOTS; i++) { a.push(mkSlot()); }
-    return { slots: a, tl: [], start: [] };
+    // `bst` はボスの状態の窓（部隊ごとに時間軸が 0 から始まるので部隊に持たせる）。
+    // `gu` は TL が「ギブアップ」で終わった印（2026-09-02）
+    return { slots: a, tl: [], start: [], bst: [], gu: false };
   }
   function live(i) { return TE.live(st.mode, i); }
   function isMain(i) { return i < MAIN_MAX; }
@@ -1685,18 +1687,19 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
   st.slots = st.parties[0].slots;
   st.tl = st.parties[0].tl;
   st.start = st.parties[0].start;
+  st.bst = st.parties[0].bst;
 
   // st.party は「枠 → 生徒データ」の読み取り専用の眺め。**中身は st.slots が正本。**
-  var _pv = 0, _pcache = null, _pat = -1;
+  var _pv = 0, _pcache = null, _pat = -1, _ppi = -1;
   function bump() { _pv++; _sc = {}; }
   Object.defineProperty(st, 'party', { get: function () {
-    if (_pat !== _pv) {
+    if (_pat !== _pv || _ppi !== st.pi) {
       _pcache = [];
       for (var i = 0; i < SLOTS; i++) {
         var sl = st.slots[i];
         _pcache.push(sl && sl.id && live(i) ? (_byid[sl.id] || null) : null);
       }
-      _pat = _pv;
+      _pat = _pv; _ppi = st.pi;
     }
     return _pcache;
   } });
@@ -1723,7 +1726,7 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
     st.parties = o.parties; st.pi = Math.min(o.pi, o.parties.length - 1);
     st.mk = o.mk; st.goal = o.goal;
     usePartyRef(); st.sel = null; st.who = -1; bump();
-    fillBuild(); drawParty(); drawCrew(); drawPicker(); draw();
+    fillBuild(); drawParty(); drawBstate(); drawCrew(); drawPicker(); draw();
     syncUndo();
   }
   function undo() {
@@ -1742,6 +1745,8 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
   function usePartyRef() {
     var p = st.parties[st.pi];
     st.slots = p.slots; st.tl = p.tl; st.start = p.start;
+    if (!p.bst) { p.bst = []; }
+    st.bst = p.bst;
   }
 
   // ------------------------------------------------------------ 置いたスキル
@@ -4341,6 +4346,13 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
           }
         }
         for (q = 0; q < (src.start || []).length; q++) { np.start.push(src.start[q]); }
+        for (q = 0; q < (src.bst || []).length; q++) {
+          var wb = src.bst[q];
+          if (wb && isFinite(wb.t0) && isFinite(wb.t1)) {
+            np.bst.push({ t0: +wb.t0, t1: +wb.t1, k: String(wb.k || 'damaged'), v: +wb.v || 0 });
+          }
+        }
+        np.gu = !!src.gu;
         st.parties.push(np);
       }
       if (!st.parties.length) { st.parties = [mkParty()]; }
@@ -4373,11 +4385,13 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
       if (mk2 && isFinite(mk2.t)) { st.mk.push({ t: +mk2.t, n: String(mk2.n || '') }); }
     }
     st.goal = (o.goal && isFinite(o.goal.dmg)) ? { dmg: +o.goal.dmg, sec: +o.goal.sec } : null;
-    st.bst = [];
-    for (i = 0; i < (o.bst || []).length; i++) {
-      var w2 = o.bst[i];
-      if (w2 && isFinite(w2.t0) && isFinite(w2.t1)) {
-        st.bst.push({ t0: +w2.t0, t1: +w2.t1, k: String(w2.k || 'damaged'), v: +w2.v || 0 });
+    // 古い保存（窓が最上位にある）は 1 部隊目の窓として読む
+    if (!st.parties[0].bst.length) {
+      for (i = 0; i < (o.bst || []).length; i++) {
+        var w2 = o.bst[i];
+        if (w2 && isFinite(w2.t0) && isFinite(w2.t1)) {
+          st.parties[0].bst.push({ t0: +w2.t0, t1: +w2.t1, k: String(w2.k || 'damaged'), v: +w2.v || 0 });
+        }
       }
     }
     st.sel = null; usePartyRef(); bump();
@@ -4431,6 +4445,7 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
   // **黒丸数字でコストを書く人がいる**（2026-09-02、大決戦カイテンジャーの TL。
   // 33 行すべてが「タイミングが読めません」で落ちていた）
   var CIRC2 = '❶❷❸❹❺❻❼❽❾❿';
+  function zen0(x) { return String(x).replace(/[０-９]/g, function (c) { return String.fromCharCode(c.charCodeAt(0) - 0xFEE0); }); }
   function nrm(s) {
     return String(s == null ? '' : s)
       .replace(/（/g, '(').replace(/）/g, ')')
@@ -4664,7 +4679,7 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
                        // 末尾の丸数字は部隊の番号（「ホシノ（臨戦）②」）。
                        // どちらも落とさないと生徒が引けない（2026-09-02、大決戦クロカゲ。
                        // 編成 15 行のうち 10 行が落ちて 0.2% になっていた）
-                       .replace(/[＿_]+$/, '').replace(/[①-⑳❶-❿]+$/, '');
+                       .replace(/[＿_]+$/, '').replace(/[①-⑳❶-❿]+$/, '').replace(/[1-9１-９]番$/, '');
         cutm = cand.match(/^(.+?)(?:固有|UE\d|[★☆]|MMMM|Lv|装備\d|絆\d|EX\d)/i);
         if (cutm && cutm[1]) { cand = cutm[1].replace(/[：:、,]+$/, ''); }
         if (!cand || /^[\d.]+$/.test(cand)) { continue; }
@@ -4674,6 +4689,11 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
       if (!sd) { res.skipped.push([raw, '生徒が見つかりません: ' + (toks[0] || '')]); continue; }
       findStudent(nm, res.notes);   // 引けた語のぶんだけ注記を戻す
       var b = { id: sd.id, name: sd.n };
+      // **名前の直後の丸数字は部隊の番号**（「ホシノ（臨戦）②」＝ 2 部隊目。2026-09-02）
+      var ptm = body.match(/[ぁ-んァ-ヶ一-龥）)]([①-⑳])/);
+      if (ptm) { b.pt = '①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮⑯⑰⑱⑲⑳'.indexOf(ptm[1]) + 1; }
+      ptm = body.match(/[ぁ-んァ-ヶ一-龥）)]([1-9１-９])番/);   // 「ホシノ(臨戦)1番」
+      if (ptm) { b.pt = +zen0(ptm[1]); }
       var rest = body.replace(nm, ' '), mm;
       // 固有武器。「固有4」「固有4/50」「UE4」
       mm = rest.match(/(?:固有|UE)\s*[★☆]?\s*(\d)(?:\s*(?:[\/／]|Lv)\s*(\d+))?/i);
@@ -4733,21 +4753,21 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
       res.crew.push(b);
     }
     if (!res.crew.length) { return { err: '「使用生徒詳細」の行が 1 つも読めませんでした' }; }
-    // 枠を決める（STRIKER が先、SPECIAL が後）
-    var mainN = 0, supN = 0, crew = [];
+    // **枠はまだ決めない。**育成行は全部隊ぶんが一括で並ぶので、どの行がどの部隊かは
+    // TL の節（「2凸目」）を読んでから決める（下の `assignParties`）。ここから先の
+    // `who` は res.crew の添字で、枠の番号は最後に振り直す（2026-09-02）
+    // **同じ子の行は最初の 1 つだけ名前引きに使う。**2 部隊に同じ子がいる TL や、
+    // 育成の表が 2 回並ぶ概要欄で、同じ名前が 2 行あると `whoIn` が「決められない」で
+    // 落としていた（2026-09-02、総力戦ヒエロニムス yuZnCpRh2YU で 29 発 → 11 発）。
+    // 2 部隊目の行への付け替えは `assignParties` の `fresh` がやる
+    var crew = [], seenId = {};
     for (i = 0; i < res.crew.length; i++) {
-      var s2 = _byid[res.crew[i].id], idx;
-      if (!s2) { continue; }
-      if (s2.sq === 'Support') { idx = MAIN_MAX + supN; supN++; }
-      else { idx = mainN; mainN++; }
-      if (!live(idx)) { res.skipped.push([res.crew[i].name, '枠が足りません']); continue; }
-      res.crew[i].idx = idx;
-      crew.push({ idx: idx, a: aliasOf(res.crew[i].name) });
+      if (!_byid[res.crew[i].id] || seenId[res.crew[i].id]) { continue; }
+      seenId[res.crew[i].id] = true;
+      crew.push({ idx: i, a: aliasOf(res.crew[i].name) });
     }
     var idBy = {}, autoF = {};
-    for (i = 0; i < res.crew.length; i++) {
-      if (res.crew[i].idx != null) { idBy[res.crew[i].idx] = res.crew[i].id; }
-    }
+    for (i = 0; i < res.crew.length; i++) { idBy[i] = res.crew[i].id; }
     // ---- 2. バフの渡し先
     for (i = 0; i < lines.length; i++) {
       // **「指定」と書かない人もいる**（「バフは全てヒナへ」。2026-09-02、大決戦クロカゲ。
@@ -4760,40 +4780,188 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
         break;
       }
     }
-    // ---- 3. 開始スキル
-    for (i = 0; i < lines.length; i++) {
-      if (!/開始\s*(?:SET|スキル|セット)/i.test(nrm(lines[i]))) { continue; }
-      var parts = nrm(lines[i]).split(/(?=[①-⑳])/);
-      for (q = 1; q < parts.length; q++) {
-        var w = whoIn(parts[q], crew);
-        if (w >= 0) { res.start.push(w); }
-        else { res.skipped.push([parts[q], '開始SET の生徒が編成にいません']); }
+    // ---- 3. 開始スキル。**部隊ごとに読む**ので、4. のループの中で呼ぶ
+    function startOf(line) {
+      var ps = nrm(line).split(/(?=[①-⑳])/), out = [], q2;
+      for (q2 = 1; q2 < ps.length; q2++) {
+        var w = whoIn(ps[q2], crew);
+        if (w >= 0) { out.push(w); }
+        else { res.skipped.push([ps[q2], '開始SET の生徒が編成にいません']); }
       }
-      break;
+      return out;
+    }
+    // 節ごとに、育成行のどれがその部隊かを決めて枠を振る。返すのは
+    // [{ crew, start, uses, bufTo, gu }]（`uses[].i` と `to` は枠の番号に直してある）
+    function assignParties(parts) {
+      var claimed = {}, out = [], k, j, ci;
+      function refs(sec) {
+        var o = [], q2, u, z;
+        function add(c) { if (c != null && c >= 0 && o.indexOf(c) < 0) { o.push(c); } }
+        for (q2 = 0; q2 < sec.start.length; q2++) { add(sec.start[q2]); }
+        for (q2 = 0; q2 < sec.uses.length; q2++) {
+          u = sec.uses[q2]; add(u.i);
+          if (u.to != null) {
+            if (u.to.length != null) { for (z = 0; z < u.to.length; z++) { add(u.to[z]); } }
+            else { add(u.to); }
+          }
+        }
+        return o;
+      }
+      // **同じ子の行が 2 つある**（2 部隊に同じ子。「シロコ＊テラー」×2）。
+      // 前の節が使った行なら、まだ使っていない同じ子の行に付け替える
+      function fresh(c0, k0) {
+        if (claimed[c0] == null || claimed[c0] === k0) { return c0; }
+        for (var z = 0; z < res.crew.length; z++) {
+          if (res.crew[z].id === res.crew[c0].id && claimed[z] == null &&
+              (res.crew[z].pt == null || res.crew[z].pt === k0 + 1)) { return z; }
+        }
+        return c0;
+      }
+      var rowsOf = [];
+      for (k = 0; k < parts.length; k++) {
+        var rows = [], rf = refs(parts[k]), remap = {};
+        for (j = 0; j < res.crew.length; j++) { if (res.crew[j].pt === k + 1) { rows.push(j); claimed[j] = k; } }
+        for (j = 0; j < rf.length; j++) {
+          ci = fresh(rf[j], k); remap[rf[j]] = ci;
+          if (rows.indexOf(ci) < 0) { rows.push(ci); claimed[ci] = k; }
+        }
+        rowsOf.push({ rows: rows, remap: remap });
+      }
+      // 節に出なかった行。節が 1 つなら全部その節。複数なら、育成行の並びで
+      // 直前の行と同じ節（育成行は部隊ごとに固まって書かれる）
+      var lastK = 0;
+      for (j = 0; j < res.crew.length; j++) {
+        if (claimed[j] != null) { lastK = claimed[j]; continue; }
+        if (res.crew[j].pt != null) { continue; }
+        var tk = parts.length === 1 ? 0 : lastK;
+        rowsOf[tk].rows.push(j); claimed[j] = tk;
+      }
+      for (k = 0; k < parts.length; k++) {
+        var rw = rowsOf[k].rows.slice().sort(function (a, b) { return a - b; });
+        var mainN = 0, supN = 0, slot = {}, crewK = [], tag = parts.length > 1 ? '（P' + (k + 1) + '）' : '';
+        for (j = 0; j < rw.length; j++) {
+          var s2 = _byid[res.crew[rw[j]].id], idx;
+          if (!s2) { continue; }
+          if (s2.sq === 'Support') { idx = MAIN_MAX + supN; supN++; }
+          else { idx = mainN; mainN++; }
+          if (!live(idx)) { res.skipped.push([res.crew[rw[j]].name, '枠が足りません' + tag]); continue; }
+          var c2 = {}, kk;
+          for (kk in res.crew[rw[j]]) { if (has(res.crew[rw[j]], kk)) { c2[kk] = res.crew[rw[j]][kk]; } }
+          c2.idx = idx; slot[rw[j]] = idx; crewK.push(c2);
+        }
+        var rm = rowsOf[k].remap;
+        var sl = function (c0) { var c3 = rm[c0] == null ? c0 : rm[c0]; return slot[c3] == null ? -1 : slot[c3]; };
+        var startK = [], usesK = [], q3, z2;
+        for (q3 = 0; q3 < parts[k].start.length; q3++) {
+          var sA = sl(parts[k].start[q3]);
+          if (sA >= 0) { startK.push(sA); }
+        }
+        for (q3 = 0; q3 < parts[k].uses.length; q3++) {
+          var u2 = parts[k].uses[q3], sU = sl(u2.i);
+          if (sU < 0) { res.skipped.push([u2.line, '撃つ子が枠に入りません' + tag]); continue; }
+          u2.i = sU;
+          if (u2.to != null) {
+            if (u2.to.length != null) {
+              var tl2 = [];
+              for (z2 = 0; z2 < u2.to.length; z2++) { var sT = sl(u2.to[z2]); if (sT >= 0) { tl2.push(sT); } }
+              u2.to = tl2.length ? (tl2.length > 1 ? tl2 : tl2[0]) : null;
+            } else { var sT2 = sl(u2.to); u2.to = sT2 >= 0 ? sT2 : null; }
+          }
+          usesK.push(u2);
+        }
+        var bT = res.bufTo == null ? -1 : sl(res.bufTo);
+        out.push({ crew: crewK, start: startK, uses: usesK, bufTo: bT >= 0 ? bT : null, gu: parts[k].gu });
+      }
+      return out;
     }
     // ---- 4. タイムライン
-    // **2 部隊目から先は読まない。**凸を重ねる TL を 1 本の時間軸に乗せると、
-    // 2 部隊ぶんの EX が同じボスに足されて 2 倍以上に膨らむ
-    // （2026-09-02。ホバークラフトが 262〜273% と出ていた原因。凸で切ると 118〜128%）。
+    // **「2凸目」の見出しで部隊を分けて読む**（2026-09-02。それまでは 2 部隊目から先を
+    // 捨てていた。56 本のうち 22 本が 2〜4 部隊）。1 本の時間軸に乗せると 2 部隊ぶんの
+    // EX が同じボスに足されて 2 倍以上に膨らむ（ホバークラフトが 262〜273% だった原因）。
     // **切るのは「1 発でも置いたあと」に出てきた見出しだけ。**目次や育成状況に
     // 「2凸目」と書く人がいて、頭から探すと TL の手前で切れて 1 行も読めなくなる
-    // （56 本のうち 13 本がこれで全滅した）。「TL2ページ目」は同じ部隊の続きなので切らない
-    function isCut(lc) {
-      if (/ページ/.test(lc) || lc.length > 40) { return false; }
-      if (/[2-9２-９]\s*(?:凸目?|部隊目?|チーム目?)/.test(lc) && lc.length <= 24) { return true; }
-      // 別分岐（「※超上振れでフェーズ2スキップした場合※」）も同じ扱い
-      return /^※.*(?:場合|とき|パターン|ルート)/.test(lc);
+    // （56 本のうち 13 本がこれで全滅した）。「TL2ページ目」は同じ部隊の続きなので切らない。
+    // 同じ番号の見出しがもう一度来たら別案（「1凸目 ver2」）、「※…場合」も別案で、
+    // 次の部隊の見出しまで読まない
+    var CIRC = '①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮⑯⑰⑱⑲⑳';
+    function zen(x) { return x.replace(/[０-９]/g, function (c) { return String.fromCharCode(c.charCodeAt(0) - 0xFEE0); }); }
+    function cutKind(lc) {
+      if (/ページ/.test(lc) || lc.length > 40) { return null; }
+      var m = lc.match(/([1-9１-９])\s*(?:凸目?|部隊目?|チーム目?)/);
+      if (m && lc.length <= 24) { return { n: +zen(m[1]) }; }
+      if (/^[①-⑳]$/.test(lc)) { return { n: CIRC.indexOf(lc) + 1 }; }
+      // 別案の見出し（「※超上振れでフェーズ2スキップした場合※」）。**行末で終わるものだけ。**
+      // 「※バフは注が無い場合ノア」は但し書きで、切ると 2 部隊目が丸ごと消える
+      if (/^※.*(?:場合|とき|パターン|ルート)[※。）)]*$/.test(lc)) { return { alt: true }; }
+      return null;
     }
+    // **矢印で何発もつなぐ書き方**（「Cost6：カヨコ → アヤネ → Cost6：イオリ → コタマ」
+    // 「➝ Cost7：ミカ → ヒマリ → ミカ → ギブアップ」。2026-09-02、総力戦ホド _tH1tzFHoUM と
+    // ホバークラフト c3eN2Cf7QVc）。矢印が 3 つ以上つながる行は 1 発ずつの行に割る。
+    // 2 つだけなら「→ ネル」の渡し先なのでそのまま。`[➡ミカ]` のような括弧の中は割らない
+    var lines2 = [], lz, lq;
+    for (lz = 0; lz < lines.length; lz++) {
+      var body2 = lines[lz].replace(/[※].*$/, ''), note2 = (lines[lz].match(/[※].*$/) || [''])[0];
+      var pcs = body2.split(/(?:→|➝|➡|⇒|->)(?![^\[\]]*\])/), pcs2 = [];
+      for (lq = 0; lq < pcs.length; lq++) { if (nrm(pcs[lq])) { pcs2.push(pcs[lq].trim()); } }
+      if (pcs2.length < 3) { lines2.push(lines[lz]); continue; }
+      for (lq = 0; lq < pcs2.length; lq++) {
+        var pc = pcs2[lq];
+        if (lq > 0 && !timeIn(pc.replace(/[（(\[［][^）)\]］]*[)）\]］]/g, ' '), dur)) { pc = '即 ' + pc; }
+        lines2.push(pc + (lq === pcs2.length - 1 ? note2 : ''));
+      }
+    }
+    lines = lines2;
+    // 節。1 つが 1 部隊。`gu` は「ギブアップ」で終わった印
+    var parts = [], cur = { start: [], uses: [], gu: false }, skipping = false;
     var seenStart = false, prevT = 0, lastWho = null, lastShot = null, pendT = null;
     for (i = 0; i < lines.length; i++) {
-      var ln = lines[i];
-      if (res.uses.length && isCut(nrm(ln))) {
-        res.notes.push('「' + ln.trim() + '」から先は読んでいません。' +
-          '2 部隊目は同じボスの続きではないので、別に貼ってください' +
-          '（1 本にすると 2 部隊ぶんが同じボスに足されます）');
-        break;
+      var ln = lines[i], lc0 = nrm(ln), ck = null;
+      // 名簿の行（「1凸目 カヨコ/クルミ/アリス(臨戦)/ナギサ(水着)/キサキ」）。
+      // 部隊の見出しでもあり、誰がその部隊かも書いてある
+      var rosterM = lc0.match(/^([1-9１-９])\s*(?:凸目?|部隊目?)\s*[:：]?\s*(.+)$/);
+      if (rosterM && rosterM[2].split(/[\/／・,、]/).length >= 3) {
+        ck = { n: +zen(rosterM[1]), roster: rosterM[2] };
+        var rl = ck.roster.split(/[\/／・,、]/), rz, used = {};
+        for (rz = 0; rz < rl.length; rz++) {
+          var sdR = findStudent(rl[rz], null), rq2;
+          if (!sdR) { continue; }
+          for (rq2 = 0; rq2 < res.crew.length; rq2++) {
+            if (res.crew[rq2].id === sdR.id && res.crew[rq2].pt == null && !used[rq2]) {
+              res.crew[rq2].pt = ck.n; used[rq2] = true; break;
+            }
+          }
+        }
+      } else { ck = cutKind(lc0); }
+      if (ck) {
+        if (!cur.uses.length && !parts.length && !ck.roster) { void 0; }   // 目次・育成状況の見出し
+        else if (ck.alt || (ck.n != null && ck.n <= parts.length && cur.uses.length) ||
+                 (ck.n != null && ck.n === parts.length + 1 && cur.uses.length > 3)) {
+          skipping = true;
+          res.notes.push('「' + ln.trim() + '」から次の部隊の見出しまでは読んでいません（別案）');
+        } else if (ck.n != null && ck.n === parts.length + 1 && cur.uses.length) {
+          // いまの部隊の番号の見出しが、数発置いたあとに来た。**前置きの行が 1 発に
+          // 化けていた**ので捨てて、ここから本番として読み直す
+          res.notes.push('「' + ln.trim() + '」より前の ' + cur.uses.length + ' 発は前置きとして捨てました');
+          cur.uses = []; skipping = false; prevT = 0; pendT = null; lastWho = null; lastShot = null;
+        } else {
+          if (cur.uses.length) { parts.push(cur); cur = { start: [], uses: [], gu: false }; }
+          skipping = false; prevT = 0; pendT = null; lastWho = null; lastShot = null;
+        }
+        if (!/開始\s*(?:SET|スキル|セット)/i.test(lc0)) { continue; }
       }
-      if (/開始\s*(?:SET|スキル|セット)/i.test(nrm(ln))) { seenStart = true; continue; }
+      if (skipping) { continue; }
+      // 「ギブアップ」。行そのものなら印だけ付けて終わり、「即 ネル ※4万5千以下でギブアップ」の
+      // ように但し書きの中なら印を付けて行は読む
+      if (/ギブアップ|撤退/.test(lc0) && cur.uses.length) {
+        cur.gu = true;
+        if (whoIn(ln.replace(/[※].*$/, ''), crew) < 0) { continue; }
+      }
+      if (/開始\s*(?:SET|スキル|セット)/i.test(lc0)) {
+        seenStart = true;
+        if (!cur.start.length) { cur.start = startOf(ln); }
+        continue;
+      }
       if (!seenStart) { continue; }
       var cut = ln.replace(/[※].*$/, '');
       var note = (ln.match(/[※](.*)$/) || [])[1] || '';
@@ -4975,12 +5143,12 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
                   copy: /C[^\s]*$/i.test(nrm(noParen).replace(/^[^C]*?(?=C)/, '')) &&
                         /(^|[^A-Za-z])C/.test(nrm(noParen)),
                   line: ln.trim(), note: note.trim() };
-      res.uses.push(one);
+      cur.uses.push(one);
       for (var rq = 1; rq < rep; rq++) {
         var cp2 = {}, ck;
         for (ck in one) { if (has(one, ck)) { cp2[ck] = one[ck]; } }
         cp2.md = 'e'; cp2.cv = null; cp2.t = 0;
-        res.uses.push(cp2);
+        cur.uses.push(cp2);
       }
       if (rep > 1) {
         res.notes.push('「' + ln.trim() + '」は ' + rep + ' 発として置きました');
@@ -4989,7 +5157,7 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
         var cp3 = {}, ck2;
         for (ck2 in one) { if (has(one, ck2)) { cp3[ck2] = one[ck2]; } }
         cp3.i = alsoWho; cp3.to = null; cp3.f = null; cp3.md = 'e'; cp3.cv = null; cp3.t = 0;
-        res.uses.push(cp3);
+        cur.uses.push(cp3);
         res.notes.push('「' + ln.trim() + '」は 2 人が続けて撃つ行として読みました');
       }
     }
@@ -4999,7 +5167,18 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
                        '」にしました（ダメージのある形態です。帯をクリックすると変えられます）');
       }
     }
-    if (!res.uses.length) { return { err: 'タイムラインの行が 1 つも読めませんでした' }; }
+    parts.push(cur);
+    var nAll = 0;
+    for (i = 0; i < parts.length; i++) { nAll += parts[i].uses.length; }
+    if (!nAll) { return { err: 'タイムラインの行が 1 つも読めませんでした' }; }
+    res.parties = assignParties(parts);
+    // 互換: 1 部隊目をそのまま res.crew / res.start / res.uses に出す
+    res.crew = res.parties[0].crew; res.start = res.parties[0].start;
+    res.uses = res.parties[0].uses; res.bufTo = res.parties[0].bufTo;
+    if (res.parties.length > 1) {
+      res.notes.push(res.parties.length + ' 部隊として読みました（P1〜P' + res.parties.length +
+                     '。左の P ボタンで切り替え）');
+    }
     return res;
   }
   /** 名前から生徒を探す。**括弧の全半角と「水着セイア」型を吸収する。** */
@@ -5056,6 +5235,26 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
   /** 読んだものを実際に入れる。**戻すのは中身の要約。** */
   function applyTL(p) {
     mark();
+    var ps = p.parties || [p], k2, z3, out = { n: 0, ng: [], slip: [], parties: 0 };
+    // **部隊ごとに入れる。**st.parties を作り直して、1 部隊ずつ今までの手順で流す。
+    // ボスの状態の窓は、置いてあったものを部隊の番号ごとに残す
+    var oldB = [];
+    for (k2 = 0; k2 < st.parties.length; k2++) { oldB.push(st.parties[k2].bst || []); }
+    st.parties = [];
+    for (k2 = 0; k2 < ps.length && k2 < 4; k2++) {
+      st.parties.push(mkParty()); st.parties[k2].bst = oldB[k2] || [];
+      st.pi = k2; usePartyRef(); bump();
+      st.parties[k2].gu = !!ps[k2].gu;
+      var r1 = applyTL1(ps[k2]), tag = ps.length > 1 ? 'P' + (k2 + 1) + ' ' : '';
+      out.n += r1.n; out.parties++;
+      for (z3 = 0; z3 < r1.ng.length; z3++) { out.ng.push(tag + r1.ng[z3]); }
+      for (z3 = 0; z3 < r1.slip.length; z3++) { out.slip.push(tag + r1.slip[z3]); }
+    }
+    st.pi = 0; usePartyRef(); st.sel = null; st.who = -1; bump();
+    fillBuild(); drawParty(); drawBstate(); drawCrew(); drawPicker(); draw();
+    return out;
+  }
+  function applyTL1(p) {
     var i, k;
     for (i = 0; i < SLOTS; i++) { st.slots[i] = mkSlot(); }
     st.tl.length = 0; st.start.length = 0; st.sel = null; st.who = -1;
@@ -5065,7 +5264,7 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
       var sl = st.slots[c.idx];
       sl.id = c.id;
       for (k in c) {
-        if (k !== 'id' && k !== 'idx' && k !== 'name' && c[k] != null) { sl[k] = c[k]; }
+        if (k !== 'id' && k !== 'idx' && k !== 'name' && k !== 'pt' && c[k] != null) { sl[k] = c[k]; }
       }
       if (p.bufTo != null) { sl.nsto = p.bufTo; }
     }
@@ -5095,7 +5294,7 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
       if (u.md !== 't' && at != null) { row.t = Math.max(at, prev + 1e-4); }
       if (row.t > prev) { prev = row.t; }
     }
-    bump(); fillBuild(); drawCrew(); drawPicker(); draw();
+    bump();
     // **「置けない」と「後ろにずれる」を分ける。**ずれるだけのものまで
     // 「成立しません」と出していて、読み込みが失敗したように見えていた
     // （2026-09-01。実際は全部置けていて、演出待ちで数秒後ろになるだけ）
@@ -6166,14 +6365,14 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
     var b = e.target.closest('button[data-pt]');
     if (!b) { return; }
     st.pi = +b.getAttribute('data-pt'); usePartyRef(); st.sel = null; st.who = -1; bump();
-    fillBuild(); drawParty(); drawCrew(); drawPicker(); draw();
+    fillBuild(); drawParty(); drawBstate(); drawCrew(); drawPicker(); draw();
   });
   $('b-addparty').addEventListener('click', function () {
     if (st.parties.length >= 4) { return; }
     mark();
     st.parties.push(mkParty()); st.pi = st.parties.length - 1;
     usePartyRef(); st.sel = null; st.who = -1; bump();
-    fillBuild(); drawParty(); drawCrew(); drawPicker(); draw();
+    fillBuild(); drawParty(); drawBstate(); drawCrew(); drawPicker(); draw();
   });
   $('modeseg').addEventListener('click', function (e) {
     var b = e.target.closest('button[data-mode]');
