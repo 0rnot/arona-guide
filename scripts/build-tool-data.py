@@ -4570,6 +4570,7 @@ def build_tl():
                 "id": k, "n": _pname(k), "dn": c.get("DevName"),
                 "k": c.get("TacticEntityType") or "", "hp": sr.get("MaxHP1"),
                 "def": sr.get("DefensePower1"), "armor": c.get("ArmorType"),
+                "size": c.get("Size") or (_enemies.get(str(k)) or {}).get("Size"),
                 "stab": sr.get("StabilityPoint"), "stabR": sr.get("StabilityRate"),
                 "dodge": sr.get("DodgePoint"),
                 "crR": sr.get("CriticalResistPoint"),
@@ -4743,7 +4744,11 @@ def build_tl():
                     "armor": cr.get("ArmorType"), "bullet": cr.get("BulletType"),
                     # **`Size` はバフの `Restrictions` が見る**（ツクヨ・ミネ）。
                     # 2026-09-01 に足した
-                    "size": cr.get("Size"),
+                    # **`CharacterExcelTable` には `Size` が無い。**SchaleDB の enemies に
+                    # ある（グレゴリオ Large）。無いままだとミネ EX の
+                    # `Size NotEqual Medium` が「分からない欄」で棄却されて敵デバフが
+                    # 全時刻 0 になっていた（2026-09-02、ゼリーの報告）
+                    "size": cr.get("Size") or (_enemies.get(str(got["cid"])) or {}).get("Size"),
                     "groggy": sr.get("GroggyGauge"), "groggyT": sr.get("GroggyTime"),
                     "hp": sr.get("MaxHP1"), "atk": sr.get("AttackPower1"),
                     "def": sr.get("DefensePower1"),
