@@ -4640,7 +4640,12 @@ def build_tl():
                 txt = _gim_tag.sub("", _gim_stat.sub(r"\1", ln)).strip()
                 if not txt:
                     continue
-                if bnm and bnm in txt:
+                # **ボスの名前は「シロ＆クロ」のように 2 体ぶんが 1 つになっている。**
+                # 片方の名前（「シロに跳ね返り」「クロ自身が」）が出てもボスあてに戻す
+                # （2026-09-02。シロクロの被ダメージ率 +50% が gim に出ていなかった）
+                if bnm and (bnm in txt or any(p and p in txt for p in re.split(r"[＆&・/／]", bnm))):
+                    ally = False
+                if "自身" in txt:
                     ally = False
                 if any(w in txt for w in ("味方", "チーム", "生徒", "レイバー")):
                     ally = True
