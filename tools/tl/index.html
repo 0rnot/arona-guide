@@ -43,676 +43,43 @@
    帯の色を読ませる道具なので、地を暗くしたほうが速い（DAW と同じ）。
    サイトのライト／ダークには追従させない（2026-09-01）。
 
-   目標は Kivotos TL Analyzer の画面。3 段に割る。
-     上   … 見出し＋エラー履歴 ／ シナリオ別達成率
-     左   … 編成・生徒選び・育成コスト
-     右   … 育成設定の帯 ／ 道具帯 ／ タイムライン ／ ボス設定
+   2026-09-02 に UI を一新した。基準は 3 つ。
+     視認性   … 本文は 12px 以上、補助は 11px 以上。9px 台の字は無くした。
+                薄い字（--tx3）は地に対して 6:1 以上
+     認知負荷 … 上から「相手（入力）→ 結果 → タイムライン → 詳細」。
+                注記は「要確認」だけ常に出し、内訳と前提は開いたときだけ
+     取捨選択 … 右上の「表示」で見る項目を選ぶ。localStorage の tl-view に残す。
+                既定はいちばん軽い「かんたん」。`.tlapp.v-<key>-off .vw-<key>` で消す
    ============================================================ */
 .tlapp {
-  --bg0:#0c0f16; --bg1:#141821; --bg2:#1b2029; --bg3:#242b37;
-  --ln:#262d3a; --ln2:#37404f; --tx:#e8ecf2; --tx2:#98a2b3; --tx3:#6d778a;
-  --acc:#2f8f9e; --acc2:#c98a2e; --red:#c3384a; --red2:#7d2231; --teal:#2b7f92;
-  --grn:#2f8b58; --ylw:#b8912b; --pur:#6b4b9e; --tan:#7a5c3e;
-  background:var(--bg0); color:var(--tx);
-  font-size:12px; line-height:1.5; -webkit-font-smoothing:antialiased;
-  padding:10px clamp(8px,1.2vw,16px) 40px;
-  font-variant-numeric:tabular-nums;
-}
-.tlapp *, .tlapp *::before, .tlapp *::after { box-sizing:border-box; }
-.tlapp h2 { font-size:12.5px; font-weight:700; margin:0; color:var(--tx); }
-.tlapp .pane { background:var(--bg1); border:1px solid var(--ln); border-radius:4px;
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.045), 0 1px 2px rgba(0,0,0,.45); }
-.tlapp .pane > .ttl { display:flex; align-items:center; gap:8px; padding:6px 9px;
-  border-bottom:1px solid var(--ln); }
-.tlapp .pane > .ttl .sub { font-size:10.5px; color:var(--tx3); font-weight:400; }
-.tlapp .pane > .bd { padding:6px 8px; }
-.tlapp .btn2 { font:inherit; font-size:11px; cursor:pointer; padding:2px 8px; border-radius:3px;
-  border:1px solid var(--ln2); background:var(--bg2); color:var(--tx); white-space:nowrap; }
-.tlapp .btn2:hover { background:var(--bg3); }
-.tlapp .btn2[aria-pressed="true"] { background:var(--acc); border-color:var(--acc); color:#fff; }
-.tlapp .btn2.danger { border-color:#8c3040; color:#ff8b9b; }
-.tlapp select, .tlapp input[type="text"], .tlapp input[type="number"] {
-  font:inherit; font-size:11px; padding:2px 6px; border-radius:5px;
-  border:1px solid var(--ln2); background:var(--bg2); color:var(--tx); }
-.tlapp .mut { color:var(--tx2); }
-
-/* **見出しは字詰めと髪の毛線で示す。**左の色柱はやめた
-   （2026-09-01。全パネルに例外なく付いていて、いかにも生成物の見た目だった）。
-   罫は幅いっぱいに引いて、見出し自体は小さく詰める */
-.tlapp h2.sect { display:flex; align-items:center; gap:6px; margin:0 0 6px;
-  font-size:10px; font-weight:700; letter-spacing:.15em; color:var(--tx2);
-  padding-bottom:4px; border-bottom:1px solid var(--ln); }
-.tlapp h2.sect > i { display:none; }
-.tlapp h2.sect.inline { margin:0; padding-bottom:0; border-bottom:0;
-  letter-spacing:.04em; font-size:11px; color:var(--tx); }
-.tabsm { display:flex; gap:3px; }
-.tabsm .btn2 { padding:1px 6px; font-size:10px; }
-.vr { width:1px; align-self:stretch; background:var(--ln); margin:0 3px; }
-.f .val { font-size:11px; color:var(--tx2); padding:2px 0; }
-.fields.wrapf { display:flex; flex-wrap:wrap; align-items:flex-end; gap:5px 8px; }
-.tlapp .row { display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
-
-/* ---------- 3 段の骨格 ---------- */
-.tltop { display:grid; gap:5px; grid-template-columns:1fr; margin-bottom:5px; }
-@media (min-width:1000px) { .tltop { grid-template-columns:17% minmax(0,1fr); } }
-.tltop.one { grid-template-columns:minmax(0,1fr) !important; }
-.tlmain { display:grid; gap:5px; grid-template-columns:1fr; }
-@media (min-width:1000px) { .tlmain { grid-template-columns:17% minmax(0,1fr); } }
-.tlmain.wide { grid-template-columns:minmax(0,1fr); }
-.tlleft { display:flex; flex-direction:column; gap:5px; min-width:0; }
-.tlright { display:flex; flex-direction:column; gap:5px; min-width:0; }
-/* スマホは後回しだが、**本文が横に溢れるのだけは止める**。
-   errlog の nowrap と ボタン列が幅を押し広げていた（2026-09-01 に 390px で実測） */
-@media (max-width:999px) {
-  .tltop > *, .tlmain > * { min-width:0; }
-  .errlog div { white-space:normal; }
-  .brand-btns { flex-wrap:wrap; }
-  .bset { font-size:9px; }
-}
-
-/* ---------- エラー履歴 ---------- */
-.errlog { background:#0a0d13; border:1px solid var(--ln); border-radius:3px; padding:4px 6px;
-  max-height:120px; overflow-y:auto; overflow-x:hidden; font-size:10.5px; line-height:1.6; }
-.errlog div { white-space:normal; text-indent:-9px; padding-left:9px; }
-.errlog .e { color:#ff7a7a; } .errlog .w { color:#ffc46b; } .errlog .g { color:#7bd88f; }
-
-/* ---------- 達成率の表 ---------- */
-.rate { width:100%; border-collapse:collapse; font-size:10.5px; }
-/* **縦罫は 1 本だけ。**行間と右揃えで読ませる（2026-09-01） */
-.rate th, .rate td { border:0; border-bottom:1px solid var(--ln); padding:3px 7px; text-align:right; }
-.rate th { background:transparent; color:var(--tx3); font-weight:700; text-align:center;
-  font-size:9.5px; letter-spacing:.06em; border-bottom:1.5px solid var(--ln2); }
-.rate tr:last-child td { border-bottom:0; }
-.rate td.n { text-align:left; color:var(--tx2); border-right:1px solid var(--ln); }
-.rate .bar { display:block; height:7px; border-radius:3px; background:var(--bg3);
-  overflow:hidden; min-width:70px; }
-.rate .bar i { display:block; height:100%; border-radius:3px; }
-
-/* ---------- タイムライン ---------- */
-.stage { background:var(--bg0); border:1px solid var(--ln); border-radius:4px; overflow:hidden; }
-.stage .grid2 { display:grid; grid-template-columns:var(--lw) minmax(0,1fr); }
-.side { background:var(--bg1); border-right:1px solid var(--ln2); }
-.view { position:relative; overflow-x:auto; overflow-y:hidden; cursor:crosshair;
-  overscroll-behavior-x:contain; }
-.view::-webkit-scrollbar { height:9px; }
-.view::-webkit-scrollbar-track { background:var(--bg1); }
-.view::-webkit-scrollbar-thumb { background:var(--ln2); border-radius:5px; }
-.cv { position:relative; }
-.lb, .ln { border-bottom:1px solid var(--ln); box-sizing:border-box; position:relative; }
-.lb { display:flex; align-items:center; gap:3px; padding:0 4px; color:var(--tx2);
-  font-size:10px; white-space:nowrap; overflow:hidden; }
-.lb b { color:var(--tx); font-weight:700; }
-.lb .mb { border:1px solid var(--ln2); border-radius:3px; background:var(--bg2);
-  color:var(--tx3); font-size:8.5px; padding:0 2px; line-height:1.35; cursor:pointer; }
-.lb .nm { flex:1 1 auto; overflow:hidden; text-overflow:ellipsis; }
-.lb .ic { width:13px; height:13px; border-radius:3px; object-fit:cover; flex:0 0 auto;
-  background:var(--bg3); }
-.lb .mut { color:var(--tx3); }
-.ln.alt { background:#ffffff05; }
-.axis { background:var(--bg1); }
-.tk { position:absolute; top:0; bottom:0; width:1px; background:var(--ln); }
-.tk.m { background:var(--ln2); }
-.tk b { position:absolute; top:2px; left:3px; font-size:10px; color:var(--tx2); font-weight:600; }
-.vg { position:absolute; top:0; bottom:0; width:1px; background:#ffffff0a; pointer-events:none; }
-.vg.m { background:#ffffff18; }
-/* **帯の角は落とす。**プロファイラや DAW の帯と同じで、角丸だと
-   時間の切れ目が読みにくい（2026-09-01）。上に光・下に影の 1px で面にする */
-.b { position:absolute; top:2px; bottom:2px; border-radius:0; display:flex; align-items:center;
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.15), inset 0 -1px 0 rgba(0,0,0,.32);
-  gap:3px; padding:0 4px; overflow:hidden; white-space:nowrap; font-size:10px;
-  border:1px solid #0007; cursor:default; }
-.b.name { background:var(--teal); color:#fff; font-weight:700; }
-.b.ex { background:var(--red); color:#fff; }
-.b.ex2 { background:var(--pur); color:#fff; }
-.b.ps { background:var(--grn); color:#fff; }
-.b.gro { background:var(--ylw); color:#221900; font-weight:700; }
-.b.dbf { background:var(--pur); color:#fff; justify-content:center; padding:0; }
-.b.sk { border-radius:2px; background:var(--acc2); color:#171004; cursor:grab; gap:2px; padding:0 2px;
-  overflow:hidden; }
-.b.sk .ic { width:12px; height:12px; border-radius:2px; flex:0 0 auto; }
-.b.sk .cs { font-size:9px; font-weight:700; flex:0 0 auto; }
-.b.sk .nm { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.b.sk:hover { filter:none;
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.3), 0 2px 5px rgba(0,0,0,.45); }
-.b.sk.sel { outline:0; z-index:3;
-  box-shadow:0 0 0 1px var(--bg0), 0 0 0 2px #f2c14e, 0 3px 8px rgba(0,0,0,.55); }
-.b.sk .cs { color:#171004; }
-.b.sk.bad { background:var(--red); }
-.b.ns { background:var(--grn); color:#fff; justify-content:center; padding:0;
-  font-size:9px; font-weight:700; }
-.b.ns.flat { background:var(--tan); }
-.b.ss { background:var(--pur); color:#fff; }
-.b.ss.off { background:#2a3350; color:var(--tx2); }
-.ln.exlane { cursor:copy; }
-.ln.exlane:hover { background:rgba(90,140,255,.07); }
-.plot { position:absolute; inset:0; width:100%; height:100%; display:block; }
-.plot .dash { stroke:#ffffff30; stroke-width:1; stroke-dasharray:4 4; }
-.plot .zero { stroke:#ffffff20; stroke-width:1; }
-.plot .cost { stroke:#4a8ae0; stroke-width:1.5; fill:none; }
-.plot .rec { stroke:#dbe3f5; stroke-width:1.3; fill:none; }
-.yl { position:absolute; left:3px; font-size:9.5px; color:var(--tx2); transform:translateY(-50%); }
-.vl { position:absolute; font-size:9.5px; color:var(--tx2); transform:translate(-50%,-100%); }
-.ph { position:absolute; top:0; bottom:0; width:1px; background:#ff3b30; z-index:9;
-  pointer-events:none; }
-.ph.pin { width:2px; }
-.phbox { position:absolute; top:1px; background:#0c1120f2; border:1px solid #ff3b30;
-  border-radius:4px; padding:2px 6px; font-size:10px; line-height:1.55; white-space:nowrap;
-  z-index:10; pointer-events:none; }
-.phbox .neg { color:#ff6b6b; }
-.mkl { position:absolute; top:0; bottom:0; width:1px; background:var(--ylw); opacity:.55; z-index:6; }
-.mkt { position:absolute; top:0; height:14px; transform:translateX(1px); z-index:7;
-  background:var(--ylw); color:#221900; border:0; border-radius:0 3px 3px 0; cursor:pointer;
-  font:700 9px/14px inherit; padding:0 4px; max-width:120px; overflow:hidden;
-  text-overflow:ellipsis; white-space:nowrap; }
-.mkt:hover { filter:brightness(1.12); }
-.sheet { position:fixed; inset:0; z-index:99; background:#000a; display:flex;
-  align-items:center; justify-content:center; }
-.sheet .card { background:var(--bg1); border:1px solid var(--ln); border-radius:8px;
-  padding:12px; width:min(640px, 92vw); display:flex; flex-direction:column; gap:8px; }
-.sheet h3 { margin:0; font-size:13px; }
-.sheet textarea { width:100%; height:220px; resize:vertical; background:#0a0d18;
-  color:var(--tx); border:1px solid var(--ln); border-radius:6px; padding:7px;
-  font:11px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; }
-.sheet .row { display:flex; gap:6px; align-items:center; }
-.bset { display:flex; gap:6px; align-items:center; flex-wrap:wrap; font-size:9.5px;
-  color:var(--tx2); }
-.bset label { display:flex; gap:3px; align-items:center; }
-.bset select { background:var(--bg2); color:var(--tx); border:1px solid var(--ln);
-  border-radius:4px; font:10px/1.4 inherit; padding:1px 3px; }
-
-/* ---------- 編成 ---------- */
-.crew { display:grid; grid-template-columns:repeat(6,1fr); gap:3px; }
-.crew .c { position:relative; aspect-ratio:1/1; border:1px solid var(--ln2); border-radius:5px;
-  background:var(--bg2); overflow:hidden; }
-.crew .c img { width:100%; height:100%; object-fit:cover; }
-/* **数字は写真の下端に沈める。**黒い錠剤を重ねない（2026-09-01） */
-.crew .c::after { content:""; position:absolute; left:0; right:0; bottom:0; height:44%;
-  background:linear-gradient(180deg,transparent,rgba(0,0,0,.62)); pointer-events:none; }
-.crew .c .x { position:absolute; top:0; right:0; width:13px; height:13px; border:0; padding:0;
-  background:#c3384ae0; color:#fff; font-size:9px; line-height:13px; cursor:pointer;
-  border-radius:0 4px 0 4px; }
-.startsk { display:grid; grid-template-columns:auto repeat(5,1fr); gap:3px; align-items:center;
-  margin-top:4px; }
-.startsk .h { font-size:9.5px; color:var(--tx3); }
-.startsk .s { border:1px solid var(--ln2); border-radius:4px; background:var(--bg2);
-  text-align:center; font-size:10px; padding:2px 0; color:var(--tx2); }
-.picker { display:grid; grid-template-columns:repeat(7,1fr); gap:3px;
-  max-height:270px; overflow-y:auto; padding-right:2px; }
-.picker button { padding:0; border:1px solid var(--ln2); border-radius:5px; background:var(--bg2);
-  cursor:pointer; overflow:hidden; }
-.picker button[aria-pressed="true"] { border-color:var(--acc); box-shadow:0 0 0 1px var(--acc); }
-.picker img { width:100%; aspect-ratio:1/1; object-fit:cover; display:block; }
-.picker .n { display:block; font-size:8.5px; color:var(--tx2); padding:1px 1px 2px;
-  white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-
-/* ---------- 育成設定の帯 ---------- */
-.setup { display:flex; flex-wrap:wrap; gap:4px; }
-.setup:empty { display:none; }
-.setup .card { display:flex; gap:5px; align-items:center; padding:2px 6px 2px 2px;
-  border:1px solid var(--ln); border-radius:3px; background:var(--bg2); min-width:0; }
-.setup .card img { width:24px; height:24px; border-radius:2px; object-fit:cover;
-  background:var(--bg3); flex:0 0 auto; }
-.setup .card .t { font-size:9px; color:var(--tx3); line-height:1.35; min-width:0;
-  white-space:nowrap; }
-.setup .card .t b { color:var(--tx); font-size:10px; font-weight:700; }
-
-/* ---------- 道具帯 ---------- */
-.tools { display:flex; flex-wrap:wrap; gap:5px 8px; align-items:center; }
-.tools .g { display:flex; align-items:center; gap:4px; padding:2px 6px; border:1px solid var(--ln);
-  border-radius:6px; background:var(--bg1); }
-.tools .g > span:first-child { font-size:9.5px; color:var(--tx3); }
-.keys { font-size:10px; color:var(--tx3); }
-.keys kbd { border:1px solid var(--ln2); border-radius:3px; padding:0 3px; background:var(--bg2);
-  color:var(--tx2); font:inherit; font-size:9.5px; }
-
-/* ---------- 見出しの塊（左上） ---------- */
-.brand { font-size:17px; font-weight:800; letter-spacing:.01em; margin:0 0 3px; }
-.brand-sub { font-size:9.5px; color:var(--tx3); line-height:1.5; margin:0 0 6px; }
-.brand-btns { display:flex; gap:5px; align-items:center; margin-bottom:6px; }
-.brand-btns .sp { flex:1 1 auto; }
-
-/* ---------- 達成率 ---------- */
-.goal { font-size:10px; color:var(--tx2); margin:0 0 5px; }
-.tabs { display:flex; gap:4px; align-items:center; margin-bottom:5px; }
-.tabs .t { font-size:10px; border:1px solid var(--ln2); border-radius:4px; padding:1px 7px;
-  background:var(--bg2); color:var(--tx2); }
-.tabs .t.on { background:var(--bg3); color:var(--tx); }
-.tabs button.t { cursor:pointer; font-family:inherit; }
-.rate td.v { padding:0; }
-.rate .cell { display:grid; grid-template-columns:minmax(60px,1fr) auto; gap:6px; align-items:center;
-  padding:2px 6px; }
-.rate .cell .num { font-size:10.5px; }
-
-/* ---------- 育成設定の帯 ---------- */
-.setup .card .t .g { color:var(--tx3); }
-
-/* ---------- 道具帯（2 段） ---------- */
-.tools2 { display:grid; gap:4px; }
-.tools2 .r { display:flex; flex-wrap:wrap; gap:4px 6px; align-items:center; }
-.tools2 .r.hdr { padding-bottom:3px; border-bottom:1px solid var(--ln); }
-.tools2 .box { display:flex; align-items:center; gap:4px; flex-wrap:nowrap; border:1px solid var(--ln);
-  border-radius:5px; padding:2px 6px; background:var(--bg1); }
-.tools2 .box .cap { font-size:9.5px; color:var(--tx3); }
-.tools2 .imgs { display:flex; gap:2px; flex:0 0 auto; }
-.tools2 .mini { width:20px; height:20px; border-radius:4px; object-fit:cover; background:var(--bg3);
-  border:1px solid var(--ln2); }
-.tools2 .sq { width:20px; height:20px; border:1px solid var(--ln2); border-radius:4px;
-  background:var(--bg2); }
-
-/* ---------- ボス設定 ---------- */
-.fields { display:flex; flex-wrap:wrap; gap:5px 12px; align-items:flex-end; }
-.fields .f { display:grid; gap:2px; }
-.fields .f > span { font-size:9.5px; color:var(--tx3); }
-
-/* ---------- 左パネルの小物 ---------- */
-.filt { display:grid; grid-template-columns:1.25fr 1fr 1fr 1fr; gap:4px 5px; margin-bottom:5px; }
-.filt .f { display:grid; gap:2px; }
-.filt .f > span { font-size:9.5px; color:var(--tx3); }
-.filt .f select, .filt .f input { width:100%; }
-.crewline { display:grid; grid-template-columns:auto 1fr; gap:5px; align-items:center; }
-.crewline > .h { font-size:9.5px; color:var(--tx3); }
-.picking { font-size:10px; color:var(--tx2); margin:4px 0; }
-.picking b { color:var(--tx); }
-.gaugebar { height:6px; border-radius:3px; background:var(--bg3); overflow:hidden; }
-.gaugebar i { display:block; height:100%; background:linear-gradient(90deg,#3aa76d,#7bd88f); }
-/* ---------- 概況の帯。**数字だけ先に読める**ようにする（上の表より前に置く） */
-.kpi { display:grid; grid-template-columns:1.7fr 1fr 1fr 1fr 1fr; gap:0 0;
-  background:var(--bg1); border:1px solid var(--ln); border-radius:4px;
-  padding:7px 9px 8px; margin-bottom:5px; position:relative; }
-.kpi .k { display:flex; flex-direction:column; gap:1px; min-width:0; }
-/* **主は「与ダメージ」1 つだけ。**5 つ同格だと何を読めばいいか決まらない */
-.kpi .k + .k { border-left:1px solid var(--ln); padding-left:11px; margin-left:11px; }
-.kpi .k:first-child .kv { font-size:24px; letter-spacing:-.015em; }
-.kpi .kl { font-size:9px; color:var(--tx3); letter-spacing:.03em; }
-.kpi .kv { font-size:15px; font-weight:700; color:var(--tx); line-height:1.15;
-  font-variant-numeric:tabular-nums; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.kpi .ks { font-size:9px; color:var(--tx2); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.kpi .kbar { grid-column:1/-1; height:3px; margin-top:7px; background:var(--bg3); overflow:hidden; }
-.kpi .kbar i { display:block; height:100%; background:var(--acc2); }
-@media (max-width:999px) { .kpi { grid-template-columns:repeat(2,minmax(0,1fr)); gap:5px; }
-  .kpi .k + .k { border-left:0; padding-left:0; margin-left:0; } }
-
-/* ---------- 編成。STRIKER と SPECIAL を別の行にする */
-.crewline { display:flex; align-items:center; gap:5px; margin-bottom:4px; }
-.crewline > .h { flex:0 0 52px; font-size:8.5px; font-weight:700; letter-spacing:.04em;
-  padding:2px 0; text-align:center; border-radius:3px; }
-.crewline > .h.st { color:#ffd9a0; background:rgba(201,138,46,.16); border:1px solid rgba(201,138,46,.4); }
-.crewline > .h.sp { color:#a8e0e8; background:rgba(47,143,158,.16); border:1px solid rgba(47,143,158,.4); }
-.crewline .crew { flex:1 1 auto; }
-.crew .c { padding:0; cursor:pointer; }
-.crew .c.on { border-color:var(--acc); box-shadow:0 0 0 1px var(--acc); }
-.crew .c.empty { display:flex; align-items:center; justify-content:center;
-  border-style:dashed; color:var(--tx3); }
-.crew .c .pl { font-size:13px; }
-.crew .c .lvb { position:absolute; left:1px; bottom:1px; font-size:8px; padding:0 2px;
-  border-radius:2px; background:rgba(0,0,0,.66); color:#dfe6ef; font-variant-numeric:tabular-nums; }
-.crew .c .x { display:flex; align-items:center; justify-content:center; cursor:pointer; }
-
-/* 開始スキル。**枠の数はモードで変わる**（通常 5・制約解除 9） */
-.startsk { display:flex; flex-wrap:wrap; align-items:center; gap:3px; }
-.startsk .s { display:flex; align-items:center; gap:2px; padding:1px 3px; }
-.startsk .s b { font-size:8.5px; color:var(--tx3); font-weight:700; }
-.startsk .s select { max-width:62px; font-size:9px; padding:0 2px; }
-
-/* ---------- 生徒を選ぶ */
-.filt.f2 { grid-template-columns:repeat(4,1fr); }
-.picker button.pk { position:relative; }
-.picker button.pk::before { content:''; position:absolute; left:0; top:0; width:2px; height:100%;
-  border-radius:5px 0 0 5px; opacity:.75; }
-/* **左の帯は攻撃タイプ。**配置（ストライカー／スペシャル）は詳細フィルターへ移した
-   （2026-09-01 の先生の指示）。色は SchaleDB の攻撃タイプの並びに合わせている */
-.picker button.pk.bt-Explosion::before { background:#d64f3f; }
-.picker button.pk.bt-Pierce::before    { background:#d9a63c; }
-.picker button.pk.bt-Mystic::before    { background:#4a83cf; }
-.picker button.pk.bt-Sonic::before     { background:#a869d4; }
-.picker button.pk.bt-Normal::before    { background:#8d99a8; }
-.picker button.pk.bt-Chemical::before  { background:#48b58c; }
-.picker .cst { position:absolute; right:1px; top:1px; font-size:8px; padding:0 2px;
-  border-radius:2px; background:rgba(0,0,0,.6); color:#e6ecf3; }
-
-/* ---------- 道具帯 */
-.tools2 .r.sub { margin-top:4px; padding-top:4px; border-top:1px solid var(--ln); }
-.pill { display:inline-flex; align-items:baseline; gap:4px; font-size:9.5px; color:var(--tx3);
-  border:1px solid var(--ln); border-radius:10px; padding:1px 8px; background:var(--bg2); }
-.pill b { font-size:11px; color:var(--tx); font-variant-numeric:tabular-nums; }
-.seg { display:flex; gap:2px; }
-.who { max-width:170px; font-size:10px; }
-.tiny { font-size:9.5px; }
-.warn { color:#ffb27a; }
-#build-note { margin:5px 0 0; line-height:1.5; }
-#useedit .f span { color:var(--tx3); }
-.b.sk.cp { outline:1px dashed #ffe9b0; outline-offset:-2px; }
-
-/* 左は編成・育成・生徒選びが同居するので、17% では窮屈だった */
-@media (min-width:1000px) { .tlmain { grid-template-columns:22% minmax(0,1fr); } }
-@media (min-width:1600px) { .tlmain { grid-template-columns:340px minmax(0,1fr); } }
-.tlmain.wide { grid-template-columns:minmax(0,1fr) !important; }
-/* 育成の並び。**値が切れないように 2 列で置く** */
-#bset { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:3px 6px; font-size:9.5px; }
-#bset label { display:flex; align-items:center; gap:3px; min-width:0; }
-#bset label > select { flex:1 1 auto; min-width:0; }
-#bset label > select + select { flex:0 0 46px; }
-.startsk .s select { max-width:none; width:74px; }
-.picker { grid-template-columns:repeat(6,1fr); max-height:230px; }
-
-/* 置いた時刻と、演出待ちで実際に出る時刻のあいだ */
-.ghost { position:absolute; top:50%; height:2px; transform:translateY(-50%);
-  background:repeating-linear-gradient(90deg,var(--tx3) 0 3px,transparent 3px 6px); opacity:.8; }
-.ghost::before { content:''; position:absolute; left:0; top:-4px; width:2px; height:10px;
-  background:var(--tx3); }
-.b.sk.late { box-shadow:inset 0 0 0 1px var(--tx3); opacity:.92; }
-
-/* 通常攻撃（オートアタック）。弾倉ごとの塊 */
-.b.na { background:#2b4a7a; color:#cfe0f5; font-size:8px; }
-.b.na.flat { background:#3a3f4a; color:var(--tx3); }
-
-/* 回復力。薄い線が常時ぶん、濃い線が時間で変わるぶん */
-.plot .rec0 { fill:none; stroke:var(--tx3); stroke-width:1; stroke-dasharray:3 3; opacity:.6; }
-#useedit input[type="number"] { background:var(--bg2); color:var(--tx); border:1px solid var(--ln2);
-  border-radius:3px; padding:1px 4px; font:inherit; font-size:10.5px; }
-
-/* 倍率の幅。**バーで候補を選ぶ**（2026-09-01 の先生の指示） */
-#alts { display:flex; flex-direction:column; gap:4px; }
-.alt { display:flex; align-items:center; gap:5px; padding:2px 4px; border:1px solid var(--ln);
-  border-radius:4px; background:var(--bg2); }
-.alt img.ic { width:20px; height:20px; border-radius:2px; object-fit:cover; flex:0 0 auto; }
-.alt .t { display:flex; flex-direction:column; min-width:0; flex:0 0 92px; line-height:1.25; }
-.alt .t b { font-size:9.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.alt .t .g { font-size:8.5px; color:var(--tx3); white-space:nowrap; overflow:hidden;
-  text-overflow:ellipsis; }
-.alt input[type="range"] { flex:1 1 auto; min-width:40px; accent-color:var(--acc2); height:14px; }
-.alt .v { flex:0 0 auto; font-size:10px; font-variant-numeric:tabular-nums; text-align:right;
-  min-width:52px; color:var(--tx); }
-.alt .v i { display:block; font-style:normal; font-size:8px; color:var(--tx3); }
-#useedit input[type="range"] { accent-color:var(--acc2); vertical-align:middle; }
-
-/* ---------- 上の帯。**この画面では細くする。**
-   タイムラインは縦がすべてなので、本編の 48px を 26px まで詰める
-   （2026-09-01 の先生の指摘「こうなってくるとヘッダーじゃまだな」）。
-   リンクは「ツール一覧」と「共有」だけ残す。 */
-.topbar { z-index:40; backdrop-filter:none; background:#0a0e18;
-  border-bottom:1px solid var(--ln); }
-.topbar-inner { max-width:none; padding:0 10px; gap:8px; height:26px; }
-.topbar-name { font-size:11px; font-weight:700; color:#98a2b3; }
-.topbar-name:hover { color:#e8ecf2; }
-.topbar-tools { margin-left:8px; padding:1px 8px; font-size:10px; gap:4px; }
-.topbar-tools svg { width:10px; height:10px; }
-.topbar .share { padding:1px 9px; font-size:10px; gap:4px; }
-.topbar .share-icon { width:10px; height:10px; }
-/* ---------- 「数字の出どころ」。**明色スキームだと見出しが消えていた**
-   （tool.css の `details.src b { color:var(--fg) }` が、常に暗いこの画面で
-   明色の文字色になる）。ここで閉じる（2026-09-01 にラムネが見つけた） */
-.tlapp details.src { border-top-color:var(--ln); }
-.tlapp details.src summary { color:var(--tx2); }
-.tlapp details.src b { color:var(--tx); }
-.tlapp details.src p, .tlapp details.src li { color:var(--tx2); }
-.tlapp details.src code { background:var(--bg2); color:var(--tx); border:1px solid var(--ln); }
-.tlapp details.src a { color:var(--acc2); }
-
-/* ============================================================
-   透明感で揃える（2026-09-01 の先生の指摘
-   「立体感ってより透明感！ボタンの配置とか形とか丸角とかの統一感が無い！」）。
-
-   **落ち影と内側のハイライトは全部やめる。**面は「薄いガラス」1 種類にして、
-   白の透過（--g1〜--g3）と白の細い枠だけで段を作る。
-   **丸角は 4 つの token しか使わない。**部品の高さも 1 つに揃える。
-   ============================================================ */
-.tlapp {
-  --r1:3px;    /* いちばん小さいもの: 帯・アイコン・目盛り */
-  --r2:6px;    /* 部品: ボタン・入力・タイル・カード */
-  --r3:10px;   /* 面: パネル・盤・シート */
-  --rp:999px;  /* 錠剤 */
-  --h:22px;    /* 部品の高さ。**ここだけで揃える** */
-  --g1:rgba(255,255,255,.038);  /* 面 */
-  --g2:rgba(255,255,255,.065);  /* 部品 */
-  --g3:rgba(255,255,255,.105);  /* 押されている部品 */
-  --gb:rgba(255,255,255,.09);   /* 枠 */
-  --gb2:rgba(255,255,255,.15);  /* 強い枠 */
-  /* ガラスが効くように、地に薄い明暗を置く */
+  --bg0:#0b0e15; --bg1:#141821; --bg2:#1b2029; --bg3:#242b37;
+  --ln:#262d3a; --ln2:#37404f;
+  --tx:#eef1f6; --tx2:#b3bccb; --tx3:#8b95a7;
+  --acc:#2f8f9e; --acc2:#d09437; --red:#c3384a; --teal:#2b7f92;
+  --grn:#2f8b58; --ylw:#b8912b; --pur:#6b4b9e; --tan:#7a5c3e; --warn:#e08a5a;
+  --r1:3px; --r2:6px; --r3:10px; --rp:999px;
+  --h:26px;                      /* 部品の高さ。ここだけで揃える */
+  --s1:4px; --s2:8px; --s3:12px; --s4:16px;
+  --g1:rgba(255,255,255,.038); --g2:rgba(255,255,255,.065); --g3:rgba(255,255,255,.105);
+  --gb:rgba(255,255,255,.09); --gb2:rgba(255,255,255,.16);
+  --fs:13px; --fs2:12px; --fs3:11px;
+  color:var(--tx); font-size:var(--fs); line-height:1.5;
+  -webkit-font-smoothing:antialiased; font-variant-numeric:tabular-nums;
+  padding:var(--s2) clamp(var(--s2),1.2vw,var(--s4)) 40px;
   background:
     radial-gradient(1200px 600px at 12% -6%, rgba(47,143,158,.16), transparent 62%),
     radial-gradient(900px 520px at 96% 4%, rgba(201,138,46,.10), transparent 60%),
-    #0b0e15;
+    var(--bg0);
   background-attachment:fixed;
 }
-
-/* ---- 面 */
-.tlapp .pane, .tlapp .stage, .tlapp .kpi, .tlapp .sheet .card {
-  background:var(--g1); border:1px solid var(--gb); border-radius:var(--r3);
-  box-shadow:none; backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);
-}
-.tlapp .stage { overflow:hidden; }
-.tlapp .side { background:rgba(255,255,255,.022); border-right:1px solid var(--gb); }
-.tlapp .axis { background:rgba(255,255,255,.03); }
-.tlapp .errlog { background:rgba(0,0,0,.22); border:1px solid var(--gb); border-radius:var(--r2); }
-.tlapp .lb, .tlapp .ln { border-bottom:1px solid rgba(255,255,255,.055); }
-.tlapp .ln.alt { background:rgba(255,255,255,.028); }
-.tlapp .tk { background:rgba(255,255,255,.06); }
-.tlapp .tk.m { background:rgba(255,255,255,.13); }
-
-/* ---- 部品。**高さ・丸角・枠・地をひとそろいにする** */
-.tlapp .btn2, .tlapp select, .tlapp input[type="text"], .tlapp input[type="number"],
-.tlapp .tabs .t, .tlapp .startsk .s, .tlapp .lb .mb, .tlapp .tools2 .sq {
-  height:var(--h); border-radius:var(--r2); border:1px solid var(--gb);
-  background:var(--g2); color:var(--tx); font:inherit; font-size:11px;
-  padding:0 8px; line-height:calc(var(--h) - 2px); white-space:nowrap;
-  transition:background .12s, border-color .12s;
-}
-.tlapp .btn2:hover, .tlapp .tabs .t:hover { background:var(--g3); border-color:var(--gb2); }
-.tlapp .btn2[aria-pressed="true"], .tlapp .tabs .t.on {
-  background:rgba(47,143,158,.30); border-color:rgba(90,205,220,.55); color:#eaf7fa; }
-.tlapp .btn2.danger { border-color:rgba(220,90,110,.45); color:#ff97a5; background:rgba(195,56,74,.14); }
-.tlapp select { padding-right:4px; }
-.tlapp .tabsm .btn2 { padding:0 7px; font-size:10px; }
-.tlapp .lb .mb { height:16px; line-height:14px; padding:0 4px; font-size:8.5px;
-  border-radius:var(--r1); color:var(--tx3); }
-.tlapp .startsk .s { padding:0 4px; gap:3px; }
-.tlapp .startsk .s select { height:18px; line-height:16px; font-size:9.5px; padding:0 3px;
-  border-radius:var(--r1); }
-.tlapp .pill { height:var(--h); line-height:calc(var(--h) - 2px); padding:0 10px;
-  border-radius:var(--rp); border:1px solid var(--gb); background:var(--g2); }
-.tlapp .keys kbd { border-radius:var(--r1); border:1px solid var(--gb); background:var(--g2); }
-
-/* ---- タイル・カード */
-.tlapp .picker button { border-radius:var(--r2); border:1px solid var(--gb); background:var(--g2); }
-.tlapp .picker button:hover { background:var(--g3); border-color:var(--gb2); }
-.tlapp .crew .c { border-radius:var(--r2); border:1px solid var(--gb); }
-.tlapp .setup .card { border-radius:var(--r2); border:1px solid var(--gb); background:var(--g2); }
-.tlapp .alt { border-radius:var(--r2); border:1px solid var(--gb); background:var(--g2); }
-.tlapp .tools2 { border-radius:var(--r2); border:1px solid var(--gb); background:var(--g2); }
-.tlapp .tools2 .mini, .tlapp .alt img.ic, .tlapp .lb .ic, .tlapp .b.sk .ic,
-.tlapp .setup .card img { border-radius:var(--r1); }
-
-/* ---- 帯。**角丸は 1 種類（--r1）だけ。**影は付けない */
-.tlapp .b { border-radius:var(--r1); box-shadow:none; }
-.tlapp .b.sk { border-radius:var(--r1); }
-.tlapp .b.sk:hover { box-shadow:none; filter:brightness(1.12); }
-.tlapp .b.sk.sel { outline:0; box-shadow:0 0 0 1px rgba(0,0,0,.55), 0 0 0 2px #f2c14e; }
-
-/* ---- バー */
-.tlapp .rate .bar, .tlapp .rate .bar i, .tlapp .gaugebar, .tlapp .gaugebar i,
-.tlapp .kpi .kbar, .tlapp .kpi .kbar i { border-radius:var(--rp); }
-.tlapp .rate .bar, .tlapp .gaugebar, .tlapp .kpi .kbar { background:rgba(255,255,255,.07); }
-
-/* ---- 上の帯もガラスに寄せる */
-.topbar { background:rgba(11,14,21,.72); backdrop-filter:blur(12px);
-  -webkit-backdrop-filter:blur(12px); border-bottom:1px solid var(--gb); }
-.topbar-tools { border-radius:var(--rp); }
-.topbar .share { border-radius:var(--rp); }
-
-/* ---- 余白と大きさをそろえる（2026-09-01 の先生の指摘
-   「ボタンの大きさとか！」「余白とか！」）。**目盛りは 4 の倍数の 3 つだけ。** */
-.tlapp { --s1:4px; --s2:8px; --s3:12px; padding:var(--s2) clamp(var(--s2),1.2vw,var(--s3)) 40px; }
-
-/* 面のあいだ・面の中 */
-.tltop, .tlmain { gap:var(--s2); margin-bottom:0; }
-.tltop { margin-bottom:var(--s2); }
-.tlleft, .tlright { gap:var(--s2); }
-.tlapp .pane > .bd { padding:var(--s2) var(--s3) var(--s3); }
-.tlapp .pane > .ttl { padding:var(--s2) var(--s3); }
-.tlapp .kpi { padding:var(--s3) var(--s3) var(--s2); margin-bottom:var(--s2); }
-.tlapp h2.sect { margin:0 0 var(--s2); padding-bottom:var(--s1); }
-
-/* 並び */
-.tlapp .row { gap:var(--s2); }
-.tlapp .fields.wrapf { gap:var(--s1) var(--s2); }
-.tlapp .filt { gap:var(--s1) var(--s2); }
-.tlapp .crewline { gap:var(--s2); margin-bottom:var(--s1); }
-.tlapp .crew { gap:var(--s1); }
-.tlapp .tools2 { padding:var(--s1) var(--s2); gap:var(--s1) var(--s2); }
-.tlapp .tools2 .r { gap:var(--s1) var(--s2); }
-.tlapp .seg { gap:var(--s1); background:none; border:0; border-radius:0; padding:0; }
-.tlapp .tabsm { gap:var(--s1); }
-.tlapp #alts, .tlapp #nstos { gap:var(--s1); }
-.tlapp .alt { gap:var(--s2); padding:var(--s1) var(--s2); }
-.tlapp .startsk { gap:var(--s1); }
-.tlapp .errlog { padding:var(--s1) var(--s2); }
-.tlapp .keys { gap:var(--s1) var(--s2); }
-
-/* ボタン。**文字だけのものは横 10px、記号 1 つのものは正方形** */
-.tlapp .btn2 { padding:0 10px; min-width:var(--h); text-align:center; }
-.tlapp .tabsm .btn2 { padding:0 var(--s2); }
-.tlapp .btn2.sq, .tlapp #b-addparty { padding:0; width:var(--h); min-width:var(--h); }
-.tlapp select, .tlapp input[type="text"], .tlapp input[type="number"] { padding:0 var(--s2); }
-.tlapp .f { gap:2px; }
-
-/* ---- 並んだボタンの形をそろえる（2026-09-01 の先生の指摘
-   「こういうのがキモいって言ってるの」。6人/10人、目標/目標設定、開始スキル）。
-
-   **切り替え（seg・tabs）は 1 つの枠の中で仕切る。**離して置かない。
-   **並ぶボタンは同じ幅にする。**中身の字数で幅が変わるのをやめる。 */
-.tlapp .seg, .tlapp .tabs {
-  display:inline-flex; gap:0; padding:0; overflow:hidden;
-  border:1px solid var(--gb); border-radius:var(--r2); background:rgba(0,0,0,.18);
-}
-.tlapp .seg .btn2, .tlapp .tabs .t {
-  border:0; border-radius:0; background:transparent; min-width:56px;
-  padding:0 var(--s3); color:var(--tx2); box-shadow:none;
-}
-.tlapp .seg .btn2 + .btn2, .tlapp .tabs .t + .t { border-left:1px solid var(--gb); }
-.tlapp .seg .btn2:hover, .tlapp .tabs .t:hover { background:rgba(255,255,255,.06); }
-.tlapp .seg .btn2[aria-pressed="true"], .tlapp .tabs .t.on {
-  background:rgba(47,143,158,.32); color:#eaf7fa; border-color:var(--gb); }
-.tlapp .tabs { margin-bottom:0; }
-
-/* 並ぶボタンは同じ幅。**字数で幅が変わらない** */
-.tlapp .tools2 .r .btn2, .tlapp .brand-btns .btn2 { min-width:76px; }
-.tlapp .tools2 .r .btn2.sq, .tlapp #b-addparty { min-width:var(--h); }
-.tlapp .tabsm .btn2 { min-width:30px; padding:0 var(--s2); }
-
-/* 開始スキル。**5 つを同じ幅で 1 列に。**入れ子の枠をやめる */
-.tlapp .startsk { display:grid; grid-template-columns:auto repeat(5, minmax(0,1fr));
-  gap:var(--s1); align-items:center; }
-.tlapp .startsk .h { font-size:9.5px; color:var(--tx3); white-space:nowrap; }
-.tlapp .startsk .s { display:grid; grid-template-columns:11px minmax(0,1fr); align-items:center;
-  gap:3px; border:0; background:none; padding:0; border-radius:0; height:var(--h); }
-.tlapp .startsk .s b { font-size:9px; color:var(--tx3); font-weight:700; text-align:right; }
-.tlapp .startsk .s select { width:100%; max-width:none; height:var(--h);
-  line-height:calc(var(--h) - 2px); font-size:10px; padding:0 var(--s1);
-  border-radius:var(--r2); border:1px solid var(--gb); background:var(--g2); }
-@media (max-width:1199px) {
-  .tlapp .startsk { grid-template-columns:repeat(3, minmax(0,1fr)); }
-  .tlapp .startsk .h { grid-column:1/-1; }
-}
-
-.tlapp #b-goal { min-width:76px; }
-.tlapp .rate .cell .bar { min-width:56px; }
-
-/* ---- 畳む摘み。**見出しの左肩に置く**（2026-09-01 の先生の指示） */
-.tlapp .fold { width:16px; height:16px; min-width:16px; padding:0; border:0; background:none;
-  cursor:pointer; display:inline-flex; align-items:center; justify-content:center;
-  border-radius:var(--r1); flex:0 0 auto; }
-.tlapp .fold:hover { background:rgba(255,255,255,.09); }
-.tlapp .fold .cv { width:0; height:0; border-left:4px solid transparent;
-  border-right:4px solid transparent; border-top:5px solid var(--tx2);
-  transition:transform .12s; }
-.tlapp .fold[aria-expanded="false"] .cv { transform:rotate(-90deg); }
-.tlapp .pane.folded h2.sect { margin:0; padding-bottom:0; border-bottom:0; }
-.tlapp .pane.folded > .bd { padding:var(--s1) var(--s3); }
-.tlapp .leftbar { display:flex; align-items:center; gap:var(--s1); padding:0 var(--s1); }
-.tlapp .leftbar .mut { letter-spacing:.14em; font-weight:700; }
-
-/* ---- 概況の帯。**空きを作らない**（2026-09-01 の先生の指摘「余白多すぎ」）。
-   幅いっぱいに引き延ばさず、中身の幅で並べて左に寄せる */
-.tlapp .kpi { grid-template-columns:repeat(5, max-content); column-gap:0;
-  padding:var(--s2) var(--s3); }
-.tlapp .kpi .k:first-child .kv { font-size:21px; }
-.tlapp .kpi .k + .k { margin-left:var(--s3); padding-left:var(--s3); }
-.tlapp .kpi .kl, .tlapp .kpi .ks { white-space:nowrap; }
-.tlapp .kpi .kbar { margin-top:var(--s1); }
-@media (max-width:999px) { .tlapp .kpi { grid-template-columns:repeat(2,minmax(0,1fr)); } }
-
-/* ============ 2026-09-01 の直し ============ */
-
-/* 概況の帯と、ツールバーの 2 段目を 1 本にした（先生の「これ合体できるんじゃない？」）。
-   **左が結果、右が条件。**まん中で分ける */
-.tlapp .kpi { display:flex; align-items:flex-start; flex-wrap:wrap;
-  column-gap:var(--s3); row-gap:var(--s2); }
-.tlapp .kpi .kres { display:grid; grid-auto-flow:column; grid-auto-columns:max-content;
-  column-gap:0; align-items:start; flex:0 1 auto; min-width:0; }
-.tlapp .kpi .kcond { display:flex; flex-wrap:wrap; gap:var(--s1) var(--s2);
-  margin-left:auto; align-items:center; padding-left:var(--s3);
-  border-left:1px solid var(--ln); align-self:center; }
-.tlapp .kpi .kbar { flex:1 1 100%; grid-column:auto; margin-top:0; }
-@media (max-width:1199px) {
-  .tlapp .kpi .kcond { margin-left:0; padding-left:0; border-left:0; }
-}
-@media (max-width:999px) {
-  .tlapp .kpi .kres { grid-auto-flow:row; grid-template-columns:repeat(2,minmax(0,1fr));
-    flex:1 1 100%; }
-  .tlapp .kpi .kres .k + .k { border-left:0; padding-left:0; margin-left:0; }
-}
-
-/* 畳んだパネルの中身は **ID 指定より強く**消す。
-   `#bset { display:grid }` に負けていて、育成だけ畳めなかった（先生の指摘）。
-   **`[data-hdr]` は見出しを含む枠**で、ここだけ残す。「相手」と
-   「シナリオ別達成率」は見出しが `.bd` の直下に無く、かたまりごと隠すと
-   摘みまで消えて開けなくなっていた（2026-09-01） */
-.tlapp .pane.folded > .bd > *:not(h2.sect):not([data-hdr]) { display:none !important; }
-.tlapp .pane.folded > .bd [data-hdr] > *:not(h2.sect):not([data-hdr]) { display:none !important; }
-.tlapp .pane.folded { height:auto !important; }
-
-/* ---- 列の仕切り。**独立した行にすると右のツールバーと段差になる**ので、
-   左の列の右端に重ねる。摘みもここに乗せる（2026-09-01 の先生の指摘） */
-.tlapp .tlmain { grid-template-columns:var(--lcol, 22%) minmax(0,1fr) !important; }
-@media (min-width:1600px) { .tlapp .tlmain { --lcol:340px; } }
-.tlapp .tlmain.wide { --lcol:14px; }
-.tlapp .tlleft { position:relative; }
-.tlapp .tlleft.shut > .pane { display:none; }
-.tlapp .cgrip { position:absolute; top:0; bottom:0; right:calc(var(--s2) * -1);
-  width:var(--s2); cursor:col-resize; z-index:6; overflow:visible;
-  display:flex; justify-content:center; }
-.tlapp .cgrip::before { content:''; position:absolute; top:26px; bottom:0; left:50%;
-  width:1px; margin-left:-.5px; background:var(--gb); transition:background .12s; }
-.tlapp .cgrip:hover::before, .tlapp .cgrip.drag::before { background:var(--acc); }
-.tlapp .cgrip .fold { position:absolute; top:2px; left:50%; margin-left:-9px;
-  width:18px; height:18px; min-width:18px; cursor:pointer;
-  background:var(--g2); border:1px solid var(--gb); border-radius:var(--r1); }
-
-/* ---- パネルの高さ。**隙間そのものを掴む**（余白を増やさない） */
-.tlapp .pane { position:relative; }
-.tlapp .vgrip { position:absolute; left:0; right:0; bottom:calc(var(--s2) * -1);
-  height:var(--s2); cursor:row-resize; z-index:5; }
-.tlapp .vgrip::after { content:''; position:absolute; left:0; right:0;
-  top:calc(50% - .5px); height:1px; background:transparent; transition:background .12s; }
-.tlapp .vgrip:hover::after, .tlapp .vgrip.drag::after { background:var(--acc); }
-.tlapp .pane.sized { display:flex; flex-direction:column; }
-.tlapp .pane.sized > .bd { overflow:auto; flex:1 1 auto; min-height:0; }
-/* **中の巻物の頭打ちを外す。**伸ばしたのに一覧だけ 270px のままで、
-   下が丸ごと空いていた（2026-09-01 の先生の指摘）。
-   **入れ子の巻物にはしない**——中で潰れる。パネルごと 1 本で巻く */
-.tlapp .pane.sized .picker,
-.tlapp .pane.sized .errlog { max-height:none; overflow:visible; }
-
-/* タイムラインの摘みは **`overflow:hidden` の内側**に置く。外に出すと切られて掴めない */
-.tlapp .stage > .vgrip { bottom:0; }
-.tlapp .stage { position:relative; }
-.tlapp .stage.sized { overflow:auto; }
-.tlapp .stage.sized > .grid2 { min-height:100%; }
-body.rz, body.rz * { cursor:col-resize !important; user-select:none !important; }
-body.rz.row, body.rz.row * { cursor:row-resize !important; }
-
-/* ---- スクロールバー。**既定の太い白は目立ちすぎる**（2026-09-01 の先生の指摘） */
+.tlapp *, .tlapp *::before, .tlapp *::after { box-sizing:border-box; }
+.tlapp .mut { color:var(--tx2); }
+.tlapp .tiny { font-size:var(--fs3); }
+.tlapp .warn { color:var(--warn); }
+.tlapp .sp { flex:1 1 auto; }
+.tlapp .vr { width:1px; align-self:stretch; background:var(--gb); margin:0 var(--s1); }
+.tlapp .row { display:flex; align-items:center; gap:var(--s2); flex-wrap:wrap; }
+.tlapp a { color:var(--acc2); }
 .tlapp * { scrollbar-width:thin; scrollbar-color:var(--gb2) transparent; }
 .tlapp *::-webkit-scrollbar { width:7px; height:7px; }
 .tlapp *::-webkit-scrollbar-track { background:transparent; }
@@ -720,144 +87,495 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
 .tlapp *::-webkit-scrollbar-thumb:hover { background:var(--acc); }
 .tlapp *::-webkit-scrollbar-corner { background:transparent; }
 
-/* 育成の入力を全部そろえる。**見出しの幅を固定して、選択肢の幅を 1 つに揃える** */
-#bset label { display:grid; grid-template-columns:46px minmax(0,1fr);
-  align-items:center; gap:var(--s1); }
-#bset label > select { width:100%; min-width:0; }
-#bset .two { display:flex; gap:3px; min-width:0; }
-/* 固有だけ 2 つ入る。**中身が切れないよう左右の余白を詰める** */
-#bset .two > select { flex:1 1 0; min-width:0; width:auto;
-  padding-left:var(--s1); padding-right:2px; }
-#bset .two > select + select { flex:0 0 44px; }
+/* ---- 面。薄いガラス 1 種類 */
+.tlapp .pane, .tlapp .stage, .tlapp .kpi, .tlapp .sheet .card {
+  background:var(--g1); border:1px solid var(--gb); border-radius:var(--r3);
+  backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); }
+.tlapp .pane { position:relative; }
+.tlapp .pane > .bd { padding:var(--s2) var(--s3) var(--s3); }
+.tlapp .pane.folded > .bd { padding:var(--s1) var(--s3); }
+.tlapp .pane.folded h2.sect { margin:0; padding-bottom:0; border-bottom:0; }
+.tlapp .pane.folded > .bd > *:not(h2.sect):not([data-hdr]) { display:none !important; }
+.tlapp .pane.folded > .bd [data-hdr] > *:not(h2.sect):not([data-hdr]) { display:none !important; }
+.tlapp .pane.folded { height:auto !important; }
 
+/* ---- 見出し */
+.tlapp h2 { margin:0; }
+.tlapp h2.sect { display:flex; align-items:center; gap:var(--s2); margin:0 0 var(--s2);
+  font-size:var(--fs3); font-weight:700; letter-spacing:.14em; color:var(--tx2);
+  padding-bottom:var(--s1); border-bottom:1px solid var(--gb); min-height:var(--h); }
+.tlapp h2.sect > i { display:none; }
+.tlapp h2.sect { white-space:nowrap; }
+.tlapp #bst-pick { max-width:360px; min-width:0; }
+.tlapp h2.sect.inline { margin:0; padding-bottom:0; border-bottom:0; letter-spacing:.04em;
+  font-size:var(--fs2); color:var(--tx); }
+.tlapp h2.sect .cnt { font-size:var(--fs3); letter-spacing:0; color:var(--tx3); font-weight:400; }
+.tlapp h2.sect .cnt.on { color:var(--warn); font-weight:700; }
+.tlapp h2.sect a { font-size:var(--fs3); letter-spacing:0; font-weight:400; }
+.tlapp h2.sect .qm { margin-left:0; letter-spacing:0; }
 
-/* フェーズの帯。**削った量で移る**ので、区切りが見えるように色を分ける */
-.tlapp .b.name { font-size:9.5px; font-weight:700; letter-spacing:.02em; }
-.tlapp .b.name.ph0 { background:rgba(90,170,255,.20); border-left:0; }
-.tlapp .b.name.ph1 { background:rgba(255,170,90,.22); border-left:2px solid rgba(255,170,90,.85); }
-.tlapp .b.name.ph2 { background:rgba(255,110,140,.22); border-left:2px solid rgba(255,110,140,.85); }
+/* ---- 部品。高さ・丸角・枠・地を 1 そろい */
+.tlapp .btn2, .tlapp select, .tlapp input[type="text"], .tlapp input[type="number"],
+.tlapp .tabs .t, .tlapp .tools2 .sq {
+  height:var(--h); border-radius:var(--r2); border:1px solid var(--gb);
+  background:var(--g2); color:var(--tx); font:inherit; font-size:var(--fs2);
+  padding:0 var(--s2); line-height:calc(var(--h) - 2px); white-space:nowrap;
+  transition:background .12s, border-color .12s; }
+.tlapp .btn2 { cursor:pointer; padding:0 var(--s3); min-width:var(--h); text-align:center; }
+.tlapp .btn2:hover, .tlapp .tabs .t:hover { background:var(--g3); border-color:var(--gb2); }
+.tlapp .btn2[aria-pressed="true"], .tlapp .tabs .t.on {
+  background:rgba(47,143,158,.30); border-color:rgba(90,205,220,.55); color:#eaf7fa; }
+.tlapp .btn2.danger { border-color:rgba(220,90,110,.45); color:#ff97a5; background:rgba(195,56,74,.14); }
+.tlapp .btn2.prime { background:rgba(208,148,55,.22); border-color:rgba(240,190,90,.6);
+  color:#ffe5b4; font-weight:700; }
+.tlapp .btn2.prime:hover { background:rgba(208,148,55,.34); }
+.tlapp .btn2.sq, .tlapp #b-addparty { padding:0; width:var(--h); min-width:var(--h); }
+.tlapp .btn2:disabled { opacity:.4; cursor:default; }
+.tlapp select { padding-right:var(--s1); }
+.tlapp .lnk { background:none; border:0; padding:0; margin:0 0 0 var(--s1);
+  color:var(--acc2); font:inherit; font-size:var(--fs3); cursor:pointer;
+  text-decoration:underline; text-underline-offset:2px; }
+.tlapp .lnk:hover { color:var(--tx); }
+/* 切り替え（seg・tabs）は 1 つの枠の中で仕切る */
+.tlapp .seg, .tlapp .tabs { display:inline-flex; gap:0; padding:0; overflow:hidden;
+  border:1px solid var(--gb); border-radius:var(--r2); background:rgba(0,0,0,.18); }
+.tlapp .seg .btn2, .tlapp .tabs .t { border:0; border-radius:0; background:transparent;
+  min-width:52px; padding:0 var(--s3); color:var(--tx2); cursor:pointer; }
+.tlapp .seg .btn2 + .btn2, .tlapp .tabs .t + .t { border-left:1px solid var(--gb); }
+.tlapp .seg .btn2:hover, .tlapp .tabs .t:hover { background:rgba(255,255,255,.06); }
+.tlapp .seg .btn2[aria-pressed="true"], .tlapp .tabs .t.on {
+  background:rgba(47,143,158,.32); color:#eaf7fa; }
+.tlapp .tabsm { display:flex; gap:var(--s1); }
+.tlapp .tabsm .btn2 { min-width:34px; padding:0 var(--s2); }
+.tlapp .tabsm input { width:72px; }
+.tlapp .fields { display:flex; flex-wrap:wrap; gap:var(--s1) var(--s3); align-items:flex-end; }
+.tlapp .fields.wrapf { gap:var(--s1) var(--s2); }
+.tlapp .f { display:grid; gap:2px; }
+.tlapp .f > span { font-size:var(--fs3); color:var(--tx3); }
+.tlapp .f .val { font-size:var(--fs2); color:var(--tx2); line-height:calc(var(--h) - 2px); }
+.tlapp .f input[type="range"] { accent-color:var(--acc2); vertical-align:middle; }
+.tlapp .pill { display:inline-flex; align-items:center; gap:var(--s1); height:var(--h);
+  padding:0 var(--s3); border-radius:var(--rp); border:1px solid var(--gb); background:var(--g2);
+  font-size:var(--fs3); color:var(--tx3); white-space:nowrap; }
+.tlapp .pill b { font-size:var(--fs2); color:var(--tx); }
 
+/* ---- 畳む摘み */
+.tlapp .fold { width:18px; height:18px; min-width:18px; padding:0; border:0; background:none;
+  cursor:pointer; display:inline-flex; align-items:center; justify-content:center;
+  border-radius:var(--r1); flex:0 0 auto; }
+.tlapp .fold:hover { background:rgba(255,255,255,.09); }
+.tlapp .fold .cv { width:0; height:0; border-left:4px solid transparent;
+  border-right:4px solid transparent; border-top:5px solid var(--tx2); transition:transform .12s; }
+.tlapp .fold[aria-expanded="false"] .cv { transform:rotate(-90deg); }
 
-/* グロッキーのゲージ。**下から積み上がる帯**で、たまり切ると 0 に戻る */
-.tlapp .ggf { position:absolute; bottom:0; background:rgba(255,208,90,.45); }
-.tlapp .b.gg { background:rgba(255,208,90,.9); color:#20180a; font-weight:700;
-  font-size:8.5px; text-align:center; }
-.tlapp .lb .tag { font-size:8px; color:var(--tx3); border:1px solid var(--gb);
-  border-radius:var(--r1); padding:0 3px; margin-left:3px; white-space:nowrap; }
+/* ============ 相手（入力）の帯 ============ */
+.tlapp .cond { margin-bottom:var(--s2); position:relative; z-index:20; }
+.tlapp .cond > .bd { padding:var(--s2) var(--s3); }
+.tlapp .cond .fields.wrapf { align-items:flex-end; }
+.tlapp .cond select { max-width:220px; }
+.tlapp .acts { display:flex; gap:var(--s2); align-items:flex-end; position:relative; }
+/* 表示する項目 */
+.tlapp .vmenu { position:absolute; right:0; top:calc(100% + var(--s1)); z-index:30;
+  width:300px; max-width:calc(100vw - 24px); padding:var(--s3);
+  background:#151a24; border:1px solid var(--gb2); border-radius:var(--r3);
+  box-shadow:0 12px 32px rgba(0,0,0,.55); text-align:left; }
+.tlapp .vmenu .vh { display:flex; align-items:center; gap:var(--s1); font-size:var(--fs3);
+  font-weight:700; letter-spacing:.1em; color:var(--tx3); margin:0 0 var(--s2); }
+.tlapp .vmenu .vh + .vlist, .tlapp .vmenu .vp + .vlist { margin-top:0; }
+.tlapp .vmenu .vp { display:grid; grid-template-columns:repeat(3,1fr); gap:var(--s1);
+  margin-bottom:var(--s3); }
+.tlapp .vmenu .vlist { display:grid; grid-template-columns:repeat(2,1fr); gap:var(--s1) var(--s2);
+  margin-bottom:var(--s3); }
+.tlapp .vmenu .vlist label { display:flex; align-items:center; gap:6px; font-size:var(--fs2);
+  color:var(--tx); cursor:pointer; white-space:nowrap; }
+.tlapp .vmenu .vlist input { accent-color:var(--acc); width:14px; height:14px; margin:0; }
+.tlapp .vmenu .vf { display:flex; justify-content:flex-end; border-top:1px solid var(--gb);
+  padding-top:var(--s2); }
 
-
-/* 相手を 2 人以上選ぶスキル（イブキ（水着）の「イブキのお友達！」など） */
-.tlapp .two2 { display:flex; gap:var(--s1); min-width:0; flex-wrap:wrap; }
-.tlapp .two2 > select { flex:1 1 0; min-width:64px; }
-
-
-/* 「倍率の幅」で、いま選んでいる段 */
-.tlapp .alt .g .pick { color:var(--acc); font-weight:700; }
-
-
-/* 概況の左端。**ボスの顔と英語表記**（2026-09-01 の先生の要望） */
-.tlapp .kpi .kboss { display:flex; flex-direction:column; align-items:center;
-  gap:2px; flex:0 0 auto; padding-right:var(--s3); margin-right:var(--s1);
-  border-right:1px solid var(--ln); align-self:center; min-width:64px; }
-.tlapp .kpi .kboss img { width:42px; height:42px; border-radius:var(--r2);
-  object-fit:cover; background:var(--g2); border:1px solid var(--gb); display:block; }
-.tlapp .kpi .kboss .bn { font-size:9.5px; font-weight:700; color:var(--tx);
-  letter-spacing:.02em; white-space:nowrap; }
-.tlapp .kpi .kboss .bd { font-size:8.5px; color:var(--tx3); white-space:nowrap; }
-
-
-/* 達成率の表の区切り見出し（下振れ・上振れ／個別設定） */
-.rate tr.sep td { text-align:left; background:var(--bg2); color:var(--tx3);
-  font-size:9.5px; font-weight:700; letter-spacing:.04em; padding:4px 7px 3px;
-  border-bottom:1px solid var(--ln); }
-.rate tr.sep + tr td { border-top:0; }
-
-/* 達成率の表の棒に色が付いていなかった（`.rate .bar i` に background が
-   どこにも無く、ずっと透明のまま出ていた。2026-09-01 に気づいた）。
-   上振れ・下振れの 2 行だけは別の色にして、個別設定の 5 行と見分ける */
-.tlapp .rate .bar i { background:var(--acc2); }
-.tlapp .rate tr.lohi .bar i { background:var(--acc); }
-
-/* 通常スキルのバー: 濃いところが発動（演出）、薄いところが効果の持続
-   （2026-09-01 の先生の指示「NSとかの発動時間と効果時間は色を薄くしたりして分けて、
-   そのバー内で区別できるようにして」） */
-/* **`position` を触らない。**`.b` は absolute で left/width を持っているので、
-   relative にすると left が効かなくなって帯が左から順に並び、全部重なった
-   （2026-09-01 の先生の指摘「めちゃくちゃ被ってる」）。
-   中の `.cst` の基準は absolute のままの `.b` でよい */
-.tlapp .b.ns { overflow:hidden; }
-.tlapp .b.ns.eff { background:rgba(47,139,88,.16);
-  box-shadow:inset 0 0 0 1px rgba(47,139,88,.45); }
-.tlapp .b.ns.eff.flat { background:rgba(122,92,62,.16);
-  box-shadow:inset 0 0 0 1px rgba(122,92,62,.42); }
-.tlapp .b.ns.eff > .cst { position:absolute; left:0; top:0; bottom:0;
-  background:var(--grn); border-radius:inherit; min-width:3px; }
-.tlapp .b.ns.eff.flat > .cst { background:var(--tan); }
-.tlapp .b.ns > .nl { font-size:8px; color:var(--tx2); }
-.tlapp .b.ns > .nl { position:relative; z-index:1; }
-/* 通常攻撃は細く。字は出さない */
-.tlapp .b.na { font-size:0; }
-
-/* 概況のシナリオ切り替え。**箱に見せない**——見出しの続きの言葉として置く
-   （2026-09-01 の先生の指摘「ここの与ダメージ選択の表示もキモい」） */
-.tlapp .kpi .kl { display:flex; align-items:baseline; gap:0; }
+/* ============ 結果の帯 ============ */
+.tlapp .kpi { display:flex; align-items:stretch; flex-wrap:wrap; gap:var(--s2) var(--s3);
+  padding:var(--s3); margin-bottom:var(--s2); position:relative; }
+.tlapp .kpi .kboss { display:flex; flex-direction:column; align-items:center; gap:2px;
+  flex:0 0 auto; padding-right:var(--s3); border-right:1px solid var(--gb);
+  align-self:center; min-width:72px; }
+.tlapp .kpi .kboss img { width:48px; height:48px; border-radius:var(--r2); object-fit:cover;
+  background:var(--g2); border:1px solid var(--gb); display:block; }
+.tlapp .kpi .kboss .bn { font-size:var(--fs3); font-weight:700; color:var(--tx); white-space:nowrap; }
+.tlapp .kpi .kboss .bd { font-size:var(--fs3); color:var(--tx3); white-space:nowrap; }
+.tlapp .kpi .kmain { display:flex; flex-wrap:wrap; gap:var(--s2) var(--s4); align-items:stretch;
+  flex:1 1 auto; min-width:0; }
+.tlapp .kpi .k { display:flex; flex-direction:column; gap:2px; min-width:0; justify-content:center; }
+.tlapp .kpi .kmain .k + .k { border-left:1px solid var(--gb); padding-left:var(--s4); }
+.tlapp .kpi .kl { display:flex; align-items:baseline; gap:0; font-size:var(--fs3);
+  color:var(--tx3); letter-spacing:.04em; white-space:nowrap; }
+.tlapp .kpi .kv { font-size:20px; font-weight:700; color:var(--tx); line-height:1.15;
+  white-space:nowrap; }
+.tlapp .kpi .k.prime .kv { font-size:30px; letter-spacing:-.01em; }
+.tlapp .kpi .k.prime .kv small { font-size:16px; font-weight:700; color:var(--acc2); margin-left:var(--s2); }
+.tlapp .kpi .ks { font-size:var(--fs3); color:var(--tx2); white-space:nowrap; overflow:hidden;
+  text-overflow:ellipsis; max-width:520px; }
+.tlapp .kpi .k.win .kv, .tlapp .kpi .k.win .kl { color:var(--acc2); }
+.tlapp .kpi .k.bad .kv, .tlapp .kpi .k.bad .kl { color:var(--warn); }
+.tlapp .kpi .kmore { flex:1 1 100%; display:flex; flex-wrap:wrap; gap:var(--s2) var(--s3);
+  align-items:center; padding-top:var(--s2); border-top:1px solid var(--gb); }
+.tlapp .kpi .kmore .k { flex-direction:row; align-items:baseline; gap:var(--s1); }
+.tlapp .kpi .kmore .kv { font-size:var(--fs); }
+.tlapp .kpi .kmore .ks { max-width:none; }
+.tlapp .kpi .kmore .k.pool { flex-direction:column; align-items:flex-start; }
+.tlapp .kpi .kmore .pill { margin-left:auto; }
+.tlapp .kpi .kmore .pill ~ .pill { margin-left:0; }
+.tlapp .kpi .kbar { flex:1 1 100%; height:4px; background:rgba(255,255,255,.07);
+  border-radius:var(--rp); overflow:hidden; }
+.tlapp .kpi .kbar i { display:block; height:100%; background:var(--acc2); border-radius:var(--rp); }
+.tlapp .kpi .kmt { align-self:center; }
+/* シナリオの切り替え。見出しの続きの言葉として置く */
 .tlapp .kpi .kl .pick { position:relative; display:inline-flex; align-items:baseline;
-  margin-left:4px; color:var(--acc2); font-weight:700; letter-spacing:.03em; }
-.tlapp .kpi .kl .pick .cv { font-style:normal; font-size:7px; padding-left:2px; }
+  margin-left:var(--s1); color:var(--acc2); font-weight:700; }
+.tlapp .kpi .kl .pick .cv { font-style:normal; font-size:8px; padding-left:2px; }
 .tlapp .kpi .kl .pick select { position:absolute; left:0; top:-2px; width:100%;
-  height:calc(100% + 4px); opacity:0; cursor:pointer; appearance:none;
-  -webkit-appearance:none; border:0; padding:0; margin:0; font:inherit; }
+  height:calc(100% + 4px); opacity:0; cursor:pointer; appearance:none; -webkit-appearance:none;
+  border:0; padding:0; margin:0; font:inherit; }
 .tlapp .kpi .kl .pick:hover, .tlapp .kpi .kl .pick:focus-within { color:var(--tx); }
 .tlapp .kpi .kl .pick select:focus { outline:none; }
+.tlapp .kpi .kl .hint { display:inline-block; margin-left:var(--s1); width:14px; height:14px;
+  line-height:12px; text-align:center; border:1px solid var(--gb2); border-radius:50%;
+  font-style:normal; font-size:9px; color:var(--tx3); cursor:help; }
+
+/* ============ 骨格 ============ */
+.tlapp .tlmain { display:grid; gap:var(--s2); grid-template-columns:minmax(0,1fr); }
+.tlapp .tlleft, .tlapp .tlright { display:flex; flex-direction:column; gap:var(--s2); min-width:0; }
+.tlapp .tlleft { position:relative; }
+.tlapp .cgrip { display:none; }
+@media (min-width:1000px) {
+  .tlapp .tlmain { grid-template-columns:var(--lcol, 24%) minmax(0,1fr); }
+  .tlapp .tlmain.wide { --lcol:14px; }
+  .tlapp .tlleft.shut > .pane { display:none; }
+  .tlapp .cgrip { position:absolute; top:0; bottom:0; right:calc(var(--s2) * -1);
+    width:var(--s2); cursor:col-resize; z-index:6; overflow:visible;
+    display:flex; justify-content:center; }
+  .tlapp .cgrip::before { content:''; position:absolute; top:28px; bottom:0; left:50%;
+    width:1px; margin-left:-.5px; background:var(--gb); transition:background .12s; }
+  .tlapp .cgrip:hover::before, .tlapp .cgrip.drag::before { background:var(--acc); }
+  .tlapp .cgrip .fold { position:absolute; top:2px; left:50%; margin-left:-9px;
+    width:18px; height:18px; min-width:18px; background:var(--g2); border:1px solid var(--gb); }
+}
+@media (min-width:1600px) { .tlapp .tlmain { --lcol:360px; } }
+/* スマホは結果とタイムラインを先に。編成はその下 */
+@media (max-width:999px) {
+  .tlapp .tlright { order:-1; }
+  .tlapp .tlmain.wide { grid-template-columns:minmax(0,1fr) !important; }
+  .tlapp .kpi .ks { max-width:none; white-space:normal; }
+  .tlapp .cond select { max-width:none; }
+  .tlapp .cond .f { flex:1 1 44%; }
+  .tlapp .cond .acts { flex:1 1 100%; justify-content:flex-end; }
+  .tlapp .kpi .k.prime .kv { font-size:26px; }
+}
+body.rz, body.rz * { cursor:col-resize !important; user-select:none !important; }
+body.rz.row, body.rz.row * { cursor:row-resize !important; }
+/* パネルの高さ。隙間そのものを掴む */
+.tlapp .vgrip { position:absolute; left:0; right:0; bottom:calc(var(--s2) * -1);
+  height:var(--s2); cursor:row-resize; z-index:5; }
+.tlapp .vgrip::after { content:''; position:absolute; left:0; right:0; top:calc(50% - .5px);
+  height:1px; background:transparent; transition:background .12s; }
+.tlapp .vgrip:hover::after, .tlapp .vgrip.drag::after { background:var(--acc); }
+.tlapp .pane.sized { display:flex; flex-direction:column; }
+.tlapp .pane.sized > .bd { overflow:auto; flex:1 1 auto; min-height:0; }
+.tlapp .pane.sized .picker, .tlapp .pane.sized .errlog { max-height:none; overflow:visible; }
+.tlapp .stage > .vgrip { bottom:0; }
+.tlapp .stage.sized { overflow:auto; }
+.tlapp .stage.sized > .grid2 { min-height:100%; }
+@media (max-width:999px) { .tlapp .vgrip { display:none; }
+  .tlapp .stage .grid2 { grid-template-columns:96px minmax(0,1fr); } }
+
+/* ============ 編成 ============ */
+.tlapp .crewbox { margin-bottom:var(--s1); }
+.tlapp .crewhead { display:grid; grid-template-columns:repeat(var(--n,6), minmax(0,1fr));
+  gap:var(--s1); margin-bottom:var(--s1); }
+.tlapp .crewhead .h { font-size:10px; font-weight:700; letter-spacing:.06em; padding:2px 0;
+  text-align:center; border-radius:var(--r1); min-width:0; }
+.tlapp .crewhead .h.st { color:#ffd9a0; background:rgba(201,138,46,.16); border:1px solid rgba(201,138,46,.4); }
+.tlapp .crewhead .h.sp { color:#a8e0e8; background:rgba(47,143,158,.16); border:1px solid rgba(47,143,158,.4); }
+.tlapp .crew { display:grid; grid-template-columns:repeat(var(--n,6), minmax(0,1fr));
+  gap:var(--s1); align-items:start; }
+.tlapp .crew .cw { display:flex; flex-direction:column; gap:3px; min-width:0; }
+.tlapp .crew .c { position:relative; width:100%; aspect-ratio:1/1; padding:0; cursor:pointer;
+  border:1px solid var(--gb); border-radius:var(--r2); background:var(--g2); overflow:hidden; }
+.tlapp .crew .c img { width:100%; height:100%; object-fit:cover; display:block; }
+.tlapp .crew .c::after { content:""; position:absolute; left:0; right:0; bottom:0; height:44%;
+  background:linear-gradient(180deg,transparent,rgba(0,0,0,.62)); pointer-events:none; }
+.tlapp .crew .c.on { border-color:var(--acc); box-shadow:0 0 0 1px var(--acc); }
+.tlapp .crew .c.empty { display:flex; align-items:center; justify-content:center;
+  border-style:dashed; color:var(--tx3); }
+.tlapp .crew .c .pl { font-size:16px; }
+.tlapp .crew .c .lvb { position:absolute; left:2px; bottom:2px; font-size:10px; padding:0 3px;
+  border-radius:var(--r1); background:rgba(0,0,0,.66); color:#e6ecf3; z-index:1; }
+.tlapp .crew .c .x { position:absolute; top:0; right:0; width:16px; height:16px; border:0; padding:0;
+  background:#c3384ae0; color:#fff; font-size:10px; line-height:16px; cursor:pointer;
+  border-radius:0 var(--r2) 0 var(--r2); display:flex; align-items:center; justify-content:center; z-index:1; }
+.tlapp .crew .stn { width:100%; min-width:0; font-size:var(--fs3); padding:0 2px; text-align:center;
+  text-align-last:center; background:var(--g2); color:var(--tx2); border:1px solid var(--gb);
+  border-radius:var(--r1); height:20px; line-height:18px; appearance:none; -webkit-appearance:none; }
+.tlapp .crew .stn:hover { border-color:var(--acc); color:var(--tx); }
+.tlapp .crew .stn:disabled { opacity:.35; }
+
+/* ============ 生徒を選ぶ ============ */
+.tlapp .filt { display:grid; grid-template-columns:1.3fr 1fr 1fr 1fr; gap:var(--s1) var(--s2);
+  margin-bottom:var(--s2); }
+.tlapp .filt.f2 { grid-template-columns:repeat(4,1fr); }
+.tlapp .filt .f select, .tlapp .filt .f input { width:100%; min-width:0; padding:0 var(--s1); }
+.tlapp .picker { display:grid; grid-template-columns:repeat(5,1fr); gap:var(--s1);
+  max-height:260px; overflow-y:auto; padding-right:2px; }
+.tlapp .picker button { padding:0; border:1px solid var(--gb); border-radius:var(--r2);
+  background:var(--g2); cursor:pointer; overflow:hidden; position:relative; }
+.tlapp .picker button:hover { background:var(--g3); border-color:var(--gb2); }
+.tlapp .picker button[aria-pressed="true"] { border-color:var(--acc); box-shadow:0 0 0 1px var(--acc); }
+.tlapp .picker img { width:100%; aspect-ratio:1/1; object-fit:cover; display:block; }
+.tlapp .picker .n { display:block; font-size:10.5px; color:var(--tx2); padding:2px 2px 3px;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.tlapp .picker button.pk::before { content:''; position:absolute; left:0; top:0; width:3px; height:100%;
+  opacity:.8; z-index:1; }
+.tlapp .picker button.pk.bt-Explosion::before { background:#d64f3f; }
+.tlapp .picker button.pk.bt-Pierce::before    { background:#d9a63c; }
+.tlapp .picker button.pk.bt-Mystic::before    { background:#4a83cf; }
+.tlapp .picker button.pk.bt-Sonic::before     { background:#a869d4; }
+.tlapp .picker button.pk.bt-Normal::before    { background:#8d99a8; }
+.tlapp .picker button.pk.bt-Chemical::before  { background:#48b58c; }
+.tlapp .picker .cst { position:absolute; right:2px; top:2px; font-size:10px; padding:0 3px;
+  border-radius:var(--r1); background:rgba(0,0,0,.62); color:#e6ecf3; }
+@media (max-width:999px) { .tlapp .picker { grid-template-columns:repeat(5,1fr); max-height:300px; } }
+
+/* ============ 育成 ============ */
+.tlapp .who { max-width:180px; }
+.tlapp #bset { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:var(--s1) var(--s2);
+  font-size:var(--fs3); color:var(--tx2); }
+.tlapp #bset label { display:grid; grid-template-columns:52px minmax(0,1fr); align-items:center;
+  gap:var(--s1); min-width:0; }
+.tlapp #bset label > select { width:100%; min-width:0; padding:0 var(--s1); }
+.tlapp #bset .two { display:flex; gap:3px; min-width:0; }
+.tlapp #bset .two > select { flex:1 1 0; min-width:0; width:auto; padding-left:var(--s1); padding-right:2px; }
+.tlapp #bset .two > select + select { flex:0 0 48px; }
+.tlapp #build-note { margin:var(--s2) 0 0; line-height:1.5; }
+
+/* ============ バフを渡す相手・倍率の幅 ============ */
+.tlapp #alts, .tlapp #nstos { display:flex; flex-direction:column; gap:var(--s1); }
+.tlapp .alt { display:flex; align-items:center; gap:var(--s2); padding:var(--s1) var(--s2);
+  border:1px solid var(--gb); border-radius:var(--r2); background:var(--g2); }
+.tlapp .alt img.ic { width:24px; height:24px; border-radius:var(--r1); object-fit:cover; flex:0 0 auto; }
+.tlapp .alt .t { display:flex; flex-direction:column; min-width:0; flex:0 0 108px; line-height:1.3; }
+.tlapp .alt .t b { font-size:var(--fs3); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.tlapp .alt .t .g { font-size:10.5px; color:var(--tx3); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.tlapp .alt .g .pick { color:var(--acc); font-weight:700; }
+.tlapp .alt input[type="range"] { flex:1 1 auto; min-width:40px; accent-color:var(--acc2); height:16px; }
+.tlapp .alt .v { flex:0 0 auto; font-size:var(--fs2); text-align:right; min-width:52px; color:var(--tx); }
+.tlapp .alt .v i { display:block; font-style:normal; font-size:10px; color:var(--tx3); }
+.tlapp .two2 { display:flex; gap:var(--s1); min-width:0; flex-wrap:wrap; flex:1 1 auto; }
+.tlapp .two2 > select { flex:1 1 0; min-width:64px; }
+
+/* ============ 道具帯 ============ */
+.tlapp .tools2 { display:grid; gap:var(--s1); }
+.tlapp #toolpane > .bd { padding:var(--s1) var(--s2); }
+.tlapp .tools2 .r { display:flex; flex-wrap:wrap; gap:var(--s1) var(--s2); align-items:center; }
+.tlapp .tools2 .r .btn2 { min-width:80px; }
+.tlapp .tools2 .r .btn2.sq { min-width:var(--h); }
+.tlapp .tools2 .box { display:flex; align-items:center; gap:var(--s2); flex-wrap:nowrap; }
+.tlapp .tools2 .box .cap { font-size:var(--fs3); color:var(--tx3); }
+.tlapp .tools2 .seg .btn2 { min-width:56px; }
+
+/* ============ タイムライン ============ */
+.tlapp .stage { overflow:hidden; padding-bottom:var(--s2); position:relative; }
+.tlapp .stage .grid2 { display:grid; grid-template-columns:var(--lw) minmax(0,1fr); }
+.tlapp .side { background:rgba(255,255,255,.022); border-right:1px solid var(--gb); }
+.tlapp .view { position:relative; overflow-x:auto; overflow-y:hidden; cursor:crosshair;
+  overscroll-behavior-x:contain; }
+.tlapp .cv { position:relative; }
+.tlapp .lb, .tlapp .ln { border-bottom:1px solid rgba(255,255,255,.055); position:relative; }
+.tlapp .lb { display:flex; align-items:center; gap:var(--s1); padding:0 var(--s2); color:var(--tx2);
+  font-size:var(--fs3); white-space:nowrap; overflow:hidden; }
+.tlapp .lb b { color:var(--tx); font-weight:700; }
+.tlapp .lb .nm { flex:1 1 auto; overflow:hidden; text-overflow:ellipsis; }
+.tlapp .lb .mut { color:var(--tx3); }
+.tlapp .lb .ic { width:15px; height:15px; border-radius:var(--r1); object-fit:cover; flex:0 0 auto;
+  background:var(--bg3); }
+.tlapp .lb .mb { height:16px; line-height:14px; padding:0 4px; font-size:10px; border-radius:var(--r1);
+  border:1px solid var(--gb); background:var(--g2); color:var(--tx3); flex:0 0 auto; }
+.tlapp .lb .tag { font-size:10px; color:var(--tx3); border:1px solid var(--gb); border-radius:var(--r1);
+  padding:0 3px; margin-left:3px; white-space:nowrap; }
+.tlapp .side .lb.na { font-size:10px; line-height:1; }
+.tlapp .side .lb.na .nm { color:var(--tx3); }
+.tlapp .ln.alt { background:rgba(255,255,255,.028); }
+.tlapp .ln.exlane { cursor:copy; }
+.tlapp .ln.exlane:hover { background:rgba(90,140,255,.07); }
+.tlapp .axis { background:rgba(255,255,255,.03); }
+.tlapp .tk { position:absolute; top:0; bottom:0; width:1px; background:rgba(255,255,255,.06); }
+.tlapp .tk.m { background:rgba(255,255,255,.13); }
+.tlapp .tk b { position:absolute; top:2px; left:3px; font-size:var(--fs3); color:var(--tx2); font-weight:600; }
+.tlapp .vg { position:absolute; top:0; bottom:0; width:1px; background:#ffffff0a; pointer-events:none; }
+.tlapp .vg.m { background:#ffffff18; }
+/* 帯 */
+.tlapp .b { position:absolute; top:2px; bottom:2px; border-radius:var(--r1); display:flex;
+  align-items:center; gap:3px; padding:0 4px; overflow:hidden; white-space:nowrap;
+  font-size:var(--fs3); border:1px solid #0007; cursor:default; }
+.tlapp .b.name { background:var(--teal); color:#fff; font-weight:700; letter-spacing:.02em; }
+.tlapp .b.name.ph0 { background:rgba(90,170,255,.20); }
+.tlapp .b.name.ph1 { background:rgba(255,170,90,.22); border-left:2px solid rgba(255,170,90,.85); }
+.tlapp .b.name.ph2 { background:rgba(255,110,140,.22); border-left:2px solid rgba(255,110,140,.85); }
+.tlapp .b.ex { background:var(--red); color:#fff; }
+.tlapp .b.ex2 { background:var(--pur); color:#fff; }
+.tlapp .b.ps { background:var(--grn); color:#fff; }
+.tlapp .b.gro { background:var(--ylw); color:#221900; font-weight:700; }
+.tlapp .b.dbf { background:var(--pur); color:#fff; justify-content:center; padding:0; }
+.tlapp .b.sk { background:var(--acc2); color:#171004; cursor:grab; gap:2px; padding:0 3px; }
+.tlapp .b.sk .ic { width:13px; height:13px; border-radius:var(--r1); flex:0 0 auto; }
+.tlapp .b.sk .cs { font-size:10.5px; font-weight:700; flex:0 0 auto; color:#171004; }
+.tlapp .b.sk .nm { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.tlapp .b.sk:hover { filter:brightness(1.12); }
+.tlapp .b.sk.sel { z-index:3; box-shadow:0 0 0 1px rgba(0,0,0,.55), 0 0 0 2px #f2c14e; }
+.tlapp .b.sk.bad { background:var(--red); color:#fff; }
+.tlapp .b.sk.bad .cs { color:#fff; }
+.tlapp .b.sk.cp { outline:1px dashed #ffe9b0; outline-offset:-2px; }
+.tlapp .b.sk.late { box-shadow:inset 0 0 0 1px var(--tx3); opacity:.92; }
+.tlapp .b.ns { background:var(--grn); color:#fff; justify-content:center; padding:0;
+  font-size:10px; font-weight:700; overflow:hidden; }
+.tlapp .b.ns.flat { background:var(--tan); }
+.tlapp .b.ns.eff { background:rgba(47,139,88,.16); box-shadow:inset 0 0 0 1px rgba(47,139,88,.45); }
+.tlapp .b.ns.eff.flat { background:rgba(122,92,62,.16); box-shadow:inset 0 0 0 1px rgba(122,92,62,.42); }
+.tlapp .b.ns.eff > .cst { position:absolute; left:0; top:0; bottom:0; background:var(--grn);
+  border-radius:inherit; min-width:3px; }
+.tlapp .b.ns.eff.flat > .cst { background:var(--tan); }
+.tlapp .b.ns > .nl { position:relative; z-index:1; font-size:10px; color:var(--tx2); }
+.tlapp .b.na { background:#2b4a7a; font-size:0; }
+.tlapp .b.na.flat { background:#3a3f4a; }
+.tlapp .b.ss { background:var(--pur); color:#fff; }
+.tlapp .b.ss.off { background:#2a3350; color:var(--tx2); }
+.tlapp .b.gg { background:rgba(255,208,90,.9); color:#20180a; font-weight:700; font-size:10px;
+  text-align:center; justify-content:center; }
+.tlapp .ggf { position:absolute; bottom:0; background:rgba(255,208,90,.45); }
+.tlapp .ghost { position:absolute; top:50%; height:2px; transform:translateY(-50%);
+  background:repeating-linear-gradient(90deg,var(--tx3) 0 3px,transparent 3px 6px); opacity:.8; }
+.tlapp .ghost::before { content:''; position:absolute; left:0; top:-4px; width:2px; height:10px;
+  background:var(--tx3); }
+.tlapp .awy { position:absolute; top:0; bottom:0; z-index:5; pointer-events:none;
+  background:repeating-linear-gradient(135deg, rgba(140,140,140,.22) 0 6px, transparent 6px 12px); }
+.tlapp .awy.mob { background:repeating-linear-gradient(135deg, rgba(200,160,60,.18) 0 6px, transparent 6px 12px); }
+/* 折れ線 */
+.tlapp .plot { position:absolute; inset:0; width:100%; height:100%; display:block; }
+.tlapp .plot .dash { stroke:#ffffff30; stroke-width:1; stroke-dasharray:4 4; }
+.tlapp .plot .zero { stroke:#ffffff20; stroke-width:1; }
+.tlapp .plot .cost { stroke:#5a9af0; stroke-width:1.6; fill:none; }
+.tlapp .plot .rec { stroke:#dbe3f5; stroke-width:1.3; fill:none; }
+.tlapp .plot .rec0 { fill:none; stroke:var(--tx3); stroke-width:1; stroke-dasharray:3 3; opacity:.6; }
+.tlapp .yl { position:absolute; left:4px; font-size:10.5px; color:var(--tx2); transform:translateY(-50%); }
+.tlapp .vl { position:absolute; font-size:10.5px; color:var(--tx2); transform:translate(-50%,-100%); }
+/* 再生ヘッド・マーカー */
+.tlapp .ph { position:absolute; top:0; bottom:0; width:1px; background:#ff3b30; z-index:9; pointer-events:none; }
+.tlapp .ph.pin { width:2px; }
+.tlapp .phbox { position:absolute; top:1px; background:#0c1120f2; border:1px solid #ff3b30;
+  border-radius:var(--r2); padding:3px 8px; font-size:var(--fs3); line-height:1.55; white-space:nowrap;
+  z-index:10; pointer-events:none; }
+.tlapp .phbox .neg { color:#ff6b6b; }
+.tlapp .mkl { position:absolute; top:0; bottom:0; width:1px; background:var(--ylw); opacity:.55; z-index:6; }
+.tlapp .mkt { position:absolute; top:0; height:16px; transform:translateX(1px); z-index:7;
+  background:var(--ylw); color:#221900; border:0; border-radius:0 var(--r1) var(--r1) 0; cursor:pointer;
+  font:700 10px/16px inherit; padding:0 5px; max-width:140px; overflow:hidden; text-overflow:ellipsis;
+  white-space:nowrap; }
+.tlapp .mkt:hover { filter:brightness(1.12); }
+
+/* ============ 帯の編集 ============ */
+.tlapp #useedit .f span { color:var(--tx3); }
+.tlapp #useedit input[type="number"] { width:80px; }
+.tlapp #useedit h2.sect.inline { flex:1 1 100%; }
+
+/* ============ 要確認 ============ */
+.tlapp .errlog { background:rgba(0,0,0,.22); border:1px solid var(--gb); border-radius:var(--r2);
+  padding:var(--s1) var(--s2); max-height:220px; overflow-y:auto; overflow-x:hidden;
+  font-size:var(--fs2); line-height:1.6; }
+.tlapp .errlog div { white-space:normal; text-indent:-12px; padding-left:12px; }
+.tlapp .errlog .e { color:#ff8a8a; } .tlapp .errlog .w { color:#ffcf82; } .tlapp .errlog .g { color:#8fe0a1; }
+.tlapp .errlog .egh { text-indent:0; padding:var(--s2) 0 2px; font-size:var(--fs3); font-weight:700;
+  letter-spacing:.1em; color:var(--tx3); border-top:1px solid var(--gb); margin-top:var(--s1); }
+.tlapp .errlog .eg.more .w { color:var(--tx2); }
+.tlapp .errlog .eg.more .g { color:var(--tx2); }
+.tlapp .errlog .eg.more .g::before, .tlapp .errlog .eg.more .w::before { opacity:.7; }
+
+/* ============ ボスの状態 ============ */
+.tlapp #bstate .f { grid-auto-flow:column; align-items:center; gap:var(--s1); }
+.tlapp #bstate input[type="number"] { width:80px; }
+.tlapp #phases input[type="text"] { width:130px; color:var(--tx2); }
+
+/* ============ 達成率 ============ */
+.tlapp .rate { width:100%; border-collapse:collapse; font-size:var(--fs2); margin-top:var(--s2); }
+.tlapp .rate th, .tlapp .rate td { border:0; border-bottom:1px solid var(--gb); padding:4px 8px; text-align:right; }
+.tlapp .rate th { background:transparent; color:var(--tx3); font-weight:700; text-align:center;
+  font-size:var(--fs3); letter-spacing:.06em; border-bottom:1.5px solid var(--gb2); }
+.tlapp .rate tr:last-child td { border-bottom:0; }
+.tlapp .rate td.n { text-align:left; color:var(--tx2); border-right:1px solid var(--gb); white-space:nowrap; }
+.tlapp .rate td.v { padding:0; }
+.tlapp .rate .cell { display:grid; grid-template-columns:minmax(56px,1fr) auto; gap:var(--s2);
+  align-items:center; padding:3px 8px; }
+.tlapp .rate .cell .num { font-size:var(--fs2); }
+.tlapp .rate .bar { display:block; height:7px; border-radius:var(--rp); background:rgba(255,255,255,.07);
+  overflow:hidden; min-width:56px; }
+.tlapp .rate .bar i { display:block; height:100%; border-radius:var(--rp); background:var(--acc2); }
+.tlapp .rate tr.lohi .bar i { background:var(--acc); }
 .tlapp .rate tr[data-scen] { cursor:pointer; }
 .tlapp .rate tr[data-scen]:hover td { background:rgba(255,255,255,.04); }
 .tlapp .rate tr.now td { background:rgba(201,138,46,.13); }
-.tlapp .rate tr.now td.n { color:var(--tx); font-weight:700;
-  box-shadow:inset 2px 0 0 var(--acc2); }
+.tlapp .rate tr.now td.n { color:var(--tx); font-weight:700; box-shadow:inset 2px 0 0 var(--acc2); }
+.tlapp .rate tr.sep td { text-align:left; color:var(--tx3); font-size:var(--fs3); font-weight:700;
+  letter-spacing:.04em; padding:4px 8px 3px; }
+.tlapp .goal { font-size:var(--fs3); color:var(--tx2); margin:var(--s2) 0 0; line-height:1.6; }
+.tlapp #b-goal { min-width:80px; }
 
-/* 編成: STRIKER と SPECIAL を横に並べて、枠の数だけ列を作る
-   （2026-09-01 の先生の指摘「余白もったいない」） */
-.crewbox { margin-bottom:6px; }
-.crewhead { display:grid; grid-template-columns:repeat(var(--n,6), minmax(0,1fr));
-  gap:3px; margin-bottom:3px; }
-.crewhead .h { font-size:8.5px; font-weight:700; letter-spacing:.04em;
-  padding:1px 0; text-align:center; border-radius:3px; min-width:0; }
-.crewhead .h.st { color:#ffd9a0; background:rgba(201,138,46,.16); border:1px solid rgba(201,138,46,.4); }
-.crewhead .h.sp { color:#a8e0e8; background:rgba(47,143,158,.16); border:1px solid rgba(47,143,158,.4); }
-.crew { grid-template-columns:repeat(var(--n,6), minmax(0,1fr)); align-items:start; }
-/* 札とその下の「開始スキルの番号」 */
-.crew .cw { display:flex; flex-direction:column; gap:2px; min-width:0; }
-.crew .cw > .c { width:100%; }
-.crew .stn { width:100%; min-width:0; font-size:9.5px; padding:0 2px; text-align:center;
-  text-align-last:center; background:var(--bg2); color:var(--tx2);
-  border:1px solid var(--ln2); border-radius:3px; height:17px; line-height:15px;
-  appearance:none; -webkit-appearance:none; }
-.crew .stn:hover { border-color:var(--acc); color:var(--tx); }
-.crew .cw { gap:3px; }
-.crew .stn:disabled { opacity:.35; }
-/* 概況: 右の札まで空きが出ないように、箱を横いっぱいに散らす */
-.tlapp .kpi .kres { flex:1 1 auto; justify-content:space-between; }
+/* ============ シート ============ */
+.tlapp .sheet, .sheet { position:fixed; inset:0; z-index:99; background:#000a; display:flex;
+  align-items:center; justify-content:center; }
+.sheet .card { background:#141821; border:1px solid var(--gb, #37404f); border-radius:10px;
+  padding:14px; width:min(680px, 94vw); max-height:92vh; overflow:auto; display:flex;
+  flex-direction:column; gap:10px; color:#eef1f6; font-size:13px; }
+.sheet h3 { margin:0; font-size:14px; }
+.sheet textarea { width:100%; height:240px; resize:vertical; background:#0a0d18; color:#eef1f6;
+  border:1px solid #37404f; border-radius:6px; padding:8px;
+  font:12px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; }
+.sheet .row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+.sheet .btn2 { height:26px; border-radius:6px; border:1px solid #37404f; background:#1b2029;
+  color:#eef1f6; font:inherit; font-size:12px; padding:0 12px; cursor:pointer; }
+.sheet .errlog { background:rgba(0,0,0,.22); border:1px solid #37404f; border-radius:6px;
+  padding:4px 8px; font-size:12px; line-height:1.6; max-height:220px; overflow:auto; }
+.sheet .errlog .g { color:#8fe0a1; } .sheet .errlog .w { color:#ffcf82; } .sheet .errlog .e { color:#ff8a8a; }
+.sheet .tabs { display:inline-flex; border:1px solid #37404f; border-radius:6px; overflow:hidden; }
+.sheet .tabs .t { border:0; background:transparent; color:#b3bccb; font:inherit; font-size:12px;
+  padding:0 12px; height:26px; cursor:pointer; }
+.sheet .tabs .t + .t { border-left:1px solid #37404f; }
+.sheet .tabs .t.on { background:rgba(47,143,158,.32); color:#eaf7fa; }
+.sheet .mut { color:#b3bccb; } .sheet .tiny { font-size:11px; }
+.sheet a { color:#d09437; }
 
-/* タイムラインの縦の摘みが横スクロールバーに重なっていた
-   （2026-09-01 の先生の指摘）。摘みのぶんだけ下に場所を空ける */
-.tlapp .stage { padding-bottom:var(--s2); }
-/* 「自動に戻す」のような、文の中に置く小さなボタン */
-.tlapp .lnk { background:none; border:0; padding:0; margin:0 0 0 4px;
-  color:var(--acc); font:inherit; font-size:9px; cursor:pointer;
-  text-decoration:underline; text-underline-offset:2px; }
-.tlapp .lnk:hover { color:var(--tx); }
-/* 倒しきったときだけ出るスコアの箱 */
-.tlapp .kpi .k.win .kv { color:var(--acc2); }
-.tlapp .kpi .k.win .kl { color:var(--acc2); }
-/* 突破率が 50% を切ったとき。**注意の色は「危ない」ではなく「足りない」** */
-.tlapp .kpi .k.bad .kv { color:var(--warn, #d97757); }
-.tlapp .kpi .k.bad .kl { color:var(--warn, #d97757); }
-/* 「通常」の見出しがレーンの高さに入りきらず潰れていた */
-.tlapp .side .lb.na { font-size:8px; line-height:1; }
-.tlapp .side .lb.na .nm { color:var(--tx3); }
-.awy { position:absolute; top:0; bottom:0; z-index:5; pointer-events:none;
-  background:repeating-linear-gradient(135deg, rgba(140,140,140,.22) 0 6px, transparent 6px 12px); }
-.awy.mob { background:repeating-linear-gradient(135deg, rgba(200,160,60,.18) 0 6px, transparent 6px 12px); }
+/* ============ 上の帯。この画面では細くする ============ */
+.topbar { z-index:40; background:rgba(11,14,21,.72); backdrop-filter:blur(12px);
+  -webkit-backdrop-filter:blur(12px); border-bottom:1px solid rgba(255,255,255,.09); }
+.topbar-inner { max-width:none; padding:0 10px; gap:8px; height:28px; }
+.topbar-name { font-size:12px; font-weight:700; color:#b3bccb; }
+.topbar-name:hover { color:#eef1f6; }
+.topbar-tools { margin-left:8px; padding:1px 9px; font-size:11px; gap:4px; border-radius:999px; }
+.topbar-tools svg { width:11px; height:11px; }
+.topbar .share { padding:1px 10px; font-size:11px; gap:4px; border-radius:999px; }
+.topbar .share-icon { width:11px; height:11px; }
+
+/* ============ 数字の出どころ ============ */
+.tlapp details.src { border-top-color:var(--gb); margin-top:var(--s3); }
+.tlapp details.src summary { color:var(--tx2); }
+.tlapp details.src b { color:var(--tx); }
+.tlapp details.src p, .tlapp details.src li { color:var(--tx2); }
+.tlapp details.src code { background:var(--bg2); color:var(--tx); border:1px solid var(--gb); }
+.tlapp details.src a { color:var(--acc2); }
+
+/* ============ 表示の取捨選択 ============
+   `.tlapp` に `v-<key>-off` が付いたら `.vw-<key>` を消す。
+   組み直された中身にも効くように、要素ではなく根に印を付ける */
+.tlapp.v-kmore-off .vw-kmore, .tlapp.v-note-off .vw-note, .tlapp.v-build-off .vw-build,
+.tlapp.v-nsto-off .vw-nsto, .tlapp.v-alts-off .vw-alts, .tlapp.v-bst-off .vw-bst,
+.tlapp.v-rate-off .vw-rate, .tlapp.v-lane-rec-off .vw-lane-rec, .tlapp.v-lane-dbf-off .vw-lane-dbf,
+.tlapp.v-lane-na-off .vw-lane-na, .tlapp.v-lane-ss-off .vw-lane-ss { display:none !important; }
 </style>
 </head>
 <body>
@@ -938,40 +656,96 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
 })();
 </script>
 
-<div class="tlapp">
+<div class="tlapp" id="tlapp">
 
-  <!-- ============ 概況（数字だけ先に読める帯） ============ -->
+  <!-- ============ 相手（入力）と主な操作 ============
+       **上から「入力 → 結果 → タイムライン → 詳細」の順**（2026-09-02 の UI 一新）。
+       それまで「相手」はタイムラインの下にあって、ボスを変えるのに一度下まで
+       スクロールしていた -->
+  <div class="pane cond" id="condbar"><div class="bd">
+    <div class="fields wrapf">
+      <label class="f"><span>ボス</span><select id="i-boss"></select></label>
+      <label class="f"><span>難易度</span><select id="i-diff"></select></label>
+      <label class="f"><span>地形</span><select id="i-terr"></select></label>
+      <label class="f"><span>装甲</span><select id="i-armor"></select></label>
+      <label class="f"><span>フェーズ</span><select id="i-phase"><option>なし</option></select></label>
+      <label class="f"><span>敵Lv</span><span id="i-lv" class="val">—</span></label>
+      <label class="f"><span>制限</span><select id="i-lim"></select></label>
+      <span class="mut tiny" id="ph-boss" hidden></span>
+      <span class="sp"></span>
+      <span class="acts" id="topact">
+        <button type="button" class="btn2 prime" data-act="import" id="b-import">TL を読み込む</button>
+        <button type="button" class="btn2" data-act="export">書き出し</button>
+        <button type="button" class="btn2" data-act="view" id="b-view" aria-expanded="false">表示</button>
+        <div class="vmenu" id="viewmenu" hidden>
+          <div class="vh">表示する項目
+            <button type="button" class="qm" data-hint="見たいものだけ残せます。選んだ内容はこのブラウザに残り、次に開いたときも同じです。
+「かんたん」がいちばん軽い表示で、最初はこれです。
+畳んだ・大きさを変えた、も含めて全部もとに戻すのは「表示を戻す」。"></button>
+          </div>
+          <div class="vp" id="vpreset">
+            <button type="button" class="btn2" data-preset="lite">かんたん</button>
+            <button type="button" class="btn2" data-preset="build">組む</button>
+            <button type="button" class="btn2" data-preset="check">検証</button>
+          </div>
+          <div class="vlist">
+            <label><input type="checkbox" data-view="kmore">結果の詳細</label>
+            <label><input type="checkbox" data-view="note">内訳と前提</label>
+            <label><input type="checkbox" data-view="build">育成</label>
+            <label><input type="checkbox" data-view="nsto">バフを渡す相手</label>
+            <label><input type="checkbox" data-view="alts">倍率の幅</label>
+            <label><input type="checkbox" data-view="bst">ボスの状態</label>
+            <label><input type="checkbox" data-view="rate">シナリオ別達成率</label>
+            <label><input type="checkbox" data-view="src">数字の出どころを開く</label>
+          </div>
+          <div class="vh">タイムラインのレーン</div>
+          <div class="vlist">
+            <label><input type="checkbox" data-view="lane-rec">回復力</label>
+            <label><input type="checkbox" data-view="lane-dbf">デバフ数</label>
+            <label><input type="checkbox" data-view="lane-na">通常攻撃</label>
+            <label><input type="checkbox" data-view="lane-ss">サブスキル</label>
+          </div>
+          <div class="vf">
+            <button type="button" class="btn2" data-act="uireset"
+                    title="畳んだ・大きさを変えた・表示の選択を全部もとに戻す">表示を戻す</button>
+          </div>
+        </div>
+      </span>
+    </div>
+  </div></div>
+
+  <!-- ============ 結果（数字だけ先に読める帯） ============ -->
   <div class="kpi" id="kpi"></div>
 
   <!-- ============ 本体 ============ -->
   <div class="tlmain" id="tlmain">
 
-    <!-- ---------- 左 ---------- -->
+    <!-- ---------- 左: 誰で（入力） ---------- -->
     <div class="tlleft" id="tlleft">
       <div class="cgrip" id="cgrip" title="ドラッグで幅を変える／ダブルクリックで戻す">
         <button type="button" class="fold" id="b-side" aria-expanded="true"
                 title="左の列を畳む／出す"><span class="cv"></span></button>
       </div>
 
-      <div class="pane"><div class="bd">
+      <div class="pane" data-fold="crew" id="crewpane"><div class="bd">
         <h2 class="sect"><i></i>編成
           <span class="tabsm" id="ptabs"></span>
           <button type="button" class="btn2" id="b-addparty" title="パーティーを足す">＋</button>
-          <span style="flex:1 1 auto"></span>
+          <span class="sp"></span>
           <span class="seg" id="modeseg">
             <button type="button" class="btn2" data-mode="6" aria-pressed="true">6人</button>
             <button type="button" class="btn2" data-mode="10">10人</button>
           </span>
         </h2>
-        <div class="crewbox">
+        <div class="crewbox" id="crewbox">
           <div class="crewhead" id="crewhead"></div>
           <div class="crew" id="crew-all"></div>
         </div>
       </div></div>
 
-      <div class="pane"><div class="bd">
+      <div class="pane" data-fold="pick"><div class="bd">
         <h2 class="sect"><i></i>生徒を選ぶ
-          <span style="flex:1 1 auto"></span>
+          <span class="sp"></span>
           <span class="mut tiny" id="pick-n"></span>
         </h2>
         <div class="filt">
@@ -988,17 +762,17 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
             <option value="n">名前</option><option value="c">EXコスト</option>
             <option value="d">EX演出の長さ</option><option value="id">実装順</option></select></label>
         </div>
-        <div class="row" style="margin-bottom:5px">
+        <div class="row" style="margin-bottom:var(--s2)">
           <button type="button" class="btn2" id="b-more" aria-pressed="false">詳細フィルター</button>
           <button type="button" class="btn2" id="b-reset">条件をクリア</button>
         </div>
         <div class="picker" id="picker"></div>
       </div></div>
 
-      <div class="pane"><div class="bd">
+      <div class="pane vw-build" data-fold="build"><div class="bd">
         <h2 class="sect"><i></i>育成
           <select id="g-who" class="who"></select>
-          <span style="flex:1 1 auto"></span>
+          <span class="sp"></span>
           <button type="button" class="btn2" id="b-ball" title="いま出ている値を編成の全員へ">全員へ</button>
         </h2>
         <div class="bset" id="bset">
@@ -1017,34 +791,25 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
         <p class="mut tiny" id="build-note"></p>
       </div></div>
 
-      <div class="pane" id="nstopane" hidden><div class="bd">
+      <div class="pane vw-nsto" id="nstopane" data-fold="nsto" hidden><div class="bd">
         <h2 class="sect"><i></i>バフを渡す相手
-          <span style="flex:1 1 auto"></span>
-          <span class="mut tiny">相手を選ぶスキルを持つ子</span>
+          <button type="button" class="qm" data-hint="「味方1人」のスキルは、相手を選ぶまで誰にも乗りません。EX は帯をクリック、通常スキルはここで選びます。"></button>
         </h2>
         <div id="nstos"></div>
       </div></div>
 
-      <div class="pane" id="altpane" hidden><div class="bd">
+      <div class="pane vw-alts" id="altpane" data-fold="alts" hidden><div class="bd">
         <h2 class="sect"><i></i>倍率の幅
-          <span style="flex:1 1 auto"></span>
-          <span class="mut tiny">条件でダメージが変わるもの。ここは既定で、1 発ずつは帯をクリック</span>
+          <button type="button" class="qm" data-hint="条件でダメージが変わるスキル。ここは既定で、1 発ずつ変えるなら帯をクリックします。
+段（スタック）だけで割れているものは、撃った回数から自動で決まります。"></button>
         </h2>
         <div id="alts"></div>
       </div></div>
-
-      <div class="pane"><div class="bd">
-        <h2 class="sect"><i></i>気をつけること
-          <span style="flex:1 1 auto"></span>
-          <a href="#src" style="color:var(--acc);font-size:9px">数字の出どころ</a>
-        </h2>
-        <div class="errlog" id="errlog"></div>
-      </div></div>
     </div>
 
-    <!-- ---------- 右 ---------- -->
+    <!-- ---------- 右: タイムラインと詳細 ---------- -->
     <div class="tlright">
-      <div class="pane"><div class="bd tools2">
+      <div class="pane" id="toolpane"><div class="bd tools2">
         <div class="r">
           <button type="button" class="btn2" data-act="undo" id="b-undo" title="Ctrl+Z">↶ 戻す</button>
           <button type="button" class="btn2" data-act="redo" id="b-redo" title="Ctrl+Y / Ctrl+Shift+Z">↷ 進む</button>
@@ -1054,20 +819,17 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
           <button type="button" class="btn2" data-act="mark">マーカー</button>
           <span class="vr"></span>
           <div class="box"><span class="cap">グリッド</span>
+            <span class="seg">
             <button type="button" class="btn2" data-grid="1">1f</button>
             <button type="button" class="btn2" data-grid="3" aria-pressed="true">0.1秒</button>
-            <button type="button" class="btn2" data-grid="30">1秒</button></div>
-          <span style="flex:1 1 auto"></span>
-          <button type="button" class="btn2" data-act="export">書き出し</button>
-          <button type="button" class="btn2" data-act="import">読み込み</button>
-          <button type="button" class="btn2" data-act="uireset"
-                  title="畳んだ・大きさを変えた、を全部もとに戻す">表示を戻す</button>
+            <button type="button" class="btn2" data-grid="30">1秒</button></span></div>
+          <span class="sp"></span>
           <button type="button" class="btn2 sq" data-act="keys" title="キー操作の一覧">?</button>
         </div>
       </div></div>
 
       <div class="stage" id="stage">
-        <div class="grid2" style="--lw:110px">
+        <div class="grid2" style="--lw:120px">
           <div class="side" id="side"></div>
           <div class="view" id="view" tabindex="0"><div class="cv" id="cv"></div></div>
         </div>
@@ -1077,41 +839,36 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
         <div class="fields wrapf" id="useedit"></div>
       </div></div>
 
-      <div class="pane"><div class="bd">
-        <div class="fields wrapf">
-          <h2 class="sect inline"><i></i>相手</h2>
-          <label class="f"><span>ボス</span><select id="i-boss"></select></label>
-          <label class="f"><span>難易度</span><select id="i-diff"></select></label>
-          <label class="f"><span>地形</span><select id="i-terr"></select></label>
-          <label class="f"><span>装甲</span><select id="i-armor"></select></label>
-          <label class="f"><span>フェーズ</span><select id="i-phase"><option>なし</option></select></label>
-          <label class="f"><span>敵Lv</span><span id="i-lv" class="val">—</span></label>
-          <label class="f"><span>制限</span><select id="i-lim"></select></label>
-          <span class="vr"></span>
-          <span class="fields" id="phases"></span>
-          <span style="flex:1 1 auto"></span>
-          <span class="mut tiny" id="ph-boss"></span>
-        </div>
-        <div class="mut tiny" id="groggy" style="margin-top:4px"></div>
-        <div class="row" style="margin-top:6px;align-items:center">
-          <h2 class="sect inline"><i></i>ボスの状態</h2>
-          <select id="bst-pick" title="このボスの説明文から拾ったギミック"></select>
-          <button type="button" class="btn2" data-act="bstadd">＋ 足す</button>
-          <span class="mut tiny">ギミックで変わるぶんと、ボスに当たらない区間を置きます</span>
+      <div class="pane" id="notepane" data-fold="note"><div class="bd">
+        <h2 class="sect"><i></i>要確認
+          <span class="cnt" id="note-n"></span>
+          <button type="button" class="qm" data-hint="置いた TL で、決めないと数字が変わるところ。
+「内訳と前提」を出すと、コスト回復力の内訳や、この道具が数えていないものも見えます（右上の「表示」）。"></button>
+          <span class="sp"></span>
+          <a href="#src">数字の出どころ</a>
+        </h2>
+        <div class="errlog" id="errlog"></div>
+      </div></div>
+
+      <div class="pane vw-bst" id="bstpane" data-fold="bst"><div class="bd">
+        <h2 class="sect"><i></i>ボスの状態
           <button type="button" class="qm" data-hint="ギミック（被ダメージ率・防御力・会心抵抗）は、効いている秒の間だけ掛かります。
 「ボスに当たらない」は、雑魚処理や移動でボスが盤に居ない区間です。その間の EX・NS・通常攻撃はボスの HP から引きません。
 ケセドは 152 秒のうち 121 秒がこれで、置かないと与ダメージが実測の 1.4 倍近くに出ます。
-どちらも、いつ入るかはデータに無いので置くのは先生です。">?</button>
-        </div>
+どちらも、いつ入るかはデータに無いので置くのは先生です。"></button>
+          <span class="sp"></span>
+          <select id="bst-pick" title="このボスの説明文から拾ったギミック"></select>
+          <button type="button" class="btn2" data-act="bstadd">＋ 足す</button>
+        </h2>
         <div class="fields wrapf" id="bstate"></div>
+        <div class="fields wrapf" id="phases" style="margin-top:var(--s2)"></div>
+        <div class="mut tiny" id="groggy" style="margin-top:var(--s1)"></div>
       </div></div>
 
-      <div class="pane"><div class="bd">
-        <div class="row" style="align-items:flex-start">
-          <div style="min-width:0">
-            <h2 class="sect"><i></i>シナリオ別達成率</h2>
-          </div>
-          <span style="flex:1 1 auto"></span>
+      <div class="pane vw-rate" id="ratepane" data-fold="rate"><div class="bd">
+        <div class="row" style="align-items:center">
+          <h2 class="sect inline"><i></i>シナリオ別達成率</h2>
+          <span class="sp"></span>
           <div class="tabs" id="rtabs"><button type="button" class="t on" data-tab="0">会心/EX/NS</button><button type="button" class="t" data-tab="1">目標</button></div>
           <button type="button" class="btn2" id="b-goal" data-act="goal">目標設定</button>
         </div>
@@ -1561,10 +1318,12 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
 </div>
 
 <script>window.TOUR = {"key": "tl", "steps": [
-  {"el": "#crew-m", "t": "編成", "d": "STRIKER は 4 人（10 人編成なら 6 人）、SPECIAL は 2 人（同 4 人）。下の一覧から選ぶと、その子の配置に合う枠へ入ります。"},
-  {"el": "#g-who", "t": "育成は生徒ごと", "d": "対象を選んでから Lv や装備を変えます。「全員へ」で、いま出ている値を編成の全員に配れます。"},
-  {"el": "#startsk", "t": "開始スキル", "d": "並べたとおりに撃てる順番です。通常編成は 5 人ぶん、制約解除決戦は 9 人ぶん。"},
-  {"el": "#view", "t": "タイムライン", "d": "EX の行をクリックするとスキルを置けます。置いた帯を選ぶと、下に「誰に渡すか」「どの形態か」が出ます。Ctrl+Z で戻せます。"}
+  {"sel": "#condbar", "t": "相手", "d": "ボス・難易度・地形・装甲をここで決めます。ボスがいつ EX を撃つかはゲームのデータから出しています。"},
+  {"sel": "#b-import", "t": "TL を読み込む", "d": "動画の概要欄の TL をそのまま貼れます。育成・いつ撃つか・誰に渡すか、の 3 つだけ読みます。"},
+  {"sel": "#kpi", "t": "結果", "d": "与ダメージと、ボス HP の何 % かがここ。「詳細」で置いた EX やコストも出ます。"},
+  {"sel": "#crewpane", "t": "編成", "d": "STRIKER は 4 人（10 人編成なら 6 人）、SPECIAL は 2 人（同 4 人）。下の一覧から選ぶと、その子の配置に合う枠へ入ります。"},
+  {"sel": "#view", "t": "タイムライン", "d": "EX の行をクリックするとスキルを置けます。置いた帯を選ぶと、下に「誰に渡すか」「どの形態か」が出ます。Ctrl+Z で戻せます。"},
+  {"sel": "#b-view", "t": "表示", "d": "見たい項目だけ残せます。最初はいちばん軽い「かんたん」。自分で組むなら「組む」、数字を疑うなら「検証」。"}
 ]};</script>
 <script src="../tour.js?v=2"></script>
 <script src="../share.js?v=3"></script>
@@ -2599,8 +2358,8 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
                   buffTip(null, (a1 + b1) / 2, r, 'enemy')) + '">' +
               ((b1 - a1) * px >= 12 ? cnt : '') + '</div>';
     }
-    side += lbl(H.dbf, '<span class="nm">デバフ数</span>');
-    cv += lane(H.dbf, dseg);
+    side += lbl(H.dbf, '<span class="nm">デバフ数</span>', 'vw-lane-dbf');
+    cv += lane(H.dbf, dseg, 'vw-lane-dbf');
 
     var run = costRun(dur), sm = run.sim;
     // **回復力は時間で変わる。**セイアのような「◯秒間コスト回復力増加」が
@@ -2620,7 +2379,7 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
     var recNow = recPts[recPts.length - 1][1];
     side += lbl(H.rec, '<b title="戦闘開始から ' + TE.REC_DELAY +
       ' 秒はコストが貯まりません（Excel/ConstCombatExcelTable の PlayerRegenCostDelay）。' +
-      'そのあいだレーンは 0 です">回復力</b><span class="mb">最大 ' + recMax + '</span>');
+      'そのあいだレーンは 0 です">回復力</b><span class="mb">最大 ' + recMax + '</span>', 'vw-lane-rec');
     cv += lane(H.rec,
       '<svg class="plot" viewBox="0 0 ' + W + ' ' + H.rec + '" preserveAspectRatio="none">' +
       '<polyline class="rec0" points="' + poly([[0, rec], [dur, rec]], px, H.rec, ymax, 8) + '"/>' +
@@ -2628,7 +2387,7 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
       '<span class="vl" style="left:44px;top:' +
       clamp(H.rec - 8 - (rec / ymax) * (H.rec - 16) - 10, 1, H.rec - 12) +
       'px">常時 ' + rec +
-      (recMax > rec ? '／最大 ' + recMax : '') + '</span>');
+      (recMax > rec ? '／最大 ' + recMax : '') + '</span>', 'vw-lane-rec');
     void recNow;
 
     side += lbl(H.cost, '<b>コスト</b>');
@@ -2741,12 +2500,12 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
       }
       // **発数は出さない**（2026-09-01 の先生の指示。数はツールチップにある）
       void naN;
-      side += lbl(H.na, '<span class="nm">通常</span>', 'na');
-      cv += lane(H.na, nab);
+      side += lbl(H.na, '<span class="nm">通常</span>', 'na vw-lane-na');
+      cv += lane(H.na, nab, 'vw-lane-na');
     }
     // SS = サブスキル。常時効いているものは端から端までの帯にする
-    side += lbl(H.ss, '<b>SS</b><span class="mb">サブスキル</span>');
-    cv += lane(H.ss, '');
+    side += lbl(H.ss, '<b>SS</b><span class="mb">サブスキル</span>', 'vw-lane-ss');
+    cv += lane(H.ss, '', 'vw-lane-ss');
     var ssn = 0;
     for (var v2 = 0; v2 < SLOTS; v2++) {
       var vp = st.party[v2];
@@ -2758,16 +2517,16 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
       if (!cnt[1]) { continue; }
       ssn++;
       var snm = ((B.skname || {})[vp.id] || {}).ExtraPassive || 'サブスキル';
-      side += lbl(H.ss, img(vp.id, 'ic') + '<span class="nm">' + esc(vp.n) + '</span>');
+      side += lbl(H.ss, img(vp.id, 'ic') + '<span class="nm">' + esc(vp.n) + '</span>', 'vw-lane-ss');
       cv += lane(H.ss,
         '<div class="b ss off" style="left:0;width:' + W + 'px" title="' + esc(snm) +
         '\n発動して効くもの ' + cnt[1] + ' 件は、引き金が要るのでまだ数えていません' +
         (cnt[0] ? '\n常時 ' + cnt[0] + ' 件はステータスに乗せています' : '') + '">' +
-        esc(snm) + '　発動ぶん ' + cnt[1] + ' 件（未対応）</div>');
+        esc(snm) + '　発動ぶん ' + cnt[1] + ' 件（未対応）</div>', 'vw-lane-ss');
     }
     if (!ssn) {
-      side += lbl(H.ss, '<span class="mut">（引き金つきは無し）</span>');
-      cv += lane(H.ss, '');
+      side += lbl(H.ss, '<span class="mut">（引き金つきは無し）</span>', 'vw-lane-ss');
+      cv += lane(H.ss, '', 'vw-lane-ss');
     }
 
     for (var m = 0; m < st.mk.length; m++) {
@@ -2934,7 +2693,8 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
     try {
       for (i = 0; i < localStorage.length; i++) {
         k = localStorage.key(i);
-        if (k && (k.indexOf('tl-fold-') === 0 || k.indexOf('tl-sz-') === 0 || k === 'tl-shut')) {
+        if (k && (k.indexOf('tl-fold-') === 0 || k.indexOf('tl-sz-') === 0 || k === 'tl-shut' ||
+                  k === 'tl-view')) {
           ks.push(k);
         }
       }
@@ -2951,13 +2711,14 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
     $('tlmain').style.removeProperty('--lcol');
     $('tlleft').classList.remove('shut');
     $('b-side').setAttribute('aria-expanded', 'true');
+    setView(VIEW_PRESET.lite, 'lite');
     fit();
   }
   function keyHelp() { alert('Ctrl+Z 戻す／Ctrl+Y（Ctrl+Shift+Z）進む／' +
         'Ctrl+ホイール 拡大／Shift+ホイール・中ドラッグ 横移動／W S 拡大／A D 横移動／' +
         '←→ 1コマ（Shift で 10 コマ、Ctrl で 1 秒）／Home 全体／End 末尾／' +
         'EX レーンをクリックでスキルを置く／バーをドラッグで移動／Delete で消す／Esc 解除／' +
-        '畳んだ・大きさを変えたのを戻すのは上の「表示を戻す」'); }
+        '畳んだ・大きさを変えたのを戻すのは右上の「表示」の中の「表示を戻す」'); }
   function kpi() {
     var r = diff(), hp = (r.bs && r.bs.hp) || 0, t = total(r), run = costRun(r.dur || 240);
     // **100% で止めるのは棒だけ。**数字は本当の値を出す（超えたら倒しきれる）
@@ -3048,31 +2809,36 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
     // **左端にボスの顔と英語表記。**難易度ごとに数字だけ並んでいると
     // どのボスを見ているか分からなかった（2026-09-01 の先生の指摘）
     var bb = boss();
+    // **主は「与ダメージ」1 つだけ。**ボス HP に対する % はその横に添える。
+    // 置いた EX・終わりのコスト・編成・条件の札は「結果の詳細」を開いたときだけ
+    // （2026-09-02 の UI 一新。7 箱＋4 札が同格に並んでいて、何を読めばいいか決まらなかった）
+    var moreOn = viewOn('kmore');
     $('kpi').innerHTML =
       '<div class="kboss" title="' + esc(bb.n + '　' + r.df) + '">' +
       '<img src="../img/bossicon_' + esc(bb.path) + '.webp" alt="" loading="lazy">' +
       '<span class="bn">' + esc(bb.dev || bb.n) + '</span>' +
       '<span class="bd">' + esc(r.df) + '</span></div>' +
-      '<div class="kres">' +
-      box('与ダメージ<span class="pick" title="どの振れ方で見るか">' + esc(sc.lab) +
-          '<i class="cv">\u25be</i><select id="k-scen">' + so + '</select></span>',
-          t.n ? n0(v) : '—',
-          'EX ' + ts.ex.n + '・NS ' + ts.ns.n + '・通常 ' + ts.na.n + ' 発' + band) +
-      box('ボス HP に対して', hp ? real.toFixed(1) + '%' : '—',
-          hp ? (real >= 100 ? '倒しきれます（HP ' + n0(hp) + '）' : n0(hp)) : '—') +
+      '<div class="kmain">' +
+      '<div class="k prime"><span class="kl">与ダメージ<span class="pick" title="どの振れ方で見るか">' +
+        esc(sc.lab) + '<i class="cv">▾</i><select id="k-scen">' + so + '</select></span></span>' +
+        '<b class="kv">' + (t.n ? n0(v) : '—') +
+        (hp && t.n ? '<small>' + real.toFixed(1) + '%</small>' : '') + '</b>' +
+        '<span class="ks">' + (hp ? (real >= 100 ? '倒しきれます・' : '') + 'ボス HP ' + n0(hp) + '　' : '') +
+        'EX ' + ts.ex.n + '・NS ' + ts.ns.n + '・通常 ' + ts.na.n + ' 発' + band + '</span></div>' +
       probBox() +
       scoreBox() +
       poolBox() +
+      '</div>' +
+      '<button type="button" class="btn2 kmt" data-view-toggle="kmore" aria-pressed="' +
+        (moreOn ? 'true' : 'false') + '" title="置いた EX・コスト・編成・条件">' +
+        (moreOn ? '▾ 詳細' : '▸ 詳細') + '</button>' +
+      '<div class="kmore vw-kmore">' +
       box('置いた EX', st.tl.length + ' 発',
           run.bad.length ? run.bad.length + ' 発がコスト不足でずれます' : '詰まりなし') +
       box('終わりのコスト', run.end.toFixed(2), '上限 ' + run.cap.toFixed(1)) +
       box('編成', crewCount() + ' / ' + (lay.main + lay.sup) + ' 人',
           'ST ' + lay.main + '・SP ' + lay.sup + '　パーティー ' +
           (st.pi + 1) + ' / ' + st.parties.length) +
-      '</div>' +
-      // **条件（動かす前から決まっている数字）は右にまとめる。**
-      // ツールバーの 2 段目にあったものをここへ寄せた
-      '<div class="kcond">' +
       chip('コスト回復力', recP ? String(recP) : '—') +
       chip('コスト上限', run.cap.toFixed(1)) +
       chip('開始コスト', sb0 ? (Math.round(sb0.amt * 100) / 100) + '（' + sb0.d.n + '）' : '0') +
@@ -3106,7 +2872,7 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
     for (var q = 0; q < run.bad.length; q++) {
       var br = run.bad[q], bp = st.party[br.e.i], bk = kindOf(br);
       out.push([bk === 'over' ? 'e' : 'w',
-        ((bp && bp.n) || '?') + ' ' + whenOf(br) + '：' + whyOf(br)]);
+        ((bp && bp.n) || '?') + ' ' + whenOf(br) + '：' + whyOf(br), 'act']);
     }
     // **渡し先が決まっていないものを名指しで出す。**実物の TL を写していて、
     // セイアのコスト減少カードの渡し先を決め忘れると、後半が 20 秒ぶんまるごと
@@ -3166,7 +2932,7 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
       var np = st.party[s2];
       if (!np || st.slots[s2].nsto != null) { continue; }
       if (!isSingle(np.id, 'Public') && !isSingle(np.id, 'GearPublic')) { continue; }
-      out.push(['w', np.n + '：通常スキルのバフを渡す相手が決まっていません（左の「バフを渡す相手」で選びます）']);
+      out.push(['w', np.n + '：通常スキルのバフを渡す相手が決まっていません（左の「バフを渡す相手」で選びます）', 'act', 'nsto']);
     }
     // **形態を選ばないとダメージが 0 のままの子がいる**（2026-09-01）。
     // アリス（臨戦）・ミカ（水着）・ラブ・キサキ（水着）・シュン（水着）・トキ・
@@ -3257,7 +3023,7 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
     if (nalt) {
       out.push(['w', '条件でダメージが変わるスキルが ' + nalt +
         ' つあります。左の「倍率の幅」のバーで選べます' +
-        '（段だけで割れているものは、撃った回数から自動で決めています）']);
+        '（段だけで割れているものは、撃った回数から自動で決めています）', 'info', 'alts']);
     }
     out.push(['w', 'バフは EX・NS・PS・固有武器・SS の全部を見ています。' +
       '乗せていないのは SS の発動ぶん 87 件（引き金が要るもの）だけです']);
@@ -3281,8 +3047,8 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
       out.push(['w', 'ボスの状態は置いていません。' + (gmN
         ? 'このボスの説明文からは ' + gmN + ' 件の候補が拾えています（「ギミックから選ぶ」）。'
         : '14 体のうち 11 体が被ダメージ率を動かします。') +
-        '**引き金はデータから時刻を決められない**ので、' +
-        '「ボスの状態」で効いている間を置いてください']);
+        '引き金はデータから時刻を決められないので、' +
+        '「ボスの状態」で効いている間を置いてください', 'fixed', 'bst']);
     }
     out.push(['w', '通常攻撃はいつもボス本体に当たる前提です。' +
       '柱や装置に撃つ EX は、帯をクリックして「当たる先」を選べます']);
@@ -3292,9 +3058,37 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
       '大決戦ビナー Torment 貫通・屋外は TL 1 ページ目の終わりが ' +
       '実測 残 2,754,853 に対して 全会心平均 3,057,691（−1.5%）です。' +
       'ボスによっては、これより大きく外れます（下の「数字の出どころ」）']);
-    $('errlog').innerHTML = out.map(function (x) {
-      return '<div class="' + x[0] + '">' + (x[0] === 'g' ? '✔ ' : (x[0] === 'e' ? '✕ ' : '▸ ')) + esc(x[1]) + '</div>';
-    }).join('');
+    // **3 つに割る**（2026-09-02 の UI 一新。20 行ちかくが 120px の箱に同格で並んでいた）。
+    //   要確認 … 決めないと数字が変わるもの。常に出す
+    //   内訳   … 読み込んだもの・コスト回復力の内訳（✔ の行）
+    //   前提   … この道具が数えていないもの。いつ見ても同じ文
+    // 内訳と前提は「表示」で「内訳と前提」を入れたときだけ
+    var groups = { act: [], info: [], fixed: [] }, gi9;
+    for (gi9 = 0; gi9 < out.length; gi9++) {
+      var ox = out[gi9], cat = ox[2];
+      if (!cat) {
+        cat = ox[0] === 'e' ? 'act' : (ox[0] === 'g' ? 'info' :
+          (/決まっていません|編成が空です|形態を選ばないと/.test(ox[1]) ? 'act' : 'fixed'));
+      }
+      groups[cat].push(ox);
+    }
+    function li9(x) {
+      return '<div class="' + x[0] + '">' + (x[0] === 'g' ? '✔ ' : (x[0] === 'e' ? '✕ ' : '▸ ')) +
+        esc(x[1]) + (x[3] && !viewOn(x[3])
+          ? ' <button type="button" class="lnk" data-showview="' + x[3] + '">出す</button>' : '') +
+        '</div>';
+    }
+    $('errlog').innerHTML =
+      '<div class="eg act">' + (groups.act.length ? groups.act.map(li9).join('')
+        : '<div class="g">✔ 決めるところはありません</div>') + '</div>' +
+      '<div class="eg more vw-note">' +
+      '<div class="egh">内訳</div>' + groups.info.map(li9).join('') +
+      '<div class="egh">前提</div>' + groups.fixed.map(li9).join('') + '</div>';
+    var nn = $('note-n');
+    if (nn) {
+      nn.textContent = groups.act.length ? groups.act.length + ' 件' : '';
+      nn.className = 'cnt' + (groups.act.length ? ' on' : '');
+    }
   }
 
   // ------------------------------------------------------------ ダメージ
@@ -6488,6 +6282,103 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
       '　<span class="warn">被ダメージが増える指定はデータにありません</span>';
   }
 
+  // ---- 表示の取捨選択（2026-09-02 の UI 一新）
+  // **使う人が「見たい情報」を選べて、localStorage に残る。**既定はいちばん軽い「かんたん」。
+  // 消し方は CSS（`.tlapp.v-<key>-off .vw-<key>`）で、組み直した中身にもそのまま効く
+  var VIEW_KEYS = ['kmore', 'note', 'build', 'nsto', 'alts', 'bst', 'rate', 'src',
+                   'lane-rec', 'lane-dbf', 'lane-na', 'lane-ss'];
+  var VIEW_PRESET = {
+    lite:  { kmore: 0, note: 0, build: 0, nsto: 0, alts: 0, bst: 0, rate: 0, src: 0,
+             'lane-rec': 0, 'lane-dbf': 0, 'lane-na': 0, 'lane-ss': 0 },
+    build: { kmore: 1, note: 0, build: 1, nsto: 1, alts: 1, bst: 1, rate: 0, src: 0,
+             'lane-rec': 1, 'lane-dbf': 1, 'lane-na': 1, 'lane-ss': 0 },
+    check: { kmore: 1, note: 1, build: 1, nsto: 1, alts: 1, bst: 1, rate: 1, src: 1,
+             'lane-rec': 1, 'lane-dbf': 1, 'lane-na': 1, 'lane-ss': 1 }
+  };
+  var _view = null, _viewName = 'lite';
+  function copyView(o) { var r = {}, k; for (k in o) { r[k] = o[k]; } return r; }
+  function loadView() {
+    var o = null;
+    try { o = JSON.parse(localStorage.getItem('tl-view') || 'null'); } catch (e) { o = null; }
+    _view = copyView(VIEW_PRESET.lite); _viewName = 'lite';
+    if (!o || typeof o !== 'object' || !o.v) { return; }
+    var k;
+    for (k in o.v) { if (VIEW_KEYS.indexOf(k) >= 0) { _view[k] = o.v[k] ? 1 : 0; } }
+    _viewName = o.p || 'custom';
+  }
+  function viewOn(k) { if (!_view) { loadView(); } return !!_view[k]; }
+  function applyView() {
+    var app = $('tlapp'), i, k;
+    if (!_view) { loadView(); }
+    for (i = 0; i < VIEW_KEYS.length; i++) {
+      k = VIEW_KEYS[i];
+      app.classList.toggle('v-' + k + '-off', !_view[k]);
+    }
+    var src = $('src');
+    if (src) { src.open = !!_view.src; }
+    var cbs = document.querySelectorAll('#viewmenu input[data-view]');
+    for (i = 0; i < cbs.length; i++) { cbs[i].checked = !!_view[cbs[i].getAttribute('data-view')]; }
+    var pbs = document.querySelectorAll('#vpreset button[data-preset]');
+    for (i = 0; i < pbs.length; i++) {
+      pbs[i].setAttribute('aria-pressed', pbs[i].getAttribute('data-preset') === _viewName ? 'true' : 'false');
+    }
+  }
+  function saveView() {
+    try { localStorage.setItem('tl-view', JSON.stringify({ p: _viewName, v: _view })); } catch (e) { void e; }
+  }
+  function setView(o, name) {
+    _view = copyView(o); _viewName = name || 'custom';
+    saveView(); applyView();
+    // 概況の「詳細」と要確認の「出す」は組み直しで反映する
+    setTimeout(relayout, 0);
+  }
+  function setViewKey(k, on) {
+    if (!_view) { loadView(); }
+    _view[k] = on ? 1 : 0; _viewName = 'custom';
+    // 既定のどれかと同じになったら、その名前に戻す
+    var pn;
+    for (pn in VIEW_PRESET) {
+      var same = true, kk;
+      for (kk in VIEW_PRESET[pn]) { if (!!VIEW_PRESET[pn][kk] !== !!_view[kk]) { same = false; break; } }
+      if (same) { _viewName = pn; break; }
+    }
+    saveView(); applyView();
+    setTimeout(relayout, 0);
+  }
+  function toggleViewMenu(force) {
+    var m = $('viewmenu'), b = $('b-view');
+    var on = force == null ? m.hidden : !!force;
+    m.hidden = !on;
+    b.setAttribute('aria-expanded', on ? 'true' : 'false');
+    b.setAttribute('aria-pressed', on ? 'true' : 'false');
+  }
+  loadView(); applyView();
+  $('viewmenu').addEventListener('change', function (e) {
+    var cb = e.target.closest('input[data-view]');
+    if (!cb) { return; }
+    setViewKey(cb.getAttribute('data-view'), cb.checked);
+  });
+  $('viewmenu').addEventListener('click', function (e) {
+    var pb = e.target.closest('button[data-preset]');
+    if (!pb) { return; }
+    var nm = pb.getAttribute('data-preset');
+    setView(VIEW_PRESET[nm], nm);
+  });
+  document.addEventListener('click', function (e) {
+    // 概況の「詳細」・要確認の「出す」
+    var tg = e.target.closest('[data-view-toggle]');
+    if (tg) { setViewKey(tg.getAttribute('data-view-toggle'), !viewOn(tg.getAttribute('data-view-toggle'))); return; }
+    var sv = e.target.closest('[data-showview]');
+    if (sv) { setViewKey(sv.getAttribute('data-showview'), true); return; }
+    // 外を押したら閉じる
+    var m = $('viewmenu');
+    if (!m.hidden && !e.target.closest('#viewmenu') && !e.target.closest('#b-view')) { toggleViewMenu(false); }
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && !$('viewmenu').hidden) { toggleViewMenu(false); }
+  });
+
+
   // ------------------------------------------------------------ つなぐ
   st.di = tormentIdx(B.bosses[0]);
   fillBoss(); fillFilters(); fillBuild(); drawParty(); drawCrew(); drawPicker(); draw();
@@ -6572,7 +6463,7 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
     for (i = 0; i < ps.length; i++) {
       var h = ps[i].querySelector('h2.sect');
       if (!h) { continue; }
-      ps[i].setAttribute('data-fold', 'p' + i);
+      if (!ps[i].getAttribute('data-fold')) { ps[i].setAttribute('data-fold', 'p' + i); }
       // **見出しは `.bd` の直下とは限らない。**「相手」と「シナリオ別達成率」は
       // `.fields.wrapf` / `.row` の中にあって、そのかたまりごと隠すと**摘みまで
       // 消えて開けなくなる**（2026-09-01 の先生の指摘）。
@@ -6588,7 +6479,7 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
       btn.innerHTML = '<span class="cv"></span>';
       h.insertBefore(btn, h.firstChild);
       var was = null;
-      try { was = localStorage.getItem('tl-fold-p' + i); } catch (e2) { void e2; }
+      try { was = localStorage.getItem('tl-fold-' + foldKey(ps[i])); } catch (e2) { void e2; }
       if (was === '1') { ps[i].classList.add('folded'); btn.setAttribute('aria-expanded', 'false'); }
     }
   })();
@@ -6948,6 +6839,7 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
       }
       if (a === 'keys') { keyHelp(); }
       if (a === 'uireset') { uiReset(); }
+      if (a === 'view') { toggleViewMenu(); return; }
       if (a === 'export') { sheet('書き出し', JSON.stringify(snapshot()), null); }
       if (a === 'import') { importSheet(); }
       if (a === 'mark') {
@@ -6991,6 +6883,7 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
     if (v != null && isFinite(+v)) { st.scen = +v; }
   })();
   document.querySelector('.tools2').addEventListener('click', onAct);
+  $('topact').addEventListener('click', onAct);
   $('b-goal').addEventListener('click', onAct);
   $('useedit').addEventListener('click', onAct);
   // 「ボスの状態」の ＋ 足す も同じ入口から
