@@ -4879,6 +4879,14 @@ def build_tl():
                         if len(_n) >= 2 and (_n in _src or _src in _n):
                             _x["tr"] = _rate
                             _x["trw"] = _why
+                # **部位の数。**データには無く、攻略サイトの記述から。クロカゲの片鱗は 6 個
+                # （AppMedia https://appmedia.jp/blue_archive/78191660 「目に見えない片鱗が6個浮遊」）。
+                # 範囲 EX は本体＋片鱗 6 の 7 体に当たり、片鱗のぶんは 100% 本体へ転移する。
+                # これが無いとホシノ（臨戦）の EX が動画の 1/5.6 だった（2026-09-02、Plana の調査）
+                for _x in got["sub"] or []:
+                    if _x.get("id") in (611140703, 611140704):
+                        _x["cnt"] = 6
+                        _x["cntw"] = "AppMedia の攻略記事（片鱗 6 個）"
                 rows.append(got)
                 ok += 1 if got["per"] else 0
                 half += 0 if got["per"] else 1

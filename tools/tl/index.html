@@ -4059,9 +4059,12 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
     m = /Type=SkillLevel Parameter=([A-Za-z]+) Value=\[(\d+),\s*(\d+)\]/.exec(String(c || ''));
     if (m && idx != null && st.slots[idx]) {
       var sl = st.slots[idx], lv = null;
-      if (/^Ex/.test(m[1])) { lv = sl.ex || 5; }
-      else if (m[1] === 'ExtraPassive') { lv = sl.sslv || 10; }
+      // **順番が大事。**`ExtraPassive` が `/^Ex/` に先に当たって、サブスキル 10 でも EX レベル 5 で
+      // 判定していた。ホシノ（臨戦）の防御無視が [1,9] の 60% のまま（正しくは [10,10] の 85%）で
+      // ×1.64 の過小（2026-09-02、Plana の調査。同じ印は 10055・10099・10113）
+      if (m[1] === 'ExtraPassive') { lv = sl.sslv || 10; }
       else if (m[1] === 'Passive') { lv = sl.plv || 10; }
+      else if (/^Ex\d*$/.test(m[1])) { lv = sl.ex || 5; }
       else if (/^(Public|Normal|GearPublic)$/.test(m[1])) { lv = sl.sk || 10; }
       if (lv != null) { return lv >= +m[2] && lv <= +m[3]; }
     }
@@ -5428,6 +5431,9 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
             var a3 = aimIn(inner[pz3], subsP);
             if (a3 >= 0) {
               aim = a3;
+              // **部位の数がデータの外から分かっているもの**（クロカゲの片鱗 6 個。`sub[].cnt`）は
+              // それを「当たる数」の既定にする。書いてあれば下の「N体」が勝つ（2026-09-02）
+              if (subsP[a3].cnt > 1) { mcn = subsP[a3].cnt; }
               // **「(左聖歌隊 5体)」の「5体」。**転移する部位に範囲攻撃を当てると、
               // 当たった数だけボスへ入る（2026-09-01。グレゴリオとペロロジラの
               // TL はどれもこの書き方）
