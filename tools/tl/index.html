@@ -648,11 +648,12 @@
    **左が結果、右が条件。**まん中で分ける */
 .tlapp .kpi { display:flex; align-items:flex-start; flex-wrap:wrap;
   column-gap:var(--s3); row-gap:var(--s2); }
-.tlapp .kpi .kres { display:grid; grid-auto-flow:column; grid-auto-columns:max-content;
+.tlapp .kpi .kres { display:grid; grid-auto-flow:column;
+  grid-auto-columns:minmax(0, max-content);
   column-gap:0; align-items:start; flex:0 1 auto; min-width:0; }
 .tlapp .kpi .kcond { display:flex; flex-wrap:wrap; gap:var(--s1) var(--s2);
   margin-left:auto; align-items:center; padding-left:var(--s3);
-  border-left:1px solid var(--ln); align-self:center; }
+  border-left:1px solid var(--ln); align-self:center; flex:0 0 auto; }
 .tlapp .kpi .kbar { flex:1 1 100%; grid-column:auto; margin-top:0; }
 @media (max-width:1199px) {
   .tlapp .kpi .kcond { margin-left:0; padding-left:0; border-left:0; }
@@ -835,8 +836,10 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
 .crew .stn:hover { border-color:var(--acc); color:var(--tx); }
 .crew .cw { gap:3px; }
 .crew .stn:disabled { opacity:.35; }
-/* 概況: 右の札まで空きが出ないように、箱を横いっぱいに散らす */
-.tlapp .kpi .kres { flex:1 1 auto; justify-content:space-between; }
+/* 概況: 「編成」までを左に詰める。**空いた右に「スキル順」を置く**
+   （2026-09-03 の先生の要望）。散らしていたのをやめた。
+   幅は `0` から余りを全部取る（`.kord` の注記を見て） */
+.tlapp .kpi .kres { flex:1 1 0; justify-content:flex-start; }
 
 /* タイムラインの縦の摘みが横スクロールバーに重なっていた
    （2026-09-01 の先生の指摘）。摘みのぶんだけ下に場所を空ける */
@@ -890,6 +893,59 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
 .trow select[data-tr="who"] { width:150px; }
 .trow.on { background:#ffffff08; }
 .tdet { padding:4px 0 6px 28px; border-bottom:1px solid var(--ln); }
+
+/* ---------- 会心率のバー（2026-09-03） ---------- */
+/* 「最小／0会心平均／平均／全会心平均／最大」の 5 行をやめて、
+   平均 1 行＋このバーにした（先生の「直感的じゃない」） */
+.critf { display:flex; align-items:center; gap:5px; font-size:10px; color:var(--tx2);
+  white-space:nowrap; }
+.critf input[type="range"] { width:130px; }
+.critf > b { color:var(--tx); font-size:11px; min-width:42px; text-align:right; }
+/* 行の名前の下に添える「下振れ 〜 上振れ」。**行を増やさずに幅を見せる** */
+.rate td.n .sub { display:block; font-size:8.5px; color:var(--tx3); line-height:1.3; }
+
+/* ---------- 概況の帯の「スキル順」（2026-09-03） ---------- */
+/* 左の箱を詰めて、空いた右に置く。**帯の高さは増やさない**ので、
+   マスは 12 個で窓を切り、カーソルの位置が真ん中に来るように滑らせる */
+/* **場所は 300px ぶん先に取って、伸びない。**折り返すかどうかは伸び縮みの前の
+   幅で決まるので、`auto` でも `1 1 300px` でも右の札（`.kcond`）が 2 段目に落ちて
+   帯が 102px → 132px になった。0 から伸ばすと今度は札が 100px しか無くて読めない。
+   **左の箱（`.kres`）の側を `1 1 0` にして余りを全部取らせる**のが答え
+   （3 通りとも 2026-09-03 に実測した） */
+.tlapp .kpi .kord { flex:0 1 300px; min-width:0; display:flex; flex-direction:column;
+  gap:1px; padding-left:var(--s3); margin-left:var(--s3);
+  border-left:1px solid var(--ln); align-self:center; overflow:hidden; }
+.tlapp .kpi .kord .kl { font-size:9px; color:var(--tx3); letter-spacing:.03em; }
+.tlapp .kpi .kord .ordrow { display:flex; align-items:flex-start; gap:var(--s2);
+  min-width:0; overflow:hidden; }
+.ocs { display:flex; gap:2px; flex:0 0 auto; }
+.ocw { display:flex; flex-direction:column; align-items:center; gap:0; }
+.ocw > i { font-style:normal; font-size:7.5px; line-height:1.1; color:var(--tx3); }
+.oc { width:18px; height:18px; border-radius:3px; border:1px solid var(--gb);
+  background:transparent; display:block; overflow:hidden; position:relative; }
+.oc img { width:100%; height:100%; object-fit:cover; opacity:.28; display:block;
+  filter:grayscale(1); }
+/* 撃ったぶんは埋める（▓）、これからは白い枠（◻） */
+.oc.on { background:var(--acc2); border-color:var(--acc2); }
+.oc.on img { opacity:1; filter:none; }
+/* 次に撃つ 1 発 */
+.oc.nx { border-color:var(--acc); box-shadow:0 0 0 1px var(--acc); }
+.ocw.nx > i { color:var(--acc); font-weight:700; }
+/* 開始スキルで順番を決めたぶん。食い違っていれば色を変える */
+.ocw.hd > i { text-decoration:underline; text-underline-offset:1px; }
+.ocw.mm > i { color:var(--warn, #d97757); }
+/* カーソルが乗っている 1 発の札 */
+.ocard { flex:1 1 auto; min-width:0; display:flex; align-items:center; gap:5px;
+  font-size:9px; color:var(--tx2); overflow:hidden; }
+.ocard img { width:20px; height:20px; border-radius:3px; flex:0 0 auto; display:block;
+  object-fit:cover; }
+.ocard .oct { min-width:0; overflow:hidden; }
+.ocard .oct b { display:block; font-size:10.5px; color:var(--tx); white-space:nowrap;
+  overflow:hidden; text-overflow:ellipsis; }
+.ocard .oct span { display:block; white-space:nowrap; overflow:hidden;
+  text-overflow:ellipsis; }
+/* 狭い画面では出さない。**触る画面にはカーソルが無い**ので追える相手がいない */
+@media (max-width:999px) { .tlapp .kpi .kord { display:none; } }
 </style>
 </head>
 <body>
@@ -1149,6 +1205,14 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
             <h2 class="sect"><i></i>シナリオ別達成率</h2>
           </div>
           <span style="flex:1 1 auto"></span>
+          <!-- 会心率のバー（2026-09-03）。5 通りのシナリオ行の代わり -->
+          <label class="critf"><span>会心率</span>
+            <input type="range" id="i-crit" min="0" max="100" step="0.5" value="0"
+                   title="会心率を差し替えて数字を見る。確定会心（グロッキー中・Always）は動かない">
+            <b id="i-critv">—</b>
+            <span class="mut tiny" id="i-critn"></span>
+            <button type="button" class="lnk" id="b-critauto" hidden>自動に戻す</button>
+          </label>
           <div class="tabs" id="rtabs"><button type="button" class="t on" data-tab="0">会心/EX/NS</button><button type="button" class="t" data-tab="1">目標</button></div>
           <button type="button" class="btn2" id="b-goal" data-act="goal">目標設定</button>
         </div>
@@ -1550,10 +1614,12 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
         ネル（制服）の「怪我しても知らねえからな」は 1983% から 4334% までの 10 段、
         通常攻撃は「EX の状態でないとき 100%／であるとき 120%」の 2 段です。
         <b>足し合わせません</b> — 以前は全部足していて、通常攻撃が 2.2 倍になっていました。
-        <b>この「幅」をどこまで振るとどうなるかは、「シナリオ別達成率」の上 2 行で見られます。</b>
+        <b>この「幅」をどこまで振るとどうなるかは、「シナリオ別達成率」の行に添えた
+        「下振れ 〜 上振れ」で見られます。</b>
         <b>下振れ</b>は幅を持つスキルを全部いちばん低い候補にして会心も無しにしたとき、
         <b>上振れ</b>は全部いちばん高い候補にして全部会心したとき。
-        真ん中の 5 行（最小〜最大）は<b>今の個別設定のまま</b>で、会心と乱数だけを振ったものです。
+        行の数字は<b>今の個別設定のまま</b>で、会心率は同じ場所のバーで動かせます
+        （2026-09-03 に「最小／0会心平均／平均／全会心平均／最大」の 5 行から替えました）。
         候補は倍率だけでなく、発数・防御無視・会心の有無も候補ごとに違うので、
         <b>候補ごとに最後までダメージを計算して比べています</b></li>
       <li><b>「味方1人」のスキル</b> — <b>何人に当たるかは説明文にしか書いていません。</b>
@@ -1722,7 +1788,11 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
              // **フェーズは既定で自動**（削った量で移る）。数値を入れると固定
              // `arm` は大決戦の装甲（null なら総力戦の既定）
              // `bst` は「ボスの状態」（被ダメージ率アップなどの窓）
-             phFix: null, scen: null, arm: null, bst: [] };
+             // `crit` は会心率の差し替え（null なら編成から出る素の値）。
+             // **見え方の設定なので `st.scen` と同じく localStorage 側**に置く
+             // （2026-09-03 の先生の指示「平均だけ残して、残りは会心率を
+             // 自分でバーで調整」）
+             phFix: null, scen: null, crit: null, arm: null, bst: [] };
   st.slots = st.parties[0].slots;
   st.tl = st.parties[0].tl;
   st.start = st.parties[0].start;
@@ -2111,13 +2181,21 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
      フェーズ3に行ってる」）。バーで切り替える */
   // 並びは「シナリオ別達成率」の行と同じ。**上の数字も図もここで切り替える**
   // （2026-09-01 の先生の指示「上の数字を平均だけじゃなくてシナリオを選べるように」）
-  var SCEN = [{ lab: '下振れ', pf: -1, key: 'min', wide: true },
+  // **7 通りは計算用にそのまま残す。**画面から減らしたのは「描く行」と「選べる札」
+  // だけで、`SCEN` の並びと番号は動かさない（2026-09-03）。
+  // `verify.py` が `st.scen` に 0〜6 を直接入れて上振れ〜下振れの帯を作っており、
+  // 3 つに減らしたら 3・4・6 が範囲外になって帯が平均に潰れた
+  // （c3eN2Cf7QVc の「幅の中」が 90% → 73% に落ちた実測）。**番号は動かさない。**
+  // 画面に出すのは `ui: true` の 3 つだけ（2026-09-03 の先生の指示
+  // 「直感的じゃないから平均だけ残して、残りは会心率を自分でバーで調整」）。
+  // 会心の振れは `st.crit` のバーへ移した
+  var SCEN = [{ lab: '下振れ', pf: -1, key: 'min', wide: true, ui: true },
               { lab: '最小', pf: 0, key: 'min' },
               { lab: '0会心平均', pf: 0, key: 'avg0' },
-              { lab: '平均', pf: 0, key: 'avg' },
+              { lab: '平均', pf: 0, key: 'avg', ui: true },
               { lab: '全会心平均', pf: 0, key: 'avgC' },
               { lab: '最大', pf: 0, key: 'max' },
-              { lab: '上振れ', pf: 1, key: 'max', wide: true }];
+              { lab: '上振れ', pf: 1, key: 'max', wide: true, ui: true }];
   var SCEN_DEF = 3;
   function scenIx() {
     var i = st.scen == null ? SCEN_DEF : st.scen;
@@ -2203,7 +2281,7 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
   function partyCalc(k) {
     var r = diff(), dur = r.dur || 240, p = st.parties[k];
     if (!p) { return { end: 0, kill: null, dealt: {}, pools: [] }; }
-    var key = [_pv, st.bi, st.di, st.arm, scenIx(), k, p.end, JSON.stringify(p.tl),
+    var key = [_pv, st.bi, st.di, st.arm, scenIx(), st.crit, k, p.end, JSON.stringify(p.tl),
                JSON.stringify(p.bst), JSON.stringify(p.slots)].join('|');
     if (_pcV[key]) { return _pcV[key]; }
     var save = st.pi, gsp = GGSP, gbz = GGBUSY, out;
@@ -2854,7 +2932,7 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
             'style="width:120px"></label>';
     }
     $('phases').innerHTML = pf || '<span class="mut" style="font-size:10px">このボスにはフェーズの切り替わりがありません。</span>';
-    drawRate(); drawErr(); kpi(); drawUse(); drawRows(); drawAlts(); drawNsTo();
+    drawRate(); drawErr(); kpi(); drawCrit(); drawUse(); drawRows(); drawAlts(); drawNsTo();
     if (st.pin != null) { movePh(st.pin, true); }
   }
 
@@ -2898,8 +2976,6 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
     return s;
   }
   // 会心と乱数の振れ幅。**倍率の幅（段・条件）は動かさない**
-  var RROW = [['最小', 'min'], ['0会心平均', 'avg0'], ['平均', 'avg'],
-              ['全会心平均', 'avgC'], ['最大', 'max']];
   var RHEAD = [['残HP／階層HP', '与ダメージ', 'EX合計', 'NS合計', '通常合計', 'SS合計'],
                ['目標までの残り', '達成率', '与ダメージ', '目標ダメージ', '1秒あたり', '制限時間']];
   function drawRate() {
@@ -2916,29 +2992,28 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
     // （2026-09-01）
     var spread = altList().length > 0 && tot(-1).avg !== tot(1).avg;
     var goal = (st.goal && st.goal.dmg) || hp, sec = (st.goal && st.goal.sec) || (r.dur || 240);
-    var hd = '<tr><th style="width:112px"></th>';
+    // 名前の欄は「下振れ 〜 上振れ」を 1 行で収める幅（2026-09-03）
+    var hd = '<tr><th style="width:168px"></th>';
     for (i = 0; i < 6; i++) { hd += '<th>' + RHEAD[st.tab][i] + '</th>'; }
     hd += '</tr>';
-    // 行の並びは `SCEN` そのもの。`pf` は倍率の幅の振り方、`sep` は上に挟む見出し
-    var rows = [], j, TIP = { '下振れ': '倍率の幅をぜんぶいちばん低い候補にして、会心も無しにしたとき',
-                              '上振れ': '倍率の幅をぜんぶいちばん高い候補にして、ぜんぶ会心したとき' };
-    // **区切りの見出しは入れない**（2026-09-01。下振れ・上振れは色と名前で分かるし、
-    // 意味は表の下の一文に書いてある）
-    for (j = 0; j < SCEN.length; j++) {
-      var sc2 = SCEN[j];
-      if (sc2.wide && !spread) { continue; }
-      rows.push({ lab: sc2.lab, key: sc2.key, pf: sc2.pf, ix: j,
-                  tip: TIP[sc2.lab] || null, sep: null });
-    }
+    // **行は 1 本だけ**（2026-09-03 の先生の指示。5 通りの書き分けをやめた）。
+    // 出すのは上の帯で選んでいるシナリオ（既定は「平均」）で、会心率は
+    // その下のバー（`st.crit`）。下振れ・上振れは行を分けず、名前の下に細く添える
+    var TIP = { '下振れ': '倍率の幅をぜんぶいちばん低い候補にして、会心も無しにしたとき',
+                '上振れ': '倍率の幅をぜんぶいちばん高い候補にして、ぜんぶ会心したとき',
+                '平均': '倍率の幅は今の個別設定のまま、会心率は下のバーの値' };
+    var scNow = scen();
+    var lo0 = tot(-1).min, hi0 = tot(1).max;
+    var sub = (hp && t.n && hi0 - lo0 > 1)
+      ? '<span class="sub">下振れ ' + n0(lo0) + '〜 上振れ ' + n0(hi0) + '</span>' : '';
+    var rows = [{ lab: scNow.lab, key: scNow.key, pf: scNow.pf, ix: scenIx(),
+                  tip: TIP[scNow.lab] || null, sub: sub }];
     for (i = 0; i < rows.length; i++) {
       var row = rows[i], tt = tot(row.pf), v = tt[row.key];
-      if (row.sep) {
-        h += '<tr class="sep"><td colspan="7">' + esc(row.sep) + '</td></tr>';
-      }
       h += '<tr class="' + (row.pf ? 'lohi ' : '') +
-           (row.ix === scenIx() ? 'now' : '') + '" data-scen="' + row.ix + '"><td class="n"' +
+           'now" data-scen="' + row.ix + '"><td class="n"' +
            (row.tip ? ' title="' + esc(row.tip) + '"' : '') + '>' +
-           esc(row.lab) + '</td>';
+           esc(row.lab) + row.sub + '</td>';
       if (!tt.n || !hp) {
         for (k = 0; k < 6; k++) {
           h += '<td class="v"><span class="cell"><span class="bar"><i style="width:0%"></i></span>' +
@@ -2974,13 +3049,47 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
       '（置いた EX ' + st.tl.length + ' 発のうち、ダメージを持つのは ' + t.ex.n +
       ' 発。SS は常時ぶんをステータスに乗せています）' +
       (spread ? '　倍率の幅を持つスキルが ' + altList().length +
-        ' 枠あります。真ん中の 5 行は今の個別設定のままで会心と乱数だけを振ったもの、' +
-        '上の 2 行は幅もいちばん低い／高い候補に寄せたときです。' : '');
+        ' 枠あります。行の数字は今の個別設定のままで、' +
+        '「下振れ／上振れ」は幅もいちばん低い／高い候補に寄せたときです。' : '');
   }
   function cell(frac, txt) {
     return '<td class="v"><span class="cell"><span class="bar"><i style="width:' +
            (clamp(frac, 0, 1) * 100).toFixed(1) + '%"></i></span>' +
            '<span class="num">' + esc(txt) + '</span></span></td>';
+  }
+  /** **バーの既定になる「素の会心率」。**編成と相手から出る値で、置いた EX の平均。
+      1 発も置いていなければ編成の先頭の EX で引く（2026-09-03） */
+  function critNat() {
+    var r = diff(), us = usesSorted(), i, sum = 0, n = 0, d;
+    var sv = st.crit;
+    st.crit = null;
+    try {
+      for (i = 0; i < us.length; i++) {
+        d = dmgOf(us[i].i, r, us[i].t, us[i].k, us[i].pk, us[i].tg, us[i].gx);
+        if (d && d.crit0 != null) { sum += d.crit0; n++; }
+      }
+      if (!n) {
+        for (i = 0; i < SLOTS; i++) {
+          if (!st.party[i]) { continue; }
+          d = dmgOf(i, r, null, 'Ex');
+          if (d && d.crit0 != null) { sum += d.crit0; n++; break; }
+        }
+      }
+    } finally { st.crit = sv; }
+    return n ? sum / n : 0;
+  }
+  /** 会心率のバー。**`st.crit` が null なら素の値の位置に置いて「自動」と書く**
+      （2026-09-03 の先生の指示で 5 行のシナリオから移した） */
+  function drawCrit() {
+    var el = $('i-crit');
+    if (!el) { return; }
+    var nat = critNat(), v = st.crit == null ? nat : st.crit;
+    el.value = String(Math.round(v * 1000) / 10);
+    $('i-critv').textContent = (v * 100).toFixed(1) + '%';
+    $('b-critauto').hidden = st.crit == null;
+    $('i-critn').textContent = st.crit == null
+      ? '自動（編成から ' + (nat * 100).toFixed(1) + '%）'
+      : '素は ' + (nat * 100).toFixed(1) + '%';
   }
 
   // **畳んだ・広げた・大きさを変えた、を全部戻す。**localStorage を消して
@@ -3027,8 +3136,10 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
       band = '　下振れ ' + n0(lo) + '〜 上振れ ' + n0(hi) +
              '（' + (lo / hp * 100).toFixed(1) + '〜' + (hi / hp * 100).toFixed(1) + '%）';
     }
+    // **選べるのは `ui: true` の 3 つだけ。**残りは計算にだけ使う（`SCEN` の注記）
     var so = '', sq;
     for (sq = 0; sq < SCEN.length; sq++) {
+      if (!SCEN[sq].ui) { continue; }
       so += '<option value="' + sq + '"' + (sq === scenIx() ? ' selected' : '') + '>' +
             esc(SCEN[sq].lab) + '</option>';
     }
@@ -3126,6 +3237,9 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
           'ST ' + lay.main + '・SP ' + lay.sup + '　パーティー ' +
           (st.pi + 1) + ' / ' + st.parties.length) +
       '</div>' +
+      // **「編成」までを詰めて、空いた右に「スキル順」**（2026-09-03 の先生の要望）。
+      // 中身は `drawOrd` が別に入れる（カーソルの秒ごとに引き直すので）
+      '<div class="kord" id="kord"></div>' +
       // **条件（動かす前から決まっている数字）は右にまとめる。**
       // ツールバーの 2 段目にあったものをここへ寄せた
       '<div class="kcond">' +
@@ -3135,6 +3249,9 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
       chip('制限時間', (r.dur || 240) + '秒') +
       '</div>' +
       '<div class="kbar"><i style="width:' + pct.toFixed(1) + '%"></i></div>';
+    // 入れ物ごと作り直したので、前の絵の覚えは捨ててから引き直す
+    _ordK = '';
+    drawOrd(PH_T == null ? 0 : PH_T);
   }
   /** その 1 発を「いつ指定したか」。**最速・コスト指定は秒を持たない**ので、
       そのまま出すと「ネル（制服） ：…」と空いた（2026-09-01 の先生の指摘） */
@@ -4267,7 +4384,7 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
       var d0 = dmgAt(idx, r, ts, kd0, pick, tg, gx);
       if (!d0) { return null; }
       if (!acc) { acc = { min: 0, avg0: 0, avg: 0, avgC: 0, max: 0, va: 0,
-                          hit: d0.hit, crit: d0.crit, name: d0.name }; }
+                          hit: d0.hit, crit: d0.crit, crit0: d0.crit0, name: d0.name }; }
       for (q2 = 0; q2 < KS.length; q2++) { acc[KS[q2]] += d0[KS[q2]] / ns; }
       // **切り分けは同じ 1 発をバフ違いで見ているだけ**なので、分散は足さずに平均する
       acc.va += (d0.va || 0) / ns;
@@ -4349,8 +4466,13 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
     // **3 つとも独立**として E[X²] − E[X]² を積む。`tick`（継続ダメージの回数）と
     // `HitFrames` のぶんは**別々に振られる**ので、1 回ぶんの分散を回数だけ足す
     // （まとめて 1 発として扱うと分散が回数倍に膨らむ）
+    // **会心率だけを差し替えられるようにしてある**（2026-09-03）。`st.crit` に
+    // 0〜1 を入れると、素の `cRate` の代わりにそれで解く。**式はそのまま**で、
+    // 入口の 1 つの値を替えるだけなので、`Never`（会心しない）・`Always`・
+    // グロッキー中の確定会心は今までどおり効く。`crit0` は素の値（バーの既定に使う）
+    var cEff = st.crit == null ? cRate : clamp(st.crit, 0, 1);
     var o = { min: 0, avg0: 0, avg: 0, avgC: 0, max: 0, va: 0,
-              hit: hit, crit: cRate, name: p.en };
+              hit: hit, crit: cEff, crit0: cRate, name: p.en };
     for (var k = 0; k < effs.length; k++) {
       // **`Scale` の段数はスキルによって違う。**通常攻撃は 1 段しかないので、
       // EX のレベルで引くと範囲外になって 0 になる（2026-09-01 に踏んだ）
@@ -4402,7 +4524,7 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
                  drA * drB * exM * baM * lvMod * tick;
       // **グロッキー中は確定会心**（この関数の上、ggCritAt の注記に出典）
       var cr = e[2] === 'Never' ? 0
-             : (e[2] === 'Always' || ggCritAt(at) ? 1 : cRate);
+             : (e[2] === 'Always' || ggCritAt(at) ? 1 : cEff);
       var cm = e[2] === 'Never' ? 1 : cdm;
       // **安定値に影響されない攻撃がある**（ヒナ（ドレス）の CH0230Ex02/03/04。
       // 説明文が「この攻撃は安定値に影響されず最大ダメージが適用される」と書いている）。
@@ -6203,6 +6325,8 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
   function movePh(t) {
     var r = diff(), dur = r.dur || 240;
     t = Math.max(0, Math.min(dur, t));
+    PH_T = t;
+    drawOrd(t);
     var e = $('ph'), box = $('phbox');
     if (!e) { return; }
     e.style.left = (t * st.px) + 'px';
@@ -6214,6 +6338,108 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
     var w = 96, x = t * st.px + 6;
     if (x + w > dur * st.px) { x = t * st.px - w - 6; }
     box.style.left = Math.max(0, x) + 'px';
+  }
+
+  // ------------------------------------------------------------ スキル順（概況の帯）
+  /** カーソル（タイムラインの赤いバー）が指している秒。**まだ動かしていなければ null** */
+  var PH_T = null, _ordK = '';
+  /** 置いた EX を時刻の順に並べたもの。`er` は engine が解いた行（実際に出る秒） */
+  function ordList() {
+    var sm = sim(), ro = {}, out = [], i;
+    for (i = 0; i < sm.rows.length; i++) {
+      if (sm.rows[i].e && sm.rows[i].e._ix != null) { ro[sm.rows[i].e._ix] = sm.rows[i]; }
+    }
+    for (i = 0; i < st.tl.length; i++) {
+      var u = st.tl[i], er = ro[i] || null;
+      out.push({ ix: i, i: u.i, er: er,
+                 at: (er && er.at != null) ? er.at : (u._rt != null ? u._rt : u.t) });
+    }
+    out.sort(function (a, b) { return a.at - b.at || a.ix - b.ix; });
+    return out;
+  }
+  // 帯に収まるマスの数。**高さを増やさない**ので、多いときは窓を切って横に滑らせる
+  var ORD_MAX = 12;
+  /** 概況の帯の「スキル順」（2026-09-03 の先生の要望）。
+      マスは置いた EX を時刻の順に並べたもので、**埋まっているのがその秒までに
+      撃ったぶん**、白いのがこれから。先頭の N マスは「開始スキル」（`st.start`）と
+      突き合わせて、合っていれば番号に下線、食い違っていれば色を変える。
+      カーソルが 1 発の演出の中にいれば、その札を右に出す */
+  function drawOrd(t) {
+    var box = $('kord');
+    if (!box) { return; }
+    var list = ordList(), nst = LAY[st.mode].start, i, dur = diff().dur || 240;
+    var cur = -1;
+    for (i = 0; i < list.length; i++) { if (list[i].at <= t + 1e-9) { cur = i; } }
+    // カーソルが乗っている 1 発（演出の中にいるもの）。無ければ null
+    var on = null;
+    for (i = 0; i < list.length; i++) {
+      var q0 = list[i], p0 = st.party[q0.i];
+      if (!p0) { continue; }
+      var fd = q0.er && q0.er.sk ? q0.er.sk.d : exDur(p0);
+      var sec = Math.max(0.5, (fd || 0) / B.fps);
+      if (t >= q0.at - 1e-9 && t < q0.at + sec) { on = q0; }
+    }
+    // **同じ絵なら組み直さない。**マウスを動かすたびにアイコンを差し替えると散らつく
+    var key = [list.length, cur, on ? on.ix : -1, st.mode, st.pi, _pv].join('|');
+    if (key === _ordK) { return; }
+    _ordK = key;
+    if (!list.length) {
+      box.innerHTML = '<span class="kl">スキル順</span>' +
+        '<span class="ocard"><span class="oct"><span class="mut">' +
+        'EX レーンをクリックすると、ここに撃つ順番が出ます</span></span></span>';
+      return;
+    }
+    var a = 0;
+    if (list.length > ORD_MAX) {
+      a = Math.max(0, Math.min(list.length - ORD_MAX, cur - Math.floor(ORD_MAX / 2) + 1));
+    }
+    var b = Math.min(list.length, a + ORD_MAX), cells = '';
+    for (i = a; i < b; i++) {
+      var q = list[i], p = st.party[q.i], nm = q.er && q.er.sk ? q.er.sk.n : (p ? p.en : '');
+      var want = i < nst ? st.start[i] : null;
+      var hd = (want != null && want === q.i), mm = (want != null && want !== q.i);
+      var tip = (i + 1) + ' 番目　' + (p ? p.n : '?') + '　' + q.at.toFixed(2) + '秒' +
+        (nm ? '\n' + nm : '') +
+        (hd ? '\n開始スキル ' + (i + 1) + ' 番の指定どおり' : '') +
+        (mm ? '\n開始スキル ' + (i + 1) + ' 番は ' +
+              ((st.party[want] || {}).n || '?') + ' の指定です' : '');
+      cells += '<span class="ocw' + (i === cur + 1 ? ' nx' : '') + (hd ? ' hd' : '') +
+        (mm ? ' mm' : '') + '" title="' + esc(tip) + '">' +
+        '<span class="oc' + (i <= cur ? ' on' : '') + (i === cur + 1 ? ' nx' : '') + '">' +
+        (p ? img(p.id, 'ic') : '') + '</span><i>' + (i + 1) + '</i></span>';
+    }
+    var card = '';
+    if (on) {
+      var pc = st.party[on.i], er2 = on.er;
+      var cn = er2 && er2.sk ? er2.sk.n : (pc ? pc.en : '');
+      var cc = er2 ? er2.need : (pc ? exCost(pc) : 0);
+      var kd2 = exKind(er2 ? er2.fi : 0);
+      var dd2 = pc ? dmgOf(on.i, diff(), on.at, kd2, st.tl[on.ix].pk,
+                           st.tl[on.ix].tg, st.tl[on.ix].gx) : null;
+      var bfs = (er2 && er2.sk && er2.sk.bf) || (pc && pc.bf) || [], bn = [], z;
+      for (z = 0; z < bfs.length; z++) {
+        bn.push(bfs[z].n + '（' + (bfs[z].sd === 'self' ? '自分' :
+          (bfs[z].sd === 'ally' ? '味方' : '敵')) + '・' +
+          Math.round((bfs[z].du || 0) / 1000) + '秒）');
+      }
+      card = '<span class="ocard">' + (pc ? img(pc.id, 'ic') : '') +
+        '<span class="oct"><b>' + esc(cn) + '</b>' +
+        '<span>コスト ' + (Math.round(cc * 10) / 10) + '　' + on.at.toFixed(2) + '秒' +
+        '（残り ' + mmss(dur, on.at) + '）' +
+        (dd2 ? '　ダメージ ' + n0(dd2.avg) : '') + '</span>' +
+        '<span>' + (bn.length ? esc(bn.join('　')) : '効果のデータはありません') +
+        '</span></span></span>';
+    } else {
+      var nx = list[cur + 1];
+      card = '<span class="ocard"><span class="oct"><span class="mut">' +
+        (cur < 0 ? 'まだ 1 発も撃っていません' : (cur + 1) + ' 発めまで') +
+        (nx ? '　次は ' + esc((st.party[nx.i] || {}).n || '?') + ' ' +
+              nx.at.toFixed(2) + '秒' : '　これで最後') +
+        '</span></span></span>';
+    }
+    box.innerHTML = '<span class="kl">スキル順　' +
+      (cur + 1) + ' / ' + list.length + ' 発（' + t.toFixed(1) + '秒）</span>' +
+      '<span class="ordrow"><span class="ocs">' + cells + '</span>' + card + '</span>';
   }
 
   // ------------------------------------------------------------ 拡大・移動
@@ -7460,8 +7686,24 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
   (function () {
     var v = null;
     try { v = localStorage.getItem('tl-scen'); } catch (e) { void e; }
-    if (v != null && isFinite(+v)) { st.scen = +v; }
+    // **画面から選べない番号は覚え直さない**（前は 0〜6 のどれでも保存できた）
+    if (v != null && isFinite(+v) && SCEN[+v] && SCEN[+v].ui) { st.scen = +v; }
+    v = null;
+    try { v = localStorage.getItem('tl-crit'); } catch (e2) { void e2; }
+    if (v != null && isFinite(+v)) { st.crit = clamp(+v, 0, 1); }
   })();
+  // 会心率のバー。**`st.scen` と同じ「見え方の設定」**なので localStorage 側に置く。
+  // 動かすと上の帯・表・図が全部その会心率で引き直る（2026-09-03）
+  $('i-crit').addEventListener('input', function () {
+    st.crit = clamp(+this.value / 100, 0, 1);
+    try { localStorage.setItem('tl-crit', String(st.crit)); } catch (e) { void e; }
+    bump(); draw();
+  });
+  $('b-critauto').addEventListener('click', function () {
+    st.crit = null;
+    try { localStorage.removeItem('tl-crit'); } catch (e) { void e; }
+    bump(); draw();
+  });
   document.querySelector('.tools2').addEventListener('click', onAct);
   $('b-goal').addEventListener('click', onAct);
   $('useedit').addEventListener('click', onAct);
