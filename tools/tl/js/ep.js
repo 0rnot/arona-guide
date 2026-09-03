@@ -100,6 +100,29 @@ export function epCond(id, ms) {
       out.push({ k: 'tmpl', v: { slot: tp[0], du: tp[1] / 1000 } });
       continue;
     }
+    // **「自前の札が N 個のとき」**（2026-09-04）。上と同じ札で、数を見るだけ違う。
+    // カズサ（バンド、10091）がこれで、原文は
+    //   {"t":"CountLogicEffectTemplateModifierDAO","TemplateId":"Dummy_Melody_Check01",
+    //    "CountMin":1,"CountMax":1,"IncludeType":1,"CheckTarget":0}
+    //   {"t":"CountLogicEffectTemplateModifierDAO","TemplateId":"Dummy_Melody_Check01",
+    //    "CountMin":2,"CountMax":999,"IncludeType":1,"CheckTarget":0}
+    // `B.eptl[10091]` は `{"Dummy_Melody_Check01":["Ex",40000,2,null,null]}` ＝
+    // **自分の EX を撃つたびに 1 個付き、40 秒で切れ、最大 2 個**。
+    // 数え方は「その時刻に窓が開いている EX の本数」。上限（`tp[2]`）で頭を打つ。
+    // **`CheckTarget: 1`（敵に貼る札）と、持続が無限（`tp[1] < 0`）のものは入れない**
+    if (m.t === 'CountLogicEffectTemplateModifierDAO' && m.IncludeType === 1 &&
+        m.CheckTarget === 0 && m.CountMin > 0) {
+      var tn = ((B.eptl || {})[id] || {})[m.TemplateId];
+      if (!tn || !(tn[1] > 0) ||
+          (tn[0] !== 'Ex' && tn[0] !== 'Public' && tn[0] !== 'GearPublic')) {
+        return null;
+      }
+      out.push({ k: 'tmpln',
+                 v: { slot: tn[0], du: tn[1] / 1000, cap: tn[2] > 0 ? tn[2] : 0 },
+                 lo: m.CountMin,
+                 hi: (m.CountMax == null || m.CountMax < 0) ? Infinity : m.CountMax });
+      continue;
+    }
     return null;
   }
   return out;
@@ -130,6 +153,15 @@ function tmplAt(id, slot) {
   }
   return nsTimes(id, diff().dur || 240, idx);
 }
+/** その時刻に窓が開いている札の数。**上限（`cap`）で頭を打つ** */
+function tmplCount(id, v, t) {
+  var ws = tmplAt(id, v.slot), k, n = 0;
+  for (k = 0; k < ws.length; k++) {
+    if (t >= ws[k] - 1e-9 && t <= ws[k] + v.du + 1e-9) { n++; }
+  }
+  return v.cap > 0 ? Math.min(n, v.cap) : n;
+}
+function inRange(n, lo, hi) { return n >= lo && n <= hi; }
 /** 置けない理由。置けるなら null。**画面の「読み込み」の欄に出す** */
 /** SS のダメージの行。**条件つきのぶん（`dmgalt`）も数える**（2026-09-03）。
     ノノミの「大型の敵に対して +12.8%」は `Condition` 付きなので `dmg` が空で、
@@ -194,6 +226,7 @@ export function epOkAt(id, r, t, tg) {
         }
         if (!hit) { ok = false; }
       }
+      if (q.k === 'tmpln') { if (!inRange(tmplCount(id, q.v, t), q.lo, q.hi)) { ok = false; } }
     }
     if (ok) { return true; }
   }
@@ -225,6 +258,7 @@ export function epTierAt(id, r, t, tg) {
         }
         if (!hit) { ok = false; }
       }
+      if (q.k === 'tmpln') { if (!inRange(tmplCount(id, q.v, t), q.lo, q.hi)) { ok = false; } }
     }
     if (ok) { return j; }
   }
