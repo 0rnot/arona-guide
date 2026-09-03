@@ -1,4 +1,4 @@
-import { B, S } from './util.js';
+import { B, S, rowVals } from './util.js';
 import { MAIN_MAX, SLOTS, isMain, live, memo, mkSlot, slotOf, st } from './core.js';
 import { diff } from './boss.js';
 import { ENVI, SI, clamp, mkStats } from './stats.js';
@@ -28,13 +28,14 @@ export function passiveList() {
       if (slot === 'WeaponPassive' && !(sl0.wstar >= 2 && sl0.wlv > 0)) { continue; }
       var list = bk[slot] || [];
       for (q = 0; q < list.length; q++) {
-        var e = list[q], vals = e[3] || [];
+        var e = list[q];
+        var rv = rowVals(e, (sl0.stk || {})[slot] || 0), vals = rv.v;
         // **持続時間があるものは常時ではない**（何かで発動する）。乗せない
         if (e[4] != null) { continue; }
         var mx = slot === 'ExtraPassive' ? sl0.sslv : sl0.plv;
         var lv = Math.min(mx, vals.length) || 1;
         out.push({ owner: i, slot: slot, tg: e[0] || [], stat: e[1],
-                   ch: e[2], v: vals[lv - 1] || 0, rs: e[6] || null,
+                   ch: e[2], v: (vals[lv - 1] || 0) * rv.mul, rs: e[6] || null,
                    ov: e[7] || null });
       }
     }

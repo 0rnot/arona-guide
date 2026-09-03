@@ -109,7 +109,7 @@ export function parseTL(txt) {
       }
     }
     if (/愛用品|Gear/i.test(rest)) {
-      mm = rest.match(/(?:愛用品|Gear)\s*(\d)/i); b.gear = mm ? +mm[1] : 3;
+      mm = rest.match(/(?:愛用品|Gear)\s*(\d)/i); b.gear = mm ? Math.min(+mm[1], 2) : 2;
     }
     // 装備。「t6/10/10」「装備9」「T9」——3 枠バラバラでも 1 つでも
     mm = rest.match(/(?:装備|[Tt])\s*(\d+)\s*[\/／]\s*(\d+)\s*[\/／]\s*(\d+)/);

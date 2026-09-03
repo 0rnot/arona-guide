@@ -13,7 +13,7 @@ export function nsKind(id) {
 // その生徒が編成のどこに居るか（居なければ既定の育成）
 export function gearT(id) {
   for (var i = 0; i < SLOTS; i++) { if (st.slots[i].id === id) { return st.slots[i].gear; } }
-  return 3;
+  return 2;
 }
 // **置ける根拠は 2 つある。**
 //  ① スキル文の「N 秒毎に」（cost-timeline の `ns.iv` / `ns.st`）。

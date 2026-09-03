@@ -1,4 +1,4 @@
-import { B, stu } from './util.js';
+import { B, rowVals, stu } from './util.js';
 import { TE, chSlot, isMain, memo, st } from './core.js';
 import { boss } from './boss.js';
 import { usesSorted } from './buff.js';
@@ -130,10 +130,12 @@ export function liveBuffs0(t, to, r) {
           pick.indexOf(+to.slice(4)) < 0) { hit = false; }
       if (hit && !fits(e[6], to, r)) { hit = false; }
       if (!hit) { continue; }
-      // **掛けた本人のスキルレベルで引く。**画面の共通スライダーではない
-      var vals = e[3] || [], lv = Math.min(lvlOf(u.i, kd), vals.length) || 1;
-      out.push({ slot: kd, ch: e[2], stat: e[1], v: vals[lv - 1] || 0, at: st0,
-                 from: u.i, fromN: p.n, kind: kd, ov: e[7] || null });
+      // **掛けた本人のスキルレベルで引く。**画面の共通スライダーではない。
+      // **段（スタック）は枠の設定から**（`stk`。既定は 1 段目）
+      var rv = rowVals(e, ((st.slots[u.i] || {}).stk || {})[kd] || 0);
+      var vals = rv.v, lv = Math.min(lvlOf(u.i, kd), vals.length) || 1;
+      out.push({ slot: kd, ch: e[2], stat: e[1], v: (vals[lv - 1] || 0) * rv.mul,
+                 at: st0, from: u.i, fromN: p.n, kind: kd, ov: e[7] || null });
     }
   }
   // 後掛け優先。同じ（枠, Channel）は遅く始まったほうを残す

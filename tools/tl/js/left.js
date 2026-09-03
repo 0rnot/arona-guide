@@ -1,9 +1,9 @@
-import { $, B, S, esc, img } from './util.js';
+import { $, B, S, bufStk, esc, img } from './util.js';
 import { LAY, MAIN_MAX, SLOTS, isMain, live, mkSlot, st } from './core.js';
 import { n0 } from './rate.js';
 import { potOf, statsOf, wlvMax } from './passive.js';
 import { danMax } from './buff.js';
-import { ALTJA, altList, altScale, lvlOf, pickOf } from './alt.js';
+import { ALTJA, ALTK, altList, altScale, lvlOf, pickOf } from './alt.js';
 
 // ------------------------------------------------------------ 左
 export function drawParty() {
@@ -148,7 +148,11 @@ export function fillBuild() {
   opt('g-sk', [1,2,3,4,5,6,7,8,9,10], b.sk, function (v) { return 'Lv' + v; });
   opt('g-plv', [1,2,3,4,5,6,7,8,9,10], b.plv, function (v) { return 'Lv' + v; });
   opt('g-sslv', [1,2,3,4,5,6,7,8,9,10], b.sslv, function (v) { return 'Lv' + v; });
-  opt('g-gear', [0, 1, 2, 3], b.gear, function (v) { return v ? 'T' + v : 'なし'; });
+  // **愛用品は T2 まで**（2026-09-03 の先生の指摘「育成の愛用品のT3って無くない？」）。
+  // 出典は `schaledb_config.json` の `GearBondReq: [15, 20]` と、
+  // 生徒の `Gear.TierUpMaterial` が 1 段ぶんしか無いこと
+  opt('g-gear', [0, 1, 2], Math.min(b.gear, 2),
+      function (v) { return v ? 'T' + v : 'なし'; });
   opt('g-bond', bl, b.bond);
   // 潜在は 3 本あるが、選ぶのは 1 つ。**読み込みだけが枠ごとに違う値を入れる**
   opt('g-pot', pl, Math.max.apply(null, potOf(b)));
@@ -200,9 +204,43 @@ export function drawAlts() {
       '<span class="v">' + (sc == null ? '—' : (sc / 100).toFixed(0) + '%') +
       '<i>' + (pk + 1) + '/' + x.a.v.length + '</i></span></div>';
   }
+  h += stkRows();
   // **無いときはパネルごと出さない**（説明文を置かない。2026-09-03）
   $('alts').innerHTML = h;
   $('altpane').hidden = !h;
+}
+// **バフの段（スタック）も同じバーで選ぶ**（LOOP.md 55、2026-09-03）。
+// `Value` の 2 本目以降は段ごとの値で、道具は 1 本目しか見ていなかった
+// （ミチルの会心ダメージ、アコ（ドレス）の攻撃力など 56 件）。
+// **段は戦況で決まるのでデータからは出せない。**既定は 1 段目のまま
+export function stkList() {
+  var out = [], i, k;
+  for (i = 0; i < SLOTS; i++) {
+    var p = st.party[i];
+    if (!p) { continue; }
+    for (k = 0; k < ALTK.length; k++) {
+      var n = bufStk(p.id, ALTK[k]);
+      if (n > 1) { out.push({ i: i, p: p, kind: ALTK[k], n: n }); }
+    }
+  }
+  return out;
+}
+export function stkRows() {
+  var list = stkList(), h = '', i;
+  for (i = 0; i < list.length; i++) {
+    var x = list[i], sl = st.slots[x.i] || {};
+    var k = Math.max(0, Math.min((sl.stk || {})[x.kind] || 0, x.n - 1));
+    var nm = ((B.skname || {})[x.p.id] || {})[x.kind] || (ALTJA[x.kind] || x.kind);
+    h += '<div class="alt" title="' + esc('段（スタック）が何個たまっているか') + '">' +
+      img(x.p.id, 'ic') +
+      '<span class="t"><b>' + esc(x.p.n) + '</b>' +
+      '<span class="g">' + esc(ALTJA[x.kind] || x.kind) + '　' + esc(nm) +
+      '　<b class="pick">段 ' + (k + 1) + '</b></span></span>' +
+      '<input type="range" min="0" max="' + (x.n - 1) + '" value="' + k +
+      '" data-stk="' + x.i + '|' + x.kind + '">' +
+      '<span class="v"><i>' + (k + 1) + '/' + x.n + '</i></span></div>';
+  }
+  return h;
 }
 export function fillFilters() {
   var L = S.labels || {}, ro = {}, bu = {}, ar = {}, sc = {}, i;

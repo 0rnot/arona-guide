@@ -12,6 +12,17 @@ export function onAlt(e) {
     if (sa && sa.pk) { mark(); delete sa.pk[qa[1]]; draw(); }
     return;
   }
+  // **バフの段（スタック）**（LOOP.md 55）。倍率の候補とは別の軸なので別に持つ
+  var rs = e.target.closest('input[data-stk]');
+  if (rs) {
+    var qs = rs.getAttribute('data-stk').split('|'), sls = st.slots[+qs[0]];
+    if (!sls) { return; }
+    mark();
+    if (!sls.stk) { sls.stk = {}; }
+    sls.stk[qs[1]] = +rs.value;
+    bump(); draw();
+    return;
+  }
   var r = e.target.closest('input[data-alt]');
   if (!r) { return; }
   var q = r.getAttribute('data-alt').split('|'), i = +q[0], kind = q[1];
@@ -49,7 +60,9 @@ export function wireBuild() {
         var k = KEY[id], v = +this.value, b = whoSlot();
         b[k] = v;
         if (k === 'wstar') { b.w4 = v >= 4; b.wlv = Math.min(b.wlv, wlvMax(v)); }
-        if (k === 'gear') { b.tier = [v, v, v, v, v, v]; }
+        // **愛用品でエンジンの段を動かさない**（2026-09-03）。`tier` は
+        // `tl-engine.js:310` の「効果ごとに何段目を引くか」で、愛用品の段とは別物。
+        // 愛用品を T2 に下げただけでバフの段まで下がっていた
         if (k === 'pot') { b.pot = [v, v, v]; }
         bump(); fillBuild(); drawCrew(); draw();
       });

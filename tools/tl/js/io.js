@@ -89,7 +89,7 @@ export function restore(o) {
       if (isFinite(bd.wstar)) { sl.wstar = +bd.wstar; }
       if (isFinite(bd.slv)) { sl.ex = +bd.slv; }
       if (isFinite(bd.pLv)) { sl.plv = +bd.pLv; }
-      if (typeof bd.gear === 'boolean') { sl.gear = bd.gear ? 3 : 0; }
+      if (typeof bd.gear === 'boolean') { sl.gear = bd.gear ? 2 : 0; }
       if (isFinite(bd.bond)) { sl.bond = +bd.bond; }
     }
   }

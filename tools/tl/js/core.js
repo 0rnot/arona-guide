@@ -16,13 +16,15 @@ export var _byid = {};
 // 1 枠。**engine が読む欄（id / ex / sk / w4 / tier / on）を素で持つ**
 export function mkSlot() {
   return { id: null, ex: 5, sk: 10, w4: false, tier: [3, 3, 3, 3, 3, 3], on: true,
-           lv: 90, star: 5, eq: 9, wlv: 50, wstar: 3, plv: 10, sslv: 10, gear: 3, bond: 20,
+           lv: 90, star: 5, eq: 9, wlv: 50, wstar: 3, plv: 10, sslv: 10, gear: 2, bond: 20,
            // **潜在能力（限界突破）。**HP・攻撃・治癒それぞれ 0〜25
            pot: [0, 0, 0],
            // **通常スキルが「味方1人」のとき、その渡し先。**null なら誰にも乗らない
            nsto: null,
            // **条件でダメージが変わるスキルの、選んだ候補。**{ スキル枠: 番号 }
-           pk: {} };
+           pk: {},
+           // **バフの段（スタック）。**{ スキル枠: 番号 }。0 が 1 段目で、既定
+           stk: {} };
 }
 export function mkParty() {
   var a = [], i;

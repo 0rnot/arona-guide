@@ -5298,7 +5298,7 @@ def build_tl():
     stu = as_list(get_json(SD.format("students")))
     st_out, dmg_out, ndmg, sinfo, build = {}, {}, 0, {}, {}
     ncond = nstack = 0
-    buf_out, nbuf, nskip, ncond, nrst, novr = {}, 0, 0, 0, 0, 0
+    buf_out, nbuf, nskip, ncond, nrst, novr, nstk = {}, 0, 0, 0, 0, 0, 0
     na_out, nna = {}, 0
     nform = 0
     alt_out = {}
@@ -5636,6 +5636,19 @@ def build_tl():
                         row.append(None)
                     row.append(ov)
                     novr += 1
+                # **`Value` の 2 本目以降は「段（スタック）ごとの値」**
+                # （`common.js:1219` の `getEffectValue`）。
+                #   `StackSame` あり … `Value[0][Lv-1] * 段数`（上限が `StackSame`）
+                #   なし             … `Value[min(段-1, 本数-1)][Lv-1]`
+                # 4 番目には今までどおり 1 段目を入れてある（既定が動かないように）。
+                # 全 274 人で 2 本以上が 44 件・`StackSame` が 12 件（2026-09-03）
+                ss = e.get("StackSame")
+                if ss or len(v) > 1:
+                    while len(row) < 8:
+                        row.append(None)
+                    row.append(v if len(v) > 1 else None)
+                    row.append(ss)
+                    nstk += 1
                 bl.append(row)
                 nbuf += 1
             if bl:
@@ -5724,7 +5737,8 @@ def build_tl():
     print(f"  生徒 {len(st_out)} 人 / ダメージを持つ生徒 {len(dmg_out)} 人・効果 {ndmg} 件")
     print(f"  バフ {nbuf} 件（条件つき・周期ものを {nskip} 件外した／"
           f"相手の条件つき {nrst} 件は判定して乗せる／"
-          f"枠を差し替える OverrideSlot {novr} 件）")
+          f"枠を差し替える OverrideSlot {novr} 件／"
+          f"段（スタック）を持つ {nstk} 件）")
     print(f"  条件つき・段つきのダメージ {ncond} 件を候補にした（生徒 {len(alt_out)} 人・"
           f"スキル {sum(len(v) for v in alt_out.values())} 枠／うち段つき {nstack} 枠）")
     print(f"  通常攻撃（オートアタック）が引けた生徒 {nna} 人 / {len(st_out)} 人")
@@ -5824,7 +5838,9 @@ def build_tl():
         "eptl": ep_tpl,
         "bufKeys": ["Target", "Stat", "Channel", "Value", "Duration", "ApplyFrame",
                     "Restrictions([Property,Operand,Value])",
-                    "OverrideSlot(Channel の重なりを見る枠の差し替え)"],
+                    "OverrideSlot(Channel の重なりを見る枠の差し替え)",
+                    "Value全部(段ごと。2 本以上あるときだけ)",
+                    "StackSame(1 段ぶんの値に段数を掛ける型。上限の段数)"],
         # 星の伸び。SchaleDB の CharacterStats の既定値（生徒別の Transcendence は
         # jp のデータに 1 件も無いことを 2026-09-01 に確かめた）
         "tc": [[0, 1000, 1200, 1400, 1700], [0, 500, 700, 900, 1400],
