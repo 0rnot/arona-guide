@@ -4402,6 +4402,107 @@ def summon_count(ex_names, cache):
     return out
 
 
+# ---- **敵側の効果**（`DB/LogicEffect_NPC.json`、4,231,686 バイト・4,625 件）。
+# 2026-09-04 に足した。それまでこの表は 1 度も読んでおらず、読んでいたのは
+# `DB/LogicEffect_PC.json`（生徒側）だけだった。
+#
+# 中身は「1 つの効果」の定義で、`$type` が種類、`GroupId` が名札。
+# **誰がいつ配るかはこの表に無い。**配るのは `LevelSkill/<スキル名>.json` の
+# `EntityTimeline[].Entity.Abilities[].LogicEffectGroupIds` で、そのスキルを
+# 持っている体は `DB/CharacterSkillListExcelTable.json` から引ける。
+# **この 3 段を辿って初めて「どのボスのどの状態で効くか」が決まる。**
+#
+# 例（ケセド。2026-09-04 に実物で確かめた）:
+#   LogicEffect_NPC  {"$type": "...StatChangeEffectDAO", "StatType": 39,
+#                     "BaseAmount": -9000, "Channel": 527,
+#                     "GroupId": "Chesed_Passive01_Effect01",
+#                     "TemplateId": "Debuff_StatChange_DamagedRatio_Self"}
+#   LevelSkill/ChesedPassive01.json
+#                    "TriggerCondition": {"Event": 301,
+#                     "ConditionExpression": "GetCurrentBehavior() == [BehaviorType.Groggy]"}
+#                    "EntityTimeline[0].Entity.Abilities[0].LogicEffectGroupIds":
+#                     ["Chesed_Passive01_Effect01"]
+#   CharacterSkillList 7301100 の `PassiveSkillGroupId` に `ChesedPassive01`
+#
+# **`StatType` は数字。**名前は `TemplateId` の `Buff|Debuff_StatChange_<名前>` から
+# 割り出した（PC/NPC 両方の 3,000 件近くを数えて、1 対 1 に決まったものだけ採った）。
+#   39 DamagedRatio / 61・62 DamagedRatio2 / 65・66 ExDamagedRatio
+#   88 ReduceWeakDamagedRate / 89 WeakDamagedRatio
+_NPC_STAT = {39: "damaged", 61: "damaged2", 62: "damaged2",
+             65: "exDamaged", 66: "exDamaged",
+             88: "weakDamaged", 89: "weakDamaged"}
+# 被ダメージの出方そのものを変える種類。**PC 側には 1 件も無い。**
+_NPC_DAO = {"DamagedLimitEffectDAO": "limit",
+            "OverrideBulletArmorDamageFactorEffectDAO": "override",
+            "DamageTransferEffectDAO": "transfer",
+            "DamagedMultiplierbyDamageOverTimeEffectDAO": "dotMul"}
+_NPC_LE = None
+_NPC_LS = {}
+
+
+def npc_effects():
+    """`GroupId` → [(種類, DAO 名, 行)]。**被ダメージ率に効くものだけ。**"""
+    global _NPC_LE
+    if _NPC_LE is not None:
+        return _NPC_LE
+    out = {}
+    for r in as_list(get_json(BADB.format("LogicEffect_NPC"))):
+        dao = str(r.get("$type") or "").split(",")[0].split(".")[-1]
+        k = None
+        if dao == "StatChangeEffectDAO":
+            k = _NPC_STAT.get(r.get("StatType"))
+        elif dao in _NPC_DAO:
+            k = _NPC_DAO[dao]
+        elif dao == "ImmuneEffectDAO":
+            # **`DamagedRatio` の弱体そのものを無効にする札。**ケセドの
+            # 「この効果以外の DamagedRatio の増加効果を無効化」の実体
+            tp = [r.get("TargetLogicEffectTemplateId%02d" % i) or "" for i in range(13)]
+            if any("DamagedRatio" in t for t in tp):
+                k = "immune"
+        if not k or not r.get("GroupId"):
+            continue
+        out.setdefault(r["GroupId"], []).append((k, dao, r))
+    _NPC_LE = out
+    return out
+
+
+def npc_skill_index(names):
+    """スキル名 → (配る GroupId の集合, Event, ConditionExpression)。
+       **落とせなかったファイルは黙って飛ばす**（大決戦だけの枝は 404 が返る）。"""
+    import concurrent.futures as _cf
+    todo = [n for n in names if n not in _NPC_LS]
+
+    def _one(n):
+        try:
+            return n, get_json(BALS.format(n))
+        except Exception:
+            return n, None
+    if todo:
+        with _cf.ThreadPoolExecutor(8) as ex:
+            for n, d in ex.map(_one, todo):
+                _NPC_LS[n] = d
+    out = {}
+    for n in names:
+        d = _NPC_LS.get(n)
+        if not d:
+            continue
+        gs = set()
+
+        def walk(o):
+            if isinstance(o, dict):
+                for g in (o.get("LogicEffectGroupIds") or []):
+                    gs.add(g)
+                for v in o.values():
+                    walk(v)
+            elif isinstance(o, list):
+                for v in o:
+                    walk(v)
+        walk(d)
+        tc = d.get("TriggerCondition") or {}
+        out[n] = (gs, tc.get("Event"), tc.get("ConditionExpression") or "")
+    return out
+
+
 def _summon_tail(u):
     """`Perorozilla_Torment_Peroro_MiddleSize01_Move` と
     `Perorozilla_Torment_MiddleSize01_Move` を同じものとして突き合わせる鍵。
@@ -5300,6 +5401,19 @@ def build_tl():
                 "id": k, "n": _pname(k), "dn": c.get("DevName"),
                 "k": c.get("TacticEntityType") or "", "hp": sr.get("MaxHP1"),
                 "def": sr.get("DefensePower1"), "armor": c.get("ArmorType"),
+                # **部位にも素の被ダメージ率がある**（2026-09-04）。本体では
+                # `bs.damaged` として読んでいたのに、部位では落ちていた。
+                # `DB/CharacterStatExcelTable.json` の `DamagedRatio` そのもの。
+                #   Hieronymus_HolyRelic_Torment      2000（＝ 1.8 倍）
+                #   Hod_TemporaryTower_*             18000（＝ 0.2 倍）
+                #   EN0013_Original_RightHand01_*    19900（＝ 0.01 倍）
+                #   Resort_Outdoor_HeavyArmor_*      20000（＝ 0.0 倍）
+                #   EN0022_Original_01_Body_*_Torment 15000（＝ 0.5 倍）
+                # **画面の計算には掛けていない**（`dmg.js` の `dbase` は本体と同じく
+                # `dmgOnly` のボスだけ）。ホド・ヒエロニムス・イェソドの本体で
+                # 素の値が効いていない理由が分かっていないのと同じ理由で、
+                # 部位だけ先に掛けると辻褄が合わなくなる
+                "damaged": sr.get("DamagedRatio"),
                 "size": c.get("Size") or (_enemies.get(str(k)) or {}).get("Size"),
                 "stab": sr.get("StabilityPoint"), "stabR": sr.get("StabilityRate"),
                 "dodge": sr.get("DodgePoint"),
@@ -5717,6 +5831,7 @@ def build_tl():
                         "id": _oc, "n": _pname(_oc), "dn": _cr2.get("DevName"),
                         "k": _cr2.get("TacticEntityType") or "", "hp": _sr2.get("MaxHP1"),
                         "def": _sr2.get("DefensePower1"), "armor": got["bs"]["armor"],
+                        "damaged": _sr2.get("DamagedRatio"),
                         "size": _cr2.get("Size") or (_enemies.get(str(_oc)) or {}).get("Size"),
                         "stab": _sr2.get("StabilityPoint"), "stabR": _sr2.get("StabilityRate"),
                         "dodge": _sr2.get("DodgePoint"), "crR": _sr2.get("CriticalResistPoint"),
@@ -5778,6 +5893,138 @@ def build_tl():
             bosses.append({"id": b["Id"], "g": g0 if bx == 0 else f"{g0}#{bx}",
                            "n": _nm, "dev": b.get("DevName"),
                            "path": b.get("PathName"), "gc": _gc, "gwk": _wk, "d": rows})
+
+    # ---- **敵側の効果を行に付ける**（`DB/LogicEffect_NPC.json`。2026-09-04）。
+    # 出どころと辿り方は `npc_effects()` の注記。ここでやるのは 3 つ。
+    #
+    #   ① `d[].npc` … その体（本体・部位）に実際に付く「被ダメージ率に効く効果」。
+    #      **自動では効かせない。**引き金（グロッキー・被弾・段階）は時刻に解けないので、
+    #      `gim` と同じく画面のチップにして、秒は人が置く
+    #   ② `d[].bs.dmgImm` … `DamagedRatio` の弱体を無効にする札（`ImmuneEffectDAO`）。
+    #      **`dmgOnly` の一次資料版。**今の `dmgOnly` は `RaidSkills` の日本語
+    #      （「この効果以外」「DamagedRatio」「無効」）を読んでいるだけだった
+    #   ③ 食い違ったら画面に出す。**黙って直さない**
+    #
+    # `pc` は「被ダメージ率 +N%」に直した値。**画面の窓と同じ単位にする**ための換算で、
+    # 式は道具の中の関係から出る。`dmg.js` は `(20000 − DamagedRatio) ÷ 10000` を使い、
+    # 窓は `DamagedRatio` から `N×100` を引く。素の値 D0 の相手に BaseAmount δ が
+    # 乗ったときの倍率は `(20000 − D0 − δ)/10000`、窓 N% を置いたときは
+    # `(1 + N/100) × (20000 − D0)/10000` なので `N = −δ × 100 ÷ (20000 − D0)`。
+    #   ケセド  δ=−9000, D0=19000 → N=900   ゲーム内の「DamagedRatioが900%増加」と一致
+    #   シロクロ δ=−5000, D0=10000 → N=50    ゲーム内の「被ダメージ率+50%」と一致
+    # **D0 は道具が実際に掛けている値**（`dmgOnly` のボスだけ素の値、他は 10000）。
+    # 掛かり方が「係数」の行（`TargetCoefficientAmount`）は窓で表せないので `pc` を出さない
+    _npc_le = npc_effects()
+    _npc_want, _npc_who = set(), {}
+    for _b in bosses:
+        for _r in _b["d"]:
+            _npc_who.setdefault(_r["cid"], "本体")
+            for _x in (_r.get("sub") or []):
+                _npc_who.setdefault(_x["id"], _x.get("n") or str(_x["id"]))
+    _CSL_SLOT = ("NormalSkillGroupId", "ExSkillGroupId", "PublicSkillGroupId",
+                 "PassiveSkillGroupId", "LeaderSkillGroupId",
+                 "ExtraPassiveSkillGroupId", "HiddenPassiveSkillGroupId")
+    _npc_cs = {}
+    for _c in _npc_who:
+        _nm = []
+        for _row in (csl_all.get(_c) or []):
+            for _k in _CSL_SLOT:
+                for _g in (_row.get(_k) or []):
+                    # **スキル名と効果の名札は頭が揃わない。**`ShiroKuro_Debuff_DamagedRatio`
+                    # を配るのは `ShiroInsaneEx04`、`Wakamo_HoverCraft_GrogyBonus` を
+                    # 配るのは `HoverCraftWakamo01Ex05` で、頭で絞ると落ちる
+                    # （2026-09-04 に実物で確かめた）。**絞らずに全部引く**
+                    if _g and _g not in _nm:
+                        _nm.append(_g)
+        if _nm:
+            _npc_cs[_c] = _nm
+            _npc_want |= set(_nm)
+    _npc_idx = npc_skill_index(sorted(_npc_want))
+    _npc_by = {}
+    for _n, (_gs, _ev, _cx) in _npc_idx.items():
+        for _g in _gs:
+            if _g in _npc_le:
+                _npc_by.setdefault(_g, []).append((_n, _ev, _cx))
+    _npc_n, _npc_imm, _npc_bad = 0, 0, []
+    for _b in bosses:
+        for _r in _b["d"]:
+            _lst, _seen = [], set()
+            _bs = _r["bs"]
+            _d0b = _bs.get("damaged") if _bs.get("dmgOnly") else 10000
+            _tgts = [(_r["cid"], "本体", _d0b)]
+            for _x in (_r.get("sub") or []):
+                _tgts.append((_x["id"], _x.get("n") or str(_x["id"]), 10000))
+            for _cid2, _who, _d0 in _tgts:
+                for _n in (_npc_cs.get(_cid2) or []):
+                    _gs = (_npc_idx.get(_n) or (set(), None, ""))[0]
+                    for _g in sorted(_gs):
+                        for _k, _dao, _e in (_npc_le.get(_g) or []):
+                            _sig = (_g, _cid2, _k)
+                            if _sig in _seen:
+                                continue
+                            _seen.add(_sig)
+                            _q = {"g": _g, "tpl": _e.get("TemplateId"), "dao": _dao,
+                                  "k": _k, "who": _who, "id": _cid2,
+                                  "ch": _e.get("Channel"),
+                                  # **配るスキルは、その体が持っているものだけ挙げる。**
+                                  # `ShiroKuro_Debuff_DamagedRatio` はシロもクロも配るので、
+                                  # 全部並べるとシロの行に `KuroInasneEx03` が出る
+                                  "sk": sorted(_n2 for _n2 in (_npc_cs.get(_cid2) or [])
+                                               if _g in (_npc_idx.get(_n2)
+                                                         or (set(),))[0]),
+                                  "ev": (_npc_idx.get(_n) or (None, None, ""))[1],
+                                  "cx": (_npc_idx.get(_n) or (None, None, ""))[2]}
+                            if _dao == "StatChangeEffectDAO":
+                                _q["v"] = _e.get("BaseAmount")
+                                _q["cf"] = _e.get("TargetCoefficientAmount")
+                                _ms = _e.get("EndConditionArgumentFirst")
+                                try:
+                                    _ms = int(_ms)
+                                except (TypeError, ValueError):
+                                    _ms = -1
+                                _q["d"] = 0 if _ms is None or _ms < 0 else _ms // 1000
+                                if _k == "damaged" and _q["v"] and not _q["cf"] \
+                                        and (20000 - (_d0 or 10000)):
+                                    _q["pc"] = round(-_q["v"] * 100.0 /
+                                                     (20000 - (_d0 or 10000)), 2)
+                            elif _dao == "DamageTransferEffectDAO":
+                                _q["v"] = _e.get("TransferRatio")
+                                _ms = _e.get("Duration") or -1
+                                _q["d"] = 0 if _ms < 0 else _ms // 1000
+                            elif _dao == "OverrideBulletArmorDamageFactorEffectDAO":
+                                _q["v"] = _e.get("DamageRate")
+                                _q["bt"] = _e.get("CheckBulletType")
+                                _q["at"] = _e.get("CheckArmorType")
+                                _q["da"] = _e.get("DamageAttribute")
+                            elif _dao == "DamagedLimitEffectDAO":
+                                _q["v"] = _e.get("LimitAmount")
+                            elif _dao == "DamagedMultiplierbyDamageOverTimeEffectDAO":
+                                _q["v"] = _e.get("AddRate")
+                                _q["tpl2"] = _e.get("ApplyLogicEffectTemplateId")
+                            elif _dao == "ImmuneEffectDAO":
+                                _q["im"] = [_e.get("TargetLogicEffectTemplateId%02d" % _i)
+                                            for _i in range(13)
+                                            if _e.get("TargetLogicEffectTemplateId%02d" % _i)]
+                            _lst.append(_q)
+            if _lst:
+                _r["npc"] = _lst
+                _npc_n += len(_lst)
+            _im = sorted({_t for _q in _lst if _q["k"] == "immune"
+                          and _q["who"] == "本体" for _t in (_q.get("im") or [])
+                          if "DamagedRatio" in _t})
+            if _im:
+                _bs["dmgImm"] = _im
+                _npc_imm += 1
+            if bool(_im) != bool(_bs.get("dmgOnly")):
+                _npc_bad.append("%s %s 説明文=%s / ImmuneEffect=%s"
+                                % (_b["g"], _r.get("df"), _bs.get("dmgOnly"), _im))
+    print(f"  敵側の効果（LogicEffect_NPC）{_npc_n} 件を {len(_npc_want)} スキルから引いた"
+          f"／DamagedRatio の弱体を無効にする体 {_npc_imm} 行")
+    if _npc_bad:
+        print("  ※ `dmgOnly`（説明文）と `ImmuneEffect`（一次資料）が食い違う行 "
+              + str(len(_npc_bad)) + " 本:")
+        for _x in _npc_bad[:12]:
+            print("     " + _x)
     # **生徒の素ステータスとダメージ倍率。**`tools/cost-timeline/data.js` には
     # バフと着弾しか入っていないので、ダメージを出すのに要るぶんだけここに足す。
     # ページは両方の data.js を読む（変数は `TL` と `TLBOSS` で分けてある）。

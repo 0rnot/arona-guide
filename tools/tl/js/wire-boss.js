@@ -4,7 +4,7 @@ import { boss, diff, resetDiffCache, tormentIdx } from './boss.js';
 import { draw } from './draw.js';
 import { drawRate } from './rate.js';
 import { fit } from './zoom.js';
-import { bstPut, fillBoss } from './bossui.js';
+import { bstPut, fillBoss, npcChips } from './bossui.js';
 
 export function syncTabs() {
   var bs = document.querySelectorAll('#rtabs .t');
@@ -27,10 +27,18 @@ export function wireBoss() {
   });
   // チップから窓を置く。**説明文に秒があればその長さ**、無ければ戦闘の終わりまで
   $('bst-chips').addEventListener('click', function (e) {
-    var el = e.target.closest('[data-gim],[data-gimk]');
+    var el = e.target.closest('[data-gim],[data-gimk],[data-npc]');
     if (!el) { return; }
     var kk = el.getAttribute('data-gimk');
     if (kk) { bstPut({ k: kk, v: 0 }); return; }
+    // 敵側の効果（`DB/LogicEffect_NPC.json`）から置く窓。名乗りはスキル名
+    var np = el.getAttribute('data-npc');
+    if (np != null) {
+      var q = npcChips(diff())[+np];
+      if (!q) { return; }
+      bstPut({ k: 'damaged', v: q.pc, n: (q.sk && q.sk.length) ? q.sk[0] : q.g, d: q.d });
+      return;
+    }
     var g = (diff().gim || [])[+el.getAttribute('data-gim')];
     if (!g) { return; }
     bstPut({ k: g.k === 'def' ? 'defAbs' : g.k, v: g.v, n: g.n, d: g.d });

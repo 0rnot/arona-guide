@@ -312,6 +312,52 @@ function inSpans(sp, t) {
   }
   return false;
 }
+/** **フェーズが移る瞬間にグロッキーが強制解除されるボス**（2026-09-04）。
+    クロカゲ（`EN0006`）だけ。`gc` にも `RaidSkills` の説明文にも書いていないので
+    ここに置く。出どころは**ステージの命令**で、Torment と Lunatic の両方に同じ形で在る——
+      `Stage/en0006_torment.json` `Sections[2]`（`SectionID: 3`）`Events[2]`
+      `Stage/en0006_lunatic.json` `Sections[2]`（`SectionID: 3`）`Events[2]`
+        `{"EventName": "BossHpRateUnder", "Operator": 0,
+          "Conditions": [{"$type": "MX.Logic.Battles.GroundConditionCharacterHPChanged, BlueArchive",
+                          "TriggerRateUnder": 1000, "TriggerRateOver": -1,
+                          "TriggerMaxCount": 1, "ConditionID": "EN0006"}],
+          "Commands": [{"$type": "MX.Logic.Battles.GroundCommandWaitSeconds, BlueArchive",
+                        "Milliseconds": 100, "CommandID": "EN0006", "WaitExecuteEnd": false},
+                       {"$type": "MX.Logic.Battles.GroundCommandSetStatus, BlueArchive",
+                        "heroStatus": "Groggy", "isAdd": false, "CommandID": "EN0006",
+                        "WaitExecuteEnd": false}]}`
+    **`TriggerRateUnder: 1000` は最大 HP の 10.00%。**同じ境目が
+    `DB/BossExternalBTExcelTable.json` に数字で入っている——
+      `{"ExternalBTId": 611140701, "AIPhase": 1, "ExternalBTNodeType": "Instant",
+        "ExternalBTTrigger": "HPUnder", "TriggerArgument": "7000000", "BehaviorRate": 10000,
+        "ExternalBehavior": "ChangePhase", "BehaviorArgument": "2"}`（7,000,000 / 70,000,000）
+      `{"ExternalBTId": 611140801, "AIPhase": 1, "ExternalBTNodeType": "Instant",
+        "ExternalBTTrigger": "HPUnder", "TriggerArgument": "15960000", "BehaviorRate": 10000,
+        "ExternalBehavior": "ChangePhase", "BehaviorArgument": "2"}`（15,960,000 / 159,600,000）
+    どちらもちょうど 10.00% で、**道具のフェーズ表の `'1' → '2'` と同じ点**
+    （`r.ph['1'].hp` が `[[7000000, "2"], [3, "2"]]`）。
+    同じことを言う条文がスキル側にもある——`LevelSkill/EN0006ExtraPassive03.json` の
+    `EntityTimeline[1]`（`Frame: 5`）が `EN0006_ExtraPassive03_Effect04`
+    （`DB/LogicEffect_NPC.json` の `StatusRemoveEffectDAO`・`"TargetStatus": "Groggy"`）を
+      `{"$type": "MX.GameData.DAO.Battle.LogicEffectTemplateModifierDAO, BlueArchive",
+        "TemplateId": "Dummy_FormConversion_Dispellable", "IncludeType": 1, "CheckTarget": 0}`
+      `{"$type": "MX.GameData.DAO.Battle.HpRateModifierDAO, BlueArchive",
+        "Operator": 2, "HpRate": 1000, "IncludeType": 1, "CheckTarget": 0}`
+    の 2 条件つきで撃つ（`HpRate: 1000` も 10.00%）。
+    **100 ミリ秒の待ちも原文どおり入れる**（`GroundCommandWaitSeconds`）。
+    `ph` はその「移った先」の鍵で、**ゲーム内の「フェーズ3」が `'2'`**。 */
+export var GGCUT = { EN0006: { ph: '2', sec: 0.1 } };
+/** グロッキーが強制解除される時刻。無ければ null。 */
+export function ggCutAt(r) {
+  var c = GGCUT[(boss() || {}).dev];
+  if (!c) { return null; }
+  var sp = phaseSpans(r), i;
+  for (i = 0; i < sp.length; i++) {
+    if (sp[i].fix) { return null; }
+    if (String(sp[i].p) === c.ph && sp[i].t0 > 0) { return sp[i].t0 + c.sec; }
+  }
+  return null;
+}
 /** ダメージで貯まるボスの、ゲージの折れ線と、たまり切った時刻。 */
 export function ggRuns(r) {
   var g = ggMode(r);
@@ -324,7 +370,7 @@ export function ggRuns(r) {
   // 「グロッキー中に入れたぶんは次のゲージに数えない」を既定にした
   // **名指しされたフェーズの間は貯まらない**（2026-09-04。`ggFreezePh` の出典を見る）。
   // グロッキー中と同じ扱いで、その間に入れたぶんは次のゲージに数えない
-  var fz = ggFreezeSpans(r, g);
+  var fz = ggFreezeSpans(r, g), cut = ggCutAt(r);
   var cv = dmgCurve(r), base = 0, pts = [[0, 0]], hits = [], i, until = -1;
   for (i = 0; i < cv.length; i++) {
     var t = cv[i][0];
@@ -332,9 +378,12 @@ export function ggRuns(r) {
     if (t < until) { base = cv[i][1]; pts.push([t, 0]); continue; }
     var v = cv[i][1] - base;
     if (v >= g.need) {
+      // **フェーズが移る瞬間に切れるボスは、そこで終わり**（`ggCutAt` の出典）
+      var un = t + g.sec;
+      if (cut != null && t < cut - 1e-9 && un > cut) { un = cut; }
       pts.push([t, g.need]);
-      hits.push({ t: t, until: t + g.sec });
-      until = t + g.sec;
+      hits.push({ t: t, until: un });
+      until = un;
       base = cv[i][1];
       pts.push([t, 0]);
     } else {

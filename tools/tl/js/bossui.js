@@ -129,6 +129,30 @@ export function gimLabel(g) {
   return g.n + (m ? '（' + m[1] + '）' : '') + ' / ' + bstLabel(g.k) + ' ' +
     (g.v >= 0 ? '+' : '') + g.v + u + (g.d ? ' ' + g.d + '秒' : '');
 }
+// **敵側の効果から作る候補**（`DB/LogicEffect_NPC.json`。2026-09-04）。
+// `gim` はボスの説明文（日本語）から拾った候補で、こちらは効果の表そのもの。
+// **窓に置けるのは「本体の被ダメージ率を平らに動かす行」だけ。**`pc` は builder が
+// 付ける百分率で、係数で掛かる行（`TargetCoefficientAmount`）と部位あての行には付かない。
+// ケセドは説明文の候補（剥き出しの玉座 +900%）と同じ値がこちらにも出る——
+// `Chesed_Passive01_Effect01` の `BaseAmount: -9000` から出した数で、一致する。
+// **自動では効かせない。**引き金（グロッキー・被弾・段階）が時刻に解けないのは `gim` と同じ
+export function npcChips(r) {
+  var l = (r && r.npc) || [], o = [], i;
+  for (i = 0; i < l.length; i++) {
+    if (l[i].k === 'damaged' && l[i].pc != null && l[i].who === '本体') { o.push(l[i]); }
+  }
+  return o;
+}
+export function npcLabel(q) {
+  return '敵側 ' + ((q.sk && q.sk.length) ? q.sk[0] : q.g) + ' / ' + bstLabel(q.k) +
+    ' ' + (q.pc >= 0 ? '+' : '') + q.pc + '%' + (q.d ? ' ' + q.d + '秒' : '');
+}
+export function npcTip(q) {
+  return q.g + '\n' + (q.tpl || '') + '\nChannel ' + q.ch + ' / BaseAmount ' + q.v +
+    (q.ev == null ? '' : '\nTriggerCondition.Event ' + q.ev) +
+    (q.cx ? '\n' + q.cx : '') +
+    ((q.sk && q.sk.length) ? '\n' + q.sk.join(' / ') : '');
+}
 /** **候補はチップ。**見出しと同じ行に並べる（2026-09-03。プルダウンと
     「＋足す」は消した）。押すと、いま見えている範囲の先頭に帯を 1 本置く。
     `gim` に無い「ボスに当たらない」「雑魚へ」「グロッキー」も同じ行に出す */
@@ -139,6 +163,11 @@ export function drawBstate() {
   for (i = 0; i < gm.length; i++) {
     h += '<button type="button" class="btn2 gchip" data-gim="' + i + '" title="' +
       esc2(gm[i].t) + '">' + esc2(gimLabel(gm[i])) + '</button>';
+  }
+  var np = npcChips(diff());
+  for (i = 0; i < np.length; i++) {
+    h += '<button type="button" class="btn2 gchip" data-npc="' + i + '" title="' +
+      esc2(npcTip(np[i])) + '">' + esc2(npcLabel(np[i])) + '</button>';
   }
   for (i = 0; i < BSTPLAIN.length; i++) {
     h += '<button type="button" class="btn2 gchip" data-gimk="' + BSTPLAIN[i] +
