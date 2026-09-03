@@ -30,6 +30,18 @@ export function lcolFit() {
   else { m.style.removeProperty('--lcol'); }
 }
 
+// **左の列を画面にぴったり収める**（2026-09-03 の先生の指示
+// 「左側の育成の下側がピッタリ画面に収まるように」）。上に残っている概況の帯の
+// ぶんだけ背を削る。スクロールで帯が抜けたら止まる位置（8px）までで、
+// そのぶん背が伸びる。**狭い画面（1 列に畳むとき）は書かない**
+export function leftFit() {
+  var l = $('tlleft'), m = $('tlmain');
+  if (!l || !m) { return; }
+  if (window.innerWidth < 1000) { l.style.removeProperty('--lh'); return; }
+  var top = Math.max(m.getBoundingClientRect().top, 8);
+  l.style.setProperty('--lh', Math.max(240, window.innerHeight - top - 8) + 'px');
+}
+
 export function wireFold() {
   // 見出しのあるパネル全部に摘みを足す
   (function () {
@@ -64,9 +76,27 @@ export function wireFold() {
     if (!pane) { return; }
     setFold(pane, !pane.classList.contains('folded'));
     lcolFit();
+    leftFit();
     setTimeout(relayout, 0);
   });
   lcolFit();
+  leftFit();
+  (function () {
+    var q = 0;
+    function go() { q = 0; leftFit(); }
+    function ask() { if (!q) { q = requestAnimationFrame(go); } }
+    window.addEventListener('scroll', ask, { passive: true });
+    window.addEventListener('resize', ask);
+    // **上の帯は後から中身が入って背が伸びる。**最初の 1 回だけでは 84px ずれる
+    // （2026-09-03 の実測。概況の帯が空のうちに測っていた）
+    if (window.ResizeObserver) {
+      var ro = new ResizeObserver(ask);
+      ro.observe(document.documentElement);
+      if ($('kpi')) { ro.observe($('kpi')); }
+      if ($('tlleft')) { ro.observe($('tlleft')); }
+    }
+    window.addEventListener('load', ask);
+  })();
   $('b-side').addEventListener('click', function (e) {
     // **摘みは仕切りの上に乗っている。**押したぶんが幅の変更にならないよう止める
     e.stopPropagation();
