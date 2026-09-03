@@ -293,6 +293,37 @@ export function parseTL(txt) {
     for (k = 0; k < parts.length; k++) {
       var rw = rowsOf[k].rows.slice().sort(function (a, b) { return a - b; });
       var mainN = 0, supN = 0, slot = {}, crewK = [], tag = parts.length > 1 ? '（P' + (k + 1) + '）' : '';
+      // **枠より育成の行が多いときは、本文で一度も撃たない子から落とす**（2026-09-04、
+      // ゴズ 9FiPLXveLBs）。概要欄の SPECIAL が フウカ（正月）・キサキ・リオ（助っ人）の
+      // 3 人で枠は 2 つ。育成の並び順で切っていたので、**本文で 6 回撃っている リオ が
+      // 落ちて、本文に 1 度も出てこない フウカ（正月）が残っていた**。
+      // 本文が指している子（`refs`）を先に入れて、あふれるぶんを撃たない子から捨てる。
+      // **撃つ子どうしで溢れたときは今までどおり育成の並び順**
+      var refK = {}, rfk = refs(parts[k]), rq;
+      for (rq = 0; rq < rfk.length; rq++) {
+        var rc = rowsOf[k].remap[rfk[rq]];
+        refK[rc == null ? rfk[rq] : rc] = 1;
+      }
+      // **枠の数は編成モードで変わる**（通常 6 人＝ Main 4・Support 2、
+      // 制約解除決戦 10 人＝ Main 6・Support 4）。`live()` で実際に生きている枠を数える
+      var capM = 0, capS = 0, li;
+      for (li = 0; li < SLOTS; li++) { if (live(li)) { if (li < MAIN_MAX) { capM++; } else { capS++; } } }
+      var nM = 0, nS = 0, keepR = [], pass;
+      for (pass = 0; pass < 2; pass++) {
+        for (rq = 0; rq < rw.length; rq++) {
+          if ((pass === 0) !== !!refK[rw[rq]]) { continue; }
+          var s4 = _byid[res.crew[rw[rq]].id];
+          if (!s4) { continue; }
+          if (s4.sq === 'Support') { if (nS < capS) { nS++; keepR.push(rw[rq]); } }
+          else if (nM < capM) { nM++; keepR.push(rw[rq]); }
+        }
+      }
+      for (rq = 0; rq < rw.length; rq++) {
+        if (keepR.indexOf(rw[rq]) < 0 && _byid[res.crew[rw[rq]].id]) {
+          res.skipped.push([res.crew[rw[rq]].name, '枠が足りません' + tag]);
+        }
+      }
+      rw = keepR.sort(function (a, b) { return a - b; });
       for (j = 0; j < rw.length; j++) {
         var s2 = _byid[res.crew[rw[j]].id], idx;
         if (!s2) { continue; }
