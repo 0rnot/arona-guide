@@ -4606,6 +4606,33 @@ def tl_one(cid, bt, csl, stat, fcache, ch_appear, twin=None):
             "per": round(per, 3) if per else None, "ex": ex, "ph": ph, "fb": fb}
 
 
+# **`DamageByHit`（攻撃を受ける度に出る追加ダメージ）の上限回数。**
+# SchaleDB の `Effects` は `Icon: "DamageByHit_Damaged"` を持つだけで回数を持たない。
+# 一次資料は `DB/LogicEffect_PC.json` の `DamageByHitEffectDAO` で、
+# `RemoveCondition: 3` と対の `RemoveConditionArgument` がその回数。
+# **`Duration` と `BonusRateFirst`（＝`Scale` の 1 段目）の対で結び付く**
+# （2026-09-03 に 6 枠すべて 1 対 1 で当たることを確かめた。
+#  ミユ Ex 120 ／ ミユ GearPublic 50 ／ メル Ex 480 ／ キララ GearPublic 100 ／
+#  ノア（パジャマ）Ex 240 ／ スミレ（アルバイト）Ex 240。説明文の
+#  「最大N回分まで適用されます」とも全部一致した）
+_DBH = {}
+
+
+def dbh_cap(e):
+    """`DamageByHit` の上限回数。当たらなければ None。"""
+    if "DamageByHit" not in str(e.get("Icon") or ""):
+        return None
+    if not _DBH:
+        for r in as_list(get_json(BADB.format("LogicEffect_PC"))):
+            if "DamageByHit" not in str(r.get("$type") or ""):
+                continue
+            if r.get("RemoveCondition") != 3 or not r.get("RemoveConditionArgument"):
+                continue
+            _DBH[(r.get("Duration"), r.get("BonusRateFirst"))] = r["RemoveConditionArgument"]
+    sc = e.get("Scale") or []
+    return _DBH.get((e.get("Duration"), sc[0] if sc else None))
+
+
 # LevelSkill の中身を 1 回だけ落とすための入れ物（湧く体の数を数えるのに使う）
 _ls_cache = {}
 
@@ -5670,7 +5697,11 @@ def build_tl():
                         #     ミカの隕石（339%）がこれで、毎回数えると NS の出力が
                         #     1.8 倍になる。**機械で読める欄が無い**ので説明文の行から拾う。
                         #     全 274 人で当たるのは 2 件だけ（ミカ・ウミカ。後者はダメージ無し）
-                        _every.get(e.get("DescParamId"))]
+                        _every.get(e.get("DescParamId")),
+                    #   HitCap … `DamageByHit` の上限回数（2026-09-03）。
+                    #     「その敵が攻撃を受ける度に」出るぶんで、いま 1 回ぶんしか
+                    #     数えていない。出どころは `dbh_cap` の注記
+                    dbh_cap(e)]
             # **`Group` は「何段目か」で、足すものではなく択一。**
             # ネル（制服）の Ex1 は Group 0〜4 × 条件 2 通りの 10 件あって、
             # 全部足すと 1 発 5,727,546（ボス HP の 25%）になっていた。

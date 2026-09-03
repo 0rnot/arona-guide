@@ -6,6 +6,7 @@ import { effMod, statsOf, support, terrMod } from './passive.js';
 import { aimOf, enemyAt } from './target.js';
 import { altOf, lvlOf, pickOf } from './alt.js';
 import { KS } from './clear.js';
+import { naShotsRaw } from './na.js';
 
 // 1 人の EX スキル 1 回ぶん。会心と乱数の組み合わせで 5 通り返す
 // 倍率の幅をどう振るか。0 = 個別設定のまま、-1 = 全部いちばん低い候補、
@@ -113,6 +114,28 @@ export function dmgOf1(idx, r, at, kind, pick, tg, gx, nso, only) {
     acc.va += (d0.va || 0) / ns;
   }
   return acc;
+}
+/** **`DamageByHit` が何回出るか。**「その敵が攻撃を受ける度に」なので、
+    盤に居る STRIKER の通常攻撃の当たり数を効果の続く間ぶん数えて、上限で頭を打つ。
+
+    **数えているのは通常攻撃だけ。**EX・NS の当たりぶんは入っていない（30 秒で
+    通常が 200 発前後あるのに対して EX は数発なので、そのぶんは少なめに出る）。
+    攻撃速度のバフも見ていない（`naShotsRaw`。バフ込みの `naShots` を通すと
+    `statsOf` → `liveBuffs` → `usesSorted` で輪になる。`na.js` の注記に出典）。
+    **狙う先で分けていない**——誰がボスを撃っていて誰がミニオンを撃っているかは
+    データからは決まらないので、全員がその敵を撃っている前提の上限寄りの数 */
+function hitsOn(r, at, sec, cap) {
+  var a = at == null ? 0 : at, b = a + sec, i, q, n = 0;
+  if (r && r.dur) { b = Math.min(b, r.dur); }
+  for (i = 0; i < st.party.length; i++) {
+    if (!st.party[i] || !isMain(i)) { continue; }
+    var na = ((B.dmg[st.party[i].id] || {}).Normal || []), hn = 0;
+    for (q = 0; q < na.length; q++) { hn += ((na[q][1] || []).length || 1); }
+    if (!hn) { hn = 1; }
+    var ts = naShotsRaw(i, (r && r.dur) || b);
+    for (q = 0; q < ts.length; q++) { if (ts[q].t >= a && ts[q].t < b) { n += hn; } }
+  }
+  return Math.max(1, Math.min(cap, n));
 }
 export function dmgAt(idx, r, at, kind, pick, tg, gx, nso, only) {
   var p = st.party[idx];
@@ -236,6 +259,11 @@ export function dmgAt(idx, r, at, kind, pick, tg, gx, nso, only) {
         tick = Math.max(0, Math.min(tick, Math.floor((r.dur - at) * 1000 / e[4])));
       }
     }
+    // **`DamageByHit` は「その敵が攻撃を受ける度に」出る**（2026-09-03）。
+    // 1 回ぶんしか数えていなかった（メル 上限 480・ミユ 120/50・キララ 100・
+    // ノア（パジャマ）240・スミレ（アルバイト）240 の 5 人 6 枠）。
+    // 上限の出どころは `build-tool-data.py` の `dbh_cap`（`DB/LogicEffect_PC.json`）
+    if (e[15] && e[5]) { tick = hitsOn(r, at, e[5] / 1000, e[15]); }
     // **`HitFrames` は「1 秒毎に N 秒間」型。**書いてあるフレームの数だけフル発が出る。
     // 落としていて 1 発ぶんしか数えていなかった（チセ・サヤ・サヤ（私服）・
     // チェリノ（温泉）・メグの 5 人 6 枠。2026-09-01 の全キャラ照合）
