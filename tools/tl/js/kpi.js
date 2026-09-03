@@ -228,8 +228,22 @@ export function drawErr() {
                 uz[q].no)) { noTg++; }
     }
     if (noTg) {
+      // **同時に何体居るかは DB から出る**（2026-09-04）。1 回の召喚で出る数は
+      // `LevelSkill/<召喚 EX>.json` の `SummonGroups[].SummonEntities` の件数
+      // （`sub[].spn` / `spnw`）、グロッキー中に増える数は `RaidSkills` の本文
+      // （`gspl.n`）。**その一発が実際に何体を覆うかは盤の上の話で DB に無い**ので、
+      // 数を出すだけにして掛けない。置くのは今までどおり使う人
+      // 出どころ: ペロロジラ屋外 Lunatic は `Perorozilla01LunaticEx03..Ex08` の
+      // `SummonGroups[0].SummonEntities` が 6 件、`Perorozilla01_DamageTransfer_Effect01`
+      // が `"TransferRatio": "10000"` `"Duration": "-1"`、
+      // `Perorozilla_MiddleSize_Passive01_Effect01` が `"TargetStatus": "Immortal"`
+      var trX = '';
+      if (trn.spn > 1) { trX += '。1 回の召喚で ' + trn.spn + ' 体'; }
+      if (r.gspl && r.gspl.gg && r.gspl.n) {
+        trX += (trX ? '／' : '。') + 'グロッキー中は別に ' + r.gspl.n + ' 体';
+      }
       out.push(['w', noTg + ' 発：当たる先（' + trn.n + 'は被ダメージの ' +
-        trn.tr + '% をボスへ転移）']);
+        trn.tr + '% をボスへ転移' + trX + '）']);
     }
   }
   // **グロッキーで分かれるボスなのに、窓を 1 つも置いていない**（2026-09-03）。
