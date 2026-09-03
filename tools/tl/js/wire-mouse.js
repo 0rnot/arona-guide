@@ -66,8 +66,15 @@ export function wireMouse() {
     if (bar) {
       mark();
       st.sel = +bar.getAttribute('data-ix');
-      sdrag = { ix: st.sel, x: e.clientX, t0: st.tl[st.sel].t, moved: false, el: bar };
-      e.preventDefault(); draw(); return;
+      e.preventDefault(); draw();
+      // **掴んだ帯は `draw()` のあとに取り直す。**`draw()` は `#cv` を
+      // `innerHTML` ごと組み直すので、掴んだ瞬間の要素はもう画面に無い。
+      // それに `style.left` を書いていたので、動かしても何も起きなかった
+      // （2026-09-03 の先生の指摘「リアルタイムでマウスに追従しない」）
+      var nel = view.querySelector('.b.sk[data-ix="' + st.sel + '"]');
+      if (nel) { nel.style.willChange = 'transform'; }
+      sdrag = { ix: st.sel, x: e.clientX, t0: st.tl[st.sel].t, moved: false, el: nel };
+      return;
     }
     var ln = e.target.closest('.exlane');
     if (ln) {
@@ -106,14 +113,22 @@ export function wireMouse() {
     // **掴んでいる間は、掴んでいる帯 1 本だけ動かす**（2026-09-03 の先生の指摘
     // 「スキル入れてくとタイムラインで EX をまともにドラッグ出来ないくらい重くなる」）。
     // `draw()` は編成ぜんぶの通常攻撃・達成率・行の表まで引き直すので、
-    // 動かすたびに丸ごとやり直していた。**指を離したときに 1 回だけ全部を引き直す**
+    // 動かすたびに丸ごとやり直していた。**指を離したときに 1 回だけ全部を引き直す**。
+    // 動かすのは `transform` で、`left` は触らない。`left` を書き換えると
+    // その 1 本ぶんの配置し直しが入るが、`transform` は合成だけで済む。
+    // 吸い付いたあと（`snap`）の `nt` をそのまま出すので、刻みも目で見える
     if (sdrag.el) {
-      sdrag.el.style.left = (nt * st.px).toFixed(1) + 'px';
+      sdrag.el.style.transform = 'translateX(' + ((nt - sdrag.t0) * st.px).toFixed(1) + 'px)';
       sdrag.el.title = nt.toFixed(2) + '秒';
     }
   });
   window.addEventListener('mouseup', function () {
-    if (sdrag && sdrag.moved && st.tl[sdrag.ix]) { fixUse(st.tl[sdrag.ix]); draw(); }
+    if (sdrag) {
+      // 仮の `transform` を戻してから引き直す。**引き直しはここで 1 回だけ**
+      if (sdrag.el) { sdrag.el.style.transform = ''; sdrag.el.style.willChange = ''; }
+      var us = st.tl[sdrag.ix];
+      if (us && (sdrag.moved || us.t !== sdrag.t0)) { fixUse(us); draw(); }
+    }
     drag = null; sdrag = null; bdrag = null;
   });
 
