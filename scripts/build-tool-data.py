@@ -5303,6 +5303,7 @@ def build_tl():
     nform = 0
     alt_out = {}
     ns_out, nns = {}, 0
+    ep_out, nep = {}, 0
     skname = {}
     tgt_out = {}
     # 装備。段ごとの効果。**値は SchaleDB と同じく `StatValue[i][1]`（その段の上限レベル）**
@@ -5346,6 +5347,28 @@ def build_tl():
             seen_g[mg] = [mg, au.get("ConditionType"), arg, d.get("Duration")]
             nns += 1
         ns_out[sid] = [seen_g[k] for k in sorted(seen_g)]
+        # ---- サブスキル（SS）の引き金。**`LevelSkill/<ExtraPassiveSkillGroupId>.json`
+        # の `TriggerCondition`**（2026-09-03）。NS の `AutoUseRule` は
+        # ダメージを持つ 40 人とも空で、**SS は周期では出ない。**
+        # `Event` が引き金の種類。全生徒の記述文と突き合わせて確かめた対応は
+        #   1=常時 / 2=通常攻撃時 / 3=スキル発動と同時 / 11=被弾 / 13=会心 /
+        #   15=撃破時 / 16=リロード時 / 17=スキル使用時 / 18=内部効果 /
+        #   21=攻撃時 / 105=N 秒毎（`Parameters` がフレーム） / 301=状態条件つき常時
+        # `ExtraPassive` は愛用品の段で変わらないので、先頭の 1 本だけ取る
+        ep = None
+        for row in csl_all.get(x["Id"], []):
+            eg = (row.get("ExtraPassiveSkillGroupId") or [None])[0]
+            if not eg:
+                continue
+            ed = get_json(BALS.format(eg)) or {}
+            tc = ed.get("TriggerCondition") or {}
+            ep = [tc.get("Event"), tc.get("Parameters"), tc.get("ConditionExpression"),
+                  tc.get("TriggerRate"), ed.get("MaxTriggerCount"), ed.get("TryCount"),
+                  ed.get("CoolTimeNotTrigger"), ed.get("Duration")]
+            break
+        if ep and ep[0] is not None:
+            ep_out[sid] = ep
+            nep += 1
         # ---- 育成の中身。**適用の仕方は SchaleDB の CharacterStats そのまま**
         #   eqp … 装備の枠 3 つ（Hat / Hairpin / Watch など）
         #   wp  … 固有武器 [攻撃1, 攻撃100, HP1, HP100, 治癒1, 治癒100, 伸び方, 地形, 段数]
@@ -5639,6 +5662,8 @@ def build_tl():
     import collections as _c
     print("  NS の自動発動 " + str(nns) + " 件 / 内訳 "
           + str(_c.Counter(v[1] for l in ns_out.values() for v in l).most_common()))
+    print("  SS の引き金 " + str(nep) + " 人 / Event の内訳 "
+          + str(_c.Counter(v[0] for v in ep_out.values()).most_common(8)))
 
     used = sorted({g for x in bosses for r in x["d"] for g in r["ex"]}
                   | {r["ns"] for x in bosses for r in x["d"] if r["ns"]})
@@ -5675,6 +5700,10 @@ def build_tl():
         "na": na_out,
         "nsKeys": ["MinimumTierCharacterGear", "ConditionType",
                    "ConditionArgument(フレーム)", "Duration(フレーム)"],
+        # サブスキルの引き金。**ダメージ・効果の時刻はここからしか出ない**
+        "ep": ep_out,
+        "epKeys": ["Event", "Parameters", "ConditionExpression", "TriggerRate",
+                   "MaxTriggerCount", "TryCount", "CoolTimeNotTrigger", "Duration"],
         "bufKeys": ["Target", "Stat", "Channel", "Value", "Duration", "ApplyFrame",
                     "Restrictions([Property,Operand,Value])"],
         # 星の伸び。SchaleDB の CharacterStats の既定値（生徒別の Transcendence は
