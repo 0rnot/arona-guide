@@ -9,7 +9,7 @@
 <link rel="icon" href="../favicon.svg" type="image/svg+xml">
 <!-- 埋め込みカード。**画像は絶対 URL でしか指定できない**ので、
      ドメインを変えたらここも直すこと（トップページの `<head>` と同じ事情）。
-     絵は道具そのものの画面（`images/tl-editor.webp`、1200x972） -->
+     絵は道具そのものの画面（`images/tl-editor.webp`、1200x940） -->
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="AronaBot">
 <meta property="og:locale" content="ja_JP">
@@ -18,7 +18,7 @@
 <meta property="og:description" content="ボスの動きの上に EX を並べて、いつ撃てるか・どこまで削れるかを確かめます。AronaBot を入れたサーバーの管理者だけが使えます。">
 <meta property="og:image" content="https://arona-bot.com/images/tl-editor.webp">
 <meta property="og:image:width" content="1200">
-<meta property="og:image:height" content="972">
+<meta property="og:image:height" content="940">
 <meta property="og:image:alt" content="総力戦の TL エディタ — ボスのフェーズの帯の上に EX が並んでいる画面">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="総力戦の TL エディタ">
@@ -216,19 +216,19 @@
     <figure class="shot">
       <a class="zoom" href="../images/tlg-rows.webp"><img src="../images/tlg-rows.webp"
         alt="「入力」で開く行の表。1 行が EX 1 発で、生徒・指定のしかた・時刻・渡す相手が並んでいる"
-        loading="lazy" width="1200" height="412"></a>
+        loading="lazy" width="1200" height="430"></a>
     </figure>
   </div>
 
   <!-- ===== ⑤ タイムラインの読み方 ===== -->
   <div class="panel">
     <div class="panel-h"><h2>タイムラインの読み方</h2></div>
-    <p class="lead">上の段は<b>ボスの側</b>です。フェーズの切り替わり、ボスの EX と PS、
+    <p class="lead">上の段は<b>ボスの側</b>です。ボスの EX と PS、
       グロッキーゲージの溜まり、こちらのデバフの数。その下に<b>コスト回復力</b>と<b>コストの山</b>が続きます。
       <button type="button" class="qm" data-hint="コストの山は、溜まって撃って落ちる形がそのまま出ます。上限に張り付いている間はそれ以上増えません。回復力の段は、コスト回復力のバフが乗っている区間です。"></button></p>
     <figure class="shot">
       <a class="zoom" href="../images/tlg-band.webp"><img src="../images/tlg-band.webp"
-        alt="タイムラインの上の帯。ボスのフェーズ、ボスの EX と PS、グロッキー、デバフ数、コスト回復力、コストの山が縦に並んでいる"
+        alt="タイムラインの上の帯。ボスの段、ボスの EX と PS、グロッキー、デバフ数、コスト回復力、コストの山が縦に並んでいる"
         loading="lazy" width="1200" height="194"></a>
     </figure>
     <p class="lead" style="margin-top:22px">下の段は<b>生徒ごとに 3 本</b>——
@@ -238,7 +238,7 @@
     <figure class="shot">
       <a class="zoom" href="../images/tlg-lanes.webp"><img src="../images/tlg-lanes.webp"
         alt="生徒ごとの段。1 人につき EX・NS・通常攻撃の 3 本が並び、いちばん下にサブスキルの帯が続いている"
-        loading="lazy" width="1200" height="367"></a>
+        loading="lazy" width="1200" height="349"></a>
     </figure>
   </div>
 
@@ -261,7 +261,7 @@
   <!-- ===== ⑦ 相手とボスの状態 ===== -->
   <div class="panel">
     <div class="panel-h"><h2>相手と、ボスの状態</h2></div>
-    <p class="lead">盤の下で<b>ボス・難易度・地形・装甲</b>を選びます。フェーズに入る HP は編集でき、
+    <p class="lead">盤の下で<b>ボス・難易度・地形・装甲</b>を選びます。
       ボス名の隣の丸は<b>この道具をそのボスの実際の動画と突き合わせたかどうか</b>です。
       <button type="button" class="qm" data-hint="塗った緑＝実際の動画と突き合わせて合っているボス。黄色い輪＝一部だけ合っているボス。灰色の輪＝まだ突き合わせていないボス。丸を押すと、そのボスの状況が言葉で出ます。"></button></p>
     <p class="lead"><b>「ボスの状態」は自分で置きます。</b>押すとその区間の帯が盤に乗り、端をドラッグして長さを決めます。
@@ -269,7 +269,7 @@
       <button type="button" class="qm" data-hint="「ボスに当たらない」は、雑魚処理や移動でボスが盤に居ない区間です。その間の EX・NS・通常攻撃はボスの HP から引きません。ケセドは 152 秒のうち 121 秒がこれで、置かないと与ダメージが実測の 1.4 倍近くに出ます。「通常攻撃・NS が雑魚へ」はボスは居るが撃つ先が雑魚のとき、「グロッキー（確定会心）」は時刻が計算で解けないボス用です。"></button></p>
     <figure class="shot">
       <a class="zoom" href="../images/tlg-boss.webp"><img src="../images/tlg-boss.webp"
-        alt="相手の欄。ボス・難易度・地形・装甲・フェーズの選択と、ボスの状態を置くボタンが並んでいる"
+        alt="相手の欄。ボス・難易度・地形・装甲の選択と、ボスの状態を置くボタンが並んでいる"
         loading="lazy" width="1200" height="100"></a>
     </figure>
     <p class="lead" style="margin-top:22px">動かす前から決まっている数字は、上の帯のいちばん右にまとまっています。

@@ -29,7 +29,7 @@ import { restore, snapshot } from './io.js';
 import { parseTL } from './parse-tl.js';
 import { applyTL, findStudent } from './parse-apply.js';
 import { drawCrew, drawParty, drawPicker, fillBuild, fillFilters } from './left.js';
-import { fillBoss } from './bossui.js';
+import { bossShown, fillBoss } from './bossui.js';
 import { wireBoss } from './wire-boss.js';
 import { wireFold } from './wire-fold.js';
 import { wireTip } from './tip.js';
@@ -42,7 +42,12 @@ import { wireRows } from './wire-rows.js';
 import { wireMouse } from './wire-mouse.js';
 
 // ------------------------------------------------------------ つなぐ
-st.di = tormentIdx(B.bosses[0]);
+// **最初に出すのは、選べるボスの 1 体目**（2026-09-03。ペロロジラだけに絞ったので、
+// 既定のままだと一覧に無いボスが選ばれた状態で開く）
+for (var _bi = 0; _bi < B.bosses.length; _bi++) {
+  if (bossShown(B.bosses[_bi].n)) { st.bi = _bi; break; }
+}
+st.di = tormentIdx(B.bosses[st.bi]);
 // **段の取捨選択は最初の draw より先に読む**（2026-09-03）
 loadLanes(); drawLanes();
 fillBoss(); fillFilters(); fillBuild(); drawParty(); drawCrew(); drawPicker(); draw();

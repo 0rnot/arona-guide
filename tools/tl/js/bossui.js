@@ -5,9 +5,24 @@ import { ARMJA, boss, diff, ggNoDmg } from './boss.js';
 import { draw } from './draw.js';
 import { n0 } from './rate.js';
 
+// **選べるのは、下限を通したボスだけ**（2026-09-03 の先生の指示
+// 「エディタの選択肢、ペロロジラ以外なくしちゃっていいや、ペロロジラ詰めよう／
+// 他のボスは下限クリアし次第、順次追加していく形で」）。
+// 下限は 幅の中 90% ／ 平均±5%以内 60% ／ 討伐秒の差 15 秒（LOOP.md「進め方」）。
+// **データは全部入ったまま**なので、通ったボスをここへ足すだけで出せる。
+// 答え合わせの道具は `?all=1` を付けて全部のボスを出す
+export var BOSS_OK = ['ペロロジラ'];
+export function bossShown(n) {
+  if (/[?&]all=1/.test(location.search)) { return true; }
+  for (var q = 0; q < BOSS_OK.length; q++) {
+    if (String(n).indexOf(BOSS_OK[q]) === 0) { return true; }
+  }
+  return false;
+}
 export function fillBoss() {
   var h = '', i;
   for (i = 0; i < B.bosses.length; i++) {
+    if (!bossShown(B.bosses[i].n)) { continue; }
     h += '<option value="' + i + '">' + esc(B.bosses[i].n) + '</option>';
   }
   $('i-boss').innerHTML = h; $('i-boss').value = String(st.bi);

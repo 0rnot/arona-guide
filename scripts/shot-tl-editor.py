@@ -20,7 +20,9 @@ OUT = os.path.join(ROOT, 'images', 'tl-editor.webp')
 def main():
     from playwright.sync_api import sync_playwright
     c = json.load(io.open(CASES, encoding='utf-8'))
-    tl = (c.get('ビナー') or c.get('ホド'))[0].get('text')
+    # **屋内ペロロジラ**（2026-09-03。エディタがペロロジラしか出さない）
+    _per = [x for x in (c.get('ペロロジラ') or []) if x.get('vid') == 'a68El3B6QRc']
+    tl = (_per or c.get('ビナー'))[0].get('text')
     png = os.path.join(tempfile.gettempdir(), 'tl-editor-shot.png')
     with sync_playwright() as pw:
         b = pw.chromium.launch()

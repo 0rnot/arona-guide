@@ -32,11 +32,11 @@ URL = os.environ.get('TL_URL', 'http://127.0.0.1:8777/tools/tl/')
 OUT = os.path.join(ROOT, 'images')
 TMP = tempfile.gettempdir()
 
-# **撮る画面はビナー（大決戦・屋外・貫通・Torment）で固定する。**
-# 実測と突き合わせが済んでいる編成で、フェーズが 3 つ・グロッキーが 2 回入るので、
-# 帯の説明にちょうどいい（`tl-work/cases.json` の 1 本目）。
-CASE_BOSS = 'ビナー'
-CASE_IX = 0
+# **撮る画面は屋内ペロロジラ Torment で固定する**（2026-09-03。先生の指示で
+# エディタがペロロジラしか出さなくなったので、ビナーでは撮れない）。
+# `cases.json` の `a68El3B6QRc`（nktt、40,033,921）を使う。
+CASE_BOSS = 'ペロロジラ'
+CASE_VID = 'a68El3B6QRc'
 
 # タイムラインの段（`#side` の子の並び）。**行の名前で探す。**
 # 段が増減しても添字を書き直さずに済む。名前が重なる段（生徒名は EX・NS・SS で
@@ -316,7 +316,7 @@ def main(argv):
         return 1
 
     cases = json.load(io.open(CASES, encoding='utf-8'))
-    case_ = cases[CASE_BOSS][CASE_IX]
+    case_ = [x for x in cases[CASE_BOSS] if x['vid'] == CASE_VID][0]
     tl = case_['text']
     made = []
     with sync_playwright() as pw:
