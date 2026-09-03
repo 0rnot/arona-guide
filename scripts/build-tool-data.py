@@ -5304,6 +5304,8 @@ def build_tl():
     alt_out = {}
     ns_out, nns = {}, 0
     ep_out, nep = {}, 0
+    # サブスキルの条件が指す `Dummy_*` の札。あとで LogicEffect_PC から引く
+    ep_tid = {}
     skname = {}
     tgt_out = {}
     # 装備。段ごとの効果。**値は SchaleDB と同じく `StatValue[i][1]`（その段の上限レベル）**
@@ -5371,16 +5373,26 @@ def build_tl():
         # 40 人とも空、`students.min.json` の `Condition` も `None` だった）。
         # 型をそのまま運ぶ。**道具が知らない型が 1 つでもあれば、その子は置かない**
         if ep and ep[0] is not None:
+            # **アビリティごとに分ける。**同じアビリティの中は「かつ」、
+            # 別のアビリティどうしは「または」（レンゲは `Public` 版と
+            # `GearPublic` 版が別のアビリティに分かれていて、
+            # 平らにすると「両方立っているとき」になってしまう。2026-09-03）
             mods = []
             for tl in (ed.get("EntityTimeline") or []):
                 for ab in (((tl.get("Entity") or {}).get("Abilities")) or []):
+                    one = []
                     for m in (ab.get("Modifiers") or []):
-                        mods.append(dict(
+                        one.append(dict(
                             [("t", m["$type"].split(".")[-1].split(",")[0])] +
                             [(k, v) for k, v in m.items() if k != "$type"]))
+                    mods.append(one)
             ep.append(mods)
             ep_out[sid] = ep
             nep += 1
+            for _ab in mods:
+                for _m in _ab:
+                    if _m.get("TemplateId"):
+                        ep_tid.setdefault(sid, []).append(_m["TemplateId"])
         # ---- 育成の中身。**適用の仕方は SchaleDB の CharacterStats そのまま**
         #   eqp … 装備の枠 3 つ（Hat / Hairpin / Watch など）
         #   wp  … 固有武器 [攻撃1, 攻撃100, HP1, HP100, 治癒1, 治癒100, 伸び方, 地形, 段数]
@@ -5676,10 +5688,46 @@ def build_tl():
     print(f"  味方に効くスキル {sum(len(v) for v in tgt_out.values())} 枠 / "
           f"うち「味方1人」が {_one} 枠（説明文から）")
     import collections as _c
+    import re as _re
     print("  NS の自動発動 " + str(nns) + " 件 / 内訳 "
           + str(_c.Counter(v[1] for l in ns_out.values() for v in l).most_common()))
     print("  SS の引き金 " + str(nep) + " 人 / Event の内訳 "
           + str(_c.Counter(v[0] for v in ep_out.values()).most_common(8)))
+
+    # ---- サブスキルの条件が指す `Dummy_*` を、**誰のどのスキルが付けるか**へ解く。
+    # 出どころは `DB/LogicEffect_PC.json`（26,273 件）。`TemplateId` で引くと
+    # `GroupId` が `<DevName>_<枠><NN>_Effect<NN>` の形で入っていて、
+    # **その札を付けるスキルの枠が読める**（2026-09-03）。
+    # `EndConditionArgument` が持続（ミリ秒）、`StackSameEffectCount` が重ねられる数。
+    # **本人のスキルが付けるぶんだけ採る。**マリナ（チーパオ）の毒はミドリ・ジュリ・
+    # サヤも付けるが、他人ぶんは時刻が決まらないので入れない
+    ep_tpl, ntpl = {}, 0
+    if ep_tid:
+        _le = as_list(get_json(BADB.format("LogicEffect_PC")))
+        _by = {}
+        for _r in _le:
+            _t = _r.get("TemplateId")
+            if _t:
+                _by.setdefault(_t, []).append(_r)
+        _dev = {str(x["Id"]): (x.get("DevName") or "") for x in stu}
+        _slot = _re.compile(r"^(.+?)_(Ex|Public|GearPublic|HiddenPassive|ExtraPassive|Passive|WeaponPassive)\d*_")
+        for _sid, _tids in ep_tid.items():
+            for _t in _tids:
+                _rows = _by.get(_t) or []
+                _hit = None
+                for _r in _rows:
+                    _m2 = _slot.match(_r.get("GroupId") or "")
+                    if not _m2 or _m2.group(1) != _dev.get(_sid):
+                        continue
+                    _du = _r.get("EndConditionArgument")
+                    if _hit is None or (_du or 0) > (_hit[1] or 0):
+                        _hit = [_m2.group(2), _du, _r.get("StackSameEffectCount") or 0]
+                if _hit:
+                    ep_tpl.setdefault(_sid, {})[_t] = _hit
+                    ntpl += 1
+        print("  SS の条件の札 " + str(ntpl) + " 件を解いた（生徒 "
+              + str(len(ep_tpl)) + " 人）／内訳 "
+              + str(_c.Counter(v[0] for m in ep_tpl.values() for v in m.values()).most_common()))
 
     used = sorted({g for x in bosses for r in x["d"] for g in r["ex"]}
                   | {r["ns"] for x in bosses for r in x["d"] if r["ns"]})
@@ -5721,7 +5769,9 @@ def build_tl():
         "ep": ep_out,
         "epKeys": ["Event", "Parameters", "ConditionExpression", "TriggerRate",
                    "MaxTriggerCount", "TryCount", "CoolTimeNotTrigger", "Duration",
-                   "Modifiers([{t: 型, …}])"],
+                   "Modifiers(アビリティごと [[{t: 型, …}], …]。中は かつ・間は または)"],
+        # サブスキルの条件が指す札 → [付けるスキルの枠, 持続(ms), 重ねられる数]
+        "eptl": ep_tpl,
         "bufKeys": ["Target", "Stat", "Channel", "Value", "Duration", "ApplyFrame",
                     "Restrictions([Property,Operand,Value])"],
         # 星の伸び。SchaleDB の CharacterStats の既定値（生徒別の Transcendence は
