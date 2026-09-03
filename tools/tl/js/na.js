@@ -37,9 +37,22 @@ function frOf(a) {
            ent: (a.ent || 0) / B.fps / spd, nm: a.n, raw: a, spd: spd,
            fix: a.fix > 0 };
 }
+/** **通常スキルを使うと変身が終わる子の、その発数**（2026-09-04、50b-3）。
+    `B.fchg[id][2]` が 1 の子だけ。**当たるのはエイミ（臨戦）の 4 発だけ**で、
+    `B.ns` の 11 番目（`ns_count` が辿った `CountMin`）がその N。
+    データの `EndConditionArgument` は 30000（30 秒）のままだが、
+    EX の説明文「ノーマルスキルの使用時、精密照準体勢を解除」のとおり
+    **NS が出たところで終わる**（＝変身の窓は 30 秒ではなく 4 発ぶん） */
+function nsCut(id) {
+  var fv = (B.fchg || {})[id];
+  if (!fv || !fv[2]) { return 0; }
+  var rows = (B.ns || {})[id] || [], i, n = 0;
+  for (i = 0; i < rows.length; i++) { if (rows[i][10] > 0) { n = rows[i][10]; } }
+  return n;
+}
 /** **変身している区間**（`[始まり, 終わり]` の並び）。
-    `B.fchg[id]` は `[切れ方, 段 1〜5 の値]` で、**切れ方 1（時間 ms）だけ**引ける。
-    `-1` は「戦闘が終わるまで切れない」（ココロ）。
+    `B.fchg[id]` は `[切れ方, 段 1〜5 の値, NS で終わるか]` で、
+    **切れ方 1（時間 ms）だけ**引ける。`-1` は「戦闘が終わるまで切れない」（ココロ）。
 
     **見ているのは `st.tl` に書いてある時刻**で、engine が解いた時刻ではない。
     `usesSorted()` を使うと `usesSorted → statsOf → naShots → usesSorted` で輪になる
@@ -55,6 +68,27 @@ export function formWins(idx, id, dur) {
     out.push([st.tl[i].t, ms < 0 ? dur + 1 : st.tl[i].t + ms / 1000]);
   }
   return out.length ? out : null;
+}
+/** **切り詰めたあとの変身の区間**（2026-09-04、50b-3）。
+    NS で終わる子は、窓の中の N 発目で閉じる。**`naShotsRaw` を先に解くので
+    `naShots0` の中からは呼べない**（そちらは自前で数えている）。
+    ダメージの行を差し替える `dmg.js` の `inFormAt` と、画面の帯がこれを見る */
+export function formWinsCut(idx, id, dur) {
+  var win = formWins(idx, id, dur);
+  if (!win) { return null; }
+  var cut = nsCut(id);
+  if (cut <= 0) { return win; }
+  var sh = naShotsRaw(idx, dur), out = [], w, q, n;
+  for (w = 0; w < win.length; w++) {
+    n = 0;
+    var end = win[w][1];
+    for (q = 0; q < sh.length; q++) {
+      if (sh[q].t < win[w][0] - 1e-9 || sh[q].t >= win[w][1] - 1e-9) { continue; }
+      if (++n === cut) { end = sh[q].t; break; }
+    }
+    out.push([win[w][0], end]);
+  }
+  return out;
 }
 // その枠が EX を撃っている区間。**撃っている本人は通常攻撃をしない**
 export function busyOf(idx) {
@@ -113,13 +147,26 @@ export function naShots0(idx, dur, raw) {
   // **変身している間は、変わったほうのフレームで撃つ**（2026-09-04）。
   // 窓が引けない子（`fchg` が無い・切れ方が 2/3/5）は今までどおり素のまま
   var af = nafInfo(p.id), win = af ? formWins(idx, p.id, dur) : null;
-  function frames(x) {
+  // **NS で終わる変身は、窓の中で N 発撃ったらそこで終わり**（2026-09-04、50b-3）。
+  // 撃った数を窓ごとに数えて閉じる。**`nsTimes` を呼ぶと
+  // `nsTimes → naShotsRaw → nsTimes` で輪になる**ので、ここで数え切る
+  var cut = win ? nsCut(p.id) : 0, shot = {};
+  /** その時刻がどの窓の中か。**数を進めない**（`frames` は 1 発につき
+      2 回呼ばれることがあるので、数えるのは撃った所だけ） */
+  function winAt(x) {
     var w;
-    if (!win) { return a; }
+    if (!win) { return -1; }
     for (w = 0; w < win.length; w++) {
-      if (x >= win[w][0] - 1e-9 && x < win[w][1] - 1e-9) { return af; }
+      if (x >= win[w][0] - 1e-9 && x < win[w][1] - 1e-9) { return w; }
     }
-    return a;
+    return -1;
+  }
+  /** その時刻から先の間合い。**N 発目を撃ったあとは素に戻る**（変身が終わるので） */
+  function frames(x) {
+    var w = winAt(x);
+    if (w < 0) { return a; }
+    if (cut > 0 && (shot[w] || 0) >= cut) { return a; }
+    return af;
   }
   var busy = busyOf(idx), out = [], t = a.ent, k = 0, guard = 0;
   function block(x) {
@@ -139,10 +186,14 @@ export function naShots0(idx, dur, raw) {
   }
   while (t <= dur && guard++ < 8000) {
     var b = block(t);
-    var f = frames(t);
     // **演出が明けたら構え直す**（AttackEnterDuration をもう一度)
     if (b != null) { t = b + frames(b).ent; k = 0; continue; }
     out.push({ t: +t.toFixed(3), k: k });
+    // **撃った所でだけ数える。**N 発目を撃った時点で変身が終わるので、
+    // **そのあとの間合いは素に戻る**（数えてから `frames` を引く）
+    var wi = winAt(t);
+    if (wi >= 0 && cut > 0) { shot[wi] = (shot[wi] || 0) + 1; }
+    var f = frames(t);
     var m = mul(t, f);
     t += f.per / m; k++;
     if (k % f.mag === 0) { t += f.rel / m; }

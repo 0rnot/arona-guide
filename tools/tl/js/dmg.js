@@ -6,7 +6,7 @@ import { effMod, statsOf, support, terrMod } from './passive.js';
 import { aimOf, enemyAt } from './target.js';
 import { altOf, lvlOf, pickOf } from './alt.js';
 import { KS } from './clear.js';
-import { naShotsRaw } from './na.js';
+import { formWinsCut, naShotsRaw } from './na.js';
 import { usesSorted } from './buff.js';
 
 // 1 人の EX スキル 1 回ぶん。会心と乱数の組み合わせで 5 通り返す
@@ -143,13 +143,23 @@ function hitsOn(r, at, sec, cap) {
     **2（リロード回数）・3（装弾数）・5（EX の回数）はまだ数えていない**ので、
     そのぶんは今までどおり素の通常攻撃で引く（出どころは `fchg_of` の注記）。
     `-1` は「戦闘が終わるまで切れない」（ココロ）。 */
-function inFormAt(idx, at) {
+function inFormAt(idx, at, dur) {
   var p = st.party[idx];
   if (p == null || at == null) { return false; }
   var fv = (B.fchg || {})[p.id];
   if (!fv || fv[0] !== 1) { return false; }
   var ms = fv[1][Math.min(lvlOf(idx, 'Ex'), fv[1].length) - 1];
   if (ms == null) { return false; }
+  // **NS で終わる変身は、その発数で切り詰めた窓を見る**（2026-09-04、50b-3）。
+  // エイミ（臨戦）は 30 秒ではなく通常攻撃 4 発ぶんで終わる
+  if (fv[2]) {
+    var wc = formWinsCut(idx, p.id, dur || 240), w;
+    if (!wc) { return false; }
+    for (w = 0; w < wc.length; w++) {
+      if (at >= wc[w][0] - 1e-9 && at < wc[w][1] - 1e-9) { return true; }
+    }
+    return false;
+  }
   var us = usesSorted(), i;
   for (i = 0; i < us.length; i++) {
     if (us[i].i !== idx || String(us[i].k || 'Ex').indexOf('Ex') !== 0) { continue; }
@@ -163,8 +173,8 @@ export function dmgAt(idx, r, at, kind, pick, tg, gx, nso, only) {
   if (!p) { return null; }
   var kd = kind || 'Ex';
   // **変身している間は、変わったほうの通常攻撃で引く**（2026-09-04、61f）。
-  // **撃つ速さ（`Frames`）はまだ差し替えていない**——`B.dmg` の行だけ入れ替える
-  if (kd === 'Normal' && (B.dmg[p.id] || {}).NormalF && inFormAt(idx, at)) {
+  // 撃つ速さ（`Frames`）は 61g で `na.js` が差し替えている
+  if (kd === 'Normal' && (B.dmg[p.id] || {}).NormalF && inFormAt(idx, at, r && r.dur)) {
     kd = 'NormalF';
   }
   var effs = ((B.dmg[p.id] || {})[kd] || []).slice();

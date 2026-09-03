@@ -4698,22 +4698,54 @@ def acc_info(e):
 # **EX のレベル N ＝ `Level` N**（ツルギ（水着）の説明文パラメータ
 # `['20秒','20秒','25秒','25秒','30秒']` と 1〜5 が一致する）
 _FCV = {}
+# **通常スキルを使うと変身が終わる子**（2026-09-04、50b-3）。`fchg_of` の 3 番目。
+# 見ているのは `DispelLogicEffectGroupIdEffectDAO` の `LogicEffectGroupIdToDispel` が
+# その子の `FormConversionEffectDAO` の `GroupId` を指していて、**それを配っている
+# スキルの `TriggerCondition` が `Event 3` ＋ `Parameters "Public"`（＝ NS 使用時）**
+# のもの。**変身を消す行は全部で 3 本しか無く、当たるのは 1 人だけ**（2026-09-04 に数えた）:
+#   CH0173     クルミ        CH0173_Ex01_Effect06        ← CH0173HiddenPassive04  Event 22 "Buff_TacticalShield"
+#   CH0258_01  ホシノ（臨戦） CH0258_01_HiddenPassive01_Effect04 ← 同 HiddenPassive01  引き金なし
+#   CH0337     エイミ（臨戦） CH0337_Ex01_Effect01        ← CH0337HiddenPassive02  Event 3 "Public"  ★
+# エイミ（臨戦）の EX の説明文「ノーマルスキルの使用時、精密照準体勢を解除」がこれ。
+# **`EndConditionArgument` は 30000（30 秒）のままだが、実際は NS で終わる。**
+_FCNS = {}
 
 
 def fchg_of(dev):
-    """変身の切れ方 [条件, 段 1〜5 の値]。持っていなければ None。"""
+    """変身の切れ方 [条件, 段 1〜5 の値, NS で終わるか]。持っていなければ None。"""
     if not dev:
         return None
     if not _FCV:
-        for r in as_list(get_json(BADB.format("LogicEffect_PC"))):
+        _le, _grp = as_list(get_json(BADB.format("LogicEffect_PC"))), {}
+        for r in _le:
             if "FormConversionEffectDAO" not in str(r.get("$type") or ""):
                 continue
             m = re.match(r"^(.*?)_(?:Ex|Public|HiddenPassive)\d+_Effect\d+$",
                          str(r.get("GroupId") or ""))
             if not m or not r.get("Level"):
                 continue
+            _grp[r["GroupId"]] = m.group(1)
             _FCV.setdefault(m.group(1), {})[int(r["Level"])] = [
                 r.get("FormConversionEndCondition"), r.get("EndConditionArgument")]
+        # **消す側は `_grp` が埋まってから。**変身を消す行は全部で 3 本しか無い
+        for r in _le:
+            if "DispelLogicEffectGroupIdEffectDAO" not in str(r.get("$type") or ""):
+                continue
+            tgt = r.get("LogicEffectGroupIdToDispel")
+            if tgt not in _grp:
+                continue
+            m2 = _NS_SLOT.match(str(r.get("GroupId") or ""))
+            if not m2 or m2.group(1) != _grp[tgt]:
+                continue
+            # **ホシノ（臨戦）の `CH0258_01HiddenPassive01` は 404**（枠の名前と
+            # ファイル名が一致しない子がいる）。引けない札は「引き金なし」と同じ
+            try:
+                sk = get_json(BALS.format(m2.group(1) + m2.group(2) + m2.group(3))) or {}
+            except urllib.error.HTTPError:
+                continue
+            tc = sk.get("TriggerCondition") or {}
+            if tc.get("Event") == 3 and str(tc.get("Parameters") or "") == "Public":
+                _FCNS[_grp[tgt]] = 1
     rows = _FCV.get(dev)
     if rows is None:
         for k in _FCV:
@@ -4723,7 +4755,8 @@ def fchg_of(dev):
     if not rows:
         return None
     cond = rows.get(1, [None, None])[0]
-    return [cond, [(rows.get(i) or [None, None])[1] for i in range(1, 6)]]
+    return [cond, [(rows.get(i) or [None, None])[1] for i in range(1, 6)],
+            _FCNS.get(dev, 0)]
 
 
 # **「特定の効果が乗ったとき」の NS を、通常攻撃の回数へ解く**（2026-09-04、50b-2）。
@@ -4778,7 +4811,10 @@ def ns_count(dev, ct, arg):
         m = _NS_SLOT.match(g)
         if not m or m.group(1) != dev:
             continue
-        sk = get_json(BALS.format(m.group(1) + m.group(2) + m.group(3))) or {}
+        try:
+            sk = get_json(BALS.format(m.group(1) + m.group(2) + m.group(3))) or {}
+        except urllib.error.HTTPError:
+            continue
         tg = sk.get("TriggerCondition") or {}
         if tg.get("Event") != 34:
             continue
