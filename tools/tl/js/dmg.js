@@ -284,8 +284,19 @@ export function dmgAt(idx, r, at, kind, pick, tg, gx, nso, only) {
       tick *= nz;
     }
     var ig = e[6] ? (e[6][Math.min(slv, e[6].length) - 1] || 10000) : null;
+    // **撃つ子の能力でダメージが変わるもの**（2026-09-03、56a）。
+    // `StatModifier` を運んでいなくて、オトギの通常攻撃と NS が 1 倍のままだった
+    // （キサキ込みで ×1.807 の過小）。出どころは `build-tool-data.py` の注記
+    var smM = 1;
+    if (e[16]) {
+      var sv = cs.get(e[16][0]), sLo = e[16][1], sHi = e[16][2];
+      if (sv >= 0 && sHi > sLo) {
+        var sf = Math.max(0, Math.min(1, (sv - sLo) / (sHi - sLo)));
+        smM = (e[16][3] + (e[16][4] - e[16][3]) * sf) / 10000;
+      }
+    }
     var base = atk * tm * em * (sc / 10000) * mult * defModOf(ig) *
-               drA * drB * exM * baM * lvMod * tick;
+               drA * drB * exM * baM * lvMod * tick * smM;
     // **グロッキー中は確定会心**（この関数の上、ggCritAt の注記に出典）
     var cr = e[2] === 'Never' ? 0
            : (e[2] === 'Always' || ggCritAt(at) ? 1 : cEff);

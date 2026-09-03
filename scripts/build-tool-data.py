@@ -5730,7 +5730,20 @@ def build_tl():
                     #   HitCap … `DamageByHit` の上限回数（2026-09-03）。
                     #     「その敵が攻撃を受ける度に」出るぶんで、いま 1 回ぶんしか
                     #     数えていない。出どころは `dbh_cap` の注記
-                    dbh_cap(e)]
+                    dbh_cap(e),
+                    #   StatMod … 撃つ子の能力でダメージが変わるもの（2026-09-03、56a）。
+                    #     `Source` は全件 `Caster`（274 人を数えた。中身は
+                    #     `EnhanceExDamageRate` と `AttackSpeed` の 2 種類だけ）。
+                    #     その能力が `MinStatValue`〜`MaxStatValue` の間を動くと
+                    #     倍率が `MultiplierMin`〜`MultiplierMax`（1 万分率）に伸びる。
+                    #       オトギ Normal/Public  EnhanceExDamageRate 10000〜20000 → 1.0〜2.0 倍
+                    #       エイミ（臨戦）Public   AttackSpeed 10000〜25000 → 1.0〜2.4 倍
+                    ([e["StatModifier"].get("Stat"),
+                      e["StatModifier"].get("MinStatValue"),
+                      e["StatModifier"].get("MaxStatValue"),
+                      e["StatModifier"].get("MultiplierMin"),
+                      e["StatModifier"].get("MultiplierMax")]
+                     if e.get("StatModifier") else None)]
             # **`Group` は「何段目か」で、足すものではなく択一。**
             # ネル（制服）の Ex1 は Group 0〜4 × 条件 2 通りの 10 件あって、
             # 全部足すと 1 発 5,727,546（ボス HP の 25%）になっていた。
