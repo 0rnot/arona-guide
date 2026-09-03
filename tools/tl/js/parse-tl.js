@@ -6,60 +6,84 @@ import { wlvMax } from './passive.js';
 import { CIRC, aimIn, aliasOf, formHasDmg, formIn, formsOf, nrm, timeIn, whoIn, zen0 } from './parse-text.js';
 import { findStudent } from './parse-apply.js';
 
+/** 育成の行かどうか。**書き方は 1 つに縛らない**（2026-09-01 の先生の指示
+    「TL はみんないろんな書き方してるから特化しなくていい」）
+    「星3/M11M/T199」（星＋4 文字のスキル＋T と 3 桁）も育成行（2026-09-02、ゲブラ） */
+var GROW = /固有\s*\d|[★☆星]\s*[\d０-９]|MMMM|[Tt]\s*\d+\s*\/|Lv\s*\d|装備\s*\d|絆\s*\d|EX\s*\d|(?:^|[^A-Za-z0-9])[Tt]\d{3}(?![\d\/])|(?:^|[^A-Za-z0-9])(?=[M\d]{4}(?![A-Za-z0-9]))[M\d]*M/i;
+/** 地の文を育成行にしない（「ナギサ固有2あるのであれば…」） */
+var PROSE = /です|ます|ません|ください|でしょう|ずれる|場合/;
+/** **「サツキ※助っ人」の ※ は但し書きではない。**※ から後ろを落とすと育成が消えて
+    行ごと落ちる（2026-09-02、総力戦ゲブラ kH1hmTbIDJI） */
+function bodyOf(raw) {
+  return String(raw).replace(/[※＊]\s*(?:助っ?人|レンタル|借り|助)(?=[\s　]|$)/g, ' ').replace(/[※#].*$/, '');
+}
+/** **名前が行頭にあるとは限らない。**実物の概要欄はこれだけ形が違う。
+      「⑤ヒナ(ドレス) 固有4 MMMM」   枠の番号が頭に付く
+      「❺カンナ（水着）☆5 MMMM」     黒丸の番号＋☆
+      「Lv.90 ☆5 レイサ / 5MMM」      名前が 3 つ目
+      「水着ミカ（レンタル）：固有4」   名前のうしろが「：」
+      「レイサ(マジカル)固有2　MMMM」  空白が無いまま育成が続く
+    **前から順に試して、生徒として引けた語を名前にする**（2026-09-01） */
+function pickName(body, probe) {
+  var toks = body.split(/[\s　\/／|｜]+/).filter(function (x) { return x; });
+  var nm = '', sd = null, tq, cand, cutm;
+  for (tq = 0; tq < toks.length && !sd; tq++) {
+    //   「90ミカ　固有3　T999」        レベルが名前の頭に付く（区切り無し）
+    // 生徒の名前が数字で始まることは無いので、頭の数字は落としてよい
+    cand = toks[tq].replace(/^[①-⑳❶-❿〇○●◯・\-]+/, '')
+                   .replace(/^\d+/, '').replace(/[：:、,]+$/, '')
+                   // **名前を「＿」で桁揃えする人がいる**（「シュン＿＿＿＿＿」）。
+                   // 末尾の丸数字は部隊の番号（「ホシノ（臨戦）②」）。
+                   // どちらも落とさないと生徒が引けない（2026-09-02、大決戦クロカゲ。
+                   // 編成 15 行のうち 10 行が落ちて 0.2% になっていた）
+                   .replace(/[＿_]+$/, '').replace(/[①-⑳❶-❿]+$/, '').replace(/[1-9１-９]番$/, '');
+    cutm = cand.match(/^(.+?)(?:固有|UE\d|[★☆]|星[\d０-９]|MMMM|Lv|装備\d|絆\d|EX\d)/i);
+    if (cutm && cutm[1]) { cand = cutm[1].replace(/[：:、,]+$/, ''); }
+    if (!cand || /^[\d.]+$/.test(cand)) { continue; }
+    sd = findStudent(cand, probe);
+    if (sd) { nm = cand; }
+    // **括弧の後ろに役割が続く**（「ホシノ（臨戦）防御型」）。括弧までで引き、
+    // 「防御」「タンク」ならタンク側にする（2026-09-02、総力戦ゲブラ）
+    if (!sd) {
+      var pm = cand.match(/^(.+?[)）])(.+)$/);
+      if (pm) {
+        sd = (/防御|タンク/.test(pm[2]) ? findStudent(pm[1] + '／タンク', probe) : null) || findStudent(pm[1], probe);
+        if (sd) { nm = pm[1]; }
+      }
+    }
+  }
+  return { sd: sd, nm: nm, toks: toks };
+}
+/** **名前と育成が 2 行に分かれている概要欄**（2026-09-03、屋内ペロロジラ cbAthbwldys）。
+
+        マコト（水着）助っ人
+        Lv.90 固有4 MMMM T10/10/10
+
+    名前だけの行は育成行として読まれず、そのまま TL の 1 発として置かれていた
+    （「ケイ」「ナツ」「ハレ（キャンプ）」ほか 5 行が偽の EX になっていた）。
+    **次の行が育成行で、そちらから生徒が引けないときだけ**繋ぐ。 */
+function joinNameRows(lines) {
+  for (var i = 0; i + 1 < lines.length; i++) {
+    var a = bodyOf(lines[i]).trim(), b = bodyOf(lines[i + 1]).trim();
+    if (!a || !b || a.length > 16) { continue; }
+    if (GROW.test(a) || PROSE.test(a) || !GROW.test(b) || PROSE.test(b)) { continue; }
+    if (pickName(b, null).sd || !pickName(a, null).sd) { continue; }
+    lines[i + 1] = a + ' ' + lines[i + 1];
+    lines[i] = '';
+  }
+  return lines;
+}
+
 export function parseTL(txt) {
   var dur = diff().dur || 240;
-  var lines = String(txt).replace(/\r/g, '').split('\n');
+  var lines = joinNameRows(String(txt).replace(/\r/g, '').split('\n'));
   var res = { crew: [], start: [], uses: [], skipped: [], notes: [], bufTo: null };
   var i, q;
   // ---- 1. 使用生徒詳細
   for (i = 0; i < lines.length; i++) {
-    // **「サツキ※助っ人」の ※ は但し書きではない。**※ から後ろを落とすと育成が消えて
-    // 行ごと落ちる（2026-09-02、総力戦ゲブラ kH1hmTbIDJI）
-    var raw = lines[i], body = raw.replace(/[※＊]\s*(?:助っ?人|レンタル|借り|助)(?=[\s　]|$)/g, ' ').replace(/[※#].*$/, '');
-    // **育成の行かどうか。**書き方は 1 つに縛らない（2026-09-01 の先生の指示
-    // 「TL はみんないろんな書き方してるから特化しなくていい」）
-    // 「星3/M11M/T199」（星＋4 文字のスキル＋T と 3 桁）も育成行（2026-09-02、ゲブラ）
-    if (!/固有\s*\d|[★☆星]\s*[\d０-９]|MMMM|[Tt]\s*\d+\s*\/|Lv\s*\d|装備\s*\d|絆\s*\d|EX\s*\d|(?:^|[^A-Za-z0-9])[Tt]\d{3}(?![\d\/])|(?:^|[^A-Za-z0-9])(?=[M\d]{4}(?![A-Za-z0-9]))[M\d]*M/i
-         .test(body)) { continue; }
-    // **地の文を育成行にしない。**「ナギサ固有2あるのであれば…の方がスコア高いです」が
-    // 育成行として通って、素の ナギサ が編成に入り、本命の ナギサ（水着）が
-    // 「枠が足りません」で落ちていた（2026-09-02、総力戦ヒエロニムス）
-    // 「セイア固有2以上の場合はTLずれます」（19 字）も地の文（2026-09-02、大決戦ペロロジラ）
-    if (/です|ます|ません|ください|でしょう|ずれる|場合/.test(body)) { continue; }
-    // **名前が行頭にあるとは限らない。**実物の概要欄はこれだけ形が違う。
-    //   「⑤ヒナ(ドレス) 固有4 MMMM」   枠の番号が頭に付く
-    //   「❺カンナ（水着）☆5 MMMM」     黒丸の番号＋☆
-    //   「Lv.90 ☆5 レイサ / 5MMM」      名前が 3 つ目
-    //   「水着ミカ（レンタル）：固有4」   名前のうしろが「：」
-    //   「レイサ(マジカル)固有2　MMMM」  空白が無いまま育成が続く
-    // **前から順に試して、生徒として引けた語を名前にする**（2026-09-01）
-    var toks = body.split(/[\s　\/／|｜]+/).filter(function (x) { return x; });
-    var nm = '', sd = null, tq, cand, cutm, probe = [];
-    for (tq = 0; tq < toks.length && !sd; tq++) {
-      //   「90ミカ　固有3　T999」        レベルが名前の頭に付く（区切り無し）
-      // 生徒の名前が数字で始まることは無いので、頭の数字は落としてよい
-      cand = toks[tq].replace(/^[①-⑳❶-❿〇○●◯・\-]+/, '')
-                     .replace(/^\d+/, '').replace(/[：:、,]+$/, '')
-                     // **名前を「＿」で桁揃えする人がいる**（「シュン＿＿＿＿＿」）。
-                     // 末尾の丸数字は部隊の番号（「ホシノ（臨戦）②」）。
-                     // どちらも落とさないと生徒が引けない（2026-09-02、大決戦クロカゲ。
-                     // 編成 15 行のうち 10 行が落ちて 0.2% になっていた）
-                     .replace(/[＿_]+$/, '').replace(/[①-⑳❶-❿]+$/, '').replace(/[1-9１-９]番$/, '');
-      cutm = cand.match(/^(.+?)(?:固有|UE\d|[★☆]|星[\d０-９]|MMMM|Lv|装備\d|絆\d|EX\d)/i);
-      if (cutm && cutm[1]) { cand = cutm[1].replace(/[：:、,]+$/, ''); }
-      if (!cand || /^[\d.]+$/.test(cand)) { continue; }
-      sd = findStudent(cand, probe);
-      if (sd) { nm = cand; }
-      // **括弧の後ろに役割が続く**（「ホシノ（臨戦）防御型」）。括弧までで引き、
-      // 「防御」「タンク」ならタンク側にする（2026-09-02、総力戦ゲブラ）
-      if (!sd) {
-        var pm = cand.match(/^(.+?[)）])(.+)$/);
-        if (pm) {
-          sd = (/防御|タンク/.test(pm[2]) ? findStudent(pm[1] + '／タンク', probe) : null) || findStudent(pm[1], probe);
-          if (sd) { nm = pm[1]; }
-        }
-      }
-    }
+    var raw = lines[i], body = bodyOf(raw);
+    if (!GROW.test(body) || PROSE.test(body)) { continue; }
+    var probe = [], pk = pickName(body, probe), nm = pk.nm, sd = pk.sd, toks = pk.toks;
     if (!sd) { res.skipped.push([raw, '生徒が見つかりません: ' + (toks[0] || '')]); continue; }
     findStudent(nm, res.notes);   // 引けた語のぶんだけ注記を戻す
     var b = { id: sd.id, name: sd.n };

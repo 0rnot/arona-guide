@@ -35,6 +35,9 @@ export function findStudent(nm, notes) {
   // 落としてから引く（2026-09-02、総力戦ゴズ・大決戦ケセドで 5 本が壊れていた）
   var n = nrm(nm)
     .replace(/\[[^\]]*\]/g, '').replace(/[（(](?:助っ?人|レンタル|助|借り)[)）]/g, '')
+    // **括弧に入らない「助っ人」もある**（「助っ人水着マコト」「マコト（水着）助っ人」。
+    // 2026-09-03、屋内ペロロジラ GzfPSXaZKlU と cbAthbwldys で主砲が丸ごと落ちていた）
+    .replace(/^(?:助っ?人|レンタル|借り)/, '').replace(/(?:助っ?人|レンタル|借り)$/, '')
     .replace(/[：:].*$/, '').replace(/[＊*・]/g, ''), i, byBase = [];
   if (!n) { return null; }
   var nk = nickOf(n);
