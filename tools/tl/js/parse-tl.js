@@ -197,13 +197,17 @@ export function parseTL(txt) {
   }
   // ---- 3. 開始スキル。**部隊ごとに読む**ので、4. のループの中で呼ぶ
   function startOf(line, next) {
-    var ps = nrm(line).split(/(?=[①-⑳])/), out = [], q2;
+    var ps = nrm(line).split(/(?=[①-⑳])/), out = [], q2, miss = [];
     for (q2 = 1; q2 < ps.length; q2++) {
       var w = whoIn(ps[q2], crew);
       if (w >= 0) { out.push(w); }
-      else { res.skipped.push([ps[q2], '開始SET の生徒が編成にいません']); }
+      // **ここで諦めない。**開始 SET は育成の行より後・TL の本体より前に書いてあるので、
+      // **育成表に載っていない子（TL の本体から足される子）はまだ `crew` に居ない**
+      // （2026-09-04、ペロロジラ y4h8XEXXfgw と LfeYesN3MSs の「②ウイ」。ウイは育成の
+      // 5 行に無く、本体の「9.4ウイ」で足される）。本体を読み終えてから引き直す
+      else { miss.push({ tok: ps[q2], at: out.length }); }
     }
-    if (out.length) { return { out: out, usedNext: false }; }
+    if (out.length || miss.length) { return { out: out, usedNext: false, miss: miss }; }
     // **丸数字で書かない人のほうが多い**（2026-09-03、屋内ペロロジラ。
     // 「開始スキル ケイ、ナギサ、ハレ、キサキ」で 4 枚 → 0 枚になっていた）。
     // 見出しを落として、区切りで割って前から引く
@@ -222,7 +226,21 @@ export function parseTL(txt) {
       w2 = whoIn(qs[q2], crew);
       if (w2 >= 0 && out.indexOf(w2) < 0) { out.push(w2); }
     }
-    return { out: out, usedNext: usedNext && out.length > 0 };
+    return { out: out, usedNext: usedNext && out.length > 0, miss: [] };
+  }
+  /** 開始 SET で引けなかったぶんを、本体を読み終えてから引き直す（2026-09-04）。
+      **元の位置に差し戻す**ので、並びの意味が変わらない */
+  function startRetry(sec) {
+    var ms = sec.startMiss || [], q2;
+    for (q2 = 0; q2 < ms.length; q2++) {
+      var w = whoIn(ms[q2].tok, crew);
+      if (w >= 0) {
+        if (sec.start.indexOf(w) < 0) {
+          sec.start.splice(Math.min(ms[q2].at, sec.start.length), 0, w);
+        }
+      } else { res.skipped.push([ms[q2].tok, '開始SET の生徒が編成にいません']); }
+    }
+    sec.startMiss = null;
   }
   // 節ごとに、育成行のどれがその部隊かを決めて枠を振る。返すのは
   // [{ crew, start, uses, bufTo, gu }]（`uses[].i` と `to` は枠の番号に直してある）
@@ -348,6 +366,11 @@ export function parseTL(txt) {
   var lines2 = [], lz, lq;
   for (lz = 0; lz < lines.length; lz++) {
     var body2 = lines[lz].replace(/[※].*$/, ''), note2 = (lines[lz].match(/[※].*$/) || [''])[0];
+    // **開始 SET の行は割らない**（2026-09-04、屋内ペロロジラ a68El3B6QRc）。
+    // 「開始スキル  1➡2➡3➡4➡5」＋次の行に名前、という書き方が
+    // 「開始スキル 1」「2」「3」「4」「5」に割れて、開始が 5 枚 → 0 枚になり、
+    // 余った「2」「3」「4」「5」が `撃つ子が読めません` で落ちていた
+    if (/開始\s*(?:SET|スキル|セット)/i.test(body2)) { lines2.push(lines[lz]); continue; }
     var pcs = body2.split(/(?:→|➝|➡|⇒|->)(?![^\[\]]*\])/), pcs2 = [];
     for (lq = 0; lq < pcs.length; lq++) { if (nrm(pcs[lq])) { pcs2.push(pcs[lq].trim()); } }
     // **「ホシノ→即ミカ」の 2 つ目が「即」や秒で始まるなら渡し先ではなく連鎖**
@@ -508,6 +531,7 @@ export function parseTL(txt) {
       if (!cur.start.length) {
         var so = startOf(ln, lines[i + 1]);
         cur.start = so.out;
+        cur.startMiss = so.miss || [];
         // **並びの行を 1 発として置かない**（「、」で並んだ行は複数発として読まれる）
         if (so.usedNext) { lines[i + 1] = ''; }
       }
@@ -956,6 +980,8 @@ export function parseTL(txt) {
     }
   }
   parts.push(cur);
+  // **開始 SET の引き直しは、本体を全部読んでから**（`crew` がここで出そろう）
+  for (i = 0; i < parts.length; i++) { startRetry(parts[i]); }
   var nAll = 0;
   for (i = 0; i < parts.length; i++) { nAll += parts[i].uses.length; }
   if (!nAll) { return { err: 'タイムラインの行が 1 つも読めませんでした', notes: res.notes, skipped: res.skipped, crew: res.crew }; }
