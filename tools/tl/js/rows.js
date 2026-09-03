@@ -127,6 +127,32 @@ export function rowForm(u, er) {
     '" data-tr="f1" title="形態 ' + esc((fl[cur] || {}).n || '') + '">' +
     (cur + 1) + '</button>';
 }
+/** **まとめて選んだ行**（2026-09-03 の 33。「5 発まとめて 2 秒ずらす」ができなかった）。
+    Shift ＋番号で範囲、Ctrl／⌘ ＋番号で 1 行ずつ足し引き。
+    2 行以上選んでいるときは、値を直すとその差ぶんが全部に乗り、
+    ▲▼ と × も選んだぶん全部に効く。**言葉は足さず、番号の色で示す** */
+export function selRows() {
+  var m = (st.msel || []).filter(function (i) { return !!st.tl[i]; });
+  if (m.length > 1) { return m; }
+  return st.sel != null && st.tl[st.sel] ? [st.sel] : [];
+}
+export function selPick(ix, shift, add) {
+  var ord = rowOrder(), i;
+  if (shift && st.sel != null) {
+    var a = ord.indexOf(st.sel), b = ord.indexOf(ix), lo = Math.min(a, b), hi = Math.max(a, b);
+    st.msel = [];
+    if (a >= 0 && b >= 0) { for (i = lo; i <= hi; i++) { st.msel.push(ord[i]); } }
+    return;
+  }
+  if (add) {
+    var at = (st.msel || []).indexOf(ix);
+    if (!st.msel.length && st.sel != null && st.sel !== ix) { st.msel = [st.sel]; }
+    if (at >= 0) { st.msel.splice(at, 1); } else { st.msel.push(ix); }
+    st.sel = ix;
+    return;
+  }
+  st.msel = []; st.sel = ix;
+}
 export function drawRows() {
   if (!ROWS) { return; }
   var h = '', sm = sim(), ord = rowOrder(), i, z, rowOf = {};
@@ -136,7 +162,8 @@ export function drawRows() {
   for (i = 0; i < ord.length; i++) {
     var ix = ord[i], u = st.tl[ix], md = u.md || 't', on = st.sel === ix;
     var p = st.party[u.i], er = rowOf[ix] || null, kd = exKind(er ? er.fi : 0);
-    h += '<div class="trow' + (on ? ' on' : '') + (er && er.why ? ' bad' : '') +
+    var ms = (st.msel || []).indexOf(ix) >= 0;
+    h += '<div class="trow' + (on ? ' on' : '') + (ms ? ' msel' : '') + (er && er.why ? ' bad' : '') +
       '" data-ix="' + ix + '">' +
       '<span class="ix" draggable="true">' + (i + 1) + '</span>' +
       kindMark(u.i, kd) +

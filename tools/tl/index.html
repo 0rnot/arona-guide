@@ -893,6 +893,9 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
 .trow:nth-child(4n+3) { background:rgba(255,255,255,.022); }
 .trow:hover { background:rgba(255,255,255,.05); }
 .trow.on { background:rgba(47,143,158,.16); }
+/* まとめて選んだ行（33）。**言葉は足さず、番号の色と薄い地の色で示す** */
+.trow.msel { background:rgba(47,143,158,.09); }
+.trow.msel > .ix { color:#8fd0dc; font-weight:700; }
 .trow.bad { box-shadow:inset 2px 0 0 var(--red); }
 .trow > .ix { width:22px; text-align:right; color:var(--tx3); font-size:10px; flex:0 0 auto; }
 .trow > .ic { width:16px; height:16px; border-radius:3px; flex:0 0 auto; object-fit:cover; }

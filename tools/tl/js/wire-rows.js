@@ -11,7 +11,7 @@ import { clamp } from './stats.js';
 import { toList } from './target.js';
 import { sheet, snapshot } from './io.js';
 import { importSheet } from './import-ui.js';
-import { MD3, drawRows, rowAdd, rowMove, rowOrder, rowSeek, rowSwap, rowsToggle } from './rows.js';
+import { MD3, drawRows, rowAdd, rowMove, rowOrder, rowSeek, rowSwap, rowsToggle, selPick, selRows } from './rows.js';
 import { syncTabs } from './wire-boss.js';
 import { onAlt } from './wire-build.js';
 import { onUse } from './wire-use.js';
@@ -87,8 +87,17 @@ export function wireRows() {
       if (u.md === 'c' && u.cv == null) { u.cv = 10; }
       if (u.md === 't' && u._rt != null) { u.t = u._rt; }
     } else if (k === 'v') {
-      if ((u.md || 't') === 'c') { u.cv = Math.max(0, +el.value || 0); }
-      else { u.t = Math.max(0, +el.value || 0); }
+      // **2 行以上選んでいるときは、動かした差ぶんを全部に乗せる**
+      // （2026-09-03 の 33。「5 発まとめて 2 秒ずらす」）
+      var sel = selRows(), cur = (u.md || 't') === 'c' ? (u.cv == null ? 10 : u.cv) : u.t;
+      var nv = Math.max(0, +el.value || 0), dv = nv - cur, zq;
+      if (sel.length > 1 && sel.indexOf(+row.getAttribute('data-ix')) >= 0 && dv) {
+        for (zq = 0; zq < sel.length; zq++) {
+          var us2 = st.tl[sel[zq]];
+          if ((us2.md || 't') === 'c') { us2.cv = Math.max(0, (us2.cv == null ? 10 : us2.cv) + dv); }
+          else { us2.t = Math.max(0, us2.t + dv); }
+        }
+      } else if ((u.md || 't') === 'c') { u.cv = nv; } else { u.t = nv; }
     } else if (k === 'who') { u.i = +el.value; st.wantRow = null; }
     else if (k === 'bto') {
       var bx = row.querySelectorAll('select[data-tr="bto"]'), lb = [], zz;
@@ -115,6 +124,16 @@ export function wireRows() {
     if (k === 'del') {
       // **消したら次の行を選んだままにする**（2026-09-03 の 32。
       // 続けて消すたびに探し直しになっていた）
+      // **まとめて選んでいるときは選んだぶん全部**（33）
+      var msd = selRows();
+      if (msd.length > 1 && msd.indexOf(ix) >= 0) {
+        mark();
+        var keep = msd.map(function (z) { return st.tl[z]; }), zq2;
+        for (zq2 = st.tl.length - 1; zq2 >= 0; zq2--) {
+          if (keep.indexOf(st.tl[zq2]) >= 0) { st.tl.splice(zq2, 1); }
+        }
+        st.msel = []; st.sel = null; draw(); return;
+      }
       mark();
       var od = rowOrder(), po = od.indexOf(ix);
       var nx = od[po + 1] != null ? st.tl[od[po + 1]]
@@ -142,8 +161,19 @@ export function wireRows() {
       u3.f = (u3.f == null || u3.f === '') ? 0 : (+u3.f + 1 >= nf ? null : +u3.f + 1);
       draw(); return;
     }
-    if (k === 'up') { rowSwap(ix, -1); return; }
-    if (k === 'dn') { rowSwap(ix, 1); return; }
+    if (k === 'up' || k === 'dn') {
+      var dir = k === 'up' ? -1 : 1, msv = selRows();
+      // **まとめて選んでいるときは、選んだぶんを順に 1 歩**（33）。
+      // 上へ動かすときは前から、下へ動かすときは後ろから運ばないと潰し合う
+      if (msv.length > 1 && msv.indexOf(ix) >= 0) {
+        var ordm = rowOrder(), seq = msv.slice().sort(function (a, b) {
+          return (ordm.indexOf(a) - ordm.indexOf(b)) * dir;
+        }), zq3;
+        for (zq3 = 0; zq3 < seq.length; zq3++) { rowSwap(seq[zq3], dir); }
+        return;
+      }
+      rowSwap(ix, dir); return;
+    }
     if (k === 'det') { st.sel = (st.sel === ix ? null : ix); draw(); rowSeek(ix); }
   });
   // **行のどこを押しても、その 1 発を選ぶ。**摘みと入力欄の上は今までどおり
@@ -152,8 +182,11 @@ export function wireRows() {
     var row = e.target.closest('.trow');
     if (!row || row.classList.contains('add')) { return; }
     var ix = +row.getAttribute('data-ix');
-    if (!st.tl[ix] || st.sel === ix) { return; }
-    st.sel = ix; draw(); rowSeek(ix);
+    if (!st.tl[ix]) { return; }
+    var add = e.ctrlKey || e.metaKey;
+    if (!e.shiftKey && !add && st.sel === ix && !(st.msel || []).length) { return; }
+    selPick(ix, e.shiftKey, add);
+    draw(); rowSeek(ix);
   });
   // **行を掴んで運ぶ**（30）。掴めるのは左端の番号だけ（入力欄の文字は選べるまま）
   (function () {

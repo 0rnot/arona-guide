@@ -36,7 +36,7 @@ export function isMain(i) { return i < MAIN_MAX; }
 
 export var st = { bi: 0, di: 0, px: 6, pin: null, mode: 6, pi: 0, parties: [mkParty()],
            grid: 3, filt: { q: '', role: '', bul: '', arm: '', sch: '', sq: '', star: '', sort: 'n' },
-           more: false, who: -1, sel: null, wantRow: null, lv: 5, mk: [], slv: 5, tab: 0, goal: null,
+           more: false, who: -1, sel: null, wantRow: null, msel: [], lv: 5, mk: [], slv: 5, tab: 0, goal: null,
            // **フェーズは既定で自動**（削った量で移る）。数値を入れると固定
            // `arm` は大決戦の装甲（null なら総力戦の既定）
            // `bst` は「ボスの状態」（被ダメージ率アップなどの窓）
