@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TL エディタの使い方｜AronaBot</title>
+<meta name="description" content="総力戦の TL エディタの説明です。ボスの動きの上に EX を並べて、いつ撃てるか・どこまで削れるかを確かめます。AronaBot を入れたサーバーの管理者だけが使えます。まだ開発途中です。">
+<meta name="theme-color" content="#c8892e">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<!-- 埋め込みカード。**画像は絶対 URL でしか指定できない**ので、
+     ドメインを変えたらここも直すこと（トップページの `<head>` と同じ事情）。
+     絵は道具そのものの画面（`images/tl-editor.webp`、1200x957） -->
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="AronaBot">
+<meta property="og:locale" content="ja_JP">
+<meta property="og:url" content="https://arona-bot.com/tl/">
+<meta property="og:title" content="総力戦の TL エディタ">
+<meta property="og:description" content="ボスの動きの上に EX を並べて、いつ撃てるか・どこまで削れるかを確かめます。AronaBot を入れたサーバーの管理者だけが使えます。">
+<meta property="og:image" content="https://arona-bot.com/images/tl-editor.webp">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="957">
+<meta property="og:image:alt" content="総力戦の TL エディタ — ボスのフェーズの帯の上に EX が並んでいる画面">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="総力戦の TL エディタ">
+<meta name="twitter:description" content="ボスの動きの上に EX を並べて、いつ撃てるか・どこまで削れるかを確かめます。">
+<meta name="twitter:image" content="https://arona-bot.com/images/tl-editor.webp">
+<link rel="stylesheet" href="../style.css?v=23">
+<link rel="stylesheet" href="../tools/tool.css?v=17">
+<style>
+  /* **足したのはこれだけ。**面・枠・影・拡大の虫めがねは、`style.css` の
+     `figure` と `a.zoom` をそのまま使っている。
+
+     参考画像と本文のあいだの間。`figure { margin: 0 }` なので、ここで足さないと
+     文にくっつく。`.main-feat-shot` は高さ 210px で切り落とす作りなので使えない
+     （帯を切り出した絵は縦が 76px のものもある）。
+
+     **`.sm` は、枠 1 つを切り出した絵。**元が小さいので本文幅いっぱいに
+     伸ばすと字だけ大きくなって、盤の帯を撮ったものと釣り合わない。 */
+  .shot { margin-top: 14px; }
+  .shot.sm { max-width: 620px; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-inner">
+    <a class="topbar-name" href="../">AronaBotの使い方</a>
+    <a class="topbar-tools" href="../tools/">
+      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <path d="M21.7 18.3l-6-6a5.5 5.5 0 0 0-7-7l3.1 3.1-2.1 2.1L6.6 7.3a5.5 5.5 0 0 0 7 7l6 6a1 1 0 0 0 1.4 0l.7-.7a1 1 0 0 0 0-1.3z"/>
+      </svg>
+      ツール一覧
+    </a>
+    <nav class="topbar-nav">
+      <a href="../#can">機能</a>
+      <a href="../#start">つかいはじめる</a>
+      <a href="../#message">メッセージから</a>
+      <a href="../#faq">よくある質問</a>
+    </nav>
+    <span class="share-nudge" aria-hidden="true">使えそうな人に、ぜひ</span>
+    <a class="share" id="share-page" target="_blank" rel="noopener" aria-label="このページを共有する"
+       href="https://x.com/intent/post?url=https%3A%2F%2Farona-bot.com%2Ftl%2F">
+      <svg class="share-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <path d="M14 9V5l7 7-7 7v-4.1c-5 0-8.5 1.6-11 5.1 1-5 4-10 11-11z"/>
+      </svg>
+      <span class="share-label">共有</span>
+    </a>
+  </div>
+</div>
+<div class="toast" id="toast-page" role="status" aria-live="polite"></div>
+<script>
+/* 共有ボタン。**そのページ自身の URL を配る。**
+   1. スマホ（navigator.share）→ OS の共有シート
+   2. PC（クリップボード）→ URL をコピーして帯で伝える
+   3. どちらも無い → <a href> のまま X の共有ページへ */
+(function () {
+  var btn = document.getElementById('share-page'), toast = document.getElementById('toast-page');
+  if (!btn) return;
+  var name = document.title.split('｜')[0];
+  var text = name + '（AronaBot）';
+  function refresh() {
+    btn.href = 'https://x.com/intent/post?text=' + encodeURIComponent(text) +
+               '&url=' + encodeURIComponent(location.href);
+  }
+  refresh();
+  ['focus', 'pointerdown'].forEach(function (ev) { btn.addEventListener(ev, refresh); });
+  var timer = null;
+  function say(t) {
+    if (!toast) return;
+    toast.textContent = t; toast.classList.add('shown');
+    clearTimeout(timer); timer = setTimeout(function () { toast.classList.remove('shown'); }, 2000);
+  }
+  btn.addEventListener('click', function (e) {
+    refresh();
+    var u = location.href;
+    if (navigator.share) {
+      e.preventDefault();
+      navigator.share({ title: name, text: text, url: u }).catch(function () {});
+      return;
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      e.preventDefault();
+      navigator.clipboard.writeText(u).then(function () { say('リンクをコピーしました'); },
+        function () { window.open(btn.href, '_blank', 'noopener'); });
+    }
+  });
+})();
+</script>
+
+<header class="thero">
+  <div class="thero-media" aria-hidden="true">
+    <picture>
+      <source srcset="../images/hero-day.jpg" media="(prefers-color-scheme: dark)">
+      <img src="../images/hero-night.jpg" alt="" width="1600" height="400" fetchpriority="high">
+    </picture>
+  </div>
+  <div class="thero-body">
+    <h1>総力戦の TL エディタ</h1>
+    <p class="thero-lead"><b>ボスの動きの上に EX を並べて、いつ撃てるか・どこまで削れるかを見ます。</b>
+      <button type="button" class="qm" data-hint="コスト・スキルの回り・ダメージを、ゲームと同じ順で最後まで回します。撃った時刻とその時のコストが合っているか、時間内に削り切れるかが、置いた瞬間に出ます。"></button></p>
+  </div>
+</header>
+
+<div class="twrap">
+  <p class="tcrumb"><a href="../">AronaBotの使い方</a><span class="sl">/</span>TL エディタ</p>
+
+  <!-- ===== ① 何ができる道具か。**全景はここに 1 枚だけ。**
+       以降の節は、説明したいところだけを切り出す ===== -->
+  <div class="panel" style="margin-top:20px">
+    <div class="panel-h"><h2>置いて、見る</h2></div>
+    <p class="lead">左で<b>編成と育成</b>、右の盤に<b>EX を置く時刻</b>。
+      上に<b>与ダメージ・突破率・スコア</b>が出ます。<b>ボタンは 1 つも押しません</b>——
+      置いた瞬間に全部引き直します。
+      <button type="button" class="qm" data-hint="実在の TL を貼ると、この形まで一息で組み上がります。画面の絵は、大決戦ビナー（屋外・重装甲・Torment）の TL を貼ったところです。"></button></p>
+    <figure class="shot">
+      <a class="zoom" href="../images/tlg-all.webp"><img src="../images/tlg-all.webp"
+        alt="TL エディタの全景。左に編成と育成、右にボスのフェーズの帯と EX を並べた盤、上に与ダメージなどの数字が並んでいる"
+        loading="lazy" width="1200" height="869"></a>
+    </figure>
+    <div class="note-box">
+      <p><b>まだ開発途中です。</b>出る数字も画面の作りもこれから変わります。
+        合わないボスも残っています。<b>この参考画像もそのつど貼り替えます。</b>
+        <button type="button" class="qm" data-hint="生徒のスキルを 1 人ずつ実データと突き合わせている最中です。おかしな数字を見つけたら、下の「このツールへの要望・不具合」から教えてください。"></button></p>
+    </div>
+  </div>
+
+  <!-- ===== ② 導線。**まだ使えない人が読む前提。**
+       入れる → 権限を確かめる → 開く → 使う（このページの下） ===== -->
+  <div class="panel" id="use">
+    <div class="panel-h"><h2>使えるようになるまで</h2></div>
+    <p class="lead"><b>AronaBot を入れたサーバーの管理者だけが使えます。</b>
+      ほかの道具のように、ブラウザだけでは開けません。
+      <button type="button" class="qm" data-hint="Discord でログインして、AronaBot が入っていて、あなたが「サーバー管理」の権限を持つサーバーがあるかを見ます。どれか 1 つでも欠けると入れません。"></button></p>
+    <ol class="steps">
+      <li><span class="step-n">1</span>
+        <div><b>AronaBot をサーバーに入れる</b>
+          <p>招待は<a href="../#start">トップページ</a>から。<b>入れただけでは何も投稿しません。</b></p></div></li>
+      <li><span class="step-n">2</span>
+        <div><b>自分に「サーバー管理」の権限があるか確かめる</b>
+          <p>サーバーの設定の「ロール」で見られます。<b>自分のサーバーなら持っています。</b>
+            <button type="button" class="qm" data-hint="Discord の権限のうち「サーバー管理（Manage Server）」です。管理者（Administrator）を持っていれば、そこに含まれます。よそのサーバーで AronaBot を見かけただけでは開けません。"></button></p></div></li>
+      <li><span class="step-n">3</span>
+        <div><b>道具を開いて、Discord でログインする</b>
+          <p><a href="https://tl.arona-bot.com/" target="_blank" rel="noopener">tl.arona-bot.com</a> を開きます。
+            条件に合うサーバーが 1 つでもあれば入れます。</p></div></li>
+      <li><span class="step-n">4</span>
+        <div><b>組む</b>
+          <p>ここから下が、その手引きです。<a href="#make">編成を組むところ</a>から読めます。</p></div></li>
+    </ol>
+    <p class="lead" style="margin:18px 0 0">まだ入れていなくても、<b>この先は全部読めます。</b>
+      画面の中身は、ここに貼ってあるとおりです。</p>
+  </div>
+
+  <!-- ===== ③ 編成 ===== -->
+  <div class="panel" id="make">
+    <div class="panel-h"><h2>編成を組む</h2></div>
+    <p class="lead"><b>STRIKER 4・SPECIAL 2 の 6 人</b>が既定です。上の<b>「10人」</b>で
+      控えを足した 10 人にできます。枠を押すと下の一覧から選べて、
+      枠の下の数字は<b>開始 SET の並び順</b>です。
+      <button type="button" class="qm" data-hint="「＋」で 2 部隊目・3 部隊目を足せます。前の部隊が削ったぶんは次の部隊に持ち越され、討伐時刻は全部隊の合計秒で出ます。開始 SET は最初に手札へ並ぶ 5 人ぶんで、書かないと編成の順に並びます。"></button></p>
+    <figure class="shot sm">
+      <a class="zoom" href="../images/tlg-crew.webp"><img src="../images/tlg-crew.webp"
+        alt="編成の枠。STRIKER 4 人・SPECIAL 2 人が並び、それぞれの下に開始 SET の順番の数字が付いている"
+        loading="lazy" width="962" height="374"></a>
+    </figure>
+    <p class="lead" style="margin-top:22px"><b>育成は「既定」と「1 人ずつ」の 2 段です。</b>
+      上の選び場が<b>「既定（これから入れる子）」</b>のときの値が、新しく入れた子に付きます。
+      個人名に切り替えるとその子だけを変えられて、<b>「全員へ」</b>でいま出ている値を編成の全員に配れます。
+      <button type="button" class="qm" data-hint="Lv・星・装備・固有武器・スキル 4 種・愛用品・絆・潜在を持ちます。固有武器の Lv と★は別々です。TL の文章を貼ると、そこに書いてある育成が 1 人ずつに入ります。"></button></p>
+    <figure class="shot sm">
+      <a class="zoom" href="../images/tlg-build.webp"><img src="../images/tlg-build.webp"
+        alt="育成の枠。Lv・星・装備・固有・EX・ノーマル・パッシブ・サブ・愛用品・絆・潜在の入力が並んでいる"
+        loading="lazy" width="962" height="442"></a>
+    </figure>
+  </div>
+
+  <!-- ===== ④ TL を書く／貼る ===== -->
+  <div class="panel">
+    <div class="panel-h"><h2>TL を書く、貼る</h2></div>
+    <p class="lead"><b>動画の概要欄にある TL を、そのまま貼れます。</b>
+      右上の<b>「読み込み」</b>に貼って押すだけです。育成の行も開始 SET も一緒に読みます。
+      <button type="button" class="qm" data-hint="「書き出し」で出した JSON も同じ欄に貼れます。文章から作るときに要るのは、育成・いつ（何コストで）撃つか・誰に渡すか、の 3 つだけです。支援値は編成から計算するので書かなくて構いません。"></button></p>
+    <p class="lead">書き方は 3 通りで、混ぜて書けます。</p>
+    <ul>
+      <li><b>コスト指定</b> — <code>⑦セイア</code> ／ <code>c7 セイア</code> ／ <code>コスト7 セイア</code></li>
+      <li><b>秒指定</b> — <code>2:30.100 リオ</code>（残り時間）／ <code>t35 リオ</code>（開始から）／
+        <code>9.5 ネル</code>（直前から 9.5 秒あと）</li>
+      <li><b>最速</b> — <code>即ネル</code> ／ <code>最速ネル</code> ／ <code>AUTO ネル</code></li>
+    </ul>
+    <p class="lead" style="margin-top:14px">渡す相手は <code>c5 ネル → セイア</code> のように 1 発だけ指定でき、
+      <code>※バフは全てネル指定</code> と書けば全部まとめて決まります。
+      <b>読めなかった行は、読み込んだあとに 1 行ずつ出ます。</b>
+      <button type="button" class="qm" data-hint="読み込みの窓の下に「生徒 6 人・開始スキル 5 人ぶん・EX 22 発を読みました」のように出ます。読めなかった行、置けなかった 1 発、演出やコスト待ちで後ろにずれた 1 発も、そこに全部並びます。黙って捨てません。「※」から後ろ、支援値、ページ目、移行、上振れ・下振れ、AUTO の ON/OFF は読み飛ばします。"></button></p>
+    <p class="lead" style="margin-top:22px">貼ったあとは、右上の<b>「入力」</b>で行として直せます。
+      <b>1 行が EX 1 発</b>で、誰が・いつ・誰に渡すかが並びます。
+      <button type="button" class="qm" data-hint="左の印は指定のしかた（稲妻が最短、ひし形がコストで指定、時計が秒で指定）。押すと切り替わります。右の▲▼で前後と入れ替え、×で消せます。読み込みの窓には「画面から組む」もあって、文章を書かずに同じ行を作れます。"></button></p>
+    <figure class="shot">
+      <a class="zoom" href="../images/tlg-rows.webp"><img src="../images/tlg-rows.webp"
+        alt="「入力」で開く行の表。1 行が EX 1 発で、生徒・指定のしかた・時刻・渡す相手が並んでいる"
+        loading="lazy" width="1200" height="412"></a>
+    </figure>
+  </div>
+
+  <!-- ===== ⑤ タイムラインの読み方 ===== -->
+  <div class="panel">
+    <div class="panel-h"><h2>タイムラインの読み方</h2></div>
+    <p class="lead">上の段は<b>ボスの側</b>です。フェーズの切り替わり、ボスの EX と PS、
+      グロッキーゲージの溜まり、こちらのデバフの数。その下に<b>コスト回復力</b>と<b>コストの山</b>が続きます。
+      <button type="button" class="qm" data-hint="コストの山は、溜まって撃って落ちる形がそのまま出ます。上限に張り付いている間はそれ以上増えません。回復力の段は、コスト回復力のバフが乗っている区間です。"></button></p>
+    <figure class="shot">
+      <a class="zoom" href="../images/tlg-band.webp"><img src="../images/tlg-band.webp"
+        alt="タイムラインの上の帯。ボスのフェーズ、ボスの EX と PS、グロッキー、デバフ数、コスト回復力、コストの山が縦に並んでいる"
+        loading="lazy" width="1200" height="194"></a>
+    </figure>
+    <p class="lead" style="margin-top:22px">下の段は<b>生徒ごとに 3 本</b>——
+      <b>EX</b>（置いた 1 発。絵の中の数字がコスト）、<b>NS</b>（ノーマルスキル）、<b>通常攻撃</b>。
+      いちばん下に<b>SS</b>（サブスキル）がまとまります。
+      <button type="button" class="qm" data-hint="SPECIAL の 2 人には通常攻撃の段がありません。サポーターは通常攻撃をしないためです（SquadType が Support）。NS の左の札は周期で、たとえば 35s なら 35 秒ごと。弾数で回る子は「12発」のように出ます。上のツールバーの「ボス・回復力・コスト・NS・SS・通常」で、要らない段は消せます。"></button></p>
+    <figure class="shot">
+      <a class="zoom" href="../images/tlg-lanes.webp"><img src="../images/tlg-lanes.webp"
+        alt="生徒ごとの段。1 人につき EX・NS・通常攻撃の 3 本が並び、いちばん下にサブスキルの帯が続いている"
+        loading="lazy" width="1200" height="367"></a>
+    </figure>
+  </div>
+
+  <!-- ===== ⑥ スキル順（手札 2 段） ===== -->
+  <div class="panel">
+    <div class="panel-h"><h2>スキル順</h2></div>
+    <p class="lead">上の帯の真ん中にある 2 段が、<b>その時刻の手札</b>です。
+      <b>上の 3 枚がいま選べるカード、下が控え。</b>ゲームと同じ回り方をします。
+      <button type="button" class="qm" data-hint="撃った札は山札のいちばん下へ回り、空いたその枠に控えの先頭が入ります。左詰めにはならないので、隣の 2 枚は動きません。盤の上にカーソルを置くと、その秒の並びに変わります。"></button></p>
+    <p class="lead">カーソルが 1 発の演出の中にあるときは、<b>右にその札</b>が出ます。
+      絵・コスト・<b>そのときのボスの残り時間</b>。
+      <button type="button" class="qm" data-hint="残り時間で出しているのは、TL の原文が残り時間で書いてあるからです。「2:30.100 リオ」と書いてある行が本当にその時刻に置けたかを、そのまま見比べられます。"></button></p>
+    <figure class="shot sm">
+      <a class="zoom" href="../images/tlg-ord.webp"><img src="../images/tlg-ord.webp"
+        alt="スキル順。上の段に明るい 3 枚の手札、下の段に暗い控え、右に撃っている 1 発の大きな札とボスの残り時間"
+        loading="lazy" width="640" height="164"></a>
+    </figure>
+  </div>
+
+  <!-- ===== ⑦ 相手とボスの状態 ===== -->
+  <div class="panel">
+    <div class="panel-h"><h2>相手と、ボスの状態</h2></div>
+    <p class="lead">盤の下で<b>ボス・難易度・地形・装甲</b>を選びます。フェーズに入る HP は編集でき、
+      ボス名の隣の丸は<b>この道具をそのボスの実際の動画と突き合わせたかどうか</b>です。
+      <button type="button" class="qm" data-hint="塗った緑＝実際の動画と突き合わせて合っているボス。黄色い輪＝一部だけ合っているボス。灰色の輪＝まだ突き合わせていないボス。丸を押すと、そのボスの状況が言葉で出ます。"></button></p>
+    <p class="lead"><b>「ボスの状態」は自分で置きます。</b>押すとその区間の帯が盤に乗り、端をドラッグして長さを決めます。
+      <b>いつ入るかはデータに無いので、道具の側では決めません。</b>
+      <button type="button" class="qm" data-hint="「ボスに当たらない」は、雑魚処理や移動でボスが盤に居ない区間です。その間の EX・NS・通常攻撃はボスの HP から引きません。ケセドは 152 秒のうち 121 秒がこれで、置かないと与ダメージが実測の 1.4 倍近くに出ます。「通常攻撃・NS が雑魚へ」はボスは居るが撃つ先が雑魚のとき、「グロッキー（確定会心）」は時刻が計算で解けないボス用です。"></button></p>
+    <figure class="shot">
+      <a class="zoom" href="../images/tlg-boss.webp"><img src="../images/tlg-boss.webp"
+        alt="相手の欄。ボス・難易度・地形・装甲・フェーズの選択と、ボスの状態を置くボタンが並んでいる"
+        loading="lazy" width="1200" height="100"></a>
+    </figure>
+    <p class="lead" style="margin-top:22px">動かす前から決まっている数字は、上の帯のいちばん右にまとまっています。
+      <button type="button" class="qm" data-hint="コスト回復力は編成を含んだ値、コスト上限はコストの天井、開始コストは開幕に足されるぶん、制限時間は選んだ相手の持ち時間です。相手を変えると 4 つとも入れ替わります。"></button></p>
+    <figure class="shot sm">
+      <a class="zoom" href="../images/tlg-cond.webp"><img src="../images/tlg-cond.webp"
+        alt="コスト回復力・コスト上限・開始コスト・制限時間の 4 つの札"
+        loading="lazy" width="880" height="76"></a>
+    </figure>
+  </div>
+
+  <!-- ===== ⑧ 達成率と討伐時刻 ===== -->
+  <div class="panel">
+    <div class="panel-h"><h2>どこまで削れたか</h2></div>
+    <p class="lead">上の帯に、<b>与ダメージ・ボス HP に対しての割合・突破率・スコア</b>が並びます。
+      削り切れたときだけ<b>スコアと討伐時刻</b>が出ます。
+      <button type="button" class="qm" data-hint="突破率は、1 発ごとのダメージの振れ・命中・会心を足し合わせて、合計を正規分布とみなした「HP を削り切る確率」です。TL が時間内に成立するか、盤の上で何体に当たるかは入っていません。スコアは削り切った秒から出すので、届かない TL では出しません。"></button></p>
+    <figure class="shot">
+      <a class="zoom" href="../images/tlg-kpi.webp"><img src="../images/tlg-kpi.webp"
+        alt="上の帯の数字。与ダメージ・ボス HP に対して・突破率・置いた EX・終わりのコスト・編成"
+        loading="lazy" width="1200" height="93"></a>
+    </figure>
+    <p class="lead" style="margin-top:22px"><b>数字は 1 つではなく幅で出ます。</b>
+      <b>下振れ</b>は倍率の幅をぜんぶ低いほうに寄せて会心も無しにしたとき、
+      <b>上振れ</b>はぜんぶ高いほうに寄せて全部会心したときです。真ん中が「平均」。
+      <button type="button" class="qm" data-hint="「体力が減っているほど強い」のように条件でダメージが変わるスキルがあると、幅が開きます。どの枝を引くかは盤の状態で決まるので、確率にはできません。左の「倍率の幅」でその 1 発ごとの寄り方を動かせます。会心率のつまみを動かせば、その率での数字も見られます。"></button></p>
+    <figure class="shot">
+      <a class="zoom" href="../images/tlg-rate.webp"><img src="../images/tlg-rate.webp"
+        alt="シナリオ別達成率。残 HP・与ダメージ・EX 合計・NS 合計・通常合計・SS 合計が横棒で並び、下振れと上振れが添えられている"
+        loading="lazy" width="1200" height="117"></a>
+    </figure>
+    <p class="lead" style="margin-top:22px">左下の<b>「気をつけること」</b>には、<b>直せることだけ</b>が出ます。
+      コストが足りずに後ろへずれた 1 発、演出の途中で撃てなかった 1 発、渡す相手が決まっていない 1 発。
+      <b>1 件も無ければ枠ごと消えます。</b></p>
+    <figure class="shot sm">
+      <a class="zoom" href="../images/tlg-err.webp"><img src="../images/tlg-err.webp"
+        alt="「気をつけること」の枠。最速指定した 1 発が演出中のため後ろへずれた、という行が 3 つ並んでいる"
+        loading="lazy" width="962" height="246"></a>
+    </figure>
+  </div>
+
+  <!-- ===== ⑨ できないこと。**正直に書く。** ===== -->
+  <div class="panel">
+    <div class="panel-h"><h2>できないこと</h2></div>
+    <p class="lead"><b>合わないボスがあります。</b>YouTube の Torment の TL を
+      ボスごとに 4 本・合計 56 本流し込んだところ、<b>ホド・ホバークラフト・ケセド</b>は削り切れ、
+      <b>ホド</b>は実測と −4.1%、<b>ビナー</b>は −1.5% まで寄りました。いっぽうで
+      <b>グレゴリオ・クロカゲ・ペロロジラ・ドラム缶ガニ・ゲブラ</b>は 20% にも届きません。
+      <button type="button" class="qm" data-hint="足りない理由はどれも「盤の上で起きること」です——範囲攻撃が何体に当たるか、ギミックがいつ入るか、部位がいつ出てくるか。データからは時刻も体数も出ません。推測を道具の中に埋めないために、当たる先・当たる数・ボスの状態は道具の側では決めず、画面から置けるようにしてあります。"></button></p>
+    <ul>
+      <li><b>盤の上の位置と移動は入っていません。</b>生徒が射程に入るまでの時間は 0 秒から数えます</li>
+      <li><b>通常攻撃はいつもボス本体に当たる前提です。</b>EX の当たる先は帯ごとに選べます</li>
+      <li><b>同じ TL でも、書いてある量で結果が変わります。</b>渡す相手の指定が概要欄に無い動画は、
+        あるものと比べて大きく下に出ます
+        <button type="button" class="qm" data-hint="ビナーで、手で「バフは全てネル指定」まで入れた 1 本は 93.3% に届きますが、その指定が概要欄に無い動画は 39〜52% で止まります。足りないのは道具ではなく入力のほうです。"></button></li>
+      <li><b>「これが最適です」とは言いません。</b>置いた TL がどうなるかを見る道具で、
+        並べ方を探す道具ではありません</li>
+    </ul>
+    <p class="lead" style="margin-top:18px">計算そのものの出どころと、突き合わせの経過は、
+      <b>道具のいちばん下の「数字の出どころ」</b>に全部書いてあります。</p>
+  </div>
+
+</div>
+
+<script src="../tools/hint.js?v=1"></script>
+
+<footer>
+  <div class="foot-inner">
+    <p class="foot-name">AronaBotの使い方</p>
+    <p class="foot-links">
+      <a href="../">AronaBot のページ</a>
+      <span class="sep">/</span>
+      <a href="../tools/">ツール一覧</a>
+      <span class="sep">/</span>
+      <a href="https://x.com/pe6cak" target="_blank" rel="noopener">制作者の X（@pe6cak）</a>
+      <span class="sep">/</span>
+      <a href="https://github.com/0rnot/arona-guide/issues/new?template=tool-feedback.yml&title=%5BTL%20%E3%82%A8%E3%83%87%E3%82%A3%E3%82%BF%5D%20&tool=TL%20%E3%82%A8%E3%83%87%E3%82%A3%E3%82%BF" target="_blank" rel="noopener">このツールへの要望・不具合</a>
+      <span class="sep">/</span>
+      <span>Discord なら <b>@0r.not</b> まで</span>
+    </p>
+    <p class="disclaimer">
+      <b>このサイトはファンが作った非公式のものです。</b>運営とは関係ありません。
+      <small>掲載しているゲーム内の画像・アイコン・名称・数値は、Nexon Games / Yostar の
+      「ブルーアーカイブ」から引用したもので、著作権はすべて権利者に帰属します。
+      ツールの計算に使うデータは <a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a> と
+      <a href="https://github.com/electricgoat/ba-data" target="_blank" rel="noopener">ba-data</a> から取得しています。
+      権利者の方でご指摘があれば <b>@0r.not</b> までご連絡ください。</small>
+    </p>
+  </div>
+</footer>
+
+<dialog class="lightbox" id="lightbox">
+  <img id="lightbox-img" src="" alt="">
+  <button class="lightbox-close" type="button" aria-label="閉じる">×</button>
+</dialog>
+
+<script>
+// 画像を押したら大きく出す。**ホバーだけにしないこと** —— スマホには hover が無い。
+// JS が動かないときは <a href> がそのまま効いて、画像単体が開く。
+(function () {
+  var dlg = document.getElementById('lightbox');
+  var img = document.getElementById('lightbox-img');
+  if (!dlg || typeof dlg.showModal !== 'function') return;
+  document.querySelectorAll('a.zoom').forEach(function (a) {
+    a.addEventListener('click', function (e) {
+      e.preventDefault();
+      var inner = a.querySelector('img');
+      img.src = a.getAttribute('href');
+      img.alt = inner ? inner.alt : '';
+      dlg.showModal();
+    });
+  });
+  dlg.addEventListener('click', function (e) { if (e.target !== img) dlg.close(); });
+  dlg.addEventListener('close', function () { img.removeAttribute('src'); });
+})();
+</script>
+
+</body>
+</html>

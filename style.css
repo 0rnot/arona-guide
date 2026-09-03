@@ -1053,3 +1053,11 @@ a.toolband-card:hover .ticon { transform: scale(1.09) rotate(-4deg); }
    `.main-feat` の中の `p` は余白を持たないので、ボタンの手前だけ間を作る。
    `margin-top` は `.cta` 側に置く——`p` に置くと、ボタンの無い段落まで空く */
 .main-feat-shot + .para .cta { margin-top: 18px; }
+
+/* **説明ページへの控えめな導線**（2026-09-03）。ボタンの隣に置く 2 番目の行き先。
+   ボタンと同じ大きさにすると、どちらを押すのか分からなくなる */
+.sub-link {
+  margin-left: 1em; font-size: .92rem;
+  color: var(--fg-mute); text-decoration-thickness: 1px;
+}
+.sub-link:hover { color: var(--fg); }
