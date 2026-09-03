@@ -1,5 +1,6 @@
 import { mmss } from './util.js';
 import { sim } from './engine.js';
+import { TE } from './core.js';
 
 // ------------------------------------------------------------ 目盛りと折れ線
 export function ticks(dur, px) {
@@ -43,15 +44,29 @@ export function costRun(dur) {
     var row = sm.rows[i];
     if (row.d && (row.why || row.at == null)) { bad.push(row); }
   }
-  return { pts: pts, bad: bad, end: pts[pts.length - 1][1], cap: sm.cap, sim: sm };
+  // **オーバーコストを使ったかどうか**（2026-09-04 の先生の指示
+  // 「コストオーバーしてるなら視覚的にわかるようにしてほしい」）。
+  // `ovWin` は engine が出す `{ to: 渡した枠, s: 始まり, e: 終わり }` の並び。
+  // 使ったときだけ縦軸を −5 まで伸ばす（**使っていない TL の見た目は変えない**）
+  var lo = 0, ov = sm.ovWin || [];
+  for (i = 0; i < sm.rows.length; i++) { if (sm.rows[i].over) { lo = TE.OVER_FLOOR; } }
+  return { pts: pts, bad: bad, end: pts[pts.length - 1][1], cap: sm.cap, sim: sm,
+           lo: lo, ov: ov };
 }
 export function costPts(dur) { return costRun(dur).pts; }
-export function poly(pts, px, h, ymax, pad) {
-  var s = '';
+/** 折れ線。**`ymin` を渡すとそこを下端にする**（既定は 0）。
+    オーバーコストで 0 を割った線を描くのに要る */
+export function poly(pts, px, h, ymax, pad, ymin) {
+  var s = '', lo = ymin || 0, span = ymax - lo;
   for (var i = 0; i < pts.length; i++) {
     s += (i ? ' ' : '') + (pts[i][0] * px).toFixed(1) + ',' +
-         (h - pad - (pts[i][1] / ymax) * (h - pad * 2)).toFixed(1);
+         (h - pad - ((pts[i][1] - lo) / span) * (h - pad * 2)).toFixed(1);
   }
   return s;
+}
+/** その値の y 座標（`poly` と同じ写像）。目盛りと 0 の線を置くのに使う */
+export function yOf(v, h, ymax, pad, ymin) {
+  var lo = ymin || 0;
+  return h - pad - ((v - lo) / (ymax - lo)) * (h - pad * 2);
 }
 

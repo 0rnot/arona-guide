@@ -3,7 +3,7 @@ import { SLOTS, TE, live, st } from './core.js';
 import { exBuffDur, exCost, exDur } from './uses.js';
 import { boss, diff } from './boss.js';
 import { kindOf, recPower, sim, whyOf } from './engine.js';
-import { costRun, poly, ticks, vgrid } from './chart.js';
+import { costRun, poly, ticks, vgrid, yOf } from './chart.js';
 import { ggAt, ggRuns, phaseSpans } from './carry.js';
 import { buffTip, drawCrit, drawRate, n0 } from './rate.js';
 import { drawErr, kpi } from './kpi.js';
@@ -223,14 +223,50 @@ export function draw() {
   void recNow;
 
   if (laneOn('cost')) {
-  side += lbl(H.cost, '<b>コスト</b>');
-  cv += lane(H.cost,
+  // **オーバーコスト**（2026-09-04 の先生の指示「コストオーバーしてるなら
+  // 視覚的にわかるようにしてほしい」）。**使った TL でだけ縦軸を −5 まで伸ばす**ので、
+  // 使っていない TL の見た目は今までどおり。帯は「その枠が −5 まで沈められる区間」
+  var lo = run.lo, y0 = yOf(0, H.cost, run.cap, 8, lo);
+  function ovNm(ix) {
+    var pp = st.party[ix];
+    return pp ? pp.n : ('枠 ' + (ix + 1));
+  }
+  // **同じ枠に続けて配ったぶんは 1 本にまとめる。**ナギサ（水着）を 3 回撃つと
+  // 26 秒の窓が 3 本重なって、帯の名前が 3 つ重なって読めなかった
+  var ovm = [], owk;
+  for (owk = 0; owk < run.ov.length; owk++) {
+    var cw = run.ov[owk], last = null, om;
+    for (om = 0; om < ovm.length; om++) {
+      if (ovm[om].to === cw.to && cw.s <= ovm[om].e + 1e-9 &&
+          (last === null || ovm[om].e > ovm[last].e)) { last = om; }
+    }
+    if (last === null) { ovm.push({ to: cw.to, s: cw.s, e: cw.e }); }
+    else { ovm[last].e = Math.max(ovm[last].e, cw.e); }
+  }
+  var ovh = '';
+  for (var ow = 0; ow < ovm.length; ow++) {
+    var owx = ovm[ow], oa = Math.max(0, owx.s), ob = Math.min(dur, owx.e);
+    if (ob <= oa) { continue; }
+    ovh += '<div class="ovb" style="left:' + (oa * px) + 'px;width:' +
+           ((ob - oa) * px) + 'px" title="' +
+           esc('オーバーコスト ' + ovNm(owx.to) + '\n' +
+               mmss(dur, oa) + ' 〜 ' + mmss(dur, ob) + '\n' +
+               '保有コストを最大 5 まで超過して払えます（超過ぶんはマイナスのコストとして残る）') +
+           '"><span>オーバーコスト ' + esc(ovNm(owx.to)) + '</span></div>';
+  }
+  side += lbl(H.cost, '<b>コスト</b>' +
+    (lo < 0 ? '<span class="mb ovt">オーバーコスト</span>' : ''));
+  cv += lane(H.cost, ovh +
     '<svg class="plot" viewBox="0 0 ' + W + ' ' + H.cost + '" preserveAspectRatio="none">' +
     '<line class="dash" x1="0" y1="8" x2="' + W + '" y2="8"/>' +
-    '<line class="zero" x1="0" y1="' + (H.cost - 8) + '" x2="' + W + '" y2="' + (H.cost - 8) + '"/>' +
-    '<polyline class="cost" points="' + poly(run.pts, px, H.cost, run.cap, 8) + '"/></svg>' +
+    '<line class="zero" x1="0" y1="' + y0.toFixed(1) + '" x2="' + W + '" y2="' + y0.toFixed(1) + '"/>' +
+    (lo < 0 ? '<line class="ovf" x1="0" y1="' + (H.cost - 8) + '" x2="' + W +
+              '" y2="' + (H.cost - 8) + '"/>' : '') +
+    '<polyline class="cost" points="' + poly(run.pts, px, H.cost, run.cap, 8, lo) + '"/></svg>' +
     '<span class="yl" style="top:8px">' + run.cap.toFixed(1) + '</span>' +
-    '<span class="yl" style="top:' + (H.cost - 8) + 'px">0</span>');
+    '<span class="yl" style="top:' + y0.toFixed(1) + 'px">0</span>' +
+    (lo < 0 ? '<span class="yl neg" style="top:' + (H.cost - 8) + 'px">' +
+              lo.toFixed(1) + '</span>' : ''));
   }
 
   // engine の行を「置いた 1 件」に結び直す。**形態・コスト・詰まりはここから取る**
@@ -277,11 +313,17 @@ export function draw() {
       // **掴む的（`.b.sk`）は太らせない。**幅を変えるとドラッグの当たり判定が
       // 動くので、薄い帯は別の箱（`.exeff`）にして下に敷く
       var ebd = exBuffDur(p.id, fk), ebw = Math.max(0, ebd * px - uw);
-      var inner = img(p.id, 'ic') + '<b class="cs">' + (Math.round(fc * 10) / 10) + '</b>' +
+      // **オーバーコストで払った 1 発は、コストの数字を橙にする**（2026-09-04）。
+      // `er.over` は engine が「払ったあとコストが 0 を割った」ときに立てる
+      var inner = img(p.id, 'ic') +
+                  '<b class="cs' + (er && er.over ? ' ovc' : '') + '">' +
+                  (Math.round(fc * 10) / 10) + '</b>' +
                   (uw >= 90 ? '<span class="nm">' + esc(fnm) + '</span>' : '');
       var tips = esc(fnm) + '\nコスト ' + (Math.round(fc * 10) / 10) +
         (er && er.isCopy ? '（複製カード）' : '') +
         (er && er.fl && er.fl.length > 1 ? '\n形態 ' + (er.fi + 1) + '/' + er.fl.length : '') +
+        (er && er.over
+          ? '\nオーバーコストで払いました（残り ' + (Math.round(er.left * 10) / 10) + '）' : '') +
         '\n置いた ' + uu.t.toFixed(2) + '秒（残り ' + mmss(dur, uu.t) + '）' +
         (er && er.at != null && Math.abs(er.at - uu.t) > 0.01
           ? '\n実際に出る ' + er.at.toFixed(2) + '秒' : '') +
