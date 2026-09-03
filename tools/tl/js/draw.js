@@ -383,6 +383,31 @@ export function draw() {
           'style="width:120px"></label>';
   }
   $('phases').innerHTML = pf || '<span class="mut" style="font-size:10px">このボスにはフェーズの切り替わりがありません。</span>';
-  drawRate(); drawErr(); kpi(); drawCrit(); drawUse(); drawRows(); drawAlts();
+  tail();
   if (st.pin != null) { movePh(st.pin, true); }
+}
+// **重い後半は 1 フレームに 1 回だけ**（2026-09-03 の 28。`draw()` が 143.8ms で、
+// その 117ms が `kpi` 74.6 と `drawRate` 42.2。行のセレクトを 1 つ動かすたびに
+// 全部を引き直していた）。**順番は変えていない**（`kpi` が `ggSolve` を回してから
+// `drawUse` が 1 発ぶんのダメージを引く、という並びに意味がある）。
+// 立て続けに呼ばれたぶんは 1 回にまとまる
+var _tR = 0, _tT = 0;
+function tailRun() {
+  _tR = 0;
+  if (_tT) { clearTimeout(_tT); _tT = 0; }
+  drawRate(); drawErr(); kpi(); drawCrit(); drawUse(); drawRows(); drawAlts();
+}
+export function tail() {
+  if (_tR || _tT) { return; }
+  // rAF が回らない場面（裏のタブ・撮影用のヘッドレス）のために時間でも保険をかける
+  _tR = window.requestAnimationFrame(tailRun);
+  _tT = setTimeout(tailRun, 60);
+}
+/** **外から叩くときの `draw`。**待たずに最後まで引く。
+    `verify.py` などの道具は `window.__TLDBG.draw()` の直後に画面を読むので、
+    ここで待たせると読み取りがずれる */
+export function drawNow() {
+  draw();
+  if (_tR) { window.cancelAnimationFrame(_tR); _tR = 0; }
+  tailRun();
 }

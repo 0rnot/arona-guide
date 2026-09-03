@@ -7,7 +7,12 @@ import { costPts } from './chart.js';
 import { scen } from './scen.js';
 import { dmgCurve, poolHp, poolKills, poolName, poolOrder } from './pool.js';
 import { carryIn, ggAt, ggCritAt, ggRuns, ggSolve, killAt, phaseSpans, scoreOf, trOf } from './carry.js';
-import { draw } from './draw.js';
+import { draw, drawNow } from './draw.js';
+import { drawErr, kpi } from './kpi.js';
+import { drawCrit, drawRate } from './rate.js';
+import { drawUse } from './useedit.js';
+import { drawRows } from './rows.js';
+import { drawAlts } from './left.js';
 import { mkStats } from './stats.js';
 import { effMod, passiveFor, statsOf, support, terrMod } from './passive.js';
 import { nsInfo, nsTimes } from './ns.js';
@@ -40,7 +45,7 @@ window.__TLDBG = { statsOf: statsOf, dmgOf: dmgOf, total: total, diff: diff,
                    terrMod: terrMod, effMod: effMod, passiveFor: passiveFor, phaseSpans: phaseSpans, ggRuns: ggRuns, ggAt: ggAt, ggCritAt: ggCritAt, ggSolve: ggSolve, support: support, dmgCurve: dmgCurve, parseTL: parseTL, st: st, stu: stu, sim: sim, engIn: engIn, costPts: costPts,
                    busyOf: busyOf, naTimes: naTimes, naRuns: naRuns, nsTimes: nsTimes,
                    nsInfo: nsInfo, naInfo: naInfo, altOf: altOf, pickOf: pickOf,
-                   usesSorted: usesSorted, liveBuffs: liveBuffs, draw: draw,
+                   usesSorted: usesSorted, liveBuffs: liveBuffs, draw: drawNow,
                    applyTL: applyTL, fillBoss: fillBoss, findStudent: findStudent,
                    clearStat: clearStat, trOf: trOf,
                    boss: boss, scen: scen, killAt: killAt, scoreOf: scoreOf,
@@ -49,6 +54,9 @@ window.__TLDBG = { statsOf: statsOf, dmgOf: dmgOf, total: total, diff: diff,
                    // `dmgCurve` は本体の池しか返さないので、2 池目を外から比べるのに要る
                    poolKills: poolKills, poolOrder: poolOrder, poolHp: poolHp,
                    poolName: poolName, carryIn: carryIn,
+                   // **どこが遅いかを外から測るため**（2026-09-03 の 28）
+                   drawRate: drawRate, drawErr: drawErr, kpi: kpi, drawCrit: drawCrit,
+                   drawUse: drawUse, drawRows: drawRows, drawAlts: drawAlts,
                    B: B };
 
 
