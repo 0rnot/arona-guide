@@ -5038,6 +5038,8 @@ def ns_count(dev, ct, arg):
 
 # LevelSkill の中身を 1 回だけ落とすための入れ物（湧く体の数を数えるのに使う）
 _ls_cache = {}
+# 「味方N人」の相手選びの規則を 1 回だけ落とすための入れ物（2026-09-04）
+_tsel_cache = {}
 
 
 def build_tl():
@@ -6053,6 +6055,7 @@ def build_tl():
     ep_tid = {}
     skname = {}
     tgt_out = {}
+    tsel_out = {}
     fchg_out = {}
     # 装備。段ごとの効果。**値は SchaleDB と同じく `StatValue[i][1]`（その段の上限レベル）**
     eqp_out = {}
@@ -6591,6 +6594,52 @@ def build_tl():
             tg[kind] = [n_ally, 1 if "自身を除" in ds else 0]
         if tg:
             tgt_out[sid] = tg
+        # **「誰に配るか」の規則は `LevelSkill/<DevName><枠>01.json` の根にある**
+        # （2026-09-04）。スキルの根に 3 つ並んでいて、意味はこう:
+        #
+        #   EssentialCandidateRule … 必須の絞り込み。`TargetSide`（Self /
+        #     Ally / Ally_Except_Self / All_Except_Self / Enemy / …）、
+        #     `TargetingType`（**Target = 撃つときに相手を指定する**／
+        #     Position = 位置を指定する／None）、`MaxTargetCount`（-1 は全員）
+        #   OptionalCandidateRule … 13 個の制約。**生徒の味方向けスキル 151 枠では
+        #     全部が既定値**（2026-09-04 に数えた）ので、ここでは持ち出さない
+        #   TargetSortRule … 並べ替え。`SortCriteria` と `OrderBy`
+        #
+        # **`SortCriteria` は説明文と 1 対 1 で合う。**
+        #   カエデ  `CH0116Public01`  Stat/Highest SortStat 3   「防御力が最も高い味方1人」
+        #   トモエ（チーパオ）`CH0271Public01` Stat/Highest SortStat 2 「攻撃力が最も高い味方1人」
+        #   ヤクモ  `CH0228Public01`  Stat/Highest SortStat 12  「会心ダメージ率が最も高い味方1人」
+        #   シグレ  `CH0122Public01`  AttackPower/Highest       「自身を除く攻撃力が最も高い味方1人」
+        #   フウカ  `FuukaPublic01`   MaxHP/Highest             「最大HPが最も高い味方1人」
+        #   マリー（体操服）`CH0186Public01` DefensePower/Highest 「自身を除く防御力が最も高い味方1人」
+        #   レナ    `CH0305Public01`  HPRate/Lowest             「自身を除くHPが最も低い味方1人」
+        #   レナ    `CH0305Ex01`      DebuffCount/Highest       「自身を除く味方1人の弱体状態を1つ解除」
+        #
+        # **`Distance/Lowest` は「いちばん近い味方」で、説明文が「味方1人」としか
+        # 書かないものが全部これ。**位置は道具に無いので決まらない——つまり
+        # **撃つときに人が指定する枠**。ヒマリ（臨戦）`CH0332Public01` の説明文が
+        # 「（EXスキルの使用時に**指定した味方**を優先とします）」と書いていて、
+        # 「指定」が実在の仕掛けであることの裏づけになっている
+        for kind in tg:
+            if kind not in ("Ex", "Public", "GearPublic", "ExtraPassive"):
+                continue
+            key = (x.get("DevName") or "") + kind + "01"
+            if key in _tsel_cache:
+                d_ls = _tsel_cache[key]
+            else:
+                try:
+                    d_ls = get_json(BALS.format(key))
+                except urllib.error.HTTPError:
+                    d_ls = {}
+                _tsel_cache[key] = d_ls
+            ess = (d_ls or {}).get("EssentialCandidateRule") or {}
+            srt = (d_ls or {}).get("TargetSortRule") or {}
+            if not ess.get("TargetSide"):
+                continue
+            tsel_out.setdefault(sid, {})[kind] = [
+                ess.get("TargetSide"), ess.get("TargetingType"),
+                ess.get("MaxTargetCount"), srt.get("SortCriteria"),
+                srt.get("OrderBy"), srt.get("SortStat")]
         # **変身後の通常攻撃の切れ方**（2026-09-04、61f）。出どころは `fchg_of` の注記
         if (x.get("Skills") or {}).get("Normal", {}).get("FormChange"):
             _fv = fchg_of(x.get("DevName"))
@@ -6610,6 +6659,10 @@ def build_tl():
           f"うち「味方1人」が {_one} 枠（説明文から）")
     import collections as _c
     import re as _re
+    _tsc = _c.Counter(r[3] for v in tsel_out.values() for r in v.values())
+    print(f"  相手選びの規則 {sum(len(v) for v in tsel_out.values())} 枠"
+          f"（LevelSkill の根の EssentialCandidateRule / TargetSortRule）/ "
+          + " ".join(f"{k}={n}" for k, n in _tsc.most_common()))
     print("  NS の自動発動 " + str(nns) + " 件 / 内訳 "
           + str(_c.Counter(v[1] for l in ns_out.values() for v in l).most_common()))
     print("  SS の引き金 " + str(nep) + " 人 / Event の内訳 "
@@ -6715,7 +6768,10 @@ def build_tl():
                       "IndoorBattleAdaptation"],
         "bam": bam, "ter": ter, "trans": trans,
         "build": build, "eqp": eqp_out, "buf": buf_out,
-        "ns": ns_out, "skname": skname, "tgt": tgt_out, "fchg": fchg_out, "statJA": stat_ja,
+        "ns": ns_out, "skname": skname, "tgt": tgt_out, "tsel": tsel_out,
+        "tselKeys": ["TargetSide", "TargetingType", "MaxTargetCount",
+                     "SortCriteria", "OrderBy", "SortStat"],
+        "fchg": fchg_out, "statJA": stat_ja,
         # 通常攻撃。**フレームは 30fps。`spd` は 10000 が等倍**
         "na": na_out, "naf": naf_out,
         "nsKeys": ["MinimumTierCharacterGear", "ConditionType",

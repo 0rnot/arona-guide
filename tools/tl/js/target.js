@@ -1,5 +1,6 @@
 import { B, rowVals, stu } from './util.js';
-import { TE, chSlot, isMain, memo, st } from './core.js';
+import { SLOTS, TE, chSlot, isMain, memo, st } from './core.js';
+import { statsOf } from './passive.js';
 import { boss } from './boss.js';
 import { usesSorted } from './buff.js';
 import { lvlOf } from './alt.js';
@@ -42,12 +43,105 @@ export function toList(v) {
 export function buffTo(u) {
   if (!u) { return []; }
   var sl = st.slots[u.i];
-  if (u.k === 'Public' || u.k === 'GearPublic') { return toList(sl && sl.nsto); }
+  if (u.k === 'Public' || u.k === 'GearPublic') {
+    var nsl = toList(sl && sl.nsto);
+    return nsl.length ? nsl : (autoTo(u) || []);
+  }
   // **EX でも、1 発ごとに決めていなければ枠の指定を使う。**
   // イブキ（水着）は `Ex` が「戦闘中ずっと」2 人を指定する作りで、
   // 1 発ごとではなく枠に持たせるほうが合う（2026-09-01）
   var per = toList(u.bto);
-  return per.length ? per : toList(sl && sl.nsto);
+  if (per.length) { return per; }
+  var fix = toList(sl && sl.nsto);
+  return fix.length ? fix : (autoTo(u) || []);
+}
+// ------------------------------------------------------------ DB の相手選び
+// **「誰に配るか」の規則は `LevelSkill/<DevName><枠>01.json` の根にある**
+// （2026-09-04）。builder が `tsel[生徒][枠] = [TargetSide, TargetingType,
+// MaxTargetCount, SortCriteria, OrderBy, SortStat]` に写している。原文の 1 例
+// （`LevelSkill/CH0122Public01.json`。シグレの通常スキル）:
+//
+//   "TargetSortRule": {"IsValid": true, "SortCriteria": "AttackPower",
+//                      "SortStat": 0, "SortParameter": null, "OrderBy": "Highest", …},
+//   "EssentialCandidateRule": {"TargetSide": "Ally_Except_Self",
+//                      "TargetingType": "Target", "ApplyEntityType": 5, "MaxTargetCount": 1}
+//
+// 説明文は「60秒毎に、**自身を除く攻撃力が最も高い味方1人**の ATK を増加」で、
+// **`TargetSide` も `SortCriteria` も `OrderBy` も一字一句そのまま対応している。**
+//
+// **決まるのはここまで。**生徒の「味方1人」109 枠のうち 78 枠は
+// `SortCriteria: "Distance"` `OrderBy: "Lowest"`（いちばん近い味方）で、
+// **道具は立ち位置を持っていないので決められない。**この 78 枠が、説明文で
+// 「味方1人」としか書かれていないもの——つまり**撃つときに人が指定する枠**。
+// 裏づけはヒマリ（臨戦）`CH0332Public01` の説明文
+// 「（EXスキルの使用時に**指定した味方**を優先とします）」で、「指定」が
+// 実在の仕掛けであることが書いてある。**推測で配らない。**
+var SORTSTAT = { 2: 'AttackPower', 3: 'DefensePower', 12: 'CriticalDamageRate' };
+// **`SortStat` の番号は説明文と突き合わせて決めた**（enum の表はデータに無い）。
+//   カエデ `CH0116Public01`  Stat/Highest SortStat 3 「防御力が最も高い味方1人」
+//   トモエ（チーパオ）`CH0271Public01` Stat/Highest SortStat 2 「攻撃力が最も高い味方1人」
+//   ヤクモ `CH0228Public01`  Stat/Highest SortStat 12「会心ダメージ率が最も高い味方1人」
+var SORTABLE = { AttackPower: 1, DefensePower: 1, MaxHP: 1, HealPower: 1,
+                 CriticalDamageRate: 1, CriticalPoint: 1 };
+export function tselOf(id, kind) {
+  var a = ((B.tsel || {})[id] || {})[kind];
+  return a ? { side: a[0], tt: a[1], mx: a[2], sc: a[3], ob: a[4], ss: a[5] } : null;
+}
+/** その枠の候補（枠の番号）。`TargetSide` と、バフの行の `Target` で絞る。 */
+export function candOf(u, kd) {
+  var p = st.party[u.i], r = tselOf(p.id, kd);
+  if (!r) { return null; }
+  var rows = (B.buf[p.id] || {})[kd] || [], wantM = false, wantS = false, i, z;
+  for (i = 0; i < rows.length; i++) {
+    var tg = rows[i][0] || [];
+    for (z = 0; z < tg.length; z++) {
+      if (tg[z] === 'AllyMain') { wantM = true; }
+      if (tg[z] === 'AllySupport') { wantS = true; }
+    }
+  }
+  if (!wantM && !wantS) { return null; }
+  var ex = r.side === 'Ally_Except_Self' || r.side === 'All_Except_Self', out = [];
+  for (i = 0; i < SLOTS; i++) {
+    if (!st.party[i]) { continue; }
+    if (isMain(i) ? !wantM : !wantS) { continue; }
+    if (ex && i === u.i) { continue; }
+    out.push(i);
+  }
+  return out;
+}
+/** **DB だけで相手が決まるときの、その枠の番号。**決まらなければ null。
+    人が選んだ指定（`u.bto` / `slots[].nsto`）が先で、ここは来ない。 */
+export function autoTo(u) {
+  var p = st.party[u.i];
+  if (!p) { return null; }
+  var kd = u.k || 'Ex';
+  return memo('ato|' + u.i + '|' + kd, function () { return autoTo0(u, kd); });
+}
+export function autoTo0(u, kd) {
+  var p = st.party[u.i], r = tselOf(p.id, kd);
+  if (!r) { return null; }
+  var n = tgtN(p.id, kd);
+  if (!(n >= 1)) { return null; }
+  var cand = candOf(u, kd);
+  if (!cand || !cand.length) { return null; }
+  // ① 候補がもう選ぶまでもない数しかない（`MaxTargetCount` 以下）
+  if (cand.length <= n) { return cand; }
+  // ② 並べ替えの鍵が手元で引けるもの。**`Distance` と `HPRate` と
+  //    `DebuffCount` と `LogicEffectTemplateCount` は引けない**
+  //    （立ち位置・味方の HP・味方に付いた弱体の数を道具が持っていない）
+  var key = r.sc === 'Stat' ? SORTSTAT[r.ss] : r.sc;
+  if (!key || !SORTABLE[key]) { return null; }
+  if (r.ob !== 'Highest' && r.ob !== 'Lowest') { return null; }
+  var sgn = r.ob === 'Lowest' ? 1 : -1;
+  // **バフの乗っていない値で比べる。**乗せたあとの値で比べると
+  // 「相手 → ステータス → バフ → 相手」で輪になる（`statsOf` の第 3 引数が
+  // null のときは `liveBuffs` を引かない）
+  var val = {}, i;
+  for (i = 0; i < cand.length; i++) {
+    val[cand[i]] = statsOf(st.party[cand[i]].id, cand[i], null).get(key) || 0;
+  }
+  cand.sort(function (a, b) { return (val[a] - val[b]) * sgn || a - b; });
+  return cand.slice(0, n);
 }
 // **相手の条件（`Restrictions`）を当てはめる。**中身は
 // 「相手の Id / Size / BulletType / ArmorType / TacticRole がこうなら乗る」で、
