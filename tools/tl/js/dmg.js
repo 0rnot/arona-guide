@@ -452,12 +452,17 @@ export function dotTimes(idx, r, at, kind, pick, tg) {
 }
 
 /** **1 発ごとのダメージ上限。**4,000,000 までは素通しで、そこから先は段階的に減り、
-    19,969,999 で頭打ちになる。出典は ItJustWorks Library of Stats and Formulas の
-    「Damage Cap」（`All individual instances of damage have a damage cap.`
-    `Damage up until 4,000,000 is uncapped, but damage beyond 4,000,000 will be soft
-    capped with the following formula`）。段は 4M・6.248M・8.496M・10.744M・12.992M・
+    19,969,999 で頭打ちになる。段は 4M・6.248M・8.496M・10.744M・12.992M・
     15.240M・17.488M・19.736M・22M で、係数は 1 → 0.8 → 0.65 → 0.5 → 0.4 → 0.3 →
-    0.225 → 0.15 → 0.075。**掛かるのは 1 発ごとで、合計には掛からない。** */
+    0.225 → 0.15 → 0.075。**掛かるのは 1 発ごとで、合計には掛からない。**
+
+    **出典は一次資料の `DB/CharacterCalculationLimitExcelTable.json`**（2026-09-04 に
+    突き合わせて一致を確認した。それまでは ItJustWorks Library of Stats and Formulas の
+    「Damage Cap」しか無かった）。同表 22 行は 11 の `TacticEntityType` ×
+    `FinalDamage` / `FinalHeal` で、`FinalDamage` は全型が同じ値。原文:
+    `{"Id": 1, "TacticEntityType": "Student", "CalculationValue": "FinalDamage", "MinValue": 1, "MaxValue": 4000000, "LimitStartValue": [10000, 15620, 21240, 26860, 32480, 38100, 43720, 49340, 55000], "DecreaseRate": [2000, 3500, 5000, 6000, 7000, 7750, 8500, 9250, 10000]}`
+    下の `CAPS` の段は `LimitStartValue` × 400、係数は `1 - DecreaseRate / 10000`。
+    9 段目の先（22M 超）は係数 0 ＝ それ以上は増えない */
 var CAPS = [[4000000, 1], [6248000, 0.8], [8496000, 0.65], [10744000, 0.5],
             [12992000, 0.4], [15240000, 0.3], [17488000, 0.225],
             [19736000, 0.15], [22000000, 0.075]];
