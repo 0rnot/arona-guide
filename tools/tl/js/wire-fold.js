@@ -16,6 +16,9 @@ export function setFold(pane, on) {
 // パネルを畳んでも幅が残っていた。**全部畳んだら見出しの幅まで詰める**
 export function lcolFit() {
   var m = $('tlmain'), ps = $('tlleft').querySelectorAll('.pane'), i, all = ps.length > 0;
+  // **左を丸ごと畳んでいる間は幅を書かない**（2026-09-03）。
+  // ドラッグで決めた幅がインラインで残っていると `.tlmain.wide` に勝ってしまう
+  if (m.classList.contains('wide')) { m.style.removeProperty('--lcol'); return; }
   for (i = 0; i < ps.length; i++) {
     if (!ps[i].classList.contains('folded')) { all = false; }
   }
@@ -70,8 +73,11 @@ export function wireFold() {
     var m = $('tlmain'), on = m.classList.toggle('wide');
     $('tlleft').classList.toggle('shut', on);
     this.setAttribute('aria-expanded', on ? 'false' : 'true');
+    // **閉じるときはドラッグで決めた幅を外す。**外さないと右が広がらない
+    if (on) { m.style.removeProperty('--lcol'); } else { lcolFit(); }
     try { localStorage.setItem('tl-shut', on ? '1' : '0'); } catch (e2) { void e2; }
     setTimeout(fit, 0);
+    setTimeout(relayout, 0);
   });
   (function () {
     var was = null;

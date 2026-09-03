@@ -19,7 +19,10 @@ export function wireSize() {
   (function () {
     var g = $('cgrip'), m = $('tlmain'), from = 0, base = 0;
     var saved = loadSize('lw');
-    if (saved) { m.style.setProperty('--lcol', saved + 'px'); }
+    // **畳んでいる間は幅の指定を入れない。**インラインの `--lcol` は
+    // `.tlmain.wide` の細い幅に勝つので、入れると閉じても右が広がらない
+    // （2026-09-03 の先生の指摘「横全部閉じるトグル使っても TL が広がらない」）
+    if (saved && !m.classList.contains('wide')) { m.style.setProperty('--lcol', saved + 'px'); }
     function move(e) {
       // **下限は摘みが押せる幅、上限は画面の半分。**それ以上は右が読めなくなる
       var w = Math.max(150, Math.min(window.innerWidth * 0.5, base + (e.clientX - from)));
@@ -34,7 +37,7 @@ export function wireSize() {
       relayout();
     }
     g.addEventListener('mousedown', function (e) {
-      if (e.target.closest('.fold')) { return; }
+      if (e.target.closest('.fold') || m.classList.contains('wide')) { return; }
       e.preventDefault();
       from = e.clientX; base = $('tlleft').getBoundingClientRect().width;
       document.addEventListener('mousemove', move);

@@ -677,18 +677,31 @@
    左の列の右端に重ねる。摘みもここに乗せる（2026-09-01 の先生の指摘） */
 .tlapp .tlmain { grid-template-columns:var(--lcol, 22%) minmax(0,1fr) !important; }
 @media (min-width:1600px) { .tlapp .tlmain { --lcol:340px; } }
-.tlapp .tlmain.wide { --lcol:14px; }
+/* 閉じたときに残すのは摘みのぶんだけ */
+.tlapp .tlmain.wide { --lcol:16px !important; }
 .tlapp .tlleft { position:relative; }
 .tlapp .tlleft.shut > .pane { display:none; }
 .tlapp .cgrip { position:absolute; top:0; bottom:0; right:calc(var(--s2) * -1);
   width:var(--s2); cursor:col-resize; z-index:6; overflow:visible;
   display:flex; justify-content:center; }
-.tlapp .cgrip::before { content:''; position:absolute; top:26px; bottom:0; left:50%;
+.tlapp .cgrip::before { content:''; position:absolute; top:0; bottom:0; left:50%;
   width:1px; margin-left:-.5px; background:var(--gb); transition:background .12s; }
 .tlapp .cgrip:hover::before, .tlapp .cgrip.drag::before { background:var(--acc); }
-.tlapp .cgrip .fold { position:absolute; top:2px; left:50%; margin-left:-9px;
-  width:18px; height:18px; min-width:18px; cursor:pointer;
-  background:var(--g2); border:1px solid var(--gb); border-radius:var(--r1); }
+/* **摘みは仕切りの縦の中央に、縦長で**（2026-09-03 の先生の指摘
+   「トグルの位置が別のパネルに被ってて見づらい」「縦の中央のがいい」
+   「正方形より縦長のボタンのがわかりやすい」）。
+   前は上端に 18×18 で置いていて、右のツールバーと重なっていた */
+.tlapp .cgrip .fold { position:absolute; top:50%; left:50%;
+  margin-left:-8px; margin-top:-27px; width:16px; height:54px; min-width:16px;
+  cursor:pointer; background:var(--g2); border:1px solid var(--gb);
+  border-radius:var(--r1); display:flex; align-items:center; justify-content:center; }
+.tlapp .cgrip .fold:hover { background:rgba(255,255,255,.09); }
+/* 開いているとき ◀（閉じる）、閉じているとき ▶（出す） */
+.tlapp .cgrip .fold .cv { width:0; height:0; border:0; transform:none;
+  border-top:4px solid transparent; border-bottom:4px solid transparent;
+  border-right:5px solid var(--tx2); }
+.tlapp .cgrip .fold[aria-expanded="false"] .cv { transform:none;
+  border-right:0; border-left:5px solid var(--tx2); }
 
 /* ---- パネルの高さ。**隙間そのものを掴む**（余白を増やさない） */
 .tlapp .pane { position:relative; }
