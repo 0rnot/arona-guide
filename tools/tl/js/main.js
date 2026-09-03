@@ -1,0 +1,63 @@
+import { B, stu } from './util.js';
+import { st } from './core.js';
+import { syncUndo } from './undo.js';
+import { boss, diff, tormentIdx } from './boss.js';
+import { engIn, sim } from './engine.js';
+import { costPts } from './chart.js';
+import { scen } from './scen.js';
+import { dmgCurve, poolHp, poolKills, poolName, poolOrder } from './pool.js';
+import { carryIn, ggAt, ggCritAt, ggRuns, ggSolve, killAt, phaseSpans, scoreOf, trOf } from './carry.js';
+import { draw } from './draw.js';
+import { mkStats } from './stats.js';
+import { effMod, passiveFor, statsOf, support, terrMod } from './passive.js';
+import { nsInfo, nsTimes } from './ns.js';
+import { busyOf, naInfo, naRuns, naTimes } from './na.js';
+import { danMax, usesSorted } from './buff.js';
+import { enemyAt, liveBuffs } from './target.js';
+import { altOf, pickOf } from './alt.js';
+import { dmgOf } from './dmg.js';
+import { clearStat, total } from './clear.js';
+import { parseTL } from './parse-tl.js';
+import { applyTL, findStudent } from './parse-apply.js';
+import { drawCrew, drawParty, drawPicker, fillBuild, fillFilters } from './left.js';
+import { fillBoss } from './bossui.js';
+import { wireBoss } from './wire-boss.js';
+import { wireFold } from './wire-fold.js';
+import { wireSize } from './wire-size.js';
+import { wireParty } from './wire-party.js';
+import { wireBuild } from './wire-build.js';
+import { wirePicker } from './wire-picker.js';
+import { wireUse } from './wire-use.js';
+import { wireRows } from './wire-rows.js';
+import { wireMouse } from './wire-mouse.js';
+
+// ------------------------------------------------------------ つなぐ
+st.di = tormentIdx(B.bosses[0]);
+fillBoss(); fillFilters(); fillBuild(); drawParty(); drawCrew(); drawPicker(); draw();
+syncUndo();
+// 突き合わせ用。**SchaleDB の実装と数字が合うかを外から確かめるため**に出している
+window.__TLDBG = { statsOf: statsOf, dmgOf: dmgOf, total: total, diff: diff,
+                   terrMod: terrMod, effMod: effMod, passiveFor: passiveFor, phaseSpans: phaseSpans, ggRuns: ggRuns, ggAt: ggAt, ggCritAt: ggCritAt, ggSolve: ggSolve, support: support, dmgCurve: dmgCurve, parseTL: parseTL, st: st, stu: stu, sim: sim, engIn: engIn, costPts: costPts,
+                   busyOf: busyOf, naTimes: naTimes, naRuns: naRuns, nsTimes: nsTimes,
+                   nsInfo: nsInfo, naInfo: naInfo, altOf: altOf, pickOf: pickOf,
+                   usesSorted: usesSorted, liveBuffs: liveBuffs, draw: draw,
+                   applyTL: applyTL, fillBoss: fillBoss, findStudent: findStudent,
+                   clearStat: clearStat, trOf: trOf,
+                   boss: boss, scen: scen, killAt: killAt, scoreOf: scoreOf,
+                   enemyAt: enemyAt, mkStats: mkStats, danMax: danMax,
+                   // 池ごとの曲線（シロ→クロ、ワカモ→ホバークラフト）。
+                   // `dmgCurve` は本体の池しか返さないので、2 池目を外から比べるのに要る
+                   poolKills: poolKills, poolOrder: poolOrder, poolHp: poolHp,
+                   poolName: poolName, carryIn: carryIn,
+                   B: B };
+
+
+wireBoss();
+wireFold();
+wireSize();
+wireParty();
+wireBuild();
+wirePicker();
+wireUse();
+wireRows();
+wireMouse();
