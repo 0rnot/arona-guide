@@ -3,6 +3,7 @@ import { st } from './core.js';
 import { aimOf, enemyAt } from './target.js';
 import { diff } from './boss.js';
 import { nsTimes } from './ns.js';
+import { naShotsRaw } from './na.js';
 
 // ------------------------------------------------------------ サブスキル（SS）のダメージ
 // **道具は長いあいだ `ExtraPassive` のダメージを 1 発も数えていなかった**
@@ -177,6 +178,62 @@ export function epSlots() {
   for (i = 0; i < st.party.length; i++) {
     var p = st.party[i];
     if (p && epOn(p.id)) { out.push(i); }
+  }
+  return out;
+}
+
+// ------------------------------------------------------------ SS の時限バフ
+// **`ExtraPassive` の時限バフは、長いあいだ誰にも乗っていなかった**（2026-09-03）。
+// `passive.js` の `passiveList` は持続つき（`e[4] != null`）を外し、`liveBuffs0` が読む枠は
+// `usesSorted0` が作る `Ex` / `ExN` / `Public` / `GearPublic` だけ。**どちらの経路にも
+// 入らない穴に落ちていた。**全 274 人で 87 件（ケイの会心値 +22.3%、御坂美琴の攻撃力 +21.46%、
+// ハナコ（水着）の +38.3% など）。
+//
+// **ここはバフ専用。**ダメージの側は `epOn` / `epOkAt` が別に見ているので、
+// これを `usesSorted` に混ぜてはいけない（二重に数える）。
+//
+// **引き金が確定で読めるものだけ返す。**`Event` が 3（スキル発動と同時）か
+// 17（スキル使用時）で、`TriggerRate` が 10000（100%）で、`Parameters` が
+// `Ex` / `Public` / `GearPublic`（複数はカンマ区切り）のもの。79 人中 30 人。
+// **確率つき（20%・30% など）と、Event 1・2・13・16・18・21・24・105 は入れない。**
+export function ssBuffUses() {
+  var out = [], i, j, k;
+  for (i = 0; i < st.party.length; i++) {
+    var p = st.party[i];
+    if (!p) { continue; }
+    var list = (B.buf[p.id] || {}).ExtraPassive || [], timed = false;
+    for (j = 0; j < list.length; j++) { if (list[j][4] != null) { timed = true; } }
+    if (!timed) { continue; }
+    var e = (B.ep || {})[p.id];
+    if (!e || e[3] !== 10000) { continue; }
+    var ts = [], bad = false, dur9 = diff().dur || 240;
+    // **Event 2（通常攻撃時）と 21（攻撃時）は通常攻撃の並びに乗る。**
+    // 条件つきのもの（`Modifiers` が空でない）は、当たる先で立ったり立たなかったり
+    // するので入れない。`naShotsRaw` を使うのは輪を切るため（`na.js` の注記）
+    if (e[0] === 2 || e[0] === 21) {
+      var ab9 = e[8] || [];
+      if (ab9.length !== 1 || (ab9[0] || []).length) { continue; }
+      var sh9 = naShotsRaw(i, dur9);
+      for (j = 0; j < sh9.length; j++) { ts.push(sh9[j].t); }
+    } else if (e[0] === 3 || e[0] === 17) {
+      var pr = String(e[1] || '').split(',');
+      for (k = 0; k < pr.length; k++) {
+        if (pr[k] === 'Ex') {
+          for (j = 0; j < st.tl.length; j++) {
+            if (st.tl[j].i === i) { ts.push(st.tl[j].t); }
+          }
+        } else if (pr[k] === 'Public' || pr[k] === 'GearPublic') {
+          ts = ts.concat(nsTimes(p.id, dur9, i));
+        } else { bad = true; }
+      }
+    } else { continue; }
+    if (bad || !ts.length) { continue; }
+    ts.sort(function (a, b) { return a - b; });
+    // **`TryCount` は「N 回に 1 度」**（`epEvery`）。1 なら毎回
+    var ev = epEvery(p.id);
+    for (j = ev - 1; j < ts.length; j += ev) {
+      out.push({ i: i, t: ts[j], k: 'ExtraPassive' });
+    }
   }
   return out;
 }

@@ -3,6 +3,7 @@ import { TE, isMain, memo, st } from './core.js';
 import { boss } from './boss.js';
 import { usesSorted } from './buff.js';
 import { lvlOf } from './alt.js';
+import { ssBuffUses } from './ep.js';
 
 // ------------------------------------------------------------ 「味方1人」
 // **何人に当たるかは説明文にしか無い。**`Effects[].Target` は `AllyMain` /
@@ -84,7 +85,10 @@ export function liveBuffs(t, to, r) {
   return memo('lb|' + t + '|' + to, function () { return liveBuffs0(t, to, r); });
 }
 export function liveBuffs0(t, to, r) {
-  var us = usesSorted(), out = [], i, q;
+  // **SS（`ExtraPassive`）の時限バフもここで乗せる**（2026-09-03）。
+  // `ssBuffUses()` はバフ専用の擬似 use で、`usesSorted` には混ぜていない
+  // （混ぜると `carry.js` / `clear.js` が SS のダメージを二重に数える）
+  var us = usesSorted().concat(ssBuffUses()), out = [], i, q;
   for (i = 0; i < us.length; i++) {
     var u = us[i], p = st.party[u.i];
     if (!p) { continue; }
