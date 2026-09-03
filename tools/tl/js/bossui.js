@@ -86,7 +86,11 @@ export function bstHasV(k) { return k !== 'away' && k !== 'mob' && k !== 'groggy
 /** 帯に出す名前。**チップから置いたものはギミックの名前（`w.n`）を先に出す** */
 export function bstName(w) {
   var u = (w.k === 'damaged' || w.k === 'def') ? '%' : '';
+  // **グロッキーの窓は確定会心だけではない**（2026-09-03）。分かれるボスでは
+  // `gspl.n` 体ぶんの倍率も同時に乗る（`dmg.js` の `gsplMul`）。名乗らせる
+  var g = w.k === 'groggy' ? diff().gspl : null;
   return (w.n ? w.n + ' / ' : '') + bstLabel(w.k) +
+    (g && g.gg ? '×' + g.n : '') +
     (bstHasV(w.k) ? ' ' + ((w.v || 0) >= 0 ? '+' : '') + (w.v || 0) + u : '');
 }
 /** 帯の title。**数字はここにだけ出す**（2026-09-03。数字の行は消した） */

@@ -207,6 +207,32 @@ export function drawErr() {
     if (!zf[zr.d.n]) { zf[zr.d.n] = 1; zn.push(zr.d.n); }
   }
   if (zn.length) { out.push(['e', zn.join('・') + '：形態']); }
+  // **被ダメージを転移する部位があるのに、当たる先を置いていない発**
+  // （2026-09-03。ペロロジラの TL 4 本で、実測との 4 倍の開きが全部これだった。
+  //  `7bTd5o8Ru80` は 幅の中 9% → 100%、`WPsUxtkDMQU` は 27% → 100%）。
+  // **数は道具では決まらない**（`sub[].cnt` は場に湧く最大で、
+  //  その一発が何体に当たったかは盤の上の話）ので、置くのは使う人。
+  // ここは「置いていない」ことだけを知らせる
+  var trn = null, tq, noTg = 0;
+  for (tq = 0; tq < (r.sub || []).length; tq++) {
+    if (r.sub[tq] && r.sub[tq].tr > 0) { trn = r.sub[tq]; break; }
+  }
+  if (trn) {
+    for (q = 0; q < st.tl.length; q++) { if (st.tl[q].tg == null) { noTg++; } }
+    if (noTg) {
+      out.push(['w', noTg + ' 発：当たる先（' + trn.n + 'は被ダメージの ' +
+        trn.tr + '% をボスへ転移）']);
+    }
+  }
+  // **グロッキーで分かれるボスなのに、窓を 1 つも置いていない**（2026-09-03）。
+  // `gc`（条件つきでグロッキー）のボスは時刻が解けないので、`ggCritAt` が
+  // 常に偽になり、確定会心も分裂の ×N も一度も乗らない
+  // `gc` はボス（`boss()`）側にある。難易度の行ではない
+  if (r.gspl && r.gspl.gg && boss() && boss().gc) {
+    var gw = 0;
+    for (q = 0; q < (st.bst || []).length; q++) { if (st.bst[q].k === 'groggy') { gw++; } }
+    if (!gw) { out.push(['w', 'グロッキーの窓（確定会心と ×' + r.gspl.n + ' が効きません）']); }
+  }
   var pane = $('errlog').closest('.pane');
   if (pane) { pane.hidden = !out.length; }
   $('errlog').innerHTML = out.map(function (x) {
