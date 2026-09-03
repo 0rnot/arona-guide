@@ -73,10 +73,13 @@ export function wireRows() {
     if (!u) { return; }
     var k = el.getAttribute('data-tr');
     if (k === 'who' && el.value === 'find') {
-      // 編成外の子は置けない。**下の「生徒を選ぶ」へ案内する**
+      // **選んだ子をこの行に入れる。**下の「生徒を選ぶ」で選ぶと、
+      // 空いている枠に入ったうえで、この行の子が差し替わる（2026-09-03 の 31）
+      st.wantRow = +row.getAttribute('data-ix');
+      st.sel = st.wantRow;
       var fi = $('i-find');
       if (fi) { fi.scrollIntoView({ block: 'center' }); fi.focus(); }
-      drawRows(); return;
+      draw(); return;
     }
     mark();
     if (k === 'md') {
@@ -86,7 +89,7 @@ export function wireRows() {
     } else if (k === 'v') {
       if ((u.md || 't') === 'c') { u.cv = Math.max(0, +el.value || 0); }
       else { u.t = Math.max(0, +el.value || 0); }
-    } else if (k === 'who') { u.i = +el.value; }
+    } else if (k === 'who') { u.i = +el.value; st.wantRow = null; }
     else if (k === 'bto') {
       var bx = row.querySelectorAll('select[data-tr="bto"]'), lb = [], zz;
       for (zz = 0; zz < bx.length; zz++) { lb.push(bx[zz].value === '' ? null : +bx[zz].value); }

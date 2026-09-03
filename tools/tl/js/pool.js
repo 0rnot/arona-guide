@@ -28,6 +28,18 @@ export function poolHp(r, pid) {
   for (i = 0; i < sb.length; i++) { if (sb[i].pool === pid) { return sb[i].phn || sb[i].hp || 0; } }
   return 0;
 }
+/** その池に属する部位の番号（`sub` の添字）。**当たる先を書いていない発を
+    その池へ回すとき、ダメージはボス本体ではなく「その池の相手」で引く**
+    （2026-09-03。それまでボス本体の装甲・防御・回避で引いていた。
+    カイテンジャーは本体もレンジャーも軽装甲なので差が出なかったが、
+    シロ＆クロやワカモ→ホバークラフトのように装甲が違う組は素通りで外れる）。
+    同じ池に複数の部位がいるときは先頭を代表にする */
+export function subIxOfPool(r, pid) {
+  if (pid == null || pid === r.cid) { return null; }
+  var sb = r.sub || [], i;
+  for (i = 0; i < sb.length; i++) { if (sb[i].pool === pid) { return i; } }
+  return null;
+}
 export function poolName(r, pid) {
   if (pid === r.cid) { return (boss() || {}).n || 'ボス'; }
   var i, sb = r.sub || [], ns = [];

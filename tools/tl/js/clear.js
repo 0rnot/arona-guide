@@ -1,6 +1,6 @@
 import { $ } from './util.js';
 import { SLOTS, st } from './core.js';
-import { naPool, poolHp, poolOf, poolOrder } from './pool.js';
+import { naPool, poolHp, poolOf, poolOrder, subIxOfPool } from './pool.js';
 import { awayAt, carryIn, ggSolve, partyCalc, trOf } from './carry.js';
 import { clamp } from './stats.js';
 import { naTimes } from './na.js';
@@ -47,7 +47,9 @@ export function clearStat1(r, pf, pid, deadAt, hpNeed) {
       var u = us[i], tr = trOf(r, u.tg), mc = u.mc || 1, pp = u.tg == null ? (naPool(r, u.t, deadAt) || r.cid) : poolOf(r, u.tg);
       if (pp !== pid && !(pid === r.cid && u.tg != null && tr)) { continue; }
       if (u.t > (r.dur || 240) + 1e-9 || awayAt(u.t, !/^Ex\d*$/.test(u.k), u.gx)) { continue; }
-      var d = dmgOf(u.i, r, u.t, u.k, u.pk, u.tg, u.gx);
+      // **よその池へ回った発は、その池の相手で引く**（2026-09-03。`dmgCurve0` と同じ）
+      var d = dmgOf(u.i, r, u.t, u.k, u.pk,
+                    u.tg == null && pp !== r.cid ? subIxOfPool(r, pp) : u.tg, u.gx);
       if (!d) { continue; }
       n++;
       if (u.tg != null && pp !== pid) {
@@ -71,7 +73,8 @@ export function clearStat1(r, pf, pid, deadAt, hpNeed) {
         bucket[b] = (bucket[b] || 0) + 1;
       }
       for (var bk in bucket) {
-        var dn = dmgOf(i, r, Math.min((+bk + 0.5) * STEP, dur), 'Normal');
+        var dn = dmgOf(i, r, Math.min((+bk + 0.5) * STEP, dur), 'Normal', null,
+                       subIxOfPool(r, pid));
         if (!dn) { break; }
         // 通常攻撃は 1 発ずつ別々に振られるので、分散も発数ぶん足す
         mu += dn.avg * bucket[bk];

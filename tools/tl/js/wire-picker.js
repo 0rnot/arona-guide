@@ -35,10 +35,33 @@ export function addStudent(sd) {
       for (k in _dft) { if (k !== 'id') { st.slots[i][k] = (k === 'tier' ? _dft[k].slice() : _dft[k]); } }
       st.slots[i].id = sd.id;
       void keep;
-      st.who = i; bump(); fillBuild(); drawCrew(); drawPicker(); draw();
+      st.who = i;
+      // **行の「編成外を探す…」から来たときは、その行の子を差し替える**
+      // （2026-09-03 の 31。前は下へ飛ばすだけで、行に戻ってこなかった）
+      if (st.wantRow != null && st.tl[st.wantRow]) {
+        st.tl[st.wantRow].i = i; st.sel = st.wantRow;
+      }
+      st.wantRow = null;
+      bump(); fillBuild(); drawCrew(); drawPicker(); draw();
       return;
     }
   }
+  // **行の「編成外を探す…」から来ていて枠が満杯なら、その行の子と入れ替える**
+  // （2026-09-03 の 31）。6 人編成では空きが無いのがふつうなので、
+  // ここまで来ないと「行から編成外の子を選ぶ」がまず動かない。
+  // 枠の育成はそのまま残り、その枠を使っている行はぜんぶ新しい子になる。
+  // **Ctrl+Z で戻せる**
+  if (st.wantRow != null && st.tl[st.wantRow]) {
+    var wi = st.tl[st.wantRow].i, ws = st.slots[wi];
+    if (ws && live(wi) && (wi < MAIN_MAX) === (sd.sq !== 'Support')) {
+      mark();
+      ws.id = sd.id;
+      st.who = wi; st.sel = st.wantRow; st.wantRow = null;
+      bump(); fillBuild(); drawCrew(); drawPicker(); draw();
+      return;
+    }
+  }
+  st.wantRow = null;
   alert((sd.sq === 'Support' ? 'SPECIAL' : 'STRIKER') + 'の枠が埋まっています（' +
         (sd.sq === 'Support' ? LAY[st.mode].sup : LAY[st.mode].main) + ' 人まで）。');
 }

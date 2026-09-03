@@ -6,7 +6,7 @@ import { engIn, sim } from './engine.js';
 import { costPts } from './chart.js';
 import { scen } from './scen.js';
 import { dmgCurve, poolHp, poolKills, poolName, poolOrder } from './pool.js';
-import { carryIn, ggAt, ggCritAt, ggRuns, ggSolve, killAt, phaseSpans, scoreOf, trOf } from './carry.js';
+import { carryIn, ggAt, ggCritAt, ggRuns, ggSolve, killAt, partyCalc, phaseSpans, scoreOf, trOf } from './carry.js';
 import { draw, drawNow } from './draw.js';
 import { drawErr, kpi } from './kpi.js';
 import { drawCrit, drawRate } from './rate.js';
@@ -53,7 +53,7 @@ window.__TLDBG = { statsOf: statsOf, dmgOf: dmgOf, total: total, diff: diff,
                    // 池ごとの曲線（シロ→クロ、ワカモ→ホバークラフト）。
                    // `dmgCurve` は本体の池しか返さないので、2 池目を外から比べるのに要る
                    poolKills: poolKills, poolOrder: poolOrder, poolHp: poolHp,
-                   poolName: poolName, carryIn: carryIn,
+                   poolName: poolName, carryIn: carryIn, partyCalc: partyCalc,
                    // **どこが遅いかを外から測るため**（2026-09-03 の 28）
                    drawRate: drawRate, drawErr: drawErr, kpi: kpi, drawCrit: drawCrit,
                    drawUse: drawUse, drawRows: drawRows, drawAlts: drawAlts,

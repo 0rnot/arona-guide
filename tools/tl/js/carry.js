@@ -3,7 +3,7 @@ import { SLOTS, _pv, st } from './core.js';
 import { usePartyRef } from './undo.js';
 import { boss, diff, has } from './boss.js';
 import { scenIx } from './scen.js';
-import { dmgCurve, naPool, poolKills, poolOf, valueAt } from './pool.js';
+import { dmgCurve, naPool, poolKills, poolOf, subIxOfPool, valueAt } from './pool.js';
 import { naTimes } from './na.js';
 import { usesSorted } from './buff.js';
 import { dmgOf } from './dmg.js';
@@ -110,7 +110,9 @@ export function dmgCurve0(r, key, pid, deadAt) {
     var tr = trOf(r, u.tg) * (u.mc || 1), pp = u.tg == null ? (naPool(r, u.t, deadAt) || r.cid) : poolOf(r, u.tg);
     if (pp !== pid && !(pid === r.cid && u.tg != null && tr)) { continue; }
     if (u.t > (r.dur || 240) + 1e-9 || awayAt(u.t, !/^Ex\d*$/.test(u.k), u.gx)) { continue; }
-    var d = dmgOf(u.i, r, u.t, u.k, u.pk, u.tg, u.gx);
+    // **当たる先を書いていない発をよその池へ回すときは、その池の相手で引く**（2026-09-03）
+    var aim = u.tg == null && pp !== r.cid ? subIxOfPool(r, pp) : u.tg;
+    var d = dmgOf(u.i, r, u.t, u.k, u.pk, aim, u.gx);
     var v0 = d ? (tr && pp !== pid ? d[key] * tr : d[key]) : 0;
     // **直線に伸びる攻撃は、部位を貫いてボス本体にも当たる**（ヒナ（ドレス）の
     // 射撃など）。当たるかどうかは盤の上の話でデータから決まらないので、
@@ -134,7 +136,7 @@ export function dmgCurve0(r, key, pid, deadAt) {
       bucket[b].push(at0);
     }
     for (bk in bucket) {
-      var dn = dmgOf(i, r, (+bk + 0.5) * STEP, 'Normal');
+      var dn = dmgOf(i, r, (+bk + 0.5) * STEP, 'Normal', null, subIxOfPool(r, pid));
       if (!dn) { break; }
       for (q = 0; q < bucket[bk].length; q++) { pts.push([bucket[bk][q], dn[key]]); }
     }
