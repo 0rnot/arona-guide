@@ -148,7 +148,7 @@ export function dmgCurve0(r, key, pid, deadAt) {
       for (bs3 in bucket) {
         var at3 = Math.min((+bs3 + 0.5) * STEP, dur);
         var cn3 = Math.floor(bucket[bs3].length / ev3);
-        if (!cn3 || !epOkAt(st.party[i].id, r, at3)) { continue; }
+        if (!cn3 || !epOkAt(st.party[i].id, r, at3, subIxOfPool(r, pid))) { continue; }
         var ds3 = dmgOf(i, r, at3, 'ExtraPassive', null, subIxOfPool(r, pid));
         if (!ds3) { break; }
         for (q = 0; q < cn3; q++) { pts.push([bucket[bs3][q * ev3], ds3[key]]); }

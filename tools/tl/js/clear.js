@@ -95,7 +95,7 @@ export function clearStat1(r, pf, pid, deadAt, hpNeed) {
         for (bs1 in bucket) {
           var at1 = Math.min((+bs1 + 0.5) * STEP, dur);
           var cn1 = Math.floor(bucket[bs1] / ev1);
-          if (!cn1 || !epOkAt(st.party[i].id, r, at1)) { continue; }
+          if (!cn1 || !epOkAt(st.party[i].id, r, at1, subIxOfPool(r, pid))) { continue; }
           var ds1 = dmgOf(i, r, at1, 'ExtraPassive', null, subIxOfPool(r, pid));
           if (!ds1) { break; }
           mu += ds1.avg * cn1;
@@ -181,7 +181,7 @@ export function total0(r) {
       for (bs2 in bucket) {
         var at2 = Math.min((+bs2 + 0.5) * STEP, dur);
         var cn2 = Math.floor(bucket[bs2] / ev2);
-        if (!cn2 || !epOkAt(st.party[i].id, r, at2)) { continue; }
+        if (!cn2 || !epOkAt(st.party[i].id, r, at2, null)) { continue; }
         var ds2 = dmgOf(i, r, at2, 'ExtraPassive');
         if (!ds2) { break; }
         ss.n += cn2; all.n += cn2;

@@ -12,6 +12,7 @@ import { drawErr, kpi } from './kpi.js';
 import { drawCrit, drawRate } from './rate.js';
 import { movePh, ordAt, ordList } from './ord.js';
 import { drawLanes, laneOn, loadLanes } from './lanes.js';
+import { epEvery, epOkAt, epOn, epWhy } from './ep.js';
 import { drawUse } from './useedit.js';
 import { drawRows } from './rows.js';
 import { drawAlts } from './left.js';
@@ -65,6 +66,8 @@ window.__TLDBG = { statsOf: statsOf, dmgOf: dmgOf, total: total, diff: diff,
                    // 再生ヘッドとスキル順（**2 段の帯を外から確かめるため**）
                    movePh: movePh, ordAt: ordAt, ordList: ordList,
                    laneOn: laneOn, drawLanes: drawLanes,
+                   // サブスキル（SS）。**置ける子と、置けない理由を外から確かめる**
+                   epWhy: epWhy, epOn: epOn, epEvery: epEvery, epOkAt: epOkAt,
                    B: B };
 
 
