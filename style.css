@@ -1055,9 +1055,13 @@ a.toolband-card:hover .ticon { transform: scale(1.09) rotate(-4deg); }
 .main-feat-shot + .para .cta { margin-top: 18px; }
 
 /* **説明ページへの控えめな導線**（2026-09-03）。ボタンの隣に置く 2 番目の行き先。
-   ボタンと同じ大きさにすると、どちらを押すのか分からなくなる */
+   ボタンと同じ大きさにすると、どちらを押すのか分からなくなる。
+   **同じ行に収める**（2026-09-03 の先生の指摘「使い方を見る　が改行されてる」）。
+   この段の中身は 267px しかなく、ボタン 186px ＋ リンク 90px では溢れる。
+   ここのボタンだけ左右の余白を詰める */
 .sub-link {
-  margin-left: 1em; font-size: .92rem;
+  margin-left: .6em; font-size: .92rem; white-space: nowrap;
   color: var(--fg-mute); text-decoration-thickness: 1px;
 }
+.main-feat .cta { padding: 1em 1.2em; }
 .sub-link:hover { color: var(--fg); }
