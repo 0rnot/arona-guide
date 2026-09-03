@@ -57,6 +57,13 @@ export function clearStat1(r, pf, pid, deadAt, hpNeed) {
         // 転移率は定数なので分散は 2 乗で効く
         mu += d.avg * tr * mc;
         va += (d.va || 0) * tr * tr * mc;
+        // **直線に伸びる攻撃は部位を貫いて本体にも当たる**（帯の「ボス本体にも」）。
+        // `dmgCurve0` は数えていたのに、突破率と与ダメージが数えていなかった
+        // （2026-09-03。画面で選んでも上の数字が動かない）
+        if (u.hb) {
+          var dbb = dmgOf(u.i, r, u.t, u.k, u.pk, null, u.gx);
+          if (dbb) { mu += dbb.avg; va += dbb.va || 0; }
+        }
       } else {
         mu += d.avg; va += d.va || 0;
       }
@@ -115,6 +122,15 @@ export function total0(r) {
     if (tr2) {
       d = { min: d.min * tr2, avg0: d.avg0 * tr2, avg: d.avg * tr2,
             avgC: d.avgC * tr2, max: d.max * tr2 };
+    }
+    // **「ボス本体にも当たる」を与ダメージにも数える**（2026-09-03。
+    // `dmgCurve0` だけが数えていて、上の「与ダメージ」は素通りしていた）
+    if (u.tg != null && u.hb) {
+      var dbh = dmgOf(u.i, r, u.t, u.k, u.pk, null, u.gx);
+      if (dbh) {
+        d = { min: d.min + dbh.min, avg0: d.avg0 + dbh.avg0, avg: d.avg + dbh.avg,
+              avgC: d.avgC + dbh.avgC, max: d.max + dbh.max };
+      }
     }
     // **形態違いは `Ex1` / `Ex2`。**`=== 'Ex'` で比べると NS 側に入っていた
     var box = /^Ex\d*$/.test(u.k) ? ex : ns;
