@@ -24,7 +24,23 @@ export function gearT(id) {
 export function nsInfo(id) {
   var sd = _byid[id], n = sd && sd.ns, i;
   var rows = (B.ns || {})[id] || [], want = gearT(id) >= 2 ? 2 : 0, au = null;
-  for (i = 0; i < rows.length; i++) { if ((rows[i][0] || 0) <= want) { au = rows[i]; } }
+  // **形態ごとに行がある**（9 番目が `FormIndex`。2026-09-03、50c）。
+  // **既定は形態 0。**ただしオトギは形態 0 の `CH0174Public01` が `TriggerRate: 0` で
+  // 発動せず、ダメージは形態 1 の `CH0174Public02`（`AmmoCountUnder`）から来る。
+  // **形態 0 の札が発動しないときだけ、発動する札を見る。**
+  // トキのように両方の形態に発動する札がある子は、今までどおり形態 0
+  function pick(mode) {
+    var j, o = null;
+    for (j = 0; j < rows.length; j++) {
+      if ((rows[j][0] || 0) > want) { continue; }
+      // 0 … 形態 0 で発動する札 ／ 1 … どの形態でも発動する札 ／ 2 … 何でも
+      if (mode < 2 && rows[j][7] === 0) { continue; }
+      if (mode === 0 && (rows[j][8] || 0) !== 0) { continue; }
+      o = rows[j];
+    }
+    return o;
+  }
+  au = pick(0) || pick(1) || pick(2);
   var duF = (au && au[3] && au[3] < 100000) ? au[3] : 60;
   if (n && n.iv > 0 && n.st != null) {
     return { iv: n.iv, st: n.st, du: duF, src: 'desc', nm: n.n, rule: au ? au[1] : null };

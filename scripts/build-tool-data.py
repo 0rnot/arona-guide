@@ -5484,13 +5484,28 @@ def build_tl():
         # `AutoUseRule`**。`ConditionType: "Interval"` なら `ConditionArgument` が
         # フレーム（750 = 25 秒）。`Duration` が 1 発の長さ（フレーム）。
         # 愛用品 T2 で別のスキルに変わる子がいるので、要る段ごとに入れる
+        # **`PublicSkillGroupId` は形態ごとの札の並びで、使わない枠は `EmptySkill`。**
+        # 先頭を無条件に取っていたので、形態 1 の行では `EmptySkill` を見ていた
+        # （2026-09-03、50c）。オトギは
+        #   FormIndex 0  ['CH0174Public01', 'EmptySkill']      TriggerRate 0（発動しない）
+        #   FormIndex 1  ['EmptySkill', 'CH0174Public02']      ダメージはこちら
+        # の 2 行で、トキも同じ形（T2 の行は
+        # `['CH0187GearPublic01', 'EmptySkill', 'CH0187GearPublic03', 'CH0187GearPublic04']`
+        # のように 3 枚目・4 枚目が続くので、**「何番目か」ではなく
+        # 「`EmptySkill` でない最初の 1 枚」**で取る）。
+        # 行は `(愛用品の段, FormIndex)` ごとに 1 本ずつ持つ
         seen_g = {}
         for row in csl_all.get(x["Id"], []):
-            pg = (row.get("PublicSkillGroupId") or [None])[0]
+            pg = None
+            for _pg in (row.get("PublicSkillGroupId") or []):
+                if _pg and _pg != "EmptySkill":
+                    pg = _pg
+                    break
             if not pg:
                 continue
             mg = row.get("MinimumTierCharacterGear") or 0
-            if mg in seen_g:
+            fi = row.get("FormIndex") or 0
+            if (mg, fi) in seen_g:
                 continue
             d = get_json(BALS.format(pg)) or {}
             au = d.get("AutoUseRule") or {}
@@ -5510,9 +5525,10 @@ def build_tl():
             # **スキルの説明文に N が書いてある 22 件すべてで `TryCount` と一致した**
             # （2026-09-03。`ConditionArgument` のほうは "" / "0" / "1" しか入っておらず
             # 回数と相関しない）。`TriggerRate` は 1 万分率で、10000 以外は確率
-            seen_g[mg] = [mg, au.get("ConditionType"), arg, d.get("Duration"),
-                          au.get("MaxTriggerCount"), au.get("CoolTimeNotTrigger"),
-                          au.get("TryCount"), au.get("TriggerRate")]
+            #   fi … その行の形態（`FormIndex`）。**発動しない札を見ないため**に要る
+            seen_g[(mg, fi)] = [mg, au.get("ConditionType"), arg, d.get("Duration"),
+                                au.get("MaxTriggerCount"), au.get("CoolTimeNotTrigger"),
+                                au.get("TryCount"), au.get("TriggerRate"), fi]
             nns += 1
         ns_out[sid] = [seen_g[k] for k in sorted(seen_g)]
         # ---- サブスキル（SS）の引き金。**`LevelSkill/<ExtraPassiveSkillGroupId>.json`
