@@ -56,9 +56,13 @@ export function passiveFor(idx) {
   var want = isMain(idx) ? 'AllyMain' : 'AllySupport';
   for (i = 0; i < all.length; i++) {
     var e = all[i], hit = false, q;
+    // **常時パッシブも同じ**（`target.js` の `liveBuffs0` に根拠を書いた）。
+    // サクラコ（アイドル）は「自分は ch 11・味方は ch 111」と対になっていて、
+    // 今は本人に 2 本とも乗っていた
+    var mine = e.owner === idx, alsoSelf = e.tg.indexOf('Self') >= 0;
     for (q = 0; q < e.tg.length; q++) {
-      if (e.tg[q] === want) { hit = true; }
-      if (e.tg[q] === 'Self' && e.owner === idx) { hit = true; }
+      if (e.tg[q] === want && (!mine || alsoSelf)) { hit = true; }
+      if (e.tg[q] === 'Self' && mine) { hit = true; }
     }
     if (!e.tg.length && e.owner === idx) { hit = true; }
     // **常時パッシブも条件を見る**（2026-09-03）。時限バフ側（`liveBuffs0`）は

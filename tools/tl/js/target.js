@@ -114,9 +114,17 @@ export function liveBuffs0(t, to, r) {
       for (z = 0; z < tg.length; z++) {
         if (to === 'enemy') { if (tg[z] === 'Enemy') { hit = true; } continue; }
         var idx = +to.slice(4);
-        if (tg[z] === 'Self' && u.i === idx) { hit = true; }
-        if (tg[z] === 'AllyMain' && isMain(idx)) { hit = true; }
-        if (tg[z] === 'AllySupport' && !isMain(idx)) { hit = true; }
+        // **`AllyMain` / `AllySupport` に掛けた本人は入らない**（2026-09-03）。
+        // 同じ行に `Self` が書いてあるときだけ本人にも乗る。根拠は 2 つ。
+        // `Target` に `"Self"` と `"AllyMain"` を両方書いてある行が 122 件、
+        // `"AllyMain"` だけの行が 94 件（`AllyMain` が本人を含むなら 122 件の
+        // `"Self"` は無駄書きになる）。さらに**同じスキルの中で「自分は ch N・
+        // 味方は ch 100+N」と対になっている行が 7 件**ある（ミネ（アイドル）ほか）。
+        // ミネの説明文も「舞台装置を召喚し**自身を除く**味方3人を…」と書いている
+        var mine = u.i === idx, alsoSelf = tg.indexOf('Self') >= 0;
+        if (tg[z] === 'Self' && mine) { hit = true; }
+        if (tg[z] === 'AllyMain' && isMain(idx) && (!mine || alsoSelf)) { hit = true; }
+        if (tg[z] === 'AllySupport' && !isMain(idx) && (!mine || alsoSelf)) { hit = true; }
       }
       if (hit && limit && tg.indexOf('Self') < 0 &&
           pick.indexOf(+to.slice(4)) < 0) { hit = false; }
