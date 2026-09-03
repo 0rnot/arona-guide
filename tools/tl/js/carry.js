@@ -322,12 +322,22 @@ export function ggCritAt(t) {
   }
   return false;
 }
+/** その時刻までに本体の池へ入った累計。**解けていなければ 0。** */
+export function accAt(t) {
+  if (t == null || !HPSP) { return 0; }
+  var cv = HPSP.cv, i, acc = 0;
+  for (i = 0; i < cv.length; i++) { if (cv[i][0] > t) { break; } acc = cv[i][1]; }
+  return acc;
+}
+/** `t0` から `sec` 秒のあいだに入ったぶん（蓄積。2026-09-03、56c）。 */
+export function accIn(t0, sec) {
+  if (t0 == null || !HPSP) { return 0; }
+  return Math.max(0, accAt(t0 + sec) - accAt(t0));
+}
 /** その時刻での当たる先の HP 割合（0〜1）。**解けていなければ 1（満タン）。** */
 export function hpRateAt(t) {
   if (t == null || !HPSP || !(HPSP.hp0 > 0)) { return 1; }
-  var cv = HPSP.cv, i, acc = 0;
-  for (i = 0; i < cv.length; i++) { if (cv[i][0] > t) { break; } acc = cv[i][1]; }
-  return Math.max(0, Math.min(1, (HPSP.hp0 - HPSP.carry - acc) / HPSP.hp0));
+  return Math.max(0, Math.min(1, (HPSP.hp0 - HPSP.carry - accAt(t)) / HPSP.hp0));
 }
 export function ggSolve(r) {
   if (GGBUSY || !r) { return; }

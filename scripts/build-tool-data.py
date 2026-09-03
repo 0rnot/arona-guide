@@ -4646,6 +4646,44 @@ def dbh_cap(e):
     return _DBH.get((e.get("Duration"), sc[0] if sc else None))
 
 
+# **蓄積（`Accumulation`）。**ワカモ（`CH0111`）とカンナ（`CH0170`）の 2 人だけ。
+# SchaleDB の `Effects` は `{"Type": "Accumulation", "Scale": [...]}` しか持たず、
+# **溜める秒数も取り込む割合も入っていない。**一次資料は `DB/LogicEffect_PC.json` の
+#   `AccumulateEffectDAO`      … `Duration`（ms）・`AccumulateRate`（1 万分率）・
+#                                 `LimitSourceStatRate`（＝ `Scale`。攻撃力に対する上限）
+#   `AccumulateDamageEffectDAO` … 出すほうの弾。`BulletType: 5`（神秘）・
+#                                 `CriticalCheck: 1`（会心なし）・`ApplyDefense` 無し
+#                                 （`DefensePenetrationRate: 10000` ＝ 防御を全部貫く）
+# で、`LimitSourceStatRate` が `Scale` と 1 対 1 に当たる（2026-09-03 に数えて確かめた）:
+#   ワカモ  10 秒・100% ・上限 1017.21% / 1169.78% / 1322.34%
+#   カンナ  15 秒・30〜50%・上限 2070% / 2380.5% / 2691%
+_ACC = {}
+_BT = {1: "Explosion", 2: "Pierce", 3: "Mystic", 4: "Sonic", 5: "Mystic"}
+
+
+def acc_info(e):
+    """`Accumulation` の [溜める ms, 段ごとの取り込み割合, 弾種]。当たらなければ None。"""
+    if e.get("Type") != "Accumulation":
+        return None
+    if not _ACC:
+        for r in as_list(get_json(BADB.format("LogicEffect_PC"))):
+            ty = str(r.get("$type") or "")
+            if "AccumulateEffectDAO" not in ty:
+                continue
+            if not r.get("LimitSourceStatRate"):
+                continue
+            _ACC[r["LimitSourceStatRate"]] = [r.get("Duration"), r.get("AccumulateRate")]
+    sc = e.get("Scale") or []
+    if not sc or sc[0] not in _ACC:
+        return None
+    dur, rates = _ACC[sc[0]][0], []
+    for v in sc:
+        rates.append((_ACC.get(v) or [None, 10000])[1] or 10000)
+    # **弾種は出すほうの弾（`AccumulateDamageEffectDAO`）の `BulletType`。**
+    # ワカモもカンナも 5（神秘）。カンナ自身は貫通なので、ここで上書きしないと外れる
+    return [dur, rates, "Mystic"]
+
+
 # LevelSkill の中身を 1 回だけ落とすための入れ物（湧く体の数を数えるのに使う）
 _ls_cache = {}
 
@@ -5668,8 +5706,11 @@ def build_tl():
             #
             # **推測で条件を判定しない。**条件の中身は原文のまま持って画面にも出す
             # （2026-09-01 の先生の指示「幅がある場合は、バーで倍率を選択できるように」）
+            # **`Accumulation` も入れる**（2026-09-03、56c）。`Type` が `Damage` で
+            # 始まらないので、今まで `_row` に入る前に落ちていた
             dmg_all = [e for e in (sk.get("Effects") or [])
-                       if str(e.get("Type", "")).startswith("Damage")]
+                       if str(e.get("Type", "")).startswith("Damage")
+                       or e.get("Type") == "Accumulation"]
             # 形態側スキルで決着の付く条件は、ここで畳む。
             # False（有り得ない）は捨て、True（必ず成り立つ）は条件なし扱い
             dmg_all = [e for e in dmg_all
@@ -5757,7 +5798,9 @@ def build_tl():
                       e["TargetHpRateModifier"].get("MaxHpRate"),
                       e["TargetHpRateModifier"].get("MultiplierMin"),
                       e["TargetHpRateModifier"].get("MultiplierMax")]
-                     if e.get("TargetHpRateModifier") else None)]
+                     if e.get("TargetHpRateModifier") else None),
+                    #   Acc … 蓄積（2026-09-03、56c）。出どころは `acc_info` の注記
+                    acc_info(e)]
             # **`Group` は「何段目か」で、足すものではなく択一。**
             # ネル（制服）の Ex1 は Group 0〜4 × 条件 2 通りの 10 件あって、
             # 全部足すと 1 発 5,727,546（ボス HP の 25%）になっていた。

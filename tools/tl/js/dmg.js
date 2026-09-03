@@ -1,6 +1,6 @@
 import { $, B } from './util.js';
 import { TE, _byid, isMain, slotOf, st } from './core.js';
-import { ggCritAt, hpRateAt } from './carry.js';
+import { accIn, ggCritAt, hpRateAt } from './carry.js';
 import { clamp } from './stats.js';
 import { effMod, statsOf, support, terrMod } from './passive.js';
 import { aimOf, enemyAt } from './target.js';
@@ -307,6 +307,22 @@ export function dmgAt(idx, r, at, kind, pick, tg, gx, nso, only) {
     }
     var base = atk * tm * em * (sc / 10000) * mult * defModOf(ig) *
                drA * drB * exM * baM * lvMod * tick * smM * hrM;
+    // **蓄積（ワカモ・カンナ）**（2026-09-03、56c）。**倍率ではなく、
+    // その間に味方が入れたダメージそのものが弾になる。**
+    //   ・溜める秒数と取り込む割合は `AccumulateEffectDAO`（`build-tool-data.py` の注記）
+    //   ・上限は攻撃力 × `Scale`（ワカモ 1322.34%・カンナ 2691%）
+    //   ・出すほうの弾は `BulletType: 5`（神秘）で、**カンナは自分の貫通ではなく神秘**
+    //   ・`ApplyDefense` が無く `DefensePenetrationRate: 10000` なので**防御は引かない**
+    //   ・`CriticalCheck: 1` で会心なし（説明文も「会心が発動しません」）
+    // 地形・被ダメージ率・レベル差はそのまま掛かる（DAO の `Apply…` が全部 true）
+    if (e[18]) {
+      var aSec = (e[18][0] || 0) / 1000;
+      var aRt = ((e[18][1] || [])[Math.min(slv, (e[18][1] || []).length) - 1] || 10000) / 10000;
+      var aSum = Math.min(atk * (sc / 10000), accIn(at, aSec) * aRt);
+      var aEm = eb.armor === 'Structure' ? 1
+              : (((B.bam[e[18][2]] || {})[eb.armor] || [10000])[0] / 10000);
+      base = aSum * tm * aEm * drA * drB * lvMod;
+    }
     // **グロッキー中は確定会心**（この関数の上、ggCritAt の注記に出典）
     var cr = e[2] === 'Never' ? 0
            : (e[2] === 'Always' || ggCritAt(at) ? 1 : cEff);
@@ -318,6 +334,8 @@ export function dmgAt(idx, r, at, kind, pick, tg, gx, nso, only) {
     // ついて「このダメージにおいては、会心が発動しません」と書いている。
     // **`cr` / `cm` をここで落とすと、下の `eC` / `eC2`（分散）も自動で 1 になる**
     if (e[12] === 'DamageDebuff') { cr = 0; cm = 1; }
+    // **蓄積の弾も会心が出ない**（`CriticalCheck: 1`。56c）
+    if (e[18]) { cr = 0; cm = 1; }
     // **安定値に影響されない攻撃がある**（ヒナ（ドレス）の CH0230Ex02/03/04。
     // 説明文が「この攻撃は安定値に影響されず最大ダメージが適用される」と書いている）。
     // データ全体で 3 件だけ（2026-09-02 に数えて確かめた）
