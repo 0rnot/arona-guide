@@ -246,8 +246,13 @@ export function draw() {
     if (!live(i) || !st.party[i]) { continue; }
     nlane++;
     var p = st.party[i];
+    // **NS と通常攻撃が出せないときの理由は、ここの `title` に持たせる**（43）
+    var nsn0 = nsInfo(p.id), naI0 = naInfo(p.id);
+    var lt = esc(p.n) +
+      (nsn0 ? '' : '\n通常スキル：' + nsWhy(p.id)) +
+      (naI0 ? '' : '\n通常攻撃：データがありません');
     side += lbl(H.row, img(p.id, 'ic') +
-      '<span class="nm">' + esc(p.n) + '</span>' +
+      '<span class="nm" title="' + lt + '">' + esc(p.n) + '</span>' +
       '<span class="mb">EX</span>');
     var sb = '';
     for (var u2 = 0; u2 < st.tl.length; u2++) {
@@ -322,10 +327,12 @@ export function draw() {
               (nw >= 26 ? '<span class="nl">' + (nq + 1) + '</span>' : '') + '</div>';
       }
     }
-    if (laneOn('ns')) {
+    // **空の段は出さない**（2026-09-03 の 43。ビナーの盤で「NS 条件」4 行と
+    // 「通常 0 発」2 行が空のまま 106px 取っていた）。置けない理由は
+    // 上の EX の行の `title` に移してあるので、字は増えない
+    if (laneOn('ns') && nb) {
       side += lbl(H.row, mini + '<span class="nm">NS</span>' +
-        (p ? '<span class="mb"' + (nsn ? '' : ' title="' + esc(nsWhy(p.id)) + '"') + '>' +
-             (nsn ? nsn.iv.toFixed(0) + 's' : '条件') + '</span>' : ''));
+        (p ? '<span class="mb">' + nsn.iv.toFixed(0) + 's</span>' : ''));
       cv += lane(H.row, nb);
     }
 
@@ -347,7 +354,7 @@ export function draw() {
     }
     // **発数は出さない**（2026-09-01 の先生の指示。数はツールチップにある）
     void naN;
-    if (laneOn('na')) {
+    if (laneOn('na') && nab) {
       side += lbl(H.na, '<span class="nm">通常</span>', 'na');
       cv += lane(H.na, nab);
     }
