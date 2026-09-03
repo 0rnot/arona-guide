@@ -53,6 +53,20 @@ export function epCond(id, ms) {
     // 「弱体状態の敵への攻撃時に」。**道具はこれを「デバフ数」レーンで既に数えている**
     if (m.t === 'LogicEffectCategoryModifierDAO' && m.LogicEffectCategory === 4 &&
         m.IncludeType === 1 && m.CheckTarget === 1) { out.push({ k: 'deb' }); continue; }
+    // **「弱体の数が N 個のとき」。**上と同じ「デバフ数」レーンで数える（2026-09-04）。
+    // ミサキ（10041）がこれで、5 つのアビリティが `CountMin` / `CountMax` だけ違う。原文:
+    //   {"t":"CountListLogicEffectCategoryModifierDAO","CountMin":1,"CountMax":1,
+    //    "IncludeType":1,"LogicEffectCategoryList":[4],"CheckTarget":1}
+    //   …（`CountMin` 2/2・3/3・4/4 と続き、最後が `CountMin":5,"CountMax":-1`）
+    // **`CountMax` の `-1` は「上限なし」。**`dmgalt` 側の候補も
+    // `["段 1","段 2","段 3","段 4","段 5"]` で 5 つあり、並びが 1 対 1 で対応する
+    if (m.t === 'CountListLogicEffectCategoryModifierDAO' && m.IncludeType === 1 &&
+        m.CheckTarget === 1 && (m.LogicEffectCategoryList || []).length === 1 &&
+        m.LogicEffectCategoryList[0] === 4 && m.CountMin > 0) {
+      out.push({ k: 'debn', lo: m.CountMin,
+                 hi: (m.CountMax == null || m.CountMax < 0) ? Infinity : m.CountMax });
+      continue;
+    }
     if (m.t === 'TagConditionalModifierDAO' && m.IncludeType === 1 && m.CheckTarget === 1) {
       var tg = m.TagConstraintsInt || [], sz = {}, boss1 = false, bad = false;
       for (k = 0; k < tg.length; k++) {
@@ -165,6 +179,10 @@ export function epOkAt(id, r, t, tg) {
     for (i = 0; i < c.length && ok; i++) {
       var q = c[i];
       if (q.k === 'deb' && !(enemyAt(r, t).n > 0)) { ok = false; }
+      if (q.k === 'debn') {
+        var dn = enemyAt(r, t).n || 0;
+        if (!(dn >= q.lo && dn <= q.hi)) { ok = false; }
+      }
       // **BOSS のタグは本体だけ。**部位（柱・装置・ミニオン）には付いていないとみなす
       if (q.k === 'boss' && tg != null) { ok = false; }
       if (q.k === 'size' && !q.v[(aimOf(r, tg) || {}).size]) { ok = false; }
@@ -180,6 +198,48 @@ export function epOkAt(id, r, t, tg) {
     if (ok) { return true; }
   }
   return false;
+}
+/** **どのアビリティで立ったか。**`-1` は「1 つも立たない」（2026-09-04）。
+    ミサキのように**アビリティの並びと `dmgalt` の候補の並びが 1 対 1 で対応する**
+    子は、これがそのまま候補の番号になる。対応していない子には使わない
+    （`epTierPick` が本数を見て判じる） */
+export function epTierAt(id, r, t, tg) {
+  var e = (B.ep || {})[id], cs = epConds(id, e && e[8]), i, j;
+  if (cs == null) { return -1; }
+  for (j = 0; j < cs.length; j++) {
+    var c = cs[j], ok = true;
+    for (i = 0; i < c.length && ok; i++) {
+      var q = c[i];
+      if (q.k === 'deb' && !(enemyAt(r, t).n > 0)) { ok = false; }
+      if (q.k === 'debn') {
+        var dn = enemyAt(r, t).n || 0;
+        if (!(dn >= q.lo && dn <= q.hi)) { ok = false; }
+      }
+      if (q.k === 'boss' && tg != null) { ok = false; }
+      if (q.k === 'size' && !q.v[(aimOf(r, tg) || {}).size]) { ok = false; }
+      if (q.k === 'armor' && (aimOf(r, tg) || {}).armor !== q.v) { ok = false; }
+      if (q.k === 'tmpl') {
+        var ws = tmplAt(id, q.v.slot), k, hit = false;
+        for (k = 0; k < ws.length; k++) {
+          if (t >= ws[k] - 1e-9 && t <= ws[k] + q.v.du + 1e-9) { hit = true; break; }
+        }
+        if (!hit) { ok = false; }
+      }
+    }
+    if (ok) { return j; }
+  }
+  return -1;
+}
+/** **その 1 発で使う候補の番号を `dmgOf` の `upk` の形で返す。**対応が取れないときは
+    `null`（＝枠の既定のまま。今までどおり）。**渡していいのは、アビリティの本数と
+    `dmgalt` の候補の本数が一致していて、かつ 2 本以上あるときだけ。**
+    1 本しかない子に 0 を渡すと、先生が枠で選んだ候補を上書きしてしまう */
+export function epTierPick(id, r, t, tg) {
+  var e = (B.ep || {})[id], abs = (e && e[8]) || [];
+  var a = ((B.dmgalt || {})[id] || {}).ExtraPassive;
+  if (!a || !a.v || a.v.length < 2 || a.v.length !== abs.length) { return null; }
+  var j = epTierAt(id, r, t, tg);
+  return j < 0 ? null : { ExtraPassive: j };
 }
 /** 置ける子の一覧（枠の番号）。編成に居るぶんだけ */
 export function epSlots() {

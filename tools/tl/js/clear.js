@@ -6,7 +6,7 @@ import { clamp } from './stats.js';
 import { naTimes } from './na.js';
 import { usesSorted } from './buff.js';
 import { PICKF, dmgOf, nbOf, setPICKF } from './dmg.js';
-import { epEvery, epOkAt, epOn } from './ep.js';
+import { epEvery, epOkAt, epOn, epTierPick } from './ep.js';
 
 /** **突破率。**置いた TL で、ボスの HP を削り切れる確率。
     1 発ごとの平均と分散（`dmgAt` の `va`）を足し合わせて、
@@ -100,7 +100,11 @@ export function clearStat1(r, pf, pid, deadAt, hpNeed) {
           var at1 = Math.min((+bs1 + 0.5) * STEP, dur);
           var cn1 = Math.floor(bucket[bs1] / ev1);
           if (!cn1 || !epOkAt(st.party[i].id, r, at1, subIxOfPool(r, pid))) { continue; }
-          var ds1 = dmgOf(i, r, at1, 'ExtraPassive', null, subIxOfPool(r, pid));
+          // **段で分かれる子は、その時刻の段で候補を決める**（2026-09-04。ミサキ）。
+          // 対応が取れない子は `null` が返るので、今までどおり枠の既定を使う
+          var ds1 = dmgOf(i, r, at1, 'ExtraPassive',
+                          epTierPick(st.party[i].id, r, at1, subIxOfPool(r, pid)),
+                          subIxOfPool(r, pid));
           if (!ds1) { break; }
           mu += ds1.avg * cn1;
           va += (ds1.va || 0) * cn1;
@@ -191,7 +195,8 @@ export function total0(r) {
         var at2 = Math.min((+bs2 + 0.5) * STEP, dur);
         var cn2 = Math.floor(bucket[bs2] / ev2);
         if (!cn2 || !epOkAt(st.party[i].id, r, at2, null)) { continue; }
-        var ds2 = dmgOf(i, r, at2, 'ExtraPassive');
+        var ds2 = dmgOf(i, r, at2, 'ExtraPassive',
+                        epTierPick(st.party[i].id, r, at2, null));
         if (!ds2) { break; }
         ss.n += cn2; all.n += cn2;
         for (k = 0; k < KS.length; k++) {
