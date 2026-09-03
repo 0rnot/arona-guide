@@ -1,5 +1,5 @@
 import { B } from './util.js';
-import { SLOTS, _byid, memo, st } from './core.js';
+import { SLOTS, _byid, memo, slotOf, st } from './core.js';
 import { sim } from './engine.js';
 import { busyOf, naInfo, naShotsRaw } from './na.js';
 
@@ -41,9 +41,10 @@ export function nsInfo(id) {
     return o;
   }
   au = pick(0) || pick(1) || pick(2);
+  var need = au ? au[9] : null;
   var duF = (au && au[3] && au[3] < 100000) ? au[3] : 60;
   if (n && n.iv > 0 && n.st != null) {
-    return { iv: n.iv, st: n.st, du: duF, src: 'desc', nm: n.n, rule: au ? au[1] : null };
+    return { iv: n.iv, st: n.st, du: duF, src: 'desc', nm: n.n, rule: au ? au[1] : null, need: need };
   }
   // **「戦闘中に 1 回のみ」は周期ではない**（2026-09-03）。`AutoUseRule` の
   // `MaxTriggerCount: 1` がその印で、`ConditionArgument` は待ちフレームでしかない。
@@ -52,12 +53,12 @@ export function nsInfo(id) {
   // 60 秒バフが戦闘中ずっと切れなくなる**（1 人ぶんで −8.5% の過大）
   if (n && n.once && n.st != null) {
     return { iv: 0, st: n.st, du: duF, src: 'desc1', nm: n.n,
-             rule: au ? au[1] : null };
+             rule: au ? au[1] : null, need: need };
   }
   if (au && au[1] === 'Interval' && au[4] === 1) {
     return { iv: 0, st: au[2] / B.fps, du: duF, src: 'auto1',
              nm: (n ? n.n : '') || (B.skname[id] || {})[nsKind(id)] || '',
-             rule: 'Interval' };
+             rule: 'Interval', need: need };
   }
   // **周期の出どころは 2 つ。**`ConditionArgument` が 1 のときは
   // `CoolTimeNotTrigger` がそれ（マコト（水着）の 900 フレーム＝30 秒）。
@@ -65,7 +66,7 @@ export function nsInfo(id) {
   var per = (au && au[1] === 'Interval') ? (au[2] > 1 ? au[2] : (au[5] || 0)) : 0;
   if (per > 1) {
     return { iv: per / B.fps, st: per / B.fps, du: duF, src: 'auto',
-             nm: n ? n.n : '', rule: 'Interval' };
+             nm: n ? n.n : '', rule: 'Interval', need: need };
   }
   // **`OnAttackIng` は「通常攻撃 N 回毎に」**（2026-09-03）。N は `TryCount`（`au[6]`）で、
   // スキルの説明文に N が書いてある 22 件すべてで一致した（`ConditionArgument` は
@@ -74,7 +75,7 @@ export function nsInfo(id) {
   // **確率のもの（イズミ 20%・アカリ 10%）は置かない**
   if (au && au[1] === 'OnAttackIng' && au[6] > 1 && au[7] === 10000) {
     return { iv: 0, st: 0, du: duF, src: 'na', tc: au[6],
-             nm: nsNameOf(id, n), rule: 'OnAttackIng' };
+             nm: nsNameOf(id, n), rule: 'OnAttackIng', need: need };
   }
   // **`AmmoCountUnder` は「弾薬が N 以下になったら」**（2026-09-03）。
   // 閾値は `ConditionArgument`（`au[2]`）。フブキの説明文「弾薬が3以下になる毎に」が
@@ -87,7 +88,7 @@ export function nsInfo(id) {
       if (tg > 0) {
         return { iv: a2.mag * a2.per + a2.rel, st: a2.ent + tg * a2.per,
                  du: duF, src: 'ammo', trig: tg,
-                 nm: nsNameOf(id, n), rule: 'AmmoCountUnder' };
+                 nm: nsNameOf(id, n), rule: 'AmmoCountUnder', need: need };
       }
     }
   }
@@ -121,6 +122,31 @@ export function nsWhy(id) {
 export function nsTimes(id, dur, idx) {
   sim();
   return memo('ns|' + id + '|' + dur + '|' + idx, function () { return nsTimes0(id, dur, idx); });
+}
+/** **「その形態のときだけ出る NS」の門**（2026-09-04、50b）。
+    `AutoUseRule.TryToUseSkillModifiers` の `FormIndexCheckModifierDAO.FormIndex` が
+    `n.need`。形態 0 以外を求めるものは、**変身している間だけ**通す。
+    変身の長さは `B.fchg[id]`（`[切れ方, 段 1〜5 の値]`。切れ方 1 が時間 ms）。
+
+    オトギの `CH0174Public02` は `AmmoCountUnder 0` ＋ FormIndex 1 で、
+    **指定射撃姿勢の 35 秒の間に弾切れしたときだけ**出る。門が無いと戦闘中ずっと出る。
+
+    **見ているのは `st.tl` に書いてある時刻**（engine が解いた時刻ではない）。
+    `usesSorted()` を使うと `usesSorted → nsTimes → formOK → usesSorted` で輪になる
+    （`na.js` の `naShotsRaw` と同じ理由）。コスト待ちで後ろへ動いたぶんはずれる */
+function formOK(id, idx, n, t) {
+  if (!n || !n.need) { return true; }
+  var fv = (B.fchg || {})[id];
+  if (!fv || fv[0] !== 1) { return true; }
+  var ms = fv[1][Math.min(slotOf(idx).ex || 5, fv[1].length) - 1];
+  if (ms == null) { return true; }
+  var i;
+  for (i = 0; i < st.tl.length; i++) {
+    if (st.tl[i].i !== idx || st.tl[i].t == null) { continue; }
+    if (t < st.tl[i].t) { continue; }
+    if (ms < 0 || t < st.tl[i].t + ms / 1000) { return true; }
+  }
+  return false;
 }
 export function nsTimes0(id, dur, idx) {
   var n = nsInfo(id), out = [], t;
@@ -159,7 +185,7 @@ export function nsTimes0(id, dur, idx) {
       // `k` は撃った通し番号（EX の演出明けに 0 へ戻る）。弾倉の中の位置は `k % mag`
       if (sh[q2].k % a3.mag === n.trig - 1) {
         var y3 = sh[q2].t + a3.per;
-        if (y3 <= dur) { out.push(+y3.toFixed(4)); }
+        if (y3 <= dur && formOK(id, idx, n, y3)) { out.push(+y3.toFixed(4)); }
       }
     }
     return out;

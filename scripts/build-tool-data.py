@@ -5620,9 +5620,20 @@ def build_tl():
             # （2026-09-03。`ConditionArgument` のほうは "" / "0" / "1" しか入っておらず
             # 回数と相関しない）。`TriggerRate` は 1 万分率で、10000 以外は確率
             #   fi … その行の形態（`FormIndex`）。**発動しない札を見ないため**に要る
+            #   need … **その形態のときだけ発動する**（2026-09-04、50b）。
+            #     `AutoUseRule.TryToUseSkillModifiers` の
+            #     `FormIndexCheckModifierDAO.FormIndex`。オトギの
+            #     `CH0174Public02`（`AmmoCountUnder 0`）は FormIndex 1 で、
+            #     **指定射撃姿勢の 35 秒の間だけ**弾切れで出る。
+            #     エイミ（臨戦）`CH0337Public01` も 1、クルミ `CH0173Public01` は 0
+            _need = None
+            for _md in (au.get("TryToUseSkillModifiers") or []):
+                if "FormIndexCheckModifier" in str(_md.get("$type") or ""):
+                    _need = _md.get("FormIndex")
+                    break
             seen_g[(mg, fi)] = [mg, au.get("ConditionType"), arg, d.get("Duration"),
                                 au.get("MaxTriggerCount"), au.get("CoolTimeNotTrigger"),
-                                au.get("TryCount"), au.get("TriggerRate"), fi]
+                                au.get("TryCount"), au.get("TriggerRate"), fi, _need]
             nns += 1
         ns_out[sid] = [seen_g[k] for k in sorted(seen_g)]
         # ---- サブスキル（SS）の引き金。**`LevelSkill/<ExtraPassiveSkillGroupId>.json`
