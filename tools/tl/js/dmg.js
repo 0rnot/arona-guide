@@ -266,11 +266,23 @@ export function dmgAt(idx, r, at, kind, pick, tg, gx, nso) {
     // データ全体で 3 件だけ（2026-09-02 に数えて確かめた）
     var sN = e[9] === 0 ? 1 : sMin;
     var mid = (sN + 1) / 2;
-    o.min += base * sN;
-    o.max += base * cm;
-    o.avg0 += base * mid * hit;
-    o.avgC += base * cm * mid * hit;
-    o.avg += (base * mid + base * mid * (cm - 1) * cr) * hit;
+    // **上限は 1 発ごとに掛かる**（出典は `dmgCap` の注記）。`base` は多段（`Hits`）と
+    // 継続（`tick`）の回数ぶんを掛けたあとの値なので、**1 発ぶんに割って上限を通し、
+    // また掛け戻す**。`Hits` の取り分は `hs[q] / Σhs`（`full` かどうかに依らず同じ形）
+    var nt = Math.max(1, tick), hsm = 0;
+    for (q = 0; q < hs.length; q++) { hsm += hs[q]; }
+    function capS(f) {
+      var t2 = 0, z;
+      if (!(hsm > 0)) { return dmgCap(base * f / nt) * nt; }
+      for (z = 0; z < hs.length; z++) { t2 += dmgCap(base / nt * (hs[z] / hsm) * f); }
+      return t2 * nt;
+    }
+    var cA = capS(mid), cB = capS(mid * cm);
+    o.min += capS(sN);
+    o.max += capS(cm);
+    o.avg0 += cA * hit;
+    o.avgC += cB * hit;
+    o.avg += ((1 - cr) * cA + cr * cB) * hit;
     // 1 回ぶん（`tick` で割ったもの）の平均と 2 乗平均
     // **多段は 1 発ずつ別々に振られる。**まとめて 1 発として扱うと分散が
     // 発数の 2 乗で効いてしまう（ネル（制服）は `Hits` が 46 個）。
@@ -286,6 +298,26 @@ export function dmgAt(idx, r, at, kind, pick, tg, gx, nso) {
     o.va += n1 * Math.max(0, m2 - m1 * m1 * hf2);
   }
   return o;
+}
+
+/** **1 発ごとのダメージ上限。**4,000,000 までは素通しで、そこから先は段階的に減り、
+    19,969,999 で頭打ちになる。出典は ItJustWorks Library of Stats and Formulas の
+    「Damage Cap」（`All individual instances of damage have a damage cap.`
+    `Damage up until 4,000,000 is uncapped, but damage beyond 4,000,000 will be soft
+    capped with the following formula`）。段は 4M・6.248M・8.496M・10.744M・12.992M・
+    15.240M・17.488M・19.736M・22M で、係数は 1 → 0.8 → 0.65 → 0.5 → 0.4 → 0.3 →
+    0.225 → 0.15 → 0.075。**掛かるのは 1 発ごとで、合計には掛からない。** */
+var CAPS = [[4000000, 1], [6248000, 0.8], [8496000, 0.65], [10744000, 0.5],
+            [12992000, 0.4], [15240000, 0.3], [17488000, 0.225],
+            [19736000, 0.15], [22000000, 0.075]];
+export function dmgCap(x) {
+  if (!(x > 4000000)) { return x || 0; }
+  var out = 0, lo = 0, i;
+  for (i = 0; i < CAPS.length; i++) {
+    out += CAPS[i][1] * Math.max(0, Math.min(x, CAPS[i][0]) - lo);
+    lo = CAPS[i][0];
+  }
+  return out;
 }
 
 // `PICKF` は dmg.js の持ち物。pool.js / clear.js から差し替えるための窓口
