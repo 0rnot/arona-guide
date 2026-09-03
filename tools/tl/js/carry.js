@@ -6,7 +6,7 @@ import { scenIx } from './scen.js';
 import { dmgCurve, naPool, poolBodies, poolKills, poolOf, subIxOfPool, valueAt } from './pool.js';
 import { naTimes } from './na.js';
 import { usesSorted } from './buff.js';
-import { dmgOf } from './dmg.js';
+import { dmgOf, dotTimes } from './dmg.js';
 import { epEvery, epOkAt, epOn } from './ep.js';
 
 // ------------------------------------------------------------ 部隊の持ち越し
@@ -129,7 +129,26 @@ export function dmgCurve0(r, key, pid, deadAt) {
       var db = dmgOf(u.i, r, u.t, u.k, u.pk, null, u.gx, u.no);
       if (db) { v0 += db[key]; }
     }
-    if (d) { pts.push([u.t, v0]); }
+    // **継続ダメージ（DoT）は撃った瞬間ではなく `Period` ごとに入る**（2026-09-03）。
+    // 曲線・討伐時刻・HP のゲート・スコアがその分だけ早くずれていた。
+    // 合計は変えない（`total()` は触っていない）——**置く時刻だけを割る**
+    if (d) {
+      var tsD = dotTimes(u.i, r, u.t, u.k, u.pk, aim);
+      if (tsD.length) {
+        var dNow = dmgOf(u.i, r, u.t, u.k, u.pk, aim, u.gx, u.no, 'now');
+        var dDot = dmgOf(u.i, r, u.t, u.k, u.pk, aim, u.gx, u.no, 'dot');
+        var vN = dNow ? (tr && pp !== pid ? dNow[key] * tr : dNow[key] * mcp) : 0;
+        var vD = dDot ? (tr && pp !== pid ? dDot[key] * tr : dDot[key] * mcp) : 0;
+        if (d && u.tg != null && u.hb) {
+          var dbN = dmgOf(u.i, r, u.t, u.k, u.pk, null, u.gx, u.no, 'now');
+          var dbD = dmgOf(u.i, r, u.t, u.k, u.pk, null, u.gx, u.no, 'dot');
+          if (dbN) { vN += dbN[key]; }
+          if (dbD) { vD += dbD[key]; }
+        }
+        if (vN) { pts.push([u.t, vN]); }
+        for (q = 0; q < tsD.length; q++) { pts.push([tsD[q], vD / tsD.length]); }
+      } else { pts.push([u.t, v0]); }
+    }
   }
   var dur = r.dur || 240, STEP = 5;
   for (i = 0; i < SLOTS; i++) {

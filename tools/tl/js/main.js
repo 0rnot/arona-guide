@@ -23,7 +23,7 @@ import { busyOf, naInfo, naRuns, naTimes } from './na.js';
 import { danMax, usesSorted } from './buff.js';
 import { enemyAt, liveBuffs } from './target.js';
 import { altOf, pickOf } from './alt.js';
-import { dmgOf } from './dmg.js';
+import { dmgOf, dotTimes } from './dmg.js';
 import { clearStat, total } from './clear.js';
 import { restore, snapshot } from './io.js';
 import { parseTL } from './parse-tl.js';
@@ -55,6 +55,8 @@ syncUndo();
 // 突き合わせ用。**SchaleDB の実装と数字が合うかを外から確かめるため**に出している
 window.__TLDBG = { statsOf: statsOf, dmgOf: dmgOf, total: total, diff: diff,
                    terrMod: terrMod, effMod: effMod, passiveFor: passiveFor, phaseSpans: phaseSpans, ggRuns: ggRuns, ggAt: ggAt, ggCritAt: ggCritAt, ggSolve: ggSolve, support: support, dmgCurve: dmgCurve, parseTL: parseTL, st: st, stu: stu, sim: sim, engIn: engIn, costPts: costPts,
+                   // **継続ダメージがいつ入るか**（2026-09-03 の 47b）
+                   dotTimes: dotTimes,
                    busyOf: busyOf, naTimes: naTimes, naRuns: naRuns, nsTimes: nsTimes,
                    nsInfo: nsInfo, naInfo: naInfo, altOf: altOf, pickOf: pickOf,
                    usesSorted: usesSorted, liveBuffs: liveBuffs, draw: drawNow,

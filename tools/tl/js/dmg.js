@@ -38,7 +38,7 @@ function gsplScale(d, m) {
            max: d.max * m, va: (d.va || 0) * m, hit: d.hit, crit: d.crit,
            crit0: d.crit0, name: d.name };
 }
-export function dmgOf(idx, r, at, kind, upk, tg, gx, nso) {
+export function dmgOf(idx, r, at, kind, upk, tg, gx, nso, only) {
   var p = st.party[idx];
   if (!p) { return null; }
   var kd = kind || 'Ex';
@@ -47,13 +47,13 @@ export function dmgOf(idx, r, at, kind, upk, tg, gx, nso) {
   var alt = altOf(p.id, kd, tb9);
   var gm9 = gsplMul(r, at, tg);
   if (!PICKF || !alt || alt.v.length < 2) {
-    return gsplScale(dmgOf1(idx, r, at, kd, alt ? pickOf(idx, kd, upk, tb9) : 0, tg, gx, nso), gm9);
+    return gsplScale(dmgOf1(idx, r, at, kd, alt ? pickOf(idx, kd, upk, tb9) : 0, tg, gx, nso, only), gm9);
   }
   // **候補ごとに最後まで計算して比べる。**倍率（`Scale`）だけで比べると、
   // 発数・防御無視・会心の有無が候補ごとに違うぶんを取りこぼす
   var best = null, i;
   for (i = 0; i < alt.v.length; i++) {
-    var d = dmgOf1(idx, r, at, kd, i, tg, gx, nso);
+    var d = dmgOf1(idx, r, at, kd, i, tg, gx, nso, only);
     if (!d) { continue; }
     if (!best || (PICKF > 0 ? d.avg > best.avg : d.avg < best.avg)) { best = d; }
   }
@@ -95,16 +95,16 @@ export function sliceOf(id, kind) {
   if (a) { for (i = 0; i < a.v.length; i++) { look(a.v[i]); } }
   return (n >= 4 && formDur(id, kind) >= 1) ? SLICE : 1;
 }
-export function dmgOf1(idx, r, at, kind, pick, tg, gx, nso) {
+export function dmgOf1(idx, r, at, kind, pick, tg, gx, nso, only) {
   var p0 = st.party[idx];
   if (!p0) { return null; }
   var kd0 = kind || 'Ex';
   var ns = at == null ? 1 : sliceOf(p0.id, kd0);
-  if (ns <= 1) { return dmgAt(idx, r, at, kd0, pick, tg, gx, nso); }
+  if (ns <= 1) { return dmgAt(idx, r, at, kd0, pick, tg, gx, nso, only); }
   var D = formDur(p0.id, kd0), dur0 = r.dur || 240, acc = null, k, q2;
   for (k = 0; k < ns; k++) {
     var ts = Math.min(at + D * (k + 0.5) / ns, dur0);
-    var d0 = dmgAt(idx, r, ts, kd0, pick, tg, gx, nso);
+    var d0 = dmgAt(idx, r, ts, kd0, pick, tg, gx, nso, only);
     if (!d0) { return null; }
     if (!acc) { acc = { min: 0, avg0: 0, avg: 0, avgC: 0, max: 0, va: 0,
                         hit: d0.hit, crit: d0.crit, crit0: d0.crit0, name: d0.name }; }
@@ -114,7 +114,7 @@ export function dmgOf1(idx, r, at, kind, pick, tg, gx, nso) {
   }
   return acc;
 }
-export function dmgAt(idx, r, at, kind, pick, tg, gx, nso) {
+export function dmgAt(idx, r, at, kind, pick, tg, gx, nso, only) {
   var p = st.party[idx];
   if (!p) { return null; }
   var kd = kind || 'Ex';
@@ -123,6 +123,14 @@ export function dmgAt(idx, r, at, kind, pick, tg, gx, nso) {
   // 当たる先で候補が変わるので、`aimOf` の相手で絞る（2026-09-03）
   var alt = altOf(p.id, kd, aimOf(r, tg));
   if (alt) { effs = effs.concat(alt.v[pick || 0] || []); }
+  // **`only` は「継続ダメージだけ」「それ以外だけ」の切り分け**（2026-09-03）。
+  // 曲線を引くときに、DoT を撃った瞬間ではなく `Period` ごとに置くのに要る
+  if (only) {
+    effs = effs.filter(function (e) {
+      var isDot = e[12] === 'DamageDebuff' && e[4] && e[5];
+      return only === 'dot' ? isDot : !isDot;
+    });
+  }
   if (!effs.length) { return null; }
   var lv = slotOf(idx).lv || 90, bs = r.bs || {};
   // **スキルの段数はスキルごとに別。**NS を EX のレベルで引くと 5 段目になる
@@ -298,6 +306,36 @@ export function dmgAt(idx, r, at, kind, pick, tg, gx, nso) {
     o.va += n1 * Math.max(0, m2 - m1 * m1 * hf2);
   }
   return o;
+}
+
+/** その 1 発の継続ダメージ（DoT）が、いつ・何回に分けて入るか。
+    **`Period`（ms）ごとに `Duration ÷ Period` 回**。戦闘の終わりで打ち切る。
+    返すのは `[時刻, …]`（回数ぶん）。DoT が無ければ空。
+
+    2026-09-03。それまで DoT は**撃った瞬間に全部入って**いて、曲線・討伐時刻・
+    HP のゲート・スコアがその分だけ早くずれていた（ヒビキ（応援団）は 120 秒ぶん）。 */
+export function dotTimes(idx, r, at, kind, pick, tg) {
+  var p = st.party[idx];
+  if (!p) { return []; }
+  var kd = kind || 'Ex';
+  var effs = ((B.dmg[p.id] || {})[kd] || []).slice();
+  var alt = altOf(p.id, kd, aimOf(r, tg));
+  if (alt) { effs = effs.concat(alt.v[pick || 0] || []); }
+  var per = 0, dur = 0, i;
+  for (i = 0; i < effs.length; i++) {
+    var e = effs[i];
+    if (e[12] !== 'DamageDebuff' || !e[4] || !e[5]) { continue; }
+    // **いちばん長いものに合わせる。**同じ枠に DoT が 2 本ある子はいない
+    if (e[5] > dur) { per = e[4]; dur = e[5]; }
+  }
+  if (!per || !dur) { return []; }
+  var n = Math.floor(dur / per), out = [], end = r.dur || 240, k;
+  for (k = 0; k < n; k++) {
+    var t = at + (k + 1) * per / 1000;
+    if (t > end + 1e-9) { break; }
+    out.push(t);
+  }
+  return out;
 }
 
 /** **1 発ごとのダメージ上限。**4,000,000 までは素通しで、そこから先は段階的に減り、
