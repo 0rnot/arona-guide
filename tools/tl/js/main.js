@@ -26,7 +26,7 @@ import { altOf, pickOf } from './alt.js';
 import { dmgOf, dotTimes } from './dmg.js';
 import { clearStat, total } from './clear.js';
 import { restore, snapshot } from './io.js';
-import { fcOf } from './parse-text.js';
+import { autoPick, fcOf } from './parse-text.js';
 import { parseTL } from './parse-tl.js';
 import { applyTL, findStudent } from './parse-apply.js';
 import { drawCrew, drawParty, drawPicker, fillBuild, fillFilters } from './left.js';
@@ -60,6 +60,8 @@ window.__TLDBG = { statsOf: statsOf, dmgOf: dmgOf, total: total, diff: diff,
                    dotTimes: dotTimes,
                    // **変身 EX の周期**（2026-09-03 の 60）
                    fcOf: fcOf,
+                   // **「選ぶだけの札」の代わりに置く形態**（2026-09-04 の 61c）
+                   autoPick: autoPick,
                    // **当たる先の HP 割合**（2026-09-03 の 56b）
                    hpRateAt: hpRateAt,
                    busyOf: busyOf, naTimes: naTimes, naRuns: naRuns, nsTimes: nsTimes,

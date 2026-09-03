@@ -3,7 +3,7 @@ import { MAIN_MAX, SLOTS, TE, _byid, live } from './core.js';
 import { diff, has } from './boss.js';
 import { n0 } from './rate.js';
 import { wlvMax } from './passive.js';
-import { CIRC, aimIn, aliasOf, fcOf, formHasBuff, formHasDmg, formIn, formsOf, nrm, timeIn, whoIn, zen0 } from './parse-text.js';
+import { CIRC, aimIn, aliasOf, autoPick, fcOf, formHasDmg, formIn, formsOf, nrm, timeIn, whoIn, zen0 } from './parse-text.js';
 import { findStudent } from './parse-apply.js';
 
 /** 育成の行かどうか。**書き方は 1 つに縛らない**（2026-09-01 の先生の指示
@@ -820,13 +820,9 @@ export function parseTL(txt) {
     // 代わりに「イロハの虎丸に搭乗した時」の形態が毎回撃たれていた。
     // **本当に選ぶだけの札は 3 人だけ**（ミカ（水着）・ラブ・アリス（臨戦）。
     // アイコンが `SELECTEXSKILL` で説明文が空。274 人を見て数えた）
-    if (frm == null && pid && TE.FORM_RULE[pid] === 'pick' &&
-        !formHasDmg(pid, 0) && !formHasBuff(pid, 0)) {
-      var fl2 = formsOf(pid), fz;
-      for (fz = 1; fz < fl2.length; fz++) {
-        if (formHasDmg(pid, fz)) { frm = fz; break; }
-      }
-      if (frm != null) { autoF[pid] = (fl2[frm] || {}).n; }
+    if (frm == null && pid) {
+      var ap = autoPick(pid);
+      if (ap != null) { frm = ap; autoF[pid] = (formsOf(pid)[ap] || {}).n; }
     }
     lastWho = who;
     formN[who] = (formN[who] || 0) + 1;

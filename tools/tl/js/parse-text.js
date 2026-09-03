@@ -1,5 +1,5 @@
 import { $, B, S, rest } from './util.js';
-import { st } from './core.js';
+import { TE, st } from './core.js';
 import { has } from './boss.js';
 import { altOf } from './alt.js';
 import { NICK } from './parse-apply.js';
@@ -246,6 +246,17 @@ export function formHasDmg(id, j) {
 export function formHasBuff(id, j) {
   var a = (B.buf[id] || {})[EXK[j]];
   return !!(a && a.length);
+}
+/** **「選ぶだけの札」のときに、代わりに置く形態**（2026-09-04、61c）。
+    形態 0 にダメージも持続効果も無い `pick` の子（ミカ（水着）・ラブ・アリス（臨戦））だけ、
+    ダメージのある最初の形態を返す。当てはまらなければ null。
+    **読み込み（`parse-tl.js`）と手で置いたとき（`uses.js`）で同じ札を選ぶための共通の口。** */
+export function autoPick(id) {
+  if (id == null || TE.FORM_RULE[id] !== 'pick') { return null; }
+  if (formHasDmg(id, 0) || formHasBuff(id, 0)) { return null; }
+  var fl = formsOf(id), i;
+  for (i = 1; i < fl.length; i++) { if (formHasDmg(id, i)) { return i; } }
+  return null;
 }
 /** 「アリス(チャージ)」「ネル(VS付与)」のように、**括弧が形態を指していることがある。**
     形態の名前そのものか、TL でよく使う言い換えだけを見る（2026-09-01 に

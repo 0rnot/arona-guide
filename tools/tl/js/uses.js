@@ -2,6 +2,7 @@ import { B } from './util.js';
 import { SLOTS, st } from './core.js';
 import { mark } from './undo.js';
 import { diff } from './boss.js';
+import { autoPick } from './parse-text.js';
 import { orderOf, simOf } from './engine.js';
 import { draw } from './draw.js';
 
@@ -45,7 +46,11 @@ export function tlSorted() {
 export function addUse(i, t) {
   if (!st.party[i]) { return; }
   mark();
-  var u = { i: i, t: snap(t), to: null, ov: null, f: null, bt: null, md: 't', cv: null };
+  // **「選ぶだけの札」は置いた瞬間にダメージのある形態にする**（2026-09-04、61c）。
+  // ラブの既定はコスト 4・ダメージ 0 の選択メニューで、置いても何も起きなかった。
+  // 読み込み（`parse-tl.js`）と同じ `autoPick` を使う
+  var u = { i: i, t: snap(t), to: null, ov: null, f: autoPick(st.party[i].id),
+            bt: null, md: 't', cv: null };
   st.tl.push(u);
   st.sel = st.tl.length - 1;
   fixUse(u);
