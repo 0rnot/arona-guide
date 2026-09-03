@@ -1,4 +1,4 @@
-import { $, rest } from './util.js';
+import { $, B, rest } from './util.js';
 import { MAIN_MAX, SLOTS, TE, _byid, live } from './core.js';
 import { diff, has } from './boss.js';
 import { n0 } from './rate.js';
@@ -694,7 +694,7 @@ export function parseTL(txt) {
     // 編成の子として読めれば渡し先、部位として読めれば当たる先
     // **角括弧で当たる先を書く人がいる**（「[→緑聖遺物]」）。丸括弧だけ見ていると
     // 書き方の違いだけで結果が変わる（2026-09-02、総力戦ヒエロニムス）
-    var pg = cut.match(/[（(\[［][^）)\]］]*[)）\]］]/g) || [], pz2, pz3, aim = null, frm = chgF ? 0 : null, mcn = 1;
+    var pg = cut.match(/[（(\[［][^）)\]］]*[)）\]］]/g) || [], pz2, pz3, aim = null, frm = chgF ? 0 : null, mcn = 1, hbo = 0;
     var subsP = diff().sub || [];
     for (pz2 = 0; pz2 < pg.length; pz2++) {
       var inner = pg[pz2].replace(/^[（(\[［]|[)）\]］]$/g, '').replace(/[→⇒➝]/g, '').split(/[＋+,、・]|\sと\s/);
@@ -751,6 +751,26 @@ export function parseTL(txt) {
                        subsP[aim].spnw + '）');
       } else if (aim != null) {
         res.notes.push('「' + ln.trim() + '」は当たる数が書いていないので 1 体で置きました');
+      }
+    }
+    // **範囲の EX は、盤に出ている「本体へ転移する体」に当たる**（2026-09-03）。
+    // ペロロジラの大きなペロロミニオンは Immortal で被ダメージの 100% がボスへ移り、
+    // 湧きは 1 回 6 体（`spn`。`LevelSkill` の `SummonGroups`）。18 秒ごとに湧いて吸われるので、
+    // 盤には常時いる。**書いていない TL でも当たっている**ので、書いてあるとき（上の「N体」）を
+    // 優先しつつ、書いていなければ既定にする。**当たる数は入力欄でいつでも変えられる。**
+    // 掛けるのは `Radius` を持つ枠だけ（`B.area`。単体攻撃には掛けない）
+    if (aim == null && mcn === 1 && idBy[who]) {
+      var arE = (B.area || {})[idBy[who]] || {}, hasAr = false, ak;
+      for (ak in arE) { if (ak.indexOf('Ex') === 0) { hasAr = true; } }
+      if (hasAr) {
+        for (pz2 = 0; pz2 < subsP.length; pz2++) {
+          if (subsP[pz2].tr && subsP[pz2].spn > 1) {
+            aim = pz2; mcn = subsP[pz2].spn; hbo = 1;
+            res.notes.push('「' + ln.trim() + '」は範囲攻撃なので ' + subsP[pz2].n + ' ' + mcn +
+                           ' 体とボス本体に当てました（' + subsP[pz2].spnw + '）');
+            break;
+          }
+        }
       }
     }
     if (aim != null) {
@@ -829,7 +849,7 @@ export function parseTL(txt) {
     if (fseq) { frm = fseq[0]; rep = fseq.length; }
     var one = { i: who, md: tm.md, t: tm.t == null ? 0 : tm.t, tg: aim, f: frm, mc: mcn,
                 // 分を省いた残り時間。**分は `applyTL1` が置いた順から決める**
-                rem: remKeep,
+                rem: remKeep, hb: hbo,
                 to: toL.length ? (toL.length > 1 ? toL : toL[0]) : null,
                 cv: tm.cv == null ? null : tm.cv,
                 copy: (/C[^\s]*$/i.test(nrm(noParen).replace(/^[^C]*?(?=C)/, '')) &&

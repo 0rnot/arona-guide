@@ -182,6 +182,8 @@ export function applyTL1(p) {
     var row = { i: u.i, t: u.md === 't' ? u.t : Math.min(dur, prev + 0.01),
                 to: tt2, ov: tt2, f: u.f == null ? null : u.f,
                 tg: u.tg == null ? null : u.tg, mc: u.mc == null ? 1 : u.mc,
+                // **ボス本体にも当たる**（範囲攻撃。`total0` と `dmgCurve0` が見る）
+                hb: u.hb ? 1 : 0,
                 bt: tt2, bto: tt2,
                 md: u.md, cv: u.cv };
     st.tl.push(row);
