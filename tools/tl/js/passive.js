@@ -2,7 +2,7 @@ import { B, S } from './util.js';
 import { MAIN_MAX, SLOTS, isMain, live, memo, mkSlot, slotOf, st } from './core.js';
 import { diff } from './boss.js';
 import { ENVI, SI, clamp, mkStats } from './stats.js';
-import { liveBuffs } from './target.js';
+import { fits, liveBuffs } from './target.js';
 
 // ------------------------------------------------------------ 常時のパッシブ
 // **効かせ方は SchaleDB の statpreview に合わせる**。
@@ -34,7 +34,7 @@ export function passiveList() {
         var mx = slot === 'ExtraPassive' ? sl0.sslv : sl0.plv;
         var lv = Math.min(mx, vals.length) || 1;
         out.push({ owner: i, slot: slot, tg: e[0] || [], stat: e[1],
-                   ch: e[2], v: vals[lv - 1] || 0 });
+                   ch: e[2], v: vals[lv - 1] || 0, rs: e[6] || null });
       }
     }
   }
@@ -61,6 +61,12 @@ export function passiveFor(idx) {
       if (e.tg[q] === 'Self' && e.owner === idx) { hit = true; }
     }
     if (!e.tg.length && e.owner === idx) { hit = true; }
+    // **常時パッシブも条件を見る**（2026-09-03）。時限バフ側（`liveBuffs0`）は
+    // 前から `fits()` を当てていたが、こちらは `Restrictions` を落としていた。
+    // ナギサの「**爆発タイプの**味方の会心ダメージ率 +24.2%」が弾種に関係なく
+    // 全員に乗っていて、ノゾミ（Sonic）の EX が 1.249 倍に膨らんでいた。
+    // データ全体で 6 行（弾種 4・クラス 1・ほか）
+    if (hit && !fits(e.rs, 'ally' + idx, diff())) { hit = false; }
     if (hit) { out.push(e); }
   }
   return out;
