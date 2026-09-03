@@ -703,6 +703,14 @@
 .tlapp .cgrip .fold[aria-expanded="false"] .cv { transform:none;
   border-right:0; border-left:5px solid var(--tx2); }
 
+/* ---- 吹き出し。**標準の `title` はカーソルの真下に出るので、大きいカーソルだと
+   隠れる**（2026-09-03 の先生の指摘）。カーソルの右上へ離して出す */
+.tipbox { position:absolute; z-index:9999; pointer-events:none;
+  max-width:340px; padding:4px 7px; border-radius:var(--r1,3px);
+  background:#0b0f16; border:1px solid var(--gb,#2a3242); color:var(--tx1,#e6ebf2);
+  font-size:11px; line-height:1.5; white-space:pre-line;
+  box-shadow:0 4px 14px rgba(0,0,0,.55); }
+
 /* ---- パネルの高さ。**隙間そのものを掴む**（余白を増やさない） */
 .tlapp .pane { position:relative; }
 .tlapp .vgrip { position:absolute; left:0; right:0; bottom:calc(var(--s2) * -1);

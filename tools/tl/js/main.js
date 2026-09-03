@@ -28,6 +28,7 @@ import { drawCrew, drawParty, drawPicker, fillBuild, fillFilters } from './left.
 import { fillBoss } from './bossui.js';
 import { wireBoss } from './wire-boss.js';
 import { wireFold } from './wire-fold.js';
+import { wireTip } from './tip.js';
 import { wireSize } from './wire-size.js';
 import { wireParty } from './wire-party.js';
 import { wireBuild } from './wire-build.js';
@@ -69,3 +70,4 @@ wirePicker();
 wireUse();
 wireRows();
 wireMouse();
+wireTip();
