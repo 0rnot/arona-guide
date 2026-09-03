@@ -159,7 +159,7 @@ export function fillBuild() {
       n0(cs.get('CriticalPoint')) + '</b>／会心ダメージ <b>' +
       (cs.get('CriticalDamageRate') / 100).toFixed(0) + '%</b>' +
       (b.wstar >= 4 && !isMain(st.who) ? '　固有★4 でコスト上限 +0.5' : '')
-    : 'これから編成に入れる子に使う既定です。ここを変えても、いま入っている子は変わりません。';
+    : '';
 }
 // **バーで倍率を選ぶ。**候補は左が一番低い倍率
 // **通常スキルが「味方1人」の子は、渡し先を枠ごとに決める。**

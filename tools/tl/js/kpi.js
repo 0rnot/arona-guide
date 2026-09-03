@@ -1,20 +1,18 @@
-import { $, B, S, esc, img } from './util.js';
+import { $, B, esc, img } from './util.js';
 import { LAY, SLOTS, TE, st } from './core.js';
 import { boss, crewCount, diff } from './boss.js';
 import { engIn, kindOf, recPower, whyOf } from './engine.js';
 import { costRun } from './chart.js';
 import { SCEN, scen, scenIx } from './scen.js';
 import { poolName, poolOrder } from './pool.js';
-import { awayDrop, carryIn, killAt, partyCalc, scoreOf, secLab } from './carry.js';
+import { carryIn, killAt, partyCalc, scoreOf, secLab } from './carry.js';
 import { n0 } from './rate.js';
-import { nsInfo, nsWhy } from './ns.js';
 import { exKind, usesSorted } from './buff.js';
 import { isSingle } from './target.js';
 import { altList, altOf } from './alt.js';
 import { dmgOf } from './dmg.js';
 import { clearStat, total } from './clear.js';
 import { PH_T, drawOrd, resetOrdKey } from './ord.js';
-import { bstLabel } from './bossui.js';
 
 export function kpi() {
   var r = diff(), hp = (r.bs && r.bs.hp) || 0, t = total(r), run = costRun(r.dur || 240);
@@ -156,210 +154,62 @@ export function whenOf(row) {
   return '';
 }
 export function drawErr() {
-  var r = diff(), out = [];
-  out.push(['g', boss().n + ' ' + r.df + ' を読み込みました']);
-  if (!crewCount()) { out.push(['w', '編成が空です。左から生徒を選んでください']); }
-  if (r.fb && r.fb.length) {
-    out.push(['w', 'この難易度はビヘイビアツリーが無いので Normal の木で埋めています（' + r.fb.join(' ') + '）']);
-  }
-  if (!r.per) { out.push(['w', '通常スキルの長さが引けないので、EX はゲージぶんだけです']); }
-  var run = costRun(r.dur || 240);
-  if (!st.tl.length) {
-    out.push(['w', 'EX レーンをクリックするとスキルが置けます（グリッド移動の刻みに吸い付きます）']);
-  } else {
-    out.push(['g', 'スキルを ' + st.tl.length + ' 個置いています（終わりのコスト ' + run.end.toFixed(2) + '）']);
-  }
-  for (var q = 0; q < run.bad.length; q++) {
-    var br = run.bad[q], bp = st.party[br.e.i], bk = kindOf(br);
-    out.push([bk === 'over' ? 'e' : 'w',
+  // **画面に出すのは「先生が直せること」だけ**（2026-09-03 の先生の指示
+  // 「注釈とかマジでいらないから全箇所」「画面に入れるべき情報と TL tool を
+  // テストする時の注意点を混同しないで」）。道具の限界・突き合わせの経過・
+  // 使い方の案内は全部やめた。前は 20 行以上の文章がここに常時出ていた。
+  // **1 件も無ければ枠ごと消える**（空の枠が余白になるので）
+  var r = diff(), out = [], run = costRun(r.dur || 240), q;
+  // 出せない 1 発
+  for (q = 0; q < run.bad.length; q++) {
+    var br = run.bad[q], bp = st.party[br.e.i];
+    out.push([kindOf(br) === 'over' ? 'e' : 'w',
       ((bp && bp.n) || '?') + ' ' + whenOf(br) + '：' + whyOf(br)]);
   }
-  // **渡し先が決まっていないものを名指しで出す。**実物の TL を写していて、
-  // セイアのコスト減少カードの渡し先を決め忘れると、後半が 20 秒ぶんまるごと
-  // 撃てなくなった（2026-09-01）。黙って損をするので、ここで知らせる
-  for (var w1 = 0; w1 < run.sim.rows.length; w1++) {
-    var wr = run.sim.rows[w1];
+  // 渡し先が決まっていない 1 発
+  for (q = 0; q < run.sim.rows.length; q++) {
+    var wr = run.sim.rows[q];
     if (!wr.d || wr.at == null) { continue; }
     if (wr.grant && wr.grant.sd !== 'self' && wr.to == null) {
       out.push(['w', wr.d.n + ' ' + whenOf(wr) + '：コスト' +
-        (wr.grant.vt === 'coef' ? '減少' : '増加') + 'カードの渡し先が決まっていません' +
-        '（帯をクリックして選びます）']);
+        (wr.grant.vt === 'coef' ? '減少' : '増加') + 'カードの渡し先']);
     }
     if (TE.ovlMs(wr.d) && wr.e.ov == null) {
-      out.push(['w', wr.d.n + ' ' + whenOf(wr) + '：オーバーコストの渡し先が' +
-        '決まっていません（帯をクリックして選びます）']);
+      out.push(['w', wr.d.n + ' ' + whenOf(wr) + '：オーバーコストの渡し先']);
     }
     if (wr.d.sp && wr.d.sp.copy && wr.e.bt == null) {
-      out.push(['w', wr.d.n + ' ' + whenOf(wr) + '：カードを複製する相手が' +
-        '決まっていません（帯をクリックして選びます）']);
+      out.push(['w', wr.d.n + ' ' + whenOf(wr) + '：カードを複製する相手']);
+    }
+    if (wr.e.bto == null && isSingle(wr.d.id, exKind(wr.fi))) {
+      out.push(['w', wr.d.n + ' ' + whenOf(wr) + '：バフを渡す相手']);
     }
   }
-  var pl = TE.pool(engIn([], r.dur || 240));
-  if (pl.efs.length) {
-    var parts = [], pq;
-    for (pq = 0; pq < pl.efs.length; pq++) {
-      var pe = pl.efs[pq];
-      parts.push(pe.m.d.n + ' ' + (pe.e.k === 'b' ? '+' + pe.v : '+' + (pe.v / 100) + '%'));
-    }
-    out.push(['g', 'コスト回復力（常時ぶん） ' + Math.round(pl.total) + ' ＝ 基礎 ' +
-      (S.base * pl.ms.length) + '（' + pl.ms.length + '人）＋ ' + parts.join('・') +
-      '。持続するものは、その EX を撃った時刻から効きます']);
-  } else {
-    out.push(['g', 'コスト回復力 ' + Math.round(pl.total) + '（基礎だけ。1 人 ' + S.base + '）']);
-  }
-  var sb1 = run.sim.IN._sb;
-  if (sb1) {
-    out.push(['g', '開始コスト ' + (Math.round(sb1.amt * 100) / 100) + '（' + sb1.d.n +
-      ' ノーマル Lv' + sb1.lv + (sb1.per ? '／' + sb1.n + ' 人ぶん' : '') + '）' +
-      (sb1.off.length ? '／' + sb1.off.join('・') + ' は不発' : '')]);
-  }
-  for (var y = 0; y < SLOTS; y++) {
-    var yp = st.party[y];
-    if (!yp || nsInfo(yp.id)) { continue; }
-    out.push(['w', yp.n + ' の通常スキルは置いていません：' + nsWhy(yp.id)]);
-  }
-  out.push(['w', '通常攻撃は「ずっと撃ち続けられる」前提で数えています。移動・遮蔽・' +
-    '射程外・敵の数は入っていないので、そのぶん多めに出ます']);
-  // **「味方1人」の渡し先が決まっていないものを名指しする**（2026-09-01）
-  for (var s1 = 0; s1 < run.sim.rows.length; s1++) {
-    var sr0 = run.sim.rows[s1];
-    if (!sr0.d || sr0.at == null || sr0.e.bto != null) { continue; }
-    if (!isSingle(sr0.d.id, exKind(sr0.fi))) { continue; }
-    out.push(['w', sr0.d.n + ' ' + (sr0.e.t == null ? '' : sr0.e.t.toFixed(2) + '秒') +
-      '：バフを渡す相手が決まっていません（帯をクリックして選びます）']);
-  }
-  for (var s2 = 0; s2 < SLOTS; s2++) {
-    var np = st.party[s2];
-    if (!np || st.slots[s2].nsto != null) { continue; }
+  for (q = 0; q < SLOTS; q++) {
+    var np = st.party[q];
+    if (!np || st.slots[q].nsto != null) { continue; }
     if (!isSingle(np.id, 'Public') && !isSingle(np.id, 'GearPublic')) { continue; }
-    out.push(['w', np.n + '：通常スキルのバフを渡す相手が決まっていません（左の「バフを渡す相手」で選びます）']);
+    out.push(['w', np.n + '：通常スキルのバフを渡す相手']);
   }
-  // **形態を選ばないとダメージが 0 のままの子がいる**（2026-09-01）。
-  // アリス（臨戦）・ミカ（水着）・ラブ・キサキ（水着）・シュン（水着）・トキ・
-  // ノア（パジャマ）・イブキ は、本体の EX が「選択メニュー」だったり、
-  // 何発目でどの形態になるかが回数で決まらなかったりするので、engine が
-  // `pick` として形態 1 のまま置く（`tools/tl-engine.js` の `FORM_RULE`）。
-  // **黙って 0 になると、貼った TL が丸ごと軽く出る**ので名指しで出す
+  // 形態を選ばないとダメージが 0 のままの子
   var zf = {}, zn = [];
   function zHas(id, k) { return !!((B.dmg[id] || {})[k] || altOf(id, k)); }
-  for (var z1 = 0; z1 < run.sim.rows.length; z1++) {
-    var zr = run.sim.rows[z1];
+  for (q = 0; q < run.sim.rows.length; q++) {
+    var zr = run.sim.rows[q];
     if (!zr.d || zr.at == null || !zr.fl || zr.fl.length < 2) { continue; }
-    // **自分で形態を選んである行は言わない**（アリス（臨戦）の「(チャージ)」は
-    // ダメージ 0 で正しい）。engine が回数で決めている子（`hold`/`alt`）も
-    // 選びようがないので言わない。残るのは `pick` で未指定のときだけ
     if (zr.e && zr.e.f != null) { continue; }
     if (TE.FORM_RULE[zr.d.id] !== 'pick') { continue; }
     if (zHas(zr.d.id, exKind(zr.fi))) { continue; }
-    // **そもそも全部の形態にダメージが無い子は、選んでも 0 のまま。**
-    // イブキ（水着）の「イブキのお友達！／どれがいいかな？」がそれで、
-    // 支援の子を名指ししても直しようがない（2026-09-01 にビナーの TL で気づいた）
-    var zAny = false;
-    for (var z2 = 0; z2 < zr.fl.length; z2++) {
+    var zAny = false, z2;
+    for (z2 = 0; z2 < zr.fl.length; z2++) {
       if (zHas(zr.d.id, exKind(z2))) { zAny = true; break; }
     }
     if (!zAny) { continue; }
     if (!zf[zr.d.n]) { zf[zr.d.n] = 1; zn.push(zr.d.n); }
   }
-  if (zn.length) {
-    out.push(['e', zn.join('・') + ' は形態を選ばないとダメージが 0 のままです' +
-      '（帯をクリックして「形態」を選びます）']);
-  }
-  // **部位に当てたぶんの集計。**ボスの HP からは引いていないので、
-  // どれだけ当てたかはここで出す（2026-09-01）
-  var subs0 = r.sub || [];
-  if (subs0.length) {
-    var acc = {}, us0 = usesSorted(), z2, key0 = scen().key;
-    for (z2 = 0; z2 < us0.length; z2++) {
-      var u0 = us0[z2];
-      if (u0.tg == null) { continue; }
-      var d0 = dmgOf(u0.i, r, u0.t, u0.k, u0.pk, u0.tg, u0.gx);
-      if (!d0) { continue; }
-      if (!acc[u0.tg]) { acc[u0.tg] = { n: 0, v: 0, mc: 0 }; }
-      acc[u0.tg].n++; acc[u0.tg].v += d0[key0] * (u0.mc || 1);
-      acc[u0.tg].mc = Math.max(acc[u0.tg].mc, u0.mc || 1);
-    }
-    var kz;
-    for (kz in acc) {
-      var sb0 = subs0[kz] || {};
-      var hpUnk = sb0.hpCopy || !sb0.hp;
-      out.push([hpUnk ? '' : (acc[kz].v >= sb0.hp ? 'g' : 'w'),
-        sb0.n + '（HP ' + (hpUnk ? '不明' : n0(sb0.hp)) + '）へ ' + acc[kz].n + ' 発・' +
-        n0(Math.round(acc[kz].v)) + '　' +
-        (hpUnk ? '（部位の HP はデータに無いので、壊せるかは分かりません）' : (acc[kz].v >= sb0.hp ? '壊せます' : '壊しきれません')) + '。' +
-        (sb0.tr
-          ? 'ここに当てたぶんは ' + sb0.tr + '% がボスへ転移します（' + sb0.trw + '）'
-          : 'ここに当てたぶんはボスの HP から引いていません')]);
-    }
-    if (!Object.keys(acc).length) {
-      // **名前が同じ行が並ぶことがある**（聖歌隊が 6 行、ペロロミニオンが 11 行）。
-      // 一覧に出すときは名前で畳む
-      var nm0 = [], z4;
-      for (z4 = 0; z4 < subs0.length; z4++) {
-        if (nm0.indexOf(subs0[z4].n) < 0) { nm0.push(subs0[z4].n); }
-      }
-      out.push(['w', 'このボスには部位が ' + nm0.length + ' 種あります（' +
-        nm0.join('・') + '）。柱や装置に撃つ行は、' +
-        '帯をクリックして「当たる先」を選びます']);
-    }
-    // **転移する部位は、当てないとボスの HP が減らない。**名指しで出す
-    var trn = [], z5;
-    for (z5 = 0; z5 < subs0.length; z5++) {
-      if (subs0[z5].tr && trn.indexOf(subs0[z5].n) < 0) { trn.push(subs0[z5].n); }
-    }
-    if (trn.length) {
-      out.push([Object.keys(acc).length ? 'g' : 'e',
-        trn.join('・') + ' に当てたぶんは、そのままボスの HP から減ります' +
-        '（' + subs0[0].tr + '% 転移）。範囲攻撃なら当たった数だけ入るので、' +
-        '帯の「当たる先」でその部位を選んで、「当たる数」に体数を入れてください。' +
-        'TL が「（左聖歌隊 5体）」のように書いていれば読み込みが拾います']);
-    }
-  }
-  // **この道具が自分では決めないもの。**盤の上で起きることは時刻も数もデータに無い
-  // （2026-09-01 に 14 体を TL 動画と突き合わせて、先生と線を引いた）
-  out.push(['w', '当たる先・当たる数・ボスの状態は、この道具が自分では決めません。' +
-    '範囲攻撃が何体に当たるか、ギミックがいつ入るか、部位がいつ出てくるかは' +
-    'データに無いので、置くのは先生です']);
-  var nalt = altList().length;
-  if (nalt) {
-    out.push(['w', '条件でダメージが変わるスキルが ' + nalt +
-      ' つあります。左の「倍率の幅」のバーで選べます' +
-      '（段だけで割れているものは、撃った回数から自動で決めています）']);
-  }
-  out.push(['w', 'バフは EX・NS・PS・固有武器・SS の全部を見ています。' +
-    '乗せていないのは SS の発動ぶん 87 件（引き金が要るもの）だけです']);
-  out.push(['w', 'SS のダメージと遮蔽はまだ入っていません']);
-  if (st.bst.length) {
-    var bh = [], z3;
-    for (z3 = 0; z3 < st.bst.length; z3++) {
-      var w3 = st.bst[z3];
-      bh.push(bstLabel(w3.k) + (w3.k === 'away' || w3.k === 'mob' || w3.k === 'groggy' ? '' : ' ' + (w3.v >= 0 ? '+' : '') + w3.v +
-              (w3.k === 'damaged' || w3.k === 'def' ? '%' : '')) +
-              '（' + (+w3.t0).toFixed(1) + '〜' + (+w3.t1).toFixed(1) + '秒）');
-    }
-    out.push(['g', 'ボスの状態を ' + st.bst.length + ' つ置いています：' + bh.join('・')]);
-    var ad = awayDrop(r);
-    if (ad.sec) {
-      out.push(['g', 'ボスに当たらない区間が合計 ' + ad.sec.toFixed(1) + ' 秒。その間の EX ' +
-        ad.ex + ' 発・NS ' + ad.ns + ' 発・通常攻撃 ' + ad.na + ' 発は数えていません']);
-    }
-  } else {
-    var gmN = (diff().gim || []).length;
-    out.push(['w', 'ボスの状態は置いていません。' + (gmN
-      ? 'このボスの説明文からは ' + gmN + ' 件の候補が拾えています（「ギミックから選ぶ」）。'
-      : '14 体のうち 11 体が被ダメージ率を動かします。') +
-      '**引き金はデータから時刻を決められない**ので、' +
-      '「ボスの状態」で効いている間を置いてください']);
-  }
-  out.push(['w', '通常攻撃はいつもボス本体に当たる前提です。' +
-    '柱や装置に撃つ EX は、帯をクリックして「当たる先」を選べます']);
-  // **実測 2 本との突き合わせ**（2026-09-01）。下の「数字の出どころ」に詳しい
-  out.push(['w', '実物の TL と突き合わせています。大決戦ホド Torment 貫通・屋内は ' +
-    '「ミカ最終弾後」の残 HP が 実測 7,322,787 に対して 平均 7,765,262（−4.1%）、' +
-    '大決戦ビナー Torment 貫通・屋外は TL 1 ページ目の終わりが ' +
-    '実測 残 2,754,853 に対して 全会心平均 3,057,691（−1.5%）です。' +
-    'ボスによっては、これより大きく外れます（下の「数字の出どころ」）']);
+  if (zn.length) { out.push(['e', zn.join('・') + '：形態']); }
+  var pane = $('errlog').closest('.pane');
+  if (pane) { pane.hidden = !out.length; }
   $('errlog').innerHTML = out.map(function (x) {
-    return '<div class="' + x[0] + '">' + (x[0] === 'g' ? '✔ ' : (x[0] === 'e' ? '✕ ' : '▸ ')) + esc(x[1]) + '</div>';
+    return '<div class="' + x[0] + '">' + (x[0] === 'e' ? '\u2715 ' : '\u25b8 ') + esc(x[1]) + '</div>';
   }).join('');
 }

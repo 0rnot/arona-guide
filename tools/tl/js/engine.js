@@ -97,6 +97,11 @@ export function orderOf() {
     //  87.7 秒のネルより前に回っていた）
     var rr = simOf(out, dur).rows, last = rr[rr.length - 1];
     if (last && last.at != null && last.at > prev) { prev = last.at; }
+    // **「最短」の行にも解けた時刻を残す**（2026-09-03 の 34。コスト指定だけに
+    // 入れていたので、最短の行は時刻の欄が「—」のまま、並びも `u.t` のままだった）
+    if (u.md === 'e' || u.md === 'c') {
+      if (last && last.at != null) { u._rt = last.at; }
+    }
   }
   return out;
 }
@@ -121,11 +126,8 @@ export function kindOf(row) {
 export function whyOf(row) {
   var k = kindOf(row);
   if (!k) { return ''; }
-  if (k === 'over') { return 'コストの上限を超えていて撃てません'; }
-  if (k === 'busy') {
-    return 'この子がまだ前のスキルの演出中なので、実際に出るのは ' + TE.n1(row.at) + ' 秒';
-  }
-  return 'コストが足りず、実際に出るのは ' + TE.n1(row.at) + ' 秒';
+  if (k === 'over') { return 'コスト上限超え'; }
+  return (k === 'busy' ? '演出中' : 'コスト不足') + ' \u2192 ' + TE.n1(row.at) + ' 秒';
 }
 export var _simC = null, _simK = '';
 export function sim() {

@@ -172,11 +172,11 @@ export function drawGroggy() {
   }
   var wk = (S.labels && S.labels.BulletType && S.labels.BulletType[b.gwk]) || b.gwk || '';
   var how = b.gc || (wk ? wk + 'ダメージを受けると増加する。' : '');
+  // **数字だけ画面に出して、言葉は吹き出しへ畳む**（2026-09-03 の先生の指示
+  // 「注釈とかマジでいらないから全箇所」）。前はここに 3 つの文が常時出ていた
+  var tip = (how ? how : '') + (acts.length ? '　' + acts.join('・') : '');
   $('groggy').innerHTML =
     '<b>グロッキー</b> ゲージ ' + n0(bs.groggy) + '／' +
     ((bs.groggyT || 0) / 1000) + ' 秒' +
-    (how ? '　' + esc(how) : '') +
-    '　' + (acts.length ? esc(acts.join('・'))
-                        : 'このボスは木に分岐が無く、行動は変わりません') +
-    '　<span class="warn">被ダメージが増える指定はデータにありません</span>';
+    (tip ? ' <button type="button" class="qm" data-hint="' + esc(tip) + '">?</button>' : '');
 }

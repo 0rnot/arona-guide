@@ -116,15 +116,10 @@ export function drawRate() {
   $('rate').innerHTML = hd + h;
   var g = $('goal-note');
   if (!g) { return; }
-  if (!hp) { g.textContent = '目標: — ／ ダメージ計算がまだなので空です'; return; }
-  g.textContent = '目標: ' + n0(goal) + ' ダメージ ／ ' + mmss(sec, 0) + ' 以内' +
-    (st.goal ? '' : '（既定はボスの最大HPと制限時間）') +
-    '　EX ' + t.ex.n + ' 発＋NS ' + t.ns.n + ' 発＋通常攻撃 ' + t.na.n + ' 発ぶん' +
-    '（置いた EX ' + st.tl.length + ' 発のうち、ダメージを持つのは ' + t.ex.n +
-    ' 発。SS は常時ぶんをステータスに乗せています）' +
-    (spread ? '　倍率の幅を持つスキルが ' + altList().length +
-      ' 枠あります。行の数字は今の個別設定のままで、' +
-      '「下振れ／上振れ」は幅もいちばん低い／高い候補に寄せたときです。' : '');
+  if (!hp) { g.textContent = ''; return; }
+  g.innerHTML = esc(n0(goal)) + ' ／ ' + esc(mmss(sec, 0)) +
+    '　EX ' + t.ex.n + '／' + st.tl.length + '　NS ' + t.ns.n + '　通常 ' + t.na.n +
+    (spread ? '　\u25c7 ' + altList().length : '');
 }
 export function cell(frac, txt) {
   return '<td class="v"><span class="cell"><span class="bar"><i style="width:' +

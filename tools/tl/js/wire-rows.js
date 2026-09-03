@@ -1,5 +1,5 @@
 import { $, mmss, view } from './util.js';
-import { bump, st } from './core.js';
+import { TE, bump, st } from './core.js';
 import { mark, redo, undo } from './undo.js';
 import { autoFill, delSel, snap } from './uses.js';
 import { diff } from './boss.js';
@@ -11,7 +11,7 @@ import { clamp } from './stats.js';
 import { toList } from './target.js';
 import { sheet, snapshot } from './io.js';
 import { importSheet } from './import-ui.js';
-import { drawRows, rowAdd, rowSwap, rowsToggle } from './rows.js';
+import { MD3, drawRows, rowAdd, rowMove, rowOrder, rowSeek, rowSwap, rowsToggle } from './rows.js';
 import { syncTabs } from './wire-boss.js';
 import { onAlt } from './wire-build.js';
 import { onUse } from './wire-use.js';
@@ -110,15 +110,87 @@ export function wireRows() {
     var row = b.closest('.trow'), ix = row ? +row.getAttribute('data-ix') : -1;
     if (!st.tl[ix]) { return; }
     if (k === 'del') {
+      // **消したら次の行を選んだままにする**（2026-09-03 の 32。
+      // 続けて消すたびに探し直しになっていた）
       mark();
+      var od = rowOrder(), po = od.indexOf(ix);
+      var nx = od[po + 1] != null ? st.tl[od[po + 1]]
+             : (po > 0 ? st.tl[od[po - 1]] : null);
       st.tl.splice(ix, 1);
-      if (st.sel === ix) { st.sel = null; } else if (st.sel != null && st.sel > ix) { st.sel--; }
+      var ni = nx ? st.tl.indexOf(nx) : -1;
+      st.sel = ni >= 0 ? ni : null;
+      draw(); return;
+    }
+    if (k === 'md1') {
+      // 秒 → コスト → 最短 → 秒。**押すたびに 1 つ回る**（35）
+      mark();
+      var cm = MD3.indexOf(b.getAttribute('data-md'));
+      var u2 = st.tl[ix];
+      u2.md = MD3[(cm + 1) % MD3.length];
+      if (u2.md === 'c' && u2.cv == null) { u2.cv = 10; }
+      if (u2.md === 't' && u2._rt != null) { u2.t = u2._rt; }
+      draw(); return;
+    }
+    if (k === 'f1') {
+      // 形態。自動 → 1 → 2 …→ 自動（36）
+      mark();
+      var u3 = st.tl[ix], d3 = st.party[u3.i], nf = d3 ? TE.forms(d3).length : 0;
+      if (!nf) { return; }
+      u3.f = (u3.f == null || u3.f === '') ? 0 : (+u3.f + 1 >= nf ? null : +u3.f + 1);
       draw(); return;
     }
     if (k === 'up') { rowSwap(ix, -1); return; }
     if (k === 'dn') { rowSwap(ix, 1); return; }
-    if (k === 'det') { st.sel = (st.sel === ix ? null : ix); draw(); }
+    if (k === 'det') { st.sel = (st.sel === ix ? null : ix); draw(); rowSeek(ix); }
   });
+  // **行のどこを押しても、その 1 発を選ぶ。**摘みと入力欄の上は今までどおり
+  $('rowlist').addEventListener('mousedown', function (e) {
+    if (e.target.closest('button, select, input, .fields')) { return; }
+    var row = e.target.closest('.trow');
+    if (!row || row.classList.contains('add')) { return; }
+    var ix = +row.getAttribute('data-ix');
+    if (!st.tl[ix] || st.sel === ix) { return; }
+    st.sel = ix; draw(); rowSeek(ix);
+  });
+  // **行を掴んで運ぶ**（30）。掴めるのは左端の番号だけ（入力欄の文字は選べるまま）
+  (function () {
+    var from = -1;
+    function clr() {
+      var a = $('rowlist').querySelectorAll('.trow.drop'), i;
+      for (i = 0; i < a.length; i++) { a[i].classList.remove('drop', 'dn'); }
+    }
+    $('rowlist').addEventListener('dragstart', function (e) {
+      var row = e.target.closest('.trow');
+      if (!row || row.classList.contains('add')) { return; }
+      from = +row.getAttribute('data-ix');
+      if (e.dataTransfer) { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', String(from)); }
+    });
+    $('rowlist').addEventListener('dragover', function (e) {
+      if (from < 0) { return; }
+      var row = e.target.closest('.trow');
+      if (!row || row.classList.contains('add')) { return; }
+      e.preventDefault();
+      var r = row.getBoundingClientRect(), dn = e.clientY > r.top + r.height / 2;
+      clr();
+      row.classList.add('drop');
+      if (dn) { row.classList.add('dn'); }
+    });
+    $('rowlist').addEventListener('drop', function (e) {
+      if (from < 0) { return; }
+      var row = e.target.closest('.trow');
+      e.preventDefault(); clr();
+      if (row && !row.classList.contains('add')) {
+        var to = +row.getAttribute('data-ix'), od = rowOrder();
+        var pf = od.indexOf(from), pt = od.indexOf(to);
+        var r2 = row.getBoundingClientRect();
+        if (e.clientY > r2.top + r2.height / 2) { pt++; }
+        if (pf >= 0 && pt > pf) { pt--; }
+        rowMove(from, pt);
+      }
+      from = -1;
+    });
+    $('rowlist').addEventListener('dragend', function () { clr(); from = -1; });
+  })();
   // シナリオの切り替え。**上の数字も達成率の表も図も同じものを見る**
   $('kpi').addEventListener('change', function (e) {
     if (e.target.id !== 'k-scen') { return; }

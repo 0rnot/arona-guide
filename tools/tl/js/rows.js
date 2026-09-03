@@ -1,6 +1,6 @@
 import { $, B, esc, img } from './util.js';
-import { SLOTS, live, st } from './core.js';
-import { mark } from './undo.js';
+import { SLOTS, TE, live, st } from './core.js';
+import { UNDO, mark } from './undo.js';
 import { addUse, exCost } from './uses.js';
 import { crewCount, diff } from './boss.js';
 import { sim } from './engine.js';
@@ -105,9 +105,31 @@ export function rowTo(u, kd) {
   }
   return '<span class="tos">' + h + '</span>';
 }
+// **撃つタイミングは 1 クリックで回す**（2026-09-03 の 35。プルダウンをやめた）。
+// 時計＝秒で指定／菱形＝コストで指定／稲妻＝最短。**言葉は出さない**
+export var MD3 = ['t', 'c', 'e'];
+export var MDSVG = {
+  t: '<svg viewBox="0 0 12 12"><circle cx="6" cy="6" r="4.5" fill="none" ' +
+     'stroke="currentColor" stroke-width="1.2"/><path d="M6 3.3V6.3L8.1 7.6" fill="none" ' +
+     'stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>',
+  c: '<svg viewBox="0 0 12 12"><path d="M6 .9 11.1 6 6 11.1.9 6Z" fill="none" ' +
+     'stroke="currentColor" stroke-width="1.3"/></svg>',
+  e: '<svg viewBox="0 0 12 12"><path d="M7.1.8 2.4 6.9h2.6L4.9 11.2 9.6 5.1H7Z"/></svg>'
+};
+export var MDJA = { t: '秒で指定', c: 'コストで指定', e: '最短' };
+/** 形態の印（2026-09-03 の 36）。**番号だけ。**自動で選ばれているときは薄く、
+    手で決めたときは濃く出す。押すと 自動 → 1 → 2 …→ 自動 と回る */
+export function rowForm(u, er) {
+  var d = st.party[u.i], fl = d ? TE.forms(d) : [];
+  if (!d || fl.length < 2) { return '<span class="fmz"></span>'; }
+  var au = er ? er.auto : 0, cur = (u.f == null || u.f === '') ? au : +u.f;
+  return '<button type="button" class="btn2 sq fm' + (u.f == null ? ' auto' : '') +
+    '" data-tr="f1" title="形態 ' + esc((fl[cur] || {}).n || '') + '">' +
+    (cur + 1) + '</button>';
+}
 export function drawRows() {
   if (!ROWS) { return; }
-  var h = '', ord = rowOrder(), i, z, sm = sim(), rowOf = {};
+  var h = '', sm = sim(), ord = rowOrder(), i, z, rowOf = {};
   for (z = 0; z < sm.rows.length; z++) {
     if (sm.rows[z].e && sm.rows[z].e._ix != null) { rowOf[sm.rows[z].e._ix] = sm.rows[z]; }
   }
@@ -116,20 +138,19 @@ export function drawRows() {
     var p = st.party[u.i], er = rowOf[ix] || null, kd = exKind(er ? er.fi : 0);
     h += '<div class="trow' + (on ? ' on' : '') + (er && er.why ? ' bad' : '') +
       '" data-ix="' + ix + '">' +
-      '<span class="ix">' + (i + 1) + '</span>' +
+      '<span class="ix" draggable="true">' + (i + 1) + '</span>' +
       kindMark(u.i, kd) +
       (p ? img(p.id, 'ic') : '') +
       '<select data-tr="who">' + rowWho(u.i) + '</select>' +
-      '<select data-tr="md">' +
-      '<option value="t"' + (md === 't' ? ' selected' : '') + '>時間</option>' +
-      '<option value="c"' + (md === 'c' ? ' selected' : '') + '>コスト</option>' +
-      '<option value="e"' + (md === 'e' ? ' selected' : '') + '>最短</option></select>' +
+      '<button type="button" class="btn2 sq md1" data-tr="md1" data-md="' + md +
+      '" title="' + MDJA[md] + '">' + MDSVG[md] + '</button>' +
       (md === 'e' ? '<span class="rv"></span>'
         : '<input class="rv" type="number" data-tr="v" min="0" step="' +
           (md === 'c' ? '0.5' : '0.1') + '" value="' +
           (md === 'c' ? (u.cv == null ? 10 : u.cv) : (+u.t).toFixed(2)) + '">') +
       '<span class="rt" title="実際に出る時刻">' +
       (md === 't' ? '' : (u._rt == null ? '—' : rowTime(u).toFixed(2))) + '</span>' +
+      rowForm(u, er) +
       rowTo(u, kd) +
       '<span class="sp"></span>' +
       '<button type="button" class="btn2 sq" data-tr="up" title="1 つ前と入れ替える">▲</button>' +
@@ -141,8 +162,13 @@ export function drawRows() {
       '</div>' +
       (on ? '<div class="fields wrapf tdet" id="trdet"></div>' : '');
   }
+  // **消したものを戻す導線を行のそばに置く**（2026-09-03 の 38。
+  // Ctrl+Z を知っている人しか戻せなかった）
   h += '<div class="trow add"><span class="ix"></span>' +
-    '<button type="button" class="btn2 sq" data-tr="add" title="末尾に 1 発足す">\uff0b</button></div>';
+    '<button type="button" class="btn2 sq" data-tr="add" title="末尾に 1 発足す">\uff0b</button>' +
+    '<span style="flex:1 1 auto"></span>' +
+    '<button type="button" class="btn2 sq" data-act="undo" title="元に戻す"' +
+    (UNDO.length ? '' : ' disabled') + '>\u21b6</button></div>';
   $('rowlist').innerHTML = h;
   // 「詳細」は帯クリックの窓と同じ中身。**組み直さずにそのまま写す**
   if ($('trdet')) { $('trdet').innerHTML = $('useedit').innerHTML; }
@@ -183,11 +209,39 @@ export function rowShow() {
     表は時刻の順に並ぶので、左の数字はそのままで生徒だけが入れ替わって見える。
     コスト指定の行と秒指定の行が混ざっていても、指定そのものを交換するので破綻しない */
 export function rowSwap(ix, dir) {
-  var ord = rowOrder(), at = ord.indexOf(ix), to = at + dir, k;
-  if (at < 0 || to < 0 || to >= ord.length) { return; }
+  var ord = rowOrder(), at = ord.indexOf(ix);
+  if (at < 0) { return; }
+  rowMove(ix, at + dir);
+}
+/** **行を掴んで好きな位置へ運ぶ**（2026-09-03 の 30。▲▼ は隣とだけで、
+    5 行上へ運ぶのに 5 回押していた）。入れ替えるのは `rowSwap` と同じく
+    「いつ撃つか」の指定だけ。表示の並びは時刻の順のままなので、
+    運んだ行の生徒だけが目当ての位置へ移って見える */
+export function rowMove(ix, to) {
+  var ord = rowOrder(), at = ord.indexOf(ix), K = ['md', 't', 'cv', '_rt'], i, k;
+  if (at < 0 || to < 0 || to >= ord.length || to === at) { return; }
   mark();
-  var a = st.tl[ix], b = st.tl[ord[to]], K = ['md', 't', 'cv', '_rt'], tmp;
-  for (k = 0; k < K.length; k++) { tmp = a[K[k]]; a[K[k]] = b[K[k]]; b[K[k]] = tmp; }
+  var tm = [];
+  for (i = 0; i < ord.length; i++) {
+    var o = {}, u0 = st.tl[ord[i]];
+    for (k = 0; k < K.length; k++) { o[K[k]] = u0[K[k]]; }
+    tm.push(o);
+  }
+  var seq = ord.slice();
+  seq.splice(at, 1);
+  seq.splice(to, 0, ix);
+  for (i = 0; i < seq.length; i++) {
+    var u1 = st.tl[seq[i]];
+    for (k = 0; k < K.length; k++) { u1[K[k]] = tm[i][K[k]]; }
+  }
   st.sel = ix;
   draw(); rowShow();
+}
+/** 選んだ 1 発の時刻へタイムラインを送る（2026-09-03 の 37。
+    行を選んでも帯が画面の外にいると、どれを直しているのか分からなかった） */
+export function rowSeek(ix) {
+  var u = st.tl[ix], v = $('view');
+  if (!u || !v || !st.px) { return; }
+  var x = rowTime(u) * st.px - v.clientWidth / 2;
+  v.scrollLeft = Math.max(0, x);
 }
