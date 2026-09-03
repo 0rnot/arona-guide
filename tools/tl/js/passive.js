@@ -34,7 +34,8 @@ export function passiveList() {
         var mx = slot === 'ExtraPassive' ? sl0.sslv : sl0.plv;
         var lv = Math.min(mx, vals.length) || 1;
         out.push({ owner: i, slot: slot, tg: e[0] || [], stat: e[1],
-                   ch: e[2], v: vals[lv - 1] || 0, rs: e[6] || null });
+                   ch: e[2], v: vals[lv - 1] || 0, rs: e[6] || null,
+                   ov: e[7] || null });
       }
     }
   }

@@ -1,4 +1,5 @@
 import { B } from './util.js';
+import { chSlot } from './core.js';
 
 // ------------------------------------------------------------ ダメージ
 // **式は SchaleDB の js/common.js をそのまま写している**（CharacterStats の
@@ -108,7 +109,7 @@ export function mkStats(id, o) {
   // 常時のパッシブ。同じ（枠, Channel）は先に来たほうが勝つ
   var seen = {};
   for (i = 0; i < (o.extra || []).length; i++) {
-    var ex = o.extra[i], key = ex.slot + '/' + ex.ch;
+    var ex = o.extra[i], key = chSlot(ex.slot, ex.ov) + '/' + ex.ch;
     if (ex.ch != null && seen[key]) { continue; }
     if (ex.ch != null) { seen[key] = 1; }
     // 固有武器パッシブの CriticalPoint_Base だけ別枠固定（common.js 7769 行）

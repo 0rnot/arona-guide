@@ -91,6 +91,14 @@ Object.defineProperty(st, 'party', { get: function () {
   return _pcache;
 } });
 export function slotOf(i) { return st.slots[i]; }
+// **同じ Channel が重なるかは「スキルの枠」で決まる**（LOOP.md 57）。
+// 写し元の `common.js:7723` は `{slot: effect.OverrideSlot || Skill.SkillType,
+// channel: effect.Channel}` で見ていて、**枠は SchaleDB の SkillType**
+// （`Ex` / `Public` / `GearPublic` / `Passive` / `WeaponPassive` / `ExtraPassive`）。
+// 道具の `Ex1` `Ex2` … は形態ごとに割った**こちらの都合の名前**で
+// （`build-tool-data.py:5463`）、ゲームでは同じ EX の枠。別枠に数えていたので
+// イブキ（水着）Ex1 ch111 と ナギサ（水着）Ex ch111 が二重に乗っていた
+export function chSlot(slot, ov) { return ov || String(slot).replace(/^Ex\d+$/, 'Ex'); }
 
 
 // `_mm` は core.js の持ち物。engine.js の `sim()` から捨てるための窓口

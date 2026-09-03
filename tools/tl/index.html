@@ -48,7 +48,11 @@
      左   … 編成・生徒選び・育成コスト
      右   … 育成設定の帯 ／ 道具帯 ／ タイムライン ／ ボス設定
    ============================================================ */
-.tlapp {
+/* **窓（読み込み・書き出し）は `.tlapp` の外に出る。**`import-ui.js:227` が
+   `document.body.appendChild(w)` で足すので、札を `.tlapp` にだけ置いていると
+   窓の面が透ける（2026-09-03 に子が見つけて、実物を撮って確かめた）。
+   `.sheet` にも同じ札を配る */
+.tlapp, .sheet {
   --bg0:#0c0f16; --bg1:#141821; --bg2:#1b2029; --bg3:#242b37;
   --ln:#262d3a; --ln2:#37404f; --tx:#e8ecf2; --tx2:#98a2b3; --tx3:#6d778a;
   --acc:#2f8f9e; --acc2:#c98a2e; --red:#c3384a; --red2:#7d2231; --teal:#2b7f92;
@@ -457,7 +461,7 @@
    白の透過（--g1〜--g3）と白の細い枠だけで段を作る。
    **丸角は 4 つの token しか使わない。**部品の高さも 1 つに揃える。
    ============================================================ */
-.tlapp {
+.tlapp, .sheet {
   --r1:3px;    /* いちばん小さいもの: 帯・アイコン・目盛り */
   --r2:6px;    /* 部品: ボタン・入力・タイル・カード */
   --r3:10px;   /* 面: パネル・盤・シート */
@@ -468,7 +472,10 @@
   --g3:rgba(255,255,255,.105);  /* 押されている部品 */
   --gb:rgba(255,255,255,.09);   /* 枠 */
   --gb2:rgba(255,255,255,.15);  /* 強い枠 */
-  /* ガラスが効くように、地に薄い明暗を置く */
+}
+/* ガラスが効くように、地に薄い明暗を置く。**窓には敷かない**
+   （`.sheet` の後ろは `background:#000a` の暗幕） */
+.tlapp {
   background:
     radial-gradient(1200px 600px at 12% -6%, rgba(47,143,158,.16), transparent 62%),
     radial-gradient(900px 520px at 96% 4%, rgba(201,138,46,.10), transparent 60%),
@@ -477,7 +484,7 @@
 }
 
 /* ---- 面 */
-.tlapp .pane, .tlapp .stage, .tlapp .kpi, .tlapp .sheet .card {
+.tlapp .pane, .tlapp .stage, .tlapp .kpi, .sheet .card {
   background:var(--g1); border:1px solid var(--gb); border-radius:var(--r3);
   box-shadow:none; backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);
 }
@@ -542,7 +549,8 @@
 
 /* ---- 余白と大きさをそろえる（2026-09-01 の先生の指摘
    「ボタンの大きさとか！」「余白とか！」）。**目盛りは 4 の倍数の 3 つだけ。** */
-.tlapp { --s1:4px; --s2:8px; --s3:12px; padding:var(--s2) clamp(var(--s2),1.2vw,var(--s3)) 40px; }
+.tlapp, .sheet { --s1:4px; --s2:8px; --s3:12px; }
+.tlapp { padding:var(--s2) clamp(var(--s2),1.2vw,var(--s3)) 40px; }
 
 /* 面のあいだ・面の中 */
 .tltop, .tlmain { gap:var(--s2); margin-bottom:0; }
@@ -1875,7 +1883,7 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
 <!-- **版はビルドが打つ。**`@V:<パス>` を build.py が中身の SHA1 先頭 8 桁へ差し替える
      （2026-09-03。`?v=1` の固定値だったので、index.html だけ新しくなって
      js が古いまま残り、画面が崩れた） -->
-<script src="data.js?v=a8c2494b"></script>
+<script src="data.js?v=81ad5fc1"></script>
 <script src="../cost-timeline/data.js?v=6e9ea1f5"></script>
 <script src="../tl-engine.js?v=a37dbaa9"></script>
 <script>
@@ -1899,7 +1907,7 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
 <!-- 画面の JS は tools/tl/js/ の ES モジュールに割ってある（2026-09-03）。
      束ね役は入れない。**ブラウザがそのまま読む**ので、置き方は静的ファイルのまま。
      割り方と依存の向きは tl-work/split.py と js/main.js を見る -->
-<script type="importmap">{"imports":{"./js/alt.js":"./js/alt.js?v=33d2ae9a","./js/boss.js":"./js/boss.js?v=d90f4dd2","./js/bossui.js":"./js/bossui.js?v=32476f0a","./js/buff.js":"./js/buff.js?v=1a719b6f","./js/carry.js":"./js/carry.js?v=39c8c153","./js/chart.js":"./js/chart.js?v=4c5df3cf","./js/clear.js":"./js/clear.js?v=4aef2402","./js/core.js":"./js/core.js?v=525a548b","./js/dmg.js":"./js/dmg.js?v=85bc049c","./js/draw.js":"./js/draw.js?v=e80d3b74","./js/engine.js":"./js/engine.js?v=463b2dda","./js/ep.js":"./js/ep.js?v=c55510b1","./js/import-ui.js":"./js/import-ui.js?v=3f9456e1","./js/io.js":"./js/io.js?v=a0f343f7","./js/kpi.js":"./js/kpi.js?v=ad1c2164","./js/lanes.js":"./js/lanes.js?v=96c0f033","./js/left.js":"./js/left.js?v=c2582fcf","./js/main.js":"./js/main.js?v=9cd41efb","./js/na.js":"./js/na.js?v=c9afd193","./js/ns.js":"./js/ns.js?v=89f9adc2","./js/ord.js":"./js/ord.js?v=0e563a85","./js/parse-apply.js":"./js/parse-apply.js?v=59f0e37e","./js/parse-text.js":"./js/parse-text.js?v=839aa01f","./js/parse-tl.js":"./js/parse-tl.js?v=9adf1f45","./js/passive.js":"./js/passive.js?v=ea917a85","./js/pool.js":"./js/pool.js?v=44aab1e4","./js/rate.js":"./js/rate.js?v=53ce0712","./js/rows.js":"./js/rows.js?v=ffcf37e0","./js/scen.js":"./js/scen.js?v=4919dd8c","./js/stats.js":"./js/stats.js?v=9f7c8cbf","./js/target.js":"./js/target.js?v=3ebda2d8","./js/tip.js":"./js/tip.js?v=c71bea37","./js/undo.js":"./js/undo.js?v=f49e7b87","./js/useedit.js":"./js/useedit.js?v=efbcbf25","./js/uses.js":"./js/uses.js?v=8147f455","./js/util.js":"./js/util.js?v=982f4a27","./js/wire-boss.js":"./js/wire-boss.js?v=2cb5c359","./js/wire-build.js":"./js/wire-build.js?v=f216e298","./js/wire-fold.js":"./js/wire-fold.js?v=4e0a048a","./js/wire-mouse.js":"./js/wire-mouse.js?v=ada8ab6c","./js/wire-party.js":"./js/wire-party.js?v=cc2e7c52","./js/wire-picker.js":"./js/wire-picker.js?v=698cee19","./js/wire-rows.js":"./js/wire-rows.js?v=89ebe775","./js/wire-size.js":"./js/wire-size.js?v=1fed688e","./js/wire-use.js":"./js/wire-use.js?v=9d352c6f","./js/zoom.js":"./js/zoom.js?v=cdff4f8b"}}</script>
+<script type="importmap">{"imports":{"./js/alt.js":"./js/alt.js?v=33d2ae9a","./js/boss.js":"./js/boss.js?v=d90f4dd2","./js/bossui.js":"./js/bossui.js?v=32476f0a","./js/buff.js":"./js/buff.js?v=1a719b6f","./js/carry.js":"./js/carry.js?v=39c8c153","./js/chart.js":"./js/chart.js?v=4c5df3cf","./js/clear.js":"./js/clear.js?v=4aef2402","./js/core.js":"./js/core.js?v=51588e93","./js/dmg.js":"./js/dmg.js?v=85bc049c","./js/draw.js":"./js/draw.js?v=e80d3b74","./js/engine.js":"./js/engine.js?v=463b2dda","./js/ep.js":"./js/ep.js?v=c55510b1","./js/import-ui.js":"./js/import-ui.js?v=3f9456e1","./js/io.js":"./js/io.js?v=a0f343f7","./js/kpi.js":"./js/kpi.js?v=ad1c2164","./js/lanes.js":"./js/lanes.js?v=96c0f033","./js/left.js":"./js/left.js?v=c2582fcf","./js/main.js":"./js/main.js?v=9cd41efb","./js/na.js":"./js/na.js?v=c9afd193","./js/ns.js":"./js/ns.js?v=89f9adc2","./js/ord.js":"./js/ord.js?v=0e563a85","./js/parse-apply.js":"./js/parse-apply.js?v=59f0e37e","./js/parse-text.js":"./js/parse-text.js?v=839aa01f","./js/parse-tl.js":"./js/parse-tl.js?v=9adf1f45","./js/passive.js":"./js/passive.js?v=0e74cd49","./js/pool.js":"./js/pool.js?v=44aab1e4","./js/rate.js":"./js/rate.js?v=53ce0712","./js/rows.js":"./js/rows.js?v=ffcf37e0","./js/scen.js":"./js/scen.js?v=4919dd8c","./js/stats.js":"./js/stats.js?v=44d4da92","./js/target.js":"./js/target.js?v=581011a4","./js/tip.js":"./js/tip.js?v=c71bea37","./js/undo.js":"./js/undo.js?v=f49e7b87","./js/useedit.js":"./js/useedit.js?v=efbcbf25","./js/uses.js":"./js/uses.js?v=8147f455","./js/util.js":"./js/util.js?v=982f4a27","./js/wire-boss.js":"./js/wire-boss.js?v=2cb5c359","./js/wire-build.js":"./js/wire-build.js?v=f216e298","./js/wire-fold.js":"./js/wire-fold.js?v=4e0a048a","./js/wire-mouse.js":"./js/wire-mouse.js?v=ada8ab6c","./js/wire-party.js":"./js/wire-party.js?v=cc2e7c52","./js/wire-picker.js":"./js/wire-picker.js?v=698cee19","./js/wire-rows.js":"./js/wire-rows.js?v=89ebe775","./js/wire-size.js":"./js/wire-size.js?v=1fed688e","./js/wire-use.js":"./js/wire-use.js?v=9d352c6f","./js/zoom.js":"./js/zoom.js?v=cdff4f8b"}}</script>
 <script type="module" src="js/main.js?v=9cd41efb"></script>
 
 </body>

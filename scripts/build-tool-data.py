@@ -5298,7 +5298,7 @@ def build_tl():
     stu = as_list(get_json(SD.format("students")))
     st_out, dmg_out, ndmg, sinfo, build = {}, {}, 0, {}, {}
     ncond = nstack = 0
-    buf_out, nbuf, nskip, ncond, nrst = {}, 0, 0, 0, 0
+    buf_out, nbuf, nskip, ncond, nrst, novr = {}, 0, 0, 0, 0, 0
     na_out, nna = {}, 0
     nform = 0
     alt_out = {}
@@ -5626,6 +5626,16 @@ def build_tl():
                     row.append([[r.get("Property"), r.get("Operand"), r.get("Value")]
                                 for r in rs])
                     nrst += 1
+                # **`OverrideSlot` は Channel の重なりを見る枠を差し替える**
+                # （`common.js:7706`。2026-09-03 に足した。全 274 人で 8 件だけ
+                # あって、効くのは クルミ の `ExtraPassive` ch30 → `Ex`。
+                # 同じ ch30 の `Ex` のバフと重なる）。**7 番目は空でも埋める**
+                ov = e.get("OverrideSlot")
+                if ov:
+                    while len(row) < 7:
+                        row.append(None)
+                    row.append(ov)
+                    novr += 1
                 bl.append(row)
                 nbuf += 1
             if bl:
@@ -5713,7 +5723,8 @@ def build_tl():
             tgt_out[sid] = tg
     print(f"  生徒 {len(st_out)} 人 / ダメージを持つ生徒 {len(dmg_out)} 人・効果 {ndmg} 件")
     print(f"  バフ {nbuf} 件（条件つき・周期ものを {nskip} 件外した／"
-          f"相手の条件つき {nrst} 件は判定して乗せる）")
+          f"相手の条件つき {nrst} 件は判定して乗せる／"
+          f"枠を差し替える OverrideSlot {novr} 件）")
     print(f"  条件つき・段つきのダメージ {ncond} 件を候補にした（生徒 {len(alt_out)} 人・"
           f"スキル {sum(len(v) for v in alt_out.values())} 枠／うち段つき {nstack} 枠）")
     print(f"  通常攻撃（オートアタック）が引けた生徒 {nna} 人 / {len(st_out)} 人")
@@ -5812,7 +5823,8 @@ def build_tl():
         # サブスキルの条件が指す札 → [付けるスキルの枠, 持続(ms), 重ねられる数]
         "eptl": ep_tpl,
         "bufKeys": ["Target", "Stat", "Channel", "Value", "Duration", "ApplyFrame",
-                    "Restrictions([Property,Operand,Value])"],
+                    "Restrictions([Property,Operand,Value])",
+                    "OverrideSlot(Channel の重なりを見る枠の差し替え)"],
         # 星の伸び。SchaleDB の CharacterStats の既定値（生徒別の Transcendence は
         # jp のデータに 1 件も無いことを 2026-09-01 に確かめた）
         "tc": [[0, 1000, 1200, 1400, 1700], [0, 500, 700, 900, 1400],

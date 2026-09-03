@@ -1,5 +1,5 @@
 import { B, stu } from './util.js';
-import { TE, isMain, memo, st } from './core.js';
+import { TE, chSlot, isMain, memo, st } from './core.js';
 import { boss } from './boss.js';
 import { usesSorted } from './buff.js';
 import { lvlOf } from './alt.js';
@@ -133,14 +133,14 @@ export function liveBuffs0(t, to, r) {
       // **掛けた本人のスキルレベルで引く。**画面の共通スライダーではない
       var vals = e[3] || [], lv = Math.min(lvlOf(u.i, kd), vals.length) || 1;
       out.push({ slot: kd, ch: e[2], stat: e[1], v: vals[lv - 1] || 0, at: st0,
-                 from: u.i, fromN: p.n, kind: kd });
+                 from: u.i, fromN: p.n, kind: kd, ov: e[7] || null });
     }
   }
   // 後掛け優先。同じ（枠, Channel）は遅く始まったほうを残す
   out.sort(function (a, b) { return b.at - a.at; });
   var seen = {}, keep = [];
   for (i = 0; i < out.length; i++) {
-    var k = out[i].slot + '/' + out[i].ch;
+    var k = chSlot(out[i].slot, out[i].ov) + '/' + out[i].ch;
     if (out[i].ch != null && seen[k]) { continue; }
     if (out[i].ch != null) { seen[k] = 1; }
     keep.push(out[i]);
