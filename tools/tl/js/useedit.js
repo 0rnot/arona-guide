@@ -6,7 +6,7 @@ import { n0 } from './rate.js';
 import { exKind, statAmt, statJA } from './buff.js';
 import { aimOf, liveBuffs, tgtN, tgtOf, toList } from './target.js';
 import { altOf, altScale, lvlOf, pickOf } from './alt.js';
-import { dmgOf } from './dmg.js';
+import { dmgOf, nbOf } from './dmg.js';
 import { ROWS } from './rows.js';
 import { bstName } from './bossui.js';
 
@@ -147,15 +147,23 @@ export function drawUse() {
           '</span><span class="two2">' + sB + '</span></label>';
   }
   if (er) {
-    var dk = exKind(er.fi), dd = dmgOf(u.i, diff(), er.at, dk, u.pk, null, u.gx);
+    var dk = exKind(er.fi),
+        dd = dmgOf(u.i, diff(), er.at, dk, u.pk, null, u.gx, null, null, nbOf(u));
     h2 += '<span class="mut tiny" title="平均ダメージ（最小〜最大・会心率）">' +
       (dd ? '<b>' + n0(dd.avg) + '</b>　' + n0(dd.min) + '\u301c' + n0(dd.max) +
             '　\u25c8' + (dd.crit * 100).toFixed(1) + '%'
           : '\u2014') + '</span>';
   }
   if (er) {
-    var ak = exKind(er.fi), atb = aimOf(diff(), u.tg), aa = altOf(d.id, ak, atb);
-    if (aa && aa.v.length > 1) {
+    // **「N人以下／N人以上」は当たる数で決まる**（2026-09-04）。摘みは出さず、
+    // 決まった候補だけを出す（`altOf` が `fixed` を立てて 1 本に絞る）
+    var ak = exKind(er.fi), atb = aimOf(diff(), u.tg), aa = altOf(d.id, ak, atb, nbOf(u));
+    if (aa && aa.fixed) {
+      h2 += '<span class="mut tiny" title="当たる数 ' + nbOf(u) +
+        ' で決まります（スキル文が敵の数で倍率を分けているため、選べません）">倍率 ' +
+        esc(aa.c[0] || '') + '　' +
+        ((altScale(d.id, ak, 0, lvlOf(u.i, ak), atb) || 0) / 100).toFixed(0) + '%</span>';
+    } else if (aa && aa.v.length > 1) {
       var apk = pickOf(u.i, ak, u.pk, atb),
           asc = altScale(d.id, ak, apk, lvlOf(u.i, ak), atb);
       h2 += '<label class="f" title="' + esc(aa.c[apk] || '') + '"><span>倍率の幅</span>' +

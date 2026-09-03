@@ -6,7 +6,7 @@ import { clamp } from './stats.js';
 import { usesSorted } from './buff.js';
 import { liveBuffs } from './target.js';
 import { altList } from './alt.js';
-import { dmgOf } from './dmg.js';
+import { dmgOf, nbOf } from './dmg.js';
 import { total } from './clear.js';
 import { fit } from './zoom.js';
 
@@ -134,7 +134,8 @@ export function critNat() {
   st.crit = null;
   try {
     for (i = 0; i < us.length; i++) {
-      d = dmgOf(us[i].i, r, us[i].t, us[i].k, us[i].pk, us[i].tg, us[i].gx, us[i].no);
+      d = dmgOf(us[i].i, r, us[i].t, us[i].k, us[i].pk, us[i].tg, us[i].gx, us[i].no,
+                null, nbOf(us[i]));
       if (d && d.crit0 != null) { sum += d.crit0; n++; }
     }
     if (!n) {

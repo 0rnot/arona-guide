@@ -78,15 +78,57 @@ export function condOK(c, idx, tb) {
   }
   return true;
 }
+/** **「N人以下」「N〜M人」「N人以上」の候補**（2026-09-04）。
+    `[下限, 上限]` を返す。その形でなければ `null`。
+
+    **これは好みではなく盤の話。**スキル文が「円形範囲内の敵の数によって」と
+    書いていて、当たる数は TL に入れてある（`u.mc`）ので、**データから決まる。**
+    持っているのは 3 人だけ（`dmgalt` の条件を全部数えた）:
+
+        10146 マコト（水着）  ['2人以下', '3人以上']
+        20033 ??            ['4人以下', '5人～9人', '10人以上']
+        20046 ??            ['3人以下', '4～6人', '7人以上']
+
+    **これを決めていなかったので、マコト（水着）は 6 体に当てても
+    「2人以下」の 321% で出ていた**（正しくは「3人以上」の 762%。2.37 倍）。
+    屋内ペロロジラの「道具が実測のおよそ半分」の主犯がこれ */
+export function nRange(c) {
+  var t = String(c || '').replace(/\s/g, '');
+  var m = /^(\d+)人以下$/.exec(t);
+  if (m) { return [0, +m[1]]; }
+  m = /^(\d+)人以上$/.exec(t);
+  if (m) { return [+m[1], Infinity]; }
+  m = /^(\d+)人?[～~〜-](\d+)人$/.exec(t);
+  if (m) { return [+m[1], +m[2]]; }
+  return null;
+}
 export function slotIdxOf(id) {
   for (var i = 0; i < SLOTS; i++) { if (st.slots[i] && st.slots[i].id === id && live(i)) { return i; } }
   return null;
 }
-/** `tb` は当たる先のステータス（`aimOf` の返り）。**省くとボス本体で判定する。** */
-export function altOf(id, kind, tb) {
+/** `tb` は当たる先のステータス（`aimOf` の返り）。**省くとボス本体で判定する。**
+    `nb` はその 1 発が当たる数（`u.mc`）。**渡すと「N人以下／N人以上」の候補が
+    そこで決まる**（2026-09-04）。渡さなければ今までどおり候補を減らさない */
+export function altOf(id, kind, tb, nb) {
   var a = ((B.dmgalt || {})[id] || {})[kind];
   if (!(a && a.v && a.v.length)) { return null; }
   var keep = [], i, idx = slotIdxOf(id);
+  // **人数で分かれる候補は、当たる数で決める。**全部の候補が人数の形のときだけ
+  if (nb > 0 && a.c.length > 1) {
+    var rgs = [], ok2 = true;
+    for (i = 0; i < a.c.length; i++) {
+      var rg = nRange(a.c[i]);
+      if (!rg) { ok2 = false; break; }
+      rgs.push(rg);
+    }
+    if (ok2) {
+      for (i = 0; i < rgs.length; i++) {
+        if (nb >= rgs[i][0] && nb <= rgs[i][1]) {
+          return { c: [a.c[i]], v: [a.v[i]], cut: a.v.length - 1, fixed: true };
+        }
+      }
+    }
+  }
   for (i = 0; i < a.v.length; i++) { if (condOK(a.c[i], idx, tb)) { keep.push(i); } }
   // **1 つも当てはまらないなら、この枠のダメージは出ない。**`condOK` は
   // 決められない条件を true で返すので、ここへ来るのは「全部が決められて、
@@ -124,9 +166,9 @@ export function lvlOf(idx, kind) {
 }
 // **その 1 発の指定が先、無ければ枠の既定**（2026-09-01 の先生の指示
 // 「倍率の幅は打つ EX 毎に決めたい」）。`upk` は置いた 1 発の `pk`
-export function pickOf(idx, kind, upk, tb) {
+export function pickOf(idx, kind, upk, tb, nb) {
   var sl = idx == null ? null : st.slots[idx];
-  var a = sl && sl.id ? altOf(sl.id, kind, tb) : null;
+  var a = sl && sl.id ? altOf(sl.id, kind, tb, nb) : null;
   if (!a) { return 0; }
   var v = (upk && upk[kind] != null) ? upk[kind] : (sl && sl.pk ? sl.pk[kind] : 0);
   return Math.max(0, Math.min(+v || 0, a.v.length - 1));

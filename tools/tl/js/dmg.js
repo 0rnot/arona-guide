@@ -40,22 +40,32 @@ function gsplScale(d, m) {
            max: d.max * m, va: (d.va || 0) * m, hit: d.hit, crit: d.crit,
            crit0: d.crit0, name: d.name };
 }
-export function dmgOf(idx, r, at, kind, upk, tg, gx, nso, only) {
+/** **その 1 発が当たる数**（`u.mc`）。`tg` を置いていない発は 1。
+    「円形範囲内の敵の数によって」倍率が変わるスキルの候補を決めるのに使う。
+    **ボス本体にも当たるぶん（`hb`）にも同じ数を渡す**——円の中の数は
+    どちらを計算していても同じだから（2026-09-04） */
+export function nbOf(u) {
+  return (u && u.tg != null && u.mc > 1) ? u.mc : 1;
+}
+/** `nb` はその 1 発が当たる数（`u.mc`）。**「N人以下／N人以上」で倍率が変わる
+    スキルは、これで候補が決まる**（2026-09-04。`alt.js` の `nRange`） */
+export function dmgOf(idx, r, at, kind, upk, tg, gx, nso, only, nb) {
   var p = st.party[idx];
   if (!p) { return null; }
   var kd = kind || 'Ex';
   // **候補の絞り込みは「当たる先」で変わる**（装甲が部位ごとに違うため。2026-09-03）
   var tb9 = aimOf(r, tg);
-  var alt = altOf(p.id, kd, tb9);
+  var alt = altOf(p.id, kd, tb9, nb);
   var gm9 = gsplMul(r, at, tg);
   if (!PICKF || !alt || alt.v.length < 2) {
-    return gsplScale(dmgOf1(idx, r, at, kd, alt ? pickOf(idx, kd, upk, tb9) : 0, tg, gx, nso, only), gm9);
+    return gsplScale(dmgOf1(idx, r, at, kd, alt ? pickOf(idx, kd, upk, tb9, nb) : 0,
+                            tg, gx, nso, only, nb), gm9);
   }
   // **候補ごとに最後まで計算して比べる。**倍率（`Scale`）だけで比べると、
   // 発数・防御無視・会心の有無が候補ごとに違うぶんを取りこぼす
   var best = null, i;
   for (i = 0; i < alt.v.length; i++) {
-    var d = dmgOf1(idx, r, at, kd, i, tg, gx, nso, only);
+    var d = dmgOf1(idx, r, at, kd, i, tg, gx, nso, only, nb);
     if (!d) { continue; }
     if (!best || (PICKF > 0 ? d.avg > best.avg : d.avg < best.avg)) { best = d; }
   }
@@ -97,16 +107,16 @@ export function sliceOf(id, kind) {
   if (a) { for (i = 0; i < a.v.length; i++) { look(a.v[i]); } }
   return (n >= 4 && formDur(id, kind) >= 1) ? SLICE : 1;
 }
-export function dmgOf1(idx, r, at, kind, pick, tg, gx, nso, only) {
+export function dmgOf1(idx, r, at, kind, pick, tg, gx, nso, only, nb) {
   var p0 = st.party[idx];
   if (!p0) { return null; }
   var kd0 = kind || 'Ex';
   var ns = at == null ? 1 : sliceOf(p0.id, kd0);
-  if (ns <= 1) { return dmgAt(idx, r, at, kd0, pick, tg, gx, nso, only); }
+  if (ns <= 1) { return dmgAt(idx, r, at, kd0, pick, tg, gx, nso, only, nb); }
   var D = formDur(p0.id, kd0), dur0 = r.dur || 240, acc = null, k, q2;
   for (k = 0; k < ns; k++) {
     var ts = Math.min(at + D * (k + 0.5) / ns, dur0);
-    var d0 = dmgAt(idx, r, ts, kd0, pick, tg, gx, nso, only);
+    var d0 = dmgAt(idx, r, ts, kd0, pick, tg, gx, nso, only, nb);
     if (!d0) { return null; }
     if (!acc) { acc = { min: 0, avg0: 0, avg: 0, avgC: 0, max: 0, va: 0,
                         hit: d0.hit, crit: d0.crit, crit0: d0.crit0, name: d0.name }; }
@@ -168,7 +178,7 @@ function inFormAt(idx, at, dur) {
   }
   return false;
 }
-export function dmgAt(idx, r, at, kind, pick, tg, gx, nso, only) {
+export function dmgAt(idx, r, at, kind, pick, tg, gx, nso, only, nb) {
   var p = st.party[idx];
   if (!p) { return null; }
   var kd = kind || 'Ex';
@@ -180,7 +190,7 @@ export function dmgAt(idx, r, at, kind, pick, tg, gx, nso, only) {
   var effs = ((B.dmg[p.id] || {})[kd] || []).slice();
   // **条件でダメージが変わるぶんは、選んだ候補を 1 つだけ足す**（既定は先頭）。
   // 当たる先で候補が変わるので、`aimOf` の相手で絞る（2026-09-03）
-  var alt = altOf(p.id, kd, aimOf(r, tg));
+  var alt = altOf(p.id, kd, aimOf(r, tg), nb);
   if (alt) { effs = effs.concat(alt.v[pick || 0] || []); }
   // **`only` は「継続ダメージだけ」「それ以外だけ」の切り分け**（2026-09-03）。
   // 曲線を引くときに、DoT を撃った瞬間ではなく `Period` ごとに置くのに要る
