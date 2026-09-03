@@ -1,6 +1,6 @@
 import { $ } from './util.js';
 import { SLOTS, st } from './core.js';
-import { naPool, poolHp, poolOf, poolOrder, subIxOfPool } from './pool.js';
+import { naPool, poolBodies, poolHp, poolOf, poolOrder, subIxOfPool } from './pool.js';
 import { awayAt, carryIn, ggSolve, partyCalc, trOf } from './carry.js';
 import { clamp } from './stats.js';
 import { naTimes } from './na.js';
@@ -66,7 +66,10 @@ export function clearStat1(r, pf, pid, deadAt, hpNeed) {
           if (dbb) { mu += dbb.avg; va += dbb.va || 0; }
         }
       } else {
-        mu += d.avg; va += d.va || 0;
+        // **同じ池を分け合う体に当てた発は、当たった数だけ池へ入る**（2026-09-03）
+        var mcp1 = (u.tg != null && (u.mc || 1) > 1)
+          ? Math.min(u.mc, poolBodies(r, pid)) : 1;
+        mu += d.avg * mcp1; va += (d.va || 0) * mcp1;
       }
     }
     var dur = r.dur || 240, STEP = 5;
@@ -130,13 +133,18 @@ export function total0(r) {
   for (i = 0; i < us.length; i++) {
     var u = us[i];
     var tr2 = trOf(r, u.tg) * (u.mc || 1);
-    if (u.tg != null && !tr2) { continue; }
+    // **転移しない部位でも、池を分け合っているなら当たった数だけ入る**（2026-09-03）
+    var pp2 = u.tg == null ? null : poolOf(r, u.tg);
+    var mcp2 = (u.tg != null && !tr2 && (u.mc || 1) > 1)
+      ? Math.min(u.mc, poolBodies(r, pp2)) : 1;
+    if (u.tg != null && !tr2 && mcp2 <= 1) { continue; }
     if (u.t > (r.dur || 240) + 1e-9 || awayAt(u.t, !/^Ex\d*$/.test(u.k), u.gx)) { continue; }
     var d = dmgOf(u.i, r, u.t, u.k, u.pk, u.tg, u.gx);
     if (!d) { continue; }
-    if (tr2) {
-      d = { min: d.min * tr2, avg0: d.avg0 * tr2, avg: d.avg * tr2,
-            avgC: d.avgC * tr2, max: d.max * tr2 };
+    if (tr2 || mcp2 > 1) {
+      var f2 = tr2 || mcp2;
+      d = { min: d.min * f2, avg0: d.avg0 * f2, avg: d.avg * f2,
+            avgC: d.avgC * f2, max: d.max * f2 };
     }
     // **「ボス本体にも当たる」を与ダメージにも数える**（2026-09-03。
     // `dmgCurve0` だけが数えていて、上の「与ダメージ」は素通りしていた）

@@ -83,14 +83,24 @@ export function drawUse() {
     h2 += '<label class="f"><span>当たる先</span><select data-us="tg">' + th + '</select></label>';
     // **転移する部位のときだけ「当たる数」を出す。**範囲攻撃が何体に当たったかで
     // ボスへ入る量が変わる（聖歌隊 5 体・ペロロミニオン…）
-    if (u.tg != null && (subs[u.tg] || {}).tr) {
+    // **転移する部位と、HP を共有する池の体。**どちらも範囲攻撃が
+    // 何体に当たったかで入る量が変わる（2026-09-03）
+    var shr = 0, zq;
+    if (u.tg != null && (subs[u.tg] || {}).pool) {
+      for (zq = 0; zq < subs.length; zq++) {
+        if (subs[zq].pool === subs[u.tg].pool) { shr++; }
+      }
+    }
+    if (u.tg != null && ((subs[u.tg] || {}).tr || shr > 1)) {
       h2 += '<label class="f"><span>当たる数</span><input type="number" data-us="mc" ' +
         'min="1" max="99" step="1" style="width:64px" value="' + (u.mc == null ? 1 : u.mc) +
         '"></label>';
       // **直線に伸びる攻撃は部位を貫いて本体にも当たる。**当たるかは盤の上の話
-      h2 += '<label class="f"><span>ボス本体にも</span><select data-us="hb">' +
-        '<option value="0"' + (u.hb ? '' : ' selected') + '>当たらない</option>' +
-        '<option value="1"' + (u.hb ? ' selected' : '') + '>当たる</option></select></label>';
+      if ((subs[u.tg] || {}).tr) {
+        h2 += '<label class="f"><span>ボス本体にも</span><select data-us="hb">' +
+          '<option value="0"' + (u.hb ? '' : ' selected') + '>当たらない</option>' +
+          '<option value="1"' + (u.hb ? ' selected' : '') + '>当たる</option></select></label>';
+      }
     }
   }
   // **乗っているギミック**（2026-09-03）。この 1 発の時刻に重なっている窓は

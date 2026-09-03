@@ -161,15 +161,22 @@ export function selPick(ix, shift, add) {
     それが 1 発ずつ「詳細」を開かないと置けなかったので、行に出した。
     1 より大きくすると、その部位へ当てたうえで本体にも当たる形にする */
 export function trIx(r) {
-  var sb = (r && r.sub) || [], i;
+  var sb = (r && r.sub) || [], i, cnt = {};
   for (i = 0; i < sb.length; i++) { if (sb[i].tr) { return i; } }
+  // **HP を共有している池も「当たる数」が効く**（2026-09-03）。
+  // カイテンジャーは 5 体で 40,000,000 を分け合うので、範囲攻撃が n 体に
+  // 当たれば池には n 倍入る。転移する部位が無いボスはこちらを返す
+  for (i = 0; i < sb.length; i++) {
+    if (sb[i].pool) { cnt[sb[i].pool] = (cnt[sb[i].pool] || 0) + 1; }
+  }
+  for (i = 0; i < sb.length; i++) { if (sb[i].pool && cnt[sb[i].pool] > 1) { return i; } }
   return -1;
 }
 export function rowMc(u, ti) {
   if (ti < 0) { return ''; }
   var n = (u.tg != null && u.mc) ? u.mc : 1;
   return '<input class="rmc" type="number" min="1" max="99" step="1" data-tr="mc" ' +
-    'value="' + n + '" title="当たる数（本体＋転移する部位）">';
+    'value="' + n + '" title="当たる数（範囲攻撃が何体に当たったか）">';
 }
 export function drawRows() {
   if (!ROWS) { return; }

@@ -121,7 +121,12 @@ export function wireRows() {
         var um = st.tl[tgt[zm]];
         if (!um) { continue; }
         if (mv <= 1) { um.mc = null; if (um.tg === ti2) { um.tg = null; um.hb = 0; } }
-        else if (ti2 >= 0) { um.tg = ti2; um.mc = mv; um.hb = 1; }
+        // **転移する部位のときだけ「ボス本体にも」を立てる。**HP を共有する池
+        // （カイテンジャー）は部位そのものが討伐の相手なので、本体は別に無い
+        else if (ti2 >= 0) {
+          um.tg = ti2; um.mc = mv;
+          um.hb = ((diff().sub || [])[ti2] || {}).tr ? 1 : 0;
+        }
       }
     } else if (k === 'who') { u.i = +el.value; st.wantRow = null; }
     else if (k === 'bto') {

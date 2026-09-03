@@ -219,7 +219,13 @@ export function drawErr() {
     if (r.sub[tq] && r.sub[tq].tr > 0) { trn = r.sub[tq]; break; }
   }
   if (trn) {
-    for (q = 0; q < st.tl.length; q++) { if (st.tl[q].tg == null) { noTg++; } }
+    // **ダメージを出す発だけ数える。**バフだけの EX に当たる先を置いても何も変わらない
+    // （2026-09-03。先生の盤で 21 発中 16 発がバフで、「18 発」と出ていた）
+    var uz = usesSorted();
+    for (q = 0; q < uz.length; q++) {
+      if (uz[q].tg != null || !/^Ex\d*$/.test(uz[q].k)) { continue; }
+      if (dmgOf(uz[q].i, r, uz[q].t, uz[q].k, uz[q].pk, null, uz[q].gx)) { noTg++; }
+    }
     if (noTg) {
       out.push(['w', noTg + ' 発：当たる先（' + trn.n + 'は被ダメージの ' +
         trn.tr + '% をボスへ転移）']);

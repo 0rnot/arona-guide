@@ -40,6 +40,15 @@ export function subIxOfPool(r, pid) {
   for (i = 0; i < sb.length; i++) { if (sb[i].pool === pid) { return i; } }
   return null;
 }
+/** その池を分け合っている体の数。**HP を共有しているので、範囲攻撃が n 体に
+    当たれば池には n 倍入る**（カイテンジャーは 5 体で 40,000,000 を共有）。
+    2026-09-03 まで `mc` は「転移する部位」にしか効いていなかった */
+export function poolBodies(r, pid) {
+  if (pid == null || pid === r.cid) { return 1; }
+  var sb = r.sub || [], i, n = 0;
+  for (i = 0; i < sb.length; i++) { if (sb[i].pool === pid) { n++; } }
+  return n || 1;
+}
 export function poolName(r, pid) {
   if (pid === r.cid) { return (boss() || {}).n || 'ボス'; }
   var i, sb = r.sub || [], ns = [];

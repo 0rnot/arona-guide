@@ -25,6 +25,7 @@ import { enemyAt, liveBuffs } from './target.js';
 import { altOf, pickOf } from './alt.js';
 import { dmgOf } from './dmg.js';
 import { clearStat, total } from './clear.js';
+import { restore, snapshot } from './io.js';
 import { parseTL } from './parse-tl.js';
 import { applyTL, findStudent } from './parse-apply.js';
 import { drawCrew, drawParty, drawPicker, fillBuild, fillFilters } from './left.js';
@@ -53,6 +54,8 @@ window.__TLDBG = { statsOf: statsOf, dmgOf: dmgOf, total: total, diff: diff,
                    nsInfo: nsInfo, naInfo: naInfo, altOf: altOf, pickOf: pickOf,
                    usesSorted: usesSorted, liveBuffs: liveBuffs, draw: drawNow,
                    applyTL: applyTL, fillBoss: fillBoss, findStudent: findStudent,
+                   // 書き出した JSON をそのまま流し込む（先生の盤を再現するため）
+                   restore: restore, snapshot: snapshot,
                    clearStat: clearStat, trOf: trOf,
                    boss: boss, scen: scen, killAt: killAt, scoreOf: scoreOf,
                    enemyAt: enemyAt, mkStats: mkStats, danMax: danMax,

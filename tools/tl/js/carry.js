@@ -3,7 +3,7 @@ import { SLOTS, _pv, st } from './core.js';
 import { usePartyRef } from './undo.js';
 import { boss, diff, has } from './boss.js';
 import { scenIx } from './scen.js';
-import { dmgCurve, naPool, poolKills, poolOf, subIxOfPool, valueAt } from './pool.js';
+import { dmgCurve, naPool, poolBodies, poolKills, poolOf, subIxOfPool, valueAt } from './pool.js';
 import { naTimes } from './na.js';
 import { usesSorted } from './buff.js';
 import { dmgOf } from './dmg.js';
@@ -114,7 +114,12 @@ export function dmgCurve0(r, key, pid, deadAt) {
     // **当たる先を書いていない発をよその池へ回すときは、その池の相手で引く**（2026-09-03）
     var aim = u.tg == null && pp !== r.cid ? subIxOfPool(r, pp) : u.tg;
     var d = dmgOf(u.i, r, u.t, u.k, u.pk, aim, u.gx);
-    var v0 = d ? (tr && pp !== pid ? d[key] * tr : d[key]) : 0;
+    // **同じ池を分け合う体に当てた発は、当たった数だけ池へ入る**（2026-09-03）。
+    // 転移（`tr`）のほうは前から `mc` が効いていたが、**HP を共有している池
+    // （カイテンジャーの 5 体で 40,000,000）は 1 体ぶんしか数えていなかった**
+    var mcp = (u.tg != null && pp === pid && (u.mc || 1) > 1)
+      ? Math.min(u.mc, poolBodies(r, pid)) : 1;
+    var v0 = d ? (tr && pp !== pid ? d[key] * tr : d[key] * mcp) : 0;
     // **直線に伸びる攻撃は、部位を貫いてボス本体にも当たる**（ヒナ（ドレス）の
     // 射撃など）。当たるかどうかは盤の上の話でデータから決まらないので、
     // **置くのは使う人**（帯の「ボス本体にも当たる」。2026-09-02 の先生の見立て）。
