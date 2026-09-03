@@ -113,7 +113,7 @@ export function draw() {
            '<i class="x" data-bx="' + bwi + '">×</i>' +
            '<i class="gr" data-bg="1"></i></div>';
   }
-  if (laneOn('bst')) {
+  if (laneOn('boss')) {
     side += lbl(H.bst, '<span class="nm">ボスの状態</span>' +
       (st.bst.length ? '<span class="mb">' + st.bst.length + '</span>' : ''));
     // **空のときは何も書かない。**先生の指示「注釈とかマジでいらないから全箇所」
@@ -150,7 +150,7 @@ export function draw() {
     : '<span class="nm">グロッキー</span><span class="tag">' +
       (gm.kind === 'なし' ? 'なし' : gm.kind === '実質なし' ? 'ダメージでは貯まらない' : '条件つき') +
       '</span>';
-  if (laneOn('gg')) { side += lbl(H.gg, ggLbl); cv += lane(H.gg, gs); }
+  if (laneOn('boss')) { side += lbl(H.gg, ggLbl); cv += lane(H.gg, gs); }
 
   // デバフ数。**`liveBuffs` と同じ材料から切れ目を作る**（2026-09-01。
   // それまで EX の本体しか見ておらず、形態違いも通常スキルも数に入らず、
@@ -188,7 +188,7 @@ export function draw() {
                 buffTip(null, (a1 + b1) / 2, r, 'enemy')) + '">' +
             ((b1 - a1) * px >= 12 ? cnt : '') + '</div>';
   }
-  if (laneOn('dbf')) { side += lbl(H.dbf, '<span class="nm">デバフ数</span>'); cv += lane(H.dbf, dseg); }
+  if (laneOn('boss')) { side += lbl(H.dbf, '<span class="nm">デバフ数</span>'); cv += lane(H.dbf, dseg); }
 
   var run = costRun(dur), sm = run.sim;
   // **回復力は時間で変わる。**セイアのような「◯秒間コスト回復力増加」が
@@ -206,7 +206,7 @@ export function draw() {
   recPts.push([dur, recPts[recPts.length - 1][1]]);
   var ymax = Math.max(8000, Math.ceil(recMax / 2000) * 2000 + 2000);
   var recNow = recPts[recPts.length - 1][1];
-  if (laneOn('cost')) {
+  if (laneOn('rec')) {
   side += lbl(H.rec, '<b title="戦闘開始から ' + TE.REC_DELAY +
     ' 秒はコストが貯まりません（Excel/ConstCombatExcelTable の PlayerRegenCostDelay）。' +
     'そのあいだレーンは 0 です">回復力</b><span class="mb">最大 ' + recMax + '</span>');
@@ -218,8 +218,10 @@ export function draw() {
     clamp(H.rec - 8 - (rec / ymax) * (H.rec - 16) - 10, 1, H.rec - 12) +
     'px">常時 ' + rec +
     (recMax > rec ? '／最大 ' + recMax : '') + '</span>');
+  }
   void recNow;
 
+  if (laneOn('cost')) {
   side += lbl(H.cost, '<b>コスト</b>');
   cv += lane(H.cost,
     '<svg class="plot" viewBox="0 0 ' + W + ' ' + H.cost + '" preserveAspectRatio="none">' +
@@ -349,30 +351,33 @@ export function draw() {
       cv += lane(H.na, nab);
     }
   }
-  // SS = サブスキル。常時効いているものは端から端までの帯にする
+  // SS = サブスキル。**摘みで丸ごと消せるので、編成の全員を出す**
+  // （2026-09-03 の先生の指示「SS は表示非表示選べるし、
+  //   下にまとめて全キャラ表示させるように」）。
+  // 前は「発動して効くもの」を持つ子だけ出していた
   if (laneOn('ss')) {
   side += lbl(H.ss, '<b>SS</b><span class="mb">サブスキル</span>');
   cv += lane(H.ss, '');
   var ssn = 0;
   for (var v2 = 0; v2 < SLOTS; v2++) {
     var vp = st.party[v2];
-    if (!vp) { continue; }
+    if (!vp || !live(v2)) { continue; }
     var cnt = ssCount(v2);
-    // **常時のものは出さない**（2026-09-01 の先生の指示
-    // 「サブスキルは常時発動は非表示でいい／常時発動じゃないサブスキルのみ表示して」）。
-    // 常時ぶんはステータスに乗っているので、帯にしても情報が増えない
-    if (!cnt[1]) { continue; }
     ssn++;
     var snm = ((B.skname || {})[vp.id] || {}).ExtraPassive || 'サブスキル';
+    // **常時ぶんはステータスに乗っている**（`passive.js` の `passiveList`）。
+    // **引き金つきはまだ数えていない。**見分けは帯の色で、字は足さない
+    var sOff = !!cnt[1];
     side += lbl(H.ss, img(vp.id, 'ic') + '<span class="nm">' + esc(vp.n) + '</span>');
     cv += lane(H.ss,
-      '<div class="b ss off" style="left:0;width:' + W + 'px" title="' + esc(snm) +
-      '\n発動して効くもの ' + cnt[1] + ' 件は、引き金が要るのでまだ数えていません' +
-      (cnt[0] ? '\n常時 ' + cnt[0] + ' 件はステータスに乗せています' : '') + '">' +
-      esc(snm) + '　発動ぶん ' + cnt[1] + ' 件（未対応）</div>');
+      '<div class="b ss' + (sOff ? ' off' : '') + '" style="left:0;width:' + W +
+      'px" title="' + esc(snm) +
+      (cnt[0] ? '\n常時 ' + cnt[0] + ' 件はステータスに乗せています' : '') +
+      (cnt[1] ? '\n発動して効くもの ' + cnt[1] + ' 件は、引き金が要るのでまだ数えていません' : '') +
+      '">' + esc(snm) + (sOff ? '　未対応 ' + cnt[1] : '') + '</div>');
   }
   if (!ssn) {
-    side += lbl(H.ss, '<span class="mut">（引き金つきは無し）</span>');
+    side += lbl(H.ss, '<span class="mut">（編成が空です）</span>');
     cv += lane(H.ss, '');
   }
   }
