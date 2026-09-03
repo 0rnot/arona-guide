@@ -5027,6 +5027,34 @@ def build_tl():
             if _ids:
                 _elist.setdefault(_ids[0], []).extend(_ids[1:])
                 _bodies.add(_ids[0])
+    # **`EnemyList` の並びは難易度の順。**`EnemyList[i][0]` の `DevName` が
+    # i 番目の難易度で終わることを、`Raid` 14 本・110 段ぜんぶで数えて確かめた
+    # （2026-09-04。外れ 0 件）。
+    # **同じ Raid でも地形の枝が違うと本体の id が違う**ので、本体の id では引けない。
+    #   ペロロジラ屋外 Hard は `7405200 Perorozilla_Outdoor_Hard`、
+    #   `EnemyList[1]` の先頭は `7305200 Perorozilla_default_Hard`
+    # `7405xxx` の枝には**部位の行が 1 つも無い**（8 段のボス本体だけ。
+    # `CharacterExcelTable` を数えた）ので、部位は `7305xxx` から借りるしかない。
+    # 難易度で引けるようにして、prefix の当て推量に頼らずに済ませる
+    _EL_DIFF = ["Normal", "Hard", "VeryHard", "HardCore", "Extreme",
+                "Insane", "Torment", "Lunatic"]
+    _elist_df = {}
+    for _r in (raids.get("Raid") or []):
+        for _i, _ids in enumerate(_r.get("EnemyList") or []):
+            if _ids and _i < len(_EL_DIFF):
+                _elist_df.setdefault((_r.get("Id"), _EL_DIFF[_i].lower()),
+                                     []).extend(_ids[1:])
+
+    def _el_cand(ids):
+        """`EnemyList` の部位の id を、同じ prefix の兄弟ごと候補にする。
+           **同じ番号帯には別難易度のボス本体も並んでいる**ので、
+           `EnemyList` の先頭に出てくる id は全部よける（`_bodies`）。"""
+        out = []
+        for _eid in ids:
+            for _k in (_by_pre.get(str(_eid)[:-2], []) or [_eid]):
+                if _k not in _bodies:
+                    out.append(_k)
+        return out
 
     def _dev_role(dn):
         """`Hod_TemporaryTower_Summon_HeavyArmor_Torment` → `hod_temporarytower_summon`"""
@@ -5493,15 +5521,11 @@ def build_tl():
                 # **本体の枝に無ければ `EnemyList` を引く**（LOOP.md 63）。
                 # 借り物ではなくその難易度の実物なので、装甲の付け替えも要らない
                 if not got["sub"]:
-                    _cand = []
-                    for _eid in _elist.get(got["cid"], []):
-                        # **同じ番号帯には別難易度のボス本体も並んでいる。**
-                        # `EnemyList` の先頭に出てくる id は全部よけないと、
-                        # ペロロジラ（屋内）Hard の部位に「ペロロジラ（屋内戦）
-                        # hp380000」＝ Normal の本体が入る（2026-09-03 に実測）
-                        for _k in (_by_pre.get(str(_eid)[:-2], []) or [_eid]):
-                            if _k not in _bodies:
-                                _cand.append(_k)
+                    # **同じ番号帯には別難易度のボス本体も並んでいる。**
+                    # `EnemyList` の先頭に出てくる id は全部よけないと、
+                    # ペロロジラ（屋内）Hard の部位に「ペロロジラ（屋内戦）
+                    # hp380000」＝ Normal の本体が入る（2026-09-03 に実測）
+                    _cand = _el_cand(_elist.get(got["cid"], []))
                     if _cand:
                         got["sub"] = _subs(got["cid"], _skip, _cand)
                         _own = got["sub"]
@@ -5525,6 +5549,24 @@ def build_tl():
                                 break
                         if got["sub"]:
                             break
+                # **それでも空なら、その Raid の同じ難易度の `EnemyList` を引く。**
+                # ペロロジラ屋外の Hard〜Extreme がこれ。本体が `7405200`〜`7405500`
+                # なのに `7405xxx` には部位の行が 1 つも無く、`EnemyList[1..4]` は
+                # 屋内の本体 `7305200`〜`7305500` を先頭に置いて部位に
+                # `7305101 Perorozilla_MiddleSize01` と `7305190 Perorozilla_SmallSize01`
+                # を並べている。屋内の枝も `73052x` には部位が無く、
+                # ここと同じ `EnemyList` から借りている（＝借り先は同じ実物）。
+                # **借りるのは `TacticEntityType` がボスでない行だけ。**シロクロは
+                # `EnemyList` の 2 体目が相方のボス（`7302101 Kuro_default_Normal`
+                # `TacticEntityType: Boss`）で、そのまま借りると屋内の枝に
+                # 別地形のシロ・クロ・集計の 3 体が部位として並ぶ（2026-09-04 に実測）。
+                # 相方は下の「討伐の池」が枝の実物で足す
+                if not got["sub"]:
+                    _cand = [k for k in _el_cand(
+                        _elist_df.get((b.get("Id"), (df or "").lower()), []))
+                        if (ch_all.get(k) or {}).get("TacticEntityType") != "Boss"]
+                    if _cand:
+                        got["sub"] = _subs(got["cid"], _skip, _cand)
                 # **借りた部位の装甲は本体に揃える。**大決戦の枝から借りると、
                 # その枝の装甲（並びの先頭＝LightArmor）が付いてくる。ペロロジラ屋外と
                 # ケセド屋外がそれで、本体が Unarmed／HeavyArmor なのに部位だけ
