@@ -4574,6 +4574,25 @@ def tl_one(cid, bt, csl, stat, fcache, ch_appear, twin=None):
         clr = sorted({int(r["TriggerArgument"]) for r in rs
                       if r["ExternalBTTrigger"] == "UseNormalSkill"
                       and r["ExternalBehavior"] == "ClearNormalSkill"})
+        # **数え直しの書き方は 2 通りある**（2026-09-04、64）。
+        # `UseNormalSkill C → ClearNormalSkill`（C 発目で 0 に戻る）のほかに、
+        # **`CheckPeriod 1 → ClearNormalSkill`** がある（`CheckPeriod` の
+        # `TriggerArgument` は 1 が 1,015 件で「いつでも真」＝木の落ち穂拾いの枝。
+        # 全 10,868 行のうち 367 件・木でいうと 141 / 411 本が持っている）。
+        # こちらは戻る数が書いていないので、**台本そのものの長さ
+        # （`UseNormalSkill` の引数の最大）を 1 周とする。**
+        #
+        # ペロロジラがこれで、**直す前は 72.0 秒で終わっていた**。
+        # 先生がくれた録画（`Wgg-i9aPPxs`）でボスの EX は
+        # 戦闘 12.0 / 76.8 / 168.5 / 233.2 秒に出ていて、72 秒より後にも出る。
+        # `AIPhase` が `CheckActiveGaugeOver 301 → ChangePhase` で 0→1→2→0 と
+        # 輪になって回り、入るたびにこの行で数えが 0 に戻る（2026-09-04 に動画で確かめた）
+        if not clr and any(r["ExternalBTTrigger"] == "CheckPeriod"
+                           and r["ExternalBehavior"] == "ClearNormalSkill" for r in rs):
+            _uns = [int(r["TriggerArgument"]) for r in rs
+                    if r["ExternalBTTrigger"] == "UseNormalSkill"]
+            if _uns:
+                clr = [max(_uns)]
         # **その数でフェーズが変わるなら繰り返さない。**ペロロジラの
         # フェーズ 12 は `UseNormalSkill 6` に `ClearNormalSkill` と
         # `ChangePhase 11` の両方がぶら下がっていて、1 周でフェーズが終わる
