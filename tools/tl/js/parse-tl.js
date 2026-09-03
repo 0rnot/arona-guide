@@ -435,11 +435,16 @@ export function parseTL(txt) {
     if (/参考|下振れ|上振れ|ページ目|移行|支援値|使用生徒|リスタート|移動先|立ち位置|位置取り|撃ち切り|足元|固定|ポイント|ブレます|…|凡例|リロードキャンセル|コピースキル/.test(cut) ||
         /[？?]\s*$/.test(cut) ||
         // 「ST 正月カヨコ、臨戦ホシノ…」「SP 水着ナギサ、キサキ」（編成の並び）「-- … --」「表記なしは…」（2026-09-02、クロカゲ）
-        /^(?:ST|SP|STRIKER|SPECIAL)[\s　:：]/i.test(cut.trim()) || /^-{2,}/.test(cut.trim()) || /^(?:表記な|無印)/.test(nrm(cut))) { continue; }
-    // 名前を「、」で 2 つ以上並べてタイミングの無い行は編成の並び（「ナギサ、ハレ、キサキ、カヨコ」）
-    if (!timeIn(noParen, dur) && cut.split(/[、,]/).length >= 3) {
+        // **「ストライカー　ホシノ(臨戦)・アカネ・…」も編成の並び**（2026-09-03。
+        // 初見のビナー `gxUEp6GVvDE` で、この 2 行が「即」の 6 発として置かれていた）
+        /^(?:ST|SP|STRIKER|SPECIAL|ストライカー|スペシャル)[\s　:：]/i.test(cut.trim()) ||
+        /^-{2,}/.test(cut.trim()) || /^(?:表記な|無印)/.test(nrm(cut))) { continue; }
+    // 名前を「、」「・」で 2 つ以上並べてタイミングの無い行は編成の並び
+    // （「ナギサ、ハレ、キサキ、カヨコ」「ホシノ(臨戦)・アカネ・ミカ(水着)」。
+    //  「・」は 2026-09-03 に足した）
+    if (!timeIn(noParen, dur) && cut.split(/[、,・]/).length >= 3) {
       var nmC = 0, nmq;
-      var nmP = cut.split(/[、,]/);
+      var nmP = cut.split(/[、,・]/);
       for (nmq = 0; nmq < nmP.length; nmq++) { if (whoIn(nmP[nmq], crew) >= 0) { nmC++; } }
       if (nmC >= 2) { continue; }
     }
