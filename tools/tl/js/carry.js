@@ -7,7 +7,7 @@ import { dmgCurve, naPool, poolBodies, poolKills, poolOf, subIxOfPool, valueAt }
 import { naTimes } from './na.js';
 import { usesSorted } from './buff.js';
 import { dmgOf, dotTimes } from './dmg.js';
-import { epEvery, epOkAt, epOn } from './ep.js';
+import { epEvery, epOkAt, epOn, epTierPick } from './ep.js';
 
 // ------------------------------------------------------------ 部隊の持ち越し
 // **部隊 k の結果**（終了時刻・撃破時刻・池ごとに削った量）。前の部隊が削ったぶんを
@@ -174,7 +174,10 @@ export function dmgCurve0(r, key, pid, deadAt) {
         var at3 = Math.min((+bs3 + 0.5) * STEP, dur);
         var cn3 = Math.floor(bucket[bs3].length / ev3);
         if (!cn3 || !epOkAt(st.party[i].id, r, at3, subIxOfPool(r, pid))) { continue; }
-        var ds3 = dmgOf(i, r, at3, 'ExtraPassive', null, subIxOfPool(r, pid));
+        // **段で分かれる子は、その時刻の段で候補を決める**（2026-09-04。`clear.js` と同じ）
+        var ds3 = dmgOf(i, r, at3, 'ExtraPassive',
+                        epTierPick(st.party[i].id, r, at3, subIxOfPool(r, pid)),
+                        subIxOfPool(r, pid));
         if (!ds3) { break; }
         for (q = 0; q < cn3; q++) { pts.push([bucket[bs3][q * ev3], ds3[key]]); }
       }
@@ -249,17 +252,65 @@ export function phaseSpans(r) {
   return out;
 }
 
+/** **「フェーズ N ではグロッキーゲージが増加しない」型の条文**（2026-09-04）。
+    これは「この道具が持っていない出来事」ではなく、**フェーズが分かれば追える**。
+    クロカゲ（`EN0006`）の `gc` は「フェーズ1ではグロッキーゲージが増加しない。」で、
+    その実体はステージ側にある——
+      `Stage/en0006_lunatic.json`
+        `Sections[0]`（`SectionID: 1`＝フェーズ 1）の `Events[3]`（`"EventName": "StayArea"`）
+          `{"$type": "MX.Logic.Battles.GroundCommandSetStatusImmune, BlueArchive",
+            "heroStatus": "ImmuneGroggyGaugeAdd", "isAdd": true, "CommandID": "EN0006"}`
+        `Sections[2]`（`SectionID: 3`＝フェーズ 2）の `Events[1]`（`"EventName": "StayArea"`）
+          `{"$type": "MX.Logic.Battles.GroundCommandSetStatusImmune, BlueArchive",
+            "heroStatus": "ImmuneGroggyGaugeAdd", "isAdd": false, "CommandID": "EN0006"}`
+    **付けるのがフェーズ 1、外すのがフェーズ 2 で、そのあと付け直す行は無い**
+    （`ImmuneGroggyGaugeAdd` はこのファイル中に 2 件しか無い）。つまり
+    「フェーズ 1 の間だけゲージが増えない／それ以外はダメージで貯まる」。
+    返すのは増えないフェーズの添字（`r.ph` の鍵。**ゲーム内の「フェーズ1」が `'0'`**）。
+    **1 行でも別の型が混ざっていたら null**——追えない引き金が残るので丸ごと人に任せる。 */
+export function ggFreezePh(gc) {
+  var lines = String(gc || '').split(/\n+/), out = [], i, ln, m;
+  for (i = 0; i < lines.length; i++) {
+    ln = lines[i].trim();
+    if (!ln) { continue; }
+    m = /^フェーズ([0-9０-９]+)ではグロッキーゲージが増加しない/.exec(ln);
+    if (!m) { return null; }
+    out.push(String(+m[1].replace(/[０-９]/g, function (c) {
+      return String.fromCharCode(c.charCodeAt(0) - 0xfee0);
+    }) - 1));
+  }
+  return out.length ? out : null;
+}
 /* **グロッキーの貯まり方はボスごとに違う**（2026-09-01 の先生の指摘）。
    `gc`（`GroggyCondition` の原文）が空のボスだけ「ダメージで貯まる」ので、
    そこだけ線を引く。**書いてあるボスは追わない**——「自律兵器が破壊されると
    増加する」「EXスキルが中断されると増加する」のような、この道具が持っていない
-   出来事が引き金だから。ゲージの大きさと条文はそのまま出す。 */
+   出来事が引き金だから。ゲージの大きさと条文はそのまま出す。
+   **例外はフェーズを名指しした条文だけ**（`ggFreezePh`）。そちらは引き金が
+   「ダメージ」のままで、増えない区間がフェーズで決まるので追える。 */
 export function ggMode(r) {
   var b = boss(), bs = r.bs || {};
   if (!bs.groggy) { return { kind: 'なし' }; }
-  if (b.gc) { return { kind: '条件つき', why: b.gc, need: bs.groggy, sec: (bs.groggyT || 0) / 1000 }; }
+  var fz = b.gc ? ggFreezePh(b.gc) : null;
+  if (b.gc && !fz) { return { kind: '条件つき', why: b.gc, need: bs.groggy, sec: (bs.groggyT || 0) / 1000 }; }
   if (bs.hp && bs.groggy > bs.hp * 20) { return { kind: '実質なし', need: bs.groggy }; }
-  return { kind: 'ダメージ', need: bs.groggy, sec: (bs.groggyT || 0) / 1000 };
+  return { kind: 'ダメージ', need: bs.groggy, sec: (bs.groggyT || 0) / 1000,
+           freeze: fz, why: fz ? b.gc : '' };
+}
+/** ゲージが増えないフェーズの区間 `[[t0, t1], …]`。名指しが無ければ空。 */
+export function ggFreezeSpans(r, g) {
+  if (!g || !g.freeze || !g.freeze.length) { return []; }
+  var sp = phaseSpans(r), out = [], i;
+  for (i = 0; i < sp.length; i++) {
+    if (g.freeze.indexOf(String(sp[i].p)) >= 0) { out.push([sp[i].t0, sp[i].t1]); }
+  }
+  return out;
+}
+function inSpans(sp, t) {
+  for (var i = 0; i < sp.length; i++) {
+    if (t >= sp[i][0] - 1e-9 && t < sp[i][1]) { return true; }
+  }
+  return false;
 }
 /** ダメージで貯まるボスの、ゲージの折れ線と、たまり切った時刻。 */
 export function ggRuns(r) {
@@ -271,9 +322,13 @@ export function ggRuns(r) {
   // 2 つだけで、その間の貯まり方は入っていない（`DB/` の 456 表を見た）。
   // 貯め続ける作りにすると帯が重なって連続でグロッキーになるので、
   // 「グロッキー中に入れたぶんは次のゲージに数えない」を既定にした
+  // **名指しされたフェーズの間は貯まらない**（2026-09-04。`ggFreezePh` の出典を見る）。
+  // グロッキー中と同じ扱いで、その間に入れたぶんは次のゲージに数えない
+  var fz = ggFreezeSpans(r, g);
   var cv = dmgCurve(r), base = 0, pts = [[0, 0]], hits = [], i, until = -1;
   for (i = 0; i < cv.length; i++) {
     var t = cv[i][0];
+    if (inSpans(fz, t)) { base = cv[i][1]; pts.push([t, 0]); continue; }
     if (t < until) { base = cv[i][1]; pts.push([t, 0]); continue; }
     var v = cv[i][1] - base;
     if (v >= g.need) {

@@ -5,7 +5,7 @@ import { engIn, kindOf, recPower, whyOf } from './engine.js';
 import { costRun } from './chart.js';
 import { SCEN, scen, scenIx } from './scen.js';
 import { poolName, poolOrder } from './pool.js';
-import { carryIn, killAt, partyCalc, scoreOf, secLab } from './carry.js';
+import { carryIn, ggMode, killAt, partyCalc, scoreOf, secLab } from './carry.js';
 import { n0 } from './rate.js';
 import { exKind, usesSorted } from './buff.js';
 import { isSingle } from './target.js';
@@ -236,7 +236,9 @@ export function drawErr() {
   // `gc`（条件つきでグロッキー）のボスは時刻が解けないので、`ggCritAt` が
   // 常に偽になり、確定会心も分裂の ×N も一度も乗らない
   // `gc` はボス（`boss()`）側にある。難易度の行ではない
-  if (r.gspl && r.gspl.gg && boss() && boss().gc) {
+  // **フェーズを名指しした条文は道具が解く**ので、そのぶんは促さない
+  // （2026-09-04。`carry.js` の `ggFreezePh`）
+  if (r.gspl && r.gspl.gg && boss() && boss().gc && ggMode(r).kind !== 'ダメージ') {
     var gw = 0;
     for (q = 0; q < (st.bst || []).length; q++) { if (st.bst[q].k === 'groggy') { gw++; } }
     // **ゲージがダメージでは埋まらないボス**（ペロロジラ・ケセド・ホド・ワカモ）は、
