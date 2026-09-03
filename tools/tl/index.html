@@ -677,8 +677,9 @@
    左の列の右端に重ねる。摘みもここに乗せる（2026-09-01 の先生の指摘） */
 .tlapp .tlmain { grid-template-columns:var(--lcol, 22%) minmax(0,1fr) !important; }
 @media (min-width:1600px) { .tlapp .tlmain { --lcol:340px; } }
-/* 閉じたときに残すのは摘みのぶんだけ */
-.tlapp .tlmain.wide { --lcol:16px !important; }
+/* 閉じたら左は 0。摘みはツールバーにあるので残す幅は要らない */
+.tlapp .tlmain.wide { --lcol:0px !important; }
+.tlapp .tlmain.wide .cgrip { display:none; }
 .tlapp .tlleft { position:relative; }
 .tlapp .tlleft.shut > .pane { display:none; }
 .tlapp .cgrip { position:absolute; top:0; bottom:0; right:calc(var(--s2) * -1);
@@ -687,20 +688,16 @@
 .tlapp .cgrip::before { content:''; position:absolute; top:0; bottom:0; left:50%;
   width:1px; margin-left:-.5px; background:var(--gb); transition:background .12s; }
 .tlapp .cgrip:hover::before, .tlapp .cgrip.drag::before { background:var(--acc); }
-/* **摘みは仕切りの縦の中央に、縦長で**（2026-09-03 の先生の指摘
-   「トグルの位置が別のパネルに被ってて見づらい」「縦の中央のがいい」
-   「正方形より縦長のボタンのがわかりやすい」）。
-   前は上端に 18×18 で置いていて、右のツールバーと重なっていた */
-.tlapp .cgrip .fold { position:absolute; top:50%; left:50%;
-  margin-left:-8px; margin-top:-27px; width:16px; height:54px; min-width:16px;
-  cursor:pointer; background:var(--g2); border:1px solid var(--gb);
-  border-radius:var(--r1); display:flex; align-items:center; justify-content:center; }
-.tlapp .cgrip .fold:hover { background:rgba(255,255,255,.09); }
-/* 開いているとき ◀（閉じる）、閉じているとき ▶（出す） */
-.tlapp .cgrip .fold .cv { width:0; height:0; border:0; transform:none;
+/* **摘みはタイムラインのツールバーの先頭へ**（2026-09-03 の先生の案
+   「↶ 戻す の左側にボタン作るようにしたら」）。仕切りの上に乗せていたときは
+   左のパネルと重なって押しづらかった。ツールバーなら被りようがなく、
+   左の列は 0 まで畳める */
+.tlapp .tools2 .r .btn2.sideb { width:26px; min-width:26px; padding:0;
+  display:inline-flex; align-items:center; justify-content:center; }
+.tlapp .btn2.sideb .cv { width:0; height:0; border:0; transform:none;
   border-top:4px solid transparent; border-bottom:4px solid transparent;
   border-right:5px solid var(--tx2); }
-.tlapp .cgrip .fold[aria-expanded="false"] .cv { transform:none;
+.tlapp .btn2.sideb[aria-expanded="false"] .cv { transform:none;
   border-right:0; border-left:5px solid var(--tx2); }
 
 /* ---- 吹き出し。**標準の `title` はカーソルの真下に出るので、大きいカーソルだと
@@ -1148,10 +1145,7 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
 
     <!-- ---------- 左 ---------- -->
     <div class="tlleft" id="tlleft">
-      <div class="cgrip" id="cgrip" title="ドラッグで幅を変える／ダブルクリックで戻す">
-        <button type="button" class="fold" id="b-side" aria-expanded="true"
-                title="左の列を畳む／出す"><span class="cv"></span></button>
-      </div>
+      <div class="cgrip" id="cgrip" title="ドラッグで幅を変える／ダブルクリックで戻す"></div>
 
       <div class="pane"><div class="bd">
         <h2 class="sect"><i></i>編成
@@ -1237,6 +1231,9 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
     <div class="tlright">
       <div class="pane"><div class="bd tools2">
         <div class="r">
+          <button type="button" class="btn2 sideb" id="b-side" aria-expanded="true"
+                  title="左の列を畳む／出す"><span class="cv"></span></button>
+          <span class="vr"></span>
           <button type="button" class="btn2" data-act="undo" id="b-undo" title="Ctrl+Z">↶ 戻す</button>
           <button type="button" class="btn2" data-act="redo" id="b-redo" title="Ctrl+Y / Ctrl+Shift+Z">↷ 進む</button>
           <span class="vr"></span>
