@@ -29,7 +29,32 @@ export function nickOf(n) {
   var k = nrm(n).replace(/[＊*・]/g, '');
   return has(NICK, k) ? NICK[k] : null;
 }
-export function findStudent(nm, notes) {
+/** **編成に居る子を先に当てる**（2026-09-04）。`pool` は既に読み取った編成の生徒。
+
+    TL の本文が「シロコ」と書いていて編成に シロコ＊テラー だけが居るとき、
+    **素のシロコ（10010）を新しく足して 7 人目にしてしまい、助っ人のリオが
+    枠から溢れて 11 発が落ちていた**（総力戦ゴズ `9FiPLXveLBs`。2026-09-04 に実測。
+    `幅の中 43% → 96%`）。`NICK` に「シロコ」を足すのは間違いで、
+    **素のシロコが編成に居る TL を壊す。**
+
+    決めるのは **編成の中でちょうど 1 人に当たるとき**だけ。
+    まず名前・別名・素の名前がぴったり合う子、それが無ければ
+    **名前がその語で始まる子**（`シロコテラー` は `シロコ` で始まる）。
+    2 人以上に当たったら決めない（今までどおり全生徒から引く）。 */
+function findIn(pool, n) {
+  var i, ex = [], pre = [];
+  for (i = 0; i < pool.length; i++) {
+    var d = pool[i];
+    if (!d) { continue; }
+    var w = nrm(d.n).replace(/[＊*・]/g, ''), a = aliasOf(d.n);
+    if (w === n || a.base === n || a.alts.indexOf(n) >= 0) { ex.push(d); }
+    else if (n.length >= 2 && w.indexOf(n) === 0) { pre.push(d); }
+  }
+  if (ex.length === 1) { return ex[0]; }
+  if (!ex.length && pre.length === 1) { return pre[0]; }
+  return null;
+}
+export function findStudent(nm, notes, pool) {
   // **名前に飾りが付く。**「リオ（助っ人）」「水着ミカ（レンタル）：固有4」
   // 「[助]マコト固有３」「シロコテラー」（正しくは シロコ＊テラー）。
   // 落としてから引く（2026-09-02、総力戦ゴズ・大決戦ケセドで 5 本が壊れていた）
@@ -42,6 +67,11 @@ export function findStudent(nm, notes) {
   if (!n) { return null; }
   var nk = nickOf(n);
   if (nk) { for (i = 0; i < S.students.length; i++) { if (S.students[i].n === nk) { return S.students[i]; } } }
+  // **編成に居る子が先**（上の `findIn` の注記に出典）
+  if (pool && pool.length) {
+    var pf = findIn(pool, n);
+    if (pf) { return pf; }
+  }
   for (i = 0; i < S.students.length; i++) {
     var a = aliasOf(S.students[i].n);
     if (a.alts.indexOf(n) >= 0) { return S.students[i]; }

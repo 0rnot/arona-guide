@@ -605,7 +605,13 @@ export function parseTL(txt) {
       // **黙って捨てない。**編成に入らなかった生徒の行がそのまま消えて、
       // 使う人が「足りない」ことに気づけなかった（2026-09-02、12 本のうち 5 本）。
       // 生徒として引ける名前が書いてあるのに編成にいない行だけ知らせる
-      var sd2 = findStudent(nrm(cut).replace(/[0-9０-９:.秒即最速]/g, ''), null);
+      // **編成に居る子を先に当てる**（2026-09-04）。編成に シロコ＊テラー が居るのに
+      // 本文の「シロコ」で素のシロコを新しく足して、助っ人が枠から溢れていた
+      var pool2 = [], pq;
+      for (pq = 0; pq < res.crew.length; pq++) {
+        if (_byid[res.crew[pq].id]) { pool2.push(_byid[res.crew[pq].id]); }
+      }
+      var sd2 = findStudent(nrm(cut).replace(/[0-9０-９:.秒即最速]/g, ''), null, pool2);
       // **括弧の中だけの呼び名で編成の子に当たるなら、その子。**「23.50臨戦」の
       // 臨戦 → ホシノ（臨戦）／アタッカー（2026-09-02、ペロロジラ）
       var ci2 = -1, nick = nrm(cut).replace(/[0-9０-９:.秒即最速]/g, ''), nHit = 0;
