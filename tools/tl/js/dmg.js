@@ -1,6 +1,6 @@
 import { $, B } from './util.js';
 import { TE, _byid, isMain, slotOf, st } from './core.js';
-import { ggCritAt } from './carry.js';
+import { ggCritAt, hpRateAt } from './carry.js';
 import { clamp } from './stats.js';
 import { effMod, statsOf, support, terrMod } from './passive.js';
 import { aimOf, enemyAt } from './target.js';
@@ -295,8 +295,18 @@ export function dmgAt(idx, r, at, kind, pick, tg, gx, nso, only) {
         smM = (e[16][3] + (e[16][4] - e[16][3]) * sf) / 10000;
       }
     }
+    // **当たる先の HP でダメージが変わるもの**（2026-09-03、56b）。
+    // 倍率は `MultiplierMin + (MultiplierMax − MultiplierMin) × h`。
+    // `h` は `carry.js` の `hpRateAt`（`ggSolve` が 4 周まわして解く）。
+    // **見ているのは本体の池だけ**なので、部位に当てたときも本体の HP で引く
+    var hrM = 1;
+    if (e[17]) {
+      var hR = hpRateAt(at), hLo = (e[17][0] || 0) / 10000, hHi = (e[17][1] || 10000) / 10000;
+      var hf = hHi > hLo ? Math.max(0, Math.min(1, (hR - hLo) / (hHi - hLo))) : 0;
+      hrM = e[17][2] + (e[17][3] - e[17][2]) * hf;
+    }
     var base = atk * tm * em * (sc / 10000) * mult * defModOf(ig) *
-               drA * drB * exM * baM * lvMod * tick * smM;
+               drA * drB * exM * baM * lvMod * tick * smM * hrM;
     // **グロッキー中は確定会心**（この関数の上、ggCritAt の注記に出典）
     var cr = e[2] === 'Never' ? 0
            : (e[2] === 'Always' || ggCritAt(at) ? 1 : cEff);

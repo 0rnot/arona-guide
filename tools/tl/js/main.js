@@ -6,7 +6,7 @@ import { engIn, sim } from './engine.js';
 import { costPts } from './chart.js';
 import { scen } from './scen.js';
 import { dmgCurve, poolHp, poolKills, poolName, poolOrder } from './pool.js';
-import { carryIn, ggAt, ggCritAt, ggRuns, ggSolve, killAt, partyCalc, phaseSpans, scoreOf, trOf } from './carry.js';
+import { carryIn, ggAt, ggCritAt, ggRuns, ggSolve, hpRateAt, killAt, partyCalc, phaseSpans, scoreOf, trOf } from './carry.js';
 import { draw, drawNow } from './draw.js';
 import { drawErr, kpi } from './kpi.js';
 import { drawCrit, drawRate } from './rate.js';
@@ -60,6 +60,8 @@ window.__TLDBG = { statsOf: statsOf, dmgOf: dmgOf, total: total, diff: diff,
                    dotTimes: dotTimes,
                    // **変身 EX の周期**（2026-09-03 の 60）
                    fcOf: fcOf,
+                   // **当たる先の HP 割合**（2026-09-03 の 56b）
+                   hpRateAt: hpRateAt,
                    busyOf: busyOf, naTimes: naTimes, naRuns: naRuns, nsTimes: nsTimes,
                    nsInfo: nsInfo, naInfo: naInfo, altOf: altOf, pickOf: pickOf,
                    usesSorted: usesSorted, liveBuffs: liveBuffs, draw: drawNow,

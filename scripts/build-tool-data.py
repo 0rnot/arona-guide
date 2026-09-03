@@ -5743,7 +5743,21 @@ def build_tl():
                       e["StatModifier"].get("MaxStatValue"),
                       e["StatModifier"].get("MultiplierMin"),
                       e["StatModifier"].get("MultiplierMax")]
-                     if e.get("StatModifier") else None)]
+                     if e.get("StatModifier") else None),
+                    #   HpRate … 当たる先の HP でダメージが変わるもの（2026-09-03、56b）。
+                    #     8 行 7 人。`MinHpRate` は全件 0、`MaxHpRate` は全件 10000 で、
+                    #     倍率は HP の割合 h で
+                    #     `MultiplierMin + (MultiplierMax − MultiplierMin) × h`。
+                    #       カリン（制服）Ex/Public  3 → 1     ＝ 3 − 2h（前に読んだ値と一致）
+                    #       ヒビキ GearPublic        2 → 1
+                    #       アスナ・フィーナ（ガイド）  1.5 → 1
+                    #       ミカ Ex                1 → 2
+                    #       ナグサ Ex               1 → 3
+                    ([e["TargetHpRateModifier"].get("MinHpRate"),
+                      e["TargetHpRateModifier"].get("MaxHpRate"),
+                      e["TargetHpRateModifier"].get("MultiplierMin"),
+                      e["TargetHpRateModifier"].get("MultiplierMax")]
+                     if e.get("TargetHpRateModifier") else None)]
             # **`Group` は「何段目か」で、足すものではなく択一。**
             # ネル（制服）の Ex1 は Group 0〜4 × 条件 2 通りの 10 件あって、
             # 全部足すと 1 発 5,727,546（ボス HP の 25%）になっていた。

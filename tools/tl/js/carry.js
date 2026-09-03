@@ -20,8 +20,8 @@ export function partyCalc(k) {
   var key = [_pv, st.bi, st.di, st.arm, scenIx(), st.crit, k, p.end, JSON.stringify(p.tl),
              JSON.stringify(p.bst), JSON.stringify(p.slots)].join('|');
   if (_pcV[key]) { return _pcV[key]; }
-  var save = st.pi, gsp = GGSP, gbz = GGBUSY, out;
-  st.pi = k; usePartyRef(); GGSP = null; GGBUSY = false;
+  var save = st.pi, gsp = GGSP, gbz = GGBUSY, hsp = HPSP, out;
+  st.pi = k; usePartyRef(); GGSP = null; GGBUSY = false; HPSP = null;
   try {
     var carry = carryIn(k);
     ggSolve(r);
@@ -40,7 +40,7 @@ export function partyCalc(k) {
       dealt[pk[i].pid] = Math.max(0, Math.min(pk[i].need, valueAt(pk[i].cv, end)));
     }
     out = { end: end, kill: kill, dealt: dealt, pools: pk, gu: !!p.gu, manual: p.end != null };
-  } finally { st.pi = save; usePartyRef(); GGSP = gsp; GGBUSY = gbz; }
+  } finally { st.pi = save; usePartyRef(); GGSP = gsp; GGBUSY = gbz; HPSP = hsp; }
   _pcV[key] = out;
   return out;
 }
@@ -303,6 +303,13 @@ export function ggRuns(r) {
    **ゲージはダメージで貯まり、ダメージは会心で変わるので、堂々巡りになる。**
    グロッキー無しで 1 度引いてから、出た区間を入れて引き直す、を繰り返す */
 export var GGSP = null, GGBUSY = false;
+/* **当たる先の HP でダメージが変わるものがある**（2026-09-03、56b。
+   カリン（制服）は `3 − 2h`、ミカは `1 + h`）。**ここもグロッキーと同じ堂々巡り**で、
+   HP はダメージで減り、ダメージは HP で変わる。**同じ解き方に相乗りする**——
+   `ggSolve` が 4 周まわす、そのついでに累計ダメージの曲線を覚えておいて、
+   次の周がそれを見る。1 周目は HP 満タン（倍率 1 ぶん）から始まる。
+   **見ているのは本体の池だけ**（部位ごとの HP は追っていない）。 */
+export var HPSP = null;
 export function ggCritAt(t) {
   if (t == null) { return false; }
   for (var g = 0; g < (st.bst || []).length; g++) {
@@ -315,14 +322,25 @@ export function ggCritAt(t) {
   }
   return false;
 }
+/** その時刻での当たる先の HP 割合（0〜1）。**解けていなければ 1（満タン）。** */
+export function hpRateAt(t) {
+  if (t == null || !HPSP || !(HPSP.hp0 > 0)) { return 1; }
+  var cv = HPSP.cv, i, acc = 0;
+  for (i = 0; i < cv.length; i++) { if (cv[i][0] > t) { break; } acc = cv[i][1]; }
+  return Math.max(0, Math.min(1, (HPSP.hp0 - HPSP.carry - acc) / HPSP.hp0));
+}
 export function ggSolve(r) {
-  if (GGBUSY) { return; }
+  if (GGBUSY || !r) { return; }
   GGBUSY = true;
   try {
     var pass, i, prev = null;
-    GGSP = null;
+    GGSP = null; HPSP = null;
+    var hp0 = (r.bs && r.bs.hp) || 0, carry0 = (carryIn(st.pi)[r.cid] || 0);
     for (pass = 0; pass < 4; pass++) {
       var hits = ggRuns(r).hits, ns = [], same = !!prev && prev.length === hits.length;
+      // **累計ダメージの曲線を覚える**（56b）。`ggRuns` が引いたばかりのものと
+      // 同じで、`dmgCurve` は同じ状態なら覚えているので引き直しにはならない
+      if (hp0 > 0) { HPSP = { hp0: hp0, carry: carry0, cv: dmgCurve(r) }; }
       for (i = 0; i < hits.length; i++) { ns.push([hits[i].t, hits[i].until]); }
       if (same) {
         for (i = 0; i < ns.length; i++) {
