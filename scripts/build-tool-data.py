@@ -4684,6 +4684,48 @@ def acc_info(e):
     return [dur, rates, "Mystic"]
 
 
+# **変身がいつ切れるか**（2026-09-04、61f）。`Skills.Normal.FormChange` は
+# 効果とフレームを持っているが、**「いつからいつまでその形か」を持っていない。**
+# 一次資料は `DB/LogicEffect_PC.json` の `FormConversionEffectDAO` で、
+# `FormConversionEndCondition` が切れ方、`EndConditionArgument` がその値:
+#   1 … 時間（ms）    シュン 30000 / ツルギ（水着）20000〜30000 / ウタハ（応援団）90000 /
+#                     キララ 40000 / シロコ＊テラー 40000 / スバル 10000 /
+#                     エイミ（臨戦）30000 / オトギ 35000 / ココロ -1（切れない）
+#   2 … リロード回数  ツルギ 1〜2 / モモイ（メイド）1 / コトネ 1
+#   3 … 装弾数       ノノミ（水着）100
+#   5 … EX の使用回数 トキ 3  ← **60 で説明文から出した `fc = 3` と一致する**
+# 行は `GroupId` が `<DevName>_Ex01_Effect0N` で、`Level` 1〜10。
+# **EX のレベル N ＝ `Level` N**（ツルギ（水着）の説明文パラメータ
+# `['20秒','20秒','25秒','25秒','30秒']` と 1〜5 が一致する）
+_FCV = {}
+
+
+def fchg_of(dev):
+    """変身の切れ方 [条件, 段 1〜5 の値]。持っていなければ None。"""
+    if not dev:
+        return None
+    if not _FCV:
+        for r in as_list(get_json(BADB.format("LogicEffect_PC"))):
+            if "FormConversionEffectDAO" not in str(r.get("$type") or ""):
+                continue
+            m = re.match(r"^(.*?)_(?:Ex|Public|HiddenPassive)\d+_Effect\d+$",
+                         str(r.get("GroupId") or ""))
+            if not m or not r.get("Level"):
+                continue
+            _FCV.setdefault(m.group(1), {})[int(r["Level"])] = [
+                r.get("FormConversionEndCondition"), r.get("EndConditionArgument")]
+    rows = _FCV.get(dev)
+    if rows is None:
+        for k in _FCV:
+            if k.lower() == dev.lower():
+                rows = _FCV[k]
+                break
+    if not rows:
+        return None
+    cond = rows.get(1, [None, None])[0]
+    return [cond, [(rows.get(i) or [None, None])[1] for i in range(1, 6)]]
+
+
 # LevelSkill の中身を 1 回だけ落とすための入れ物（湧く体の数を数えるのに使う）
 _ls_cache = {}
 
@@ -5512,6 +5554,7 @@ def build_tl():
     ep_tid = {}
     skname = {}
     tgt_out = {}
+    fchg_out = {}
     # 装備。段ごとの効果。**値は SchaleDB と同じく `StatValue[i][1]`（その段の上限レベル）**
     eqp_out = {}
     for e in as_list(get_json(SD.format("equipment"))):
@@ -5663,6 +5706,11 @@ def build_tl():
         # 数えて、1 番目が `Ex1`）。engine の `forms()` が `[本体, xs[0], …]` なので
         # 形態 `fi` の枠は `fi ? "Ex" + fi : "Ex"` で引ける（2026-09-01）
         skills_map = dict(x.get("Skills") or {})
+        # **変身後の通常攻撃**（2026-09-04、61f）。`Skills.Normal.FormChange` に
+        # 効果もフレームも丸ごと入っている（14 人）。`NormalF` という別の枠で持つ
+        _nf = (skills_map.get("Normal") or {}).get("FormChange")
+        if isinstance(_nf, dict):
+            skills_map["NormalF"] = _nf
         _ex = skills_map.get("Ex")
         # **形態が変わる EX の「変わった先」は、変わる引き金の `Special` が
         # 必ず付いている。**本体 `Ex` が配る `Special` の `Key` を控えておいて、
@@ -6003,6 +6051,11 @@ def build_tl():
             tg[kind] = [n_ally, 1 if "自身を除" in ds else 0]
         if tg:
             tgt_out[sid] = tg
+        # **変身後の通常攻撃の切れ方**（2026-09-04、61f）。出どころは `fchg_of` の注記
+        if (x.get("Skills") or {}).get("Normal", {}).get("FormChange"):
+            _fv = fchg_of(x.get("DevName"))
+            if _fv:
+                fchg_out[sid] = _fv
     print(f"  生徒 {len(st_out)} 人 / ダメージを持つ生徒 {len(dmg_out)} 人・効果 {ndmg} 件")
     print(f"  バフ {nbuf} 件（条件つき・周期ものを {nskip} 件外した／"
           f"相手の条件つき {nrst} 件は判定して乗せる／"
@@ -6089,7 +6142,7 @@ def build_tl():
                       "IndoorBattleAdaptation"],
         "bam": bam, "ter": ter, "trans": trans,
         "build": build, "eqp": eqp_out, "buf": buf_out,
-        "ns": ns_out, "skname": skname, "tgt": tgt_out, "statJA": stat_ja,
+        "ns": ns_out, "skname": skname, "tgt": tgt_out, "fchg": fchg_out, "statJA": stat_ja,
         # 通常攻撃。**フレームは 30fps。`spd` は 10000 が等倍**
         "na": na_out,
         "nsKeys": ["MinimumTierCharacterGear", "ConditionType",
