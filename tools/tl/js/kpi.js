@@ -1,6 +1,6 @@
 import { $, B, esc, img } from './util.js';
 import { LAY, SLOTS, TE, st } from './core.js';
-import { boss, crewCount, diff } from './boss.js';
+import { boss, crewCount, diff, ggNoDmg } from './boss.js';
 import { engIn, kindOf, recPower, whyOf } from './engine.js';
 import { costRun } from './chart.js';
 import { SCEN, scen, scenIx } from './scen.js';
@@ -239,7 +239,13 @@ export function drawErr() {
   if (r.gspl && r.gspl.gg && boss() && boss().gc) {
     var gw = 0;
     for (q = 0; q < (st.bst || []).length; q++) { if (st.bst[q].k === 'groggy') { gw++; } }
-    if (!gw) { out.push(['w', 'グロッキーの窓（確定会心と ×' + r.gspl.n + ' が効きません）']); }
+    // **ゲージがダメージでは埋まらないボス**（ペロロジラ・ケセド・ホド・ワカモ）は、
+    // 窓を置かないかぎり一度もグロッキーにならない。**その理由まで出す**
+    // （2026-09-03。ゲージ 1,000,000,000 は溜まらないという意味の番号）
+    if (!gw) {
+      out.push(['w', 'グロッキーの窓（' + (ggNoDmg(r) ? 'ダメージでは貯まりません／' : '') +
+        '確定会心と ×' + r.gspl.n + '）']);
+    }
   }
   var pane = $('errlog').closest('.pane');
   if (pane) { pane.hidden = !out.length; }

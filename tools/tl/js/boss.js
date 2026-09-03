@@ -33,6 +33,18 @@ export function diff() {
 }
 /** ボス・難易度・装甲が入れ替わったら、覚えていた答えを捨てる（2026-09-03） */
 export function has(o, k) { return Object.prototype.hasOwnProperty.call(o, k); }
+/** **グロッキーゲージがダメージでは埋まらないボスか**（2026-09-03）。
+    `GroggyGauge` がボス本体の HP を超えていたら、削り切ってもゲージは届かない
+    （ペロロジラ Torment はゲージ 1,000,000,000 に対して HP 44,000,000。ケセドは
+    どの難易度も 1,000,000,000）。**推測ではなく、この道具の中では成り立つ**——
+    `carry.js` の `ggRuns` は累計ダメージをゲージと比べていて、累計はボスの HP で頭打ちになる。
+    こういうボスは `raids.json` の `GroggyCondition`（`gc`）に書いてある出来事だけが
+    ゲージを増やす（ペロロジラは「気絶状態のペロロミニオンを吸い込むと増加する。」）。
+    その出来事はこの道具が持っていないので、**窓は人が置く。** */
+export function ggNoDmg(r) {
+  var bs = (r && r.bs) || {};
+  return !!(bs.groggy && bs.hp && bs.groggy > bs.hp);
+}
 export function tormentIdx(b) {
   for (var i = 0; i < b.d.length; i++) { if (b.d[i].df === 'Torment') { return i; } }
   return b.d.length - 1;

@@ -1,7 +1,7 @@
 import { $, B, S, esc, view } from './util.js';
 import { st } from './core.js';
 import { mark } from './undo.js';
-import { ARMJA, boss, diff } from './boss.js';
+import { ARMJA, boss, diff, ggNoDmg } from './boss.js';
 import { draw } from './draw.js';
 import { n0 } from './rate.js';
 
@@ -179,8 +179,14 @@ export function drawGroggy() {
   // **数字だけ画面に出して、言葉は吹き出しへ畳む**（2026-09-03 の先生の指示
   // 「注釈とかマジでいらないから全箇所」）。前はここに 3 つの文が常時出ていた
   var tip = (how ? how : '') + (acts.length ? '　' + acts.join('・') : '');
+  // **溜まらないボスの番号は出さない**（2026-09-03）。ペロロジラ Torment の
+  // 1,000,000,000 は「ダメージでは埋まらない」という意味の番号で、桁を読ませても意味が無い。
+  // 言い方は `draw.js` の帯の札（`実質なし`）に揃えた。
+  // **`gc` があるボスだけ**にしてある。`gc` が空のボス（イェソド・ドラム缶ガニ）は
+  // 帯のほうがまだ「ダメージ」で線を引いていて、ここだけ言い換えると食い違う
   $('groggy').innerHTML =
-    '<b>グロッキー</b> ゲージ ' + n0(bs.groggy) + '／' +
+    '<b>グロッキー</b> ゲージ ' +
+    ((b.gc && ggNoDmg(r)) ? 'ダメージでは貯まらない' : n0(bs.groggy)) + '／' +
     ((bs.groggyT || 0) / 1000) + ' 秒' +
     (tip ? ' <button type="button" class="qm" data-hint="' + esc(tip) + '">?</button>' : '');
 }

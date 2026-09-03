@@ -117,8 +117,17 @@ function tmplAt(id, slot) {
   return nsTimes(id, diff().dur || 240, idx);
 }
 /** 置けない理由。置けるなら null。**画面の「読み込み」の欄に出す** */
+/** SS のダメージの行。**条件つきのぶん（`dmgalt`）も数える**（2026-09-03）。
+    ノノミの「大型の敵に対して +12.8%」は `Condition` 付きなので `dmg` が空で、
+    `epOn` が偽になり大型ボスでも 1 度も数えられていなかった */
+function epRows(id) {
+  var rows = ((B.dmg[id] || {}).ExtraPassive || []).slice();
+  var a = ((B.dmgalt || {})[id] || {}).ExtraPassive, i;
+  if (a && a.v) { for (i = 0; i < a.v.length; i++) { rows = rows.concat(a.v[i] || []); } }
+  return rows;
+}
 export function epWhy(id) {
-  if (!((B.dmg[id] || {}).ExtraPassive || []).length) { return null; }
+  if (!epRows(id).length) { return null; }
   var e = (B.ep || {})[id];
   if (!e) { return '引き金のデータがありません'; }
   if (e[0] !== 21 && e[0] !== 2) {
@@ -127,7 +136,7 @@ export function epWhy(id) {
   // `Parameters` が `Ex` / `Public` のものはスキルに相乗りする。通常攻撃では出ない
   if (e[1] && e[1] !== 'Normal') { return '引き金が ' + e[1] + ' に相乗りします'; }
   if (e[3] !== 10000) { return '発動が確率です（' + (e[3] / 100) + '%）'; }
-  var rows = (B.dmg[id] || {}).ExtraPassive || [], i;
+  var rows = epRows(id), i;
   for (i = 0; i < rows.length; i++) {
     if (rows[i][10]) { return '倍率が ' + rows[i][10] + ' に比例します'; }
     if (rows[i][4]) { return '持続ダメージです'; }
@@ -138,7 +147,7 @@ export function epWhy(id) {
   return null;
 }
 export function epOn(id) {
-  return !!((B.dmg[id] || {}).ExtraPassive || []).length && epWhy(id) == null;
+  return !!epRows(id).length && epWhy(id) == null;
 }
 /** 何発に 1 度出るか。**`TryCount` がその数**（メルの `3` はスキル文の
     「通常攻撃3回毎に強化弾を発射し」と合う。`dmg` 側の `Block` も 3 で一致） */

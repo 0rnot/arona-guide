@@ -93,6 +93,23 @@ export function altOf(id, kind, tb) {
   // かつ全部外れた」ときだけ（2026-09-03。それまでは候補を丸ごと返していて、
   // サクラコの特殊装甲特攻が装甲の違うボスにも乗っていた）
   if (!keep.length) { return null; }
+  // **「スタックが N 個のとき」だけの候補は、既定を「無し」にする**（2026-09-03）。
+  // `condOK` は `Type=BuffCount` を判定できないので素通りさせているが、
+  // `dmgAt` は候補を必ず 1 つ足すので、**素の行に上乗せする形の候補が
+  // 数えっぱなしになる**（ムツキ（正月）の NS は「保有している LittleDevil が
+  // 6 個の場合」の 169% が 0 個でも乗って +53.9% だった）。
+  // 空の候補を頭に足して、既定を「無し」・選べば「あり」にする。
+  // **候補が全部 BuffCount で素の行が無い子（アコ（ドレス））はそのまま**
+  // （そちらは候補から 1 つ選ぶのが正しい形で、足すものではない）
+  if (keep.length === a.v.length && ((B.dmg[id] || {})[kind] || []).length > 0) {
+    var allBc = true;
+    for (i = 0; i < a.c.length; i++) {
+      if (!/^Type=BuffCount /.test(String(a.c[i] || ''))) { allBc = false; }
+    }
+    if (allBc) {
+      return { c: ['スタック無し'].concat(a.c), v: [[]].concat(a.v) };
+    }
+  }
   if (keep.length === a.v.length) { return a; }
   var c2 = [], v2 = [];
   for (i = 0; i < keep.length; i++) { c2.push(a.c[keep[i]]); v2.push(a.v[keep[i]]); }
