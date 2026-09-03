@@ -20,7 +20,12 @@ export function snapUp(t) {
 export function exDur(p) { return (p && p.d) || 60; }
 export function exCost(p) { return (p && p.c && p.c[st.lv - 1]) || 0; }
 export function tlSorted() {
-  return st.tl.slice().sort(function (a, b) { return a.t - b.t || a.i - b.i; });
+  // **同じ秒どうしは「置いた順」（`st.tl` の並び）で撃つ。**`Array.sort` は
+  // 安定なので、比べるのを秒だけにすれば並びがそのまま残る。
+  // **前は編成の枠の番号（`a.i`）で決めていた**が、TL が「即 ヒナ／即 アコ」と
+  // 書いた順とは関係が無く、コストの食い合いで撃てる・撃てないが入れ替わっていた
+  // （2026-09-03 の 29。表の並びと engine の並びが食い違ってもいた）
+  return st.tl.slice().sort(function (a, b) { return a.t - b.t; });
 }
 export function addUse(i, t) {
   if (!st.party[i]) { return; }

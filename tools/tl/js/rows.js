@@ -163,7 +163,14 @@ export function drawRows() {
     var ix = ord[i], u = st.tl[ix], md = u.md || 't', on = st.sel === ix;
     var p = st.party[u.i], er = rowOf[ix] || null, kd = exKind(er ? er.fi : 0);
     var ms = (st.msel || []).indexOf(ix) >= 0;
-    h += '<div class="trow' + (on ? ' on' : '') + (ms ? ' msel' : '') + (er && er.why ? ' bad' : '') +
+    // **同じ秒に並んでいる行は時刻の色を変える**（2026-09-03 の 29。
+    // 同秒 2 発の上下が画面から読めなかった）
+    var tPrev = i > 0 ? rowTime(st.tl[ord[i - 1]]) : null;
+    var tNext = i + 1 < ord.length ? rowTime(st.tl[ord[i + 1]]) : null;
+    var tMe = rowTime(u);
+    var sm = (tPrev != null && Math.abs(tPrev - tMe) < 0.005) ||
+             (tNext != null && Math.abs(tNext - tMe) < 0.005);
+    h += '<div class="trow' + (on ? ' on' : '') + (ms ? ' msel' : '') + (sm ? ' sm' : '') + (er && er.why ? ' bad' : '') +
       '" data-ix="' + ix + '">' +
       '<span class="ix" draggable="true">' + (i + 1) + '</span>' +
       kindMark(u.i, kd) +
@@ -248,20 +255,30 @@ export function rowMove(ix, to) {
   var ord = rowOrder(), at = ord.indexOf(ix), K = ['md', 't', 'cv', '_rt'], i, k;
   if (at < 0 || to < 0 || to >= ord.length || to === at) { return; }
   mark();
-  var tm = [];
+  var objs = [], tm = [];
   for (i = 0; i < ord.length; i++) {
-    var o = {}, u0 = st.tl[ord[i]];
+    var u0 = st.tl[ord[i]], o = {};
+    objs.push(u0);
     for (k = 0; k < K.length; k++) { o[K[k]] = u0[K[k]]; }
     tm.push(o);
   }
-  var seq = ord.slice();
+  var me = st.tl[ix], seq = objs.slice(), sel = st.sel == null ? null : st.tl[st.sel];
+  var msel = (st.msel || []).map(function (z) { return st.tl[z]; });
   seq.splice(at, 1);
-  seq.splice(to, 0, ix);
+  seq.splice(to, 0, me);
   for (i = 0; i < seq.length; i++) {
-    var u1 = st.tl[seq[i]];
-    for (k = 0; k < K.length; k++) { u1[K[k]] = tm[i][K[k]]; }
+    for (k = 0; k < K.length; k++) { seq[i][K[k]] = tm[i][K[k]]; }
   }
-  st.sel = ix;
+  // **`st.tl` の並びそのものも運んだ順に直す**（2026-09-03 の 29）。
+  // 表は「秒 → `st.tl` の並び」の順なので、**同じ秒どうしは指定を入れ替えても
+  // 動かない**（同秒 2 発の上下が変えられなかった）。並びを揃えると、
+  // 秒が違う行は指定の入れ替えで、同じ秒の行は並びで動く
+  st.tl.length = 0;
+  for (i = 0; i < seq.length; i++) { st.tl.push(seq[i]); }
+  st.sel = sel == null ? null : st.tl.indexOf(sel);
+  if (st.sel < 0) { st.sel = null; }
+  st.msel = msel.map(function (o2) { return st.tl.indexOf(o2); })
+    .filter(function (z) { return z >= 0; });
   draw(); rowShow();
 }
 /** 選んだ 1 発の時刻へタイムラインを送る（2026-09-03 の 37。

@@ -896,6 +896,9 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
 /* まとめて選んだ行（33）。**言葉は足さず、番号の色と薄い地の色で示す** */
 .trow.msel { background:rgba(47,143,158,.09); }
 .trow.msel > .ix { color:#8fd0dc; font-weight:700; }
+/* 同じ秒に並んでいる行（29）。**どれが同秒かを色だけで示す。**
+   ▲▼ と番号のドラッグで、同秒どうしの上下も変えられる */
+.trow.sm > .rt, .trow.sm > input.rv { color:#ffd479; }
 .trow.bad { box-shadow:inset 2px 0 0 var(--red); }
 .trow > .ix { width:22px; text-align:right; color:var(--tx3); font-size:10px; flex:0 0 auto; }
 .trow > .ic { width:16px; height:16px; border-radius:3px; flex:0 0 auto; object-fit:cover; }
