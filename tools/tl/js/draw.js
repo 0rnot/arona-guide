@@ -317,8 +317,10 @@ export function draw() {
         nb += '<div class="b ns' + (hasD ? '' : ' flat') + (ew > 0 ? ' eff' : '') +
               '" style="left:' + (nts[nq] * px).toFixed(1) + 'px;width:' +
               (nw + ew).toFixed(1) + 'px" title="' +
-              esc(nsn.nm || '通常スキル') + '\n' + nsn.iv.toFixed(1) + '秒ごと（初回 ' +
-              nsn.st.toFixed(1) + '秒）／' + nts[nq].toFixed(1) + '秒' +
+              esc(nsn.nm || '通常スキル') + '\n' +
+              (nsn.iv > 0 ? nsn.iv.toFixed(1) + '秒ごと（初回 ' + nsn.st.toFixed(1) + '秒）'
+                          : '戦闘開始時に 1 回のみ') +
+              '／' + nts[nq].toFixed(1) + '秒' +
               '\n発動 ' + (nsDur(p.id) / B.fps).toFixed(2) + '秒' +
               (nbd > 0 ? '／効果 ' + nbd.toFixed(1) + '秒' : '') +
               (hasD ? '' : '\nこのスキルはダメージを持ちません') +

@@ -250,6 +250,13 @@ export function dmgAt(idx, r, at, kind, pick, tg, gx) {
     var cr = e[2] === 'Never' ? 0
            : (e[2] === 'Always' || ggCritAt(at) ? 1 : cEff);
     var cm = e[2] === 'Never' ? 1 : cdm;
+    // **持続ダメージ（DoT）に会心は乗らない**（2026-09-03）。
+    // `DamageOverTimeEffectDAO` には `CriticalCheck` の欄が**無い**。同じメルの EX で
+    // `CH0124_Ex01_Effect01`（`DamageEffectDAO`）だけが `"CriticalCheck": 2` を持ち、
+    // `Effect02`（DoT）と `Effect03`（`DamageByHit`）は欄ごと無い。説明文も Effect03 に
+    // ついて「このダメージにおいては、会心が発動しません」と書いている。
+    // **`cr` / `cm` をここで落とすと、下の `eC` / `eC2`（分散）も自動で 1 になる**
+    if (e[12] === 'DamageDebuff') { cr = 0; cm = 1; }
     // **安定値に影響されない攻撃がある**（ヒナ（ドレス）の CH0230Ex02/03/04。
     // 説明文が「この攻撃は安定値に影響されず最大ダメージが適用される」と書いている）。
     // データ全体で 3 件だけ（2026-09-02 に数えて確かめた）

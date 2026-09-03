@@ -5346,7 +5346,15 @@ def build_tl():
                 arg = int(arg)
             except (TypeError, ValueError):
                 arg = None
-            seen_g[mg] = [mg, au.get("ConditionType"), arg, d.get("Duration")]
+            # **`MaxTriggerCount` と `CoolTimeNotTrigger` を捨てていた**（2026-09-03）。
+            # `Interval` には 3 通りある。`ConditionArgument > 1` が周期のもの（267 件）、
+            # `ConditionArgument` が 1 で `CoolTimeNotTrigger` が周期のもの（2 件）、
+            # `MaxTriggerCount: 1` の「戦闘中に 1 回のみ」（5 件）。
+            # **5 件を周期と読んでいたので、シロコ（水着）と ミチル（ドレス）は
+            # 1 秒ごとに 240 回発動して 60 秒バフが切れなくなっていた**（過大）。
+            # 逆にシュン・ヒナ（ドレス）・シュン（水着）は 1 回も置かれなかった（過小）
+            seen_g[mg] = [mg, au.get("ConditionType"), arg, d.get("Duration"),
+                          au.get("MaxTriggerCount"), au.get("CoolTimeNotTrigger")]
             nns += 1
         ns_out[sid] = [seen_g[k] for k in sorted(seen_g)]
         # ---- サブスキル（SS）の引き金。**`LevelSkill/<ExtraPassiveSkillGroupId>.json`
@@ -5510,7 +5518,14 @@ def build_tl():
                         #   Mul … 倍率が別のものに比例する（イズミの `InvokerCurrentHP`、
                         #     ジュンコの `InvokerLostHP`）。**運んでいなかった。**
                         #     `MultiplierConstant` と対で、無ければ両方 null
-                        e.get("MultiplySource"), e.get("MultiplierConstant")]
+                        e.get("MultiplySource"), e.get("MultiplierConstant"),
+                        #   Type … 効果の型。**持続ダメージ（`DamageDebuff`）を
+                        #     見分けるため**（2026-09-03）。`Period` の有無では
+                        #     足りない。メルの `DamageByHit` も原文は `DamageDebuff`
+                        #     なのに `Period` を持たない
+                        #   ApplyFrame … 効果が始まるまでのフレーム。持続ダメージを
+                        #     時間に散らすのに要る（サオリ（水着）2F・アズサ（水着）66F・メル 152F）
+                        e.get("Type"), e.get("ApplyFrame")]
             # **`Group` は「何段目か」で、足すものではなく択一。**
             # ネル（制服）の Ex1 は Group 0〜4 × 条件 2 通りの 10 件あって、
             # 全部足すと 1 発 5,727,546（ボス HP の 25%）になっていた。
@@ -5747,7 +5762,7 @@ def build_tl():
         "dmg": dmg_out,
         "dmgKeys": ["Scale", "Hits", "CriticalCheck", "Block", "Period",
                     "Duration", "IgnoreDef", "HitFrames", "Zone", "Stab",
-                    "MultiplySource", "MultiplierConstant"],
+                    "MultiplySource", "MultiplierConstant", "Type", "ApplyFrame"],
         # 条件でダメージが変わるもの。**画面のバーで 1 つ選ぶ。**
         # `c` は条件の原文、`v[i]` はその候補ぶんの効果（`dmg` と同じ並び）
         "dmgalt": alt_out,
@@ -5764,7 +5779,9 @@ def build_tl():
         # 通常攻撃。**フレームは 30fps。`spd` は 10000 が等倍**
         "na": na_out,
         "nsKeys": ["MinimumTierCharacterGear", "ConditionType",
-                   "ConditionArgument(フレーム)", "Duration(フレーム)"],
+                   "ConditionArgument(フレーム)", "Duration(フレーム)",
+                   "MaxTriggerCount(-1 は無制限、1 は戦闘中1回のみ)",
+                   "CoolTimeNotTrigger(フレーム。ConditionArgument が 1 のときはこちらが周期)"],
         # サブスキルの引き金。**ダメージ・効果の時刻はここからしか出ない**
         "ep": ep_out,
         "epKeys": ["Event", "Parameters", "ConditionExpression", "TriggerRate",

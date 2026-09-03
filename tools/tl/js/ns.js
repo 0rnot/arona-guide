@@ -29,8 +29,26 @@ export function nsInfo(id) {
   if (n && n.iv > 0 && n.st != null) {
     return { iv: n.iv, st: n.st, du: duF, src: 'desc', nm: n.n, rule: au ? au[1] : null };
   }
-  if (au && au[1] === 'Interval' && au[2] > 1) {
-    return { iv: au[2] / B.fps, st: au[2] / B.fps, du: duF, src: 'auto',
+  // **「戦闘中に 1 回のみ」は周期ではない**（2026-09-03）。`AutoUseRule` の
+  // `MaxTriggerCount: 1` がその印で、`ConditionArgument` は待ちフレームでしかない。
+  // 5 件ある（シュン・ヒナ（ドレス）・シュン（水着）・シロコ（水着）・ミチル（ドレス））。
+  // **周期と読むと、シロコ（水着）と ミチル（ドレス）は 1 秒ごとに 240 回発動して
+  // 60 秒バフが戦闘中ずっと切れなくなる**（1 人ぶんで −8.5% の過大）
+  if (n && n.once && n.st != null) {
+    return { iv: 0, st: n.st, du: duF, src: 'desc1', nm: n.n,
+             rule: au ? au[1] : null };
+  }
+  if (au && au[1] === 'Interval' && au[4] === 1) {
+    return { iv: 0, st: au[2] / B.fps, du: duF, src: 'auto1',
+             nm: (n ? n.n : '') || (B.skname[id] || {})[nsKind(id)] || '',
+             rule: 'Interval' };
+  }
+  // **周期の出どころは 2 つ。**`ConditionArgument` が 1 のときは
+  // `CoolTimeNotTrigger` がそれ（マコト（水着）の 900 フレーム＝30 秒）。
+  // 今はスキル文の「30秒毎に」で助かっているだけで、文の書き方が変われば落ちる
+  var per = (au && au[1] === 'Interval') ? (au[2] > 1 ? au[2] : (au[5] || 0)) : 0;
+  if (per > 1) {
+    return { iv: per / B.fps, st: per / B.fps, du: duF, src: 'auto',
              nm: n ? n.n : '', rule: 'Interval' };
   }
   return null;
