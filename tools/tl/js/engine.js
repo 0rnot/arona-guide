@@ -53,6 +53,10 @@ export function ovOf(u) {
 export function ordRow(u, t) {
   return { i: u.i, t: t, to: u.to == null ? null : u.to, ov: ovOf(u),
            f: u.f == null ? null : u.f, bt: u.bt == null ? null : u.bt,
+           // **1 発ごとに選んだ候補の段**（2026-09-04）。engine の `addCost` が
+           // 「追加で最大 N コストを消耗して」の払う数として読む。
+           // 無ければ枠の既定（`slots[].pk`）に落ちる
+           pk: u.pk || null,
            // **engine は使わないが、画面が「渡し先」を引くのに要る**
            bto: u.bto == null ? null : u.bto,
            _ix: st.tl.indexOf(u) };

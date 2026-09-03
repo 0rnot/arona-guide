@@ -1731,6 +1731,46 @@ def build_cost_timeline():
                     break
             out["cc"] = cc
             break
+        # **使った回数で基本コストそのものが変わる形態**（2026-09-04、61h）。
+        # 一次資料は 2 つあって、どちらも同じ 4 / 6 / 10 になる。
+        #
+        #   ① `DB/LogicEffect_PC.json` の `TargetSlotExSkillCostOverrideEffectDAO`。
+        #      **274 人中ミカ（水着）だけが持つ**（`Counter({'CH0294': 2})`）。
+        #        GroupId CH0294_HiddenPassive03_Effect02  TargetExSkillSlot ["ExSkill03"]  BaseAmount 2
+        #        GroupId CH0294_HiddenPassive03_Effect03  TargetExSkillSlot ["ExSkill03"]  BaseAmount 6
+        #      配るのは `LevelSkill/CH0294HiddenPassive03.json`
+        #      （`TriggerCondition {"Event": 3, "Parameters": "Ex"}` ＝ EX 使用時）で、
+        #      段の門は `CountLogicEffectTemplateModifierDAO`（`Dummy_CH0294_ExCheck`）の
+        #      `Ability02 CountMin 2 CountMax 3` ／ `Ability03 CountMin 4 CountMax 999`。
+        #      `ExSkill03` は形態 1 の 3 枚目 ＝ `CH0294Ex02` で、`SkillExcelTable` の
+        #      素のコストは 4。**`BaseAmount` は足し算**（4 ／ 4+2=6 ／ 4+6=10）
+        #   ② その形態の説明文そのもの。**回数と額が数字で書いてある**:
+        #        「使用回数によって「星の軌跡」の基本コストを変更
+        #          （1～2回目：4コスト/3～4回目：6コスト/5回目以降：10コスト）」
+        #
+        # **読むのは ② のほう。**①（DAO）は「どの形態か」を `ExSkillGroupId` の
+        # 並びでしか名指ししないので、`ExtraSkills` の何番目かへ結び付けるには
+        # `CharacterSkillListExcelTable` と `SkillExcelTable` を追加で引く必要がある。
+        # ② は形態の行そのものに書いてあるので取り違えようがなく、額も範囲も同じ。
+        # **「N回目」は 1 始まり**で、`cs` は [その回数から, そのコスト] の並び。
+        _cs, _dsc = [], sk.get("Desc") or ""
+        if "基本コスト" in _dsc:
+            for _m in re.finditer(r"(\d+)\s*(?:[~～]\s*\d+)?\s*回目(?:以降)?\s*[：:]\s*"
+                                  r"(\d+)\s*コスト", _dsc):
+                _cs.append([int(_m.group(1)), int(_m.group(2))])
+        if len(_cs) > 1:
+            out["cs"] = _cs
+        # **追加でコストを払って威力を上げる EX**（2026-09-04、61 の 3 つ目）。
+        # 原文は「追加で最大Nコストを消耗して、1コストあたりのダメージが M% 増加します。
+        # （コスト増減スキルの効果は基本コストを基準として計算します）」。
+        # **持っているのは 4 人だけ**（ハスミ（体操服）2 ／ ミノリ 3 ／ サツキ 3 ／
+        # ノゾミ 2。`tools/tl/data.js` の `dmgalt` に「追加コスト N」の札が
+        # 合わせて 14 枚出ているのがこの 4 人ぶん）。
+        # **括弧の但し書きが払う順を決めている**——コスト減少は基本コストに掛けて、
+        # 追加ぶんはそのあとに足す。engine の `costAfter` の外側で足すのはそのため
+        _xm = re.search(r"追加で最大(\d+)コストを消耗", _dsc)
+        if _xm:
+            out["xc"] = int(_xm.group(1))
         # コスト回復力に触る効果。**別の形態にも付いていることがある**
         # （キサキ（水着）の「実行：ばんざい体操」が RegenCost_Base 2500）
         reg = []
@@ -1960,6 +2000,49 @@ def build_cost_timeline():
                 pv.append(t)
         if pv:
             rec["pv"] = pv
+        # **サブスキル（`ExtraPassive`）が配るコスト減少**（2026-09-04、61 の 2 つ目。
+        # 先生の指摘「マリー（アイドル）の SS のコスト −1 が `cc` に入っていない」）。
+        # `cc` は EX（と各形態）しか見ていなかったので、SS 側の `CostChange` が
+        # 1 件も運ばれていなかった。**引き金はスキル文にしか書いていない。**
+        #
+        #   10105 マリー（アイドル）「今だけは楽しんで」
+        #     <s:CH0273_ExtraPassive>を3個獲得時、自身を除く味方のスキルコストを1減少
+        #     （EXスキルの使用1回分）（<s:CH0273_ExtraPassive>は初期化されます）
+        #     …札を配るのは EX「溢れるハート」の「<s:CH0273_ExtraPassive>を1個獲得」
+        #   10050 ココナ「梅花園の指導法」
+        #     <s:Stamp>を5個獲得時、自身を除く味方のスキルコストを1減少（EXスキルの使用1回分）
+        #     …EX「たいへんよくできました！」の「<s:Stamp>を1個獲得」が 1 個ぶん。
+        #     **NS「次も楽しみにしてますよ！」も「味方が会心を100回成功した時」に
+        #     1 個配る**が、道具は会心の回数を数えていないので **EX ぶんしか数えない**
+        #     （＝実際より遅れて出る。少なめに出るほうへ倒す。`hitsOn` と同じ扱い）
+        #
+        # **拾うのは「EX が札を配る」形だけ。**キキョウ（札は SS 自身が 30 秒毎）と
+        # レイ（札は NS の「敵を4人倒した時」）とコノカ（「回復効果を25回受ける」）は、
+        # 数える手立てがデータに無いので置かない。
+        ssk = (s.get("Skills") or {}).get("ExtraPassive")
+        if isinstance(ssk, dict):
+            _ce = next((e for e in ssk.get("Effects") or []
+                        if e.get("Type") == "CostChange"), None)
+            _sd = (ssk.get("Desc") or "")
+            _sm = re.search(r"<s:([A-Za-z0-9_]+)>を(\d+)個獲得時", _sd)
+            if _ce and _sm:
+                _gain = re.search(r"<s:" + re.escape(_sm.group(1)) + r">を(\d+)個獲得",
+                                  ex.get("Desc") or "")
+                if _gain and int(_gain.group(1)) > 0:
+                    _per = int(_gain.group(1))
+                    _tgt = _ce.get("Target")
+                    _names = [_tgt] if isinstance(_tgt, str) else list(_tgt or [])
+                    rec["ccs"] = {
+                        # EX 何回ごとに配るか（札 N 個 ÷ 1 回あたり _per 個）
+                        "ev": -(-int(_sm.group(2)) // _per),
+                        "u": int(_ce.get("Uses") or 1),
+                        "vt": "coef" if _ce.get("ValueType") == "Coefficient" else "flat",
+                        "sc": _ce.get("Scale") or [],
+                        "sd": "self" if _names == ["Self"] else "ally",
+                        # 「自身を除く味方の」＝ 相手を選ばず全員。「味方1人」なら 0
+                        "all": 0 if "1人" in _sd else 1,
+                        "sn": ssk.get("Name", ""),
+                    }
         reg = []
         for slot, sk in (s.get("Skills") or {}).items():
             if not isinstance(sk, dict):

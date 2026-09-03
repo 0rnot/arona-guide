@@ -13,10 +13,13 @@
      D      … `window.TL`（`tools/cost-timeline/data.js`）。`students` と `base` を見る
      mode   … 6（通常編成）か 10（制約解除決戦）
      slots  … 長さ 10 の枠。0〜5 がストライカー、6〜9 がスペシャル。
-              1 枠は { id, ex, sk, wp, w4, tier, on }。空き枠は id が null
+              1 枠は { id, ex, sk, sslv, wp, w4, tier, pk, on }。空き枠は id が null。
+              `sslv` はサブスキルの段（既定 10）、`pk` は候補の段（{ Ex: 2, … }）で、
+              **追加コストを払う EX はこの段がそのまま払う数**
      order  … 撃つ順。1 行は { i: 枠番号, t: 指定した秒（null で最短）,
               to: コスト減少を渡す枠, ov: オーバーコストを渡す枠,
-              f: 撃つ形態（null で自動）, bt: 味方バフ／複製の相手の枠 }
+              f: 撃つ形態（null で自動）, bt: 味方バフ／複製の相手の枠,
+              pk: その 1 発だけの候補の段（無ければ枠の `pk`） }
      gims   … ステージギミック { t: 発動する秒, v: 回復力の増加量, du: 効果時間の秒 }
      cap    … コストの上限（`TLENGINE.capNow(IN)` の返り）
      start  … 開始コスト（手入力 ＋ `TLENGINE.startBonus(IN)` の `amt`）
@@ -40,7 +43,8 @@
      そのほか（画面側も使う小物）: capNow / startBonus / partyFull / members /
      effects / pool / forms / autoForm / timedOf / condOf / mkBar / mergeSegs /
      extend / ovlMs / atLv / bfRow / bfTiered / isPct / redraws / isMain / live /
-     costAfter / grantOf / deckOrder と、定数 LAYOUT / MAIN_MAX / SUP_MAX /
+     costAfter / grantOf / stepCost / addCost / exKind / deckOrder と、
+     定数 LAYOUT / MAIN_MAX / SUP_MAX /
      W4_CAP / START_COST / OVER_FLOOR / REC_DELAY / TICK_MAX / FPS / FORM_RULE */
 (function () {
   'use strict';
@@ -95,11 +99,44 @@
      `data.js` の `xs` が 2 形態目以降。**0 番は本体**（`en` / `ei` / `c` / `d`）で、
      1 番から `xs[0]`, `xs[1]` … と続く。コストも演出時間も帯も形態ごとに違う。 */
   function forms(d) {
-    var out = [{ n: d.en, ei: d.ei, c: d.c, d: d.d, bf: d.bf, cc: d.cc, r: null }];
+    var out = [{ n: d.en, ei: d.ei, c: d.c, d: d.d, bf: d.bf, cc: d.cc, r: null,
+                 cs: d.cs, xc: d.xc }];
     (d.xs || []).forEach(function (x) {
-      out.push({ n: x.n, ei: x.ei, c: x.c, d: x.d, bf: x.bf, cc: x.cc, r: x.r });
+      out.push({ n: x.n, ei: x.ei, c: x.c, d: x.d, bf: x.bf, cc: x.cc, r: x.r,
+                 cs: x.cs, xc: x.xc });
     });
     return out;
+  }
+  /** **使った回数で基本コストが変わる形態**（`data.js` の `cs`。2026-09-04、61h）。
+      `cs` は [その回数から, そのコスト] の並びで、`nth` は **その形態を
+      続けて何回目に撃つか**（1 始まり）。当たる形態が無ければ素のコストのまま。
+
+      いま持っているのはミカ（水着）の「星の軌跡」だけ:
+      「使用回数によって「星の軌跡」の基本コストを変更
+        （1～2回目：4コスト/3～4回目：6コスト/5回目以降：10コスト）」
+      ＝ `cs = [[1,4],[3,6],[5,10]]`。**別の形態を撃つと数え直す**のは、
+      同じスキル文の「（連射態勢解除時、…基本コスト変更効果を初期化します）」
+      と「心のゆとり」（＝連射態勢をすぐに解除）がそう言っているため。 */
+  function stepCost(cs, nth, base) {
+    if (!isArr(cs) || !cs.length) { return base; }
+    var v = base;
+    for (var i = 0; i < cs.length; i++) { if (nth >= cs[i][0]) { v = cs[i][1]; } }
+    return v;
+  }
+  /** **追加で払うコスト**（`data.js` の `xc`。2026-09-04）。
+      「追加で最大Nコストを消耗して、1コストあたりのダメージが M% 増加します」の
+      N が `xc`。何コスト積むかは画面の候補（`dmgalt` の「追加コスト N」）を
+      選んだ段そのもので、**1 発ごとの `pk` が先、無ければ枠の既定 `pk`**。
+      `pk` の鍵は形態の枠名（`Ex` / `Ex1` / `Ex2` …）。 */
+  function exKind(fi) { return fi ? 'Ex' + fi : 'Ex'; }
+  function addCost(sk, e, s, fi) {
+    var mx = (sk && sk.xc) || 0;
+    if (!mx) { return 0; }
+    var k = exKind(fi);
+    var v = (e && e.pk && e.pk[k] != null) ? e.pk[k]
+          : ((s && s.pk && s.pk[k] != null) ? s.pk[k] : 0);
+    v = Math.floor(+v || 0);
+    return Math.max(0, Math.min(v, mx));
   }
   /** 何回目にどの形態を撃つか。**既定は「順送りして、最後の形態を維持」。**
       スキル文がそう読めない 3 人だけ別にしてある（根拠は下の `SP_JA` と
@@ -700,6 +737,7 @@
     var deck = deckOrder(IN), play = playHand(deck);
     var cut = {};                       // cut[枠] = { n, vt, sc } 残り回数つき
     var used = {};                      // 枠ごとに「何回目か」
+    var runFi = {}, runN = {};          // 枠ごとに「いまの形態を続けて何回目か」
     order.forEach(function (e, idx) {
       var s = slots[e.i], d = byId[s.id];
       if (!d || !live(mode, e.i)) { out.push({ e: e, d: null }); return; }
@@ -715,10 +753,17 @@
          コスト減少はそのまま効く**（「複製したカードは、対象のEXスキルの
          カード状態に従います」）ので、引き算の順はここ→ costAfter。 */
       var isCopy = play.isCopy(e.i);
-      var raw = sk.c[s.ex - 1] || 0;
+      // **その形態を続けて何回目か。**別の形態を撃ったら 1 に戻る（`cs` の数え方）
+      if (runFi[e.i] !== fi) { runFi[e.i] = fi; runN[e.i] = 0; }
+      var nth = (runN[e.i] || 0) + 1;
+      runN[e.i] = nth;
+      var raw = stepCost(sk.cs, nth, sk.c[s.ex - 1] || 0);
       if (isCopy) raw = Math.max(0, raw - 1);
       var mine = cut[e.i];
-      var need = costAfter(raw, mine);
+      /* **追加コストは減少のあとに足す。**「（コスト増減スキルの効果は
+         基本コストを基準として計算します）」がその順を決めている。 */
+      var xadd = addCost(sk, e, s, fi);
+      var need = costAfter(raw, mine) + xadd;
       if (mine) { mine.n--; if (mine.n <= 0) delete cut[e.i]; }
       var t0 = t;
       curOv = e.i;
@@ -783,7 +828,32 @@
           cut[to] = { n: gr.n, vt: gr.vt, sc: gr.sc };
         } else { to = null; }
       }
+      /* **サブスキル（SS）が配るコスト減少**（`data.js` の `ccs`。2026-09-04）。
+         EX を `ev` 回撃つごとに 1 度、**自身を除く味方全員**へ配る。
+         札の数と「自身を除く味方の」は SS のスキル文が言っているとおりで、
+         札を配っているのはその子の EX（`build-tool-data.py` の注を見る）。
+         **レベルは SS の段**（枠の `sslv`。無ければ 10）で、EX の段ではない。 */
+      var ssg = null;
+      if (at !== null && d.ccs && d.ccs.ev > 0 && (u + 1) % d.ccs.ev === 0) {
+        var cs2 = d.ccs, lv2 = Math.max(1, Math.min(+(s.sslv || 10), cs2.sc.length));
+        var one2 = { n: cs2.u, vt: cs2.vt, sc: cs2.sc[lv2 - 1] || 0 };
+        ssg = { sn: cs2.sn, to: [], v: one2 };
+        if (cs2.sd === 'self') {
+          cut[e.i] = { n: one2.n, vt: one2.vt, sc: one2.sc };
+          ssg.to.push(e.i);
+        } else if (cs2.all) {
+          for (var z2 = 0; z2 < slots.length; z2++) {
+            if (z2 === e.i || !slots[z2] || !slots[z2].id || !live(mode, z2)) { continue; }
+            cut[z2] = { n: one2.n, vt: one2.vt, sc: one2.sc };
+            ssg.to.push(z2);
+          }
+        } else if (e.to != null && slots[e.to] && slots[e.to].id && live(mode, e.to)) {
+          cut[e.to] = { n: one2.n, vt: one2.vt, sc: one2.sc };
+          ssg.to.push(e.to);
+        }
+      }
       out.push({ e: e, d: d, s: s, sk: sk, fi: fi, auto: auto, fl: fl, nth: u + 1,
+                 xadd: xadd, ssGrant: ssg, fnth: nth,
                  need: need, raw: raw, cut: mine, at: at, soon: soon, why: why,
                  over: over, left: at === null ? 0 : cost, idx: idx, rate: rateAt,
                  t0: t0,
@@ -818,6 +888,7 @@
     capNow: capNow, startBonus: startBonus, partyFull: partyFull, deckOrder: deckOrder,
     // ---- 生徒 1 人ぶんの小物（IN は要らない）
     forms: forms, autoForm: autoForm, timedOf: timedOf, condOf: condOf,
+    stepCost: stepCost, addCost: addCost, exKind: exKind,
     mkBar: mkBar, mergeSegs: mergeSegs, extend: extend, ovlMs: ovlMs,
     redraws: redraws, costAfter: costAfter, grantOf: grantOf,
     atLv: atLv, bfRow: bfRow, bfTiered: bfTiered, isPct: isPct,
