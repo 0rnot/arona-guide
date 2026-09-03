@@ -14,16 +14,46 @@ import { altOf } from './alt.js';
 // **形態が変わる子は、撃つ形態でダメージもバフも別物。**engine が決めた形態
 // （`fi`）で枠を選び、時刻も engine が出した「実際に出る時刻」を使う
 export function exKind(fi) { return fi ? 'Ex' + fi : 'Ex'; }
-/** そのスキルの候補が「段」だけで割れているなら、その段数。違えば 0。
-    **段は撃った回数**で、スキルの説明文にそう書いてある（ネル（制服）の
-    「怪我しても知らねえからな」は「1個獲得（最大5個まで重複）」「スキルが
-    『かかって来いよ』に変更されると初期化されます」）。条件と混ざっている枠は
-    自動で決めない（2026-09-01） */
+/** そのスキルの候補が「撃った回数の段」で割れているなら、その段数。違えば 0。
+
+    **段（`Group`）は撃った回数とは限らない**（2026-09-03 に説明文を全部読んで分かった）。
+    マコトは「範囲内の敵の数」（4人以下／5人～9人／10人以上）、ミナは「対象の弱体状態の個数」、
+    ミネ（アイドル）は「消耗したスタック」、ハスミ（体操服）・ミノリ・サツキは「払った追加コスト」。
+    **撃った回数なのはトキだけ**（「EXスキル1回使用時／2回／3回」）。
+    生成側（`build-tool-data.py` の `tl_group_labels`）が説明文の言葉を候補名にしてあるので、
+    **「N 回使用」と書いてある枠だけ**自動で上げる。
+
+    名前が拾えなかった枠は今までどおり「段 N」で、そちらは撃った回数として扱う
+    （ネル（制服）の「1個獲得（最大5個まで重複）」がこれ）。 */
 export function danMax(id, kind) {
-  var a = altOf(id, kind), i, n = 0;
+  var a = altOf(id, kind), i, n = 0, m = 0;
   if (!a) { return 0; }
-  for (i = 0; i < a.c.length; i++) { if (/段 \d/.test(a.c[i])) { n++; } }
+  for (i = 0; i < a.c.length; i++) {
+    if (/段 \d/.test(a.c[i])) { n++; }
+    if (/\d+\s*回使用/.test(a.c[i])) { m++; }
+  }
+  if (m && m === a.c.length) { return m; }
   return (n && n === a.c.length) ? n : 0;
+}
+/** 段が「範囲内の敵の数」で決まる枠なら、当たった数から段の番号（0 始まり）を出す。
+    決められないなら null。**マコトの EX がこれ**（「4人以下 / 5人～9人 / 10人以上」）。
+    道具は当たる数（`mc`）とボス本体に当たるか（`hb`）を持っているので、人に選ばせない。 */
+export function danByCount(id, kind, n) {
+  var a = altOf(id, kind), i, lo, hi, m;
+  if (!a || !a.c.length || !(n > 0)) { return null; }
+  var rng = [];
+  for (i = 0; i < a.c.length; i++) {
+    var t = String(a.c[i] || '');
+    if ((m = t.match(/^(\d+)人以下$/))) { rng.push([0, +m[1]]); }
+    else if ((m = t.match(/^(\d+)人[～~-](\d+)人$/))) { rng.push([+m[1], +m[2]]); }
+    else if ((m = t.match(/^(\d+)人以上$/))) { rng.push([+m[1], 1e9]); }
+    else { return null; }
+  }
+  for (i = 0; i < rng.length; i++) {
+    lo = rng[i][0]; hi = rng[i][1];
+    if (n >= lo && n <= hi) { return i; }
+  }
+  return null;
 }
 export function usesSorted() {
   sim();
@@ -42,11 +72,22 @@ export function usesSorted0() {
     if (lastK[sl0] !== kd0) { cnt[sl0] = 0; lastK[sl0] = kd0; }
     cnt[sl0]++;
     var pk0 = st.tl[i].pk, p0 = st.party[sl0], dn = p0 ? danMax(p0.id, kd0) : 0;
-    if (dn && (!pk0 || pk0[kd0] == null) &&
-        !(st.slots[sl0] && st.slots[sl0].pk && st.slots[sl0].pk[kd0] != null)) {
+    var free0 = (!pk0 || pk0[kd0] == null) &&
+                !(st.slots[sl0] && st.slots[sl0].pk && st.slots[sl0].pk[kd0] != null);
+    if (dn && free0) {
       pk0 = { };
       if (st.tl[i].pk) { for (k in st.tl[i].pk) { pk0[k] = st.tl[i].pk[k]; } }
       pk0[kd0] = Math.min(cnt[sl0], dn) - 1;
+    } else if (free0 && p0) {
+      // **段が「範囲内の敵の数」なら、当たる数から決める**（2026-09-03）
+      var nHit = (st.tl[i].tg != null ? (st.tl[i].mc || 1) : 0) +
+                 (st.tl[i].tg == null || st.tl[i].hb ? 1 : 0);
+      var dc = danByCount(p0.id, kd0, nHit);
+      if (dc != null) {
+        pk0 = { };
+        if (st.tl[i].pk) { for (k in st.tl[i].pk) { pk0[k] = st.tl[i].pk[k]; } }
+        pk0[kd0] = dc;
+      }
     }
     // **秒で書いてある行は、コスト待ちで後ろへ動かさない。**実物の TL の秒は
     // タップした時刻で、動画ではその秒に出ている。道具の計算でコストが足りなくても

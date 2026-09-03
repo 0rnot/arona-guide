@@ -4196,6 +4196,45 @@ def cond_label(c):
 DESC_EXCL = re.compile(r"^([^：\n]*?\d+\s*人(?:以下|以上))\s*：")
 
 
+def tl_group_labels(sk):
+    """`Group` の段が**何で決まるか**を、説明文の原文から拾う（2026-09-03）。
+
+    `Group` は「撃った回数の段」とは限らない。実物を並べるとこうなっている。
+
+        20033 マコト        4人以下 / 5人～9人 / 10人以上         … 範囲内の敵の数
+        10062 トキ          EXスキル1回使用時 / 2回 / 3回          … 撃った回数
+        10070 ミナ          3個 / 4個 / 5個以上                   … 対象の弱体状態の数
+        16016 ミネ（アイドル） 消耗なし / 10個 / 20個 / 30個          … 消耗したスタック
+        16011 ハスミ（体操服） 追加で最大2コストを消耗                 … 払った追加コスト
+        20026 ミノリ / 20040 サツキ  追加で最大3コストを消耗
+
+    **「段 N」と書いてしまうと、道具が「撃った回数」だと決めつけて自動で上げてしまう。**
+    説明文にある言葉をそのまま候補名にして、機械が決めてよいものだけを残す。
+
+    返すのは段の番号（0 始まり）→ 名前 の辞書。読めなければ空。
+    """
+    desc = sk.get("Desc") or ""
+    # 1. 「◯◯：…」の行が並んでいる形。行頭の見出しをそのまま採る
+    labs = []
+    for line in desc.split("\n"):
+        line = line.strip()
+        if "：" not in line:
+            continue
+        head = line.split("：")[0].strip()
+        # `<s:CH0275_Public>10個` のようなタグは落とす
+        head = re.sub(r"<[^>]*>", "", head).strip()
+        if head and len(head) <= 24:
+            labs.append(head)
+    if labs:
+        return {i: labs[i] for i in range(len(labs))}
+    # 2. 「追加で最大 N コストを消耗して、1コストあたりのダメージが M% 増加」の形。
+    #    段は**払った追加コスト**なので、0 から順に振る
+    m = re.search(r"追加で最大(\d+)コストを消耗", desc)
+    if m:
+        return {i: f"追加コスト {i}" for i in range(int(m.group(1)) + 1)}
+    return {}
+
+
 def tl_excl_desc(sk):
     """`DescParamId` → 択一の見出し。択一だと読めないスキルは空の辞書。"""
     out = {}
@@ -5665,6 +5704,7 @@ def build_tl():
                 # 1 発の中で同時に出るぶんは足すのが正しい。
                 # **条件や段をまたいで足さない**
                 order, group = [], {}
+                _glab = tl_group_labels(sk)
                 for e in xcand + cond + stack:
                     lab = (cond_label(e.get("Condition"))
                            if e.get("Condition")
@@ -5672,7 +5712,9 @@ def build_tl():
                     if id(e) in _xid:
                         lab = _excl[e["DescParamId"]]
                     if e.get("Group") is not None:
-                        lab = (lab + " / " if lab else "") + f"段 {e['Group'] + 1}"
+                        _gl = _glab.get(e["Group"])
+                        lab = ((lab + " / " if lab else "") +
+                               (_gl or f"段 {e['Group'] + 1}"))
                     if lab not in group:
                         order.append(lab)
                         group[lab] = []
