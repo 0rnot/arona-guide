@@ -6384,6 +6384,31 @@ def build_tl():
             if _t:
                 _by.setdefault(_t, []).append(_r)
         _dev = {str(x["Id"]): (x.get("DevName") or "") for x in stu}
+        _sk = {str(x["Id"]): (x.get("Skills") or {}) for x in stu}
+        # **`StackSameEffectCount` は「同じ札を何枚まで重ねられるか」の内部の上限で、
+        # プレイヤーが数える個数とは限らない**（2026-09-04。段を持つ 8 件を全部読んだ）。
+        # 数える札は、付ける枠の説明文に必ず個数が書いてある。原文:
+        #   ハレ（キャンプ）Ex    さらに自身に<s:CH0233_ExtraPassive>を5個付与（最大15個まで重複）
+        #   カズサ（バンド）Ex    さらに、自身に<s:CH0220_Public>を<?2>付与（40秒間）（最大2個まで）
+        #   ヒカリ ExtraPassive  <s:CH0242_ExtraPassive_01>を1つ獲得
+        #                        （<s:CH0242_ExtraPassive_01>は最大3つまで重複）
+        # **レンゲ（10082）だけは個数がどこにも出てこない。**原文:
+        #   Public      30秒毎に、<s:CH0224_Public>状態を付与。<b:ATK>を<?1>増加（22秒間）
+        #   GearPublic  30秒毎に、<s:CH0224_Public>状態を付与。<b:ATK>を<?1>増加（22秒間）/
+        #               <s:CH0224_Public>状態でのEXスキルは敵の防御力を35%無視します。
+        #   ExtraPassive <s:CH0224_Public>状態での攻撃時、攻撃力の<?1>分の追加ダメージ
+        # あれは**「状態」で、数えるものではない**（`LogicEffect_PC` の 50 は貼り直しの
+        # 内部の上限）。数えるものだと運んでいたので、道具が「段は数えられない」と
+        # 判じてレンゲのサブスキルを 1 発も置いていなかった。
+        # **説明文がある枠で個数が 1 つも出てこないときは 0 にする。**
+        # 説明文が無い枠（ヨシミ（バンド）の `HiddenPassive`）はそのまま
+        _num = _re.compile(r"(?:\d+|<\?\d+>)\s*[個つ]")
+        # 1 回で付く個数と、サブスキル 1 発で減る個数。**説明文にしか無い**
+        # （`LogicEffect_PC` の `StackSameEffectApplied` は真偽値で、枚数を持たない）。
+        #   ハレ（キャンプ）  付く 5（EX の「5個付与」）／
+        #                     減る 1（SS の「さらに自身の<s:CH0233_ExtraPassive>が1個減少」）
+        _gain = _re.compile(r"を(\d+)\s*[個つ](?:付与|獲得)")
+        _lose = _re.compile(r"が(\d+)\s*[個つ]減少")
         _slot = _re.compile(r"^(.+?)_(Ex|Public|GearPublic|HiddenPassive|ExtraPassive|Passive|WeaponPassive)\d*_")
         for _sid, _tids in ep_tid.items():
             for _t in _tids:
@@ -6397,6 +6422,14 @@ def build_tl():
                     if _hit is None or (_du or 0) > (_hit[1] or 0):
                         _hit = [_m2.group(2), _du, _r.get("StackSameEffectCount") or 0]
                 if _hit:
+                    _d = ((_sk.get(_sid) or {}).get(_hit[0]) or {}).get("Desc")
+                    if _hit[2] and _d and not _num.search(_d):
+                        _hit[2] = 0
+                    _g = _gain.search(_d or "")
+                    _l = _lose.search(
+                        ((_sk.get(_sid) or {}).get("ExtraPassive") or {}).get("Desc") or "")
+                    _hit += [int(_g.group(1)) if (_g and _hit[2]) else None,
+                             int(_l.group(1)) if (_l and _hit[2]) else None]
                     ep_tpl.setdefault(_sid, {})[_t] = _hit
                     ntpl += 1
         print("  SS の条件の札 " + str(ntpl) + " 件を解いた（生徒 "
@@ -6452,7 +6485,11 @@ def build_tl():
         "epKeys": ["Event", "Parameters", "ConditionExpression", "TriggerRate",
                    "MaxTriggerCount", "TryCount", "CoolTimeNotTrigger", "Duration",
                    "Modifiers(アビリティごと [[{t: 型, …}], …]。中は かつ・間は または)"],
-        # サブスキルの条件が指す札 → [付けるスキルの枠, 持続(ms), 重ねられる数]
+        # サブスキルの条件が指す札 →
+        #   [付けるスキルの枠, 持続(ms。-1 は時間で切れない),
+        #    数える個数（説明文に個数が書いてあるときだけ。書いていなければ 0）,
+        #    1 回で付く個数, サブスキル 1 発で減る個数]
+        # **4 番目・5 番目は説明文からしか出ない**（`LogicEffect_PC` は真偽値しか持たない）
         "eptl": ep_tpl,
         # **範囲の形と半径**（`Skills.<枠>.Radius`）。**何体いるかは入っていない**
         "area": area_out,

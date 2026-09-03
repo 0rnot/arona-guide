@@ -212,6 +212,13 @@ export function dmgAt(idx, r, at, kind, pick, tg, gx, nso, only, nb) {
                       : enemyAt(r, at, tg, gx);
   var atk = cs.get('AttackPower');
   if (isMain(idx)) { atk += support('AttackPower', lv, r); }
+  /* **レベル差の倍率。**出典は `DB/BattleLevelFactorExcelTable.json`（51 行。
+     2026-09-04 に突き合わせて、この式と 1 行の狂いもなく一致することを確認した）。
+     `LevelDiff` は「撃つ側 − 撃たれる側」で、0 が `DamageRate 10000`、
+     そこから 1 レベルにつき 200 ずつ減り、`-29` の `4200` まで来たあと
+     `-30` から `-50` は全部 `4000` で止まる。原文の両端:
+     `{"LevelDiff": -50, "DamageRate": 4000}` / `{"LevelDiff": 0, "DamageRate": 10000}`。
+     **`LevelDiff` が正の行は表に無い**ので、上は 1 で止める（表の最大値） */
   var lvMod = clamp(1 - ((r.lv || lv) - lv) * 0.02, 0.4, 1);
   var pen = cs.get('DefensePenetration');
   // **防御無視（`IgnoreDef`）は効果ごとに違う。**中で引き直す
