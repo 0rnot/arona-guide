@@ -15,6 +15,7 @@ import { MD3, drawRows, rowAdd, rowMove, rowOrder, rowSeek, rowSwap, rowsToggle,
 import { syncTabs } from './wire-boss.js';
 import { onAlt } from './wire-build.js';
 import { onUse } from './wire-use.js';
+import { laneOn, saveLanes } from './lanes.js';
 
 
 export function onAct(e) {
@@ -52,6 +53,16 @@ export function onAct(e) {
       st.mk.push({ t: snap(t), n: n || mmss(dur, t) });
       draw();
     }
+    return;
+  }
+  // 段の取捨選択（2026-09-03）。**押した段だけ入れ替えて描き直す**
+  var lb = e.target.closest('button[data-lane]');
+  if (lb) {
+    var lk = lb.getAttribute('data-lane');
+    st.lanes[lk] = !laneOn(lk);
+    lb.setAttribute('aria-pressed', laneOn(lk) ? 'true' : 'false');
+    saveLanes();
+    draw();
     return;
   }
   var b = e.target.closest('button[data-grid]');

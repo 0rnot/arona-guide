@@ -11,6 +11,7 @@ import { draw, drawNow } from './draw.js';
 import { drawErr, kpi } from './kpi.js';
 import { drawCrit, drawRate } from './rate.js';
 import { movePh, ordAt, ordList } from './ord.js';
+import { drawLanes, laneOn, loadLanes } from './lanes.js';
 import { drawUse } from './useedit.js';
 import { drawRows } from './rows.js';
 import { drawAlts } from './left.js';
@@ -40,6 +41,8 @@ import { wireMouse } from './wire-mouse.js';
 
 // ------------------------------------------------------------ つなぐ
 st.di = tormentIdx(B.bosses[0]);
+// **段の取捨選択は最初の draw より先に読む**（2026-09-03）
+loadLanes(); drawLanes();
 fillBoss(); fillFilters(); fillBuild(); drawParty(); drawCrew(); drawPicker(); draw();
 syncUndo();
 // 突き合わせ用。**SchaleDB の実装と数字が合うかを外から確かめるため**に出している
@@ -61,6 +64,7 @@ window.__TLDBG = { statsOf: statsOf, dmgOf: dmgOf, total: total, diff: diff,
                    drawUse: drawUse, drawRows: drawRows, drawAlts: drawAlts,
                    // 再生ヘッドとスキル順（**2 段の帯を外から確かめるため**）
                    movePh: movePh, ordAt: ordAt, ordList: ordList,
+                   laneOn: laneOn, drawLanes: drawLanes,
                    B: B };
 
 

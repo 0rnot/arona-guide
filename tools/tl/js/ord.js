@@ -120,19 +120,19 @@ export function drawOrd(t) {
     }
     return '<span class="orow ' + cls + '">' + c + '</span>';
   }
-  // **札は名前とコストと秒まで。**効果の列挙はやめた（2026-09-03 の先生の指示
-  // 「注釈とかマジでいらないから全箇所」）
+  // **札は絵とコストと「ボスの残り時間」だけ。**スキル名は落とした
+  // （2026-09-03 の先生の指示「発動中のスキルの名前はいらない、
+  //   発動タイミングのボスの残り時間がわかればいい」）。
+  // TL の原文が残り時間で書いてあるので、そのまま突き合わせられる
   var card = '';
   if (on) {
     var pc = st.party[on.i], er2 = on.er;
-    var cn = er2 && er2.sk ? er2.sk.n : (pc ? pc.en : '');
     var cc = er2 ? er2.need : (pc ? exCost(pc) : 0);
     // コストはタイムラインの帯と同じ「アイコンに乗せた数字」。言葉を足さずに済む
     card = '<span class="ocard"><span class="oci">' +
       (pc ? img(pc.id, 'ic') : '') +
       '<b class="cs">' + (Math.round(cc * 10) / 10) + '</b></span>' +
-      '<span class="oct"><b>' + esc(cn) + '</b><span>' +
-      on.at.toFixed(2) + '秒</span></span></span>';
+      '<span class="oct">' + rest(diff().dur || 240, on.at) + '</span></span>';
   }
   box.innerHTML = '<span class="ordrow"><span class="ocs">' +
     row(hr.hand, 'hd') + row(hr.rest, 'wt') + '</span>' + card + '</span>';

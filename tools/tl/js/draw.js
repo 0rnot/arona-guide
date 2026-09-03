@@ -1,6 +1,6 @@
 import { $, B, H, esc, img, mmss, skName, stu } from './util.js';
 import { SLOTS, TE, live, st } from './core.js';
-import { exCost, exDur } from './uses.js';
+import { exBuffDur, exCost, exDur } from './uses.js';
 import { boss, diff } from './boss.js';
 import { kindOf, recPower, sim, whyOf } from './engine.js';
 import { costRun, poly, ticks, vgrid } from './chart.js';
@@ -20,6 +20,7 @@ import { drawAlts } from './left.js';
 import { drawUse } from './useedit.js';
 import { drawRows } from './rows.js';
 import { bstName, bstTip } from './bossui.js';
+import { laneOn } from './lanes.js';
 
 // ------------------------------------------------------------ 盤
 export function draw() {
@@ -44,7 +45,6 @@ export function draw() {
   cv += '<div class="ln axis" style="height:' + H.axis + 'px;width:' + W + 'px">' + ticks(dur, px) + '</div>';
 
   var spans = phaseSpans(r), ggr = ggRuns(r);
-  side += lbl(H.name, '<b>ボス</b>');
   var nameBar = '';
   for (var sp = 0; sp < spans.length; sp++) {
     var sg = spans[sp], x0 = sg.t0 * px, x1 = Math.min(sg.t1, dur) * px;
@@ -59,7 +59,8 @@ export function draw() {
       (sp === 0 ? esc(boss().n) + '　' + esc(r.df) + '　' : '') +
       'フェーズ ' + (+sg.p + 1) + '</div>';
   }
-  cv += lane(H.name, nameBar);
+  // **段の取捨選択**（2026-09-03）。`laneOn` が偽なら見出しも帯も出さない
+  if (laneOn('boss')) { side += lbl(H.name, '<b>ボス</b>'); cv += lane(H.name, nameBar); }
 
   // **フェーズごとに、そのフェーズの頭からの時刻で描く**（2026-09-01）
   var s = '', s2 = '', spi, k, q;
@@ -90,10 +91,12 @@ export function draw() {
       }
     }
   }
-  side += lbl(H.ex, mini + '<span class="nm">EX</span>');
-  cv += lane(H.ex, s);
-  side += lbl(H.ps, mini + '<span class="nm">PS</span>');
-  cv += lane(H.ps, s2);
+  if (laneOn('boss')) {
+    side += lbl(H.ex, mini + '<span class="nm">EX</span>');
+    cv += lane(H.ex, s);
+    side += lbl(H.ps, mini + '<span class="nm">PS</span>');
+    cv += lane(H.ps, s2);
+  }
 
   // ボスの状態。**窓を名前つきの帯で出す**（2026-09-03。数字の行だけだと
   // どの EX に乗るのかが見えない）。端の摘みで t0 / t1、× で消す
@@ -110,11 +113,13 @@ export function draw() {
            '<i class="x" data-bx="' + bwi + '">×</i>' +
            '<i class="gr" data-bg="1"></i></div>';
   }
-  side += lbl(H.bst, '<span class="nm">ボスの状態</span>' +
-    (st.bst.length ? '<span class="mb">' + st.bst.length + '</span>' : ''));
-  // **空のときは何も書かない。**先生の指示「注釈とかマジでいらないから全箇所」
-  // （2026-09-03）。候補が有るか無いかは上のチップの並びを見れば分かる
-  cv += lane(H.bst, bsB || '');
+  if (laneOn('bst')) {
+    side += lbl(H.bst, '<span class="nm">ボスの状態</span>' +
+      (st.bst.length ? '<span class="mb">' + st.bst.length + '</span>' : ''));
+    // **空のときは何も書かない。**先生の指示「注釈とかマジでいらないから全箇所」
+    // （2026-09-03）。候補が有るか無いかは上のチップの並びを見れば分かる
+    cv += lane(H.bst, bsB || '');
+  }
 
   // グロッキー。**ダメージで貯まるボスだけ線を引く**（2026-09-01 の先生の要望）
   var gs = '', gm = ggr.g;
@@ -145,8 +150,7 @@ export function draw() {
     : '<span class="nm">グロッキー</span><span class="tag">' +
       (gm.kind === 'なし' ? 'なし' : gm.kind === '実質なし' ? 'ダメージでは貯まらない' : '条件つき') +
       '</span>';
-  side += lbl(H.gg, ggLbl);
-  cv += lane(H.gg, gs);
+  if (laneOn('gg')) { side += lbl(H.gg, ggLbl); cv += lane(H.gg, gs); }
 
   // デバフ数。**`liveBuffs` と同じ材料から切れ目を作る**（2026-09-01。
   // それまで EX の本体しか見ておらず、形態違いも通常スキルも数に入らず、
@@ -184,8 +188,7 @@ export function draw() {
                 buffTip(null, (a1 + b1) / 2, r, 'enemy')) + '">' +
             ((b1 - a1) * px >= 12 ? cnt : '') + '</div>';
   }
-  side += lbl(H.dbf, '<span class="nm">デバフ数</span>');
-  cv += lane(H.dbf, dseg);
+  if (laneOn('dbf')) { side += lbl(H.dbf, '<span class="nm">デバフ数</span>'); cv += lane(H.dbf, dseg); }
 
   var run = costRun(dur), sm = run.sim;
   // **回復力は時間で変わる。**セイアのような「◯秒間コスト回復力増加」が
@@ -203,6 +206,7 @@ export function draw() {
   recPts.push([dur, recPts[recPts.length - 1][1]]);
   var ymax = Math.max(8000, Math.ceil(recMax / 2000) * 2000 + 2000);
   var recNow = recPts[recPts.length - 1][1];
+  if (laneOn('cost')) {
   side += lbl(H.rec, '<b title="戦闘開始から ' + TE.REC_DELAY +
     ' 秒はコストが貯まりません（Excel/ConstCombatExcelTable の PlayerRegenCostDelay）。' +
     'そのあいだレーンは 0 です">回復力</b><span class="mb">最大 ' + recMax + '</span>');
@@ -224,6 +228,7 @@ export function draw() {
     '<polyline class="cost" points="' + poly(run.pts, px, H.cost, run.cap, 8) + '"/></svg>' +
     '<span class="yl" style="top:8px">' + run.cap.toFixed(1) + '</span>' +
     '<span class="yl" style="top:' + (H.cost - 8) + 'px">0</span>');
+  }
 
   // engine の行を「置いた 1 件」に結び直す。**形態・コスト・詰まりはここから取る**
   var rowOf = {};
@@ -259,6 +264,11 @@ export function draw() {
       var fdu = er && er.sk ? er.sk.d : exDur(p);
       var fc = er ? er.need : exCost(p);
       var uw = Math.max(26, (fdu || 60) / B.fps * px);
+      // **効果時間**（2026-09-03 の先生の指示「EX スキルも NS と同じように
+      // 効果時間がタイムライン上でわかるようにしてほしい」）。
+      // **掴む的（`.b.sk`）は太らせない。**幅を変えるとドラッグの当たり判定が
+      // 動くので、薄い帯は別の箱（`.exeff`）にして下に敷く
+      var ebd = exBuffDur(p.id, fk), ebw = Math.max(0, ebd * px - uw);
       var inner = img(p.id, 'ic') + '<b class="cs">' + (Math.round(fc * 10) / 10) + '</b>' +
                   (uw >= 90 ? '<span class="nm">' + esc(fnm) + '</span>' : '');
       var tips = esc(fnm) + '\nコスト ' + (Math.round(fc * 10) / 10) +
@@ -267,6 +277,8 @@ export function draw() {
         '\n置いた ' + uu.t.toFixed(2) + '秒（残り ' + mmss(dur, uu.t) + '）' +
         (er && er.at != null && Math.abs(er.at - uu.t) > 0.01
           ? '\n実際に出る ' + er.at.toFixed(2) + '秒' : '') +
+        (ebd > 0 ? '\n発動 ' + ((fdu || 60) / B.fps).toFixed(2) + '秒／効果 ' +
+                   ebd.toFixed(1) + '秒' : '') +
         (hasDmg ? '' : '\nこの形態にダメージのデータはありません') +
         (er && er.why ? '\n⚠ ' + whyOf(er) : '') +
         buffTip(i, showT, r);
@@ -275,6 +287,10 @@ export function draw() {
         sb += '<div class="ghost" style="left:' + (putT * px).toFixed(1) + 'px;width:' +
               Math.max(2, (showT - putT) * px).toFixed(1) + 'px" title="' +
               '置いたのは ' + putT.toFixed(2) + '秒／出るのは ' + showT.toFixed(2) + '秒"></div>';
+      }
+      if (ebw > 0) {
+        sb += '<div class="exeff" style="left:' + (showT * px).toFixed(1) + 'px;width:' +
+              (uw + ebw).toFixed(1) + 'px"></div>';
       }
       sb += '<div class="b sk' + (st.sel === u2 ? ' sel' : '') +
             (ek ? ' bad' : '') + (er && er.isCopy ? ' cp' : '') +
@@ -303,10 +319,12 @@ export function draw() {
               (nw >= 26 ? '<span class="nl">' + (nq + 1) + '</span>' : '') + '</div>';
       }
     }
-    side += lbl(H.row, mini + '<span class="nm">NS</span>' +
-      (p ? '<span class="mb"' + (nsn ? '' : ' title="' + esc(nsWhy(p.id)) + '"') + '>' +
-           (nsn ? nsn.iv.toFixed(0) + 's' : '条件') + '</span>' : ''));
-    cv += lane(H.row, nb);
+    if (laneOn('ns')) {
+      side += lbl(H.row, mini + '<span class="nm">NS</span>' +
+        (p ? '<span class="mb"' + (nsn ? '' : ' title="' + esc(nsWhy(p.id)) + '"') + '>' +
+             (nsn ? nsn.iv.toFixed(0) + 's' : '条件') + '</span>' : ''));
+      cv += lane(H.row, nb);
+    }
 
     // 通常攻撃（オートアタック）。**弾倉ごとの塊で描く。**発数は札に出す
     var nab = '', naI = p ? naInfo(p.id) : null, naN = 0;
@@ -326,10 +344,13 @@ export function draw() {
     }
     // **発数は出さない**（2026-09-01 の先生の指示。数はツールチップにある）
     void naN;
-    side += lbl(H.na, '<span class="nm">通常</span>', 'na');
-    cv += lane(H.na, nab);
+    if (laneOn('na')) {
+      side += lbl(H.na, '<span class="nm">通常</span>', 'na');
+      cv += lane(H.na, nab);
+    }
   }
   // SS = サブスキル。常時効いているものは端から端までの帯にする
+  if (laneOn('ss')) {
   side += lbl(H.ss, '<b>SS</b><span class="mb">サブスキル</span>');
   cv += lane(H.ss, '');
   var ssn = 0;
@@ -353,6 +374,7 @@ export function draw() {
   if (!ssn) {
     side += lbl(H.ss, '<span class="mut">（引き金つきは無し）</span>');
     cv += lane(H.ss, '');
+  }
   }
 
   for (var m = 0; m < st.mk.length; m++) {

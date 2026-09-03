@@ -44,7 +44,12 @@ export var st = { bi: 0, di: 0, px: 6, pin: null, mode: 6, pi: 0, parties: [mkPa
            // **見え方の設定なので `st.scen` と同じく localStorage 側**に置く
            // （2026-09-03 の先生の指示「平均だけ残して、残りは会心率を
            // 自分でバーで調整」）
-           phFix: null, scen: null, crit: null, arm: null, bst: [] };
+           phFix: null, scen: null, crit: null, arm: null, bst: [],
+           // **タイムラインに出す段の取捨選択**（2026-09-03 の先生の指示
+           // 「NS＆通常攻撃の表示非表示を上のグリッド選択の右に追加してほしい／
+           //   NSと通常攻撃以外もできるならそうしたい」）。
+           // 一覧と既定は `lanes.js`。**見え方の設定**なので localStorage 側
+           lanes: {} };
 st.slots = st.parties[0].slots;
 st.tl = st.parties[0].tl;
 st.start = st.parties[0].start;

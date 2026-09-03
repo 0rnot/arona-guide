@@ -18,6 +18,21 @@ export function snapUp(t) {
   return Math.max(0, +(Math.ceil(t / q - 1e-9) * q).toFixed(4));
 }
 export function exDur(p) { return (p && p.d) || 60; }
+/** EX の効果（バフ・デバフ）が切れるまでの秒。**撃った時刻からの長さ**で、
+    `ApplyFrame`（乗るまでの間）＋`Duration` のいちばん長いものを採る。無ければ 0。
+    出どころは `B.buf[生徒][形態]`（`bufKeys` は
+    Target / Stat / Channel / Value / Duration / ApplyFrame / Restrictions）。
+    NS の `nsBuffDur` と同じ考え方で、2026-09-03 の先生の指示
+    「EX スキルも NS と同じように効果時間がタイムライン上でわかるようにしてほしい」。
+    **効果を持つのは 274 人中 101 人**なので、出ない子がいるのが正しい */
+export function exBuffDur(id, kind) {
+  var list = (B.buf[id] || {})[kind || 'Ex'] || [], i, mx = 0;
+  for (i = 0; i < list.length; i++) {
+    var e = list[i], du = e[4];
+    if (du > 0 && du < 1000000) { mx = Math.max(mx, (e[5] || 0) / B.fps + du / 1000); }
+  }
+  return mx;
+}
 export function exCost(p) { return (p && p.c && p.c[st.lv - 1]) || 0; }
 export function tlSorted() {
   // **同じ秒どうしは「置いた順」（`st.tl` の並び）で撃つ。**`Array.sort` は

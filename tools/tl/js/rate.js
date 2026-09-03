@@ -168,7 +168,8 @@ export function uiReset() {
   try {
     for (i = 0; i < localStorage.length; i++) {
       k = localStorage.key(i);
-      if (k && (k.indexOf('tl-fold-') === 0 || k.indexOf('tl-sz-') === 0 || k === 'tl-shut')) {
+      if (k && (k.indexOf('tl-fold-') === 0 || k.indexOf('tl-sz-') === 0 ||
+                k === 'tl-shut' || k === 'tl-lanes')) {
         ks.push(k);
       }
     }
