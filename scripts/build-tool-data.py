@@ -4926,6 +4926,51 @@ def build_tl():
                         "max": int(mx.group(1)) if mx else 5, "t": txt}
         return None
 
+    # **グロッキー中にボスが複数体に分かれる。**2026-09-03 に未検証の 5 体を測ったら
+    # 全部が同じ向き（道具が 10〜25 倍低い）に外れていて、`RaidSkills` の本文を読んだら
+    # 同じ仕組みだった。**範囲攻撃がその全部に当たり、被ダメージが 100% 本体へ移る。**
+    #
+    #   ペロロジラ  グロッキー状態になると、小さなペロロミニオンを5体召喚
+    #               小さなペロロミニオンはImmortalでその被ダメージの100%分をペロロジラに転移
+    #   クロカゲ    クロカゲの領域内でグロッキー状態になればクロカゲは4つの片鱗に別れ、
+    #               それぞれ攻撃を受けることになり、その間はすべての味方の会心率が最大値まで増加
+    #   ゴズ        自身と同じ動きをする分身2体と共に登場（こちらはグロッキーではなく EX）
+    #
+    # **体数は本文に書いてある**ので、人に置かせない。ここでは数だけ出して、
+    # 画面側が「グロッキー中は当たる数が N」として使う。
+    _SPL = [
+        re.compile(r"(\d+)\s*体召喚"),
+        re.compile(r"(\d+)\s*つの[^、。]{0,8}に別れ"),
+        re.compile(r"分身\s*(\d+)\s*体"),
+    ]
+
+    def _gspl(rd, df):
+        """`{"n": 体数, "gg": グロッキー中か, "t": 原文}` か None。"""
+        lst = rd.get("RaidSkillList") or []
+        di = next((i for i, x in enumerate(TL_DIFF) if x.lower() == (df or "").lower()), None)
+        if di is None or di >= len(lst):
+            return None
+        best = None
+        for nm in lst[di] or []:
+            sk = rsk.get(nm) or {}
+            for ln in (sk.get("Desc") or "").split("\n"):
+                txt = _gim_tag.sub("", _gim_stat.sub(r"\1", ln)).strip()
+                if not txt:
+                    continue
+                for rx in _SPL:
+                    m = rx.search(txt)
+                    if not m:
+                        continue
+                    n = int(m.group(1))
+                    if not (2 <= n <= 12):
+                        continue
+                    gg = "グロッキー" in txt
+                    # **グロッキー中のほうを採る。**分身のように常時のものより、
+                    # 削りに効くのはグロッキー中に分かれるほう
+                    if best is None or (gg and not best["gg"]):
+                        best = {"n": n, "gg": gg, "t": txt[:120]}
+        return best
+
     def _gim(rd, df):
         """そのボス・その難易度で、ボス側の被ダメージ率などを動かす行を返す。"""
         lst = rd.get("RaidSkillList") or []
@@ -5109,6 +5154,9 @@ def build_tl():
                 # **選べる装甲**（大決戦がある枝だけ）。中身は総力戦と同じなので
                 # 変えるのは `armor` の字だけ
                 got["gim"] = _gim(b, df)
+                _sp = _gspl(b, df)
+                if _sp:
+                    got["gspl"] = _sp
                 _sg = _stg(b, df)
                 if _sg:
                     got["stg"] = _sg
