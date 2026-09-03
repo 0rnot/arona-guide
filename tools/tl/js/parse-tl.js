@@ -3,7 +3,7 @@ import { MAIN_MAX, SLOTS, TE, _byid, live } from './core.js';
 import { diff, has } from './boss.js';
 import { n0 } from './rate.js';
 import { wlvMax } from './passive.js';
-import { CIRC, aimIn, aliasOf, formHasDmg, formIn, formsOf, nrm, timeIn, whoIn, zen0 } from './parse-text.js';
+import { CIRC, aimIn, aliasOf, fcOf, formHasDmg, formIn, formsOf, nrm, timeIn, whoIn, zen0 } from './parse-text.js';
 import { findStudent } from './parse-apply.js';
 
 /** 育成の行かどうか。**書き方は 1 つに縛らない**（2026-09-01 の先生の指示
@@ -438,6 +438,9 @@ export function parseTL(txt) {
   // **その部隊で、その子がいま何番目の形態まで進んだか。**「ヒナ①②③」の丸数字が
   // 形態の番号なので、飛んでいるときに間の形態（0 コストでない「開演」）を補うのに要る
   var lastForm = {};
+  // **変身 EX の周期を回すための「その部隊で何回目か」**（2026-09-03、60）。
+  // 形態 0（変身）→ 形態 1 を `fc` 回 → また形態 0、の順に送る
+  var formN = {};
   for (i = 0; i < lines.length; i++) {
     var ln = lines[i], lc0 = nrm(ln), ck = null;
     // 名簿の行（「1凸目 カヨコ/クルミ/アリス(臨戦)/ナギサ(水着)/キサキ」）。
@@ -468,7 +471,9 @@ export function parseTL(txt) {
         res.notes.push('「' + ln.trim() + '」より前の ' + cur.uses.length + ' 発は前置きとして捨てました');
         cur.uses = []; skipping = false; prevT = 0; pendT = null; lastWho = null; lastShot = null; lastForm = {};
       } else {
-        if (cur.uses.length) { parts.push(cur); cur = { start: [], uses: [], gu: false }; }
+        if (cur.uses.length) {
+          parts.push(cur); cur = { start: [], uses: [], gu: false }; formN = {};
+        }
         skipping = false; prevT = 0; pendT = null; lastWho = null; lastShot = null; lastRem = dur; remAnc = false; lastForm = {};
       }
       if (!/開始\s*(?:SET|スキル|セット)/i.test(lc0)) { continue; }
@@ -795,6 +800,20 @@ export function parseTL(txt) {
     // 無いときは、**ダメージのある形態を既定にする**。黙って 0 にするより良い
     // （2026-09-01。ホバークラフト前半のアリスがこれで 42.9% → 87.8% になった）
     var pid = idBy[who];
+    // **周期が説明文に書いてある子は、変身そのものも置く**（2026-09-03、60）。
+    // `fc` は形態 0 のあとに形態 1 を撃つ回数（トキ 3・キサキ（水着）2）で、
+    // 出どころは `build-tool-data.py` の Ex の説明文
+    //   トキ         「（<s:CH0187Mod>でEXスキル3回使用時にモード解除)」
+    //   キサキ（水着） 「自身の次の2回分のEXスキルを「実行：ばんざい体操」に変更」
+    // 今までは `!formHasDmg(pid, 0)` の下の枝で**毎回**ダメージのある形態にしていて、
+    // コスト 2 の変身 EX（攻撃力 +41.84%・命中・回避）が一度も乗らなかった
+    var fcN = pid != null ? fcOf(pid) : 0;
+    if (frm == null && fcN > 0) {
+      var kN = (formN[who] || 0) % (fcN + 1);
+      frm = kN === 0 ? 0 : 1;
+      if (kN === 0) { autoF[pid] = (formsOf(pid)[0] || {}).n; }
+      else { autoF[pid] = (formsOf(pid)[1] || {}).n; }
+    }
     if (frm == null && pid && TE.FORM_RULE[pid] === 'pick' && !formHasDmg(pid, 0)) {
       var fl2 = formsOf(pid), fz;
       for (fz = 1; fz < fl2.length; fz++) {
@@ -803,6 +822,7 @@ export function parseTL(txt) {
       if (frm != null) { autoF[pid] = (fl2[frm] || {}).n; }
     }
     lastWho = who;
+    formN[who] = (formN[who] || 0) + 1;
     // **「何発かに分けて撃つ子」を覚えておく。**ダメージのある形態が 2 つ以上ある子
     // （ヒナ（ドレス）・ホシノ（臨戦）など）。射目行はこの子の続きとして読む
     var pidS = idBy[who], nd = 0, fq, flS = pidS != null ? formsOf(pidS) : [];

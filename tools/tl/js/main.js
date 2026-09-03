@@ -26,6 +26,7 @@ import { altOf, pickOf } from './alt.js';
 import { dmgOf, dotTimes } from './dmg.js';
 import { clearStat, total } from './clear.js';
 import { restore, snapshot } from './io.js';
+import { fcOf } from './parse-text.js';
 import { parseTL } from './parse-tl.js';
 import { applyTL, findStudent } from './parse-apply.js';
 import { drawCrew, drawParty, drawPicker, fillBuild, fillFilters } from './left.js';
@@ -57,6 +58,8 @@ window.__TLDBG = { statsOf: statsOf, dmgOf: dmgOf, total: total, diff: diff,
                    terrMod: terrMod, effMod: effMod, passiveFor: passiveFor, phaseSpans: phaseSpans, ggRuns: ggRuns, ggAt: ggAt, ggCritAt: ggCritAt, ggSolve: ggSolve, support: support, dmgCurve: dmgCurve, parseTL: parseTL, st: st, stu: stu, sim: sim, engIn: engIn, costPts: costPts,
                    // **継続ダメージがいつ入るか**（2026-09-03 の 47b）
                    dotTimes: dotTimes,
+                   // **変身 EX の周期**（2026-09-03 の 60）
+                   fcOf: fcOf,
                    busyOf: busyOf, naTimes: naTimes, naRuns: naRuns, nsTimes: nsTimes,
                    nsInfo: nsInfo, naInfo: naInfo, altOf: altOf, pickOf: pickOf,
                    usesSorted: usesSorted, liveBuffs: liveBuffs, draw: drawNow,

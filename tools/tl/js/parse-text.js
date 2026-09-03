@@ -226,6 +226,14 @@ export function formsOf(id) {
   for (i = 0; i < xs.length; i++) { out.push({ n: xs[i].n }); }
   return out;
 }
+/** **変身 EX の周期。**形態 0 のあとに形態 1 を撃つ回数（トキ 3・キサキ（水着）2）。
+    出どころは `build-tool-data.py` が Ex の説明文から読む `fc`（60 の注記に原文）。
+    持っていない子は 0 */
+export function fcOf(id) {
+  var i, ss = S.students;
+  for (i = 0; i < ss.length; i++) { if (ss[i].id === id) { return ss[i].fc || 0; } }
+  return 0;
+}
 export var EXK = ['Ex', 'Ex1', 'Ex2', 'Ex3', 'Ex4'];
 export function formHasDmg(id, j) {
   return !!((B.dmg[id] || {})[EXK[j]] || altOf(id, EXK[j]));

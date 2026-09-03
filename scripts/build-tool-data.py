@@ -1931,6 +1931,19 @@ def build_cost_timeline():
             xs.append(item)
         if xs:
             rec["xs"] = xs
+        # **変身 EX の周期は説明文に書いてある**（2026-09-03、60）。
+        # 「形態 0 を 1 回撃つと形態 1 に変わり、N 回撃つと戻る」型で、
+        # `FORM_RULE` が 'pick' の子はこれを読まないと形態 0（＝変身そのもの）が
+        # 一度も置かれない。**原文はこの 2 つの言い方だけ**（全 274 人を見た）:
+        #   トキ          「（<s:CH0187Mod>でEXスキル3回使用時にモード解除)」
+        #   キサキ（水着）  「自身の次の2回分のEXスキルを「実行：ばんざい体操」に変更」
+        # `fc` は**形態 0 のあとに形態 1 を撃つ回数**。周期は `fc + 1` 回
+        if xs:
+            _fd = ex.get("Desc") or ""
+            _fm = (re.search(r"EXスキル\s*(\d+)\s*回使用時に(?:モード)?解除", _fd)
+                   or re.search(r"次の\s*(\d+)\s*回分のEXスキルを", _fd))
+            if _fm:
+                rec["fc"] = int(_fm.group(1))
         sp = special_notes(ex)
         if sp:
             rec["sp"] = sp
