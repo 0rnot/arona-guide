@@ -5546,6 +5546,7 @@ def build_tl():
     # **範囲を持つ枠**（生徒 → スキルの枠 → [形, 半径]）
     area_out = {}
     na_out, nna = {}, 0
+    naf_out = {}
     nform = 0
     alt_out = {}
     ns_out, nns = {}, 0
@@ -6015,6 +6016,31 @@ def build_tl():
                 "n": nsk.get("Name") or "通常攻撃",
             }
             nna += 1
+            # **変身後の撃ち方**（2026-09-04、61f の残り）。`Normal.FormChange.Frames` に
+            # 別の値が入っている。**14 人のうち実際に違うのは 4 人だけ**（残り 10 人は
+            # 素と同じ値なので、入れても撃ち方は変わらない）:
+            #   10062 トキ        AttackIngDuration 24 → 56（2.3 倍おそい）
+            #   10100 シロコ＊テラー                30 → 35
+            #   10130 スバル                      28 → 12（2.3 倍はやい。フルオート）
+            #   10136 エイミ（臨戦）               42 → 60、**`FixedFrameRate` 10000 つき**
+            # `naf` として `na` と同じ形で持つ。`fix` は `FixedFrameRate`（1 万分率）で、
+            # **その間は攻撃速度のバフで速くならない**（エイミ（臨戦）の
+            # 「攻撃速度が100%に固定される代わりに…」がこれ）
+            _nfc = nsk.get("FormChange")
+            if isinstance(_nfc, dict) and (_nfc.get("Frames") or {}).get("AttackIngDuration"):
+                _ff = _nfc["Frames"]
+                naf_out[sid] = {
+                    "ing": _ff.get("AttackIngDuration"),
+                    "ent": _ff.get("AttackEnterDuration"),
+                    "st": _ff.get("AttackStartDuration"),
+                    "end": _ff.get("AttackEndDuration"),
+                    "brd": _ff.get("AttackBurstRoundOverDelay"),
+                    "rel": _ff.get("AttackReloadDuration"),
+                    "ammo": x.get("AmmoCount"), "cost": x.get("AmmoCost"),
+                    "spd": dbs.get("NormalAttackSpeed") or 10000,
+                    "fix": _nfc.get("FixedFrameRate"),
+                    "n": (nsk.get("Name") or "通常攻撃") + "（変身後）",
+                }
         # スキルの名前（EX・ノーマル・ノーマル＋・サブ）。レーンの札に使う
         nm = {}
         for kind, sk2 in skills_map.items():
@@ -6155,7 +6181,7 @@ def build_tl():
         "build": build, "eqp": eqp_out, "buf": buf_out,
         "ns": ns_out, "skname": skname, "tgt": tgt_out, "fchg": fchg_out, "statJA": stat_ja,
         # 通常攻撃。**フレームは 30fps。`spd` は 10000 が等倍**
-        "na": na_out,
+        "na": na_out, "naf": naf_out,
         "nsKeys": ["MinimumTierCharacterGear", "ConditionType",
                    "ConditionArgument(フレーム)", "Duration(フレーム)",
                    "MaxTriggerCount(-1 は無制限、1 は戦闘中1回のみ)",

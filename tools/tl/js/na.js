@@ -1,5 +1,5 @@
 import { B } from './util.js';
-import { isMain, memo, st } from './core.js';
+import { isMain, memo, slotOf, st } from './core.js';
 import { sim } from './engine.js';
 import { statsOf } from './passive.js';
 
@@ -17,13 +17,44 @@ import { statsOf } from './passive.js';
 //
 // **移動・遮蔽・射程外は数えていない。**ずっと撃ち続けられる前提の上限寄りの数字
 export function naInfo(id) {
-  var a = (B.na || {})[id];
+  return frOf((B.na || {})[id]);
+}
+// **変身している間の撃ち方**（2026-09-04、61f の残り）。`data.js` の `naf` は
+// `Skills.Normal.FormChange.Frames`。**14 人のうち実際に値が違うのは 4 人**で、
+// うち「切れ方＝時間」で窓が引けるのは シロコ＊テラー（`AttackIngDuration` 30 → 35）・
+// スバル（28 → 12）・エイミ（臨戦）（42 → 60）の 3 人。トキは切れ方が 5（EX の回数）
+// なので今のところ窓が引けず、素のままになる。
+// `fix` は `FixedFrameRate`（1 万分率）で、**その間は攻撃速度のバフで速くならない**
+export function nafInfo(id) {
+  return frOf((B.naf || {})[id]);
+}
+function frOf(a) {
   if (!a || !a.ing) { return null; }
   var spd = (a.spd || 10000) / 10000;
   var mag = Math.max(1, Math.floor((a.ammo || 1) / (a.cost || 1)));
   return { per: a.ing / B.fps / spd, mag: mag,
            rel: ((a.brd || 0) + (a.rel || 0)) / B.fps / spd,
-           ent: (a.ent || 0) / B.fps / spd, nm: a.n, raw: a, spd: spd };
+           ent: (a.ent || 0) / B.fps / spd, nm: a.n, raw: a, spd: spd,
+           fix: a.fix > 0 };
+}
+/** **変身している区間**（`[始まり, 終わり]` の並び）。
+    `B.fchg[id]` は `[切れ方, 段 1〜5 の値]` で、**切れ方 1（時間 ms）だけ**引ける。
+    `-1` は「戦闘が終わるまで切れない」（ココロ）。
+
+    **見ているのは `st.tl` に書いてある時刻**で、engine が解いた時刻ではない。
+    `usesSorted()` を使うと `usesSorted → statsOf → naShots → usesSorted` で輪になる
+    （`ns.js` の `formOK` と同じ理由）。コスト待ちで後ろへ動いたぶんはずれる */
+function formWins(idx, id, dur) {
+  var fv = (B.fchg || {})[id];
+  if (!fv || fv[0] !== 1) { return null; }
+  var ms = fv[1][Math.min(slotOf(idx).ex || 5, fv[1].length) - 1];
+  if (ms == null) { return null; }
+  var out = [], i;
+  for (i = 0; i < st.tl.length; i++) {
+    if (st.tl[i].i !== idx || st.tl[i].t == null) { continue; }
+    out.push([st.tl[i].t, ms < 0 ? dur + 1 : st.tl[i].t + ms / 1000]);
+  }
+  return out.length ? out : null;
 }
 // その枠が EX を撃っている区間。**撃っている本人は通常攻撃をしない**
 export function busyOf(idx) {
@@ -79,6 +110,17 @@ export function naShots0(idx, dur, raw) {
   if (!isMain(idx)) { return []; }
   var a = naInfo(p.id);
   if (!a || a.per <= 0) { return []; }
+  // **変身している間は、変わったほうのフレームで撃つ**（2026-09-04）。
+  // 窓が引けない子（`fchg` が無い・切れ方が 2/3/5）は今までどおり素のまま
+  var af = nafInfo(p.id), win = af ? formWins(idx, p.id, dur) : null;
+  function frames(x) {
+    var w;
+    if (!win) { return a; }
+    for (w = 0; w < win.length; w++) {
+      if (x >= win[w][0] - 1e-9 && x < win[w][1] - 1e-9) { return af; }
+    }
+    return a;
+  }
   var busy = busyOf(idx), out = [], t = a.ent, k = 0, guard = 0;
   function block(x) {
     for (var q = 0; q < busy.length; q++) {
@@ -88,20 +130,22 @@ export function naShots0(idx, dur, raw) {
   }
   // **攻撃速度（`AttackSpeed`）のバフで通常攻撃は速くなる。**素は 10000。
   // 発ごとに引き直すと重いので 2 秒刻みに丸めて引く
-  function mul(x) {
-    if (raw) { return 1; }
+  function mul(x, fr) {
+    // **`FixedFrameRate` の間は攻撃速度が 100% に固定される**（エイミ（臨戦））
+    if (raw || fr.fix) { return 1; }
     var cs = statsOf(p.id, idx, Math.floor(x / 2) * 2);
     if (!cs) { return 1; }
     return Math.max(0.1, cs.get('AttackSpeed') / 10000);
   }
   while (t <= dur && guard++ < 8000) {
     var b = block(t);
+    var f = frames(t);
     // **演出が明けたら構え直す**（AttackEnterDuration をもう一度)
-    if (b != null) { t = b + a.ent; k = 0; continue; }
+    if (b != null) { t = b + frames(b).ent; k = 0; continue; }
     out.push({ t: +t.toFixed(3), k: k });
-    var m = mul(t);
-    t += a.per / m; k++;
-    if (k % a.mag === 0) { t += a.rel / m; }
+    var m = mul(t, f);
+    t += f.per / m; k++;
+    if (k % f.mag === 0) { t += f.rel / m; }
   }
   return out;
 }
