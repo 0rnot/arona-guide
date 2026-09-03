@@ -60,7 +60,18 @@ export function bump() { _pv++; clearStats(); clearPartyCalc(); _mm = {}; }
 // 変わったときだけ。**覚えるのは時刻の計算だけで、ダメージの計算は今までどおり**
 export var _mm = {}, _mmD = null;
 export function memo(k, fn) {
-  if (!(k in _mm)) { _mm[k] = fn(); }
+  // **`fn()` の中で `_mm` が作り直されることがある**（`usesSorted0` が呼ぶ
+  // `sim()` の `clearMemo()` と `diff()` の `memoOn()`）。
+  // `_mm[k] = fn()` と書くと、**代入先は古い `_mm`・読み出しは新しい `_mm`** に
+  // なって `undefined` が返る（JS は代入先を先に決めてから右辺を評価する）。
+  // これで `dmgCurve0` の `us.length` が落ちていた
+  // （2026-09-03、EX をドラッグしたあとの引き直しで
+  //  `TypeError: Cannot read properties of undefined (reading 'length')`）。
+  // **先に値を受け取って、そのときの `_mm` へ入れる**
+  if (!(k in _mm)) {
+    var v = fn();
+    if (!(k in _mm)) { _mm[k] = v; }
+  }
   return _mm[k];
 }
 Object.defineProperty(st, 'party', { get: function () {
