@@ -71,7 +71,9 @@ export function usesSorted0() {
     var p = st.party[i];
     if (!p) { continue; }
     var ts = nsTimes(p.id, dur, i), kd = nsKind(p.id);
-    for (k = 0; k < ts.length; k++) { out.push({ i: i, t: ts[k], k: kd }); }
+    // `no` はその子の NS が何発目か（1 始まり）。
+    // **「ノーマルスキルの発動 N 回毎に」の行を間引くのに要る**（2026-09-03、ミカの隕石）
+    for (k = 0; k < ts.length; k++) { out.push({ i: i, t: ts[k], k: kd, no: k + 1 }); }
   }
   return out.sort(function (a, b) { return a.t - b.t; });
 }

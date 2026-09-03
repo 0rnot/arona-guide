@@ -50,7 +50,7 @@ export function clearStat1(r, pf, pid, deadAt, hpNeed) {
       if (u.t > (r.dur || 240) + 1e-9 || awayAt(u.t, !/^Ex\d*$/.test(u.k), u.gx)) { continue; }
       // **よその池へ回った発は、その池の相手で引く**（2026-09-03。`dmgCurve0` と同じ）
       var d = dmgOf(u.i, r, u.t, u.k, u.pk,
-                    u.tg == null && pp !== r.cid ? subIxOfPool(r, pp) : u.tg, u.gx);
+                    u.tg == null && pp !== r.cid ? subIxOfPool(r, pp) : u.tg, u.gx, u.no);
       if (!d) { continue; }
       n++;
       if (u.tg != null && pp !== pid) {
@@ -62,7 +62,7 @@ export function clearStat1(r, pf, pid, deadAt, hpNeed) {
         // `dmgCurve0` は数えていたのに、突破率と与ダメージが数えていなかった
         // （2026-09-03。画面で選んでも上の数字が動かない）
         if (u.hb) {
-          var dbb = dmgOf(u.i, r, u.t, u.k, u.pk, null, u.gx);
+          var dbb = dmgOf(u.i, r, u.t, u.k, u.pk, null, u.gx, u.no);
           if (dbb) { mu += dbb.avg; va += dbb.va || 0; }
         }
       } else {
@@ -139,7 +139,7 @@ export function total0(r) {
       ? Math.min(u.mc, poolBodies(r, pp2)) : 1;
     if (u.tg != null && !tr2 && mcp2 <= 1) { continue; }
     if (u.t > (r.dur || 240) + 1e-9 || awayAt(u.t, !/^Ex\d*$/.test(u.k), u.gx)) { continue; }
-    var d = dmgOf(u.i, r, u.t, u.k, u.pk, u.tg, u.gx);
+    var d = dmgOf(u.i, r, u.t, u.k, u.pk, u.tg, u.gx, u.no);
     if (!d) { continue; }
     if (tr2 || mcp2 > 1) {
       var f2 = tr2 || mcp2;
@@ -149,7 +149,7 @@ export function total0(r) {
     // **「ボス本体にも当たる」を与ダメージにも数える**（2026-09-03。
     // `dmgCurve0` だけが数えていて、上の「与ダメージ」は素通りしていた）
     if (u.tg != null && u.hb) {
-      var dbh = dmgOf(u.i, r, u.t, u.k, u.pk, null, u.gx);
+      var dbh = dmgOf(u.i, r, u.t, u.k, u.pk, null, u.gx, u.no);
       if (dbh) {
         d = { min: d.min + dbh.min, avg0: d.avg0 + dbh.avg0, avg: d.avg + dbh.avg,
               avgC: d.avgC + dbh.avgC, max: d.max + dbh.max };

@@ -38,7 +38,7 @@ function gsplScale(d, m) {
            max: d.max * m, va: (d.va || 0) * m, hit: d.hit, crit: d.crit,
            crit0: d.crit0, name: d.name };
 }
-export function dmgOf(idx, r, at, kind, upk, tg, gx) {
+export function dmgOf(idx, r, at, kind, upk, tg, gx, nso) {
   var p = st.party[idx];
   if (!p) { return null; }
   var kd = kind || 'Ex';
@@ -47,13 +47,13 @@ export function dmgOf(idx, r, at, kind, upk, tg, gx) {
   var alt = altOf(p.id, kd, tb9);
   var gm9 = gsplMul(r, at, tg);
   if (!PICKF || !alt || alt.v.length < 2) {
-    return gsplScale(dmgOf1(idx, r, at, kd, alt ? pickOf(idx, kd, upk, tb9) : 0, tg, gx), gm9);
+    return gsplScale(dmgOf1(idx, r, at, kd, alt ? pickOf(idx, kd, upk, tb9) : 0, tg, gx, nso), gm9);
   }
   // **候補ごとに最後まで計算して比べる。**倍率（`Scale`）だけで比べると、
   // 発数・防御無視・会心の有無が候補ごとに違うぶんを取りこぼす
   var best = null, i;
   for (i = 0; i < alt.v.length; i++) {
-    var d = dmgOf1(idx, r, at, kd, i, tg, gx);
+    var d = dmgOf1(idx, r, at, kd, i, tg, gx, nso);
     if (!d) { continue; }
     if (!best || (PICKF > 0 ? d.avg > best.avg : d.avg < best.avg)) { best = d; }
   }
@@ -95,16 +95,16 @@ export function sliceOf(id, kind) {
   if (a) { for (i = 0; i < a.v.length; i++) { look(a.v[i]); } }
   return (n >= 4 && formDur(id, kind) >= 1) ? SLICE : 1;
 }
-export function dmgOf1(idx, r, at, kind, pick, tg, gx) {
+export function dmgOf1(idx, r, at, kind, pick, tg, gx, nso) {
   var p0 = st.party[idx];
   if (!p0) { return null; }
   var kd0 = kind || 'Ex';
   var ns = at == null ? 1 : sliceOf(p0.id, kd0);
-  if (ns <= 1) { return dmgAt(idx, r, at, kd0, pick, tg, gx); }
+  if (ns <= 1) { return dmgAt(idx, r, at, kd0, pick, tg, gx, nso); }
   var D = formDur(p0.id, kd0), dur0 = r.dur || 240, acc = null, k, q2;
   for (k = 0; k < ns; k++) {
     var ts = Math.min(at + D * (k + 0.5) / ns, dur0);
-    var d0 = dmgAt(idx, r, ts, kd0, pick, tg, gx);
+    var d0 = dmgAt(idx, r, ts, kd0, pick, tg, gx, nso);
     if (!d0) { return null; }
     if (!acc) { acc = { min: 0, avg0: 0, avg: 0, avgC: 0, max: 0, va: 0,
                         hit: d0.hit, crit: d0.crit, crit0: d0.crit0, name: d0.name }; }
@@ -114,7 +114,7 @@ export function dmgOf1(idx, r, at, kind, pick, tg, gx) {
   }
   return acc;
 }
-export function dmgAt(idx, r, at, kind, pick, tg, gx) {
+export function dmgAt(idx, r, at, kind, pick, tg, gx, nso) {
   var p = st.party[idx];
   if (!p) { return null; }
   var kd = kind || 'Ex';
@@ -201,6 +201,10 @@ export function dmgAt(idx, r, at, kind, pick, tg, gx) {
     // **`Scale` の段数はスキルによって違う。**通常攻撃は 1 段しかないので、
     // EX のレベルで引くと範囲外になって 0 になる（2026-09-01 に踏んだ）
     var e = effs[k], arr0 = e[0] || [];
+    // **「ノーマルスキルの発動 N 回毎に」の行は、N 回に 1 度しか出ない**（2026-09-03）。
+    // ミカの隕石（339%）がこれで、毎回数えると NS の出力が 1.8 倍になる。
+    // `nso` はその子の NS が何発目か（1 始まり）。渡ってこない呼び方では出さない
+    if (e[14] > 1 && (!nso || nso % e[14] !== 0)) { continue; }
     var sc = arr0[Math.min(slv, arr0.length) - 1] || 0;
     var hs = e[1] || [10000], sum = 0, q, full = false;
     for (q = 0; q < hs.length; q++) { sum += hs[q]; if (hs[q] === 10000) { full = true; } }

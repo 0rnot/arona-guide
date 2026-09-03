@@ -318,8 +318,10 @@ export function draw() {
               '" style="left:' + (nts[nq] * px).toFixed(1) + 'px;width:' +
               (nw + ew).toFixed(1) + 'px" title="' +
               esc(nsn.nm || '通常スキル') + '\n' +
-              (nsn.iv > 0 ? nsn.iv.toFixed(1) + '秒ごと（初回 ' + nsn.st.toFixed(1) + '秒）'
-                          : '戦闘開始時に 1 回のみ') +
+              (nsn.src === 'na' ? '通常攻撃 ' + nsn.tc + ' 回ごと'
+               : nsn.src === 'ammo' ? '弾倉ごと（弾薬 ' + nsn.trig + ' 発目）'
+               : nsn.iv > 0 ? nsn.iv.toFixed(1) + '秒ごと（初回 ' + nsn.st.toFixed(1) + '秒）'
+                            : '戦闘開始時に 1 回のみ') +
               '／' + nts[nq].toFixed(1) + '秒' +
               '\n発動 ' + (nsDur(p.id) / B.fps).toFixed(2) + '秒' +
               (nbd > 0 ? '／効果 ' + nbd.toFixed(1) + '秒' : '') +
@@ -334,7 +336,11 @@ export function draw() {
     // 上の EX の行の `title` に移してあるので、字は増えない
     if (laneOn('ns') && nb) {
       side += lbl(H.row, mini + '<span class="nm">NS</span>' +
-        (p ? '<span class="mb">' + nsn.iv.toFixed(0) + 's</span>' : ''));
+        (p ? '<span class="mb">' +
+             (nsn.src === 'na' ? nsn.tc + '発'
+              : nsn.src === 'ammo' ? '弾倉'
+              : nsn.iv > 0 ? nsn.iv.toFixed(0) + 's' : '1回') +
+             '</span>' : ''));
       cv += lane(H.row, nb);
     }
 

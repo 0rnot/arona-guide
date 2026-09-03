@@ -44,7 +44,30 @@ export function naTimes(idx, dur) {
   sim();
   return memo('na|' + idx + '|' + dur, function () { return naTimes0(idx, dur); });
 }
+// **時刻だけでなく「その弾倉での何発目か」も要る**（2026-09-03）。
+// 弾数で出る NS（`AmmoCountUnder`）がそこに乗る。`k` を外から数え直すと
+// EX の演出明けで 0 に戻るぶんがずれるので、ここで一緒に返す
+export function naShots(idx, dur) {
+  sim();
+  return memo('nas|' + idx + '|' + dur, function () { return naShots0(idx, dur); });
+}
+// **攻撃速度のバフを見ない版**（2026-09-03）。弾数・回数で出る NS
+// （`AmmoCountUnder` / `OnAttackIng`）の時刻を決めるのに使う。
+// バフ込みの `naShots` を使うと
+//   `usesSorted` → `nsTimes` → `naShots` → `statsOf` → `liveBuffs` → `usesSorted`
+// で無限に回る（実際に `Maximum call stack size exceeded` を踏んだ）。
+// **輪を切る場所はここしかない。**攻撃速度のバフは通常攻撃の間隔を縮めるので、
+// そのぶん NS の発動はここで出すより少し早くなる
+export function naShotsRaw(idx, dur) {
+  sim();
+  return memo('nas0|' + idx + '|' + dur, function () { return naShots0(idx, dur, true); });
+}
 export function naTimes0(idx, dur) {
+  var sh = naShots(idx, dur), o = [], i;
+  for (i = 0; i < sh.length; i++) { o.push(sh[i].t); }
+  return o;
+}
+export function naShots0(idx, dur, raw) {
   var p = st.party[idx];
   if (!p) { return []; }
   // **SPECIAL（サポーター）は通常攻撃をしない。**盤に出ているのは EX を
@@ -66,6 +89,7 @@ export function naTimes0(idx, dur) {
   // **攻撃速度（`AttackSpeed`）のバフで通常攻撃は速くなる。**素は 10000。
   // 発ごとに引き直すと重いので 2 秒刻みに丸めて引く
   function mul(x) {
+    if (raw) { return 1; }
     var cs = statsOf(p.id, idx, Math.floor(x / 2) * 2);
     if (!cs) { return 1; }
     return Math.max(0.1, cs.get('AttackSpeed') / 10000);
@@ -74,7 +98,7 @@ export function naTimes0(idx, dur) {
     var b = block(t);
     // **演出が明けたら構え直す**（AttackEnterDuration をもう一度)
     if (b != null) { t = b + a.ent; k = 0; continue; }
-    out.push(+t.toFixed(3));
+    out.push({ t: +t.toFixed(3), k: k });
     var m = mul(t);
     t += a.per / m; k++;
     if (k % a.mag === 0) { t += a.rel / m; }

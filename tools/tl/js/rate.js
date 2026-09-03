@@ -134,7 +134,7 @@ export function critNat() {
   st.crit = null;
   try {
     for (i = 0; i < us.length; i++) {
-      d = dmgOf(us[i].i, r, us[i].t, us[i].k, us[i].pk, us[i].tg, us[i].gx);
+      d = dmgOf(us[i].i, r, us[i].t, us[i].k, us[i].pk, us[i].tg, us[i].gx, us[i].no);
       if (d && d.crit0 != null) { sum += d.crit0; n++; }
     }
     if (!n) {

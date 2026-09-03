@@ -87,7 +87,8 @@ export function awayDrop(r) {
   for (i = 0; i < us.length; i++) {
     if (!awayAt(us[i].t, !/^Ex\d*$/.test(us[i].k), us[i].gx)) { continue; }
     // ダメージの無い EX（バフ役）は数えない。総量の表と同じ数え方にする
-    if (!dmgOf(us[i].i, r, us[i].t, us[i].k, us[i].pk, us[i].tg, us[i].gx)) { continue; }
+    if (!dmgOf(us[i].i, r, us[i].t, us[i].k, us[i].pk, us[i].tg, us[i].gx,
+               us[i].no)) { continue; }
     if (/^Ex\d*$/.test(us[i].k)) { o.ex++; } else { o.ns++; }
   }
   for (i = 0; i < SLOTS; i++) {
@@ -113,7 +114,7 @@ export function dmgCurve0(r, key, pid, deadAt) {
     if (u.t > (r.dur || 240) + 1e-9 || awayAt(u.t, !/^Ex\d*$/.test(u.k), u.gx)) { continue; }
     // **当たる先を書いていない発をよその池へ回すときは、その池の相手で引く**（2026-09-03）
     var aim = u.tg == null && pp !== r.cid ? subIxOfPool(r, pp) : u.tg;
-    var d = dmgOf(u.i, r, u.t, u.k, u.pk, aim, u.gx);
+    var d = dmgOf(u.i, r, u.t, u.k, u.pk, aim, u.gx, u.no);
     // **同じ池を分け合う体に当てた発は、当たった数だけ池へ入る**（2026-09-03）。
     // 転移（`tr`）のほうは前から `mc` が効いていたが、**HP を共有している池
     // （カイテンジャーの 5 体で 40,000,000）は 1 体ぶんしか数えていなかった**
@@ -125,7 +126,7 @@ export function dmgCurve0(r, key, pid, deadAt) {
     // **置くのは使う人**（帯の「ボス本体にも当たる」。2026-09-02 の先生の見立て）。
     // ボスと部位で防御が違うことがあるので、本体ぶんは本体の数字で出す
     if (d && u.tg != null && u.hb) {
-      var db = dmgOf(u.i, r, u.t, u.k, u.pk, null, u.gx);
+      var db = dmgOf(u.i, r, u.t, u.k, u.pk, null, u.gx, u.no);
       if (db) { v0 += db[key]; }
     }
     if (d) { pts.push([u.t, v0]); }

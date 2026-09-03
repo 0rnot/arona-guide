@@ -1,7 +1,7 @@
 import { B } from './util.js';
 import { SLOTS, _byid, memo, st } from './core.js';
 import { sim } from './engine.js';
-import { busyOf } from './na.js';
+import { busyOf, naInfo, naShotsRaw } from './na.js';
 
 // ------------------------------------------------------------ 通常スキル（NS）
 // **自動発動の周期は `LevelSkill/<PublicSkillGroupId>.json` の `AutoUseRule`。**
@@ -51,7 +51,36 @@ export function nsInfo(id) {
     return { iv: per / B.fps, st: per / B.fps, du: duF, src: 'auto',
              nm: n ? n.n : '', rule: 'Interval' };
   }
+  // **`OnAttackIng` は「通常攻撃 N 回毎に」**（2026-09-03）。N は `TryCount`（`au[6]`）で、
+  // スキルの説明文に N が書いてある 22 件すべてで一致した（`ConditionArgument` は
+  // "" / "0" / "1" しか入っておらず、回数と相関しない）。時刻は通常攻撃の並びから
+  // 作るので、ここでは回数だけ返して `nsTimes0` に任せる。
+  // **確率のもの（イズミ 20%・アカリ 10%）は置かない**
+  if (au && au[1] === 'OnAttackIng' && au[6] > 1 && au[7] === 10000) {
+    return { iv: 0, st: 0, du: duF, src: 'na', tc: au[6],
+             nm: nsNameOf(id, n), rule: 'OnAttackIng' };
+  }
+  // **`AmmoCountUnder` は「弾薬が N 以下になったら」**（2026-09-03）。
+  // 閾値は `ConditionArgument`（`au[2]`）。フブキの説明文「弾薬が3以下になる毎に」が
+  // 根拠で、`<` ではなく `≤`（弾薬は 15→12→9→6→3→0 としか動かないので、
+  // `< 3` だと「0 のとき」になって説明文と食い違う）。1 弾倉に 1 回出る
+  if (au && au[1] === 'AmmoCountUnder' && au[2] != null) {
+    var a2 = naInfo(id), rw = a2 && a2.raw;
+    if (a2 && a2.per > 0 && rw && rw.ammo > 0 && rw.cost > 0) {
+      var tg = Math.ceil((rw.ammo - au[2]) / rw.cost);
+      if (tg > 0) {
+        return { iv: a2.mag * a2.per + a2.rel, st: a2.ent + tg * a2.per,
+                 du: duF, src: 'ammo', trig: tg,
+                 nm: nsNameOf(id, n), rule: 'AmmoCountUnder' };
+      }
+    }
+  }
   return null;
+}
+/** NS の名前。**`window.TL` 側が無い子は `skname` から引く**（無いと
+    画面が「通常スキル」と出てしまう） */
+function nsNameOf(id, n) {
+  return (n ? n.n : '') || (B.skname[id] || {})[nsKind(id)] || '';
 }
 // 引き金の型。**AutoUseRule の名前をそのまま出したうえで、日本語を添える**
 export var NSRULE = { OnAttackIng: '攻撃中', HpUnder: 'HP がしきい値を下回ったとき',
@@ -95,6 +124,29 @@ export function nsTimes0(id, dur, idx) {
     y = +y.toFixed(4);
     out.push(y);
     return y;
+  }
+  // **通常攻撃の N 発目に乗る NS。**`naShots` が EX の演出を既に避けているので、
+  // ここで `push()` の押し出しをかけ直さない（二重に遅れる）
+  if (n.src === 'na') {
+    if (idx == null) { return out; }
+    var ts = naShotsRaw(idx, dur), q;
+    for (q = n.tc - 1; q < ts.length; q += n.tc) {
+      if (ts[q].t <= dur) { out.push(+ts[q].t.toFixed(4)); }
+    }
+    return out;
+  }
+  // **弾数で出る NS。**その弾倉の `trig` 発目を撃った直後（1 発ぶんの間合いのあと）
+  if (n.src === 'ammo') {
+    if (idx == null) { return out; }
+    var sh = naShotsRaw(idx, dur), a3 = naInfo(id), q2;
+    for (q2 = 0; q2 < sh.length; q2++) {
+      // `k` は撃った通し番号（EX の演出明けに 0 へ戻る）。弾倉の中の位置は `k % mag`
+      if (sh[q2].k % a3.mag === n.trig - 1) {
+        var y3 = sh[q2].t + a3.per;
+        if (y3 <= dur) { out.push(+y3.toFixed(4)); }
+      }
+    }
+    return out;
   }
   if (n.iv <= 0) { if (n.st <= dur) { push(n.st); } return out; }
   // **次の 25 秒は「実際に発動した時刻」から数える。**格子のままだと、

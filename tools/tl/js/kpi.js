@@ -224,7 +224,8 @@ export function drawErr() {
     var uz = usesSorted();
     for (q = 0; q < uz.length; q++) {
       if (uz[q].tg != null || !/^Ex\d*$/.test(uz[q].k)) { continue; }
-      if (dmgOf(uz[q].i, r, uz[q].t, uz[q].k, uz[q].pk, null, uz[q].gx)) { noTg++; }
+      if (dmgOf(uz[q].i, r, uz[q].t, uz[q].k, uz[q].pk, null, uz[q].gx,
+                uz[q].no)) { noTg++; }
     }
     if (noTg) {
       out.push(['w', noTg + ' 発：当たる先（' + trn.n + 'は被ダメージの ' +

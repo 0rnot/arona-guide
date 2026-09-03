@@ -5353,8 +5353,13 @@ def build_tl():
             # **5 件を周期と読んでいたので、シロコ（水着）と ミチル（ドレス）は
             # 1 秒ごとに 240 回発動して 60 秒バフが切れなくなっていた**（過大）。
             # 逆にシュン・ヒナ（ドレス）・シュン（水着）は 1 回も置かれなかった（過小）
+            # `TryCount` は `OnAttackIng` の「通常攻撃 N 回毎に」の N。
+            # **スキルの説明文に N が書いてある 22 件すべてで `TryCount` と一致した**
+            # （2026-09-03。`ConditionArgument` のほうは "" / "0" / "1" しか入っておらず
+            # 回数と相関しない）。`TriggerRate` は 1 万分率で、10000 以外は確率
             seen_g[mg] = [mg, au.get("ConditionType"), arg, d.get("Duration"),
-                          au.get("MaxTriggerCount"), au.get("CoolTimeNotTrigger")]
+                          au.get("MaxTriggerCount"), au.get("CoolTimeNotTrigger"),
+                          au.get("TryCount"), au.get("TriggerRate")]
             nns += 1
         ns_out[sid] = [seen_g[k] for k in sorted(seen_g)]
         # ---- サブスキル（SS）の引き金。**`LevelSkill/<ExtraPassiveSkillGroupId>.json`
@@ -5491,6 +5496,15 @@ def build_tl():
                      or _form_cond(kind, e.get("Condition")) is True]
             cond = [e for e in dmg_all if e.get("Condition")
                     and _form_cond(kind, e.get("Condition")) is None]
+            # **説明文の行ごとの「N 回毎に」**。`<?K>` が入っている行を
+            # `DescParamId` K の行として結び付ける
+            _every = {}
+            for _seg in re.split(r"[/\n]", sk.get("Desc") or ""):
+                _mm = re.search(r"スキルの発動(\d+)回毎に", _seg)
+                if not _mm:
+                    continue
+                for _pm in re.finditer(r"<\?(\d+)>", _seg):
+                    _every[int(_pm.group(1))] = int(_mm.group(1))
             def _row(e):
                 # **6〜8 番目は 2026-09-01 に足した。**
                 #   Period/Duration … `DamageDebuff` は継続ダメージ。
@@ -5525,7 +5539,12 @@ def build_tl():
                         #     なのに `Period` を持たない
                         #   ApplyFrame … 効果が始まるまでのフレーム。持続ダメージを
                         #     時間に散らすのに要る（サオリ（水着）2F・アズサ（水着）66F・メル 152F）
-                        e.get("Type"), e.get("ApplyFrame")]
+                        e.get("Type"), e.get("ApplyFrame"),
+                        #   NsEvery … 「ノーマルスキルの発動 N 回毎に」（2026-09-03）。
+                        #     ミカの隕石（339%）がこれで、毎回数えると NS の出力が
+                        #     1.8 倍になる。**機械で読める欄が無い**ので説明文の行から拾う。
+                        #     全 274 人で当たるのは 2 件だけ（ミカ・ウミカ。後者はダメージ無し）
+                        _every.get(e.get("DescParamId"))]
             # **`Group` は「何段目か」で、足すものではなく択一。**
             # ネル（制服）の Ex1 は Group 0〜4 × 条件 2 通りの 10 件あって、
             # 全部足すと 1 発 5,727,546（ボス HP の 25%）になっていた。
@@ -5762,7 +5781,8 @@ def build_tl():
         "dmg": dmg_out,
         "dmgKeys": ["Scale", "Hits", "CriticalCheck", "Block", "Period",
                     "Duration", "IgnoreDef", "HitFrames", "Zone", "Stab",
-                    "MultiplySource", "MultiplierConstant", "Type", "ApplyFrame"],
+                    "MultiplySource", "MultiplierConstant", "Type", "ApplyFrame",
+                    "NsEvery(ノーマルスキルの発動 N 回毎に)"],
         # 条件でダメージが変わるもの。**画面のバーで 1 つ選ぶ。**
         # `c` は条件の原文、`v[i]` はその候補ぶんの効果（`dmg` と同じ並び）
         "dmgalt": alt_out,
@@ -5781,7 +5801,9 @@ def build_tl():
         "nsKeys": ["MinimumTierCharacterGear", "ConditionType",
                    "ConditionArgument(フレーム)", "Duration(フレーム)",
                    "MaxTriggerCount(-1 は無制限、1 は戦闘中1回のみ)",
-                   "CoolTimeNotTrigger(フレーム。ConditionArgument が 1 のときはこちらが周期)"],
+                   "CoolTimeNotTrigger(フレーム。ConditionArgument が 1 のときはこちらが周期)",
+                   "TryCount(OnAttackIng の「通常攻撃 N 回毎に」の N)",
+                   "TriggerRate(1万分率。10000 以外は確率)"],
         # サブスキルの引き金。**ダメージ・効果の時刻はここからしか出ない**
         "ep": ep_out,
         "epKeys": ["Event", "Parameters", "ConditionExpression", "TriggerRate",
