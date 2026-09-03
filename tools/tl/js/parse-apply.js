@@ -165,6 +165,20 @@ export function applyTL1(p) {
   for (i = 0; i < p.uses.length; i++) {
     var u = p.uses[i];
     var tt2 = u.to == null ? p.bufTo : u.to;
+    // **分を省いた残り時間（「39.60臨戦」）の分を、ここで決める**（2026-09-03）。
+    // 候補は 残り = rem, 60+rem, 120+rem …。**前の行より後ろになるいちばん早い時刻**を採る。
+    // 節に「M:SS」が 1 つも無いと分は書いてある順からしか決まらず、parse の時点では
+    // 前の行の解けた時刻が分からない（コスト指定・最速の行はここで初めて決まる）
+    if (u.rem != null && u.md === 't') {
+      // **前の行より 5 秒だけ手前まで許す。**コスト指定の行の解けた時刻は engine の
+      // コスト回復の見積もりぶんだけ後ろにずれることがあり、ちょうど `prev` で切ると
+      // 正しい分（1 つ手前）を弾いて 1 分後ろへ飛ぶ
+      var rk = null, mk;
+      for (mk = 0; mk * 60 + u.rem <= dur; mk++) {
+        if (dur - (mk * 60 + u.rem) >= prev - 5) { rk = mk * 60 + u.rem; }
+      }
+      if (rk != null) { u.t = Math.max(0, dur - rk); }
+    }
     var row = { i: u.i, t: u.md === 't' ? u.t : Math.min(dur, prev + 0.01),
                 to: tt2, ov: tt2, f: u.f == null ? null : u.f,
                 tg: u.tg == null ? null : u.tg, mc: u.mc == null ? 1 : u.mc,

@@ -417,6 +417,8 @@ export function parseTL(txt) {
   // 4 本すべてで発生）。**書いてある TL の読み方は今までどおり**（見出しより前は捨てる）
   var hasStart = lines.some(function (q) { return /開始\s*(?:SET|スキル|セット)/i.test(nrm(q)); });
   var seenStart = !hasStart, prevT = 0, lastWho = null, lastShot = null, pendT = null, lastRem = dur;
+  // **その節で「M:SS」を一度でも見たか。**見ていないと、分を省いた「dd.dd」の分が決められない
+  var remAnc = false;
   // **その部隊で、その子がいま何番目の形態まで進んだか。**「ヒナ①②③」の丸数字が
   // 形態の番号なので、飛んでいるときに間の形態（0 コストでない「開演」）を補うのに要る
   var lastForm = {};
@@ -451,7 +453,7 @@ export function parseTL(txt) {
         cur.uses = []; skipping = false; prevT = 0; pendT = null; lastWho = null; lastShot = null; lastForm = {};
       } else {
         if (cur.uses.length) { parts.push(cur); cur = { start: [], uses: [], gu: false }; }
-        skipping = false; prevT = 0; pendT = null; lastWho = null; lastShot = null; lastRem = dur; lastForm = {};
+        skipping = false; prevT = 0; pendT = null; lastWho = null; lastShot = null; lastRem = dur; remAnc = false; lastForm = {};
       }
       if (!/開始\s*(?:SET|スキル|セット)/i.test(lc0)) { continue; }
     }
@@ -471,7 +473,7 @@ export function parseTL(txt) {
         res.notes.push('「' + ln.trim() + '」より前の ' + cur.uses.length + ' 発は前置きとして捨てました');
         cur.uses = [];
       }
-      prevT = 0; pendT = null; lastWho = null; lastShot = null; lastRem = dur; lastForm = {};
+      prevT = 0; pendT = null; lastWho = null; lastShot = null; lastRem = dur; remAnc = false; lastForm = {};
       continue;
     }
     // 「ギブアップ」。行そのものなら印だけ付けて終わり、「即 ネル ※4万5千以下でギブアップ」の
@@ -618,17 +620,26 @@ export function parseTL(txt) {
     // 残り 3:33.00・3:07.80。2026-09-02、ペロロジラ 4 本全部）。「dd.dd」の形で、
     // その節に「M:SS」の残り時間が既に出ていれば、直前の残り時間より小さくなる
     // いちばん大きい分を補う。「9.5 Cネル」（コスト）は形が違うので当たらない
-    var remM = nrm(noParen).match(/^(\d{2}\.\d{2})(?![\d:])/);
+    var remM = nrm(noParen).match(/^(\d{2}\.\d{2})(?![\d:])/), remKeep = null;
     if (remM && lastRem != null) {
       var secR = +remM[1], mR = Math.floor(lastRem / 60), remT = null;
       while (mR >= 0) { if (mR * 60 + secR < lastRem - 1e-9) { remT = mR * 60 + secR; break; } mR--; }
       if (remT != null) {
         tm = { md: 't', t: Math.max(0, dur - remT) };
-        res.notes.push('「' + ln.trim() + '」は残り ' + Math.floor(remT / 60) + ':' +
-                       (remT % 60 < 10 ? '0' : '') + (remT % 60).toFixed(2) + ' として読みました');
+        if (remAnc) {
+          res.notes.push('「' + ln.trim() + '」は残り ' + Math.floor(remT / 60) + ':' +
+                         (remT % 60 < 10 ? '0' : '') + (remT % 60).toFixed(2) + ' として読みました');
+        } else {
+          // **その節に「M:SS」が 1 つも無いと、分は書いてある順からしか決まらない**
+          // （2026-09-03、屋内ペロロジラ LfeYesN3MSs の「39.60臨戦」が 80.40 秒であるべき
+          // ところ 20.40 秒、WPsUxtkDMQU の「07.80　ホシノ」が直前の行より前に置かれていた）。
+          // `rem` を持たせて、`applyTL1` が前の行の解けた時刻を見てから分を決める
+          remKeep = secR;
+          res.notes.push('「' + ln.trim() + '」は分が書いていないので、置いた順から決めます');
+        }
       }
     }
-    if (tm && tm.md === 't' && /\d+:\d{1,2}/.test(nrm(noParen))) { lastRem = dur - tm.t; }
+    if (tm && tm.md === 't' && /\d+:\d{1,2}/.test(nrm(noParen))) { lastRem = dur - tm.t; remAnc = true; }
     else if (tm && tm.md === 't' && remM) { lastRem = dur - tm.t; }
     // **時刻だけを 1 行に書く人がいる**（「02 : 16.000」の次の行が行動）。
     // 生徒の名前が無い行は上の `who < 0` で落ちているので、ここに来るのは
@@ -689,9 +700,11 @@ export function parseTL(txt) {
           var a3 = aimIn(inner[pz3], subsP);
           if (a3 >= 0) {
             aim = a3;
-            // **部位の数がデータの外から分かっているもの**（クロカゲの片鱗 6 個。`sub[].cnt`）は
-            // それを「当たる数」の既定にする。書いてあれば下の「N体」が勝つ（2026-09-02）
-            if (subsP[a3].cnt > 1) { mcn = subsP[a3].cnt; }
+            // **1 回の湧きで盤に出る体数**（`sub[].spn`）を「当たる数」の既定にする。
+            // 書いてあれば下の「N体」が勝つ（2026-09-02）。
+            // **`cnt` は使わない**——あれは「同じ役どころの行を何本畳んだか」（名簿の数）で、
+            // ペロロジラなら 21 になる。盤に出るのは 6（2026-09-03、`spn` を足した）
+            if (subsP[a3].spn > 1) { mcn = subsP[a3].spn; }
             // **「(左聖歌隊 5体)」の「5体」。**転移する部位に範囲攻撃を当てると、
             // 当たった数だけボスへ入る（2026-09-01。グレゴリオとペロロジラの
             // TL はどれもこの書き方）
@@ -715,8 +728,12 @@ export function parseTL(txt) {
         for (pz2 = 0; pz2 < subsP.length; pz2++) { if (subsP[pz2].tr) { aim = pz2; break; } }
       }
       if (mm4) { mcn = Math.max(1, +mm4[1]); }
-      // **「全員」は数が書いていない。**盤に何体いるかはデータに無いので数を作らない
-      else if (aim != null) {
+      // **「全員」は数が書いていない。**1 回の湧きの体数（`spn`）が分かっていればそれを使う
+      else if (aim != null && subsP[aim].spn > 1) {
+        mcn = subsP[aim].spn;
+        res.notes.push('「' + ln.trim() + '」は ' + subsP[aim].n + ' ' + mcn + ' 体として読みました（' +
+                       subsP[aim].spnw + '）');
+      } else if (aim != null) {
         res.notes.push('「' + ln.trim() + '」は当たる数が書いていないので 1 体で置きました');
       }
     }
@@ -795,6 +812,8 @@ export function parseTL(txt) {
     }
     if (fseq) { frm = fseq[0]; rep = fseq.length; }
     var one = { i: who, md: tm.md, t: tm.t == null ? 0 : tm.t, tg: aim, f: frm, mc: mcn,
+                // 分を省いた残り時間。**分は `applyTL1` が置いた順から決める**
+                rem: remKeep,
                 to: toL.length ? (toL.length > 1 ? toL : toL[0]) : null,
                 cv: tm.cv == null ? null : tm.cv,
                 copy: (/C[^\s]*$/i.test(nrm(noParen).replace(/^[^C]*?(?=C)/, '')) &&

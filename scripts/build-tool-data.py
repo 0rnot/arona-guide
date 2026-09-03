@@ -4236,6 +4236,47 @@ TL_VERIFY = {
 }
 
 
+def summon_count(ex_names, cache):
+    """**1 回の湧きで何体出るか。**`LevelSkill/<スキル名>.json` の `MainEntityData`
+    （`$type` が `SummonGroupSpawnerDAO`）→ `SummonGroups[].SummonEntities[]` を数える。
+
+    2026-09-03 に見つけた。`SkillExcelTable` にも `raids.json` にも体数は無く、
+    ここにだけある。屋内ペロロジラ Torment の `Perorozilla01TormentEx03` は 6 件で、
+    同じファイルの `EntityTimeline` にある湧き位置のマーカー
+    （`CircleAreaEntityDAO`、`Radius: 10`）も 6 個、座標も一致する。
+
+    **同じ `UniqueName` が 2 回入ることがある**（Ex03 の `MiddleSize05` は位置違いで 2 件）
+    ので、体数は要素の数で数える。返すのは {湧く体の UniqueName: 1 回の体数}。
+    """
+    out = {}
+    for nm in (ex_names or []):
+        if nm not in cache:
+            try:
+                cache[nm] = get_json(BALS.format(nm))
+            except Exception:
+                cache[nm] = {}
+        me = (cache[nm] or {}).get("MainEntityData") or {}
+        if "SummonGroupSpawner" not in str(me.get("$type") or ""):
+            continue
+        for g in (me.get("SummonGroups") or []):
+            ents = g.get("SummonEntities") or []
+            for e in ents:
+                u = e.get("UniqueName")
+                if u:
+                    out[u] = max(out.get(u, 0), len(ents))
+    return out
+
+
+def _summon_tail(u):
+    """`Perorozilla_Torment_Peroro_MiddleSize01_Move` と
+    `Perorozilla_Torment_MiddleSize01_Move` を同じものとして突き合わせる鍵。
+    **湧く側には役どころの名前が 1 つ多く入る。**"""
+    ps = str(u or "").split("_")
+    if not ps:
+        return ""
+    return "_".join(ps[-2:]) if ps[-1] in ("Move", "Fix") else ps[-1]
+
+
 def tl_frames(group, cache):
     """通常スキル 1 発ぶんのフレーム数。引けなければ None。"""
     if group in cache:
@@ -4524,6 +4565,10 @@ def tl_one(cid, bt, csl, stat, fcache, ch_appear, twin=None):
             # 秒に直せなかった引き金の言い分。**レーンを空にしないため**
             "exWhy": uniq_why,
             "per": round(per, 3) if per else None, "ex": ex, "ph": ph, "fb": fb}
+
+
+# LevelSkill の中身を 1 回だけ落とすための入れ物（湧く体の数を数えるのに使う）
+_ls_cache = {}
 
 
 def build_tl():
@@ -5284,8 +5329,22 @@ def build_tl():
                 # これが無いとホシノ（臨戦）の EX が動画の 1/5.6 だった（2026-09-02、Plana の調査）
                 for _x in got["sub"] or []:
                     if _x.get("id") in (611140703, 611140704):
-                        _x["cnt"] = 6
-                        _x["cntw"] = "AppMedia の攻略記事（片鱗 6 個）"
+                        _x["spn"] = 6
+                        _x["spnw"] = "AppMedia の攻略記事（片鱗 6 個）"
+                # **湧く体の数は LevelSkill にある**（2026-09-03）。`cnt` は
+                # 「同じ役どころの行を何本畳んだか」（名簿の数）で、盤に出る数ではない。
+                # ペロロジラは名簿 30・1 回の湧き 6 で、混ぜると 21 体に当たることになる
+                _sm = summon_count(got.get("ex"), _ls_cache)
+                if _sm:
+                    _smt = {}
+                    for _u, _n in _sm.items():
+                        _t = _summon_tail(_u)
+                        _smt[_t] = max(_smt.get(_t, 0), _n)
+                    for _x in got["sub"] or []:
+                        _n2 = _smt.get(_summon_tail(_x.get("dn")))
+                        if _n2 and _n2 > 1:
+                            _x["spn"] = _n2
+                            _x["spnw"] = "LevelSkill の SummonGroups（SummonEntities %d 件）" % _n2
                 rows.append(got)
                 ok += 1 if got["per"] else 0
                 half += 0 if got["per"] else 1
@@ -5325,6 +5384,8 @@ def build_tl():
     st_out, dmg_out, ndmg, sinfo, build = {}, {}, 0, {}, {}
     ncond = nstack = 0
     buf_out, nbuf, nskip, ncond, nrst, novr, nstk = {}, 0, 0, 0, 0, 0, 0
+    # **範囲を持つ枠**（生徒 → スキルの枠 → [形, 半径]）
+    area_out = {}
     na_out, nna = {}, 0
     nform = 0
     alt_out = {}
@@ -5629,6 +5690,16 @@ def build_tl():
             # そのまま渡して、画面側で当てはめる。
             # **`Condition` と `Period` は今までどおり飛ばす。**こちらは戦闘中の
             # 状態（HP・スタック・経過）で、データからは決められない
+            # **範囲を持つ枠に印を付ける**（2026-09-03）。
+            # `Radius` は「どのくらいの広さに当たるか」で、**そこに何体いるかは
+            # データに無い**（2026-09-03 に確かめ直した）。それでも
+            # 「1 人だけに当たる発」と「範囲の発」は分けられるので、
+            # 転移する部位が盤に居るボス（ペロロジラの大きなペロロミニオンなど）で
+            # 当たる数の既定を決めるのに使う
+            _rad = sk.get("Radius")
+            if _rad:
+                area_out.setdefault(sid, {})[kind] = [
+                    (_rad[0] or {}).get("Type"), (_rad[0] or {}).get("Radius")]
             bl = []
             for e in (sk.get("Effects") or []):
                 if e.get("Type") != "Buff" or not e.get("Stat"):
@@ -5862,6 +5933,9 @@ def build_tl():
                    "Modifiers(アビリティごと [[{t: 型, …}], …]。中は かつ・間は または)"],
         # サブスキルの条件が指す札 → [付けるスキルの枠, 持続(ms), 重ねられる数]
         "eptl": ep_tpl,
+        # **範囲の形と半径**（`Skills.<枠>.Radius`）。**何体いるかは入っていない**
+        "area": area_out,
+        "areaKeys": ["Type(Circle/Fan/Obb)", "Radius"],
         "bufKeys": ["Target", "Stat", "Channel", "Value", "Duration", "ApplyFrame",
                     "Restrictions([Property,Operand,Value])",
                     "OverrideSlot(Channel の重なりを見る枠の差し替え)",
