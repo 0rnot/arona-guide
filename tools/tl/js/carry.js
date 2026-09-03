@@ -7,6 +7,7 @@ import { dmgCurve, naPool, poolKills, poolOf, subIxOfPool, valueAt } from './poo
 import { naTimes } from './na.js';
 import { usesSorted } from './buff.js';
 import { dmgOf } from './dmg.js';
+import { epEvery, epOkAt, epOn } from './ep.js';
 
 // ------------------------------------------------------------ 部隊の持ち越し
 // **部隊 k の結果**（終了時刻・撃破時刻・池ごとに削った量）。前の部隊が削ったぶんを
@@ -139,6 +140,19 @@ export function dmgCurve0(r, key, pid, deadAt) {
       var dn = dmgOf(i, r, (+bk + 0.5) * STEP, 'Normal', null, subIxOfPool(r, pid));
       if (!dn) { break; }
       for (q = 0; q < bucket[bk].length; q++) { pts.push([bucket[bk][q], dn[key]]); }
+    }
+    // **サブスキル（SS）は通常攻撃に相乗りする**（2026-09-03）。同じ束から
+    // `TryCount` に 1 度ずつ出す（メルは 3 発に 1 度）
+    if (epOn(st.party[i].id)) {
+      var ev3 = epEvery(st.party[i].id), bs3;
+      for (bs3 in bucket) {
+        var at3 = Math.min((+bs3 + 0.5) * STEP, dur);
+        var cn3 = Math.floor(bucket[bs3].length / ev3);
+        if (!cn3 || !epOkAt(st.party[i].id, r, at3)) { continue; }
+        var ds3 = dmgOf(i, r, at3, 'ExtraPassive', null, subIxOfPool(r, pid));
+        if (!ds3) { break; }
+        for (q = 0; q < cn3; q++) { pts.push([bucket[bs3][q * ev3], ds3[key]]); }
+      }
     }
   }
   pts.sort(function (a, b) { return a[0] - b[0]; });

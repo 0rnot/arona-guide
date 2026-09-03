@@ -21,6 +21,7 @@ import { drawUse } from './useedit.js';
 import { drawRows } from './rows.js';
 import { bstName, bstTip } from './bossui.js';
 import { laneOn } from './lanes.js';
+import { epEvery, epWhy } from './ep.js';
 
 // ------------------------------------------------------------ 盤
 export function draw() {
@@ -366,15 +367,21 @@ export function draw() {
     ssn++;
     var snm = ((B.skname || {})[vp.id] || {}).ExtraPassive || 'サブスキル';
     // **常時ぶんはステータスに乗っている**（`passive.js` の `passiveList`）。
-    // **引き金つきはまだ数えていない。**見分けは帯の色で、字は足さない
-    var sOff = !!cnt[1];
+    // **ダメージを持つ SS は 2026-09-03 から数えている**（`ep.js`）。
+    // 引き金が判定できない子は `epWhy` がその理由を返す
+    var hasD2 = !!((B.dmg[vp.id] || {}).ExtraPassive || []).length;
+    var epw = hasD2 ? epWhy(vp.id) : null;
+    var sOff = !!cnt[1] || (hasD2 && epw != null);
     side += lbl(H.ss, img(vp.id, 'ic') + '<span class="nm">' + esc(vp.n) + '</span>');
     cv += lane(H.ss,
       '<div class="b ss' + (sOff ? ' off' : '') + '" style="left:0;width:' + W +
       'px" title="' + esc(snm) +
       (cnt[0] ? '\n常時 ' + cnt[0] + ' 件はステータスに乗せています' : '') +
+      (hasD2 && !epw ? '\nダメージは通常攻撃に相乗りして数えています' +
+        (epEvery(vp.id) > 1 ? '（' + epEvery(vp.id) + ' 発に 1 度）' : '') : '') +
+      (hasD2 && epw ? '\nダメージは数えていません：' + epw : '') +
       (cnt[1] ? '\n発動して効くもの ' + cnt[1] + ' 件は、引き金が要るのでまだ数えていません' : '') +
-      '">' + esc(snm) + (sOff ? '　未対応 ' + cnt[1] : '') + '</div>');
+      '">' + esc(snm) + '</div>');
   }
   if (!ssn) {
     side += lbl(H.ss, '<span class="mut">（編成が空です）</span>');

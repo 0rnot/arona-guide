@@ -5366,7 +5366,19 @@ def build_tl():
                   tc.get("TriggerRate"), ed.get("MaxTriggerCount"), ed.get("TryCount"),
                   ed.get("CoolTimeNotTrigger"), ed.get("Duration")]
             break
+        # **条件は `TriggerCondition` ではなく `EntityTimeline[0].Entity.Abilities[]`
+        # の `Modifiers[]` に入っている**（2026-09-03。`ConditionExpression` は
+        # 40 人とも空、`students.min.json` の `Condition` も `None` だった）。
+        # 型をそのまま運ぶ。**道具が知らない型が 1 つでもあれば、その子は置かない**
         if ep and ep[0] is not None:
+            mods = []
+            for tl in (ed.get("EntityTimeline") or []):
+                for ab in (((tl.get("Entity") or {}).get("Abilities")) or []):
+                    for m in (ab.get("Modifiers") or []):
+                        mods.append(dict(
+                            [("t", m["$type"].split(".")[-1].split(",")[0])] +
+                            [(k, v) for k, v in m.items() if k != "$type"]))
+            ep.append(mods)
             ep_out[sid] = ep
             nep += 1
         # ---- 育成の中身。**適用の仕方は SchaleDB の CharacterStats そのまま**
@@ -5482,7 +5494,11 @@ def build_tl():
                         e.get("IgnoreDef"), e.get("HitFrames"),
                         [e["ZoneDuration"], e["ZoneHitInterval"]]
                         if e.get("ZoneDuration") else None,
-                        0 if e.get("ApplyStability") is False else None]
+                        0 if e.get("ApplyStability") is False else None,
+                        #   Mul … 倍率が別のものに比例する（イズミの `InvokerCurrentHP`、
+                        #     ジュンコの `InvokerLostHP`）。**運んでいなかった。**
+                        #     `MultiplierConstant` と対で、無ければ両方 null
+                        e.get("MultiplySource"), e.get("MultiplierConstant")]
             # **`Group` は「何段目か」で、足すものではなく択一。**
             # ネル（制服）の Ex1 は Group 0〜4 × 条件 2 通りの 10 件あって、
             # 全部足すと 1 発 5,727,546（ボス HP の 25%）になっていた。
@@ -5682,7 +5698,8 @@ def build_tl():
                                "DefensePenetration100"],
         "dmg": dmg_out,
         "dmgKeys": ["Scale", "Hits", "CriticalCheck", "Block", "Period",
-                    "Duration", "IgnoreDef", "HitFrames", "Zone", "Stab"],
+                    "Duration", "IgnoreDef", "HitFrames", "Zone", "Stab",
+                    "MultiplySource", "MultiplierConstant"],
         # 条件でダメージが変わるもの。**画面のバーで 1 つ選ぶ。**
         # `c` は条件の原文、`v[i]` はその候補ぶんの効果（`dmg` と同じ並び）
         "dmgalt": alt_out,
@@ -5703,7 +5720,8 @@ def build_tl():
         # サブスキルの引き金。**ダメージ・効果の時刻はここからしか出ない**
         "ep": ep_out,
         "epKeys": ["Event", "Parameters", "ConditionExpression", "TriggerRate",
-                   "MaxTriggerCount", "TryCount", "CoolTimeNotTrigger", "Duration"],
+                   "MaxTriggerCount", "TryCount", "CoolTimeNotTrigger", "Duration",
+                   "Modifiers([{t: 型, …}])"],
         "bufKeys": ["Target", "Stat", "Channel", "Value", "Duration", "ApplyFrame",
                     "Restrictions([Property,Operand,Value])"],
         # 星の伸び。SchaleDB の CharacterStats の既定値（生徒別の Transcendence は

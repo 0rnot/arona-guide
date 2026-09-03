@@ -6,6 +6,7 @@ import { clamp } from './stats.js';
 import { naTimes } from './na.js';
 import { usesSorted } from './buff.js';
 import { PICKF, dmgOf, setPICKF } from './dmg.js';
+import { epEvery, epOkAt, epOn } from './ep.js';
 
 /** **突破率。**置いた TL で、ボスの HP を削り切れる確率。
     1 発ごとの平均と分散（`dmgAt` の `va`）を足し合わせて、
@@ -88,6 +89,20 @@ export function clearStat1(r, pf, pid, deadAt, hpNeed) {
         va += (dn.va || 0) * bucket[bk];
         n += bucket[bk];
       }
+      // **サブスキル（SS）は通常攻撃に相乗りする**（2026-09-03）。同じ束で数える
+      if (epOn(st.party[i].id)) {
+        var ev1 = epEvery(st.party[i].id), bs1;
+        for (bs1 in bucket) {
+          var at1 = Math.min((+bs1 + 0.5) * STEP, dur);
+          var cn1 = Math.floor(bucket[bs1] / ev1);
+          if (!cn1 || !epOkAt(st.party[i].id, r, at1)) { continue; }
+          var ds1 = dmgOf(i, r, at1, 'ExtraPassive', null, subIxOfPool(r, pid));
+          if (!ds1) { break; }
+          mu += ds1.avg * cn1;
+          va += (ds1.va || 0) * cn1;
+          n += cn1;
+        }
+      }
     }
     var hp = hpNeed == null ? ((r.bs && r.bs.hp) || 0) : hpNeed, sd = Math.sqrt(Math.max(0, va));
     var p = (hp <= 0) ? 1 : ((sd <= 0) ? (mu >= hp ? 1 : 0) : 1 - normCdf((hp - mu) / sd));
@@ -105,7 +120,7 @@ export function total(r, pf) {
   try { return total0(r); } finally { setPICKF(sv); }
 }
 export function total0(r) {
-  var ex = zero(), ns = zero(), na = zero(), all = zero(), us = usesSorted(), i, k, q;
+  var ex = zero(), ns = zero(), na = zero(), ss = zero(), all = zero(), us = usesSorted(), i, k, q;
   // 池が 2 つ以上あるボスは、前の池が生きている間の通常攻撃はそちらへ向く
   var deadAt = {};
   if (poolOrder(r).length > 1) {
@@ -160,7 +175,23 @@ export function total0(r) {
         all[KS[k]] += dn[KS[k]] * bucket[bk];
       }
     }
+    // **サブスキル（SS）。**箱は別にする（画面の「EX ・NS ・通常 」に混ぜない）
+    if (epOn(st.party[i].id)) {
+      var ev2 = epEvery(st.party[i].id), bs2;
+      for (bs2 in bucket) {
+        var at2 = Math.min((+bs2 + 0.5) * STEP, dur);
+        var cn2 = Math.floor(bucket[bs2] / ev2);
+        if (!cn2 || !epOkAt(st.party[i].id, r, at2)) { continue; }
+        var ds2 = dmgOf(i, r, at2, 'ExtraPassive');
+        if (!ds2) { break; }
+        ss.n += cn2; all.n += cn2;
+        for (k = 0; k < KS.length; k++) {
+          ss[KS[k]] += ds2[KS[k]] * cn2;
+          all[KS[k]] += ds2[KS[k]] * cn2;
+        }
+      }
+    }
   }
-  all.ex = ex; all.ns = ns; all.na = na;
+  all.ex = ex; all.ns = ns; all.na = na; all.ss = ss;
   return all;
 }
