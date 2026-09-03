@@ -916,6 +916,11 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
 .trow .btn2.fm.auto { color:var(--tx3); border-color:rgba(255,255,255,.10); }
 /* 形態が無い行も同じ幅を空ける。空けないと右の摘みの位置が行ごとにずれる */
 .trow > .fmz { width:19px; flex:0 0 auto; }
+/* 当たる数（転移する部位を持つボスだけ出る）。**数字だけ。**1 なら本体だけ */
+.trow input.rmc { width:34px; text-align:right; }
+.trow input.rmc::-webkit-outer-spin-button,
+.trow input.rmc::-webkit-inner-spin-button { -webkit-appearance:none; margin:0; }
+.trow input.rmc { -moz-appearance:textfield; }
 /* 左端の番号を掴んで運ぶ（30）。落ちる先は 1 本の線で示す */
 .trow > .ix { cursor:grab; }
 .trow.drop { box-shadow:inset 0 2px 0 #2f8f9e; }

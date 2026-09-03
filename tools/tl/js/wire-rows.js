@@ -11,7 +11,7 @@ import { clamp } from './stats.js';
 import { toList } from './target.js';
 import { sheet, snapshot } from './io.js';
 import { importSheet } from './import-ui.js';
-import { MD3, drawRows, rowAdd, rowMove, rowOrder, rowSeek, rowSwap, rowsToggle, selPick, selRows } from './rows.js';
+import { MD3, drawRows, rowAdd, rowMove, rowOrder, rowSeek, rowSwap, rowsToggle, selPick, selRows, trIx } from './rows.js';
 import { syncTabs } from './wire-boss.js';
 import { onAlt } from './wire-build.js';
 import { onUse } from './wire-use.js';
@@ -98,6 +98,20 @@ export function wireRows() {
           else { us2.t = Math.max(0, us2.t + dv); }
         }
       } else if ((u.md || 't') === 'c') { u.cv = nv; } else { u.t = nv; }
+    } else if (k === 'mc') {
+      // **当たる数。**1 より大きくすると、転移する部位に当てたうえで本体にも当たる
+      // 形にする（2026-09-03。それまで「詳細」を開かないと置けなかった）。
+      // まとめて選んでいるときは選んだ行ぜんぶに同じ数を入れる
+      var ti2 = trIx(diff()), mv = Math.max(1, Math.min(99, Math.round(+el.value || 1)));
+      var msm = selRows(), zm;
+      var tgt = (msm.length > 1 && msm.indexOf(+row.getAttribute('data-ix')) >= 0)
+        ? msm : [+row.getAttribute('data-ix')];
+      for (zm = 0; zm < tgt.length; zm++) {
+        var um = st.tl[tgt[zm]];
+        if (!um) { continue; }
+        if (mv <= 1) { um.mc = null; if (um.tg === ti2) { um.tg = null; um.hb = 0; } }
+        else if (ti2 >= 0) { um.tg = ti2; um.mc = mv; um.hb = 1; }
+      }
     } else if (k === 'who') { u.i = +el.value; st.wantRow = null; }
     else if (k === 'bto') {
       var bx = row.querySelectorAll('select[data-tr="bto"]'), lb = [], zz;

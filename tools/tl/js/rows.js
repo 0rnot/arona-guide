@@ -153,9 +153,27 @@ export function selPick(ix, shift, add) {
   }
   st.msel = []; st.sel = ix;
 }
+/** **当たる数**（2026-09-03）。被ダメージが 100% ボスへ移る部位を持つボス
+    （グレゴリオの聖歌隊・ペロロジラのミニオン・クロカゲの片鱗・ホバークラフトの
+    ミサイル誘導装置）では、範囲攻撃が何体に当たったかで本体へ入る量が変わる。
+    **何体に当たるかはデータに無い**（スキルの `Radius` は範囲の大きさで、
+    そこに何体いるかは盤の上の話）ので、置くのは人。
+    それが 1 発ずつ「詳細」を開かないと置けなかったので、行に出した。
+    1 より大きくすると、その部位へ当てたうえで本体にも当たる形にする */
+export function trIx(r) {
+  var sb = (r && r.sub) || [], i;
+  for (i = 0; i < sb.length; i++) { if (sb[i].tr) { return i; } }
+  return -1;
+}
+export function rowMc(u, ti) {
+  if (ti < 0) { return ''; }
+  var n = (u.tg != null && u.mc) ? u.mc : 1;
+  return '<input class="rmc" type="number" min="1" max="99" step="1" data-tr="mc" ' +
+    'value="' + n + '" title="当たる数（本体＋転移する部位）">';
+}
 export function drawRows() {
   if (!ROWS) { return; }
-  var h = '', sm = sim(), ord = rowOrder(), i, z, rowOf = {};
+  var h = '', sm = sim(), ord = rowOrder(), i, z, rowOf = {}, TI = trIx(diff());
   for (z = 0; z < sm.rows.length; z++) {
     if (sm.rows[z].e && sm.rows[z].e._ix != null) { rowOf[sm.rows[z].e._ix] = sm.rows[z]; }
   }
@@ -185,6 +203,7 @@ export function drawRows() {
       '<span class="rt" title="実際に出る時刻">' +
       (md === 't' ? '' : (u._rt == null ? '—' : rowTime(u).toFixed(2))) + '</span>' +
       rowForm(u, er) +
+      rowMc(u, TI) +
       rowTo(u, kd) +
       '<span class="sp"></span>' +
       '<button type="button" class="btn2 sq" data-tr="up" title="1 つ前と入れ替える">▲</button>' +
