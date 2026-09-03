@@ -4726,6 +4726,77 @@ def fchg_of(dev):
     return [cond, [(rows.get(i) or [None, None])[1] for i in range(1, 6)]]
 
 
+# **「特定の効果が乗ったとき」の NS を、通常攻撃の回数へ解く**（2026-09-04、50b-2）。
+# `AutoUseRule` の `ConditionType` が `HitLogicEffectTemplateId` /
+# `HitLogicEffectGroupId` のものは、**引き金が札の名前なので周期が出ない。**
+# 12 行あるうち、**「変身している間の通常攻撃 N 発目」に解けるのは 1 行だけ**
+# （エイミ（臨戦）`CH0337Public01`。2026-09-04 に 12 行すべてを辿って数えた）。
+#
+# 辿り方は 3 段:
+#   ① `LogicEffect_PC.json` の `TemplateId` → `GroupId`
+#      （`Dummy_CH0337_UsePublicCheck` → `CH0337_HiddenPassive01_Effect06`）
+#   ② `GroupId` の形 `<DevName>_<枠><NN>_Effect<MM>` から
+#      `LevelSkill/<DevName><枠><NN>.json` を開く
+#   ③ その `EntityTimeline[].Entity.Abilities` のうち `LogicEffectGroupIds` に
+#      `GroupId` を持つものの `CountLogicEffectTemplateModifierDAO.CountMin` が回数
+#
+# **採るのは `TriggerCondition.Event` が 34（通常攻撃ごと）で
+# `ConditionExpression` に `GetFormIndex()` があるものだけ。**エイミ（臨戦）は
+# `Event 34` ＋ `"GetFormIndex() = 1"` ＋ `CountMin 4` で、スキル文の
+# 「精密照準体勢を維持したまま通常攻撃4回時」と合う。
+# 残り 11 行の内訳（**どれも時刻が決まらないので None のまま**）:
+#   ウイ（水着）    `CH0204ExtraPassive01`   Event 3  CountMin 無し
+#   ヒカリ          `CH0242ExtraPassive01`   Event 24 CountMin 無し
+#   キキョウ（水着） `CH0300Ex01`             Event 無し
+#   レイサ（マジカル）`CH0326Ex01`             Event 無し（CountMin 0）
+#   ヤクモ          `CH0228HiddenPassive01`  Event 24 CountMin 0（お金の数）
+#   ケイ            `CH0335Ex01`             Event 無し（札は 1000ms の Dummy）
+#   クルミ          `CH0173HiddenPassive02`  Event 301 `GetCurrentBehavior() ==
+#                                            [BehaviorType.ReleaseFormConversion]`
+#   エリカ          `CH0076HiddenPassive02`  Event 24 CountMin 無し
+#   オトギ          `CH0174_DummyValueToNotTrigger`（発動しない札。50c で外した）
+_NSC = {}
+_NSC_TPL = {}
+_NS_SLOT = re.compile(r"^(.+?)_(Ex|Public|GearPublic|HiddenPassive|ExtraPassive"
+                      r"|Passive|WeaponPassive)(\d*)_Effect")
+
+
+def ns_count(dev, ct, arg):
+    """「変身している間の通常攻撃 N 発目」。解けなければ None。"""
+    if not dev or not arg or "LogicEffect" not in str(ct or ""):
+        return None
+    key = (dev, arg)
+    if key in _NSC:
+        return _NSC[key]
+    if not _NSC_TPL:
+        for r in as_list(get_json(BADB.format("LogicEffect_PC"))):
+            t = r.get("TemplateId")
+            if t:
+                _NSC_TPL.setdefault(t, set()).add(r.get("GroupId"))
+    out = None
+    for g in sorted(y for y in (_NSC_TPL.get(arg) or {arg}) if y):
+        m = _NS_SLOT.match(g)
+        if not m or m.group(1) != dev:
+            continue
+        sk = get_json(BALS.format(m.group(1) + m.group(2) + m.group(3))) or {}
+        tg = sk.get("TriggerCondition") or {}
+        if tg.get("Event") != 34:
+            continue
+        if "GetFormIndex" not in str(tg.get("ConditionExpression") or ""):
+            continue
+        for ent in (sk.get("EntityTimeline") or []):
+            for ab in ((ent.get("Entity") or {}).get("Abilities") or []):
+                if g not in (ab.get("LogicEffectGroupIds") or []):
+                    continue
+                for md in (ab.get("Modifiers") or []):
+                    if "CountLogicEffectTemplateModifier" not in str(md.get("$type") or ""):
+                        continue
+                    if (md.get("CountMin") or 0) > 0:
+                        out = md["CountMin"]
+    _NSC[key] = out
+    return out
+
+
 # LevelSkill の中身を 1 回だけ落とすための入れ物（湧く体の数を数えるのに使う）
 _ls_cache = {}
 
@@ -5632,9 +5703,14 @@ def build_tl():
                 if "FormIndexCheckModifier" in str(_md.get("$type") or ""):
                     _need = _md.get("FormIndex")
                     break
+            #   cnt … **変身している間の通常攻撃 N 発目**（2026-09-04、50b-2）。
+            #     引き金が札の名前（`HitLogicEffect*`）のものを辿って出す。
+            #     解けるのはエイミ（臨戦）の 4 発だけ（`ns_count` の頭を見て）
             seen_g[(mg, fi)] = [mg, au.get("ConditionType"), arg, d.get("Duration"),
                                 au.get("MaxTriggerCount"), au.get("CoolTimeNotTrigger"),
-                                au.get("TryCount"), au.get("TriggerRate"), fi, _need]
+                                au.get("TryCount"), au.get("TriggerRate"), fi, _need,
+                                ns_count(x.get("DevName"), au.get("ConditionType"),
+                                         au.get("ConditionArgument"))]
             nns += 1
         ns_out[sid] = [seen_g[k] for k in sorted(seen_g)]
         # ---- サブスキル（SS）の引き金。**`LevelSkill/<ExtraPassiveSkillGroupId>.json`
@@ -6187,7 +6263,10 @@ def build_tl():
                    "MaxTriggerCount(-1 は無制限、1 は戦闘中1回のみ)",
                    "CoolTimeNotTrigger(フレーム。ConditionArgument が 1 のときはこちらが周期)",
                    "TryCount(OnAttackIng の「通常攻撃 N 回毎に」の N)",
-                   "TriggerRate(1万分率。10000 以外は確率)"],
+                   "TriggerRate(1万分率。10000 以外は確率)",
+                   "FormIndex(その行の形態)",
+                   "FormIndexCheck(この形態のときだけ発動する)",
+                   "cnt(変身している間の通常攻撃 N 発目。ns_count が辿れたものだけ)"],
         # サブスキルの引き金。**ダメージ・効果の時刻はここからしか出ない**
         "ep": ep_out,
         "epKeys": ["Event", "Parameters", "ConditionExpression", "TriggerRate",

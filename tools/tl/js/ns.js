@@ -1,7 +1,7 @@
 import { B } from './util.js';
 import { SLOTS, _byid, memo, slotOf, st } from './core.js';
 import { sim } from './engine.js';
-import { busyOf, naInfo, naShotsRaw } from './na.js';
+import { busyOf, formWins, naInfo, naShotsRaw } from './na.js';
 
 // ------------------------------------------------------------ 通常スキル（NS）
 // **自動発動の周期は `LevelSkill/<PublicSkillGroupId>.json` の `AutoUseRule`。**
@@ -73,6 +73,16 @@ export function nsInfo(id) {
   // "" / "0" / "1" しか入っておらず、回数と相関しない）。時刻は通常攻撃の並びから
   // 作るので、ここでは回数だけ返して `nsTimes0` に任せる。
   // **確率のもの（イズミ 20%・アカリ 10%）は置かない**
+  // **「変身している間の通常攻撃 N 発目」で出る NS**（2026-09-04、50b-2）。
+  // 引き金が札の名前（`HitLogicEffectTemplateId`）で周期が出ない行のうち、
+  // `build-tool-data.py` の `ns_count` が回数まで辿れたものだけ 11 番目に入る。
+  // **今のところエイミ（臨戦）の 4 発だけ**（`CountMin 4` ＋ `Event 34` ＋
+  // `"GetFormIndex() = 1"`。スキル文「精密照準体勢を維持したまま通常攻撃4回時」）。
+  // 数え直すのは変身のたびで、通しの発数ではない
+  if (au && au[10] > 0) {
+    return { iv: 0, st: 0, du: duF, src: 'naform', tc: au[10],
+             nm: nsNameOf(id, n), rule: au[1], need: need };
+  }
   if (au && au[1] === 'OnAttackIng' && au[6] > 1 && au[7] === 10000) {
     return { iv: 0, st: 0, du: duF, src: 'na', tc: au[6],
              nm: nsNameOf(id, n), rule: 'OnAttackIng', need: need };
@@ -174,6 +184,28 @@ export function nsTimes0(id, dur, idx) {
     var ts = naShotsRaw(idx, dur), q;
     for (q = n.tc - 1; q < ts.length; q += n.tc) {
       if (ts[q].t <= dur) { out.push(+ts[q].t.toFixed(4)); }
+    }
+    return out;
+  }
+  // **変身のたびに数え直して N 発目。**窓は `na.js` の `formWins`
+  // （`B.fchg` の切れ方 1 と `st.tl` に書いてある EX の時刻）。
+  // 撃つ速さも 61g で変身後のフレームに切り替わっているので、
+  // エイミ（臨戦）は 2.000 秒 × 4 発で EX のおよそ 8 秒後に出る
+  if (n.src === 'naform') {
+    if (idx == null) { return out; }
+    var wf = formWins(idx, id, dur);
+    if (!wf) { return out; }
+    var sf = naShotsRaw(idx, dur), w4, c4, q4;
+    for (w4 = 0; w4 < wf.length; w4++) {
+      c4 = 0;
+      for (q4 = 0; q4 < sf.length; q4++) {
+        if (sf[q4].t < wf[w4][0] - 1e-9 || sf[q4].t >= wf[w4][1] - 1e-9) { continue; }
+        c4++;
+        if (c4 === n.tc) {
+          if (sf[q4].t <= dur) { out.push(+sf[q4].t.toFixed(4)); }
+          break;
+        }
+      }
     }
     return out;
   }

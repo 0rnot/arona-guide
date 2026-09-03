@@ -44,7 +44,7 @@ function frOf(a) {
     **見ているのは `st.tl` に書いてある時刻**で、engine が解いた時刻ではない。
     `usesSorted()` を使うと `usesSorted → statsOf → naShots → usesSorted` で輪になる
     （`ns.js` の `formOK` と同じ理由）。コスト待ちで後ろへ動いたぶんはずれる */
-function formWins(idx, id, dur) {
+export function formWins(idx, id, dur) {
   var fv = (B.fchg || {})[id];
   if (!fv || fv[0] !== 1) { return null; }
   var ms = fv[1][Math.min(slotOf(idx).ex || 5, fv[1].length) - 1];
