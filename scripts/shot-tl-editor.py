@@ -32,6 +32,11 @@ def main():
         pg.evaluate("localStorage.setItem('arona-tour-tl','1')")
         pg.reload(wait_until='networkidle')
         pg.wait_for_timeout(500)
+        # **サイトの帯（`.topbar`）を外してから撮る**（2026-09-03 の先生の指摘
+        # 「画像がエディターのヘッダーと被ってる」）。帯は `position:fixed` で
+        # 道具の上に重なるので、要素を切り取っても写り込む
+        pg.evaluate("document.querySelectorAll('.topbar').forEach(function (e) "
+                    "{ e.remove(); });")
         pg.evaluate("(t)=>{const D=window.__TLDBG;D.applyTL(D.parseTL(t));}", tl)
         pg.wait_for_timeout(1200)
         el = pg.query_selector('.tlapp')
