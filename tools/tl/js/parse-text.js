@@ -161,6 +161,11 @@ export function timeIn(line, dur) {
   m = s.match(/^(\d+(?:\.\d+)?)(秒)?/);
   if (m && !m[2] && +m[1] <= costCap()) { return { md: 'c', cv: +m[1], guess: 'cost' }; }
   if (m) { return { md: 'rel', d: +m[1] }; }
+  // **名前のうしろにコストを書く人がいる**（「ハレ 10」「ナギサ 10」「ケイ 10」。
+  // 2026-09-03、屋内ペロロジラ cbAthbwldys。数字が前にある「10 ハレ」は上で読めていて、
+  // 後ろに書いた 3 行だけが「タイミングが書いていないので即」に落ちていた）
+  m = s.match(/[\s　](\d+(?:\.\d+)?)\s*$/);
+  if (m && +m[1] <= costCap()) { return { md: 'c', cv: +m[1], guess: 'cost' }; }
   return null;
 }
 /** 貼られた文章を読む。**状態は変えない。** */

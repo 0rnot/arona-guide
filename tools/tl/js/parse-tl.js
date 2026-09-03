@@ -190,20 +190,39 @@ export function parseTL(txt) {
              nrm(lines[i]).match(/^(?:表記な[しく]|無印|指定な[しく])(?:は|:)?.*?(?:→|->|は)([^→\-]+?)(?:へ|に|指定)?$/);
     if (bm) {
       var to = whoIn(bm[1], crew);
-      if (to >= 0) { res.bufTo = to; res.notes.push('バフの渡し先を全部 ' + bm[1] + ' にしました'); }
+      if (to >= 0) { res.bufTo = to; res.bufToFixed = true; res.notes.push('バフの渡し先を全部 ' + bm[1] + ' にしました'); }
       else { res.skipped.push([lines[i], 'バフの渡し先が編成にいません']); }
       break;
     }
   }
   // ---- 3. 開始スキル。**部隊ごとに読む**ので、4. のループの中で呼ぶ
-  function startOf(line) {
+  function startOf(line, next) {
     var ps = nrm(line).split(/(?=[①-⑳])/), out = [], q2;
     for (q2 = 1; q2 < ps.length; q2++) {
       var w = whoIn(ps[q2], crew);
       if (w >= 0) { out.push(w); }
       else { res.skipped.push([ps[q2], '開始SET の生徒が編成にいません']); }
     }
-    return out;
+    if (out.length) { return { out: out, usedNext: false }; }
+    // **丸数字で書かない人のほうが多い**（2026-09-03、屋内ペロロジラ。
+    // 「開始スキル ケイ、ナギサ、ハレ、キサキ」で 4 枚 → 0 枚になっていた）。
+    // 見出しを落として、区切りで割って前から引く
+    var body = nrm(line).replace(/^.*?開始\s*(?:SET|スキル|セット)\s*[:：]?/i, ''), usedNext = false;
+    // **順番だけ書いて、並びを次の行に書く形**（「開始スキル  1➡2➡3➡4➡5」＋
+    // 「セイア/ケイ/マコト(水着)/キサキ/ナギサ(水着)」。5 枚 → 0 枚になっていた）
+    // **見出しだけの「開始SET：」では次の行を食わない**（次は TL の 1 発目。
+    // 2026-09-03、7bTd5o8Ru80 で「5 セイア/マコト」が 1 発ぶん消えた）。
+    // 番号の並びが書いてあるときだけ
+    if (/^[\s　0-9０-９→⇒➡➝\-–—、,・／\/]+$/.test(body) && (body.match(/[0-9０-９]/g) || []).length >= 2 &&
+        next != null && /[ぁ-んァ-ヶ一-龥]/.test(nrm(next))) {
+      body = nrm(next); usedNext = true;
+    }
+    var qs = body.split(/[、,・／\/＋+→⇒➡➝\s　]+/).filter(function (x) { return x; }), w2;
+    for (q2 = 0; q2 < qs.length; q2++) {
+      w2 = whoIn(qs[q2], crew);
+      if (w2 >= 0 && out.indexOf(w2) < 0) { out.push(w2); }
+    }
+    return { out: out, usedNext: usedNext && out.length > 0 };
   }
   // 節ごとに、育成行のどれがその部隊かを決めて枠を振る。返すのは
   // [{ crew, start, uses, bufTo, gu }]（`uses[].i` と `to` は枠の番号に直してある）
@@ -463,7 +482,12 @@ export function parseTL(txt) {
     }
     if (/開始\s*(?:SET|スキル|セット)/i.test(lc0)) {
       seenStart = true;
-      if (!cur.start.length) { cur.start = startOf(ln); }
+      if (!cur.start.length) {
+        var so = startOf(ln, lines[i + 1]);
+        cur.start = so.out;
+        // **並びの行を 1 発として置かない**（「、」で並んだ行は複数発として読まれる）
+        if (so.usedNext) { lines[i + 1] = ''; }
+      }
       continue;
     }
     if (!seenStart) { continue; }
@@ -652,7 +676,11 @@ export function parseTL(txt) {
         if (w3 >= 0) {
           // **渡し先は 2 人以上ありうる**（「イブキ指定（セイア＋ネル）」）。
           // `applyTL` は配列を受けられる（2026-09-02）
-          if (res.bufTo == null && w3 !== who && toL.indexOf(w3) < 0) {
+          // **行ごとの括弧の渡し先は、既定より強い**（2026-09-03、屋内ペロロジラ
+          // MYqGzhY5Jmc。「サツキ(ニコ)」「ニコ(ナツ)」「イブキ(マコト、サツキ)」が
+          // 全部アタッカー 1 人へ寄っていた）。**「バフは全て◯◯指定」の行があるときだけ**
+          // そちらを立てる
+          if (!res.bufToFixed && w3 !== who && toL.indexOf(w3) < 0) {
             toL.push(w3);
           }
           continue;
@@ -676,6 +704,20 @@ export function parseTL(txt) {
           var f3 = formIn(inner[pz3], idBy[who]);
           if (f3 >= 0) { frm = f3; }
         }
+      }
+    }
+    // **「(全員巻き込む)」「(5体巻き込む)」は部位の名前を書かない**（2026-09-03、
+    // 屋内ペロロジラ MYqGzhY5Jmc。3 行とも当たる数 1 のままだった）。
+    // 転移する部位が盤にいるボスでだけ、当てる先をその部位にする
+    if (mcn === 1 && /巻き込|まきこ/.test(nrm(cut))) {
+      var mm4 = nrm(cut).match(/(\d+)\s*体/);
+      if (aim == null) {
+        for (pz2 = 0; pz2 < subsP.length; pz2++) { if (subsP[pz2].tr) { aim = pz2; break; } }
+      }
+      if (mm4) { mcn = Math.max(1, +mm4[1]); }
+      // **「全員」は数が書いていない。**盤に何体いるかはデータに無いので数を作らない
+      else if (aim != null) {
+        res.notes.push('「' + ln.trim() + '」は当たる数が書いていないので 1 体で置きました');
       }
     }
     if (aim != null) {
