@@ -69,23 +69,28 @@ export function deck0(list) {
   for (i = 0; i < SLOTS; i++) { put(i); }
   return q;
 }
-/** その秒の並び。**1 枚使うとその子は山札のいちばん下へ回り、次の子が手札に入る。**
-    engine の `playHand` と同じ回り方で、`kept`（すぐにドロー）の 1 発は回さない。
-    **置いた EX の時刻順ではなく、この回り方で決まる順番**（2026-09-03 の先生の
-    言葉「タイムライン基準ってよりは Auto の時の順番ってイメージ」） */
+/** その秒の手札と控え。**ゲームと同じ回り方**（2026-09-03 の先生の言葉
+    「使ったスキルのいちに次の待機スキルの裏の１番目が入り込む形」）。
+    `tools/tl-engine.js` の `playHand` がすでにこの形で、
+    **使った札は山札のいちばん下へ回り、空いたその枠へ山札の先頭が入る。**
+    左詰めにはならないので、隣の 2 枚は動かない。
+    `kept`（撃っても手札に残る）の 1 発は回さない。
+    返すのは `{ hand, rest }`（`hand` は画面に並ぶ 3 枠そのもの） */
 export function ordAt(list, t) {
-  var q = deck0(list), i, k;
+  var q = deck0(list), hand = q.slice(0, HAND_N), rest = q.slice(HAND_N), i, at;
   for (i = 0; i < list.length; i++) {
     if (list[i].at > t + 1e-9) { break; }
     if (list[i].kept) { continue; }
-    k = q.indexOf(list[i].i);
-    if (k >= 0) { q.splice(k, 1); q.push(list[i].i); }
+    at = hand.indexOf(list[i].i);
+    if (at < 0) { continue; }
+    rest.push(list[i].i);
+    hand[at] = rest.shift();
   }
-  return q;
+  return { hand: hand, rest: rest };
 }
-/** 概況の帯の「スキル順」（2026-09-03 の先生の要望）。
-    マスは生徒のアイコンだけで、**先頭 `HAND_N` 枚がいま選べるカード**、
-    残りが控え。見分けは明るさと枠と区切りで、言葉は置かない。
+/** 概況の帯のスキル順（2026-09-03 の先生の要望）。
+    **上の段がいま選べる 3 枚、下の段が控え**で、下は上の 0.8 倍。
+    「スキル順」の見出しは置かない（言葉を使わない）。
     カーソルが 1 発の演出の中にいれば、その札（名前・コスト・秒）を右に出す */
 export function drawOrd(t) {
   var box = $('kord');
@@ -99,19 +104,21 @@ export function drawOrd(t) {
     var fd = q0.er && q0.er.sk ? q0.er.sk.d : exDur(p0);
     if (t >= q0.at - 1e-9 && t < q0.at + Math.max(0.5, (fd || 0) / B.fps)) { on = q0; }
   }
-  var q = ordAt(list, t);
+  var hr = ordAt(list, t);
   // **同じ絵なら組み直さない。**マウスを動かすたびにアイコンを差し替えると散らつく
-  var key = [q.join(','), on ? on.ix : -1, st.mode, st.pi, _pv].join('|');
+  var key = [hr.hand.join(','), hr.rest.join(','), on ? on.ix : -1,
+             st.mode, st.pi, _pv].join('|');
   if (key === _ordK) { return; }
   _ordK = key;
-  var cells = '';
-  for (i = 0; i < q.length; i++) {
-    var p = st.party[q[i]];
-    cells += '<span class="ocw' + (i < HAND_N ? ' hd' : '') +
-      (i === HAND_N ? ' gap' : '') + '" title="' +
-      esc((i + 1) + '　' + ((p && p.n) || '')) + '">' +
-      '<span class="oc' + (i < HAND_N ? ' hd' : '') + '">' +
-      (p ? img(p.id, 'ic') : '') + '</span><i>' + (i + 1) + '</i></span>';
+  function row(q, cls) {
+    var c = '', k, p;
+    for (k = 0; k < q.length; k++) {
+      p = st.party[q[k]];
+      c += '<span class="oc ' + cls + '" title="' +
+        esc((cls === 'hd' ? '手札 ' : '控え ') + (k + 1) + '　' + ((p && p.n) || '')) +
+        '">' + (p ? img(p.id, 'ic') : '') + '</span>';
+    }
+    return '<span class="orow ' + cls + '">' + c + '</span>';
   }
   // **札は名前とコストと秒まで。**効果の列挙はやめた（2026-09-03 の先生の指示
   // 「注釈とかマジでいらないから全箇所」）
@@ -127,8 +134,8 @@ export function drawOrd(t) {
       '<span class="oct"><b>' + esc(cn) + '</b><span>' +
       on.at.toFixed(2) + '秒</span></span></span>';
   }
-  box.innerHTML = '<span class="kl">スキル順</span>' +
-    '<span class="ordrow"><span class="ocs">' + cells + '</span>' + card + '</span>';
+  box.innerHTML = '<span class="ordrow"><span class="ocs">' +
+    row(hr.hand, 'hd') + row(hr.rest, 'wt') + '</span>' + card + '</span>';
 }
 
 

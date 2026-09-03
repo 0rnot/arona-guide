@@ -10,6 +10,7 @@ import { carryIn, ggAt, ggCritAt, ggRuns, ggSolve, killAt, partyCalc, phaseSpans
 import { draw, drawNow } from './draw.js';
 import { drawErr, kpi } from './kpi.js';
 import { drawCrit, drawRate } from './rate.js';
+import { movePh, ordAt, ordList } from './ord.js';
 import { drawUse } from './useedit.js';
 import { drawRows } from './rows.js';
 import { drawAlts } from './left.js';
@@ -58,6 +59,8 @@ window.__TLDBG = { statsOf: statsOf, dmgOf: dmgOf, total: total, diff: diff,
                    // **どこが遅いかを外から測るため**（2026-09-03 の 28）
                    drawRate: drawRate, drawErr: drawErr, kpi: kpi, drawCrit: drawCrit,
                    drawUse: drawUse, drawRows: drawRows, drawAlts: drawAlts,
+                   // 再生ヘッドとスキル順（**2 段の帯を外から確かめるため**）
+                   movePh: movePh, ordAt: ordAt, ordList: ordList,
                    B: B };
 
 

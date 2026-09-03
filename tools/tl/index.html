@@ -1010,23 +1010,24 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
 .tlapp .kpi .kord { flex:0 1 300px; min-width:0; display:flex; flex-direction:column;
   gap:1px; padding-left:var(--s3); margin-left:var(--s3);
   border-left:1px solid var(--ln); align-self:center; overflow:hidden; }
-.tlapp .kpi .kord .kl { font-size:9px; color:var(--tx3); letter-spacing:.03em; }
-.tlapp .kpi .kord .ordrow { display:flex; align-items:flex-start; gap:var(--s2);
+/* **2 段。上が手札（いま選べる 3 枚）、下が控え**（2026-09-03 の先生の指示
+   「使用スキルを上、待機スキルを下に」「スキル順って表記は不要」
+   「使用スキルの大きさを 1 とした時、待機スキルの大きさは 0.8 くらい」）。
+   番号の `<i>` は落とした。並びそのものが順番なので、字を足す意味が無い */
+.tlapp .kpi .kord .ordrow { display:flex; align-items:center; gap:var(--s2);
   min-width:0; overflow:hidden; }
-.ocs { display:flex; gap:2px; flex:0 0 auto; align-items:flex-start; }
-.ocw { display:flex; flex-direction:column; align-items:center; gap:0; }
-.ocw > i { font-style:normal; font-size:7.5px; line-height:1.1; color:var(--tx3); }
-/* 控え。**沈める** */
-.oc { width:18px; height:18px; border-radius:3px; border:1px solid var(--gb);
-  background:transparent; display:block; overflow:hidden; position:relative; }
-.oc img { width:100%; height:100%; object-fit:cover; opacity:.3; display:block;
-  filter:grayscale(1); }
+.ocs { display:flex; flex-direction:column; gap:2px; flex:0 0 auto;
+  align-items:flex-start; }
+.orow { display:flex; gap:2px; align-items:center; }
+.oc { border-radius:3px; border:1px solid var(--gb); background:transparent;
+  display:block; overflow:hidden; position:relative; flex:0 0 auto; }
+.oc img { width:100%; height:100%; object-fit:cover; display:block; }
 /* いま選べる 3 枚。**明るく、枠を立てる** */
-.oc.hd { border-color:var(--acc2); box-shadow:0 0 0 1px var(--acc2); }
-.oc.hd img { opacity:1; filter:none; }
-.ocw.hd > i { color:var(--acc2); font-weight:700; }
-/* 手札と控えの切れ目 */
-.ocw.gap { margin-left:7px; }
+.oc.hd { width:26px; height:26px; border-color:var(--acc2);
+  box-shadow:0 0 0 1px var(--acc2); }
+/* 控え。**0.8 倍で沈める** */
+.oc.wt { width:21px; height:21px; }
+.oc.wt img { opacity:.45; filter:grayscale(1); }
 /* カーソルが乗っている 1 発の札。**名前とコストと秒だけ** */
 .ocard { flex:1 1 auto; min-width:0; display:flex; align-items:center; gap:5px;
   font-size:9px; color:var(--tx2); overflow:hidden; }
