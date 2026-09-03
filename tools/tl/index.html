@@ -696,8 +696,12 @@
    伸び縮みするのは生徒の一覧だけで、育成はいつも下端に出る。
    **狭い画面（1 列に畳むとき）はそのまま流す** */
 @media (min-width:1000px) {
+  /* **背は「画面の高さ」と「右の列の高さ」の大きいほう**（2026-09-03 の先生の指摘
+     「左パネルの一番下が、シナリオ別達成率の一番下と合うように(パネル全体が
+     真四角で揃うように)」）。格子の子は既定で伸びるので、高さを決め打ちせず
+     最低の高さだけ与える。余りは生徒の一覧が飲む */
   .tlapp .tlleft { position:sticky; top:var(--s2);
-    height:var(--lh, calc(100vh - var(--s2) * 2)); }
+    min-height:var(--lh, calc(100vh - var(--s2) * 2)); }
   .tlapp .tlleft > .pane.grow { flex:1 1 auto; min-height:0; }
   .tlapp .tlleft > .pane.grow > .bd { display:flex; flex-direction:column;
     min-height:0; height:100%; }
@@ -710,7 +714,10 @@
      ここで戻す）。
      **効いたのは `grid-auto-rows:max-content`。**枠は `overflow:hidden` なので
      最小の高さが 0 と数えられて、行が 2.25px まで潰れていた（実測） */
-  .tlapp .tlleft > .pane.grow .picker { max-height:none; flex:1 1 auto;
+  /* **`flex-basis` は 0。**`auto` のままだと一覧の全長（3,500px）が列の
+     「中身の高さ」に数えられて、格子の行がそこまで伸びる（2026-09-03 に実測）。
+     0 にすると場所は取らず、余ったぶんだけ伸びる */
+  .tlapp .tlleft > .pane.grow .picker { max-height:none; flex:1 1 0;
     min-height:90px; align-content:start; overflow-y:auto;
     grid-auto-rows:max-content; }
 }
@@ -1892,7 +1899,7 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
 <!-- **版はビルドが打つ。**`@V:<パス>` を build.py が中身の SHA1 先頭 8 桁へ差し替える
      （2026-09-03。`?v=1` の固定値だったので、index.html だけ新しくなって
      js が古いまま残り、画面が崩れた） -->
-<script src="data.js?v=d1519962"></script>
+<script src="data.js?v=2c07e8ab"></script>
 <script src="../cost-timeline/data.js?v=6e9ea1f5"></script>
 <script src="../tl-engine.js?v=a37dbaa9"></script>
 <script>

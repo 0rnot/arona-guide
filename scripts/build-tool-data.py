@@ -4705,6 +4705,17 @@ def build_tl():
     _by_pre = {}
     for _cid in stat:
         _by_pre.setdefault(str(_cid)[:-2], []).append(_cid)
+    # **部位の出どころは `raids.json` の `EnemyList`**（LOOP.md 63、2026-09-03）。
+    # 難易度ごとの並びで、**先頭が本体・2 体目以降が部位**。
+    # id の頭で引く `_by_pre` は、本体と部位で頭が違う枝を拾えない
+    # （Lunatic ペロロジラは 本体 `7405800` に対してミニオンが `7305801` `7305890`）。
+    # ここを正本にすると、prefix の当て推量に頼らずに済む
+    _elist, _bodies = {}, set()
+    for _r in ((raids.get("Raid") or []) + (raids.get("MultiFloorRaid") or [])):
+        for _ids in (_r.get("EnemyList") or []):
+            if _ids:
+                _elist.setdefault(_ids[0], []).extend(_ids[1:])
+                _bodies.add(_ids[0])
 
     def _dev_role(dn):
         """`Hod_TemporaryTower_Summon_HeavyArmor_Torment` → `hod_temporarytower_summon`"""
@@ -5168,6 +5179,21 @@ def build_tl():
                              _subs_extra(got["cid"], _skip,
                                          _subs_df(got["cid"], df, _skip)))
                 got["sub"] = _own
+                # **本体の枝に無ければ `EnemyList` を引く**（LOOP.md 63）。
+                # 借り物ではなくその難易度の実物なので、装甲の付け替えも要らない
+                if not got["sub"]:
+                    _cand = []
+                    for _eid in _elist.get(got["cid"], []):
+                        # **同じ番号帯には別難易度のボス本体も並んでいる。**
+                        # `EnemyList` の先頭に出てくる id は全部よけないと、
+                        # ペロロジラ（屋内）Hard の部位に「ペロロジラ（屋内戦）
+                        # hp380000」＝ Normal の本体が入る（2026-09-03 に実測）
+                        for _k in (_by_pre.get(str(_eid)[:-2], []) or [_eid]):
+                            if _k not in _bodies:
+                                _cand.append(_k)
+                    if _cand:
+                        got["sub"] = _subs(got["cid"], _skip, _cand)
+                        _own = got["sub"]
                 if not got["sub"]:
                     for _a in got["arm"]:
                         _ac = (grp_arm.get(g0, {}).get(df) or {}).get(_a) or []
