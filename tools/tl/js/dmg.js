@@ -12,6 +12,32 @@ import { KS } from './clear.js';
 // +1 = 全部いちばん高い候補（2026-09-01 の先生の指示
 // 「上振れシナリオと下振れシナリオ」）。**総当たりするのは達成率の表だけ**
 export var PICKF = 0;
+/** **グロッキー中にボスが分かれるぶん、1 発が何体に当たるか**（2026-09-03）。
+    `data.js` の `gspl` は `RaidSkills` の本文から出した体数（`build-tool-data.py` の `_gspl`）。
+
+      ペロロジラ  グロッキー状態になると、小さなペロロミニオンを5体召喚
+                  小さなペロロミニオンはImmortalでその被ダメージの100%分をペロロジラに転移
+      クロカゲ    クロカゲの領域内でグロッキー状態になればクロカゲは4つの片鱗に別れ、
+                  それぞれ攻撃を受けることになり、その間はすべての味方の会心率が最大値まで増加
+
+    **効かせるのはグロッキー中に分かれるボスだけ**（`gspl.gg`）。ゴズの分身 2 体は
+    グロッキーと関係なく、ダメージが本体へ移るとも書いていないので**外してある**。
+    当たる先を人が選んだ発（`tg`）には掛けない。そちらは「当たる数」で人が決めている。
+
+    **範囲攻撃でない発にも掛かる。**どの発が範囲かはデータから決められないので、
+    まず「全部に当たる」で置いて動画と突き合わせる（2026-09-03。突き合わせの結果は
+    `~/arona/tl-work/cards/` と `LOOP.md` の 42 に書く） */
+function gsplMul(r, at, tg) {
+  var g = r && r.gspl;
+  if (!g || !g.n || !g.gg || tg != null) { return 1; }
+  return ggCritAt(at) ? g.n : 1;
+}
+function gsplScale(d, m) {
+  if (!d || m === 1) { return d; }
+  return { min: d.min * m, avg0: d.avg0 * m, avg: d.avg * m, avgC: d.avgC * m,
+           max: d.max * m, va: (d.va || 0) * m, hit: d.hit, crit: d.crit,
+           crit0: d.crit0, name: d.name };
+}
 export function dmgOf(idx, r, at, kind, upk, tg, gx) {
   var p = st.party[idx];
   if (!p) { return null; }
@@ -19,8 +45,9 @@ export function dmgOf(idx, r, at, kind, upk, tg, gx) {
   // **候補の絞り込みは「当たる先」で変わる**（装甲が部位ごとに違うため。2026-09-03）
   var tb9 = aimOf(r, tg);
   var alt = altOf(p.id, kd, tb9);
+  var gm9 = gsplMul(r, at, tg);
   if (!PICKF || !alt || alt.v.length < 2) {
-    return dmgOf1(idx, r, at, kd, alt ? pickOf(idx, kd, upk, tb9) : 0, tg, gx);
+    return gsplScale(dmgOf1(idx, r, at, kd, alt ? pickOf(idx, kd, upk, tb9) : 0, tg, gx), gm9);
   }
   // **候補ごとに最後まで計算して比べる。**倍率（`Scale`）だけで比べると、
   // 発数・防御無視・会心の有無が候補ごとに違うぶんを取りこぼす
@@ -30,7 +57,7 @@ export function dmgOf(idx, r, at, kind, upk, tg, gx) {
     if (!d) { continue; }
     if (!best || (PICKF > 0 ? d.avg > best.avg : d.avg < best.avg)) { best = d; }
   }
-  return best;
+  return gsplScale(best, gm9);
 }
 /** その形態の演出の長さ（秒）。**ダメージが何秒かけて出るか** */
 export function formDur(id, kind) {
