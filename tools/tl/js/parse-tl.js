@@ -331,6 +331,16 @@ export function parseTL(txt) {
     if (/^※.*(?:場合|とき|パターン|ルート)[※。）)]*$/.test(lc)) { return { alt: true }; }
     return null;
   }
+  /** その塊が「◯◯(××)」＝ 撃つ子と渡し先の形か。**名前の一部の括弧とは分ける** */
+  function targParen(p2) {
+    var txt = nrm(p2).replace(/^[^ぁ-んァ-ヶ一-龥A-Za-z]*/, '');
+    var m = txt.match(/^(.*?)[（(]([^）)]*)[)）]\s*$/);
+    if (!m) { return false; }
+    // **括弧が名前の一部なら、丸ごとで引ける**（「ホシノ(臨戦)」「ナギサ(水着)」）。
+    // 渡し先の括弧は丸ごとでは引けない（「ニコ(ナツ)」「リオ(マコト)」）
+    if (findStudent(txt, null)) { return false; }
+    return !!(findStudent(m[1], null) && findStudent(m[2], null));
+  }
   // **矢印で何発もつなぐ書き方**（「Cost6：カヨコ → アヤネ → Cost6：イオリ → コタマ」
   // 「➝ Cost7：ミカ → ヒマリ → ミカ → ギブアップ」。2026-09-02、総力戦ホド _tH1tzFHoUM と
   // ホバークラフト c3eN2Cf7QVc）。矢印が 3 つ以上つながる行は 1 発ずつの行に割る。
@@ -342,8 +352,14 @@ export function parseTL(txt) {
     for (lq = 0; lq < pcs.length; lq++) { if (nrm(pcs[lq])) { pcs2.push(pcs[lq].trim()); } }
     // **「ホシノ→即ミカ」の 2 つ目が「即」や秒で始まるなら渡し先ではなく連鎖**
     // （2026-09-02、大決戦シロクロ B7GPFRbI1vk でミカ 13 発のうち 3 発が消えていた）
+    // **括弧で渡し先を書いている行の矢印は、渡し先ではなく次の 1 発**
+    // （2026-09-03、屋内ペロロジラ MYqGzhY5Jmc。「9　ニコ(ナツ)→リオ(マコト)」で
+    // リオが消え、そのせいで次の「copyマコト」がコピーにならず「間に合いません」になっていた）。
+    // **括弧が名前の一部のとき**（「ホシノ(臨戦)」）と分けるため、
+    // 括弧の中が「その行の子とは別の子」に引けることを条件にする
     var chain2 = pcs2.length === 2 &&
-                 (/^(即|最速)/.test(nrm(pcs2[1])) || !!timeIn(pcs2[1].replace(/[（(\[［][^）)\]］]*[)）\]］]/g, ' '), dur));
+                 (/^(即|最速)/.test(nrm(pcs2[1])) || !!timeIn(pcs2[1].replace(/[（(\[［][^）)\]］]*[)）\]］]/g, ' '), dur) ||
+                  targParen(pcs2[0]) || targParen(pcs2[1]));
     if (pcs2.length < 3 && !chain2) { lines2.push(lines[lz]); continue; }
     for (lq = 0; lq < pcs2.length; lq++) {
       var pc = pcs2[lq];
