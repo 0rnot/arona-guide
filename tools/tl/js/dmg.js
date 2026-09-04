@@ -91,12 +91,20 @@ function scaleUnit(u, f) {
   }
   return { b: u.b * f, sN: u.sN, cr: u.cr, cm: u.cm, hit: u.hit };
 }
-/** **その 1 発が当たる数**（`u.mc`）。`tg` を置いていない発は 1。
-    「円形範囲内の敵の数によって」倍率が変わるスキルの候補を決めるのに使う。
+/** **その 1 発が当たる体の数。**「円形範囲内の敵の数によって」倍率が変わる
+    スキルの候補を決めるのに使う（`alt.js` の `nRange`）。
     **ボス本体にも当たるぶん（`hb`）にも同じ数を渡す**——円の中の数は
-    どちらを計算していても同じだから（2026-09-04） */
+    どちらを計算していても同じだから（2026-09-04）。
+
+    **本体を数に入れる**（2026-09-04）。DB の条件は
+    `CountEntityListCombinedModifierDAO`（マコト（水着）は `CountMax 2` と
+    `CountMin 3` の 2 本）で、**円の中に居る体を数えるもの**なので、
+    部位だけでなくボス本体も 1 体。入れていなかったので、
+    部位 2 体＋本体に当たる発が「2人以下」の 321.40% になっていた
+    （本当は「3人以上」の 762.46%）。`buff.js` の `nHit` は前から同じ数え方。 */
 export function nbOf(u) {
-  return (u && u.tg != null && u.mc > 1) ? u.mc : 1;
+  if (!u) { return 1; }
+  return (u.tg != null ? (u.mc || 1) : 0) + (u.tg == null || u.hb ? 1 : 0);
 }
 /** `nb` はその 1 発が当たる数（`u.mc`）。**「N人以下／N人以上」で倍率が変わる
     スキルは、これで候補が決まる**（2026-09-04。`alt.js` の `nRange`） */
@@ -146,6 +154,37 @@ export function formDur(id, kind) {
     割らないと 11,577,602。大決戦ホドの TL の目安「7.5M 以下」に対しても
     割ると残 6,074,012、割らないと 5,951,965 で、**2 本とも割るほうが近い。** */
 export var SLICE = 6;
+
+/** **ダメージが入る時刻**（発動からの秒の並び）。
+
+    `B.imp`（`LevelSkill` から出した着弾フレーム）があればそれを使う。
+    マコト（水着）の EX なら `[68, 96, 97, 98, 99, 100]` フレーム ＝
+    2.267 / 3.200 / 3.233 / 3.267 / 3.300 / 3.333 秒で、
+    **演出の 5.767 秒を 6 等分した 0.48〜5.29 秒とはまるで違う。**
+    2026-09-04 の先生の指摘「全部にバフ時間に被ってる時に発射した攻撃に
+    全部バフ乗ってる？」の答えがここ——バフは「演出を等分した点」で見ていたので、
+    本当の着弾を全部覆っているバフでも一部しか乗らなかった。
+    82.90 秒のマコトはキサキの EX スキル与ダメージ +80.70%（84.53 秒から）を
+    6 点中 4 点でしか受けていなかったが、本当の着弾（85.17・86.23 秒）は
+    2 つとも中に入っている。
+
+    着弾が多すぎるものは間引く（CH0133 は 601 フレームの帯に 20 回）。
+    `B.imp` が無い枠は今までどおり演出を等分する。 */
+export var MAXHIT = 12;
+export function hitTimes(id, kind) {
+  var im = ((B.imp || {})[id] || {})[kind], out = [], i, step;
+  if (im && im.length) {
+    step = Math.ceil(im.length / MAXHIT);
+    for (i = 0; i < im.length; i += step) { out.push(im[i] / B.fps); }
+    return out;
+  }
+  var ns = sliceOf(id, kind);
+  if (ns <= 1) { return [0]; }
+  var D = formDur(id, kind);
+  for (i = 0; i < ns; i++) { out.push(D * (i + 0.5) / ns); }
+  return out;
+}
+
 export function sliceOf(id, kind) {
   var effs = ((B.dmg[id] || {})[kind] || []), a = altOf(id, kind), i, q, n = 0;
   function look(list) {
@@ -162,11 +201,15 @@ export function dmgOf1(idx, r, at, kind, pick, tg, gx, nso, only, nb) {
   var p0 = st.party[idx];
   if (!p0) { return null; }
   var kd0 = kind || 'Ex';
-  var ns = at == null ? 1 : sliceOf(p0.id, kd0);
-  if (ns <= 1) { return dmgAt(idx, r, at, kd0, pick, tg, gx, nso, only, nb); }
-  var D = formDur(p0.id, kd0), dur0 = r.dur || 240, acc = null, k, q2;
+  var hts = at == null ? [0] : hitTimes(p0.id, kd0);
+  var ns = hts.length;
+  if (ns <= 1) {
+    return dmgAt(idx, r, at == null ? at : Math.min(at + hts[0], r.dur || 240),
+                 kd0, pick, tg, gx, nso, only, nb);
+  }
+  var dur0 = r.dur || 240, acc = null, k, q2;
   for (k = 0; k < ns; k++) {
-    var ts = Math.min(at + D * (k + 0.5) / ns, dur0);
+    var ts = Math.min(at + hts[k], dur0);
     var d0 = dmgAt(idx, r, ts, kd0, pick, tg, gx, nso, only, nb);
     if (!d0) { return null; }
     if (!acc) { acc = { min: 0, avg0: 0, avg: 0, avgC: 0, max: 0, va: 0,

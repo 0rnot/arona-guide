@@ -53,6 +53,11 @@ export function restore(o) {
                        mc: u.mc == null ? null : +u.mc,
                        hb: u.hb ? 1 : 0,
                        gx: (u.gx && u.gx.length) ? u.gx.slice() : null,
+                       // **盤で置いた位置**（2026-09-04）。読めていないと、
+                       // 書き出して読み直したときにドラッグした結果が消える
+                       ax: (u.ax == null || !isFinite(u.ax)) ? undefined : +u.ax,
+                       ay: (u.ay == null || !isFinite(u.ay)) ? undefined : +u.ay,
+                       bp: (u.bp && typeof u.bp === 'object') ? u.bp : undefined,
                        pk: u.pk || undefined });
         }
       }

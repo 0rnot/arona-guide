@@ -4716,6 +4716,110 @@ def _ls_geom(group):
     return got
 
 
+_dmg_gid = None
+
+
+def _dmg_gids():
+    """**ダメージを与える効果の名札**（`DB/LogicEffect_PC` の `DamageEffectDAO`）。
+
+    `CH0060_Ex01_Effect02_Lv1` のように段ごとに行が分かれているものがあるので、
+    `_Lv<数字>` を落とした名前も入れる（`LevelSkill` 側は素の名前で参照する）。 """
+    global _dmg_gid
+    if _dmg_gid is None:
+        _dmg_gid = set()
+        for r in as_list(get_json(BADB.format("LogicEffect_PC"))):
+            if "DamageEffectDAO" not in (r.get("$type") or ""):
+                continue
+            g = r.get("GroupId") or ""
+            _dmg_gid.add(g)
+            _dmg_gid.add(re.sub(r"_Lv\d+$", "", g))
+        _dmg_gid.discard("")
+    return _dmg_gid
+
+
+_hits_cache = {}
+
+
+def _ls_hits(group):
+    """`LevelSkill/<枠>.json` から**ダメージが入るフレーム**を並べて返す。
+
+    発動 0 フレームからの相対で、`[68, 96, 97, 98, 99, 100]` のような形
+    （マコト（水着）の EX。最後の着弾は 100 フレーム ＝ 3.333 秒）。
+    **道具はいままで全部を発動と同時に入れていた**ので、倒しきる秒がそのぶん
+    早く出ていた（2026-09-04 の先生の指摘「発動から着弾までのラグによって
+    討伐時間が前後すると思う、そこの差が結構大事だったりする」）。
+
+    たどるのは `MainEntityData` と `EntityTimeline`。入れ物は 3 つあって、
+    `SkillEntitySpawnerData`（弾が着いてから湧く）、`AreaSpawnerData`
+    （置いていく範囲）、`SplashAreaEntityData`（`SplashDelayFrame` だけ遅れて開く）。
+    範囲の `HitFrames` はその範囲が出てからの相対、`Abilities[].StartDelay` は
+    その体が出てからの相対。**`AllowDuplicateHit` が真なら同じ相手に何度も入る**
+    （マコトの 5 コマがそれ）。
+
+    ダメージの無い効果（判定用の `DummyEffectDAO`、バフ解除、防御力ダウン）は
+    数えない。**残りっぱなしの範囲は長い**——CH0133 は 601 フレームの帯を置くので
+    最終着弾が 638 フレーム（21.3 秒）になる。これは仕様。 """
+    if not group:
+        return None
+    if group in _hits_cache:
+        return _hits_cache[group]
+    try:
+        d = get_json(BALS.format(group)) or {}
+    except Exception:
+        d = {}
+    dm, out = _dmg_gids(), []
+
+    def _ab(node, at, key):
+        for a in (node.get(key) or []):
+            if not isinstance(a, dict):
+                continue
+            gs = [g for g in (a.get("LogicEffectGroupIds") or []) if g in dm]
+            if not gs:
+                continue
+            base = at + (a.get("StartDelay") or 0)
+            if key == "AreaAbilities":
+                for h in (node.get("HitFrames") or [0]):
+                    out.append(base + h)
+            else:
+                out.append(base)
+
+    def _ent(e, at, dep):
+        if not isinstance(e, dict) or dep > 6:
+            return
+        _ab(e, at, "Abilities")
+        _ab(e, at, "AreaAbilities")
+        sp = e.get("SplashAreaEntityData")
+        if sp:
+            _ent(sp, at + (e.get("SplashDelayFrame") or 0), dep + 1)
+        for k in ("SkillEntitySpawnerData", "AreaSpawnerData"):
+            if e.get(k):
+                _tl(e[k], at, dep + 1)
+        _tl(e, at, dep + 1)
+
+    def _tl(node, at, dep):
+        if not isinstance(node, dict) or dep > 6:
+            return
+        for et in (node.get("EntityTimeline") or []):
+            if not isinstance(et, dict):
+                continue
+            e = et.get("Entity") or et.get("AreaData") or et
+            _ent(e, at + (et.get("Frame") or 0), dep + 1)
+
+    names = set()
+    for et in (d.get("EntityTimeline") or []):
+        if isinstance(et, dict) and isinstance(et.get("Entity"), dict):
+            names.add(et["Entity"].get("EntityName"))
+    me = d.get("MainEntityData")
+    # **`MainEntityData` は宣言でもある。**同じ体が `EntityTimeline` にも
+    # 並んでいるときは、そちらの `Frame` が本当の発射時刻なので二重に数えない
+    if isinstance(me, dict) and me.get("EntityName") not in names:
+        _ent(me, 0, 0)
+    _tl(d, 0, 0)
+    got = sorted(set(out)) or None
+    _hits_cache[group] = got
+    return got
+
+
 # **生徒の枠 → `LevelSkill` の名札**（`DB/CharacterSkillListExcelTable`）。
 # 行は `(MinimumTierCharacterGear, FormIndex)` ごとに 1 本ずつあり、
 # **`EmptySkill` でない最初の 1 枚**を取る（オトギ・トキで踏んだ形。6425 行の注を参照）。
@@ -6703,6 +6807,7 @@ def build_tl():
     area_out = {}
     # **範囲の中心と狙い方**（生徒 → 枠 → `_ls_geom` の 7 つ組）と**届く距離**
     geo_out, ngeo, rng_out = {}, 0, {}
+    imp_out, nimp = {}, 0
     na_out, nna = {}, 0
     naf_out = {}
     nform = 0
@@ -7106,6 +7211,11 @@ def build_tl():
                 if _gm:
                     geo_out.setdefault(sid, {})[kind] = _gm
                     ngeo += 1
+            # **着弾フレーム**（`LevelSkill`）。範囲を持たない枠にも要る
+            _hf = _ls_hits(_skill_gid(csl_all.get(x["Id"]), kind))
+            if _hf:
+                imp_out.setdefault(sid, {})[kind] = _hf
+                nimp += 1
             # **届く距離**（SchaleDB の `Range`。506 枠が持っている）。
             # どの生徒がどの体に届くかは、これが無いと決まらない
             if sk.get("Range"):
@@ -7333,7 +7443,8 @@ def build_tl():
     print(f"  通常攻撃（オートアタック）が引けた生徒 {nna} 人 / {len(st_out)} 人")
     _nar = sum(len(v) for v in area_out.values())
     print(f"  範囲を持つ枠 {_nar} 個 / 中心と狙い方が引けた枠 {ngeo} 個"
-          f"、届く距離 {sum(len(v) for v in rng_out.values())} 個")
+          f"、届く距離 {sum(len(v) for v in rng_out.values())} 個"
+          f"、着弾フレームが引けた枠 {nimp} 個")
     print(f"  EX の形態違い {nform} 件（Skills.Ex.ExtraSkills）")
     _one = sum(1 for v in tgt_out.values() for r in v.values() if r[0] == 1)
     print(f"  味方に効くスキル {sum(len(v) for v in tgt_out.values())} 枠 / "
@@ -7482,6 +7593,8 @@ def build_tl():
                     "MaxTargetCount", "Range", "HitFrames", "AreaDAO",
                     "PositionOffset(ワールド)", "AngleOffset", "SpawnDirectionType"],
         "rng": rng_out,
+        # 着弾フレーム（発動 0 からの相対、30fps）。**ダメージが入る瞬間だけ**
+        "imp": imp_out,
         "areaKeys": ["Type(Circle/Fan/Obb/Donut/Bounce)", "Radius",
                      "Degree", "Width", "Height", "ExcludeRadius"],
         "bufKeys": ["Target", "Stat", "Channel", "Value", "Duration", "ApplyFrame",

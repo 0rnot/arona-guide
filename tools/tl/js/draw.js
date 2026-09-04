@@ -34,8 +34,8 @@ export function draw() {
   // （2026-09-04）。`_rt`（コスト指定の実際の秒）が要るので `sim()` のあとに走らせ、
   // **書き戻したら `sim()` をもう一度**。`sim` の鍵は `st.tl` そのものなので、
   // 何も変わらなければ 2 回目はただの取り出しで終わる
-  syncAim(r);
-  sim();
+  // `window.__NOSYNCAIM` で止められる（`tl-work/verify.py` の答え合わせ用）
+  if (!window.__NOSYNCAIM) { syncAim(r); sim(); }
   var ph0 = r.ph['0'] || { ev: [], g: null, hp: [], raw: [] };
   var side = '', cv = '';
   function lane(hh, inner, cls) {

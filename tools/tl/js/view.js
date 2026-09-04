@@ -3,6 +3,7 @@ import { st } from './core.js';
 import { diff } from './boss.js';
 import { bossAdv, phaseSpans, ggRuns, ggSolve } from './carry.js';
 import { usesSorted } from './buff.js';
+import { hitTimes } from './dmg.js';
 import { aimFromHits, beaconOf, bestHitsOf, boardBox, bodiesOf, hitsAtOf, hitsOf,
          movedBodies, placeKind, secOfSummon, shapeAt } from './board.js';
 
@@ -44,8 +45,17 @@ function clock(sec) {
          '.' + ('00' + ms).slice(-3);
 }
 
-/** その 1 発の範囲を盤に残す長さ（秒）。 */
+/** その 1 発の範囲を盤に残す長さ（秒）。**最後の着弾まで出す**
+    （2026-09-04 の先生の指示「盤のスキル表示が攻撃スキルを発動したタイミングでしか
+    表示されないから、最終着弾までは表示させるようにして」）。
+    着弾のデータが無い枠は 0.6 秒だけ出す。 */
 var HOLD = 0.6;
+function holdOf(u) {
+  var p = st.party[u.i];
+  if (!p) { return HOLD; }
+  var ht = hitTimes(p.id, u.k) || [];
+  return Math.max(HOLD, (ht.length ? ht[ht.length - 1] : 0) + 0.1);
+}
 
 /** **再生の状態**（2026-09-04 の先生の「再生停止と等倍から3倍切り替えも
     実装できちゃう？」）。**進めるのは `wire-view.js`**——`movePh` は `ord.js` に
@@ -104,7 +114,7 @@ export function pickShot(r, t) {
   var at = t == null ? (VT == null ? 0 : VT) : t;
   var sel = st.sel != null ? st.tl[st.sel] : null;
   for (i = 0; i < us.length; i++) {
-    if (at < us[i].t - 1e-9 || at >= us[i].t + HOLD) { continue; }
+    if (at < us[i].t - 1e-9 || at >= us[i].t + holdOf(us[i])) { continue; }
     if (!best || us[i].t > best.t - 1e-9) { best = us[i]; }
     // 同じ時刻に何発もあるときは、詳細を開いている発を優先する
     if (sel && us[i].ix === st.sel) { best = us[i]; break; }
@@ -182,7 +192,15 @@ function boardSvg(r, sec, sh, q, bs, pk) {
          '" r="0.8" class="me"><title>撃つ子の立ち位置</title></circle>';
   }
   g += '</g>';
-  return '<svg class="bsvg" id="bsvg" viewBox="' + x0.toFixed(2) + ' ' + y0.toFixed(2) + ' ' +
+  // **枠の縦横比のとおりに箱を出す**（2026-09-04 の先生の指摘「盤がパネルに
+  // フィットしない」）。`preserveAspectRatio` に任せると、横長の入れ物に
+  // 縦長の盤（ペロロジラは 18.0 × 26.51）を入れたときに左右が大きく余る。
+  // 高さを決めて幅をそこから出し、左の列はその幅に合わせて縮む（`.vleft`）
+  var ar = (x1 - x0) / (y1 - y0), BH = 380, BW = BH * ar;
+  if (BW > 520) { BW = 520; BH = BW / ar; }
+  if (BW < 150) { BW = 150; BH = BW / ar; }
+  return '<svg class="bsvg" id="bsvg" style="width:' + Math.round(BW) + 'px;height:' +
+         Math.round(BH) + 'px" viewBox="' + x0.toFixed(2) + ' ' + y0.toFixed(2) + ' ' +
          (x1 - x0).toFixed(2) + ' ' + (y1 - y0).toFixed(2) + '" preserveAspectRatio="xMidYMid meet">' +
          g + '</svg>';
 }
@@ -280,9 +298,14 @@ export function syncAim(r) {
     raw = st.tl[u.ix];
     if (!raw || !st.party[u.i]) { continue; }
     sid = st.party[u.i].id;
+    // **盤で置いた発だけ。**置いていない発まで盤から決めると、TL の文章で
+    // 指定した当たる先を上書きしてしまう（2026-09-04 に実測。
+    // y4h8XEXXfgw が 幅の中 90% → 9% まで落ちた。盤の湧き点は動く個体の
+    // 実際の位置ではないので、覆う数を少なく見積もる）。
+    // **置いていない発は今までどおり入力欄で決める。**
+    if (raw.ax == null && raw.ay == null && !raw.bp) { delete raw._ak; continue; }
     // **摘みが出るか（`placeKind`）では絞らない。**位置を選べない枠でも
-    // 形と射程は決まっているので、当たりは盤から出せる（ケイの EX がそれ。
-    // 2026-09-04 に `placeKind` で絞って 4 人ぶん取りこぼしていた）
+    // 形と射程は決まっているので、当たりは盤から出せる
     if (!(B.area[sid] || {})[u.k] || !(B.geo[sid] || {})[u.k]) { delete raw._ak; continue; }
     sc = sceneAt(r, u.t);
     key = [r.cid, sid, u.k, sc.sec, sc.wave, sc.gg ? 1 : 0,
