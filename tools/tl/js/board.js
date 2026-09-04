@@ -95,6 +95,39 @@ export function spawnOn(q, on) {
     **召喚は 1 度に 1 波しか盤に居ない**（ペロロジラは Ex03 が 6 体出して
     Ex09 が吸い、次に Ex04 が 6 体出す）。`ex` を省くとその節の 1 波目。
     `on` は `["st:Groggy"]` のように渡す。省くと「最初から居る体」だけ。 */
+/** 節 `si` が節 0 からどれだけ前へ動いたか。
+
+    **ビーコンの差では取らない。**生徒の立ち位置は節ごとに前後が違っていて、
+    ペロロジラ屋内では節 2 が 55.97、節 4 が 106.55 と、湧き点の 58.02 / 109.86 より
+    2.05・3.31 だけ手前になる。その差だけボスが前に出て、召喚のペロロとの隙間が
+    詰まって見えていた（2026-09-04 の先生の指摘
+    「3回目と4回目の盤のペロロミニオンの位置が少し前に出てる気がする」）。
+
+    **両方の節にある湧き点の差を使う。**ペロロジラは 5 点とも同じ量だけ動く。
+    共通の湧き点が 1 つも無いときだけビーコンの差に落とす。 */
+export function secShift(r, si) {
+  var bd = r && r.board, sec = si == null ? SEC0 : si, i, q, nm, j;
+  if (!bd || sec === SEC0) { return { x: 0, y: 0 }; }
+  var l0 = {}, ls = {};
+  for (i = 0; i < (bd.spw || []).length; i++) {
+    q = bd.spw[i];
+    if (q[0] === SEC0) { (l0[q[1]] = l0[q[1]] || []).push([q[2], q[3]]); }
+    else if (q[0] === sec) { (ls[q[1]] = ls[q[1]] || []).push([q[2], q[3]]); }
+  }
+  var dx = 0, dy = 0, n = 0;
+  for (nm in ls) {
+    if (!Object.prototype.hasOwnProperty.call(ls, nm) || !l0[nm]) { continue; }
+    for (j = 0; j < Math.min(l0[nm].length, ls[nm].length); j++) {
+      dx += ls[nm][j][0] - l0[nm][j][0];
+      dy += ls[nm][j][1] - l0[nm][j][1];
+      n++;
+    }
+  }
+  if (n) { return { x: dx / n, y: dy / n }; }
+  var b0 = beaconOf(r, SEC0), b1 = beaconOf(r, sec);
+  return { x: b0 && b1 ? b1.x - b0.x : 0, y: b0 && b1 ? b1.y - b0.y : 0 };
+}
+
 export function bodiesOf(r, si, ex, on) {
   var bd = r && r.board;
   if (!bd) { return []; }
@@ -122,12 +155,11 @@ export function bodiesOf(r, si, ex, on) {
   // （節は同じ並びを平行移動しただけ。`secOfSummon` の注記と同じ読み。2026-09-04）。
   // これが無いと、フェーズ 2 以降の盤からボスが消える
   if (sec !== SEC0) {
-    var b0 = beaconOf(r, SEC0), b1 = beaconOf(r, sec);
-    var dx = b0 && b1 ? b1.x - b0.x : 0, dy = b0 && b1 ? b1.y - b0.y : 0;
+    var d = secShift(r, sec);
     for (i = 0; i < (bd.spw || []).length; i++) {
       q = bd.spw[i];
       if (q[0] !== SEC0 || seen[q[1]] || !spawnOn(q, on)) { continue; }
-      out.push({ n: q[1], x: q[2] + dx, y: q[3] + dy, br: br(q[1]),
+      out.push({ n: q[1], x: q[2] + d.x, y: q[3] + d.y, br: br(q[1]),
                  cid: cid(q[1]), sum: null, key: 's' + i, mv: MOVE.test(q[1]) });
     }
   }
@@ -142,6 +174,77 @@ export function bodiesOf(r, si, ex, on) {
     }
   }
   return out;
+}
+
+/** **盤の枠。**その節に出てくる体を全部（波もグロッキーも問わず）ひとまとめにした
+    外接の箱。**時刻で変わらない**ので、赤い線を動かしても盤の縮尺が変わらない
+    （2026-09-04 の先生の指摘「タイムラインにスキルが無い時、盤面が広くなる」
+    「スキル動かす時に盤面が無限に広がってターゲットしづらい」）。
+    狙う点と範囲の形はここに入れない——外へ引いても盤は広がらない。 */
+export function boardBox(r, si) {
+  var bd = r && r.board, sec = si == null ? SEC0 : si, i, k, q;
+  if (!bd) { return null; }
+  var xs = [], ys = [], seen = {};
+  function put(x, y, rad) { xs.push(x - rad, x + rad); ys.push(y - rad, y + rad); }
+  function rad(nm) { var e = bd.bd[nm]; return e && e[1] != null ? e[1] / U : 0.5; }
+  for (i = 0; i < (bd.spw || []).length; i++) {
+    q = bd.spw[i];
+    if (q[0] !== sec) { continue; }
+    seen[q[1]] = 1; put(q[2], q[3], rad(q[1]));
+  }
+  var d = secShift(r, sec);
+  for (i = 0; i < (bd.spw || []).length; i++) {
+    q = bd.spw[i];
+    if (q[0] !== SEC0 || seen[q[1]]) { continue; }
+    put(q[2] + d.x, q[3] + d.y, rad(q[1]));
+  }
+  var sm = summonsOf(r, sec);
+  for (k = 0; k < sm.length; k++) {
+    var ws = bd.smn[sm[k]] || [];
+    for (i = 0; i < ws.length; i++) { put(ws[i][1], ws[i][2], rad(ws[i][0])); }
+  }
+  var bc = beaconOf(r, sec);
+  if (bc) { put(bc.x, bc.y, 1); }
+  if (!xs.length) { return null; }
+  return { x0: Math.min.apply(null, xs) - 2, x1: Math.max.apply(null, xs) + 2,
+           y0: Math.min.apply(null, ys) - 2, y1: Math.max.apply(null, ys) + 2 };
+}
+
+/** 盤の体の cid → 「当たる先」の番号（`diff().sub` の添字）。
+
+    **同じ見た目の体は 1 件にまとめてある**（`cnt` を持つ行が代表）。
+    ペロロジラ屋内なら `7305702` が「大きなペロロミニオン ×21」、
+    `7305790` が「小さなペロロミニオン ×5」で、`7305703` のような
+    まとめられた側の cid は `sub` に無い。**その体より小さくていちばん近い
+    代表**に寄せる（cid は種類ごとに連番）。本体なら null。 */
+export function subIxOfCid(r, cid) {
+  var subs = (r && r.sub) || [], i, best = -1;
+  for (i = 0; i < subs.length; i++) { if (subs[i].id === cid) { return i; } }
+  for (i = 0; i < subs.length; i++) {
+    if (!subs[i].cnt || subs[i].id > cid) { continue; }
+    if (best < 0 || subs[i].id > subs[best].id) { best = i; }
+  }
+  return best < 0 ? null : best;
+}
+
+/** 当たり（`hitsAtOf` / `bestHitsOf` の返り値）から
+    「当たる先 `tg`・当たる数 `mc`・本体にも当たるか `hb`」を出す。
+
+    **2026-09-04 の先生の指示**「盤で決めるなら入力欄の当たる先当たる数
+    ボス本体に当たるかどうかは入力させなくていいかな」。
+    種類がまざったときは**いちばん多く当たった種類**を当たる先にする。 */
+export function aimFromHits(r, q) {
+  if (!q || !q.hit) { return null; }
+  var cnt = {}, i, ix, best = null;
+  for (i = 0; i < q.hit.length; i++) {
+    if (q.hit[i].cid === r.cid) { continue; }
+    ix = subIxOfCid(r, q.hit[i].cid);
+    if (ix == null) { continue; }
+    cnt[ix] = (cnt[ix] || 0) + 1;
+    if (best == null || cnt[ix] > cnt[best]) { best = ix; }
+  }
+  if (best == null) { return { tg: null, mc: 1, hb: 0 }; }
+  return { tg: +best, mc: cnt[best], hb: q.hb ? 1 : 0 };
 }
 
 /** その節の生徒のビーコン。無ければ null。 */

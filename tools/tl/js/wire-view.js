@@ -1,9 +1,12 @@
 import { $ } from './util.js';
 import { st } from './core.js';
 import { diff } from './boss.js';
+import { aimFromHits } from './board.js';
 import { mark } from './undo.js';
 import { draw } from './draw.js';
-import { coverOfUse, drawView, pickShot, sceneAt, VT } from './view.js';
+import { coverOfUse, drawView, pickShot, playSet, rateSet, sceneAt,
+         PLAY, RATE, VT } from './view.js';
+import { movePh } from './ord.js';
 
 // ------------------------------------------------------------ 盤で位置を置く
 // **狙う点と、動く体をドラッグで置く**（2026-09-04 の先生の指示
@@ -27,6 +30,14 @@ function world(e) {
   var pt = svg.createSVGPoint();
   pt.x = e.clientX; pt.y = e.clientY;
   var w = pt.matrixTransform(m.inverse());
+  // **盤の外へは置けない**（2026-09-04 の先生の指摘「スキル動かす時に盤面が
+  // 無限に広がってターゲットしづらい」）。枠は `boardBox` で節ごとに決め打ちなので、
+  // その中へ丸めれば絵からはみ出さない
+  var vb = (svg.getAttribute('viewBox') || '').split(/\s+/).map(Number);
+  if (vb.length === 4 && vb.every(function (v) { return isFinite(v); })) {
+    w.x = Math.max(vb[0], Math.min(vb[0] + vb[2], w.x));
+    w.y = Math.max(vb[1], Math.min(vb[1] + vb[3], w.y));
+  }
   return { x: w.x, y: w.y };
 }
 
@@ -36,11 +47,38 @@ function recount(sh) {
   var u = st.tl[sh.ix];
   if (!u) { return; }
   var r = diff();
-  var q = coverOfUse(r, { i: sh.i, k: sh.k, tg: u.tg, ax: u.ax, ay: u.ay, bp: u.bp },
+  var q = coverOfUse(r, { i: sh.i, k: sh.k, ax: u.ax, ay: u.ay, bp: u.bp },
                      sceneAt(r, VT == null ? 0 : VT));
-  if (!q || u.tg == null) { return; }
-  u.mc = Math.max(1, q.nb);
-  u.hb = q.hb ? 1 : 0;
+  var a = aimFromHits(r, q);
+  if (!a) { return; }
+  u.tg = a.tg; u.mc = a.mc; u.hb = a.hb;
+  delete u._ak;
+}
+
+// ---- 再生。**ゲームと同じで、止めているあいだも盤は赤い線の位置**
+// （2026-09-04 の先生の「再生停止と等倍から3倍切り替えも実装できちゃう？」）。
+// 進めるのは `movePh`——赤い線・概況の帯・盤がまとめて付いてくる
+var _raf = 0, _last = 0;
+function tick(now) {
+  _raf = 0;
+  if (!PLAY) { return; }
+  var dur = (diff().dur || 240);
+  var t = (VT == null ? 0 : VT) + (now - _last) / 1000 * RATE;
+  _last = now;
+  if (t >= dur) { t = dur; playSet(false); }
+  st.pin = t;
+  movePh(t);
+  if (PLAY) { _raf = requestAnimationFrame(tick); } else { drawView(); }
+}
+function play(on) {
+  playSet(on);
+  if (_raf) { cancelAnimationFrame(_raf); _raf = 0; }
+  if (!on) { drawView(); return; }
+  var dur = (diff().dur || 240);
+  // **終わりまで来ていたら頭から。**もう一度押したときに何も起きないと戸惑う
+  if ((VT == null ? 0 : VT) >= dur - 1e-6) { st.pin = 0; movePh(0); }
+  _last = (window.performance || Date).now();
+  _raf = requestAnimationFrame(tick);
 }
 
 export function wireView() {
@@ -81,7 +119,13 @@ export function wireView() {
     draw();
   });
   pane.addEventListener('click', function (e) {
-    if (!e.target.closest || !e.target.closest('[data-h="reset"]')) { return; }
+    if (!e.target.closest) { return; }
+    if (e.target.closest('[data-h="play"]')) { play(!PLAY); return; }
+    if (e.target.closest('[data-h="rate"]')) {
+      // **等倍と 3 倍の 2 段**（先生の言葉のまま）
+      rateSet(RATE === 1 ? 3 : 1); drawView(); return;
+    }
+    if (!e.target.closest('[data-h="reset"]')) { return; }
     var sh = pickShot(diff());
     if (!sh || sh.ix == null || !st.tl[sh.ix]) { return; }
     mark();

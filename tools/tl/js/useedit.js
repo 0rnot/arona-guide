@@ -9,6 +9,7 @@ import { altOf, altScale, lvlOf, pickOf } from './alt.js';
 import { dmgOf, nbOf } from './dmg.js';
 import { ROWS } from './rows.js';
 import { bstName } from './bossui.js';
+import { aimByBoard } from './view.js';
 
 // ---- 選んだ EX 1 発の設定（誰に渡すか・どの形態か）
 export function drawUse() {
@@ -72,7 +73,11 @@ export function drawUse() {
   // ミサイル誘導装置、ヒエロニムスの聖遺物…）。部位に当てたぶんは
   // ボスの HP から引かない
   var subs = (diff().sub || []);
-  if (subs.length) {
+  // **盤が決められる発は、当たる先・当たる数・本体にも当たるかを出さない**
+  // （2026-09-04 の先生の指示「盤で決めるなら入力欄の当たる先当たる数
+  // ボス本体に当たるかどうかは入力させなくていいかな」）。値は `syncAim` が
+  // 盤から書き戻す。盤のデータが無い相手・範囲の形が無い枠は今までどおり出す
+  if (subs.length && !aimByBoard(u)) {
     var th = '<option value="">' + esc(boss().n) + '（本体）</option>', ti;
     for (ti = 0; ti < subs.length; ti++) {
       th += '<option value="' + ti + '"' + (String(u.tg) === String(ti) ? ' selected' : '') +

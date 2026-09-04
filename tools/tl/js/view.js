@@ -3,8 +3,8 @@ import { st } from './core.js';
 import { diff } from './boss.js';
 import { bossAdv, phaseSpans, ggRuns, ggSolve } from './carry.js';
 import { usesSorted } from './buff.js';
-import { beaconOf, bestHitsOf, bodiesOf, hitsAtOf, hitsOf, movedBodies, placeKind,
-         secOfSummon, shapeAt } from './board.js';
+import { aimFromHits, beaconOf, bestHitsOf, boardBox, bodiesOf, hitsAtOf, hitsOf,
+         movedBodies, placeKind, secOfSummon, shapeAt } from './board.js';
 
 // ------------------------------------------------------------ 盤と経過（第 5 段）
 // **画面に文章を足さずに、盤とボスの動きを目で見られるようにする**（2026-09-04）。
@@ -31,7 +31,28 @@ export function viewAt(t) {
   _raf = requestAnimationFrame(function () { _raf = 0; drawView(); });
 }
 
-function fmt(t) { return (+t).toFixed(1); }
+/** **ゲーム内と同じ書き方の残り時間**（`02:21.733`）。
+    2026-09-04 の先生の指示「盤の上の情報は残り時間だけでいいや、ゲーム内の上の
+    時間と同じ書き方で」。動画のコマ（`vid/MYqGzhY5Jmc.mp4` の 100 秒）で
+    `MM:SS.mmm` と確かめた。 */
+function clock(sec) {
+  var v = Math.max(0, sec), m = Math.floor(v / 60), r = v - m * 60;
+  var ss = Math.floor(r), ms = Math.round((r - ss) * 1000);
+  if (ms >= 1000) { ms -= 1000; ss += 1; }
+  if (ss >= 60) { ss -= 60; m += 1; }
+  return (m < 10 ? '0' : '') + m + ':' + (ss < 10 ? '0' : '') + ss +
+         '.' + ('00' + ms).slice(-3);
+}
+
+/** その 1 発の範囲を盤に残す長さ（秒）。 */
+var HOLD = 0.6;
+
+/** **再生の状態**（2026-09-04 の先生の「再生停止と等倍から3倍切り替えも
+    実装できちゃう？」）。**進めるのは `wire-view.js`**——`movePh` は `ord.js` に
+    あって、そちらが `view.js` を取り込んでいるので、ここから呼ぶと輪になる。 */
+export var PLAY = false, RATE = 1;
+export function playSet(on) { PLAY = !!on; }
+export function rateSet(v) { RATE = v; }
 
 /** **その時刻の場面。**`{p, gg, wave, sec}`。
 
@@ -70,20 +91,41 @@ export function sceneAt(r, t) {
   return { p: cur.p, gg: gg, wave: wave, sec: sec == null ? 0 : sec };
 }
 
-/** **絵にする 1 発。**選んでいる行があればそれ、無ければ「当たる先を決めてある発」の
-    いちばん早いもの。どれも無ければ編成の先頭の EX。 */
-export function pickShot(r) {
-  var us = usesSorted().filter(function (u) { return u.no == null; }), i;
+/** **絵にする 1 発。赤い線がその発の上に居るときだけ。**
+
+    以前は「選んでいる行」か「当たる先を決めてある最初の発」を出しっぱなしにして
+    いたので、赤い線を動かしても範囲が残り続けた（2026-09-04 の先生の指摘
+    「詳細で攻撃スキルを配置した状態でタイムラインの赤線を移動させても
+      詳細を開いた時のEXの範囲が残り続ける」）。
+    **「入力」の詳細を押すと赤い線がその発へ飛ぶ**（`rows.js` の `rowSeek`）ので、
+    そちらから開けば今までどおりその発の盤が出る。 */
+export function pickShot(r, t) {
+  var us = usesSorted().filter(function (u) { return u.no == null; }), i, best = null;
+  var at = t == null ? (VT == null ? 0 : VT) : t;
   var sel = st.sel != null ? st.tl[st.sel] : null;
-  if (sel) {
-    for (i = 0; i < us.length; i++) {
-      if (us[i].i === sel.i && Math.abs(us[i].t - (sel._rt != null ? sel._rt : sel.t)) < 1e-6) {
-        return us[i];
-      }
-    }
+  for (i = 0; i < us.length; i++) {
+    if (at < us[i].t - 1e-9 || at >= us[i].t + HOLD) { continue; }
+    if (!best || us[i].t > best.t - 1e-9) { best = us[i]; }
+    // 同じ時刻に何発もあるときは、詳細を開いている発を優先する
+    if (sel && us[i].ix === st.sel) { best = us[i]; break; }
   }
-  for (i = 0; i < us.length; i++) { if (us[i].tg != null) { return us[i]; } }
-  return us[0] || null;
+  return best;
+}
+
+/** **その時刻で効いている「動かした体の位置」。**
+    同じ波のうち、その時刻までに置いたいちばん新しいものを使う。
+    波が変われば湧き直すので持ち越さない。 */
+export function bpAt(r, t, sc) {
+  var us = usesSorted().filter(function (u) { return u.no == null; }), i, out = null;
+  for (i = 0; i < us.length; i++) {
+    if (us[i].t > t + 1e-9) { break; }
+    var pd = placedOf(us[i]);
+    if (!pd.bp) { continue; }
+    var s2 = sceneAt(r, us[i].t);
+    if (s2.sec !== sc.sec || s2.wave !== sc.wave) { continue; }
+    out = pd.bp;
+  }
+  return out;
 }
 
 /** 盤の絵。`q` は当たり（`hitsAtOf` / `bestHitsOf`）、`bs` はその盤の体。
@@ -100,25 +142,29 @@ function boardSvg(r, sec, sh, q, bs, pk) {
   var geo = q ? shapeAt((B.area[sid] || {})[kd], q.c,
                         { x: q.c.x - q.me.x, y: q.c.y - q.me.y },
                         (B.geo[sid] || {})[kd]) : null;
-  // 範囲を全部含む枠を取る
-  var xs = [], ys = [];
-  for (i = 0; i < bs.length; i++) {
-    xs.push(bs[i].x - bs[i].br, bs[i].x + bs[i].br);
-    ys.push(bs[i].y - bs[i].br, bs[i].y + bs[i].br);
-  }
-  if (bc) { xs.push(bc.x); ys.push(bc.y); }
-  if (q && q.me) { xs.push(q.me.x); ys.push(q.me.y); }
-  if (geo) {
-    var rr = Math.max(geo.R, geo.EX, Math.max(geo.W, geo.H) / 2);
-    xs.push(geo.cx - rr, geo.cx + rr); ys.push(geo.cy - rr, geo.cy + rr);
-  }
-  var x0 = Math.min.apply(null, xs) - 2, x1 = Math.max.apply(null, xs) + 2;
-  var y0 = Math.min.apply(null, ys) - 2, y1 = Math.max.apply(null, ys) + 2;
+  // **枠はその節に出てくる体で決め打ち**（`boardBox`）。時刻でも、狙う点でも、
+  // 範囲の形でも変わらない。当たり判定の外へ引いても盤は広がらない
+  var bx = boardBox(r, sec);
+  if (!bx) { return '<p class="mut tiny">この相手には盤のデータがありません</p>'; }
+  var x0 = bx.x0, x1 = bx.x1, y0 = bx.y0, y1 = bx.y1;
   var hitK = {};
   if (q) { for (i = 0; i < q.hit.length; i++) { hitK[q.hit[i].key] = 1; } }
   // **画面の上が奥。**`Stage` の y は奥ほど大きいので、そのまま描くと上下が逆になる
   var g = '<g transform="translate(0,' + (y0 + y1) + ') scale(1,-1)" id="bgrp">';
   if (geo) { g += shapePath(geo); }
+  // **狙う点の摘みは体より先に描く。**絵は下に沈むが、**掴むときは体が勝つ**——
+  // いちばん多く巻き込める置き方は体の真上に来ることが多く、摘みを後に描くと
+  // その体を掴めなくなる（2026-09-04 に実測。ペロロミニオンが 1 体隠れた）。
+  // 摘みの輪（1.4）は体（0.5）より大きいので、外側を掴めばこちらも動かせる
+  if (q && pk) {
+    var a = q.aim || q.c, ax = a.x, ay = a.y;
+    g += '<g class="aim" data-h="aim"><circle cx="' + ax.toFixed(2) + '" cy="' + ay.toFixed(2) +
+         '" r="1.4" class="ahit"/><circle cx="' + ax.toFixed(2) + '" cy="' + ay.toFixed(2) +
+         '" r="0.95" class="ac"/><path d="M' + (ax - 1.9).toFixed(2) + ' ' + ay.toFixed(2) +
+         'h3.8M' + ax.toFixed(2) + ' ' + (ay - 1.9).toFixed(2) + 'v3.8" class="ax"/>' +
+         '<title>' + (pk === 'aim' ? '狙う体（向きが決まります）' : '範囲の中心') +
+         '\nドラッグで動かせます</title></g>';
+  }
   for (i = 0; i < bs.length; i++) {
     var p = bs[i];
     g += '<circle cx="' + p.x.toFixed(2) + '" cy="' + p.y.toFixed(2) + '" r="' +
@@ -134,16 +180,6 @@ function boardSvg(r, sec, sh, q, bs, pk) {
   if (q && q.me) {
     g += '<circle cx="' + q.me.x.toFixed(2) + '" cy="' + q.me.y.toFixed(2) +
          '" r="0.8" class="me"><title>撃つ子の立ち位置</title></circle>';
-  }
-  // **狙う点の摘み。**位置を決められる枠のときだけ出す
-  if (q && pk) {
-    var a = q.aim || q.c, ax = a.x, ay = a.y;
-    g += '<g class="aim" data-h="aim"><circle cx="' + ax.toFixed(2) + '" cy="' + ay.toFixed(2) +
-         '" r="1.6" class="ahit"/><circle cx="' + ax.toFixed(2) + '" cy="' + ay.toFixed(2) +
-         '" r="0.95" class="ac"/><path d="M' + (ax - 1.9).toFixed(2) + ' ' + ay.toFixed(2) +
-         'h3.8M' + ax.toFixed(2) + ' ' + (ay - 1.9).toFixed(2) + 'v3.8" class="ax"/>' +
-         '<title>' + (pk === 'aim' ? '狙う体（向きが決まります）' : '範囲の中心') +
-         '\nドラッグで動かせます</title></g>';
   }
   g += '</g>';
   return '<svg class="bsvg" id="bsvg" viewBox="' + x0.toFixed(2) + ' ' + y0.toFixed(2) + ' ' +
@@ -196,40 +232,6 @@ function ring(cx, cy, R, EX, a, deg) {
          ' A ' + EX + ' ' + EX + ' 0 ' + big + ' 0 ' + i2[0] + ' ' + i2[1] + ' Z"/>';
 }
 
-/** 経過の並び。**クラス名は `vr` / `v-ph` … と前置きを付ける**（2026-09-04）。
-    素の `ph` は**タイムラインの赤い縦線**（再生位置）のクラスで、そのまま使うと
-    フェーズの行が `position:absolute` の赤い 1px 線になって盤の横に立っていた。 */
-function logRows(r) {
-  var dur = r.dur || 240, out = [], i;
-  var sp = phaseSpans(r), gr = ggRuns(r);
-  for (i = 0; i < sp.length; i++) {
-    out.push([sp[i].t0, 'v-ph', 'フェーズ ' + (+sp[i].p + 1) +
-              (sp[i].atg ? '（ゲージ）' : sp[i].need == null ? '' : '（HP）')]);
-  }
-  for (i = 0; i < (gr.abs || []).length; i++) {
-    var a = gr.abs[i];
-    out.push([a.t, 'v-abs', '吸収　転倒 ' + a.n + ' 体　ゲージ ' +
-              Math.round(a.g / 100) + '%']);
-  }
-  for (i = 0; i < (gr.hits || []).length; i++) {
-    out.push([gr.hits[i].t, 'v-gg', 'グロッキー　' + fmt(gr.hits[i].t) + '〜' + fmt(gr.hits[i].until) + ' 秒']);
-  }
-  var us = usesSorted().filter(function (u) { return u.no == null; });
-  for (i = 0; i < us.length; i++) {
-    var u = us[i], nm = (st.party[u.i] || {}).en || '?';
-    out.push([u.t, 'v-ex', nm + '　' + u.k +
-              (u.tg != null ? '　当たる数 ' + (u.mc || 1) + (u.hb ? '＋本体' : '') : '')]);
-  }
-  out.sort(function (x, y) { return x[0] - y[0]; });
-  var h = '';
-  for (i = 0; i < out.length; i++) {
-    if (out[i][0] > dur + 1e-9) { continue; }
-    h += '<div class="vr ' + out[i][1] + '"><b>' + fmt(out[i][0]) + '</b>' +
-         esc(out[i][2]) + '</div>';
-  }
-  return h || '<p class="mut tiny">まだ何も置いていません</p>';
-}
-
 /** **盤で置いたもの。**`usesSorted` の写しではなく `st.tl` の正本から読む
     （ドラッグの最中は写しが古いことがある）。 */
 export function placedOf(u) {
@@ -240,24 +242,62 @@ export function placedOf(u) {
 
 /** **その 1 発の当たり。**人が置いていればその位置で、置いていなければ
     「いちばん多く巻き込める置き方」（`bestHitsOf`）。 */
-export function coverOfUse(r, u, sc) {
+export function coverOfUse(r, u, sc, bp) {
   if (!u || !st.party[u.i]) { return null; }
   var sid = st.party[u.i].id, kd = u.k;
   var sh = (B.area[sid] || {})[kd], gm = (B.geo[sid] || {})[kd];
   if (!sh || !gm) { return null; }
   var pd = placedOf(u);
+  var bpe = bp === undefined ? pd.bp : bp;
   var ex = sc.wave || false, on = sc.gg ? ['st:Groggy'] : null;
   if (pd.ax != null && pd.ay != null) {
-    return hitsAtOf(r, sid, kd, sc.sec, ex, on, { x: pd.ax, y: pd.ay }, pd.bp);
+    return hitsAtOf(r, sid, kd, sc.sec, ex, on, { x: pd.ax, y: pd.ay }, bpe);
   }
   var q = bestHitsOf(r, sid, kd, sc.sec, ex, on) || hitsOf(r, sid, kd, sc.sec, ex, on);
-  if (q && pd.bp) {
+  if (q && bpe) {
     // 体を動かしてあれば、置き方はそのままで数え直す
-    var q2 = hitsAtOf(r, sid, kd, sc.sec, ex, on, q.aim || q.c, pd.bp);
+    var q2 = hitsAtOf(r, sid, kd, sc.sec, ex, on, q.aim || q.c, bpe);
     if (q2) { return q2; }
   }
   return q;
 }
+
+/** **盤が決められる 1 発は、当たる先・当たる数・本体にも当たるかを盤から書く。**
+
+    2026-09-04 の先生の指示「盤で決めるなら入力欄の当たる先当たる数
+    ボス本体に当たるかどうかは入力させなくていいかな」。入力欄はこの 3 つが
+    決まる発では出さず（`useedit.js`）、代わりにここが `st.tl` へ書き戻す。
+    盤のデータが無い相手・範囲の形が無い枠はそのまま人の入力を使う。
+
+    **同じ入力なら数え直さない**（`_ak` に鍵を残す）。`draw()` は操作のたびに
+    走るので、毎回 `bestHitsOf` を回すと重い。 */
+export function syncAim(r) {
+  if (!r || !r.board) { return; }
+  var us = usesSorted(), i, u, raw, sid, sc, q, a, key;
+  for (i = 0; i < us.length; i++) {
+    u = us[i];
+    if (u.no != null || u.ix == null) { continue; }
+    raw = st.tl[u.ix];
+    if (!raw || !st.party[u.i]) { continue; }
+    sid = st.party[u.i].id;
+    // **摘みが出るか（`placeKind`）では絞らない。**位置を選べない枠でも
+    // 形と射程は決まっているので、当たりは盤から出せる（ケイの EX がそれ。
+    // 2026-09-04 に `placeKind` で絞って 4 人ぶん取りこぼしていた）
+    if (!(B.area[sid] || {})[u.k] || !(B.geo[sid] || {})[u.k]) { delete raw._ak; continue; }
+    sc = sceneAt(r, u.t);
+    key = [r.cid, sid, u.k, sc.sec, sc.wave, sc.gg ? 1 : 0,
+           raw.ax, raw.ay, raw.bp ? JSON.stringify(raw.bp) : ''].join('|');
+    if (raw._ak === key) { continue; }
+    q = coverOfUse(r, { i: u.i, k: u.k, ax: raw.ax, ay: raw.ay, bp: raw.bp }, sc);
+    a = aimFromHits(r, q);
+    if (!a) { delete raw._ak; continue; }
+    raw._ak = key; raw.tg = a.tg; raw.mc = a.mc; raw.hb = a.hb;
+  }
+}
+
+/** その 1 発を盤が決めたか（＝「当たる先・当たる数・本体にも」の入力欄を
+    出さなくていいか）。**`syncAim` が書いた印を見るだけ。** */
+export function aimByBoard(u) { return !!(u && u._ak); }
 
 export function drawView() {
   var bd = $('viewbd');
@@ -267,23 +307,33 @@ export function drawView() {
   var dur = r.dur || 240;
   var t = VT == null ? 0 : Math.max(0, Math.min(dur, VT));
   var sc = sceneAt(r, t);
-  var sh = pickShot(r);
+  var sh = pickShot(r, t);
   var sid = sh ? (st.party[sh.i] || {}).id : null;
   var gm = sid != null ? (B.geo[sid] || {})[sh.k] : null;
   var pk = placeKind(gm);
-  var q = sh ? coverOfUse(r, sh, sc) : null;
+  var bp = bpAt(r, t, sc);
+  var q = sh ? coverOfUse(r, sh, sc, bp) : null;
   var pd = placedOf(sh);
   var bs = q ? q.bs : movedBodies(bodiesOf(r, sc.sec, sc.wave || false,
-                                           sc.gg ? ['st:Groggy'] : null), pd.bp);
-  var nm = sh ? ((st.party[sh.i] || {}).en || '') : '';
+                                           sc.gg ? ['st:Groggy'] : null), bp);
   var put = sh && (pd.ax != null || pd.bp);
-  bd.innerHTML =
-    '<div class="vhd"><b>' + fmt(t) + ' 秒</b>' +
-    '<span class="mut tiny">フェーズ ' + (+sc.p + 1) + (sc.gg ? '　グロッキー' : '') + '</span>' +
-    (sh ? '<span class="mut tiny">' + esc(nm) + '　' + esc(sh.k) + '　' + fmt(sh.t) + ' 秒</span>' : '') +
-    (q ? '<span class="mut tiny">覆う ' + q.n + ' 体（部位 ' + q.nb + (q.hb ? '＋本体' : '') + '）</span>' : '') +
-    (put ? '<button type="button" class="btn2 sq" data-h="reset" title="盤で置いたものを消して、いちばん多く巻き込める置き方に戻す">戻す</button>' : '') +
-    '</div>' + boardSvg(r, sc.sec, sh, q, bs, pk);
-  var lg = $('viewlg');
-  if (lg) { lg.innerHTML = logRows(r); }
+  // **見出しは作り直さない。**再生中は 1 秒に何十回も描き直すので、毎回
+  // `innerHTML` で入れ替えると押している最中にボタンが消えて
+  // **click が発火しない**（2026-09-04 に実測。止められなくなる）。
+  // 中身だけ書き換える
+  var hd = bd.querySelector('.vhd'), bx = bd.querySelector('.vbx');
+  if (!hd || !bx) {
+    bd.innerHTML =
+      '<div class="vhd">' +
+      '<button type="button" class="btn2 sq vpl" data-h="play" title="再生／停止"></button>' +
+      '<button type="button" class="btn2 sq vrt" data-h="rate" title="速さ"></button>' +
+      '<button type="button" class="btn2 sq vrs" data-h="reset" title="盤で置いたものを消して、いちばん多く巻き込める置き方に戻す">戻す</button>' +
+      '<b class="vclk"></b></div><div class="vbx"></div>';
+    hd = bd.querySelector('.vhd'); bx = bd.querySelector('.vbx');
+  }
+  hd.querySelector('.vpl').textContent = PLAY ? '\u23f8' : '\u25b6';
+  hd.querySelector('.vrt').textContent = '\u00d7' + RATE;
+  hd.querySelector('.vrs').hidden = !put;
+  hd.querySelector('.vclk').textContent = clock(dur - t);
+  bx.innerHTML = boardSvg(r, sc.sec, sh, q, bs, pk);
 }

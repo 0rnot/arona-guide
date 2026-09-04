@@ -4,7 +4,7 @@ import { exBuffDur, exCost, exDur } from './uses.js';
 import { boss, diff } from './boss.js';
 import { kindOf, recPower, sim, whyOf } from './engine.js';
 import { costRun, poly, ticks, vgrid, yOf } from './chart.js';
-import { ggAt, ggRuns, phaseSpans } from './carry.js';
+import { ggAt, ggRuns, killAt, phaseSpans } from './carry.js';
 import { buffTip, drawCrit, drawRate, n0 } from './rate.js';
 import { drawErr, kpi } from './kpi.js';
 import { clamp } from './stats.js';
@@ -17,7 +17,7 @@ import { altOf } from './alt.js';
 import { zero } from './clear.js';
 import { movePh } from './ord.js';
 import { drawAlts } from './left.js';
-import { drawView } from './view.js';
+import { drawView, syncAim } from './view.js';
 import { drawUse } from './useedit.js';
 import { drawRows } from './rows.js';
 import { bstName, bstTip } from './bossui.js';
@@ -30,6 +30,12 @@ export function draw() {
   // `sim` の鍵で捨てるので、いちばん先に引いておく（2026-09-03）
   sim();
   var r = diff(), dur = r.dur || 240, px = st.px, W = Math.max(200, Math.round(dur * px));
+  // **盤が決められる発は、当たる先・当たる数・本体にも当たるかを盤から書き戻す**
+  // （2026-09-04）。`_rt`（コスト指定の実際の秒）が要るので `sim()` のあとに走らせ、
+  // **書き戻したら `sim()` をもう一度**。`sim` の鍵は `st.tl` そのものなので、
+  // 何も変わらなければ 2 回目はただの取り出しで終わる
+  syncAim(r);
+  sim();
   var ph0 = r.ph['0'] || { ev: [], g: null, hp: [], raw: [] };
   var side = '', cv = '';
   function lane(hh, inner, cls) {
@@ -469,6 +475,13 @@ export function draw() {
     cv += '<div class="awy' + (w9.k === 'mob' ? ' mob' : '') + '" style="left:' + (w9.t0 * px).toFixed(1) + 'px;width:' +
           Math.max(1, (Math.min(w9.t1, dur) - w9.t0) * px).toFixed(1) + 'px" title="ボスに当たらない区間\n' +
           (+w9.t0).toFixed(1) + '〜' + Math.min(w9.t1, dur).toFixed(1) + '秒"></div>';
+  }
+  // **倒しきる秒に線を引く**（2026-09-04 の先生の指示
+  // 「倒しきった位置がタイムライン上で線でわかるようにしてほしい」）
+  var kt9 = killAt(r);
+  if (kt9 != null && kt9 <= dur) {
+    cv += '<div class="kil" style="left:' + (kt9 * px).toFixed(1) +
+          'px" title="倒しきる ' + kt9.toFixed(2) + ' 秒"></div>';
   }
   cv += '<div class="ph" id="ph" style="left:-10px"></div><div class="phbox" id="phbox" hidden></div>';
   $('side').innerHTML = side;

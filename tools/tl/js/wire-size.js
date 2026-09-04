@@ -55,8 +55,10 @@ export function wireSize() {
     var boxes = [], i;
     var ls = document.querySelectorAll('.tlapp .tlleft > .pane');
     var rs = document.querySelectorAll('.tlapp .tlright > .pane, .tlapp .tlright > .stage');
-    for (i = 0; i < ls.length; i++) { boxes.push(['L' + i, ls[i]]); }
-    for (i = 0; i < rs.length; i++) { boxes.push(['R' + i, rs[i]]); }
+    // **鍵は並び順ではなく名前**（`data-pn`）。パネルが 1 枚増減しただけで
+    // 保存した高さが隣へずれる（2026-09-04 に盤を消して実際にずれた）
+    for (i = 0; i < ls.length; i++) { boxes.push([ls[i].getAttribute('data-pn') || ('L' + i), ls[i]]); }
+    for (i = 0; i < rs.length; i++) { boxes.push([rs[i].getAttribute('data-pn') || ('R' + i), rs[i]]); }
     for (i = 0; i < boxes.length; i++) { arm(boxes[i][0], boxes[i][1]); }
     function arm(key, el) {
       var saved = loadSize(key);

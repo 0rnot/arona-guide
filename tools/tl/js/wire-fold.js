@@ -49,7 +49,10 @@ export function wireFold() {
     for (i = 0; i < ps.length; i++) {
       var h = ps[i].querySelector('h2.sect');
       if (!h) { continue; }
-      ps[i].setAttribute('data-fold', 'p' + i);
+      // **鍵は並び順ではなく名前**（`data-pn`）。見出しの無いパネル（盤）を
+      // 消したときに番号がずれて、保存した畳みが別のパネルに当たった
+      // （2026-09-04。「相手」が勝手に畳まれた状態で開いていた）
+      ps[i].setAttribute('data-fold', ps[i].getAttribute('data-pn') || ('p' + i));
       // **見出しは `.bd` の直下とは限らない。**「相手」と「シナリオ別達成率」は
       // `.fields.wrapf` / `.row` の中にあって、そのかたまりごと隠すと**摘みまで
       // 消えて開けなくなる**（2026-09-01 の先生の指摘）。
@@ -65,7 +68,8 @@ export function wireFold() {
       btn.innerHTML = '<span class="cv"></span>';
       h.insertBefore(btn, h.firstChild);
       var was = null;
-      try { was = localStorage.getItem('tl-fold-p' + i); } catch (e2) { void e2; }
+      try { was = localStorage.getItem('tl-fold-' + ps[i].getAttribute('data-fold')); }
+      catch (e2) { void e2; }
       if (was === '1') { ps[i].classList.add('folded'); btn.setAttribute('aria-expanded', 'false'); }
     }
   })();
