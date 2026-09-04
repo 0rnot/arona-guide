@@ -175,26 +175,26 @@ export function coverOf(sh, c, fw, bs, gm) {
   var off = gm && gm[7];
   var c2 = off ? { x: c.x + off[1] * ux + off[0] * -uy,
                    y: c.y + off[1] * uy + off[0] * ux } : c;
+  // **体の大きさぶん、許す角度を広げる。**中心だけで見ると、ボスのような
+  // 大きな体（半径 7.0）が扇の縁に掛かっていても外れる
+  function inAng(dx, dy, d, br) {
+    if (!deg || deg >= 360) { return true; }
+    if (d <= br) { return true; }
+    var cs = Math.max(-1, Math.min(1, (dx * ux + dy * uy) / d));
+    var slop = Math.asin(Math.min(1, br / d)) * 180 / Math.PI;
+    return (Math.acos(cs) * 180 / Math.PI) <= deg / 2 + slop;
+  }
   for (i = 0; i < bs.length; i++) {
     var p = bs[i], dx = p.x - c2.x, dy = p.y - c2.y, d = Math.sqrt(dx * dx + dy * dy);
     var ok = false;
     if (typ === 'Circle') {
       ok = d - p.br <= R && (!EX || d + p.br >= EX);
     } else if (typ === 'Donut') {
-      ok = d - p.br <= R && d + p.br >= EX;
+      // **ドーナツは「穴のあいた扇」。**`Degree` を持っていて、
+      // 360 とはかぎらない（ハルナ 90 度・スミレ 70 度・ヒナタ 50 度）
+      ok = d - p.br <= R && d + p.br >= EX && inAng(dx, dy, d, p.br);
     } else if (typ === 'Fan') {
-      // **体の大きさぶん、許す角度を広げる。**中心だけで見ると、
-      // ボスのような大きな体（半径 7.0）が扇の縁に掛かっていても外れる
-      if (d - p.br <= R) {
-        if (d <= p.br) {
-          ok = true;
-        } else {
-          var cs = (dx * ux + dy * uy) / d;
-          cs = Math.max(-1, Math.min(1, cs));
-          var slop = Math.asin(Math.min(1, p.br / d)) * 180 / Math.PI;
-          ok = (Math.acos(cs) * 180 / Math.PI) <= (deg || 360) / 2 + slop;
-        }
-      }
+      ok = d - p.br <= R && inAng(dx, dy, d, p.br);
     } else if (typ === 'Obb') {
       // 前後（向き）と左右（垂線）に落とす。**`Height` が前後、`Width` が左右**
       var f = dx * ux + dy * uy, s = dx * -uy + dy * ux;

@@ -4421,15 +4421,31 @@ _stage_cache = {}
 
 
 def tl_stage(name):
-    """`Stage/<名前>.json`。引けなければ空の辞書。"""
+    """`Stage/<名前>.json`。引けなければ空の辞書。
+
+    **`GroundExcelTable.StageFileName` と実際のファイル名は大小が食い違う。**
+    `EN0022_Lunatic` と書いてあってファイルは `en0022_lunatic.json`、
+    `207301_raid_hod_Indoor_normal` に対して `..._indoor_normal.json`。
+    raw.githubusercontent.com は大小を区別するのでそのままだと 404。
+    **47 本がこれで落ちていて、ボス 8 体（ホド屋内・グレゴリオ・クロカゲ・
+    ゲブラ・イェソド 3 種・ドラム缶ガニ）に盤が無かった**（2026-09-04）。
+    小文字にして引き直す。
+    """
     if not name:
         return {}
     if name not in _stage_cache:
-        try:
-            _stage_cache[name] = get_json(BASTG.format(name))
-        except Exception as e:
-            print(f"  Stage が引けない: {name} ({e})")
-            _stage_cache[name] = {}
+        got, err = None, None
+        for nm in (name, name.lower()):
+            try:
+                got = get_json(BASTG.format(nm))
+                break
+            except Exception as e:
+                err = e
+            if nm == name.lower():
+                break
+        if got is None:
+            print(f"  Stage が引けない: {name} ({err})")
+        _stage_cache[name] = got or {}
     return _stage_cache[name] or {}
 
 
