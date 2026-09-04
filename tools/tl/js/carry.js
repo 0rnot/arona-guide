@@ -224,7 +224,7 @@ export function phaseSpans(r) {
     // **前は `hp` が空なので帯が 1 本のまま**で、吸収の予定が 72 秒で尽きていた。
     // 240 秒のうちグロッキーが 1 回も立たない TL があったのはこれが原因
     if (!list.length && cph.atg && cph.atg[1] > 0 && r.ph[String(cph.atg[2])]) {
-      var t1a = t0 + cph.atg[1];
+      var t1a = bossAdv(t0, cph.atg[1]);
       if (t1a >= dur) { break; }
       out.push({ p: cur, t0: t0, t1: t1a, need: null, atg: true });
       cur = String(cph.atg[2]); t0 = t1a;
@@ -413,7 +413,8 @@ export function ggAbsorbRuns(r, g) {
     var pd = r.ph[sp[i].p] || {}, ev = pd.ev || [], lim = Math.min(sp[i].t1, dur);
     for (q = 0; q < ev.length; q++) {
       if (ev[q][1] == null || (ev[q][2] || []).indexOf(gg.exi) < 0) { continue; }
-      var tv = sp[i].t0 + ev[q][1];
+      // **フェーズの頭からの秒はボスの時計。**グロッキーの間は進まない
+      var tv = bossAdv(sp[i].t0, ev[q][1]);
       if (tv > lim + 1e-9 || tv > dur) { continue; }
       ts.push(tv);
     }
@@ -437,6 +438,28 @@ export function ggAbsorbRuns(r, g) {
       if (!d) { continue; }
       hd.push([u.t, d[sc.key] || 0, Math.min(u.mc || 1, gg.cap)]);
     }
+    // **通常攻撃はいちばん近い敵に当たる**（2026-09-04）。
+    // `LevelSkill` の根の `TargetSortRule` は `{"SortCriteria": "Distance",
+    // "OrderBy": "Lowest"}` で、盤では大きなペロロ（y 30〜32）が生徒（y 25.95）と
+    // ボス（y 40.46）の間に居る。**転移が 100% なのでボスの HP の減り方は変わらない**が、
+    // 転倒（HP 半分）はこれで起きる。前は EX だけ数えていて、75 発のうち 6 発しか
+    // ゲージに効かず、実クリアの TL が 240 秒で 1 度もグロッキーにならなかった
+    // **束ねる幅は `dmgCurve0` と同じ 5 秒**（バフで 1 発の大きさが変わるので、
+    // 1 度計って使い回すと、その子のぶんが丸ごと 0 になることがある）
+    for (i = 0; i < SLOTS; i++) {
+      if (!st.party[i]) { continue; }
+      var nts = naTimes(i, dur), nbk = {}, bk2;
+      for (q = 0; q < nts.length; q++) {
+        if (nts[q] > dur + 1e-9 || awayAt(nts[q], true)) { continue; }
+        bk2 = Math.floor(Math.min(nts[q], dur) / 5);
+        if (!(bk2 in nbk)) {
+          var dn2 = dmgOf(i, r, (bk2 + 0.5) * 5, 'Normal', null, ix);
+          nbk[bk2] = dn2 ? (dn2[sc.key] || 0) : 0;
+        }
+        if (nbk[bk2]) { hd.push([nts[q], nbk[bk2], 1]); }
+      }
+    }
+    hd.sort(function (a, b) { return a[0] - b[0]; });
   } finally { setPICKF(sv); }
   var gauge = 0, prev = 0, until = -1;
   out.pts.push([0, 0]);
@@ -525,6 +548,22 @@ export var GGSP = null, GGBUSY = false;
    次の周がそれを見る。1 周目は HP 満タン（倍率 1 ぶん）から始まる。
    **見ているのは本体の池だけ**（部位ごとの HP は追っていない）。 */
 export var HPSP = null;
+/** **転倒しているボスは動かない。**`t0` からボスの時計で `need` 秒ぶん進んだ実時刻。
+    グロッキーの 20 秒はボスが倒れていて通常攻撃を撃たないので、
+    フェーズのゲージ（`CheckActiveGaugeOver`）も吸収の予定も進まない（2026-09-04）。
+    区間は `ggSolve` が解いた `GGSP`。**1 周目は空なので止まらず、2 周目から効く**
+    （`ggSolve` は最大 4 周まわして、区間が動かなくなったら止まる）。 */
+export function bossAdv(t0, need) {
+  var t = t0, left = need, sp = GGSP || [], i;
+  for (i = 0; i < sp.length; i++) {
+    var a = sp[i][0], b = sp[i][1];
+    if (b <= t) { continue; }
+    if (a >= t + left) { break; }
+    left -= Math.max(0, a - t);
+    t = Math.max(t, b);
+  }
+  return t + left;
+}
 export function ggCritAt(t) {
   if (t == null) { return false; }
   for (var g = 0; g < (st.bst || []).length; g++) {
