@@ -10,7 +10,27 @@ import { fillBoss } from './bossui.js';
 export function snapshot() {
   return { v: 2, boss: boss().id, grp: boss().g, diff: diff().df, arm: st.arm,
            mode: st.mode, pi: st.pi, bst: st.bst,
+           // **当たる先（`tg`）は `sub` の添字なので、部位の並びが変わると別の体を
+           // 指してしまう**（2026-09-05。大きなペロロミニオンの行をまとめたら、
+           // 先生の TL の `tg: 1` が小さなペロロミニオンを指した）。
+           // 書き出したときの並びの id を添えて、読むときに id で引き直す
+           subs: (diff().sub || []).map(function (s) { return s.id; }),
            parties: st.parties, mk: st.mk, goal: st.goal };
+}
+/** 書き出したときの `sub` の並び（id）で、`tg` を今の並びに引き直す。
+    並びが無い古い書き出しはそのまま。**id が今の並びに無ければ、その体より
+    小さくていちばん近い代表**へ寄せる（`board.js` の `subIxOfCid` と同じ考え） */
+function remapTg(tg, subs) {
+  if (tg == null) { return null; }
+  tg = +tg;
+  if (!subs || !subs.length || tg < 0 || tg >= subs.length) { return tg; }
+  var id = subs[tg], now = diff().sub || [], i, best = -1;
+  for (i = 0; i < now.length; i++) { if (now[i].id === id) { return i; } }
+  for (i = 0; i < now.length; i++) {
+    if (!now[i].cnt || now[i].id > id) { continue; }
+    if (best < 0 || now[i].id > now[best].id) { best = i; }
+  }
+  return best < 0 ? tg : best;
 }
 export function restore(o) {
   if (!o || (o.v !== 1 && o.v !== 2)) { throw new Error('形式が違います（v:1 か v:2 ではありません）'); }
@@ -49,7 +69,7 @@ export function restore(o) {
                        md: u.md || 't', cv: u.cv == null ? null : +u.cv,
                        // **当たる先・当たる数・貫通と、その 1 発だけ外した窓**も
                        // 持ち越す（2026-09-03。書き出しには入っていたのに読めていなかった）
-                       tg: u.tg == null ? null : +u.tg,
+                       tg: remapTg(u.tg, o.subs),
                        mc: u.mc == null ? null : +u.mc,
                        hb: u.hb ? 1 : 0,
                        gx: (u.gx && u.gx.length) ? u.gx.slice() : null,

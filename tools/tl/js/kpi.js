@@ -117,7 +117,8 @@ export function kpi() {
         '<i class="cv">\u25be</i><select id="k-scen">' + so + '</select></span>',
         t.n ? n0(v) : '—',
         'EX ' + ts.ex.n + '・NS ' + ts.ns.n + '・通常 ' + ts.na.n +
-        (ts.ss && ts.ss.n ? '・SS ' + ts.ss.n : '') + ' 発' + band) +
+        (ts.ss && ts.ss.n ? '・SS ' + ts.ss.n : '') +
+        (ts.dl && ts.dl.n ? '・自傷 ' + ts.dl.n : '') + ' 発' + band) +
     box('ボス HP に対して', hp ? real.toFixed(1) + '%' : '—',
         hp ? (real >= 100 ? '倒しきれます（HP ' + n0(hp) + '）' : n0(hp)) : '—') +
     probBox() +

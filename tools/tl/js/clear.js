@@ -5,7 +5,8 @@ import { awayAt, carryIn, ggSolve, partyCalc, trOf } from './carry.js';
 import { clamp } from './stats.js';
 import { naTimes } from './na.js';
 import { usesSorted } from './buff.js';
-import { PICKF, dmgOf, nbOf, setPICKF } from './dmg.js';
+import { PICKF, dmgOf, hitTimes, nbOf, setPICKF } from './dmg.js';
+import { deadlyPts } from './deadly.js';
 import { epEvery, epOkAt, epOn, epTierPick } from './ep.js';
 
 /** **突破率。**置いた TL で、ボスの HP を削り切れる確率。
@@ -37,7 +38,11 @@ export function lastUseAt(r) {
     // `nsTimes` から足している行）。人が置いた発ではないので数えない
     if (us[i].no != null) { continue; }
     if (us[i].t > dur + 1e-9) { continue; }
-    if (t == null || us[i].t > t) { t = us[i].t; }
+    // **最後の着弾まで。**「入れたスキルの最後で倒し切れる確率」（先生の定義）の
+    // 「最後」は撃った瞬間ではなく、その発のダメージが入り終わる時刻
+    var ht = hitTimes((st.party[us[i].i] || {}).id, us[i].k) || [0];
+    var e = Math.min(us[i].t + ht[ht.length - 1], dur);
+    if (t == null || e > t) { t = e; }
   }
   return t;
 }
@@ -80,22 +85,30 @@ export function clearStat1(r, pf, pid, deadAt, hpNeed) {
       n++;
       if (u.tg != null && pp !== pid) {
         // **範囲攻撃は当たった数だけ別々に振られる。**平均は ×mc、分散も ×mc。
-        // 転移率は定数なので分散は 2 乗で効く
-        mu += d.avg * tr * mc;
+        // 転移率は定数なので分散は 2 乗で効く。
+        // **1 体にしか当たらないぶん（`one`）は ×mc しない**（2026-09-05。分散はそのまま）
+        var o1 = d.one ? d.one.avg : 0;
+        mu += (d.avg - o1) * tr * mc + o1 * tr;
         va += (d.va || 0) * tr * tr * mc;
         // **直線に伸びる攻撃は部位を貫いて本体にも当たる**（帯の「ボス本体にも」）。
         // `dmgCurve0` は数えていたのに、突破率と与ダメージが数えていなかった
         // （2026-09-03。画面で選んでも上の数字が動かない）
         if (u.hb) {
           var dbb = dmgOf(u.i, r, u.t, u.k, u.pk, null, u.gx, u.no, null, nbOf(u), 1);
-          if (dbb) { mu += dbb.avg; va += dbb.va || 0; }
+          if (dbb) { mu += dbb.avg - (dbb.one ? dbb.one.avg : 0); va += dbb.va || 0; }
         }
       } else {
         // **同じ池を分け合う体に当てた発は、当たった数だけ池へ入る**（2026-09-03）
         var mcp1 = (u.tg != null && (u.mc || 1) > 1)
           ? Math.min(u.mc, poolBodies(r, pid)) : 1;
-        mu += d.avg * mcp1; va += (d.va || 0) * mcp1;
+        var o3 = d.one ? d.one.avg : 0;
+        mu += (d.avg - o3) * mcp1 + o3; va += (d.va || 0) * mcp1;
       }
+    }
+    // **ミニオンの固定ダメージ**（`deadly.js`。2026-09-05）。振れは無いので平均にだけ足す
+    if (pid === r.cid) {
+      var dlp = deadlyPts(r, 'avg');
+      for (q = 0; q < dlp.length; q++) { if (dlp[q][0] <= cut + 1e-9) { mu += dlp[q][1]; n++; } }
     }
     var dur = r.dur || 240, STEP = 5;
     for (i = 0; i < SLOTS; i++) {
@@ -172,17 +185,25 @@ export function total0(r) {
     var d = dmgOf(u.i, r, u.t, u.k, u.pk, u.tg, u.gx, u.no, null, nbOf(u));
     if (!d) { continue; }
     if (tr2 || mcp2 > 1) {
-      var f2 = tr2 || mcp2;
-      d = { min: d.min * f2, avg0: d.avg0 * f2, avg: d.avg * f2,
-            avgC: d.avgC * f2, max: d.max * f2 };
+      // **1 体にしか当たらないぶん（`one`）には体の数を掛けない**（2026-09-05。
+      // マコト（水着）の 1 発目 275.51%）。転移なら転移率だけ掛ける
+      var f2 = tr2 || mcp2, f1 = tr2 ? trOf(r, u.tg) : 1, o1 = d.one || zero();
+      d = { min: (d.min - o1.min) * f2 + o1.min * f1,
+            avg0: (d.avg0 - o1.avg0) * f2 + o1.avg0 * f1,
+            avg: (d.avg - o1.avg) * f2 + o1.avg * f1,
+            avgC: (d.avgC - o1.avgC) * f2 + o1.avgC * f1,
+            max: (d.max - o1.max) * f2 + o1.max * f1 };
     }
     // **「ボス本体にも当たる」を与ダメージにも数える**（2026-09-03。
     // `dmgCurve0` だけが数えていて、上の「与ダメージ」は素通りしていた）
     if (u.tg != null && u.hb) {
       var dbh = dmgOf(u.i, r, u.t, u.k, u.pk, null, u.gx, u.no, null, nbOf(u), 1);
       if (dbh) {
-        d = { min: d.min + dbh.min, avg0: d.avg0 + dbh.avg0, avg: d.avg + dbh.avg,
-              avgC: d.avgC + dbh.avgC, max: d.max + dbh.max };
+        // 1 体にしか当たらないぶんは選んだ体に入っていて、本体には入らない
+        var o2 = dbh.one || zero();
+        d = { min: d.min + dbh.min - o2.min, avg0: d.avg0 + dbh.avg0 - o2.avg0,
+              avg: d.avg + dbh.avg - o2.avg, avgC: d.avgC + dbh.avgC - o2.avgC,
+              max: d.max + dbh.max - o2.max };
       }
     }
     // **形態違いは `Ex1` / `Ex2`。**`=== 'Ex'` で比べると NS 側に入っていた
@@ -231,6 +252,14 @@ export function total0(r) {
       }
     }
   }
-  all.ex = ex; all.ns = ns; all.na = na; all.ss = ss;
+  // **HP が半分を切ったミニオンの固定ダメージ**（`deadly.js`。2026-09-05）。
+  // 振れ方ごとに引き金が変わるので、鍵ごとに数え直す
+  var dl = zero(), dp;
+  for (k = 0; k < KS.length; k++) {
+    dp = deadlyPts(r, KS[k]);
+    for (q = 0; q < dp.length; q++) { dl[KS[k]] += dp[q][1]; all[KS[k]] += dp[q][1]; }
+    if (KS[k] === 'avg') { dl.n = dp.length; all.n += dp.length; }
+  }
+  all.ex = ex; all.ns = ns; all.na = na; all.ss = ss; all.dl = dl;
   return all;
 }

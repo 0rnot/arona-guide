@@ -227,24 +227,50 @@ export function subIxOfCid(r, cid) {
   return best < 0 ? null : best;
 }
 
+/** **ダメージの計算から見て同じ相手か**を表す札。`aimOf`（`target.js`）が返す行のうち、
+    `dmg.js` / `alt.js` / `target.js` / `ep.js` が実際に読む欄だけを並べる。
+
+    ペロロジラの大きなペロロミニオンは `sub` の中で何行かに分かれている
+    （`_Move` の付く体と据え置きの体。`scripts/build-tool-data.py` の `_subs`）が、
+    `DB/CharacterStatExcelTable.json` では 7305701〜7305730 の 30 体とも
+    HP 210000・防御 6000・Unarmed・転移 100% で、**1 発が何体に当たるかを
+    数えるうえでは同じもの**（2026-09-05 に原文で裏取り）。 */
+function aimSig(r, ix) {
+  var s = (r.sub || [])[ix];
+  if (!s) { return 'x' + ix; }
+  return [s.def, s.armor, s.bullet, s.size, s.damaged, s.dodge, s.crR, s.cdR,
+          s.stab, s.stabR, s.defpr, (s.ad || []).join(''), s.tr || 0,
+          s.pool || '', s.dmgOnly ? 1 : 0, s.kill ? 1 : 0].join('|');
+}
+
 /** 当たり（`hitsAtOf` / `bestHitsOf` の返り値）から
     「当たる先 `tg`・当たる数 `mc`・本体にも当たるか `hb`」を出す。
 
     **2026-09-04 の先生の指示**「盤で決めるなら入力欄の当たる先当たる数
     ボス本体に当たるかどうかは入力させなくていいかな」。
-    種類がまざったときは**いちばん多く当たった種類**を当たる先にする。 */
+    種類がまざったときは**いちばん多く当たった種類**を当たる先にする。
+
+    **種類は `sub` の行ではなく素性（`aimSig`）で分ける**（2026-09-05）。
+    行で分けると、ペロロジラの大きなペロロミニオン 6 体に当たった発が
+    「`_Move` の行 1 体」と「据え置きの行 5 体」に割れて、多いほうの 5 体しか
+    数えなかった。先生の TL がマコト（水着）の EX を 6 体に当てているのに
+    与ダメージが 40,048,000 に届かなかった原因の 1 つ
+    （「攻撃スキルの位置変えると与えるダメージ変わるんだけどなんで？」）。 */
 export function aimFromHits(r, q) {
   if (!q || !q.hit) { return null; }
-  var cnt = {}, i, ix, best = null;
+  var cnt = {}, rep = {}, i, ix, sg, best = null;
   for (i = 0; i < q.hit.length; i++) {
     if (q.hit[i].cid === r.cid) { continue; }
     ix = subIxOfCid(r, q.hit[i].cid);
     if (ix == null) { continue; }
-    cnt[ix] = (cnt[ix] || 0) + 1;
-    if (best == null || cnt[ix] > cnt[best]) { best = ix; }
+    sg = aimSig(r, ix);
+    cnt[sg] = (cnt[sg] || 0) + 1;
+    // 代表は `sub` の若い行（画面の「当たる先」に出る名前が安定する）
+    if (rep[sg] == null || ix < rep[sg]) { rep[sg] = ix; }
+    if (best == null || cnt[sg] > cnt[best]) { best = sg; }
   }
   if (best == null) { return { tg: null, mc: 1, hb: 0 }; }
-  return { tg: +best, mc: cnt[best], hb: q.hb ? 1 : 0 };
+  return { tg: rep[best], mc: cnt[best], hb: q.hb ? 1 : 0 };
 }
 
 /** その節の生徒のビーコン。無ければ null。 */
@@ -372,20 +398,39 @@ export function coverOf(sh, c, fw, bs, gm) {
   return out;
 }
 
-/** **盤で位置を決められる枠か。**`'pos'` 中心を置ける／`'aim'` 向きだけ決まる／
-    `null` 決められない。
+/** **盤で位置を決められる枠か。**`'pos'` 中心を自由に置ける／`'ent'` 敵の体を
+    選んでその体が中心／`'aim'` 向きだけ決まる／`null` 決められない。
 
     先生の決め（2026-09-04）——「入力で詳細を開いてるスキルが**敵をターゲットできる**
     or **攻撃範囲指定できる**場合のみ盤に入力できるようにすればいいか」。
     `TargetSide` が `Enemy` でないもの（味方に撒く枠・`AliveAllyCenter`）は外す。
-    **味方の位置は盤に出さない**（先生の「味方の位置はいらないか」）。 */
+    **味方の位置は盤に出さない**（先生の「味方の位置はいらないか」）。
+
+    **`'ent'` を分けた**（2026-09-05 の先生の指摘「敵をターゲット選択してその敵を
+    中心とした位置なのか、敵指定無くただの範囲指定なのかの差別化ができてない」）。
+    `SpawnPositionType` が `InputBattleEntity` / `BattleEntity` /
+    `SkillCommandSelectedTarget` の枠は、ゲームでは**敵を 1 体選んでその体の上に
+    範囲が出る**ので、中心を体の外に置くことができない。マコト（水着）の EX が
+    これ（`SkillCommandSelectedTarget`・`Circle 350`）。`InputPosition` だけが
+    地面のどこにでも置ける。 */
 export function placeKind(gm) {
   if (!gm || gm[2] !== 'Enemy') { return null; }
   var sp = gm[0];
-  if (sp === 'InputPosition' || sp === 'InputBattleEntity' || sp === 'BattleEntity'
-      || sp === 'SkillCommandSelectedTarget') { return 'pos'; }
+  if (sp === 'InputPosition') { return 'pos'; }
+  if (sp === 'InputBattleEntity' || sp === 'BattleEntity'
+      || sp === 'SkillCommandSelectedTarget') { return 'ent'; }
   if (sp === 'Invoker') { return 'aim'; }
   return null;
+}
+
+/** **置いた点にいちばん近い体。**`'ent'` の枠の中心はここへ吸い付く。 */
+export function snapBody(bs, at) {
+  var best = null, bd = 0, i;
+  for (i = 0; i < bs.length; i++) {
+    var dd = d2(at.x, at.y, bs[i].x, bs[i].y) - bs[i].br;
+    if (best == null || dd < bd) { best = bs[i]; bd = dd; }
+  }
+  return best;
 }
 
 /** **人が動かした体を当てた盤。**`bp` は `{ 札: [x, y] }`（`bodiesOf` の `key`）。
@@ -412,8 +457,18 @@ export function hitsAtOf(r, sid, kind, si, ex, on, at, bp) {
   if (!pk) { return null; }
   var bs = movedBodies(bodiesOf(r, si, ex, on), bp);
   if (!bs.length) { return null; }
+  // **敵を選ぶ枠は、置いた点にいちばん近い体の中心へ吸い付ける**（`'ent'`）
+  if (pk === 'ent') {
+    var sb = snapBody(bs, at);
+    if (sb) { at = { x: sb.x, y: sb.y }; }
+  }
   var aim = { x: at.x, y: at.y, br: 0 };
-  var me = standOf(r, aim, gm[4], si);
+  // **向きだけ決める枠（`'aim'`。アリスの光線）は、撃つ子が置いた点へ歩かない**
+  // （2026-09-05。先生の「アリスみたいにスキルの位置じゃなくて向きを指定する
+  // キャラに盤が対応できてない」）。立ち位置は `bestHitsOf` と同じ「いちばん近い
+  // 体へ届くところ」に固定して、置いた点は向きにだけ使う。それまでは置いた点へ
+  // 届くところまで歩いていたので、摘みを引くと光線の根元が一緒に動いていた
+  var me = standOf(r, pk === 'aim' ? (aimOf(r, bs, si) || aim) : aim, gm[4], si);
   if (!me) { return null; }
   // `Invoker` は撃つ子の足元が中心。狙う点は向きを決めるだけ
   var c = pk === 'aim' ? me : { x: at.x, y: at.y };

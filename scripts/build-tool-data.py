@@ -4645,6 +4645,24 @@ def tl_board(stage_name, ex_names, ls_cache, ch_all, stat):
 # `*AuraEntityDAO` を採る**。232 枠のうち 206 枠が取れる（89%）。
 # 取れない 26 枠は `Bounce`（跳ねる弾。円でも扇でもない）が主で、
 # そこは今までどおり画面側の既定に任せる。
+_ls_doc_cache = {}
+
+
+def _ls_doc(group):
+    """`LevelSkill/<枠>.json` を 1 回だけ取って共有する（2026-09-05）。
+    `_ls_geom` / `_ls_hits` / `_ls_single` が別々に取っていたぶんを 1 回にした。
+    引けなければ空の辞書（**範囲が引けないのは致命ではない。**画面側は既定で数える）。"""
+    if group in _ls_doc_cache:
+        return _ls_doc_cache[group]
+    try:
+        d = get_json(BALS.format(group)) or {}
+    except Exception as e:  # noqa: BLE001 引けない枠は画面側が既定で数える（致命ではない）
+        print(f"  LevelSkill が引けない: {group} ({e})")
+        d = {}
+    _ls_doc_cache[group] = d
+    return d
+
+
 _geom_cache = {}
 
 
@@ -4691,12 +4709,7 @@ def _ls_geom(group):
         return None
     if group in _geom_cache:
         return _geom_cache[group]
-    try:
-        d = get_json(BALS.format(group)) or {}
-    except Exception as e:
-        # **範囲が引けないのは致命ではない。**画面側は今までどおり既定で数える
-        print(f"  LevelSkill が引けない: {group} ({e})")
-        d = {}
+    d = _ls_doc(group)
     got = None
     r = _find_area(d)
     if r:
@@ -4763,10 +4776,7 @@ def _ls_hits(group):
         return None
     if group in _hits_cache:
         return _hits_cache[group]
-    try:
-        d = get_json(BALS.format(group)) or {}
-    except Exception:
-        d = {}
+    d = _ls_doc(group)
     dm, out = _dmg_gids(), []
 
     def _ab(node, at, key):
@@ -4817,6 +4827,61 @@ def _ls_hits(group):
     _tl(d, 0, 0)
     got = sorted(set(out)) or None
     _hits_cache[group] = got
+    return got
+
+
+_single_cache = {}
+
+
+def _ls_single(group):
+    """**1 体にしか当たらない効果**の名札（2026-09-05）。`{GroupId: True/False}`。
+
+    マコト（水着）の EX は 1 発目（`CH0344_Ex01_Effect01`、275.51%）が
+    `TargetProjectileEntity` の `Abilities` で**選んだ 1 体だけ**に入り、
+    5 コマ（`Effect02` / `Effect03`）が `CircleAreaEntity` の `AreaAbilities` で
+    円の中の全員に入る。道具は 1 発目も円の中の体の数だけ数えていて、
+    ペロロミニオン 6 体＋本体で 7 倍だった（先生の動画 GzfPSXaZKlU では
+    1 発目のポップアップは 1 つ。2 発目の発動で 149,312）。
+
+    単体と見なすのは、`Target…Entity` の `Abilities` で配られて、
+    その枠の `EssentialCandidateRule.MaxTargetCount` が 1 のものだけ。
+    `AreaAbilities`（範囲）で配られるものは範囲。**どちらにも出るものは範囲。**
+    ダメージでない名札（判定用の `Dummy`、バフ解除）は入れない。 """
+    if not group:
+        return None
+    if group in _single_cache:
+        return _single_cache[group]
+    d = _ls_doc(group)
+    dm, got = _dmg_gids(), {}
+    one = (d.get("EssentialCandidateRule") or {}).get("MaxTargetCount") == 1
+
+    def _ab(node, key):
+        typ = str(node.get("$type") or "").split(",")[0].split(".")[-1]
+        for a in (node.get(key) or []):
+            if not isinstance(a, dict):
+                continue
+            for g in (a.get("LogicEffectGroupIds") or []):
+                if g not in dm:
+                    continue
+                sg = key == "Abilities" and one and typ.startswith("Target")
+                got[g] = got.get(g, True) and sg
+
+    def _walk(o, dep):
+        if dep > 8:
+            return
+        if isinstance(o, dict):
+            if "Abilities" in o or "AreaAbilities" in o:
+                _ab(o, "Abilities")
+                _ab(o, "AreaAbilities")
+            for k, v in o.items():
+                if k != "$type":
+                    _walk(v, dep + 1)
+        elif isinstance(o, list):
+            for v in o:
+                _walk(v, dep + 1)
+    _walk(d, 0)
+    got = got or None
+    _single_cache[group] = got
     return got
 
 
@@ -4889,11 +4954,13 @@ def _skill_gid(rows, kind):
 # 割り出した（PC/NPC 両方の 3,000 件近くを数えて、1 対 1 に決まったものだけ採った）。
 #   39 DamagedRatio / 61・62 DamagedRatio2 / 65・66 ExDamagedRatio
 #   88 ReduceWeakDamagedRate / 89 WeakDamagedRatio
-_NPC_STAT = {39: "damaged", 61: "damaged2", 62: "damaged2",
+#   1 MaxHP（`Buff_StatChange_MaxHP_*`。DeadlyAttack のしきい値に要る。2026-09-05）
+_NPC_STAT = {1: "maxhp", 39: "damaged", 61: "damaged2", 62: "damaged2",
              65: "exDamaged", 66: "exDamaged",
              88: "weakDamaged", 89: "weakDamaged"}
 # 被ダメージの出方そのものを変える種類。**PC 側には 1 件も無い。**
 _NPC_DAO = {"DamagedLimitEffectDAO": "limit",
+            "DeadlyAttackEffectDAO": "deadly",
             "OverrideBulletArmorDamageFactorEffectDAO": "override",
             "DamageTransferEffectDAO": "transfer",
             "DamagedMultiplierbyDamageOverTimeEffectDAO": "dotMul"}
@@ -6164,6 +6231,17 @@ def build_tl():
                 return nm + "（" + lab + "）"
         return c.get("DevName") or str(cid)
 
+    def _pdirect(cid):
+        """**`_pname` が SchaleDB の enemies か LocalizeEtc から直に引けた名前か。**
+        `_pname` の先頭 2 段と同じ判定。派生（`_sd_name` の短縮形や
+        「〜（移動）」の組み立て）は False"""
+        c = ch_all.get(cid) or {}
+        if (_enemies.get(str(cid)) or {}).get("Name"):
+            return True
+        l = _loc_etc.get(c.get("LocalizeEtcId")) or {}
+        nm = l.get("NameJp")
+        return bool(nm and nm != "LocalizeError")
+
     def _subs_df(cid, df, skip):
         """**難易度ごとに別の枝へ並んでいる部位。**グレゴリオのパイプオルガンは
         `EN0005_Subpipe_Torment` = 7309126 で、Normal の番号（73091xx）に 8 難易度ぶんが
@@ -6229,7 +6307,7 @@ def build_tl():
         """その枝の部位。`skip` はボス本体と集計行の id。
            **同じ中身の行は畳む**（ペロロジラの中型 30 体は 1 行にする）
            `extra` は難易度ごとに別の枝へ並んでいる部位（`_subs_df`）"""
-        out, seen = [], {}
+        out, seen, _fam_nm = [], {}, {}
         for k in sorted(set(_by_pre.get(str(cid)[:-2], [])) | set(extra)):
             if k in skip or k == cid:
                 continue
@@ -6241,8 +6319,21 @@ def build_tl():
             # 役どころ名まで見ないと、ドラム缶ガニのフンドシと船体のように
             # HP と防御がたまたま同じ別物まで 1 行になる
             _role = _role_key(c.get("DevName"))
-            _key = (_role, sr.get("MaxHP1"), sr.get("DefensePower1"),
+            _fam = (_role, sr.get("MaxHP1"), sr.get("DefensePower1"),
                     c.get("ArmorType"), c.get("TacticEntityType"))
+            # **名前も鍵に入れる**（2026-09-05）。`_role_key` が連番を落とすと、
+            # ヒエロニムスの `HolyRelic02_HardCore`（赤色の聖遺物）が
+            # `HolyRelic_HardCore`（緑色の聖遺物）と同じ役どころになって
+            # 1 行に畳まれた。番号が「何体目か」ではなく「何色か」を表す体は
+            # SchaleDB に別の名前で載っているので、**直に引けた名前**で分ける。
+            # 名前を派生で組み立てた体（ペロロジラの 7305702〜7305730）は
+            # 同じ素性で先に出た体の名前を継いで、今までどおり畳む
+            if _pdirect(k):
+                _nm_key = _pname(k)
+                _fam_nm.setdefault(_fam, _nm_key)
+            else:
+                _nm_key = _fam_nm.get(_fam)
+            _key = _fam + (_nm_key,)
             if _key in seen:
                 _p = out[seen[_key]]
                 _p["cnt"] = _p.get("cnt", 1) + 1
@@ -6930,6 +7021,15 @@ def build_tl():
                                 _q["bt"] = _e.get("CheckBulletType")
                                 _q["at"] = _e.get("CheckArmorType")
                                 _q["da"] = _e.get("DamageAttribute")
+                            elif _dao == "DeadlyAttackEffectDAO":
+                                # **HP が減ったら放つ固定ダメージ**（ペロロミニオンの
+                                # 250,000）。範囲は同じ `LevelSkill` の円（`_find_area`）
+                                _q["v"] = _e.get("Amount")
+                                _ar = _find_area(_NPC_LS.get(_n) or {})
+                                _q["rad"] = _ar[0].get("Radius") if _ar else None
+                                _q["side"] = (((_ar[0].get("EssentialCandidateRule") or {})
+                                               .get("TargetSide")) if _ar else None)
+                                _q["once"] = (_NPC_LS.get(_n) or {}).get("MaxTriggerCount")
                             elif _dao == "DamagedLimitEffectDAO":
                                 _q["v"] = _e.get("LimitAmount")
                             elif _dao == "DamagedMultiplierbyDamageOverTimeEffectDAO":
@@ -6943,6 +7043,41 @@ def build_tl():
             if _lst:
                 _r["npc"] = _lst
                 _npc_n += len(_lst)
+            # **HP が減ったら放つ固定ダメージ**（2026-09-05）。ペロロジラのミニオンは
+            # `GetHPRate() < 5000` で 1 度だけ `Attack_DeadlyAttack`（Torment 250,000・
+            # Insane 200,000・Lunatic 350,000）を半径 300 の `Ally_Except_Self` に入れる
+            # ——本体に直に 250,000、隣のミニオンにも 250,000（そちらは転移で本体へ。
+            # 隣も半分を切れば連鎖する）。先生の動画 GzfPSXaZKlU では 1 回の引き金で
+            # 本体が 500,542 減り、「250000」が 2 つ出た。しきい値は素の HP ではなく
+            # パッシブ込みの最大 HP（210,000 × (1 + 1.1) ＋ 100,000 ＝ 541,000）の半分。
+            # 同じ Channel の MaxHP は重ならない（大きいほうを取る）。
+            #   sub[].dead = [1 回の量, しきい値（HP）, 半径（1/100 ワールド）, 最大 HP]
+            for _x in (_r.get("sub") or []):
+                _who = _x.get("n") or str(_x["id"])
+                _dl = [_q for _q in _lst
+                       if _q["who"] == _who and _q["k"] == "deadly" and _q.get("v")]
+                if not _dl:
+                    continue
+                _mh = {}
+                for _q in _lst:
+                    if _q["who"] != _who or _q["k"] != "maxhp":
+                        continue
+                    _c0 = _mh.get(_q.get("ch"), (0, 0))
+                    _mh[_q.get("ch")] = (max(_c0[0], _q.get("cf") or 0),
+                                         max(_c0[1], _q.get("v") or 0))
+                _hpx = ((_x.get("hp") or 0) * (1 + sum(c for c, _ in _mh.values()) / 10000.0)
+                        + sum(v for _, v in _mh.values()))
+                _q = _dl[0]
+                _mm = re.search(r"GetHPRate\(\)\s*<\s*(\d+)", _q.get("cx") or "")
+                if not _mm or not _hpx:
+                    print(f"  ※ DeadlyAttack の引き金が読めない: {_q['g']} {_q.get('cx')!r}")
+                    continue
+                _thr = round(_hpx * int(_mm.group(1)) / 10000.0)
+                _x["dead"] = [_q["v"], _thr, _q.get("rad") or 0, round(_hpx)]
+                _x["deadw"] = (f"{_q['g']}（{(_q.get('sk') or [''])[0]}）: {_q['cx']} で "
+                               f"{_q['v']:,} を半径 {_q.get('rad')} の {_q.get('side')} へ"
+                               f"（最大 HP {round(_hpx):,} → しきい値 {_thr:,}）")
+                print(f"  DeadlyAttack: {_b['g']} {_r.get('df')} {_who} {_x['deadw']}")
             _im = sorted({_t for _q in _lst if _q["k"] == "immune"
                           and _q["who"] == "本体" for _t in (_q.get("im") or [])
                           if "DamagedRatio" in _t})
@@ -6979,6 +7114,11 @@ def build_tl():
     area_out = {}
     # **範囲の中心と狙い方**（生徒 → 枠 → `_ls_geom` の 7 つ組）と**届く距離**
     geo_out, ngeo, rng_out = {}, 0, {}
+    # **バフの持続時間を N 倍にする SS**（ココロの「安全証」。2026-09-05）。
+    # SS の本文「該当EXスキルの効果持続時間が3倍に増加」から。機械で読める欄は無い
+    # （DB では `CH0368_Ex01_Effect01` 15000ms と `Effect02` 45000ms の 2 行が
+    # `Dummy_CH0368_Check` で択一）。誰に付くかの決まりは `target.js` の `safeMul`
+    bdur_out = {}
     imp_out, nimp = {}, 0
     na_out, nna = {}, 0
     naf_out = {}
@@ -7202,6 +7342,11 @@ def build_tl():
         for kind, sk in skills_map.items():
             if not isinstance(sk, dict):
                 continue
+            if kind == "ExtraPassive":
+                _bd = re.search(r"効果持続時間が(\d+)倍に増加", sk.get("Desc") or "")
+                if _bd:
+                    bdur_out[sid] = int(_bd.group(1))
+                    print(f"  持続時間 {_bd.group(1)} 倍の SS: {sid}")
             # **同じスキルに `Condition` つきのダメージが並ぶことがある。**
             # ネル（制服）の通常攻撃は「EX の状態でないとき 100%／であるとき 120%」の
             # 2 件で、全部足すと 2.2 倍になっていた（2026-09-01 に実物の TL を
@@ -7319,7 +7464,11 @@ def build_tl():
                     #         ＝ 10149 ココロ Normal.FormChange / Public
                     #     この 4 発は **EX ダメージとして数える**ので
                     #     `EnhanceExDamageRate`（キサキ枠）が乗る。運んでいなかった
-                    e.get("OverrideSkillDamageType")]
+                    e.get("OverrideSkillDamageType"),
+                    #   Single … **1 体にしか当たらない効果**（2026-09-05）。
+                    #     出どころは `_ls_single` の注記。画面側は範囲の体数（`mc`）を
+                    #     このぶんには掛けない（`dmg.js` の `o.one`）
+                    1 if id(e) in _single_ids else None]
             # **`Group` は「何段目か」で、足すものではなく択一。**
             # ネル（制服）の Ex1 は Group 0〜4 × 条件 2 通りの 10 件あって、
             # 全部足すと 1 発 5,727,546（ボス HP の 25%）になっていた。
@@ -7332,6 +7481,19 @@ def build_tl():
             #   どちらかがある  → `dmgalt`。**画面のバーで 1 つ選ぶ**
             # **説明文が「どちらか一方」と言っているぶんを抜く**（2026-09-03）。
             # `Condition` も `Group` も持たないので、ここで抜かないと足してしまう
+            # **1 体にしか当たらない効果**（2026-09-05）。`LevelSkill` の名札と
+            # SchaleDB の行は同じ鍵を持たない（`LogicEffect_PC` の `DamageEffectDAO` は
+            # 倍率を持たず `Amount 0`）ので、**数が同じときだけ並び順で結ぶ**
+            # （名札は `_EffectNN` の順、行は `DescParamId` の順）。数が違えば付けない
+            _single_ids = set()
+            _sgl = _ls_single(_skill_gid(csl_all.get(x["Id"]), kind))
+            if _sgl and len(_sgl) == len(dmg_all):
+                _es_sorted = sorted(dmg_all, key=lambda e: (e.get("DescParamId") or 0))
+                for _g, _e in zip(sorted(_sgl), _es_sorted):
+                    if _sgl[_g]:
+                        _single_ids.add(id(_e))
+                        print(f"  単体の効果: {sid} {kind} {_g}"
+                              f"（DescParamId {_e.get('DescParamId')}）")
             _excl = tl_excl_desc(sk)
             xcand = ([e for e in plain
                       if e.get("Group") is None and _excl.get(e.get("DescParamId"))]
@@ -7786,6 +7948,8 @@ def build_tl():
                     "MaxTargetCount", "Range", "HitFrames", "AreaDAO",
                     "PositionOffset(ワールド)", "AngleOffset", "SpawnDirectionType"],
         "rng": rng_out,
+        # **SS でバフの持続時間が N 倍になる子**（ココロ。`target.js` の `safeMul`）
+        "bdur": bdur_out,
         # 着弾フレーム（発動 0 からの相対、30fps）。**ダメージが入る瞬間だけ**
         "imp": imp_out,
         "areaKeys": ["Type(Circle/Fan/Obb/Donut/Bounce)", "Radius",

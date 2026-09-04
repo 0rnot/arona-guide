@@ -183,6 +183,7 @@ export function liveBuffs0(t, to, r) {
   // `ssBuffUses()` はバフ専用の擬似 use で、`usesSorted` には混ぜていない
   // （混ぜると `carry.js` / `clear.js` が SS のダメージを二重に数える）
   var us = usesSorted().concat(ssBuffUses()), out = [], i, q;
+  var smul = safeMul(us);
   for (i = 0; i < us.length; i++) {
     var u = us[i], p = st.party[u.i];
     if (!p) { continue; }
@@ -200,8 +201,9 @@ export function liveBuffs0(t, to, r) {
       for (z0 = 0; z0 < tg0.length; z0++) { if (tg0[z0] === 'Enemy') { sd0 = 'enemy'; } }
       var wsl = st.slots[u.i] || {};
       var wlvl = (wsl.wstar >= 2 && wsl.wlv > 0) ? (wsl.plv || 0) : 0;
+      // **ココロの「安全証」で 3 倍**（`safeMul`）。固有武器の延長はその上に掛かる
       var duMs = e[4] == null ? null
-               : TE.extend(stu(p.id) || {}, { wp: wlvl }, e[4], sd0);
+               : TE.extend(stu(p.id) || {}, { wp: wlvl }, e[4] * (smul[i] || 1), sd0);
       var dur = duMs == null ? Infinity : duMs / 1000;
       if (t < st0 || t >= st0 + dur) { continue; }
       var tg = e[0] || [], hit = false, z;
@@ -242,6 +244,28 @@ export function liveBuffs0(t, to, r) {
     keep.push(out[i]);
   }
   return keep;
+}
+/** **ココロの「安全証」**（2026-09-05。`B.bdur` は `build-tool-data.py`）。
+    SS「呼吸制御」の本文:「『安全証』を保有していないアタッカーの味方に対して、自身の
+    EXスキルを使用時、その対象に『安全証』を付与し、該当EXスキルの効果持続時間が
+    3倍に増加（既に『安全証』が付与されている他の味方の『安全証』はすべて解除）」。
+    DB では `CH0368_Ex01_Effect01`（15000ms）と `Effect02`（45000ms）の 2 行が
+    `Dummy_CH0368_Check` で択一になっている。**同じ相手に続けて撃つと 15 秒に戻り、
+    別のアタッカーに撃てばそちらが 45 秒になる。**SS は持っているものとして扱う
+    （道具は SS の有無を持っていない。`epOn` は SS のダメージの有無なので使わない）。
+    返すのは `us` の番号 → 倍率。 */
+function safeMul(us) {
+  var out = {}, holder = null, i;
+  for (i = 0; i < us.length; i++) {
+    var u = us[i], p = st.party[u.i], n = p ? (B.bdur || {})[p.id] : 0;
+    if (!n || !/^Ex\d*$/.test(u.k || 'Ex')) { continue; }
+    var pick = buffTo(u);
+    if (pick.length !== 1) { continue; }
+    var to = st.party[pick[0]];
+    if (!to || (stu(to.id) || {}).ro !== 'DamageDealer' || pick[0] === holder) { continue; }
+    holder = pick[0]; out[i] = n;
+  }
+  return out;
 }
 // ボスの実効ステータス。t 秒の時点で乗っているデバフを入れる
 /** 当たる先。`tg` が null ならボス本体、数字なら `r.sub[tg]`（部位）。

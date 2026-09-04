@@ -4,6 +4,7 @@ import { awayAt, carryIn, partyCalc, trOf } from './carry.js';
 import { naTimes } from './na.js';
 import { usesSorted } from './buff.js';
 import { WANTU, dmgCap, dmgOf, nbOf, repUnits, setWANTU } from './dmg.js';
+import { deadlyPts } from './deadly.js';
 import { epEvery, epOkAt, epOn, epTierPick } from './ep.js';
 import { lastUseAt } from './clear.js';
 
@@ -80,10 +81,12 @@ export function shotsOf(r, opt) {
         if (u.tg != null && !tr2 && mcp2 <= 1) { continue; }
         var d = dmgOf(u.i, r, u.t, u.k, u.pk, u.tg, u.gx, u.no, null, nbOf(u));
         if (!d || !d.u) { continue; }
-        push(u, d, (tr2 || mcp2 > 1) ? (tr2 || mcp2) : 1);
+        // **1 体にしか当たらない単位は体の数では増えない**（2026-09-05。`repUnits` の `m1`）。
+        // 転移なら転移率だけ。本体だけのぶん（`hb`）にはその単位は入らない
+        push(u, d, (tr2 || mcp2 > 1) ? (tr2 || mcp2) : 1, tr2 ? trOf(r, u.tg) : 1);
         if (u.tg != null && u.hb) {
           var dbh = dmgOf(u.i, r, u.t, u.k, u.pk, null, u.gx, u.no, null, nbOf(u), 1);
-          if (dbh && dbh.u) { push(u, dbh, 1); }
+          if (dbh && dbh.u) { push(u, dbh, 1, 0); }
         }
       } else {
         // `clearStat1` と同じ形——池ごとに分ける
@@ -95,14 +98,25 @@ export function shotsOf(r, opt) {
                        u.gx, u.no, null, nbOf(u));
         if (!d2 || !d2.u) { continue; }
         if (u.tg != null && pp !== pid) {
-          push(u, d2, trp * mc);
+          push(u, d2, trp * mc, trp);
           if (u.hb) {
             var dbb = dmgOf(u.i, r, u.t, u.k, u.pk, null, u.gx, u.no, null, nbOf(u), 1);
-            if (dbb && dbb.u) { push(u, dbb, 1); }
+            if (dbb && dbb.u) { push(u, dbb, 1, 0); }
           }
         } else {
           push(u, d2, (u.tg != null && mc > 1) ? Math.min(mc, poolBodies(r, pid)) : 1);
         }
+      }
+    }
+    // **ミニオンの固定ダメージ**（`deadly.js`。2026-09-05）。振れは無い
+    // （`sN 1`・会心なし・必中）。引き金は平均の振れ方で決める——`rollCheck` の
+    // 「全部 1 で `total0(r).max`」は、ペロロジラではこのぶんだけ揃わない
+    if (pid === r.cid) {
+      var dlp = deadlyPts(r, 'avg');
+      for (q = 0; q < dlp.length; q++) {
+        if (dlp[q][0] > cut + 1e-9) { continue; }
+        ev.push({ t: dlp[q][0], i: -1, k: 'Deadly', nm: '自傷',
+                  u: [{ b: dlp[q][1], sN: 1, cr: 0, cm: 1, hit: 1 }] });
       }
     }
     // **通常攻撃とサブスキル。**5 秒ごとに引き直して、束の中の発は実時刻に置く
@@ -147,8 +161,8 @@ export function shotsOf(r, opt) {
   ev.sort(function (a, b) { return a.t - b.t; });
   return ev;
 
-  function push(u, d, m) {
-    ev.push({ t: u.t, i: u.i, k: u.k, nm: d.name, u: repUnits(d.u, m) });
+  function push(u, d, m, m1) {
+    ev.push({ t: u.t, i: u.i, k: u.k, nm: d.name, u: repUnits(d.u, m, m1) });
   }
 }
 

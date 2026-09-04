@@ -137,11 +137,18 @@ export function terrMod(id, env, cs) {
 // 爆発→軽装甲・貫通→重装甲・神秘→非武装・振動→弾力装甲 の 4 組だけ
 export var ENH = { Explosion: 'LightArmor', Pierce: 'HeavyArmor',
             Mystic: 'Unarmed', Sonic: 'ElasticArmor' };
+// **「◯◯特効増加」は特効の倍率に掛ける。足さない**（2026-09-05）。
+// SchaleDB の getEffectiveMod は `effMod += EnhanceRate - 10000`（2.0 + 1.4327 = 3.4327）
+// だが、先生の動画 GzfPSXaZKlU（ペロロジラ Torment 屋内、マコト（水着））の
+// 1 発目（275.51%、単体）は 2 発目の発動で 149,312、3 発目で 528,565（会心）。
+// 足し算だと非会心の上限が 107,383、会心の上限が 464,688 で、どちらも出ない。
+// 掛け算（2.0 × 2.4327 = 4.865）なら 152,140 と 658,634 の中に入る（0.981 / 0.803）。
+// 「攻撃、会心ダメ、特攻は全て乗算」という検証勢の記述とも合う
 export function effMod(id, armor, cs) {
   if (armor === 'Structure') { return 1; }
   var bt = sinf(id, 'BulletType'), t = B.bam[bt], v = t && t[armor];
   var e = v ? v[0] : 10000;
-  if (cs && ENH[bt] === armor) { e += cs.get('Enhance' + bt + 'Rate') - 10000; }
+  if (cs && ENH[bt] === armor) { e = e * cs.get('Enhance' + bt + 'Rate') / 10000; }
   return e / 10000;
 }
 // 支援値。SPECIAL（編成の 5・6 枠）の最終値に万分率を掛けて切り捨て、STRIKER に乗る。

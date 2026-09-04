@@ -6,7 +6,8 @@ import { scen, scenIx } from './scen.js';
 import { dmgCurve, naPool, poolBodies, poolKills, poolOf, subIxOfPool, valueAt } from './pool.js';
 import { naTimes } from './na.js';
 import { usesSorted } from './buff.js';
-import { PICKF, dmgOf, dotTimes, setPICKF } from './dmg.js';
+import { PICKF, dmgOf, dotTimes, hitTimes, nbOf, setPICKF } from './dmg.js';
+import { deadlyPts } from './deadly.js';
 import { epEvery, epOkAt, epOn, epTierPick } from './ep.js';
 
 // ------------------------------------------------------------ 部隊の持ち越し
@@ -100,6 +101,19 @@ export function awayDrop(r) {
 }
 export function dmgCurve0(r, key, pid, deadAt) {
   var pts = [], us = usesSorted(), i, q;
+  var dur9 = r.dur || 240;
+  /** **着弾の時刻に置く。**発動した瞬間ではない（2026-09-04 の先生の
+      「最後の水着マコトのEXスキルで倒し切る時、発動から着弾までのラグによって
+      討伐時間が前後すると思う、そこの差が結構大事だったりする」）。
+      マコト（水着）の EX なら発動の 2.267 秒後に 1 発、3.200〜3.333 秒に 5 発。
+      **合計は変えない——置く時刻だけを割る**（継続ダメージと同じやり方）。 */
+  function put(u, v) {
+    if (!v) { return; }
+    var ht = hitTimes((st.party[u.i] || {}).id, u.k) || [0], z;
+    for (z = 0; z < ht.length; z++) {
+      pts.push([Math.min(u.t + ht[z], dur9), v / ht.length]);
+    }
+  }
   if (pid == null) { pid = r.cid; }
   if (!deadAt) { deadAt = {}; }
   for (i = 0; i < us.length; i++) {
@@ -114,20 +128,29 @@ export function dmgCurve0(r, key, pid, deadAt) {
     if (u.t > (r.dur || 240) + 1e-9 || awayAt(u.t, !/^Ex\d*$/.test(u.k), u.gx)) { continue; }
     // **当たる先を書いていない発をよその池へ回すときは、その池の相手で引く**（2026-09-03）
     var aim = u.tg == null && pp !== r.cid ? subIxOfPool(r, pp) : u.tg;
-    var d = dmgOf(u.i, r, u.t, u.k, u.pk, aim, u.gx, u.no);
+    var d = dmgOf(u.i, r, u.t, u.k, u.pk, aim, u.gx, u.no, null, nbOf(u));
+    // **1 体にしか当たらないぶん（`one`）には体の数を掛けない**（2026-09-05。
+    // マコト（水着）の 1 発目 275.51%。`dmg.js` の `o.one` の注記）。
+    // 転移なら転移率だけ、本体の池なら 1 体ぶん
+    function part(dd, trX, mcX) {
+      if (!dd) { return 0; }
+      var one = dd.one ? dd.one[key] : 0, area = dd[key] - one;
+      return trX ? area * trX + one * trOf(r, u.tg) : area * mcX + one;
+    }
     // **同じ池を分け合う体に当てた発は、当たった数だけ池へ入る**（2026-09-03）。
     // 転移（`tr`）のほうは前から `mc` が効いていたが、**HP を共有している池
     // （カイテンジャーの 5 体で 40,000,000）は 1 体ぶんしか数えていなかった**
     var mcp = (u.tg != null && pp === pid && (u.mc || 1) > 1)
       ? Math.min(u.mc, poolBodies(r, pid)) : 1;
-    var v0 = d ? (tr && pp !== pid ? d[key] * tr : d[key] * mcp) : 0;
+    var v0 = part(d, tr && pp !== pid ? tr : 0, mcp);
     // **直線に伸びる攻撃は、部位を貫いてボス本体にも当たる**（ヒナ（ドレス）の
     // 射撃など）。当たるかどうかは盤の上の話でデータから決まらないので、
     // **置くのは使う人**（帯の「ボス本体にも当たる」。2026-09-02 の先生の見立て）。
     // ボスと部位で防御が違うことがあるので、本体ぶんは本体の数字で出す
     if (d && u.tg != null && u.hb) {
-      var db = dmgOf(u.i, r, u.t, u.k, u.pk, null, u.gx, u.no, null, null, 1);
-      if (db) { v0 += db[key]; }
+      var db = dmgOf(u.i, r, u.t, u.k, u.pk, null, u.gx, u.no, null, nbOf(u), 1);
+      // 1 体にしか当たらないぶんは選んだ体に入っていて、本体には入らない
+      if (db) { v0 += db[key] - (db.one ? db.one[key] : 0); }
     }
     // **継続ダメージ（DoT）は撃った瞬間ではなく `Period` ごとに入る**（2026-09-03）。
     // 曲線・討伐時刻・HP のゲート・スコアがその分だけ早くずれていた。
@@ -135,20 +158,25 @@ export function dmgCurve0(r, key, pid, deadAt) {
     if (d) {
       var tsD = dotTimes(u.i, r, u.t, u.k, u.pk, aim);
       if (tsD.length) {
-        var dNow = dmgOf(u.i, r, u.t, u.k, u.pk, aim, u.gx, u.no, 'now');
-        var dDot = dmgOf(u.i, r, u.t, u.k, u.pk, aim, u.gx, u.no, 'dot');
-        var vN = dNow ? (tr && pp !== pid ? dNow[key] * tr : dNow[key] * mcp) : 0;
-        var vD = dDot ? (tr && pp !== pid ? dDot[key] * tr : dDot[key] * mcp) : 0;
+        var dNow = dmgOf(u.i, r, u.t, u.k, u.pk, aim, u.gx, u.no, 'now', nbOf(u));
+        var dDot = dmgOf(u.i, r, u.t, u.k, u.pk, aim, u.gx, u.no, 'dot', nbOf(u));
+        var vN = part(dNow, tr && pp !== pid ? tr : 0, mcp);
+        var vD = part(dDot, tr && pp !== pid ? tr : 0, mcp);
         if (d && u.tg != null && u.hb) {
-          var dbN = dmgOf(u.i, r, u.t, u.k, u.pk, null, u.gx, u.no, 'now', null, 1);
-          var dbD = dmgOf(u.i, r, u.t, u.k, u.pk, null, u.gx, u.no, 'dot', null, 1);
-          if (dbN) { vN += dbN[key]; }
-          if (dbD) { vD += dbD[key]; }
+          var dbN = dmgOf(u.i, r, u.t, u.k, u.pk, null, u.gx, u.no, 'now', nbOf(u), 1);
+          var dbD = dmgOf(u.i, r, u.t, u.k, u.pk, null, u.gx, u.no, 'dot', nbOf(u), 1);
+          if (dbN) { vN += dbN[key] - (dbN.one ? dbN.one[key] : 0); }
+          if (dbD) { vD += dbD[key] - (dbD.one ? dbD.one[key] : 0); }
         }
-        if (vN) { pts.push([u.t, vN]); }
+        put(u, vN);
         for (q = 0; q < tsD.length; q++) { pts.push([tsD[q], vD / tsD.length]); }
-      } else { pts.push([u.t, v0]); }
+      } else { put(u, v0); }
     }
+  }
+  // **HP が半分を切ったミニオンの固定ダメージ**は本体の池へ（`deadly.js`。2026-09-05）
+  if (pid === r.cid) {
+    var dlp = deadlyPts(r, key);
+    for (q = 0; q < dlp.length; q++) { pts.push([Math.min(dlp[q][0], dur9), dlp[q][1]]); }
   }
   var dur = r.dur || 240, STEP = 5;
   for (i = 0; i < SLOTS; i++) {

@@ -58,9 +58,12 @@ function gsplMul(r, at, tg, sid, kd, hbOnly) {
 }
 function gsplScale(d, m) {
   if (!d || m === 1) { return d; }
-  var o = { min: d.min * m, avg0: d.avg0 * m, avg: d.avg * m, avgC: d.avgC * m,
-            max: d.max * m, va: (d.va || 0) * m, hit: d.hit, crit: d.crit,
-            crit0: d.crit0, name: d.name };
+  // **1 体にしか当たらないぶん（`one`）には体の数を掛けない**（2026-09-05）
+  var n1 = d.one || { min: 0, avg0: 0, avg: 0, avgC: 0, max: 0 };
+  var o = { min: (d.min - n1.min) * m + n1.min, avg0: (d.avg0 - n1.avg0) * m + n1.avg0,
+            avg: (d.avg - n1.avg) * m + n1.avg, avgC: (d.avgC - n1.avgC) * m + n1.avgC,
+            max: (d.max - n1.max) * m + n1.max, va: (d.va || 0) * m, hit: d.hit, crit: d.crit,
+            crit0: d.crit0, name: d.name, one: d.one };
   // **体が増えるぶんは「同じ弾がその数だけ別々に振られる」**（2026-09-04、第 3 段）。
   // `va` を `× m` しているのと同じ扱い。整数でない `m`（`ggFactor`）は、
   // 整数ぶんを複製して、余りは 1 単位を `b × 余り` で足す
@@ -71,17 +74,31 @@ function gsplScale(d, m) {
     `va` を `× m` しているのと同じ扱い——同じ弾がその数だけ別々に振られる。
     整数でない `m`（`ggFactor`・転移率 × 当たる数）は、整数ぶんを複製して、
     余りは 1 組ぶんを `b × 余り` にして足す */
-export function repUnits(list, m) {
+export function repUnits(list, m, m1) {
   if (!list) { return list; }
-  if (m === 1) { return list; }
+  if (m1 == null) { m1 = 1; }
+  if (m === 1 && m1 === 1) { return list; }
+  // **1 体にしか当たらない単位（`one`）は体の数では増えない**（2026-09-05）。
+  // `m1` はそちらに掛ける率（転移率。本体だけのぶんを見るときは 0 ＝ 落とす）
   var out = [], wh = Math.floor(m + 1e-9), fr = m - wh, i9, z9;
   for (i9 = 0; i9 < wh; i9++) {
-    for (z9 = 0; z9 < list.length; z9++) { out.push(list[z9]); }
+    for (z9 = 0; z9 < list.length; z9++) { if (!isOne(list[z9])) { out.push(list[z9]); } }
   }
   if (fr > 1e-9) {
-    for (z9 = 0; z9 < list.length; z9++) { out.push(scaleUnit(list[z9], fr)); }
+    for (z9 = 0; z9 < list.length; z9++) {
+      if (!isOne(list[z9])) { out.push(scaleUnit(list[z9], fr)); }
+    }
+  }
+  for (z9 = 0; z9 < list.length; z9++) {
+    if (!isOne(list[z9]) || !m1) { continue; }
+    out.push(m1 === 1 ? list[z9] : scaleUnit(list[z9], m1));
   }
   return out;
+}
+function isOne(u) {
+  if (!u) { return false; }
+  if (u.sl) { return !!(u.sl[0] && u.sl[0].one); }
+  return !!u.one;
 }
 function scaleUnit(u, f) {
   if (u.sl) {
@@ -89,7 +106,7 @@ function scaleUnit(u, f) {
     for (z = 0; z < u.sl.length; z++) { sl.push(scaleUnit(u.sl[z], f)); }
     return { w: u.w, sl: sl };
   }
-  return { b: u.b * f, sN: u.sN, cr: u.cr, cm: u.cm, hit: u.hit };
+  return { b: u.b * f, sN: u.sN, cr: u.cr, cm: u.cm, hit: u.hit, one: u.one };
 }
 /** **その 1 発が当たる体の数。**「円形範囲内の敵の数によって」倍率が変わる
     スキルの候補を決めるのに使う（`alt.js` の `nRange`）。
@@ -213,8 +230,12 @@ export function dmgOf1(idx, r, at, kind, pick, tg, gx, nso, only, nb) {
     var d0 = dmgAt(idx, r, ts, kd0, pick, tg, gx, nso, only, nb);
     if (!d0) { return null; }
     if (!acc) { acc = { min: 0, avg0: 0, avg: 0, avgC: 0, max: 0, va: 0,
-                        hit: d0.hit, crit: d0.crit, crit0: d0.crit0, name: d0.name }; }
-    for (q2 = 0; q2 < KS.length; q2++) { acc[KS[q2]] += d0[KS[q2]] / ns; }
+                        hit: d0.hit, crit: d0.crit, crit0: d0.crit0, name: d0.name,
+                        one: { min: 0, avg0: 0, avg: 0, avgC: 0, max: 0 } }; }
+    for (q2 = 0; q2 < KS.length; q2++) {
+      acc[KS[q2]] += d0[KS[q2]] / ns;
+      acc.one[KS[q2]] += (d0.one ? d0.one[KS[q2]] : 0) / ns;
+    }
     // **切り分けは同じ 1 発をバフ違いで見ているだけ**なので、分散は足さずに平均する
     acc.va += (d0.va || 0) / ns;
     // **単位は切り分けのぶんだけ束ねて持つ**（`{w, sl:[…]}`）。**振る回数は増えない**
@@ -392,7 +413,10 @@ export function dmgAt(idx, r, at, kind, pick, tg, gx, nso, only, nb) {
   // グロッキー中の確定会心は今までどおり効く。`crit0` は素の値（バーの既定に使う）
   var cEff = st.crit == null ? cRate : clamp(st.crit, 0, 1);
   var o = { min: 0, avg0: 0, avg: 0, avgC: 0, max: 0, va: 0,
-            hit: hit, crit: cEff, crit0: cRate, name: p.en };
+            hit: hit, crit: cEff, crit0: cRate, name: p.en,
+            // **1 体にしか当たらないぶん**（2026-09-05）。呼ぶ側はここには
+            // 体の数（`mc`）を掛けない。`build-tool-data.py` の `_ls_single` の注記
+            one: { min: 0, avg0: 0, avg: 0, avgC: 0, max: 0 } };
   if (WANTU) { o.u = []; }
   for (var k = 0; k < effs.length; k++) {
     // **`Scale` の段数はスキルによって違う。**通常攻撃は 1 段しかないので、
@@ -538,10 +562,10 @@ export function dmgAt(idx, r, at, kind, pick, tg, gx, nso, only, nb) {
         if (hsm > 0) {
           for (uz = 0; uz < hs.length; uz++) {
             ub = base / nt * (hs[uz] / hsm);
-            o.u.push({ b: ub, sN: sN, cr: cr, cm: cm, hit: hit });
+            o.u.push({ b: ub, sN: sN, cr: cr, cm: cm, hit: hit, one: !!e[20] });
           }
         } else {
-          o.u.push({ b: base / nt, sN: sN, cr: cr, cm: cm, hit: hit });
+          o.u.push({ b: base / nt, sN: sN, cr: cr, cm: cm, hit: hit, one: !!e[20] });
         }
       }
     }
@@ -550,6 +574,12 @@ export function dmgAt(idx, r, at, kind, pick, tg, gx, nso, only, nb) {
     o.avg0 += cA * hit;
     o.avgC += cB * hit;
     o.avg += ((1 - cr) * cA + cr * cB) * hit;
+    // **1 体にしか当たらない効果はここにも積む**（マコト（水着）の 1 発目 275.51%）
+    if (e[20]) {
+      o.one.min += capS(sN); o.one.max += capS(cm);
+      o.one.avg0 += cA * hit; o.one.avgC += cB * hit;
+      o.one.avg += ((1 - cr) * cA + cr * cB) * hit;
+    }
     // 1 回ぶん（`tick` で割ったもの）の平均と 2 乗平均
     // **多段は 1 発ずつ別々に振られる。**まとめて 1 発として扱うと分散が
     // 発数の 2 乗で効いてしまう（ネル（制服）は `Hits` が 46 個）。

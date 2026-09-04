@@ -84,7 +84,7 @@ export function sceneAt(r, t) {
     if (t >= gr.hits[i].t - 1e-9 && t < gr.hits[i].until) { gg = true; }
   }
   var pd = (r.ph || {})[cur.p] || {}, ev = pd.ev || [], smn = (r.board || {}).smn || {};
-  var gi = r.gga ? r.gga.exi : null, wave = null, first = null;
+  var gi = r.gga ? r.gga.exi : null, wave = null, first = null, w0 = null;
   for (i = 0; i < ev.length; i++) {
     if (ev[i][1] == null) { continue; }
     for (k = 0; k < (ev[i][2] || []).length; k++) {
@@ -94,11 +94,13 @@ export function sceneAt(r, t) {
     if (bossAdv(cur.t0, ev[i][1]) > t + 1e-9) { continue; }
     for (k = 0; k < (ev[i][2] || []).length; k++) {
       var g = ev[i][2][k], nm2 = r.ex[g];
-      if (g === gi) { wave = null; } else if (nm2 && smn[nm2]) { wave = nm2; }
+      // `w0` はその波が湧いた時刻。**同じ EX で湧き直したら別の波**（2026-09-05）
+      if (g === gi) { wave = null; w0 = null; }
+      else if (nm2 && smn[nm2]) { wave = nm2; w0 = bossAdv(cur.t0, ev[i][1]); }
     }
   }
   var sec = secOfSummon(r, wave || first);
-  return { p: cur.p, gg: gg, wave: wave, sec: sec == null ? 0 : sec };
+  return { p: cur.p, gg: gg, wave: wave, sec: sec == null ? 0 : sec, w0: w0 };
 }
 
 /** **絵にする 1 発。赤い線がその発の上に居るときだけ。**
