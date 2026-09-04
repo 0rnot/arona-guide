@@ -5,6 +5,7 @@ import { draw } from './draw.js';
 import { drawRate } from './rate.js';
 import { fit } from './zoom.js';
 import { bstPut, fillBoss, npcChips } from './bossui.js';
+import { usePartyRef } from './undo.js';
 
 export function syncTabs() {
   var bs = document.querySelectorAll('#rtabs .t');
@@ -23,7 +24,14 @@ export function wireBoss() {
   setTimeout(fit, 60);
 
   $('i-boss').addEventListener('change', function () {
-    st.bi = +this.value; st.di = tormentIdx(boss()); st.arm = null; fillBoss(); fit();
+    // **ボスの状態の窓は、ボスを替えたら捨てる**（2026-09-04）。窓はギミックの
+    // 名前と値をそのまま持っているので、別のボスに持ち越すと**そのボスに無い
+    // 被ダメージ率アップが乗ったままになる**（実測でヒエロニムスの「破壊」+55% が
+    // ペロロジラに乗って与ダメージが 10 倍近くになっていた）
+    var k9;
+    for (k9 = 0; k9 < st.parties.length; k9++) { st.parties[k9].bst.length = 0; }
+    st.bi = +this.value; st.di = tormentIdx(boss()); st.arm = null;
+    usePartyRef(); fillBoss(); fit();
   });
   // チップから窓を置く。**説明文に秒があればその長さ**、無ければ戦闘の終わりまで
   $('bst-chips').addEventListener('click', function (e) {

@@ -125,9 +125,15 @@ export function applyTL(p) {
   mark();
   var ps = p.parties || [p], k2, z3, out = { n: 0, ng: [], slip: [], parties: 0 };
   // **部隊ごとに入れる。**st.parties を作り直して、1 部隊ずつ今までの手順で流す。
-  // ボスの状態の窓は、置いてあったものを部隊の番号ごとに残す
+  // ボスの状態の窓は、置いてあったものを部隊の番号ごとに残す。
+  // **ただし TL から置いた窓（`a`）は残さない**（2026-09-04）。同じ TL を貼り直す
+  // たびに「破壊」「クレーン」の窓が積み上がって、被ダメージ率が二重三重に乗る。
+  // ヒエロニムスの TL を 4 本続けて貼ると窓が 6 → 10 → 14 → 18 と増えて、
+  // 与ダメージが 10 倍以上になっていた（実測。手で置いた窓は今までどおり残す）
   var oldB = [];
-  for (k2 = 0; k2 < st.parties.length; k2++) { oldB.push(st.parties[k2].bst || []); }
+  for (k2 = 0; k2 < st.parties.length; k2++) {
+    oldB.push((st.parties[k2].bst || []).filter(function (w) { return !w.a; }));
+  }
   st.parties = [];
   for (k2 = 0; k2 < ps.length && k2 < 4; k2++) {
     st.parties.push(mkParty()); st.parties[k2].bst = oldB[k2] || [];
@@ -176,13 +182,13 @@ export function applyTL1(p) {
       if (ev.k === 'break') {
         nb++;
         if (nb === 3 && gAll) {
-          st.bst.push({ k: 'damaged', v: gAll.v, t0: ev.t, t1: durE, n: gAll.n });
+          st.bst.push({ k: 'damaged', v: gAll.v, t0: ev.t, t1: durE, n: gAll.n, a: 1 });
           evN.push('「' + ev.line + '」で 3 つ目の破壊なので、' + gAll.n + '（+' + gAll.v + '%）を ' +
                        ev.t.toFixed(1) + ' 秒から終わりまで置きました');
         }
       } else if (gEach) {
         nc++;
-        st.bst.push({ k: 'damaged', v: gEach.v, t0: ev.t, t1: durE, n: gEach.n });
+        st.bst.push({ k: 'damaged', v: gEach.v, t0: ev.t, t1: durE, n: gEach.n, a: 1 });
         evN.push('「' + ev.line + '」で ' + gEach.n + '（+' + gEach.v + '%、1 回 1 個とみなす）を ' +
                      ev.t.toFixed(1) + ' 秒から終わりまで置きました（' + nc + ' 個目）');
       }

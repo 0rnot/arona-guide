@@ -15,6 +15,18 @@ import { usesSorted } from './buff.js';
 // +1 = 全部いちばん高い候補（2026-09-01 の先生の指示
 // 「上振れシナリオと下振れシナリオ」）。**総当たりするのは達成率の表だけ**
 export var PICKF = 0;
+/** **1 発を乱数で振れる形に分けて持ち帰るかどうか**（2026-09-04、第 3 段）。
+    `1` にすると `dmgAt` が `o.u` に「別々に振られる 1 単位」の配列を積む。
+    単位 1 つは `{b, sN, cr, cm, hit}` で、振った値は
+
+        当たり?（確率 `hit`）× dmgCap(b × u × (会心?（確率 `cr`）→ `cm` : 1))
+        u は `sN`〜1 の一様乱数
+
+    **`min` / `max` と一致することが確かめ方**——全部 `u=1`・会心あり・命中で
+    足すと `o.max`、全部 `u=sN`・会心なし・命中で足すと `o.min` になる。
+    ふだんは切っておく（`Hits` が 46 個ある子で 1 発 46 単位積むので重い）。 */
+export var WANTU = 0;
+export function setWANTU(v) { WANTU = v; }
 /** **グロッキー中にボスが分かれるぶん、1 発が何体に当たるか**（2026-09-03）。
     `data.js` の `gspl` は `RaidSkills` の本文から出した体数（`build-tool-data.py` の `_gspl`）。
 
@@ -46,9 +58,38 @@ function gsplMul(r, at, tg, sid, kd, hbOnly) {
 }
 function gsplScale(d, m) {
   if (!d || m === 1) { return d; }
-  return { min: d.min * m, avg0: d.avg0 * m, avg: d.avg * m, avgC: d.avgC * m,
-           max: d.max * m, va: (d.va || 0) * m, hit: d.hit, crit: d.crit,
-           crit0: d.crit0, name: d.name };
+  var o = { min: d.min * m, avg0: d.avg0 * m, avg: d.avg * m, avgC: d.avgC * m,
+            max: d.max * m, va: (d.va || 0) * m, hit: d.hit, crit: d.crit,
+            crit0: d.crit0, name: d.name };
+  // **体が増えるぶんは「同じ弾がその数だけ別々に振られる」**（2026-09-04、第 3 段）。
+  // `va` を `× m` しているのと同じ扱い。整数でない `m`（`ggFactor`）は、
+  // 整数ぶんを複製して、余りは 1 単位を `b × 余り` で足す
+  if (d.u) { o.u = repUnits(d.u, m); }
+  return o;
+}
+/** **1 発ぶんの単位を `m` 体ぶんに増やす**（2026-09-04、第 3 段）。
+    `va` を `× m` しているのと同じ扱い——同じ弾がその数だけ別々に振られる。
+    整数でない `m`（`ggFactor`・転移率 × 当たる数）は、整数ぶんを複製して、
+    余りは 1 組ぶんを `b × 余り` にして足す */
+export function repUnits(list, m) {
+  if (!list) { return list; }
+  if (m === 1) { return list; }
+  var out = [], wh = Math.floor(m + 1e-9), fr = m - wh, i9, z9;
+  for (i9 = 0; i9 < wh; i9++) {
+    for (z9 = 0; z9 < list.length; z9++) { out.push(list[z9]); }
+  }
+  if (fr > 1e-9) {
+    for (z9 = 0; z9 < list.length; z9++) { out.push(scaleUnit(list[z9], fr)); }
+  }
+  return out;
+}
+function scaleUnit(u, f) {
+  if (u.sl) {
+    var sl = [], z;
+    for (z = 0; z < u.sl.length; z++) { sl.push(scaleUnit(u.sl[z], f)); }
+    return { w: u.w, sl: sl };
+  }
+  return { b: u.b * f, sN: u.sN, cr: u.cr, cm: u.cm, hit: u.hit };
 }
 /** **その 1 発が当たる数**（`u.mc`）。`tg` を置いていない発は 1。
     「円形範囲内の敵の数によって」倍率が変わるスキルの候補を決めるのに使う。
@@ -133,7 +174,25 @@ export function dmgOf1(idx, r, at, kind, pick, tg, gx, nso, only, nb) {
     for (q2 = 0; q2 < KS.length; q2++) { acc[KS[q2]] += d0[KS[q2]] / ns; }
     // **切り分けは同じ 1 発をバフ違いで見ているだけ**なので、分散は足さずに平均する
     acc.va += (d0.va || 0) / ns;
+    // **単位は切り分けのぶんだけ束ねて持つ**（`{w, sl:[…]}`）。**振る回数は増えない**
+    // ——`acc.va` を `/ ns` で足しているのと同じ扱いで、乱数は 1 単位に 1 組。
+    // **平均してから上限を通すのではなく、切り分けごとに上限を通してから平均する。**
+    // 安定値・会心倍率・命中は切り分けで変わる（バフが乗り降りする）ので、
+    // 平均した値を 1 つ持つと `min` / `max` と一致しなくなる。
+    // **切り分けの途中で単位の数が変わったら、単位そのものを捨てる。**
+    // 数を合わせにいく直しをすると、どこがずれているのか分からなくなる
+    if (d0.u && acc.u !== null) {
+      if (!acc.u) {
+        acc.u = [];
+        for (q2 = 0; q2 < d0.u.length; q2++) {
+          acc.u.push({ w: 1 / ns, sl: [d0.u[q2]] });
+        }
+      } else if (acc.u.length === d0.u.length) {
+        for (q2 = 0; q2 < d0.u.length; q2++) { acc.u[q2].sl.push(d0.u[q2]); }
+      } else { acc.u = null; }
+    }
   }
+  if (acc && acc.u === null) { delete acc.u; }
   return acc;
 }
 /** **`DamageByHit` が何回出るか。**「その敵が攻撃を受ける度に」なので、
@@ -291,6 +350,7 @@ export function dmgAt(idx, r, at, kind, pick, tg, gx, nso, only, nb) {
   var cEff = st.crit == null ? cRate : clamp(st.crit, 0, 1);
   var o = { min: 0, avg0: 0, avg: 0, avgC: 0, max: 0, va: 0,
             hit: hit, crit: cEff, crit0: cRate, name: p.en };
+  if (WANTU) { o.u = []; }
   for (var k = 0; k < effs.length; k++) {
     // **`Scale` の段数はスキルによって違う。**通常攻撃は 1 段しかないので、
     // EX のレベルで引くと範囲外になって 0 になる（2026-09-01 に踏んだ）
@@ -416,6 +476,22 @@ export function dmgAt(idx, r, at, kind, pick, tg, gx, nso, only, nb) {
       return t2 * nt;
     }
     var cA = capS(mid), cB = capS(mid * cm);
+    // **別々に振られる 1 単位ずつに分けて持ち帰る**（2026-09-04、第 3 段）。
+    // `capS` と同じ割り方——継続（`tick`）の回数ぶんと `Hits` の取り分ぶん。
+    // `hs` が空のときは `capS` と同じく 1 単位（`base / nt`）
+    if (WANTU) {
+      var uz, ut, ub;
+      for (ut = 0; ut < nt; ut++) {
+        if (hsm > 0) {
+          for (uz = 0; uz < hs.length; uz++) {
+            ub = base / nt * (hs[uz] / hsm);
+            o.u.push({ b: ub, sN: sN, cr: cr, cm: cm, hit: hit });
+          }
+        } else {
+          o.u.push({ b: base / nt, sN: sN, cr: cr, cm: cm, hit: hit });
+        }
+      }
+    }
     o.min += capS(sN);
     o.max += capS(cm);
     o.avg0 += cA * hit;

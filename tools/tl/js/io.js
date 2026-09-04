@@ -62,7 +62,8 @@ export function restore(o) {
         if (wb && isFinite(wb.t0) && isFinite(wb.t1)) {
           // `n` はチップから置いたギミックの名前（2026-09-03）
           np.bst.push({ t0: +wb.t0, t1: +wb.t1, k: String(wb.k || 'damaged'),
-                        v: +wb.v || 0, n: wb.n ? String(wb.n) : undefined });
+                        v: +wb.v || 0, n: wb.n ? String(wb.n) : undefined,
+                        a: wb.a ? 1 : undefined });
         }
       }
       np.gu = !!src.gu;
@@ -105,7 +106,8 @@ export function restore(o) {
       var w2 = o.bst[i];
       if (w2 && isFinite(w2.t0) && isFinite(w2.t1)) {
         st.parties[0].bst.push({ t0: +w2.t0, t1: +w2.t1, k: String(w2.k || 'damaged'),
-                                 v: +w2.v || 0, n: w2.n ? String(w2.n) : undefined });
+                                 v: +w2.v || 0, n: w2.n ? String(w2.n) : undefined,
+                                 a: w2.a ? 1 : undefined });
       }
     }
   }
