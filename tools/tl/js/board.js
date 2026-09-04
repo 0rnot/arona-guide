@@ -273,3 +273,100 @@ export function hitsNOf(r, sid, kind, si, ex, on) {
   var q = hitsOf(r, sid, kind, si, ex, on);
   return q ? q.n : null;
 }
+
+// ------------------------------------------------------------ 巻き込める最大数
+// **「何体に当てられるか」は狙い方で変わる。**いちばん多く覆える置き方を探して、
+// それを既定にする（2026-09-04 の先生の指示「デフォルトを巻き込める最大数、
+// 任意で数を選べるって感じにできる？」）。少なくしたいときは今までどおり
+// 入力欄（行の「当たる数」）で下げる。
+//
+// 中心の置き方は `SpawnPositionType` で決まる:
+//   `InputPosition`     … 地面の好きな点。候補は「体の上」と「2 体の円の交点」
+//                         （最大被覆円の中心は必ずこのどちらか）
+//   `InputBattleEntity` / `BattleEntity` … 体に貼り付くので候補は体の上だけ
+//   `Invoker`           … 撃った子の足元で動かせない。**向きだけ**を振る
+//                         （候補は各体の方向と、2 体の中間の方向）
+var _MAXBODY = 24;
+
+function _reach(sh) {
+  if (sh[0] === 'Obb') { return Math.max(sh[3] || 0, sh[4] || 0) / 2 / U; }
+  return (sh[1] || 0) / U;
+}
+
+/** 中心の候補。 */
+function _centers(sh, bs, spawn) {
+  var R = _reach(sh), out = [], i, j;
+  for (i = 0; i < bs.length; i++) { out.push({ x: bs[i].x, y: bs[i].y }); }
+  if (spawn !== 'InputPosition') { return out; }
+  for (i = 0; i < bs.length && i < _MAXBODY; i++) {
+    for (j = i + 1; j < bs.length && j < _MAXBODY; j++) {
+      var r1 = R + bs[i].br, r2 = R + bs[j].br;
+      var dx = bs[j].x - bs[i].x, dy = bs[j].y - bs[i].y;
+      var dd = Math.sqrt(dx * dx + dy * dy);
+      if (!dd || dd > r1 + r2) { continue; }
+      var a = (r1 * r1 - r2 * r2 + dd * dd) / (2 * dd), h2 = r1 * r1 - a * a;
+      if (h2 < 0) { continue; }
+      var h = Math.sqrt(h2), xm = bs[i].x + a * dx / dd, ym = bs[i].y + a * dy / dd;
+      out.push({ x: xm + h * dy / dd, y: ym - h * dx / dd });
+      out.push({ x: xm - h * dy / dd, y: ym + h * dx / dd });
+    }
+  }
+  return out;
+}
+
+/** 向きの候補（`Invoker` 用）。各体の方向と、2 体の中間。 */
+function _facings(me, bs) {
+  var out = [], i, j;
+  for (i = 0; i < bs.length; i++) {
+    out.push({ x: bs[i].x - me.x, y: bs[i].y - me.y });
+    for (j = i + 1; j < bs.length && j < _MAXBODY; j++) {
+      out.push({ x: (bs[i].x + bs[j].x) / 2 - me.x, y: (bs[i].y + bs[j].y) / 2 - me.y });
+    }
+  }
+  return out;
+}
+
+/** **その（生徒, 枠）が巻き込める最大数。**決められなければ null。
+    返す形は `hitsOf` と同じ（`n` / `nb` / `hb` / `hit` / `c` / `me` / `aim`）。 */
+export function bestHitsOf(r, sid, kind, si, ex, on) {
+  var sh = ((B.area || {})[sid] || {})[kind],
+      gm = ((B.geo || {})[sid] || {})[kind];
+  if (!sh || !gm || !r || !r.board) { return null; }
+  var bs = bodiesOf(r, si, ex, on);
+  if (!bs.length) { return null; }
+  var spawn = gm[0], best = null, i, k;
+  if (spawn === 'Invoker') {
+    // 立ち位置は「いちばん近い体まで届くところ」。そこから向きだけ振る
+    var aim0 = aimOf(r, bs, si), me = standOf(r, aim0, gm[4], si);
+    if (!me) { return null; }
+    var fws = _facings(me, bs);
+    for (i = 0; i < fws.length; i++) {
+      var hit = coverOf(sh, me, fws[i], bs, gm);
+      if (hit && (!best || hit.length > best.hit.length)) {
+        best = { hit: hit, c: me, me: me, aim: aim0 };
+      }
+    }
+  } else if (spawn === 'InputPosition' || spawn === 'InputBattleEntity'
+             || spawn === 'BattleEntity' || spawn === 'SkillCommandSelectedTarget') {
+    var cs = _centers(sh, bs, spawn);
+    for (k = 0; k < cs.length; k++) {
+      var c = cs[k], stand = standOf(r, { x: c.x, y: c.y, br: 0 }, gm[4], si);
+      if (!stand) { continue; }
+      var fw = { x: c.x - stand.x, y: c.y - stand.y };
+      if (!fw.x && !fw.y) { fw = { x: 0, y: 1 }; }
+      var h2 = coverOf(sh, c, fw, bs, gm);
+      if (h2 && (!best || h2.length > best.hit.length)) {
+        best = { hit: h2, c: c, me: stand, aim: null };
+      }
+    }
+  } else {
+    return null;
+  }
+  if (!best) { return null; }
+  var nb = 0, hb = 0, j;
+  for (j = 0; j < best.hit.length; j++) {
+    if (best.hit[j].cid === r.cid) { hb = 1; } else { nb++; }
+  }
+  best.n = best.hit.length; best.nb = nb; best.hb = hb; best.bs = bs;
+  return best;
+}
