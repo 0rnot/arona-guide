@@ -2,3 +2,6 @@
 # 公開に使うのは ASCII 名に揃えた images/ のほう。
 Aronahtml_image/
 __pycache__/
+
+# 作業中の控え
+*.bak
