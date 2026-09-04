@@ -4822,6 +4822,150 @@ def tl_one(cid, bt, csl, stat, fcache, ch_appear, twin=None):
             "per": round(per, 3) if per else None, "ex": ex, "ph": ph, "fb": fb}
 
 
+# ---- **グロッキーゲージが「ボス自身の EX」で埋まるボス**（2026-09-04）。
+# ペロロジラがこれで、`raids.json` の `GroggyCondition` は
+# 「気絶状態のペロロミニオンを吸い込むと増加する。」としか書いていない。
+# **その「吸い込む」は 3 つの表に数字で入っている。**
+#
+#   ① 増分  `DB/LogicEffect_NPC.json` の `GroggyGaugeEffectDAO`。
+#      **`Amount` は 0 で、値は `CasterCoefficientAmount` に入っている**（ここを
+#      見落としていたのが 2026-09-04 まで「貯まり方が無い」と書いていた理由）。
+#      {"$type": "MX.GameData.DAO.Battle.GroggyGaugeEffectDAO, BlueArchive",
+#       "Amount": 0, "TargetCoefficientAmount": 0, "CasterCoefficientAmount": 834,
+#       "GroupId": "Perorozilla01_Torment_Ex09_Effect05",
+#       "TemplateId": "Debuff_AddGroggyGauge", "Channel": 90001}
+#      **1/10000 が満杯**（`CharacterStatExcelTable.GroggyGauge` に対する割合）。
+#      834 は SchaleDB の本文の「グロッキーゲージが 1/12 上昇」と一致する
+#      （1/12 = 833.3…）。Insane は 1000 = 1/10、それ以下は 1430 = 1/7
+#
+#   ② どの段が選ばれるか  `LevelSkill/<Ex09>.json` の
+#      `EntityTimeline[1].Entity.Abilities[]` に並ぶ
+#      {"$type": "MX.GameData.DAO.Battle.CountLogicEffectTemplateModifierDAO, BlueArchive",
+#       "TemplateId": "Dummy_Perorozilla_MiddleSize_CrowdControl_StatusAdd_Stunned",
+#       "CountMin": 6, "CountMax": 6, "IncludeType": 1, "CheckTarget": 2}
+#      **盤に居る「転倒した大きなペロロミニオン」の数がそのまま段。**
+#      Lunatic / Torment は 0〜6 の 7 段、Insane は 0〜5、それ以下は 0〜4
+#
+#   ③ 誰がその札を貼るか  **プレイヤーではない。**大きなペロロミニオン自身の
+#      `LevelSkill/Perorozilla01MiddleSize01Passive02.json` が
+#      `"TriggerCondition": {"Event": 301, "ConditionExpression": "GetHPRate() < 5000"}`
+#      で `Perorozilla_MiddleSize_Passive02_Effect01`
+#      （`StatusAddEffectData`・`TargetStatus: "Stunned"`・`Duration: -1`・Channel 160001）を
+#      自分に貼る。**HP を 50% 以下にすると転倒して永続 Stunned になる**、が全文。
+#      大きなペロロミニオンは `Perorozilla_MiddleSize_Passive01_Effect01`
+#      （`TargetStatus: "Immortal"`・`Duration: -1`）で死なないので、
+#      「何体を 50% 以下にしたか」だけが効く
+#
+# 貯める EX を何発目の通常攻撃で撃つかは木にある（`UseNormalSkill N →
+# UseSelectExSkill`）。**フェーズが終わる発数も木から出る**——
+#   `CharacterStatExcelTable.ActiveGauge` = 301（上限）
+#   `Perorozilla01_Ex09_Effect03`（`AddCurrentATGEffectDAO`・`Amount: 150`）が EX 1 発ぶん
+#   木の `UseNormalSkill 10/19/28/37 → AddActiveGauge 1`、`11/20/29/38 → AddActiveGauge -1`
+#   ⇒ 150 × 2 + 1 = 301 で `CheckActiveGaugeOver 301 → ChangePhase` が立つ。
+#   **19 発目でフェーズが終わり、その前に吸収は 2 回**（9 発目と 18 発目）。
+#   上限体数のとき 5004 × 2 = 10008 ≧ 10000 なので、**2 回目の吸収でちょうど満ちる。**
+_GGE = None
+
+
+def _gg_effects():
+    """`GroupId` → ("groggy", Amount, TargetCoefficientAmount, CasterCoefficientAmount)
+       か ("atg", Amount, 0, 0)。`DB/LogicEffect_NPC.json` から 2 種類だけ引く。"""
+    global _GGE
+    if _GGE is not None:
+        return _GGE
+    out = {}
+    for r in as_list(get_json(BADB.format("LogicEffect_NPC"))):
+        dao = str(r.get("$type") or "").split(",")[0].split(".")[-1]
+        g = r.get("GroupId")
+        if not g:
+            continue
+        if dao == "GroggyGaugeEffectDAO":
+            out[g] = ("groggy", r.get("Amount") or 0,
+                      r.get("TargetCoefficientAmount") or 0,
+                      r.get("CasterCoefficientAmount") or 0)
+        elif dao == "AddCurrentATGEffectDAO":
+            out[g] = ("atg", r.get("Amount") or 0, 0, 0)
+    _GGE = out
+    return out
+
+
+def _gg_walk(o, path, out, pred):
+    if isinstance(o, dict):
+        if pred(o):
+            out.append((path, o))
+        for k, v in o.items():
+            _gg_walk(v, path + "/" + k, out, pred)
+    elif isinstance(o, list):
+        for i, v in enumerate(o):
+            _gg_walk(v, path + "[%d]" % i, out, pred)
+
+
+def tl_groggy(ex, stat_row, ph, ls_cache):
+    """ボス自身の EX でグロッキーゲージが埋まるなら、その貯まり方を返す。無ければ None。
+
+    **どのボスにも当たる形で書いてある。**探すのは「`GroggyGaugeEffectDAO` を配る
+    Ability を持つ EX」で、ペロロジラを名指ししていない。
+    """
+    eff = _gg_effects()
+    need_gauge = (stat_row or {}).get("GroggyGauge") or 0
+    if not need_gauge:
+        return None
+    for i, nm in enumerate(ex or []):
+        if nm not in ls_cache:
+            try:
+                ls_cache[nm] = get_json(BALS.format(nm))
+            except Exception:
+                ls_cache[nm] = {}
+        d = ls_cache[nm] or {}
+        hits = []
+        _gg_walk(d, "", hits,
+                 lambda o: str(o.get("$type") or "").endswith("AbilityDAO, BlueArchive"))
+        lad, atg, tpl = [], None, None
+        for p, ab in hits:
+            # `MainEntityData` は `EntityTimeline[0]` の写し。二重に数えない
+            if p.startswith("/MainEntityData"):
+                continue
+            gg = None
+            for g in (ab.get("LogicEffectGroupIds") or []):
+                e = eff.get(g)
+                if not e:
+                    continue
+                if e[0] == "groggy":
+                    gg = e[3] if e[3] else (e[1] or e[2])
+                elif e[0] == "atg":
+                    atg = e[1]
+            if gg is None:
+                continue
+            cnt = None
+            for m in (ab.get("Modifiers") or []):
+                if "CountLogicEffectTemplateModifierDAO" in str(m.get("$type") or ""):
+                    cnt, tpl = m.get("CountMin"), m.get("TemplateId")
+            lad.append([cnt, gg])
+        if not lad:
+            continue
+        lad = [x for x in lad if x[0] is not None]
+        if not lad:
+            continue
+        lad.sort(key=lambda x: x[0])
+        cap = max(x[0] for x in lad)
+        step = next((v for c, v in lad if c == 1), None)
+        # 貯める EX を撃つ通常攻撃の数（フェーズごと）
+        # **`ev` は 1 周ぶんを繰り返して並べてある**（`TL_EV_LIMIT`）ので、
+        # 同じ発数が何度も出る。数だけ要るので畳む
+        at = {}
+        for k, p2 in (ph or {}).items():
+            ns = sorted({e[0] for e in (p2.get("ev") or []) if i in (e[2] or [])})
+            if ns:
+                at[k] = ns
+        return {"ex": nm, "exi": i, "tpl": tpl, "lad": lad, "cap": cap, "step": step,
+                "atg": atg, "atgMax": (stat_row or {}).get("ActiveGauge"),
+                "need": 10000, "gauge": need_gauge,
+                "sec": ((stat_row or {}).get("GroggyTime") or 0) / 1000.0,
+                "at": at,
+                "hit": (int(-(-10000 // (step * cap))) if step and cap else None)}
+    return None
+
+
 # **`DamageByHit`（攻撃を受ける度に出る追加ダメージ）の上限回数。**
 # SchaleDB の `Effects` は `Icon: "DamageByHit_Damaged"` を持つだけで回数を持たない。
 # 一次資料は `DB/LogicEffect_PC.json` の `DamageByHitEffectDAO` で、
@@ -5725,6 +5869,27 @@ def build_tl():
                 _sp = _gspl(b, df)
                 if _sp:
                     got["gspl"] = _sp
+                # **ボス自身の EX でグロッキーゲージが埋まるなら、その貯まり方**
+                # （2026-09-04。出どころは `tl_groggy` の上の注記）
+                _gga = tl_groggy(got.get("ex"), stat.get(got["cid"]),
+                                 got.get("ph"), _ls_cache)
+                if _gga:
+                    # **フェーズが終わる通常攻撃の数**。木の `AddActiveGauge` の
+                    # `+1` が 2 度目に立つところで `CheckActiveGaugeOver` を越える
+                    _btr = [r for r in (bt.get(got["cid"]) or []) if r["AIPhase"] == 0]
+                    _plus = sorted(int(r["TriggerArgument"]) for r in _btr
+                                   if r["ExternalBTTrigger"] == "UseNormalSkill"
+                                   and r["ExternalBehavior"] == "AddActiveGauge"
+                                   and int(r["BehaviorArgument"]) > 0)
+                    _over = sorted(int(r["TriggerArgument"]) for r in _btr
+                                   if r["ExternalBTTrigger"] == "CheckActiveGaugeOver")
+                    if _gga["atg"] and _over:
+                        _n = int(-(-_over[0] // _gga["atg"]))       # EX 何発で越えるか
+                        _gga["end"] = (_plus[_n - 1] if 0 < _n <= len(_plus)
+                                       and _gga["atg"] * _n < _over[0] else None)
+                        _gga["per"] = len([c for c in (_gga["at"].get("0") or [])
+                                           if _gga["end"] and c <= _gga["end"]]) or None
+                    got["gga"] = _gga
                 _sg = _stg(b, df)
                 if _sg:
                     got["stg"] = _sg

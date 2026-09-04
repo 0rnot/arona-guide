@@ -149,7 +149,14 @@ export function draw() {
   var ggLbl = gm.kind === 'ダメージ'
     ? '<span class="nm">グロッキー</span><span class="tag">' + n0(gm.need) + '</span>'
     : '<span class="nm">グロッキー</span><span class="tag">' +
-      (gm.kind === 'なし' ? 'なし' : gm.kind === '実質なし' ? 'ダメージでは貯まらない' : '条件つき') +
+      (gm.kind === 'なし' ? 'なし' : gm.kind === '実質なし' ? 'ダメージでは貯まらない'
+        // **貯まり方が DB から出るボス**（`carry.js` の `ggMode` の `gga`）。
+        // ペロロジラは「転倒した大きなペロロミニオン 1 体につき step/10000」で、
+        // 上限体数なら `hit` 回の吸収で満ちる（2026-09-04）
+        : gm.kind === '吸収' && gm.gga
+          ? '吸収 ' + gm.gga.hit + ' 回（1 体 ' + gm.gga.step + '/10000・最大 '
+            + gm.gga.cap + ' 体）'
+          : '条件つき') +
       '</span>';
   if (laneOn('boss')) { side += lbl(H.gg, ggLbl); cv += lane(H.gg, gs); }
 

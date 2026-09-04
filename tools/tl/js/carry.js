@@ -292,6 +292,16 @@ export function ggMode(r) {
   var b = boss(), bs = r.bs || {};
   if (!bs.groggy) { return { kind: 'なし' }; }
   var fz = b.gc ? ggFreezePh(b.gc) : null;
+  // **貯まり方が DB から出るボス**（`d[].gga`。2026-09-04）。`gc` の
+  // 「気絶状態のペロロミニオンを吸い込むと増加する。」の中身が数字で入っている。
+  // **窓は今までどおり人が置く**——ボスの何発目の通常攻撃かは分かっても、
+  // その発が何秒に来るかは道具が持っていない（`ph[].ev` の秒は通常攻撃だけを
+  // 数えた時計で、EX のモーションぶんが入っていない）。ここで返すのは
+  // 「どこに置けばよいか」を画面に出すための材料
+  if (r.gga) {
+    return { kind: '吸収', why: b.gc || '', need: bs.groggy,
+             sec: (bs.groggyT || 0) / 1000, gga: r.gga };
+  }
   if (b.gc && !fz) { return { kind: '条件つき', why: b.gc, need: bs.groggy, sec: (bs.groggyT || 0) / 1000 }; }
   if (bs.hp && bs.groggy > bs.hp * 20) { return { kind: '実質なし', need: bs.groggy }; }
   return { kind: 'ダメージ', need: bs.groggy, sec: (bs.groggyT || 0) / 1000,
