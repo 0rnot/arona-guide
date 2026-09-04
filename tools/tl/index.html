@@ -71,25 +71,32 @@
 .tlapp .pane > .ttl .sub { font-size:10.5px; color:var(--tx3); font-weight:400; }
 .tlapp .pane > .bd { padding:6px 8px; }
 
-/* 盤と経過（2026-09-04、第 5 段）。開くまで描かないのでページの高さは変わらない */
-.tlapp .vhd { display:flex; align-items:center; gap:10px; margin-bottom:6px; flex-wrap:wrap; }
-.tlapp .vhd .seg { display:inline-flex; border:1px solid var(--ln); border-radius:4px; overflow:hidden; }
-.tlapp .vhd .sg { background:var(--bg2); color:var(--tx2); border:0; font:inherit;
-                  font-size:11px; padding:3px 9px; cursor:pointer; }
-.tlapp .vhd .sg.on { background:var(--acc); color:#fff; }
-.tlapp .vwrap { display:grid; grid-template-columns:minmax(200px,1fr) minmax(320px,2fr);
+/* 盤と経過（2026-09-04、第 5 段）。「入力」の左に出る。開くまで描かない */
+.tlapp .vhd { display:flex; align-items:center; gap:8px; margin-bottom:6px; flex-wrap:wrap; }
+.tlapp .vwrap { display:grid; grid-template-columns:minmax(210px,1fr) minmax(320px,2fr);
                 gap:8px; align-items:start; }
 @media (max-width:900px) { .tlapp .vwrap { grid-template-columns:1fr; } }
+.tlapp .vwrap > #rowlist { min-width:0; overflow-x:auto; }
+.tlapp .vleft { display:flex; flex-direction:column; gap:6px; min-width:0; }
 .tlapp .vbd, .tlapp .vlg { background:var(--bg2); border:1px solid var(--ln); border-radius:4px; }
 .tlapp .vbd { padding:4px; }
-.tlapp .bsvg { display:block; width:100%; height:300px; }
+.tlapp .bsvg { display:block; width:100%; height:280px; touch-action:none; }
 .tlapp .bsvg .bd { fill:#6b7b8c; fill-opacity:.55; stroke:#8fa2b5; stroke-width:.12; }
 .tlapp .bsvg .bd.boss { fill:#3f5a72; fill-opacity:.6; }
 .tlapp .bsvg .bd.on { fill:var(--acc2); fill-opacity:.85; stroke:#f0c887; }
+.tlapp .bsvg .bd.mv { cursor:grab; stroke-dasharray:.4 .3; stroke-width:.18; }
+.tlapp .bsvg .bd.mv:hover { stroke:#fff; }
+.tlapp .bsvg .bd.put { stroke:var(--grn); stroke-dasharray:none; }
 .tlapp .bsvg .ar { fill:var(--teal); fill-opacity:.20; stroke:var(--acc); stroke-width:.16; }
 .tlapp .bsvg .bcn { fill:#9aa7b4; }
 .tlapp .bsvg .me { fill:var(--grn); }
-.tlapp .vlg { max-height:300px; overflow-y:auto; padding:4px 6px; }
+/* 狙う点の摘み。**当たり判定を広めに取る**（掴めないと動かせない） */
+.tlapp .bsvg .aim { cursor:grab; }
+.tlapp .bsvg .aim .ahit { fill:transparent; }
+.tlapp .bsvg .aim .ac { fill:none; stroke:var(--acc); stroke-width:.22; }
+.tlapp .bsvg .aim .ax { stroke:var(--acc); stroke-width:.16; }
+.tlapp .bsvg .aim:hover .ac, .tlapp .bsvg .aim:hover .ax { stroke:#fff; }
+.tlapp .vlg { max-height:220px; overflow-y:auto; padding:4px 6px; }
 .tlapp .vlg .vr { font-size:11.5px; line-height:1.9; white-space:nowrap;
                   border-bottom:1px solid var(--ln); }
 .tlapp .vlg .vr:last-child { border-bottom:0; }
@@ -1371,9 +1378,7 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
           <button type="button" class="btn2" data-act="export">書き出し</button>
           <button type="button" class="btn2" data-act="import">読み込み</button>
           <button type="button" class="btn2" data-act="rows" id="b-rows" aria-pressed="false"
-                  title="置いた EX を行で組む（タイムラインの下に開きます）">入力</button>
-          <button type="button" class="btn2" data-act="view" id="b-view" aria-pressed="false"
-                  title="盤の絵と、ボスの動きの並び（タイムラインの下に開きます）">盤</button>
+                  title="盤と、置いた EX の行（タイムラインの下に開きます）">入力</button>
           <button type="button" class="btn2" data-act="uireset"
                   title="畳んだ・大きさを変えた、を全部もとに戻す">表示を戻す</button>
           <button type="button" class="btn2 sq" data-act="keys" title="キー操作の一覧">?</button>
@@ -1387,17 +1392,20 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
         </div>
       </div>
 
-      <!-- 「入力」で開く TL 表。行は st.tl そのもの（2026-09-03） -->
+      <!-- 「入力」で開く。左に盤と経過、右に TL 表（2026-09-04 の先生の指示
+           「入力ボタンで一緒に盤も出るようにしちゃって盤ボタン消していいよ」）。
+           行は st.tl そのもの（2026-09-03） -->
       <div class="pane" id="rowpane" hidden><div class="bd">
-        <div id="rowlist"></div>
+        <div class="vwrap">
+          <div class="vleft"><div class="vbd" id="viewbd"></div>
+            <div class="vlg" id="viewlg"></div></div>
+          <div id="rowlist"></div>
+        </div>
       </div></div>
 
       <div class="pane" id="usepane" hidden><div class="bd">
         <div class="fields wrapf" id="useedit"></div>
       </div></div>
-
-      <!-- 「盤」で開く。盤の絵とボスの動きの並び（2026-09-04、第 5 段） -->
-      <div class="pane" id="viewpane" hidden><div class="bd"></div></div>
 
       <div class="pane"><div class="bd">
         <div class="fields wrapf">
@@ -1943,7 +1951,7 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
 <!-- **版はビルドが打つ。**`@V:<パス>` を build.py が中身の SHA1 先頭 8 桁へ差し替える
      （2026-09-03。`?v=1` の固定値だったので、index.html だけ新しくなって
      js が古いまま残り、画面が崩れた） -->
-<script src="data.js?v=cc8b6777"></script>
+<script src="data.js?v=11db35a8"></script>
 <script src="../cost-timeline/data.js?v=b97e1635"></script>
 <script src="../tl-engine.js?v=9448d284"></script>
 <script>
@@ -1967,8 +1975,8 @@ body.rz.row, body.rz.row * { cursor:row-resize !important; }
 <!-- 画面の JS は tools/tl/js/ の ES モジュールに割ってある（2026-09-03）。
      束ね役は入れない。**ブラウザがそのまま読む**ので、置き方は静的ファイルのまま。
      割り方と依存の向きは tl-work/split.py と js/main.js を見る -->
-<script type="importmap">{"imports":{"./js/alt.js":"./js/alt.js?v=0bd7244d","./js/board.js":"./js/board.js?v=03e6e092","./js/boss.js":"./js/boss.js?v=d90f4dd2","./js/bossui.js":"./js/bossui.js?v=aebc046c","./js/buff.js":"./js/buff.js?v=d5c6ebc1","./js/carry.js":"./js/carry.js?v=7cfd2311","./js/chart.js":"./js/chart.js?v=da1b615d","./js/clear.js":"./js/clear.js?v=e2b57bfb","./js/core.js":"./js/core.js?v=7b965051","./js/dmg.js":"./js/dmg.js?v=bcb0d744","./js/draw.js":"./js/draw.js?v=11a5b3fe","./js/engine.js":"./js/engine.js?v=002f42e8","./js/ep.js":"./js/ep.js?v=65aefece","./js/import-ui.js":"./js/import-ui.js?v=3f9456e1","./js/io.js":"./js/io.js?v=3b117e80","./js/kpi.js":"./js/kpi.js?v=23d2a9e3","./js/lanes.js":"./js/lanes.js?v=96c0f033","./js/left.js":"./js/left.js?v=5d7f9d6a","./js/main.js":"./js/main.js?v=5524cf08","./js/na.js":"./js/na.js?v=f5fdb345","./js/ns.js":"./js/ns.js?v=825b3695","./js/ord.js":"./js/ord.js?v=3f1090c7","./js/parse-apply.js":"./js/parse-apply.js?v=f8668b74","./js/parse-text.js":"./js/parse-text.js?v=bb69439d","./js/parse-tl.js":"./js/parse-tl.js?v=712c8ded","./js/passive.js":"./js/passive.js?v=79dba8c7","./js/pool.js":"./js/pool.js?v=44aab1e4","./js/rate.js":"./js/rate.js?v=15dd8b8c","./js/roll.js":"./js/roll.js?v=9cea85ab","./js/rows.js":"./js/rows.js?v=ffcf37e0","./js/scen.js":"./js/scen.js?v=4919dd8c","./js/stats.js":"./js/stats.js?v=44d4da92","./js/target.js":"./js/target.js?v=fb5bfd58","./js/tip.js":"./js/tip.js?v=c71bea37","./js/undo.js":"./js/undo.js?v=f49e7b87","./js/useedit.js":"./js/useedit.js?v=15e15d6e","./js/uses.js":"./js/uses.js?v=46ad5e0c","./js/util.js":"./js/util.js?v=2fab8a83","./js/view.js":"./js/view.js?v=26a8fff7","./js/wire-boss.js":"./js/wire-boss.js?v=01ffa20d","./js/wire-build.js":"./js/wire-build.js?v=157802f6","./js/wire-fold.js":"./js/wire-fold.js?v=4e0a048a","./js/wire-mouse.js":"./js/wire-mouse.js?v=ada8ab6c","./js/wire-party.js":"./js/wire-party.js?v=cc2e7c52","./js/wire-picker.js":"./js/wire-picker.js?v=698cee19","./js/wire-rows.js":"./js/wire-rows.js?v=9b514713","./js/wire-size.js":"./js/wire-size.js?v=1fed688e","./js/wire-use.js":"./js/wire-use.js?v=9d352c6f","./js/zoom.js":"./js/zoom.js?v=cdff4f8b"}}</script>
-<script type="module" src="js/main.js?v=5524cf08"></script>
+<script type="importmap">{"imports":{"./js/alt.js":"./js/alt.js?v=0bd7244d","./js/board.js":"./js/board.js?v=80f968d6","./js/boss.js":"./js/boss.js?v=d90f4dd2","./js/bossui.js":"./js/bossui.js?v=aebc046c","./js/buff.js":"./js/buff.js?v=90a42d58","./js/carry.js":"./js/carry.js?v=7cfd2311","./js/chart.js":"./js/chart.js?v=da1b615d","./js/clear.js":"./js/clear.js?v=e2b57bfb","./js/core.js":"./js/core.js?v=7b965051","./js/dmg.js":"./js/dmg.js?v=bcb0d744","./js/draw.js":"./js/draw.js?v=11a5b3fe","./js/engine.js":"./js/engine.js?v=002f42e8","./js/ep.js":"./js/ep.js?v=65aefece","./js/import-ui.js":"./js/import-ui.js?v=3f9456e1","./js/io.js":"./js/io.js?v=3b117e80","./js/kpi.js":"./js/kpi.js?v=23d2a9e3","./js/lanes.js":"./js/lanes.js?v=96c0f033","./js/left.js":"./js/left.js?v=5d7f9d6a","./js/main.js":"./js/main.js?v=202a3eea","./js/na.js":"./js/na.js?v=f5fdb345","./js/ns.js":"./js/ns.js?v=825b3695","./js/ord.js":"./js/ord.js?v=3f1090c7","./js/parse-apply.js":"./js/parse-apply.js?v=f8668b74","./js/parse-text.js":"./js/parse-text.js?v=bb69439d","./js/parse-tl.js":"./js/parse-tl.js?v=712c8ded","./js/passive.js":"./js/passive.js?v=79dba8c7","./js/pool.js":"./js/pool.js?v=44aab1e4","./js/rate.js":"./js/rate.js?v=15dd8b8c","./js/roll.js":"./js/roll.js?v=9cea85ab","./js/rows.js":"./js/rows.js?v=b4975471","./js/scen.js":"./js/scen.js?v=4919dd8c","./js/stats.js":"./js/stats.js?v=44d4da92","./js/target.js":"./js/target.js?v=fb5bfd58","./js/tip.js":"./js/tip.js?v=c71bea37","./js/undo.js":"./js/undo.js?v=f49e7b87","./js/useedit.js":"./js/useedit.js?v=15e15d6e","./js/uses.js":"./js/uses.js?v=46ad5e0c","./js/util.js":"./js/util.js?v=2fab8a83","./js/view.js":"./js/view.js?v=7d6c1375","./js/wire-boss.js":"./js/wire-boss.js?v=01ffa20d","./js/wire-build.js":"./js/wire-build.js?v=157802f6","./js/wire-fold.js":"./js/wire-fold.js?v=4e0a048a","./js/wire-mouse.js":"./js/wire-mouse.js?v=ada8ab6c","./js/wire-party.js":"./js/wire-party.js?v=cc2e7c52","./js/wire-picker.js":"./js/wire-picker.js?v=698cee19","./js/wire-rows.js":"./js/wire-rows.js?v=ed247774","./js/wire-size.js":"./js/wire-size.js?v=1fed688e","./js/wire-use.js":"./js/wire-use.js?v=9d352c6f","./js/wire-view.js":"./js/wire-view.js?v=672ae4a1","./js/zoom.js":"./js/zoom.js?v=cdff4f8b"}}</script>
+<script type="module" src="js/main.js?v=202a3eea"></script>
 
 </body>
 </html>

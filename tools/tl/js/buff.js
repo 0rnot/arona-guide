@@ -105,7 +105,10 @@ export function usesSorted0() {
                // **部位を貫いてボス本体にも当たるか**（置くのは使う人）
                hb: st.tl[i].hb ? 1 : 0,
                // **この 1 発だけ外したボスの状態の窓**（`st.bst` の番号。2026-09-03）
-               gx: st.tl[i].gx || null });
+               gx: st.tl[i].gx || null,
+               // **盤で置いた位置**（2026-09-04）。`ax`/`ay` は狙う点、
+               // `bp` は動かした体。`ix` は `st.tl` の番号（書き戻し先）
+               ix: i, ax: st.tl[i].ax, ay: st.tl[i].ay, bp: st.tl[i].bp || null });
   }
   var dur = diff().dur || 240;
   for (i = 0; i < SLOTS; i++) {

@@ -3,24 +3,21 @@ import { st } from './core.js';
 import { diff } from './boss.js';
 import { bossAdv, phaseSpans, ggRuns, ggSolve } from './carry.js';
 import { usesSorted } from './buff.js';
-import { beaconOf, bestHitsOf, bodiesOf, hitsOf, secOfSummon, shapeAt } from './board.js';
+import { beaconOf, bestHitsOf, bodiesOf, hitsAtOf, hitsOf, movedBodies, placeKind,
+         secOfSummon, shapeAt } from './board.js';
 
 // ------------------------------------------------------------ 盤と経過（第 5 段）
 // **画面に文章を足さずに、盤とボスの動きを目で見られるようにする**（2026-09-04）。
 // 開くまで何も描かないので、**閉じているあいだはページの高さが変わらない。**
 //
-// 左に盤の絵（誰がどこに立って、何を狙って、何体を覆っているか）、
-// 右に経過の並び（フェーズ・召喚・吸収・グロッキー・置いた発）。
+// 「入力」の左に盤の絵と経過、右に行の表（2026-09-04 の先生の指示
+// 「入力ボタンで一緒に盤も出るようにしちゃって盤ボタン消していいよ」）。
 // **形は `board.js` の `shapeAt` から取る**——`coverOf` が数えるのと同じ形なので、
 // 「絵では覆っているのに数に入らない」がありえない。
 
 export var VIEW = false;
-export function viewToggle() {
-  VIEW = !VIEW;
-  $('b-view').setAttribute('aria-pressed', VIEW ? 'true' : 'false');
-  $('viewpane').hidden = !VIEW;
-  drawView();
-}
+/** 盤は「入力」といっしょに出る。札は 1 つだけ（`b-rows`）。 */
+export function viewSet(on) { VIEW = !!on; drawView(); }
 /** **盤の時刻はタイムラインの赤い縦線**（2026-09-04 の先生の指摘
     「発動時間の盤ってより、タイムライン上の赤線の位置の盤か」）。
     節・召喚の波・グロッキーを、その時刻から出す。手で切り替える札は要らなくなった。 */
@@ -45,7 +42,7 @@ function fmt(t) { return (+t).toFixed(1); }
 
     **吸収の EX が来たら盤の体は消える**——`Ex09` が 20.0 ワールドの中を
     全部吸ってから、グロッキーの小さなペロロが湧く。 */
-function sceneAt(r, t) {
+export function sceneAt(r, t) {
   var sp = phaseSpans(r), gr = ggRuns(r), i, k;
   var cur = sp[sp.length - 1];
   for (i = 0; i < sp.length; i++) {
@@ -75,7 +72,7 @@ function sceneAt(r, t) {
 
 /** **絵にする 1 発。**選んでいる行があればそれ、無ければ「当たる先を決めてある発」の
     いちばん早いもの。どれも無ければ編成の先頭の EX。 */
-function pickShot(r) {
+export function pickShot(r) {
   var us = usesSorted().filter(function (u) { return u.no == null; }), i;
   var sel = st.sel != null ? st.tl[st.sel] : null;
   if (sel) {
@@ -89,15 +86,17 @@ function pickShot(r) {
   return us[0] || null;
 }
 
-/** 盤の絵。`sh` は `pickShot` の 1 発（無ければ形は描かない）。 */
-function boardSvg(r, sc, sh) {
-  var sec = sc.sec, on = sc.gg ? ['st:Groggy'] : null, ex = sc.wave || false;
-  var bs = bodiesOf(r, sec, ex, on), bc = beaconOf(r, sec), i;
+/** 盤の絵。`q` は当たり（`hitsAtOf` / `bestHitsOf`）、`bs` はその盤の体。
+
+    **動かせる体には `data-k`（`bodiesOf` の札）を付ける。**`_Move` の付いた体だけで、
+    どこへ動くかはデータに無いので人が置く（2026-09-04 の先生の
+    「移動する個体はドラックで動かせるようにすればいいかな？」）。
+    狙う点の摘みは `data-h="aim"`。 */
+function boardSvg(r, sec, sh, q, bs, pk) {
+  var bc = beaconOf(r, sec), i;
   if (!bs.length) { return '<p class="mut tiny">この相手には盤のデータがありません</p>'; }
   var sid = sh ? (st.party[sh.i] || {}).id : null;
   var kd = sh ? sh.k : null;
-  var q = (sid != null && (B.area[sid] || {})[kd])
-    ? (bestHitsOf(r, sid, kd, sec, ex, on) || hitsOf(r, sid, kd, sec, ex, on)) : null;
   var geo = q ? shapeAt((B.area[sid] || {})[kd], q.c,
                         { x: q.c.x - q.me.x, y: q.c.y - q.me.y },
                         (B.geo[sid] || {})[kd]) : null;
@@ -115,17 +114,20 @@ function boardSvg(r, sc, sh) {
   }
   var x0 = Math.min.apply(null, xs) - 2, x1 = Math.max.apply(null, xs) + 2;
   var y0 = Math.min.apply(null, ys) - 2, y1 = Math.max.apply(null, ys) + 2;
-  var hitN = {};
-  if (q) { for (i = 0; i < q.hit.length; i++) { hitN[q.hit[i].n + '|' + q.hit[i].x + '|' + q.hit[i].y] = 1; } }
+  var hitK = {};
+  if (q) { for (i = 0; i < q.hit.length; i++) { hitK[q.hit[i].key] = 1; } }
   // **画面の上が奥。**`Stage` の y は奥ほど大きいので、そのまま描くと上下が逆になる
-  var g = '<g transform="translate(0,' + (y0 + y1) + ') scale(1,-1)">';
+  var g = '<g transform="translate(0,' + (y0 + y1) + ') scale(1,-1)" id="bgrp">';
   if (geo) { g += shapePath(geo); }
   for (i = 0; i < bs.length; i++) {
-    var p = bs[i], on2 = hitN[p.n + '|' + p.x + '|' + p.y];
+    var p = bs[i];
     g += '<circle cx="' + p.x.toFixed(2) + '" cy="' + p.y.toFixed(2) + '" r="' +
          p.br.toFixed(2) + '" class="bd' + (p.cid === r.cid ? ' boss' : '') +
-         (on2 ? ' on' : '') + '"><title>' + esc(p.n) +
-         (p.sum ? '（' + p.sum + ' の召喚）' : '') + '\n半径 ' + p.br.toFixed(2) +
+         (hitK[p.key] ? ' on' : '') + (p.mv ? ' mv' : '') +
+         (p.put ? ' put' : '') + '"' +
+         (p.mv ? ' data-k="' + esc(p.key) + '"' : '') + '><title>' + esc(p.n) +
+         (p.sum ? '（' + p.sum + ' の召喚）' : '') +
+         (p.mv ? '\nドラッグで動かせます' : '') + '\n半径 ' + p.br.toFixed(2) +
          '\n' + p.x.toFixed(2) + ', ' + p.y.toFixed(2) + '</title></circle>';
   }
   if (bc) { g += '<circle cx="' + bc.x + '" cy="' + bc.y + '" r="0.8" class="bcn"><title>生徒の立ち位置（ビーコン）</title></circle>'; }
@@ -133,8 +135,18 @@ function boardSvg(r, sc, sh) {
     g += '<circle cx="' + q.me.x.toFixed(2) + '" cy="' + q.me.y.toFixed(2) +
          '" r="0.8" class="me"><title>撃つ子の立ち位置</title></circle>';
   }
+  // **狙う点の摘み。**位置を決められる枠のときだけ出す
+  if (q && pk) {
+    var a = q.aim || q.c, ax = a.x, ay = a.y;
+    g += '<g class="aim" data-h="aim"><circle cx="' + ax.toFixed(2) + '" cy="' + ay.toFixed(2) +
+         '" r="1.6" class="ahit"/><circle cx="' + ax.toFixed(2) + '" cy="' + ay.toFixed(2) +
+         '" r="0.95" class="ac"/><path d="M' + (ax - 1.9).toFixed(2) + ' ' + ay.toFixed(2) +
+         'h3.8M' + ax.toFixed(2) + ' ' + (ay - 1.9).toFixed(2) + 'v3.8" class="ax"/>' +
+         '<title>' + (pk === 'aim' ? '狙う体（向きが決まります）' : '範囲の中心') +
+         '\nドラッグで動かせます</title></g>';
+  }
   g += '</g>';
-  return '<svg class="bsvg" viewBox="' + x0.toFixed(2) + ' ' + y0.toFixed(2) + ' ' +
+  return '<svg class="bsvg" id="bsvg" viewBox="' + x0.toFixed(2) + ' ' + y0.toFixed(2) + ' ' +
          (x1 - x0).toFixed(2) + ' ' + (y1 - y0).toFixed(2) + '" preserveAspectRatio="xMidYMid meet">' +
          g + '</svg>';
 }
@@ -218,30 +230,60 @@ function logRows(r) {
   return h || '<p class="mut tiny">まだ何も置いていません</p>';
 }
 
+/** **盤で置いたもの。**`usesSorted` の写しではなく `st.tl` の正本から読む
+    （ドラッグの最中は写しが古いことがある）。 */
+export function placedOf(u) {
+  var raw = (u && u.ix != null) ? st.tl[u.ix] : null;
+  if (raw) { return { ax: raw.ax, ay: raw.ay, bp: raw.bp || null }; }
+  return { ax: u && u.ax, ay: u && u.ay, bp: (u && u.bp) || null };
+}
+
+/** **その 1 発の当たり。**人が置いていればその位置で、置いていなければ
+    「いちばん多く巻き込める置き方」（`bestHitsOf`）。 */
+export function coverOfUse(r, u, sc) {
+  if (!u || !st.party[u.i]) { return null; }
+  var sid = st.party[u.i].id, kd = u.k;
+  var sh = (B.area[sid] || {})[kd], gm = (B.geo[sid] || {})[kd];
+  if (!sh || !gm) { return null; }
+  var pd = placedOf(u);
+  var ex = sc.wave || false, on = sc.gg ? ['st:Groggy'] : null;
+  if (pd.ax != null && pd.ay != null) {
+    return hitsAtOf(r, sid, kd, sc.sec, ex, on, { x: pd.ax, y: pd.ay }, pd.bp);
+  }
+  var q = bestHitsOf(r, sid, kd, sc.sec, ex, on) || hitsOf(r, sid, kd, sc.sec, ex, on);
+  if (q && pd.bp) {
+    // 体を動かしてあれば、置き方はそのままで数え直す
+    var q2 = hitsAtOf(r, sid, kd, sc.sec, ex, on, q.aim || q.c, pd.bp);
+    if (q2) { return q2; }
+  }
+  return q;
+}
+
 export function drawView() {
-  if (!VIEW || !$('viewpane')) { return; }
+  var bd = $('viewbd');
+  if (!VIEW || !bd) { return; }
   var r = diff();
   ggSolve(r);
   var dur = r.dur || 240;
   var t = VT == null ? 0 : Math.max(0, Math.min(dur, VT));
   var sc = sceneAt(r, t);
   var sh = pickShot(r);
+  var sid = sh ? (st.party[sh.i] || {}).id : null;
+  var gm = sid != null ? (B.geo[sid] || {})[sh.k] : null;
+  var pk = placeKind(gm);
+  var q = sh ? coverOfUse(r, sh, sc) : null;
+  var pd = placedOf(sh);
+  var bs = q ? q.bs : movedBodies(bodiesOf(r, sc.sec, sc.wave || false,
+                                           sc.gg ? ['st:Groggy'] : null), pd.bp);
   var nm = sh ? ((st.party[sh.i] || {}).en || '') : '';
-  var q = null;
-  if (sh) {
-    var sid = (st.party[sh.i] || {}).id;
-    if ((B.area[sid] || {})[sh.k]) {
-      q = bestHitsOf(r, sid, sh.k, sc.sec, sc.wave || false,
-                     sc.gg ? ['st:Groggy'] : null);
-    }
-  }
-  var head = '<div class="vhd">' +
-    '<b>' + fmt(t) + ' 秒</b>' +
+  var put = sh && (pd.ax != null || pd.bp);
+  bd.innerHTML =
+    '<div class="vhd"><b>' + fmt(t) + ' 秒</b>' +
     '<span class="mut tiny">フェーズ ' + (+sc.p + 1) + (sc.gg ? '　グロッキー' : '') + '</span>' +
     (sh ? '<span class="mut tiny">' + esc(nm) + '　' + esc(sh.k) + '　' + fmt(sh.t) + ' 秒</span>' : '') +
     (q ? '<span class="mut tiny">覆う ' + q.n + ' 体（部位 ' + q.nb + (q.hb ? '＋本体' : '') + '）</span>' : '') +
-    '</div>';
-  $('viewpane').querySelector('.bd').innerHTML =
-    head + '<div class="vwrap"><div class="vbd">' + boardSvg(r, sc, sh) +
-    '</div><div class="vlg">' + logRows(r) + '</div></div>';
+    (put ? '<button type="button" class="btn2 sq" data-h="reset" title="盤で置いたものを消して、いちばん多く巻き込める置き方に戻す">戻す</button>' : '') +
+    '</div>' + boardSvg(r, sc.sec, sh, q, bs, pk);
+  var lg = $('viewlg');
+  if (lg) { lg.innerHTML = logRows(r); }
 }

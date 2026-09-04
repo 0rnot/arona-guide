@@ -43,6 +43,7 @@ import { wirePicker } from './wire-picker.js';
 import { wireUse } from './wire-use.js';
 import { wireRows } from './wire-rows.js';
 import { wireMouse } from './wire-mouse.js';
+import { wireView } from './wire-view.js';
 
 // ------------------------------------------------------------ つなぐ
 // **最初に出すのは、選べるボスの 1 体目**（2026-09-03。ペロロジラだけに絞ったので、
@@ -109,4 +110,5 @@ wirePicker();
 wireUse();
 wireRows();
 wireMouse();
+wireView();
 wireTip();

@@ -9,6 +9,8 @@ import { exKind } from './buff.js';
 import { buffTo, tgtN, tgtOf } from './target.js';
 import { altOf } from './alt.js';
 import { drawUse } from './useedit.js';
+import { movePh } from './ord.js';
+import { viewSet } from './view.js';
 
 // ------------------------------------------------------------ 「入力」の TL 表
 // **行は `st.tl` そのもの**（2026-09-03 の先生の要望「入力で TL を行で組む」）。
@@ -19,6 +21,9 @@ export function rowsToggle() {
   ROWS = !ROWS;
   $('b-rows').setAttribute('aria-pressed', ROWS ? 'true' : 'false');
   $('rowpane').hidden = !ROWS;
+  // **盤も一緒に出す**（2026-09-04 の先生の指示「入力ボタンで一緒に盤も
+  // 出るようにしちゃって盤ボタン消していいよ」）。札は「入力」の 1 つだけ
+  viewSet(ROWS);
   drawUse(); drawRows();
 }
 /** 行に出す時刻。コスト指定・最短は engine が解いた時刻（`_rt`） */
@@ -312,6 +317,11 @@ export function rowMove(ix, to) {
 export function rowSeek(ix) {
   var u = st.tl[ix], v = $('view');
   if (!u || !v || !st.px) { return; }
-  var x = rowTime(u) * st.px - v.clientWidth / 2;
+  var t = rowTime(u);
+  var x = t * st.px - v.clientWidth / 2;
   v.scrollLeft = Math.max(0, x);
+  // **選んだ 1 発の時刻に赤い縦線を止める**（2026-09-04）。盤はその時刻を出すので、
+  // 選んだ発の盤がそのまま出る。タイムラインを押せば今までどおり外れる
+  st.pin = t;
+  movePh(t);
 }

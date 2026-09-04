@@ -27,6 +27,11 @@ export var U = 100;
 /** 節（Section）は同じ並びを平行移動しただけ。**既定は節 0 で数える。** */
 export var SEC0 = 0;
 
+/** **盤の上を動く体。**`UniqueName` の末尾が `_Move`（ペロロジラ Torment の
+    `Perorozilla_Torment_Peroro_MiddleSize01_Move` など。Ex03 の波に 1 体、
+    Ex04 の波に 2 体）。**どこへ動くかはデータに無い**ので、盤で人が動かす。 */
+export var MOVE = /_Move$/;
+
 function d2(ax, ay, bx, by) {
   var dx = ax - bx, dy = ay - by;
   return Math.sqrt(dx * dx + dy * dy);
@@ -107,7 +112,8 @@ export function bodiesOf(r, si, ex, on) {
     q = bd.spw[i];
     if (q[0] !== sec || !spawnOn(q, on)) { continue; }
     seen[q[1]] = 1;
-    out.push({ n: q[1], x: q[2], y: q[3], br: br(q[1]), cid: cid(q[1]), sum: null });
+    out.push({ n: q[1], x: q[2], y: q[3], br: br(q[1]), cid: cid(q[1]), sum: null,
+               key: 's' + i, mv: MOVE.test(q[1]) });
   }
   // **ボスの湧き点は節 0 にしかない**（ペロロジラ Torment の
   // `Perorozilla_default_Torment` は節 0 の 1 件だけで、節 2・4・6・8 には
@@ -122,7 +128,7 @@ export function bodiesOf(r, si, ex, on) {
       q = bd.spw[i];
       if (q[0] !== SEC0 || seen[q[1]] || !spawnOn(q, on)) { continue; }
       out.push({ n: q[1], x: q[2] + dx, y: q[3] + dy, br: br(q[1]),
-                 cid: cid(q[1]), sum: null });
+                 cid: cid(q[1]), sum: null, key: 's' + i, mv: MOVE.test(q[1]) });
     }
   }
   // `ex === false` は「召喚された体は盤に居ない」。**吸収の直後がこれ**——
@@ -131,7 +137,8 @@ export function bodiesOf(r, si, ex, on) {
   if (wave && bd.smn[wave]) {
     for (i = 0; i < bd.smn[wave].length; i++) {
       q = bd.smn[wave][i];
-      out.push({ n: q[0], x: q[1], y: q[2], br: br(q[0]), cid: cid(q[0]), sum: wave });
+      out.push({ n: q[0], x: q[1], y: q[2], br: br(q[0]), cid: cid(q[0]), sum: wave,
+                 key: 'm' + i, mv: MOVE.test(q[0]) });
     }
   }
   return out;
@@ -260,6 +267,63 @@ export function coverOf(sh, c, fw, bs, gm) {
     if (ok) { out.push(p); }
   }
   return out;
+}
+
+/** **盤で位置を決められる枠か。**`'pos'` 中心を置ける／`'aim'` 向きだけ決まる／
+    `null` 決められない。
+
+    先生の決め（2026-09-04）——「入力で詳細を開いてるスキルが**敵をターゲットできる**
+    or **攻撃範囲指定できる**場合のみ盤に入力できるようにすればいいか」。
+    `TargetSide` が `Enemy` でないもの（味方に撒く枠・`AliveAllyCenter`）は外す。
+    **味方の位置は盤に出さない**（先生の「味方の位置はいらないか」）。 */
+export function placeKind(gm) {
+  if (!gm || gm[2] !== 'Enemy') { return null; }
+  var sp = gm[0];
+  if (sp === 'InputPosition' || sp === 'InputBattleEntity' || sp === 'BattleEntity'
+      || sp === 'SkillCommandSelectedTarget') { return 'pos'; }
+  if (sp === 'Invoker') { return 'aim'; }
+  return null;
+}
+
+/** **人が動かした体を当てた盤。**`bp` は `{ 札: [x, y] }`（`bodiesOf` の `key`）。
+    動かせるのは `_Move` の付いた体だけ。 */
+export function movedBodies(bs, bp) {
+  if (!bp) { return bs; }
+  var out = [], i;
+  for (i = 0; i < bs.length; i++) {
+    var q = bp[bs[i].key];
+    if (!q || !bs[i].mv) { out.push(bs[i]); continue; }
+    out.push({ n: bs[i].n, x: q[0], y: q[1], br: bs[i].br, cid: bs[i].cid,
+               sum: bs[i].sum, key: bs[i].key, mv: 1, put: 1 });
+  }
+  return out;
+}
+
+/** **中心（または狙う点）を人が置いたときの当たり。**`hitsOf` と同じ形を返す。
+    `at` はワールド座標 `{x, y}`、`bp` は動かした体。 */
+export function hitsAtOf(r, sid, kind, si, ex, on, at, bp) {
+  var sh = ((B.area || {})[sid] || {})[kind],
+      gm = ((B.geo || {})[sid] || {})[kind];
+  if (!sh || !gm || !r || !r.board || !at) { return null; }
+  var pk = placeKind(gm);
+  if (!pk) { return null; }
+  var bs = movedBodies(bodiesOf(r, si, ex, on), bp);
+  if (!bs.length) { return null; }
+  var aim = { x: at.x, y: at.y, br: 0 };
+  var me = standOf(r, aim, gm[4], si);
+  if (!me) { return null; }
+  // `Invoker` は撃つ子の足元が中心。狙う点は向きを決めるだけ
+  var c = pk === 'aim' ? me : { x: at.x, y: at.y };
+  var fw = { x: at.x - me.x, y: at.y - me.y };
+  if (!fw.x && !fw.y) { fw = { x: 0, y: 1 }; }
+  var hit = coverOf(sh, c, fw, bs, gm);
+  if (!hit) { return null; }
+  var nb = 0, hb = 0, j;
+  for (j = 0; j < hit.length; j++) {
+    if (hit[j].cid === r.cid) { hb = 1; } else { nb++; }
+  }
+  return { n: hit.length, nb: nb, hb: hb, hit: hit, c: c, me: me,
+           aim: { x: at.x, y: at.y, br: 0 }, bs: bs, pk: pk };
 }
 
 /** **その（生徒, 枠）が何体に当たるか。**決められなければ null。
