@@ -840,12 +840,16 @@ export function parseTL(txt) {
     if (aim == null && mcn === 1 && idBy[who]) {
       var arE = (B.area || {})[idBy[who]] || {}, hasAr = false, ak;
       for (ak in arE) { if (ak.indexOf('Ex') === 0) { hasAr = true; } }
+      // **注記は最後に決まった数だけ出す**（2026-09-04）。`spn`（1 回の湧きの数）で
+      // 一度置いてから `bestHitsOf` が上書きするので、両方出すと
+      // 「6 体」と「3 体」が並んで読む人が混乱する
+      var _spnNote = null;
       if (hasAr) {
         for (pz2 = 0; pz2 < subsP.length; pz2++) {
           if (subsP[pz2].tr && subsP[pz2].spn > 1) {
             aim = pz2; mcn = subsP[pz2].spn; hbo = 1;
-            res.notes.push('「' + ln.trim() + '」は範囲攻撃なので ' + subsP[pz2].n + ' ' + mcn +
-                           ' 体とボス本体に当てました（' + subsP[pz2].spnw + '）');
+            _spnNote = '「' + ln.trim() + '」は範囲攻撃なので ' + subsP[pz2].n + ' ' + mcn +
+                       ' 体とボス本体に当てました（' + subsP[pz2].spnw + '）';
             break;
           }
         }
@@ -865,7 +869,7 @@ export function parseTL(txt) {
           res.notes.push('「' + ln.trim() + '」は盤の座標から ' + subsP[aim].n + ' ' + mcn +
                          ' 体' + (hbo ? 'とボス本体' : '') +
                          'に当てました（いちばん多く巻き込める置き方。行の「当たる数」で変えられます）');
-        }
+        } else if (_spnNote) { res.notes.push(_spnNote); }
       }
     }
     if (aim != null) {
