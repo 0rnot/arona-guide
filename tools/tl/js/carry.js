@@ -458,7 +458,7 @@ export function ggCutAt(r) {
     ダメージのほうは窓ごとに数え直す）。**グロッキー中に吸ったぶんは次のゲージに数えない**——
     ダメージで貯まるボス（`ggRuns`）と同じ扱いで、そこはデータに書いていない。 */
 export function ggAbsorbRuns(r, g) {
-  var gg = g.gga, out = { g: g, pts: [], hits: [] };
+  var gg = g.gga, out = { g: g, pts: [], hits: [], abs: [] };
   if (!gg || !gg.step || !gg.cap || !gg.need) { return out; }
   var dur = r.dur || 240, sp = phaseSpans(r), subs = r.sub || [], i, q, k;
   // 吸収の時刻（フェーズの頭からの秒 ＋ そのフェーズが始まった時刻）
@@ -525,6 +525,9 @@ export function ggAbsorbRuns(r, g) {
     if (t < until) { continue; }
     var bodies = half > 0 ? Math.min(gg.cap, Math.floor(pool / half)) : 0;
     gauge += bodies * gg.step;
+    // **吸収の 1 回ぶんを記録に残す**（2026-09-04、第 5 段の「経過」）。
+    // 画面で数え直すと式が 2 か所になるので、解いたここで持たせる
+    out.abs.push({ t: t, pool: pool, n: bodies, g: Math.min(gauge, gg.need) });
     out.pts.push([t, Math.min(gauge, gg.need)]);
     if (gauge >= gg.need) {
       var un = Math.min(t + (g.sec || 0), dur);

@@ -13,6 +13,7 @@ import { sheet, snapshot } from './io.js';
 import { importSheet } from './import-ui.js';
 import { MD3, drawRows, rowAdd, rowMove, rowOrder, rowSeek, rowSwap, rowsToggle, selPick, selRows, trIx } from './rows.js';
 import { syncTabs } from './wire-boss.js';
+import { drawView, setGG, viewToggle } from './view.js';
 import { onAlt } from './wire-build.js';
 import { onUse } from './wire-use.js';
 import { laneOn, saveLanes } from './lanes.js';
@@ -28,6 +29,7 @@ export function onAct(e) {
     if (a === 'clear') { mark(); st.tl.length = 0; st.sel = null; st.mk = []; draw(); }
     if (a === 'auto') { autoFill(); }
     if (a === 'rows') { rowsToggle(); }
+    if (a === 'view') { viewToggle(); }
     if (a === 'goal') {
       var r0 = diff(), hp0 = (r0.bs && r0.bs.hp) || 0;
       var cur = st.goal || { dmg: hp0, sec: r0.dur || 240 };

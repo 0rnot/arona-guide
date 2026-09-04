@@ -174,13 +174,14 @@ export function standOf(r, aim, range, si) {
   return { x: b.x + (aim.x - b.x) * t, y: b.y + (aim.y - b.y) * t };
 }
 
-/** **形の中に入る体。**`sh` は `B.area` の行、`c` は中心、`fw` は向き（単位ベクトル）。
-    体は円（中心と `br`）として扱い、形と重なっていれば当たったとする。
-    扇は**中心の角度だけ**で見る（体の端が入るぶんは数えない）。 */
-export function coverOf(sh, c, fw, bs, gm) {
+/** **形をワールド座標に置く。**`coverOf` が数えるのと**同じ形**を返すので、
+    絵に描くほうはこれを使う（2026-09-04、第 5 段）。**式を 2 か所に書かない。**
+
+    返すのは `{typ, cx, cy, ux, uy, R, deg, W, H, EX}`——`cx`/`cy` は
+    `PositionOffset` を効かせたあとの中心、`ux`/`uy` は `AngleOffset` を
+    効かせたあとの向き（単位ベクトル）、長さは全部ワールド。 */
+export function shapeAt(sh, c, fw, gm) {
   if (!sh || !c) { return null; }
-  var typ = sh[0], R = (sh[1] || 0) / U, deg = sh[2], W = (sh[3] || 0) / U,
-      H = (sh[4] || 0) / U, EX = (sh[5] || 0) / U, out = [], i;
   var ux = (fw && fw.x) || 0, uy = (fw && fw.y) || 1,
       un = Math.sqrt(ux * ux + uy * uy) || 1;
   ux /= un; uy /= un;
@@ -197,8 +198,19 @@ export function coverOf(sh, c, fw, bs, gm) {
   // `x` が 0 でないのは 3 件だけで、いちばん大きいスミレの 0.77 ワールドでも
   // 体の半径より小さい（ボスは 7.0）。**符号は `Obb` の横軸と揃えてある**
   var off = gm && gm[7];
-  var c2 = off ? { x: c.x + off[1] * ux + off[0] * -uy,
-                   y: c.y + off[1] * uy + off[0] * ux } : c;
+  return { typ: sh[0], R: (sh[1] || 0) / U, deg: sh[2], W: (sh[3] || 0) / U,
+           H: (sh[4] || 0) / U, EX: (sh[5] || 0) / U, ux: ux, uy: uy,
+           cx: off ? c.x + off[1] * ux + off[0] * -uy : c.x,
+           cy: off ? c.y + off[1] * uy + off[0] * ux : c.y };
+}
+/** **形の中に入る体。**`sh` は `B.area` の行、`c` は中心、`fw` は向き（単位ベクトル）。
+    体は円（中心と `br`）として扱い、形と重なっていれば当たったとする。
+    扇は**中心の角度だけ**で見る（体の端が入るぶんは数えない）。 */
+export function coverOf(sh, c, fw, bs, gm) {
+  var g9 = shapeAt(sh, c, fw, gm);
+  if (!g9) { return null; }
+  var typ = g9.typ, R = g9.R, deg = g9.deg, W = g9.W, H = g9.H, EX = g9.EX, out = [], i;
+  var ux = g9.ux, uy = g9.uy, c2 = { x: g9.cx, y: g9.cy };
   // **体の大きさぶん、許す角度を広げる。**中心だけで見ると、ボスのような
   // 大きな体（半径 7.0）が扇の縁に掛かっていても外れる
   function inAng(dx, dy, d, br) {

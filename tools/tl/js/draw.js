@@ -17,6 +17,7 @@ import { altOf } from './alt.js';
 import { zero } from './clear.js';
 import { movePh } from './ord.js';
 import { drawAlts } from './left.js';
+import { drawView } from './view.js';
 import { drawUse } from './useedit.js';
 import { drawRows } from './rows.js';
 import { bstName, bstTip } from './bossui.js';
@@ -494,7 +495,7 @@ var _tR = 0, _tT = 0;
 function tailRun() {
   _tR = 0;
   if (_tT) { clearTimeout(_tT); _tT = 0; }
-  drawRate(); drawErr(); kpi(); drawCrit(); drawUse(); drawRows(); drawAlts();
+  drawRate(); drawErr(); kpi(); drawCrit(); drawUse(); drawRows(); drawAlts(); drawView();
 }
 export function tail() {
   if (_tR || _tT) { return; }
