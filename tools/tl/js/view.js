@@ -138,33 +138,35 @@ function ring(cx, cy, R, EX, a, deg) {
          ' A ' + EX + ' ' + EX + ' 0 ' + big + ' 0 ' + i2[0] + ' ' + i2[1] + ' Z"/>';
 }
 
-/** 経過の並び。 */
+/** 経過の並び。**クラス名は `vr` / `v-ph` … と前置きを付ける**（2026-09-04）。
+    素の `ph` は**タイムラインの赤い縦線**（再生位置）のクラスで、そのまま使うと
+    フェーズの行が `position:absolute` の赤い 1px 線になって盤の横に立っていた。 */
 function logRows(r) {
   var dur = r.dur || 240, out = [], i;
   var sp = phaseSpans(r), gr = ggRuns(r);
   for (i = 0; i < sp.length; i++) {
-    out.push([sp[i].t0, 'ph', 'フェーズ ' + (+sp[i].p + 1) +
+    out.push([sp[i].t0, 'v-ph', 'フェーズ ' + (+sp[i].p + 1) +
               (sp[i].atg ? '（ゲージ）' : sp[i].need == null ? '' : '（HP）')]);
   }
   for (i = 0; i < (gr.abs || []).length; i++) {
     var a = gr.abs[i];
-    out.push([a.t, 'abs', '吸収　転倒 ' + a.n + ' 体　ゲージ ' +
+    out.push([a.t, 'v-abs', '吸収　転倒 ' + a.n + ' 体　ゲージ ' +
               Math.round(a.g / 100) + '%']);
   }
   for (i = 0; i < (gr.hits || []).length; i++) {
-    out.push([gr.hits[i].t, 'gg', 'グロッキー　' + fmt(gr.hits[i].t) + '〜' + fmt(gr.hits[i].until) + ' 秒']);
+    out.push([gr.hits[i].t, 'v-gg', 'グロッキー　' + fmt(gr.hits[i].t) + '〜' + fmt(gr.hits[i].until) + ' 秒']);
   }
   var us = usesSorted().filter(function (u) { return u.no == null; });
   for (i = 0; i < us.length; i++) {
     var u = us[i], nm = (st.party[u.i] || {}).en || '?';
-    out.push([u.t, 'ex', nm + '　' + u.k +
+    out.push([u.t, 'v-ex', nm + '　' + u.k +
               (u.tg != null ? '　当たる数 ' + (u.mc || 1) + (u.hb ? '＋本体' : '') : '')]);
   }
   out.sort(function (x, y) { return x[0] - y[0]; });
   var h = '';
   for (i = 0; i < out.length; i++) {
     if (out[i][0] > dur + 1e-9) { continue; }
-    h += '<div class="lg ' + out[i][1] + '"><b>' + fmt(out[i][0]) + '</b>' +
+    h += '<div class="vr ' + out[i][1] + '"><b>' + fmt(out[i][0]) + '</b>' +
          esc(out[i][2]) + '</div>';
   }
   return h || '<p class="mut tiny">まだ何も置いていません</p>';
