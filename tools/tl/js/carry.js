@@ -2,11 +2,11 @@ import { $ } from './util.js';
 import { SLOTS, _pv, st } from './core.js';
 import { usePartyRef } from './undo.js';
 import { boss, diff, has } from './boss.js';
-import { scenIx } from './scen.js';
+import { scen, scenIx } from './scen.js';
 import { dmgCurve, naPool, poolBodies, poolKills, poolOf, subIxOfPool, valueAt } from './pool.js';
 import { naTimes } from './na.js';
 import { usesSorted } from './buff.js';
-import { dmgOf, dotTimes } from './dmg.js';
+import { PICKF, dmgOf, dotTimes, setPICKF } from './dmg.js';
 import { epEvery, epOkAt, epOn, epTierPick } from './ep.js';
 
 // ------------------------------------------------------------ 部隊の持ち越し
@@ -299,7 +299,10 @@ export function ggMode(r) {
   // 数えた時計で、EX のモーションぶんが入っていない）。ここで返すのは
   // 「どこに置けばよいか」を画面に出すための材料
   if (r.gga) {
-    return { kind: '吸収', why: b.gc || '', need: bs.groggy,
+    // **`need` は吸収のゲージのほう**（`gga.need` ＝ 10000。2026-09-04）。
+    // `bs.groggy`（1,000,000,000）はダメージで貯めるときの目盛りで、
+    // 吸収では使わない。折れ線と割合はこちらの目盛りで描く
+    return { kind: '吸収', why: b.gc || '', need: r.gga.need || bs.groggy,
              sec: (bs.groggyT || 0) / 1000, gga: r.gga };
   }
   if (b.gc && !fz) { return { kind: '条件つき', why: b.gc, need: bs.groggy, sec: (bs.groggyT || 0) / 1000 }; }
@@ -368,9 +371,87 @@ export function ggCutAt(r) {
   }
   return null;
 }
+/** **吸収でゲージが貯まるボスの窓**（2026-09-04。42 の続き）。
+    材料はすべて DB から出ている（`d[].gga`。出どころは `build-tool-data.py` の `tl_groggy`）——
+
+      吸収する EX      `gga.exi`（ペロロジラは `Perorozilla01TormentEx09` ペロロミニオン吸収）
+      吸収する時刻     `ph[].ev` の中でその EX が出る点（Torment はフェーズの頭から 18/36/54/72 秒）
+      1 体あたりの増分 `gga.step`（Torment 834 / 10000。SchaleDB の「1/12 上昇」と一致）
+      数える上限体数   `gga.cap`（6。`CountLogicEffectTemplateModifierDAO` の `CountMin` の梯子）
+      満杯            `gga.need`（10000）
+      グロッキーの長さ `GroggyTime`（20 秒）
+
+    **数えるのは「気絶している大きなペロロミニオン」だけ**（`gc` の
+    「気絶状態のペロロミニオンを吸い込むと増加する。」。札を貼るのは体そのもので、
+    条件は `GetHPRate() < 5000` ＝ **HP 50% 未満**）。だから
+    **吸収と吸収のあいだに 1 体が受けたダメージが最大 HP の半分に届いた回だけ**数に入る。
+    1 体ぶんのダメージは `mc`（当たる数）を掛ける前の値で、当たった体数は `mc` を `cap` で頭打ちにしたもの。
+
+    **満杯にならない周は 0 のまま持ち越す**（吸われた体は消えるので、
+    ダメージのほうは窓ごとに数え直す）。**グロッキー中に吸ったぶんは次のゲージに数えない**——
+    ダメージで貯まるボス（`ggRuns`）と同じ扱いで、そこはデータに書いていない。 */
+export function ggAbsorbRuns(r, g) {
+  var gg = g.gga, out = { g: g, pts: [], hits: [] };
+  if (!gg || !gg.step || !gg.cap || !gg.need) { return out; }
+  var dur = r.dur || 240, sp = phaseSpans(r), subs = r.sub || [], i, q, k;
+  // 吸収の時刻（フェーズの頭からの秒 ＋ そのフェーズが始まった時刻）
+  var ts = [];
+  for (i = 0; i < sp.length; i++) {
+    var pd = r.ph[sp[i].p] || {}, ev = pd.ev || [], lim = Math.min(sp[i].t1, dur);
+    for (q = 0; q < ev.length; q++) {
+      if (ev[q][1] == null || (ev[q][2] || []).indexOf(gg.exi) < 0) { continue; }
+      var tv = sp[i].t0 + ev[q][1];
+      if (tv > lim + 1e-9 || tv > dur) { continue; }
+      ts.push(tv);
+    }
+  }
+  ts.sort(function (a, b) { return a - b; });
+  // 吸われる体（本体へ転移する湧き）。`parse-tl.js` の範囲攻撃の既定と同じ選び方
+  var ix = -1;
+  for (i = 0; i < subs.length; i++) { if (subs[i].tr && subs[i].spn > 1) { ix = i; break; } }
+  if (ix < 0 || !ts.length || !(subs[ix].hp > 0)) { return out; }
+  var half = subs[ix].hp / 2;
+  // 1 体ぶんのダメージ（`mc` を掛けない）
+  var sc = scen(), sv = PICKF, hd = [];
+  setPICKF(sc.pf);
+  try {
+    var us = usesSorted();
+    for (i = 0; i < us.length; i++) {
+      var u = us[i];
+      if (u.tg !== ix || u.t > dur + 1e-9) { continue; }
+      if (awayAt(u.t, !/^Ex\d*$/.test(u.k), u.gx)) { continue; }
+      var d = dmgOf(u.i, r, u.t, u.k, u.pk, u.tg, u.gx, u.no);
+      if (!d) { continue; }
+      hd.push([u.t, d[sc.key] || 0, Math.min(u.mc || 1, gg.cap)]);
+    }
+  } finally { setPICKF(sv); }
+  var gauge = 0, prev = 0, until = -1;
+  out.pts.push([0, 0]);
+  for (k = 0; k < ts.length; k++) {
+    var t = ts[k], per = 0, bodies = 0;
+    for (i = 0; i < hd.length; i++) {
+      if (hd[i][0] <= prev + 1e-9 || hd[i][0] > t + 1e-9) { continue; }
+      per += hd[i][1];
+      if (hd[i][2] > bodies) { bodies = hd[i][2]; }
+    }
+    prev = t;
+    if (t < until) { continue; }
+    gauge += (per >= half ? bodies : 0) * gg.step;
+    out.pts.push([t, Math.min(gauge, gg.need)]);
+    if (gauge >= gg.need) {
+      var un = Math.min(t + (g.sec || 0), dur);
+      out.hits.push({ t: t, until: un });
+      until = un; gauge = 0;
+      out.pts.push([t, 0]);
+    }
+  }
+  return out;
+}
 /** ダメージで貯まるボスの、ゲージの折れ線と、たまり切った時刻。 */
 export function ggRuns(r) {
   var g = ggMode(r);
+  // **吸収で貯まるボスは別の解き方**（`ggAbsorbRuns`。2026-09-04）
+  if (g.kind === '吸収') { return ggAbsorbRuns(r, g); }
   if (g.kind !== 'ダメージ') { return { g: g, pts: [], hits: [] }; }
   // **グロッキーの間はゲージが貯まらない扱いにしている**（2026-09-01 の
   // 先生の疑問「グロッキーしながらグロッキー貯まる？」）。**これはデータに

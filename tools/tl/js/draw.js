@@ -124,7 +124,8 @@ export function draw() {
 
   // グロッキー。**ダメージで貯まるボスだけ線を引く**（2026-09-01 の先生の要望）
   var gs = '', gm = ggr.g;
-  if (gm.kind === 'ダメージ') {
+  // **吸収で貯まるボスも同じ折れ線で描く**（2026-09-04。`carry.js` の `ggAbsorbRuns`）
+  if (gm.kind === 'ダメージ' || gm.kind === '吸収') {
     var prevG = null, gi3;
     for (gi3 = 0; gi3 < ggr.pts.length; gi3++) {
       var pt = ggr.pts[gi3];

@@ -252,7 +252,9 @@ export function drawErr() {
   // `gc` はボス（`boss()`）側にある。難易度の行ではない
   // **フェーズを名指しした条文は道具が解く**ので、そのぶんは促さない
   // （2026-09-04。`carry.js` の `ggFreezePh`）
-  if (r.gspl && r.gspl.gg && boss() && boss().gc && ggMode(r).kind !== 'ダメージ') {
+  // **吸収で貯まるボスも道具が解く**（2026-09-04。`carry.js` の `ggAbsorbRuns`）
+  var gk9 = ggMode(r).kind;
+  if (r.gspl && r.gspl.gg && boss() && boss().gc && gk9 !== 'ダメージ' && gk9 !== '吸収') {
     var gw = 0;
     for (q = 0; q < (st.bst || []).length; q++) { if (st.bst[q].k === 'groggy') { gw++; } }
     // **ゲージがダメージでは埋まらないボス**（ペロロジラ・ケセド・ホド・ワカモ）は、
