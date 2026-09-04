@@ -4402,6 +4402,302 @@ def summon_count(ex_names, cache):
     return out
 
 
+# ---- **盤**（2026-09-04、第 1 段）。
+# 「1 発が何体に当たるか」は今まで人が入れていた（`uses[].mc`、既定 1）。
+# **座標はデータに全部ある**ので、形と大きさ（`area`）と突き合わせれば計算できる。
+#
+#   生徒の陣形     `Stage/<StageFileName>.json` の `Formations[]`（`SectionIndex` ごと）
+#   敵の湧き点     同じファイルの `Sections[].EnemySpawnPointGroupList[].SpawnPoints[]`
+#                  **`Active: false` の点は最初は盤に居ない**（`CommandIdList` で湧く）
+#   召喚の座標     `LevelSkill/<Ex>.json` の `MainEntityData.SummonGroups[].SummonEntities[]`
+#                  の `SpawnWorldPosition`
+#   体の大きさ     `CharacterExcelTable.BodyRadius`、射程は `CharacterStatExcelTable.Range`
+#
+# **単位は 1 : 100。**`BodyRadius: 700`（ボス）が 7.0 ワールド、
+# スキルの `Radius: 3000` が 30.0 ワールドで、`Stage` の座標はワールド側
+# （2026-09-04 に転移の円 3000 と大きなペロロ 6 体の最小包含円 3.64 で確かめた）。
+BASTG = "https://raw.githubusercontent.com/electricgoat/ba-data/jp/Stage/{}.json"
+_stage_cache = {}
+
+
+def tl_stage(name):
+    """`Stage/<名前>.json`。引けなければ空の辞書。"""
+    if not name:
+        return {}
+    if name not in _stage_cache:
+        try:
+            _stage_cache[name] = get_json(BASTG.format(name))
+        except Exception as e:
+            print(f"  Stage が引けない: {name} ({e})")
+            _stage_cache[name] = {}
+    return _stage_cache[name] or {}
+
+
+def _xy(p):
+    """`{"x": .., "y": ..}` を `[x, y]` に。無ければ None。"""
+    if not isinstance(p, dict):
+        return None
+    x, y = p.get("x"), p.get("y")
+    if x is None or y is None:
+        return None
+    return [round(float(x), 3), round(float(y), 3)]
+
+
+def _find_all(o, key):
+    """入れ子ごとたどって、`key` を持つ辞書を全部返す。"""
+    out = []
+    if isinstance(o, dict):
+        if key in o:
+            out.append(o)
+        for k, v in o.items():
+            if k != "$type":
+                out += _find_all(v, key)
+    elif isinstance(o, list):
+        for v in o:
+            out += _find_all(v, key)
+    return out
+
+
+# **湧き点の名前は `CharacterExcelTable.DevName` と 1 語ずれることがある。**
+# ペロロジラの盤は `Perorozilla_Lunatic_Peroro_MiddleSize01_Move` だが、
+# `DevName` は `Perorozilla_Lunatic_MiddleSize01_Move`（`Peroro` が余分）。
+# 対応表は DB のどこにも無い（`CharacterExcelTable` と
+# `CharacterSettingExcelTable` を全文検索して不在を確かめた。2026-09-04）。
+# **だから「`_` 区切りの語を 1 つだけ落として、当たりが 1 つだけなら採る」。**
+# 2 つ以上当たったら諦める——静かに別の体を掴むほうが危ない。
+def _dev_cid(name, by_dev):
+    cid = by_dev.get(name)
+    if cid is not None:
+        return cid
+    hit = []
+    q = name.split("_")
+    for i in range(len(q)):
+        c = by_dev.get("_".join(q[:i] + q[i + 1:]))
+        if c is not None and c not in hit:
+            hit.append(c)
+    return hit[0] if len(hit) == 1 else None
+
+
+def tl_board(stage_name, ex_names, ls_cache, ch_all, stat):
+    """盤の座標。引けなければ None。
+
+    返す形（`data.js` の `d[].board`）:
+
+      u    … スキル単位 : ワールド座標（100）
+      bcn  … 生徒の陣形ビーコン `[[SectionIndex, Index, x, y], …]`
+      spw  … 敵の湧き点 `[[SectionIndex, SpawnTemplateId, x, y, 最初から居るか, [CommandId…]], …]`
+      smn  … 召喚の座標 `{Ex 名: [[UniqueName, x, y], …]}`
+      bd   … 体の素性 `{DevName: [CharacterId, BodyRadius, Range]}`
+    """
+    st_j = tl_stage(stage_name)
+    if not st_j:
+        return None
+    bcn, spw, names = [], [], set()
+    for f in (st_j.get("Formations") or []):
+        if f.get("IsEnemy"):
+            continue
+        p = _xy(f.get("Position"))
+        if p:
+            bcn.append([f.get("SectionIndex", 0), f.get("Index", 0), p[0], p[1]])
+    for si, sec in enumerate(st_j.get("Sections") or []):
+        for grp0 in (sec.get("EnemySpawnPointGroupList") or []):
+            for sp in (grp0.get("SpawnPoints") or []):
+                nm = ((sp.get("SpawnData") or {}).get("SpawnTemplateId"))
+                p = _xy(sp.get("Position"))
+                if not nm or not p:
+                    continue
+                names.add(nm)
+                spw.append([si, nm, p[0], p[1], 1 if sp.get("Active") else 0,
+                            list(sp.get("CommandIdList") or [])])
+    smn = {}
+    for nm in (ex_names or []):
+        if nm not in ls_cache:
+            try:
+                ls_cache[nm] = get_json(BALS.format(nm))
+            except Exception:
+                ls_cache[nm] = {}
+        rows = []
+        # **`SummonGroups` は `MainEntityData` のこともあれば
+        # `EntityTimeline[…].Entity` のこともある**（2026-09-04）。丸ごとたどる
+        for sg0 in _find_all(ls_cache[nm] or {}, "SummonGroups"):
+            for g in (sg0.get("SummonGroups") or []):
+                for e in (g.get("SummonEntities") or []):
+                    q = _xy(e.get("SpawnWorldPosition"))
+                    if e.get("UniqueName") and q:
+                        rows.append([e["UniqueName"], q[0], q[1]])
+                        names.add(e["UniqueName"])
+        # **同じ組が 2 度出てくる**（`MainEntityData` と `EntityTimeline` の両方に
+        # 同じ `SummonGroups` が入っている）。名前と座標の三つ組で重複を落とす。
+        # **名前だけで落としてはいけない**——Lunatic Ex03 の `MiddleSize05` は
+        # (3.5, 30) と (2.0, 30) の 2 体で、これは別の体
+        if rows:
+            seen_r, uniq = set(), []
+            for r in rows:
+                k = (r[0], r[1], r[2])
+                if k in seen_r:
+                    continue
+                seen_r.add(k)
+                uniq.append(r)
+            smn[nm] = uniq
+    by_dev = {}
+    for cid, cr in ch_all.items():
+        dv = cr.get("DevName")
+        if dv:
+            by_dev[dv] = cid
+    bd = {}
+    for nm in sorted(names):
+        cid = _dev_cid(nm, by_dev)
+        if cid is None:
+            continue
+        cr, sr = ch_all.get(cid) or {}, stat.get(cid) or {}
+        bd[nm] = [cid, cr.get("BodyRadius"), sr.get("Range")]
+    if not (bcn or spw or smn):
+        return None
+    return {"u": 100, "bcn": bcn, "spw": spw, "smn": smn, "bd": bd}
+
+
+# ---- **範囲の中心と狙い方**（2026-09-04、第 1 段 1-2）。
+# SchaleDB の `Skills.<枠>.Radius` は**形と大きさ**しか持っていない
+# （`Type` / `Radius` / `Degree` / `Width` / `Height` / `ExcludeRadius`）。
+# **その形がどこに出るか**と**誰を狙うか**は `LevelSkill/<枠>.json` にある。
+#
+#   実体の `SpawnPositionType`   Invoker（撃った子の足元）/ InputPosition（狙った点）/
+#                                InputBattleEntity（狙った相手に貼り付く）/
+#                                BattleEntity / AliveAllyCenter / SkillCommandSelectedTarget
+#   根の `EssentialCandidateRule` TargetingType（Target＝相手を狙う / Position＝地面の点）
+#                                TargetSide（Enemy / Ally / Ally_Except_Self / Self）
+#                                MaxTargetCount（**狙う相手の数**であって、
+#                                範囲に入った体の数ではない）
+#   根の `TargetSortRule`         どの相手を選ぶか（SortCriteria / OrderBy）
+#   根の `Range`                  届く距離
+#   実体の `HitFrames`            当たるフレーム（多段はここが複数）
+#
+# **範囲の実体のほうには `MaxTargetCount` が無い**（`Radius` を持つ 232 枠を数えて
+# 全部 None。2026-09-04）。つまり**形の中に居る体は全部当たる**。
+# だから「何体に当たるか」は数ではなく幾何で決まる——盤を作れば数えられる。
+#
+# **範囲の実体は入れ子の奥にあることがある。** アルの EX は
+# `MainEntityData` が `TargetProjectileEntityDAO` で、実際の円は
+# `MainEntityData.SplashAreaEntityData`。イオリは
+# `MainEntityData.AreaSpawnerData.EntityTimeline[0].AreaData`。
+# だから**丸ごと深さ優先でたどって、最初に見つかった `*AreaEntityDAO` /
+# `*AuraEntityDAO` を採る**。232 枠のうち 206 枠が取れる（89%）。
+# 取れない 26 枠は `Bounce`（跳ねる弾。円でも扇でもない）が主で、
+# そこは今までどおり画面側の既定に任せる。
+_geom_cache = {}
+
+
+def _find_area(o):
+    """入れ子ごと全部たどって、最初に見つかった範囲の実体を返す。
+
+    返すのは `(実体, 型名)`。無ければ None。
+    """
+    if isinstance(o, dict):
+        t = str(o.get("$type") or "").split(",")[0].split(".")[-1]
+        if t.endswith(("AreaEntityDAO", "AuraEntityDAO")):
+            return o, t[:-9]
+        for k, v in o.items():
+            if k == "$type":
+                continue
+            r = _find_area(v)
+            if r:
+                return r
+    elif isinstance(o, list):
+        for v in o:
+            r = _find_area(v)
+            if r:
+                return r
+    return None
+
+
+def _ls_geom(group):
+    """`LevelSkill/<枠>.json` から中心・狙い方・届く距離・当たるフレーム。
+
+    返すのは
+    `[SpawnPositionType, TargetingType, TargetSide, MaxTargetCount, Range,
+      [HitFrames…], 範囲の型, [ずれ x, ずれ y], AngleOffset, SpawnDirectionType]`。
+    引けなければ None。末尾の空欄は落とす。
+
+    **`PositionOffset` を落とすと矩形が半分うしろに出る。**アリスの EX は
+    `Width 200 × Height 2000`（＝ 2.0 × 20.0 ワールド）で
+    `PositionOffset {"x": 0.0, "y": 10.0}`——**中心が足元ではなく 10.0 前**で、
+    ちょうど長さの半分。これを無視すると光線が背中側 10.0 まで伸びる。
+    ただし**常に長さの半分ではない**（アスナ 200×200 は 0、ヒフミ 600×250 は 0、
+    CH0079 は −2.0）ので、計算では出せない。**運ぶしかない。**
+    `PositionOffset` はワールド、`Width` / `Height` / `Radius` は 1/100 ワールド。
+    """
+    if not group:
+        return None
+    if group in _geom_cache:
+        return _geom_cache[group]
+    try:
+        d = get_json(BALS.format(group)) or {}
+    except Exception as e:
+        # **範囲が引けないのは致命ではない。**画面側は今までどおり既定で数える
+        print(f"  LevelSkill が引けない: {group} ({e})")
+        d = {}
+    got = None
+    r = _find_area(d)
+    if r:
+        area, base = r
+        ecr = d.get("EssentialCandidateRule") or {}
+        po = area.get("PositionOffset") or {}
+        off = [round(float(po.get("x") or 0), 3), round(float(po.get("y") or 0), 3)]
+        got = [area.get("SpawnPositionType"), ecr.get("TargetingType"),
+               ecr.get("TargetSide"), ecr.get("MaxTargetCount"),
+               d.get("Range"), list(area.get("HitFrames") or []), base,
+               off if (off[0] or off[1]) else None,
+               area.get("AngleOffset") or None,
+               area.get("SpawnDirectionType")]
+        while len(got) > 7 and got[-1] in (None, 0, 0.0):
+            got.pop()
+    _geom_cache[group] = got
+    return got
+
+
+# **生徒の枠 → `LevelSkill` の名札**（`DB/CharacterSkillListExcelTable`）。
+# 行は `(MinimumTierCharacterGear, FormIndex)` ごとに 1 本ずつあり、
+# **`EmptySkill` でない最初の 1 枚**を取る（オトギ・トキで踏んだ形。6425 行の注を参照）。
+def _skill_gid(rows, kind):
+    if not rows:
+        return None
+    def first(lst):
+        for v in (lst or []):
+            if v and v != "EmptySkill":
+                return v
+        return None
+    if kind == "ExtraPassive":
+        for r in rows:
+            v = first(r.get("ExtraPassiveSkillGroupId"))
+            if v:
+                return v
+        return None
+    fi, gear = 0, 0
+    if kind == "Ex":
+        fld = "ExSkillGroupId"
+    elif kind[:2] == "Ex" and kind[2:].isdigit():
+        fld, fi = "ExSkillGroupId", int(kind[2:])
+    elif kind == "Normal":
+        fld = "NormalSkillGroupId"
+    elif kind == "NormalF":
+        fld, fi = "NormalSkillGroupId", 1
+    elif kind == "Public":
+        fld = "PublicSkillGroupId"
+    elif kind == "GearPublic":
+        fld, gear = "PublicSkillGroupId", 2
+    else:
+        return None
+    cand = [r for r in rows if (r.get("FormIndex") or 0) == fi
+            and (r.get("MinimumTierCharacterGear") or 0) == gear]
+    if not cand:
+        cand = [r for r in rows if (r.get("FormIndex") or 0) == fi]
+    for r in cand:
+        v = first(r.get(fld))
+        if v:
+            return v
+    return None
+
+
 # ---- **敵側の効果**（`DB/LogicEffect_NPC.json`、4,231,686 バイト・4,625 件）。
 # 2026-09-04 に足した。それまでこの表は 1 度も読んでおらず、読んでいたのは
 # `DB/LogicEffect_PC.json`（生徒側）だけだった。
@@ -5326,6 +5622,10 @@ def build_tl():
                 "lv": g.get("LevelBoss"), "env": env,
                 "ext": r.get("EchelonExtensionType") or "Base", "sc": sc,
                 "dur": (r.get("BattleDuration") or 0) // 1000,
+                # **盤のファイル**（2026-09-04、第 1 段）。`StageFileName` は
+                # 3 本（素・`_start2phase`・`_start3phase`）で、
+                # **座標は 3 本とも同じ**なので先頭だけを見る
+                "stage": ((g.get("StageFileName") or [None]) or [None])[0],
             })
     # `RaidBossGroup` の綴りは Raid の DevName と揃っていない
     # （カイテンジャー・ホバークラフトで外れる。build_raid_score と同じ）
@@ -5893,6 +6193,11 @@ def build_tl():
                 _sg = _stg(b, df)
                 if _sg:
                     got["stg"] = _sg
+                # **盤**（2026-09-04、第 1 段）。座標・湧き点・召喚位置・体の大きさ。
+                # 「1 発が何体に当たるか」を人の入力ではなく計算で出すために要る
+                _bd = tl_board(sg.get("stage"), got.get("ex"), _ls_cache, ch_all, stat)
+                if _bd:
+                    got["board"] = _bd
                 got["arm"] = sorted((grp_arm.get(g0, {}).get(df) or {}).keys(),
                                     key=lambda a: ARMORS.index(a))
                 # **部位。**この枝の Ground → 大決戦の枝 → 同じボスの別地形 の順に探す
@@ -6210,6 +6515,8 @@ def build_tl():
     buf_out, nbuf, nskip, ncond, nrst, novr, nstk = {}, 0, 0, 0, 0, 0, 0
     # **範囲を持つ枠**（生徒 → スキルの枠 → [形, 半径]）
     area_out = {}
+    # **範囲の中心と狙い方**（生徒 → 枠 → `_ls_geom` の 7 つ組）と**届く距離**
+    geo_out, ngeo, rng_out = {}, 0, {}
     na_out, nna = {}, 0
     naf_out = {}
     nform = 0
@@ -6601,8 +6908,22 @@ def build_tl():
             # 当たる数の既定を決めるのに使う
             _rad = sk.get("Radius")
             if _rad:
-                area_out.setdefault(sid, {})[kind] = [
-                    (_rad[0] or {}).get("Type"), (_rad[0] or {}).get("Radius")]
+                _r0 = _rad[0] or {}
+                # **形は SchaleDB の 6 欄をそのまま。**末尾の空欄は落とす
+                _ar = [_r0.get("Type"), _r0.get("Radius"), _r0.get("Degree"),
+                       _r0.get("Width"), _r0.get("Height"), _r0.get("ExcludeRadius")]
+                while len(_ar) > 2 and _ar[-1] is None:
+                    _ar.pop()
+                area_out.setdefault(sid, {})[kind] = _ar
+                # **中心と狙い方は `LevelSkill` から。**引けない枠は載せない
+                _gm = _ls_geom(_skill_gid(csl_all.get(x["Id"]), kind))
+                if _gm:
+                    geo_out.setdefault(sid, {})[kind] = _gm
+                    ngeo += 1
+            # **届く距離**（SchaleDB の `Range`。506 枠が持っている）。
+            # どの生徒がどの体に届くかは、これが無いと決まらない
+            if sk.get("Range"):
+                rng_out.setdefault(sid, {})[kind] = sk["Range"]
             bl = []
             for e in (sk.get("Effects") or []):
                 if e.get("Type") != "Buff" or not e.get("Stat"):
@@ -6788,7 +7109,13 @@ def build_tl():
         for kind in tg:
             if kind not in ("Ex", "Public", "GearPublic", "ExtraPassive"):
                 continue
-            key = (x.get("DevName") or "") + kind + "01"
+            # **名札は `CharacterSkillListExcelTable` から引く**（2026-09-04）。
+            # `DevName + 枠 + "01"` の当てずっぽうは、愛用品の段や形態で
+            # 名前が変わる子で静かに外れる（Lunatic の大ペロロが
+            # `Perorozilla01**Insane**MiddleSize01Passive01` を持っていたのと同じ穴）
+            key = _skill_gid(csl_all.get(x["Id"]), kind)
+            if not key:
+                continue
             if key in _tsel_cache:
                 d_ls = _tsel_cache[key]
             else:
@@ -6818,6 +7145,9 @@ def build_tl():
     print(f"  条件つき・段つきのダメージ {ncond} 件を候補にした（生徒 {len(alt_out)} 人・"
           f"スキル {sum(len(v) for v in alt_out.values())} 枠／うち段つき {nstack} 枠）")
     print(f"  通常攻撃（オートアタック）が引けた生徒 {nna} 人 / {len(st_out)} 人")
+    _nar = sum(len(v) for v in area_out.values())
+    print(f"  範囲を持つ枠 {_nar} 個 / 中心と狙い方が引けた枠 {ngeo} 個"
+          f"、届く距離 {sum(len(v) for v in rng_out.values())} 個")
     print(f"  EX の形態違い {nform} 件（Skills.Ex.ExtraSkills）")
     _one = sum(1 for v in tgt_out.values() for r in v.values() if r[0] == 1)
     print(f"  味方に効くスキル {sum(len(v) for v in tgt_out.values())} 枠 / "
@@ -6961,7 +7291,13 @@ def build_tl():
         "eptl": ep_tpl,
         # **範囲の形と半径**（`Skills.<枠>.Radius`）。**何体いるかは入っていない**
         "area": area_out,
-        "areaKeys": ["Type(Circle/Fan/Obb)", "Radius"],
+        "geo": geo_out,
+        "geoKeys": ["SpawnPositionType", "TargetingType", "TargetSide",
+                    "MaxTargetCount", "Range", "HitFrames", "AreaDAO",
+                    "PositionOffset(ワールド)", "AngleOffset", "SpawnDirectionType"],
+        "rng": rng_out,
+        "areaKeys": ["Type(Circle/Fan/Obb/Donut/Bounce)", "Radius",
+                     "Degree", "Width", "Height", "ExcludeRadius"],
         "bufKeys": ["Target", "Stat", "Channel", "Value", "Duration", "ApplyFrame",
                     "Restrictions([Property,Operand,Value])",
                     "OverrideSlot(Channel の重なりを見る枠の差し替え)",

@@ -5,6 +5,7 @@ import { n0 } from './rate.js';
 import { wlvMax } from './passive.js';
 import { CIRC, aimIn, aliasOf, autoPick, fcOf, formHasDmg, formIn, formsOf, nrm, timeIn, whoIn, zen0 } from './parse-text.js';
 import { findStudent } from './parse-apply.js';
+import { hitsOf } from './board.js';
 
 /** 育成の行かどうか。**書き方は 1 つに縛らない**（2026-09-01 の先生の指示
     「TL はみんないろんな書き方してるから特化しなくていい」）
@@ -847,6 +848,19 @@ export function parseTL(txt) {
                            ' 体とボス本体に当てました（' + subsP[pz2].spnw + '）');
             break;
           }
+        }
+        // **盤があるなら、当たる数は湧きの数ではなく形と座標で決まる**
+        // （2026-09-04 の第 1 段）。`spn` は「1 回に何体湧くか」で、
+        // **盤にはそれ以外の体も居る**（ペロロジラ Lunatic の節 0 は
+        // 大きなペロロ 6 ＋ 小さなペロロ 5 ＋ 本体で、どれも 100% 転移する）。
+        // 形の中に何体入るかを数えて置き換える。**人が入れた数のほうが優先**
+        // （ここは `mcn === 1`、つまり TL に書いていないときしか通らない）
+        var _hq = hitsOf(diff(), idBy[who], 'Ex');
+        if (aim != null && _hq && _hq.nb > 0) {
+          mcn = _hq.nb; hbo = _hq.hb;
+          res.notes.push('「' + ln.trim() + '」は盤の座標から ' + subsP[aim].n + ' ' + mcn +
+                         ' 体' + (hbo ? 'とボス本体' : '') + 'に当てました（' +
+                         _hq.hit.length + ' 体を覆う形）');
         }
       }
     }

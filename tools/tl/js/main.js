@@ -25,6 +25,7 @@ import { enemyAt, liveBuffs } from './target.js';
 import { altOf, pickOf } from './alt.js';
 import { dmgOf, dotTimes } from './dmg.js';
 import { clearStat, total } from './clear.js';
+import { aimOf, beaconOf, bodiesOf, coverOf, fightSecs, hitsNOf, hitsOf, secOfSummon, standOf, summonsOf } from './board.js';
 import { restore, snapshot } from './io.js';
 import { autoPick, fcOf } from './parse-text.js';
 import { parseTL } from './parse-tl.js';
@@ -71,6 +72,11 @@ window.__TLDBG = { statsOf: statsOf, dmgOf: dmgOf, total: total, diff: diff,
                    // 書き出した JSON をそのまま流し込む（先生の盤を再現するため）
                    restore: restore, snapshot: snapshot,
                    clearStat: clearStat, trOf: trOf,
+                   // **盤**（2026-09-04 の第 1 段）。外から体の数を数えて図と突き合わせるため
+                   bodiesOf: bodiesOf, beaconOf: beaconOf, aimOf: aimOf,
+                   standOf: standOf, coverOf: coverOf, hitsOf: hitsOf,
+                   summonsOf: summonsOf, secOfSummon: secOfSummon,
+                   fightSecs: fightSecs, hitsNOf: hitsNOf,
                    boss: boss, scen: scen, killAt: killAt, scoreOf: scoreOf,
                    enemyAt: enemyAt, mkStats: mkStats, danMax: danMax,
                    // 池ごとの曲線（シロ→クロ、ワカモ→ホバークラフト）。
