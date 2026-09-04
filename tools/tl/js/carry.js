@@ -216,7 +216,20 @@ export function phaseSpans(r) {
   if (!hp0 || !r.ph[cur]) { return [{ p: '0', t0: 0, t1: dur, need: null }]; }
   var cv = dmgCurve(r), carry0 = (carryIn(st.pi)[r.cid] || 0);
   while (guard++ < 12) {
-    var list = ((r.ph[cur] || {}).hp) || [];
+    var cph = r.ph[cur] || {}, list = cph.hp || [];
+    // **ゲージでフェーズが変わるボス**（2026-09-04）。HP ではなく通常攻撃の数で回る。
+    // ペロロジラは `CheckActiveGaugeOver 301 → ChangePhase` が 19 発目で立って
+    // 0→1→2→0 と輪になる（`build-tool-data.py` が `ph[].atg` に
+    // `[通常攻撃の数, 秒, 次のフェーズ]` で入れる）。
+    // **前は `hp` が空なので帯が 1 本のまま**で、吸収の予定が 72 秒で尽きていた。
+    // 240 秒のうちグロッキーが 1 回も立たない TL があったのはこれが原因
+    if (!list.length && cph.atg && cph.atg[1] > 0 && r.ph[String(cph.atg[2])]) {
+      var t1a = t0 + cph.atg[1];
+      if (t1a >= dur) { break; }
+      out.push({ p: cur, t0: t0, t1: t1a, need: null, atg: true });
+      cur = String(cph.atg[2]); t0 = t1a;
+      continue;
+    }
     if (!list.length) { break; }
     // 前の部隊が削ったぶんは、この部隊の 0 秒時点で既に減っている
     var need = hp0 - list[0][0] - carry0, at = null, acc = 0, i;
@@ -428,15 +441,22 @@ export function ggAbsorbRuns(r, g) {
   var gauge = 0, prev = 0, until = -1;
   out.pts.push([0, 0]);
   for (k = 0; k < ts.length; k++) {
-    var t = ts[k], per = 0, bodies = 0;
+    // **段を決めるのは「転倒した体の数」**（`CountLogicEffectTemplateModifierDAO`）。
+    // 1 体は HP を半分まで削ると転倒する（`Perorozilla01MiddleSize01Passive02` の
+    // `GetHPRate() < 5000`）。**前は「いちばん広い 1 発の当たる数」を段にしていた**が、
+    // それだと 1 発で覆えない体は 18 秒かけて何発当てても数に入らない。
+    // 吸収から吸収までに部位へ入った総ダメージを、体の HP の半分で割って段を出す
+    // （2026-09-04。ペロロジラの大きなペロロは HP 210,000・半分 105,000 で、
+    //  当てさえすれば 1 発で転倒する。屋外の TL が 1 度もグロッキーにならなかった原因）
+    var t = ts[k], pool = 0;
     for (i = 0; i < hd.length; i++) {
       if (hd[i][0] <= prev + 1e-9 || hd[i][0] > t + 1e-9) { continue; }
-      per += hd[i][1];
-      if (hd[i][2] > bodies) { bodies = hd[i][2]; }
+      pool += hd[i][1] * hd[i][2];
     }
     prev = t;
     if (t < until) { continue; }
-    gauge += (per >= half ? bodies : 0) * gg.step;
+    var bodies = half > 0 ? Math.min(gg.cap, Math.floor(pool / half)) : 0;
+    gauge += bodies * gg.step;
     out.pts.push([t, Math.min(gauge, gg.need)]);
     if (gauge >= gg.need) {
       var un = Math.min(t + (g.sec || 0), dur);

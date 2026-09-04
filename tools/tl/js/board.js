@@ -107,7 +107,9 @@ export function bodiesOf(r, si, ex, on) {
     if (q[0] !== sec || !spawnOn(q, on)) { continue; }
     out.push({ n: q[1], x: q[2], y: q[3], br: br(q[1]), cid: cid(q[1]), sum: null });
   }
-  var wave = ex || summonsOf(r, sec)[0];
+  // `ex === false` は「召喚された体は盤に居ない」。**吸収の直後がこれ**——
+  // `Ex09` が 20.0 ワールドの中を全部消してからグロッキーが始まる（2026-09-04）
+  var wave = ex === false ? null : (ex || summonsOf(r, sec)[0]);
   if (wave && bd.smn[wave]) {
     for (i = 0; i < bd.smn[wave].length; i++) {
       q = bd.smn[wave][i];
@@ -369,4 +371,31 @@ export function bestHitsOf(r, sid, kind, si, ex, on) {
   }
   best.n = best.hit.length; best.nb = nb; best.hb = hb; best.bs = bs;
   return best;
+}
+
+var _ggf = {};
+/** **グロッキー中に盤が増えるぶんの倍率**（2026-09-04）。
+    小さなペロロ 5 体は `Sections[].Events[]` の
+    `GroundConditionStatusCheck {"StatusToCheck":"Groggy"}` でだけ湧く（`spawnOn`）。
+    同じスキルの形で「いちばん多く覆える置き方」を**ふだんの盤**と
+    **グロッキー中の盤**の両方で解いて、その比を返す。
+
+    **`gspl.n`（説明文の「5体」）は「盤に何体増えるか」であって
+    「1 発が何体に当たるか」ではない。**ホシノ（臨戦）の `Circle 300`（3.0 ワールド）は
+    ふだんの盤（本体＋大 6）で最大 4 体、グロッキー中の盤（＋小 5）で最大 10 体なので 2.5。
+    形が引けないスキルは `null`（呼ぶ側が 1 にする）。 */
+export function ggFactor(r, sid, kind) {
+  if (!r || !r.board || sid == null) { return null; }
+  var key = (r.cid || 0) + '|' + sid + '|' + kind;
+  if (key in _ggf) { return _ggf[key]; }
+  // **グロッキー中に大きなペロロは盤に居ない。**グロッキーは `Ex09` の吸収で始まり、
+  // その `Ex09` が `Immortal` を剥がして 999999999% を入れて 20.0 ワールドの中を
+  // 全部消す。だからグロッキー中の盤は**本体 ＋ 小さなペロロ 5 体**で、
+  // 大きなペロロ 6 体は入らない（`bodiesOf` の第 3 引数に `false`）
+  var got = null,
+      a = bestHitsOf(r, sid, kind, null, null, null),
+      b = a && a.n ? bestHitsOf(r, sid, kind, null, false, ['st:Groggy']) : null;
+  if (a && a.n && b && b.n) { got = b.n / a.n; }
+  _ggf[key] = got;
+  return got;
 }

@@ -4,6 +4,7 @@ import { accIn, ggCritAt, hpRateAt } from './carry.js';
 import { clamp } from './stats.js';
 import { effMod, statsOf, support, terrMod } from './passive.js';
 import { aimOf, enemyAt } from './target.js';
+import { ggFactor } from './board.js';
 import { altOf, lvlOf, pickOf } from './alt.js';
 import { KS } from './clear.js';
 import { formWinsCut, naShotsRaw } from './na.js';
@@ -29,10 +30,14 @@ export var PICKF = 0;
     **範囲攻撃でない発にも掛かる。**どの発が範囲かはデータから決められないので、
     まず「全部に当たる」で置いて動画と突き合わせる（2026-09-03。突き合わせの結果は
     `~/arona/tl-work/cards/` と `LOOP.md` の 42 に書く） */
-function gsplMul(r, at, tg) {
+function gsplMul(r, at, tg, sid, kd) {
   var g = r && r.gspl;
-  if (!g || !g.n || !g.gg || tg != null) { return 1; }
-  return ggCritAt(at) ? g.n : 1;
+  if (!g || !g.n || !g.gg || !ggCritAt(at)) { return 1; }
+  // **当てる先を決めてある発は、盤の座標から出す**（2026-09-04）。行の「当たる数」は
+  // ふだんの盤で覆える数なので、グロッキー中に増えるぶんは倍率で乗せる。
+  // `board.js` の `ggFactor` が、同じ形をふだんの盤とグロッキー中の盤で解いた比
+  if (tg != null) { return (sid != null && ggFactor(r, sid, kd)) || 1; }
+  return g.n;
 }
 function gsplScale(d, m) {
   if (!d || m === 1) { return d; }
@@ -56,7 +61,7 @@ export function dmgOf(idx, r, at, kind, upk, tg, gx, nso, only, nb) {
   // **候補の絞り込みは「当たる先」で変わる**（装甲が部位ごとに違うため。2026-09-03）
   var tb9 = aimOf(r, tg);
   var alt = altOf(p.id, kd, tb9, nb);
-  var gm9 = gsplMul(r, at, tg);
+  var gm9 = gsplMul(r, at, tg, p.id, kd);
   if (!PICKF || !alt || alt.v.length < 2) {
     return gsplScale(dmgOf1(idx, r, at, kd, alt ? pickOf(idx, kd, upk, tb9, nb) : 0,
                             tg, gx, nso, only, nb), gm9);

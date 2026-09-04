@@ -6245,11 +6245,51 @@ def build_tl():
                     _over = sorted(int(r["TriggerArgument"]) for r in _btr
                                    if r["ExternalBTTrigger"] == "CheckActiveGaugeOver")
                     if _gga["atg"] and _over:
-                        _n = int(-(-_over[0] // _gga["atg"]))       # EX 何発で越えるか
-                        _gga["end"] = (_plus[_n - 1] if 0 < _n <= len(_plus)
-                                       and _gga["atg"] * _n < _over[0] else None)
-                        _gga["per"] = len([c for c in (_gga["at"].get("0") or [])
-                                           if _gga["end"] and c <= _gga["end"]]) or None
+                        # **木のとおりに積んで、越える通常攻撃の数を出す**（2026-09-04）。
+                        # ペロロジラは NA 9 で Ex09（`AddCurrentATGEffectDAO` +150）、
+                        # NA 10 で +1、NA 11 で −1、NA 18 で +150、NA 19 で +1 ＝ 301 で
+                        # `CheckActiveGaugeOver 301 → ChangePhase` が立つ。
+                        # **吸った体の数に関わらず貯まる**——`AddCurrentATGEffectDAO` は
+                        # `CheckStun0` から `CheckStun6` まで全部の
+                        # `LogicEffectGroupIds` に入っている（2026-09-04 に原文で確かめた）。
+                        # 前は `ceil(301/150)=3` 発目の `AddActiveGauge +1`（NA 28）を
+                        # 探して、しかも `150*3 < 301` が偽で **None を返していた**
+                        for _p in sorted(got.get("ph") or {}):
+                            _prs = [r for r in (bt.get(got["cid"]) or [])
+                                    if str(r["AIPhase"]) == _p]
+                            _ovc = [r for r in _prs
+                                    if r["ExternalBTTrigger"] == "CheckActiveGaugeOver"
+                                    and r["ExternalBehavior"].startswith(
+                                        ("ChangePhase", "ForceChangePhase"))]
+                            if not _ovc:
+                                continue
+                            _add = {}
+                            for r in _prs:
+                                if (r["ExternalBTTrigger"] == "UseNormalSkill"
+                                        and r["ExternalBehavior"] == "AddActiveGauge"):
+                                    _k = int(r["TriggerArgument"])
+                                    _add[_k] = _add.get(_k, 0) + int(r["BehaviorArgument"])
+                            _abs = set(_gga["at"].get(_p) or [])
+                            _mx = max([int(r["TriggerArgument"]) for r in _prs
+                                       if r["ExternalBTTrigger"] == "UseNormalSkill"]
+                                      or [0])
+                            _th = int(_ovc[0]["TriggerArgument"])
+                            _acc, _end, _hit = 0, None, 0
+                            for _na in range(1, _mx + 1):
+                                if _na in _abs:
+                                    _acc += _gga["atg"]
+                                    _hit += 1
+                                _acc += _add.get(_na, 0)
+                                if _acc >= _th:
+                                    _end = _na
+                                    break
+                            if _end and got.get("per"):
+                                # 秒は `ev` と同じ置き方（1 周の中は `NA × per`）
+                                got["ph"][_p]["atg"] = [
+                                    _end, round(_end * got["per"], 3),
+                                    _ovc[0]["BehaviorArgument"]]
+                            if _p == "0":
+                                _gga["end"], _gga["per"] = _end, _hit or None
                     got["gga"] = _gga
                 _sg = _stg(b, df)
                 if _sg:
