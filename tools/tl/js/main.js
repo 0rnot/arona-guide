@@ -6,7 +6,7 @@ import { engIn, sim } from './engine.js';
 import { costPts } from './chart.js';
 import { scen } from './scen.js';
 import { dmgCurve, poolHp, poolKills, poolName, poolOrder } from './pool.js';
-import { carryIn, ggAt, ggCritAt, ggRuns, ggSolve, hpRateAt, killAt, partyCalc, phaseSpans, scoreOf, trOf } from './carry.js';
+import { carryIn, entryPhase, ggAt, ggCritAt, ggRuns, ggSolve, hpRateAt, killAt, partyCalc, phaseSpans, scoreOf, trOf } from './carry.js';
 import { draw, drawNow } from './draw.js';
 import { drawErr, kpi } from './kpi.js';
 import { drawCrit, drawRate } from './rate.js';
@@ -57,7 +57,7 @@ fillBoss(); fillFilters(); fillBuild(); drawParty(); drawCrew(); drawPicker(); d
 syncUndo();
 // 突き合わせ用。**SchaleDB の実装と数字が合うかを外から確かめるため**に出している
 window.__TLDBG = { statsOf: statsOf, dmgOf: dmgOf, total: total, diff: diff,
-                   terrMod: terrMod, effMod: effMod, passiveFor: passiveFor, phaseSpans: phaseSpans, ggRuns: ggRuns, ggAt: ggAt, ggCritAt: ggCritAt, ggSolve: ggSolve, support: support, dmgCurve: dmgCurve, parseTL: parseTL, st: st, stu: stu, sim: sim, engIn: engIn, costPts: costPts,
+                   terrMod: terrMod, effMod: effMod, passiveFor: passiveFor, phaseSpans: phaseSpans, entryPhase: entryPhase, ggRuns: ggRuns, ggAt: ggAt, ggCritAt: ggCritAt, ggSolve: ggSolve, support: support, dmgCurve: dmgCurve, parseTL: parseTL, st: st, stu: stu, sim: sim, engIn: engIn, costPts: costPts,
                    // **継続ダメージがいつ入るか**（2026-09-03 の 47b）
                    dotTimes: dotTimes,
                    // **変身 EX の周期**（2026-09-03 の 60）

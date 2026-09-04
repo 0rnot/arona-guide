@@ -207,6 +207,50 @@ export function secLab(t) {
   return m + ':' + (x < 10 ? '0' : '') + x.toFixed(2);
 }
 /** フェーズの区間。`[{ p, t0, t1, need }]`。**手で固定したときはその 1 本だけ。** */
+/** **戦闘の入り口で、いまの HP ならどの段に入るか**（2026-09-04）。
+
+    ペロロジラの `AIPhase 3` は次の 3 行だけを持っていて、**そこに留まる行が
+    1 つも無い**——入り口で段を選ぶためだけの段。
+
+        AIPhase 3 | HPUnder 15000000 -> ChangePhase 2
+        AIPhase 3 | HPUnder 30000000 -> ChangePhase 1
+        AIPhase 3 | HPUnder 44000000 -> ChangePhase 0
+
+    `DB/BossExternalBTExcelTable` に同じ形の木が **21 本**ある（`73051xx`〜`73057xx`・
+    `74051xx`〜`74058xx`・`7965xxx`。どれも `AIPhase 3` の 3 行で、他のどの段からも
+    指されていない。2026-09-04 に原文を数えて確かめた）。
+
+    **前の部隊が削ったぶん（`carry`）があると、2 部隊目以降は 0 ではなく 1 や 2 から
+    始まる。**満タンのときは `HPUnder 44000000` に当たらないので、いちばん大きい
+    しきい値の行（＝ `0`）に落とす。1 部隊目は今までと同じ結果になる。
+
+    見分け方は木を数えたときと同じ——**`hp` を持ち、`ev` も `atg` も持たず、
+    他のどの段からも指されていない段**（`'0'` は除く。そこは全部のボスの始点）。 */
+export function entryPhase(r, hpNow) {
+  var ph = (r && r.ph) || {}, p, tgt = {}, i;
+  for (p in ph) {
+    var a = ph[p].atg, hl = ph[p].hp || [];
+    if (a) { tgt[String(a[2])] = 1; }
+    for (i = 0; i < hl.length; i++) { tgt[String(hl[i][1])] = 1; }
+  }
+  // **`'0'` が他の段から指されているときだけ効かせる**（2026-09-04）。
+  // ペロロジラは `2 → 0` の輪があるので `'0'` は始点になれず、**入り口が別に要る**。
+  // 逆に `'0'` をどこも指していないボスは `'0'` が始点なので、たまたま
+  // 「指されていない段」が他にあっても入り口ではない——**イェソドの右手（2回目）**が
+  // それで、`ph['0']` も `ph['2']` も `HPUnder 999999999 → 3` の 1 行だけ持っている
+  if (!tgt['0']) { return null; }
+  for (p in ph) {
+    var q = ph[p];
+    if (p === '0' || tgt[p]) { continue; }
+    if (!(q.hp && q.hp.length) || (q.ev && q.ev.length) || q.atg) { continue; }
+    var list = q.hp.slice().sort(function (x, y) { return x[0] - y[0]; });
+    for (i = 0; i < list.length; i++) {
+      if (hpNow < list[i][0]) { return String(list[i][1]); }
+    }
+    return String(list[list.length - 1][1]);
+  }
+  return null;
+}
 export function phaseSpans(r) {
   var dur = r.dur || 240;
   if (st.phFix != null && r.ph[String(st.phFix)]) {
@@ -214,6 +258,8 @@ export function phaseSpans(r) {
   }
   var hp0 = (r.bs && r.bs.hp) || 0, cur = '0', out = [], t0 = 0, guard = 0;
   if (!hp0 || !r.ph[cur]) { return [{ p: '0', t0: 0, t1: dur, need: null }]; }
+  var ep = entryPhase(r, hp0 - (carryIn(st.pi)[r.cid] || 0));
+  if (ep && r.ph[ep]) { cur = ep; }
   // **累計ダメージは HP で帯を割るときだけ要る。**ゲージで回るボス（`atg`）は
   // 時刻だけで決まるので引かない。**`dmg.js` からここを呼べるようにするため**
   // 遅らせている（先に引くと `dmgCurve → dmgOf → phaseSpans` で無限に回る。2026-09-04）
