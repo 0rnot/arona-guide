@@ -4,6 +4,7 @@ import { exCost, exDur } from './uses.js';
 import { diff } from './boss.js';
 import { sim } from './engine.js';
 import { costPts } from './chart.js';
+import { viewAt } from './view.js';
 
 // ------------------------------------------------------------ 再生ヘッド
 export function costAt(t) {
@@ -21,6 +22,8 @@ export function movePh(t) {
   t = Math.max(0, Math.min(dur, t));
   PH_T = t;
   drawOrd(t);
+  // **盤も赤い縦線に付いていく**（2026-09-04）。次の描画まで 1 回にまとめている
+  viewAt(t);
   var e = $('ph'), box = $('phbox');
   if (!e) { return; }
   e.style.left = (t * st.px) + 'px';

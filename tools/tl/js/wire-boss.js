@@ -6,7 +6,6 @@ import { drawRate } from './rate.js';
 import { fit } from './zoom.js';
 import { bstPut, fillBoss, npcChips } from './bossui.js';
 import { usePartyRef } from './undo.js';
-import { setGG } from './view.js';
 
 export function syncTabs() {
   var bs = document.querySelectorAll('#rtabs .t');
@@ -51,11 +50,6 @@ export function wireBoss() {
     var g = (diff().gim || [])[+el.getAttribute('data-gim')];
     if (!g) { return; }
     bstPut({ k: g.k === 'def' ? 'defAbs' : g.k, v: g.v, n: g.n, d: g.d });
-  });
-  // 盤の場面切り替え（第 5 段）
-  $('viewpane').addEventListener('click', function (e) {
-    var g = e.target.closest('[data-gg]');
-    if (g) { setGG(+g.getAttribute('data-gg')); }
   });
   $('i-armor').addEventListener('change', function () {
     st.arm = this.value || null; resetDiffCache(); fillBoss(); draw();

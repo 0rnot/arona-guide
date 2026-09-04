@@ -4871,23 +4871,76 @@ def _summon_tail(u):
 
 
 def tl_frames(group, cache):
-    """通常スキル 1 発ぶんのフレーム数。引けなければ None。"""
+    """スキル 1 発ぶんのフレーム数。引けなければ None。
+
+    **通常スキルの 1 発は「構え → 撃つ → 戻す」で 1 周**（2026-09-04 に直した）。
+    前は `AttackIngDuration` だけを見ていたが、それは撃っている間の長さで、
+    `AttackStartDuration` と `AttackEndDuration` が抜けていた。ペロロジラは
+    33 + 60 + 27 = 120 フレーム（4.0 秒）なのに 60 フレーム（2.0 秒）になっていた。
+
+    **動画 3 本で確かめた。**ボスの HP バーの下のグロッキーゲージ（3 マス）の
+    1 マス目が満ちるのは、`fr_pero_y4h8XEXXfgw` コマ 45 ＝ 戦闘 62.2 秒 ／
+    `fr_pero_WPsUxtkDMQU` コマ 42 ＝ 62.4 秒 ／ `fr_pero_LfeYesN3MSs` コマ 45 ＝
+    63.2 秒。ペロロジラは 9 発目に Ex09（吸収）を撃つので、置き方は
+    9 × 4.0 ＋ (150 + 494 + 150) / 30 ＝ 62.467 秒。2.0 秒だと 44.5 秒で 18 秒早い。
+
+    **`AttackStartDuration` と `AttackEndDuration` が 0 のボスは変わらない**
+    （ビナー 140 フレームのまま）。`AnimationFrames` を持たないボス
+    （ヒエロニムス 100・ホド 145）は今までどおり `Duration` をそのまま使う。
+    **EX スキルはどれも `AnimationFrames` が空**なので、ここの変更は掛からない
+    （`Perorozilla01TormentEx01` 494・`BinahExSkill03` 327 などは `Duration`）
+    """
     if group in cache:
         return cache[group]
     try:
         d = get_json(BALS.format(group))
     except Exception:
         d = {}
-    v = None
-    for a in (d.get("AnimationFrames") or []):
-        if a.get("Key") == "AttackIngDuration" and a.get("Frame"):
-            v = a["Frame"]
+    fr = {a.get("Key"): a.get("Frame") for a in (d.get("AnimationFrames") or [])}
+    v = fr.get("AttackIngDuration")
+    if v:
+        v = v + (fr.get("AttackStartDuration") or 0) + (fr.get("AttackEndDuration") or 0)
     if not v:
         dur = d.get("Duration")
         if isinstance(dur, int) and 0 < dur < 100000:
             v = dur
     cache[group] = v
     return v
+
+
+def tl_na_secs(rs, per, exd, mx):
+    """通常攻撃 N 発目が来る秒（`{N: 秒}`）と、mx 発目まで終わったときの秒。
+
+    **EX を撃っている間、通常攻撃の数えは進まない。**
+    `UseNormalSkill N → UseSelectExSkill i` は「N 発目のあとに EX i を撃つ」で、
+    その EX のモーションが終わるまで次の通常攻撃は始まらない。だから N 発目の秒は
+    「N × 1 発の長さ ＋ それまでに撃った EX のモーションの合計」になる。
+
+    **前は `N × 1 発の長さ` の掛け算だけだった。**1 周に EX が 1 つしかないボス
+    （ヒエロニムス）では同じ数になるので気づかなかったが、1 周に 8 つあるボスでは
+    中身が全部ずれる——ペロロジラ Torment は白熱眼光
+    （`Perorozilla01TormentEx01`、494 フレーム ＝ 16.467 秒）を 5 発目に撃つのに、
+    7 発目・9 発目・11 発目の EX がそのモーションの最中に並んでいて、
+    **画面の帯が重なっていた**（2026-09-04 の先生の指摘）。
+
+    ヒエロニムスの動画 2 本（`yuZnCpRh2YU` / `qReSK-B24ts`）で確かめてある形と
+    同じ置き方。1 周 4 発・EX は 4 発目・モーション 300 フレームで、
+    EX は 13.333 秒と 36.667 秒に出る。
+    """
+    at = {}
+    for r in rs:
+        if (r["ExternalBTTrigger"] == "UseNormalSkill"
+                and r["ExternalBehavior"] == "UseSelectExSkill"):
+            at.setdefault(int(r["TriggerArgument"]), []).extend(
+                tl_idxs(r["BehaviorArgument"]))
+    sec, t = {}, 0.0
+    for n in range(1, (mx or 0) + 1):
+        t += per
+        sec[n] = t
+        for i in at.get(n, []):
+            if i < len(exd):
+                t += (exd[i] or 0) / TL_FPS
+    return sec, t
 
 
 def tl_names(ex, idxs):
@@ -5021,8 +5074,13 @@ def tl_one(cid, bt, csl, stat, fcache, ch_appear, twin=None):
             "Duration も無い）ので、UseNormalSkill N の EX を秒に直せない")
     for p in sorted({r["AIPhase"] for r in rows}):
         rs = [r for r in rows if r["AIPhase"] == p]
+        # **秒は `tl_na_secs` に歩かせる**（2026-09-04）。EX のモーションのぶんだけ
+        # 通常攻撃の数えが止まるので、`発数 × 1 発の長さ` の掛け算では出ない
+        _mx = max([int(r["TriggerArgument"]) for r in rs
+                   if r["ExternalBTTrigger"] == "UseNormalSkill"] or [0])
+        nsec = tl_na_secs(rs, per, exd, _mx)[0] if per else {}
         ev = sorted(([int(r["TriggerArgument"]),
-                      round(int(r["TriggerArgument"]) * per, 3) if per else None,
+                      round(nsec[int(r["TriggerArgument"])], 3) if per else None,
                       tl_idxs(r["BehaviorArgument"])]
                      for r in rs
                      if r["ExternalBTTrigger"] == "UseNormalSkill"
@@ -5064,13 +5122,13 @@ def tl_one(cid, bt, csl, stat, fcache, ch_appear, twin=None):
         exok = all(exd[i] for e in ev for i in e[2] if i < len(exd))
         if (per and ev and len(clr) == 1 and ev[-1][0] <= clr[0]
                 and not ns_ph and exok):
-            span = clr[0] * per + sum((exd[i] or 0) for e in ev for i in e[2]) / TL_FPS
+            span = tl_na_secs(rs, per, exd, clr[0])[1]
             if span > 0:
                 # **足すのは丸める前の値。**丸めた 13.333 に足すと 2 周目が
                 # 36.666 になって、動画の 36.667 秒と 1 ミリ秒ずれる
                 base, t = list(ev), span
-                while base[0][0] * per + t <= TL_EV_LIMIT:
-                    ev += [[e[0], round(e[0] * per + t, 3), e[2]] for e in base]
+                while nsec[base[0][0]] + t <= TL_EV_LIMIT:
+                    ev += [[e[0], round(nsec[e[0]] + t, 3), e[2]] for e in base]
                     t += span
                 ev.sort(key=lambda x: x[1])
         elif clr:
@@ -5117,8 +5175,23 @@ def tl_one(cid, bt, csl, stat, fcache, ch_appear, twin=None):
                         "ほうが長い。画面の帯は重なって出る")
         elif over:
             _t = "・".join(r["TriggerArgument"] for r in over)
-            why.append(f"フェーズ {p + 1} はゲージのしきい値（CheckActiveGaugeOver {_t}）"
-                       "はあるが、貯まり方（CheckPeriod → AddActiveGauge）が無い")
+            # **`UseNormalSkill N → AddActiveGauge` で貯まるボスがいる**（2026-09-04）。
+            # ペロロジラは 10/19/28/37 発目に +1、11/20/29/38 発目に −1 で、
+            # 残りは Ex09（吸収）の `AddCurrentATGEffectDAO Amount 150` が入れる。
+            # 150 × 2 ＋ 1 ＝ 301 ＝ `CheckActiveGaugeOver 301`。
+            # **「貯まり方が無い」と書いていたのは嘘だった**
+            _una = [r for r in rs if r["ExternalBTTrigger"] == "UseNormalSkill"
+                    and r["ExternalBehavior"] == "AddActiveGauge"]
+            if _una:
+                _n = "・".join(sorted({r["TriggerArgument"] for r in _una},
+                                     key=lambda x: int(x)))
+                why.append(f"フェーズ {p + 1} はゲージのしきい値（CheckActiveGaugeOver "
+                           f"{_t}）を、通常スキル {_n} 発目の AddActiveGauge と "
+                           "EX の AddCurrentATG で越える（CheckPeriod では貯まらない）")
+            else:
+                why.append(f"フェーズ {p + 1} はゲージのしきい値"
+                           f"（CheckActiveGaugeOver {_t}）はあるが、"
+                           "貯まり方（CheckPeriod → AddActiveGauge）が無い")
         hp = [[int(r["TriggerArgument"]), r["BehaviorArgument"]] for r in rs
               if r["ExternalBTTrigger"] == "HPUnder"
               and r["ExternalBehavior"].startswith(("ChangePhase", "ForceChangePhase"))]
@@ -6284,10 +6357,22 @@ def build_tl():
                                     _end = _na
                                     break
                             if _end and got.get("per"):
-                                # 秒は `ev` と同じ置き方（1 周の中は `NA × per`）
+                                # 秒は `ev` と同じ置き方（`tl_na_secs` に歩かせる）
+                                _ns = tl_na_secs(_prs, got["per"],
+                                                 got.get("exd") or [], _mx)[0]
                                 got["ph"][_p]["atg"] = [
-                                    _end, round(_end * got["per"], 3),
+                                    _end, round(_ns[_end], 3),
                                     _ovc[0]["BehaviorArgument"]]
+                                # **フェーズはここで終わるので、この先の EX は撃たれない**
+                                # （2026-09-04）。ペロロジラは `ClearNormalSkill` の
+                                # 戻る数が書いていないぶんを「台本の長さ」＝ 38 発で
+                                # 埋めていて、19 発目で `CheckActiveGaugeOver 301` が
+                                # 立つことを見ていなかった。**吸収が 18 秒おきに
+                                # 出ていたのはこれ**（先生の「吸収の頻度がおかしい」）
+                                got["ph"][_p]["ev"] = [
+                                    e for e in (got["ph"][_p].get("ev") or [])
+                                    if e[0] <= _end and e[1] is not None
+                                    and e[1] <= _ns[_end] + 1e-9]
                             if _p == "0":
                                 _gga["end"], _gga["per"] = _end, _hit or None
                     got["gga"] = _gga

@@ -13,7 +13,7 @@ import { sheet, snapshot } from './io.js';
 import { importSheet } from './import-ui.js';
 import { MD3, drawRows, rowAdd, rowMove, rowOrder, rowSeek, rowSwap, rowsToggle, selPick, selRows, trIx } from './rows.js';
 import { syncTabs } from './wire-boss.js';
-import { drawView, setGG, viewToggle } from './view.js';
+import { drawView, viewToggle } from './view.js';
 import { onAlt } from './wire-build.js';
 import { onUse } from './wire-use.js';
 import { laneOn, saveLanes } from './lanes.js';

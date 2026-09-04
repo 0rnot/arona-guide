@@ -102,10 +102,28 @@ export function bodiesOf(r, si, ex, on) {
     var e = bd.bd[nm];
     return e ? e[0] : null;
   }
+  var seen = {};
   for (i = 0; i < (bd.spw || []).length; i++) {
     q = bd.spw[i];
     if (q[0] !== sec || !spawnOn(q, on)) { continue; }
+    seen[q[1]] = 1;
     out.push({ n: q[1], x: q[2], y: q[3], br: br(q[1]), cid: cid(q[1]), sum: null });
+  }
+  // **ボスの湧き点は節 0 にしかない**（ペロロジラ Torment の
+  // `Perorozilla_default_Torment` は節 0 の 1 件だけで、節 2・4・6・8 には
+  // グロッキーの小さなペロロしか並んでいない）。ボスは湧き直すのではなく
+  // 前へ歩くので、**節 0 の体をビーコンの差だけ動かして置く**
+  // （節は同じ並びを平行移動しただけ。`secOfSummon` の注記と同じ読み。2026-09-04）。
+  // これが無いと、フェーズ 2 以降の盤からボスが消える
+  if (sec !== SEC0) {
+    var b0 = beaconOf(r, SEC0), b1 = beaconOf(r, sec);
+    var dx = b0 && b1 ? b1.x - b0.x : 0, dy = b0 && b1 ? b1.y - b0.y : 0;
+    for (i = 0; i < (bd.spw || []).length; i++) {
+      q = bd.spw[i];
+      if (q[0] !== SEC0 || seen[q[1]] || !spawnOn(q, on)) { continue; }
+      out.push({ n: q[1], x: q[2] + dx, y: q[3] + dy, br: br(q[1]),
+                 cid: cid(q[1]), sum: null });
+    }
   }
   // `ex === false` は「召喚された体は盤に居ない」。**吸収の直後がこれ**——
   // `Ex09` が 20.0 ワールドの中を全部消してからグロッキーが始まる（2026-09-04）

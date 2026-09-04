@@ -1,9 +1,9 @@
 import { $, B, esc } from './util.js';
 import { st } from './core.js';
 import { diff } from './boss.js';
-import { phaseSpans, ggRuns, ggSolve } from './carry.js';
+import { bossAdv, phaseSpans, ggRuns, ggSolve } from './carry.js';
 import { usesSorted } from './buff.js';
-import { beaconOf, bestHitsOf, bodiesOf, fightSecs, hitsOf, shapeAt } from './board.js';
+import { beaconOf, bestHitsOf, bodiesOf, hitsOf, secOfSummon, shapeAt } from './board.js';
 
 // ------------------------------------------------------------ 盤と経過（第 5 段）
 // **画面に文章を足さずに、盤とボスの動きを目で見られるようにする**（2026-09-04）。
@@ -21,11 +21,57 @@ export function viewToggle() {
   $('viewpane').hidden = !VIEW;
   drawView();
 }
-/** 盤に載せる場面。`0` ふだん、`1` グロッキー中 */
-export var GG = 0;
-export function setGG(v) { GG = v ? 1 : 0; drawView(); }
+/** **盤の時刻はタイムラインの赤い縦線**（2026-09-04 の先生の指摘
+    「発動時間の盤ってより、タイムライン上の赤線の位置の盤か」）。
+    節・召喚の波・グロッキーを、その時刻から出す。手で切り替える札は要らなくなった。 */
+export var VT = null;
+var _raf = 0;
+export function viewAt(t) {
+  VT = t;
+  // **動かすたびに解き直さない。**`movePh` はマウスを動かすたびに来るので、
+  // 次の描画まで 1 回にまとめる
+  if (!VIEW || _raf) { return; }
+  _raf = requestAnimationFrame(function () { _raf = 0; drawView(); });
+}
 
 function fmt(t) { return (+t).toFixed(1); }
+
+/** **その時刻の場面。**`{p, gg, wave, sec}`。
+
+      p     … そのときのフェーズ（`phaseSpans`）
+      gg    … グロッキー中か（`ggRuns().hits`）
+      wave  … 盤に居る召喚の波（最後に撃たれた召喚の EX。吸収の EX で消える）
+      sec   … 節（`secOfSummon`。ペロロジラはフェーズごとに前へ移動する）
+
+    **吸収の EX が来たら盤の体は消える**——`Ex09` が 20.0 ワールドの中を
+    全部吸ってから、グロッキーの小さなペロロが湧く。 */
+function sceneAt(r, t) {
+  var sp = phaseSpans(r), gr = ggRuns(r), i, k;
+  var cur = sp[sp.length - 1];
+  for (i = 0; i < sp.length; i++) {
+    if (t >= sp[i].t0 - 1e-9 && t < sp[i].t1) { cur = sp[i]; break; }
+  }
+  var gg = false;
+  for (i = 0; i < (gr.hits || []).length; i++) {
+    if (t >= gr.hits[i].t - 1e-9 && t < gr.hits[i].until) { gg = true; }
+  }
+  var pd = (r.ph || {})[cur.p] || {}, ev = pd.ev || [], smn = (r.board || {}).smn || {};
+  var gi = r.gga ? r.gga.exi : null, wave = null, first = null;
+  for (i = 0; i < ev.length; i++) {
+    if (ev[i][1] == null) { continue; }
+    for (k = 0; k < (ev[i][2] || []).length; k++) {
+      var nm = r.ex[ev[i][2][k]];
+      if (first == null && ev[i][2][k] !== gi && nm && smn[nm]) { first = nm; }
+    }
+    if (bossAdv(cur.t0, ev[i][1]) > t + 1e-9) { continue; }
+    for (k = 0; k < (ev[i][2] || []).length; k++) {
+      var g = ev[i][2][k], nm2 = r.ex[g];
+      if (g === gi) { wave = null; } else if (nm2 && smn[nm2]) { wave = nm2; }
+    }
+  }
+  var sec = secOfSummon(r, wave || first);
+  return { p: cur.p, gg: gg, wave: wave, sec: sec == null ? 0 : sec };
+}
 
 /** **絵にする 1 発。**選んでいる行があればそれ、無ければ「当たる先を決めてある発」の
     いちばん早いもの。どれも無ければ編成の先頭の EX。 */
@@ -44,8 +90,8 @@ function pickShot(r) {
 }
 
 /** 盤の絵。`sh` は `pickShot` の 1 発（無ければ形は描かない）。 */
-function boardSvg(r, sec, sh) {
-  var on = GG ? ['st:Groggy'] : null, ex = GG ? false : null;
+function boardSvg(r, sc, sh) {
+  var sec = sc.sec, on = sc.gg ? ['st:Groggy'] : null, ex = sc.wave || false;
   var bs = bodiesOf(r, sec, ex, on), bc = beaconOf(r, sec), i;
   if (!bs.length) { return '<p class="mut tiny">この相手には盤のデータがありません</p>'; }
   var sid = sh ? (st.party[sh.i] || {}).id : null;
@@ -176,23 +222,26 @@ export function drawView() {
   if (!VIEW || !$('viewpane')) { return; }
   var r = diff();
   ggSolve(r);
-  var secs = fightSecs(r), sec = secs.length ? secs[0] : 0;
+  var dur = r.dur || 240;
+  var t = VT == null ? 0 : Math.max(0, Math.min(dur, VT));
+  var sc = sceneAt(r, t);
   var sh = pickShot(r);
   var nm = sh ? ((st.party[sh.i] || {}).en || '') : '';
   var q = null;
   if (sh) {
     var sid = (st.party[sh.i] || {}).id;
     if ((B.area[sid] || {})[sh.k]) {
-      q = bestHitsOf(r, sid, sh.k, sec, GG ? false : null, GG ? ['st:Groggy'] : null);
+      q = bestHitsOf(r, sid, sh.k, sc.sec, sc.wave || false,
+                     sc.gg ? ['st:Groggy'] : null);
     }
   }
   var head = '<div class="vhd">' +
-    '<span class="seg"><button type="button" class="sg' + (GG ? '' : ' on') + '" data-gg="0">ふだんの盤</button>' +
-    '<button type="button" class="sg' + (GG ? ' on' : '') + '" data-gg="1">グロッキー中</button></span>' +
-    (sh ? '<b>' + esc(nm) + '　' + esc(sh.k) + '　' + fmt(sh.t) + ' 秒</b>' : '') +
+    '<b>' + fmt(t) + ' 秒</b>' +
+    '<span class="mut tiny">フェーズ ' + (+sc.p + 1) + (sc.gg ? '　グロッキー' : '') + '</span>' +
+    (sh ? '<span class="mut tiny">' + esc(nm) + '　' + esc(sh.k) + '　' + fmt(sh.t) + ' 秒</span>' : '') +
     (q ? '<span class="mut tiny">覆う ' + q.n + ' 体（部位 ' + q.nb + (q.hb ? '＋本体' : '') + '）</span>' : '') +
     '</div>';
   $('viewpane').querySelector('.bd').innerHTML =
-    head + '<div class="vwrap"><div class="vbd">' + boardSvg(r, sec, sh) +
+    head + '<div class="vwrap"><div class="vbd">' + boardSvg(r, sc, sh) +
     '</div><div class="vlg">' + logRows(r) + '</div></div>';
 }
