@@ -5,7 +5,8 @@ import { n0 } from './rate.js';
 import { wlvMax } from './passive.js';
 import { CIRC, aimIn, aliasOf, autoPick, fcOf, formHasDmg, formIn, formsOf, nrm, timeIn, whoIn, zen0 } from './parse-text.js';
 import { findStudent } from './parse-apply.js';
-import { bestHitsOf } from './board.js';
+import { aimFromHits, bestHitsOf } from './board.js';
+import { poolBodies, poolOf } from './pool.js';
 
 /** 育成の行かどうか。**書き方は 1 つに縛らない**（2026-09-01 の先生の指示
     「TL はみんないろんな書き方してるから特化しなくていい」）
@@ -864,6 +865,20 @@ export function parseTL(txt) {
         // コユキの円は `Radius: 300` ＝ 3.0 ワールドなので 6 体は覆えない。
         // ここは `mcn === 1`、つまり TL に数が書いていないときしか通らない
         var _hq = bestHitsOf(diff(), idBy[who], 'Ex');
+        // **同じ HP の池を分け合う体も、当たった数だけ池が減る**（2026-09-04、LOOP.md の 40）。
+        // カイテンジャーの 5 体は `sub[].pool` が 7304701 で揃っていて（1 つの池 40,000,000）、
+        // **転移（`tr`）を持たない**ので上の枝に掛からず、当たる数が 1 のままだった。
+        // 池を分け合っているかは `poolBodies` で確かめる——自前の HP を持つ部位
+        // （ケセドのタワーなど）へ当てても本体は減らないので、そちらは今までどおり触らない。
+        // **どの体を当てる先にするかは `aimFromHits`（いちばん多く当たった種類）に任せる。**
+        // レンジャーは 5 体が別々の行なので当たりは 1 体ずつに散り、先頭が選ばれる
+        // （レッドだけ def 1332、ほかは 333。ここは近似）。当たる数は下の行が `nb` で入れる
+        if (aim == null && _hq && _hq.nb > 0) {
+          var _af = aimFromHits(diff(), _hq);
+          if (_af && _af.tg != null && poolBodies(diff(), poolOf(diff(), _af.tg)) > 1) {
+            aim = _af.tg;
+          }
+        }
         if (aim != null && _hq && _hq.nb > 0) {
           mcn = _hq.nb; hbo = _hq.hb;
           res.notes.push('「' + ln.trim() + '」は盤の座標から ' + subsP[aim].n + ' ' + mcn +
