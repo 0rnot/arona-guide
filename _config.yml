@@ -1,0 +1,15 @@
+# GitHub Pages（Jekyll）の設定。**この 1 つの目的のためだけに置いてある。**
+#
+# `tools/tl/` は TL エディタの実体で、Discord の門（tl.arona-bot.com）の
+# 向こうに置くものです。ところが Pages はリポジトリの根をそのまま配るので、
+# **門を通らずに arona-bot.com/tools/tl/ で誰でも開けていました**
+# （2026-09-04 の先生の「一旦非公開にしてほしい、TLToolだけ」で見つけた）。
+#
+# ここに挙げたものは Pages の出力に入りません。**git には残る**ので、
+# `scripts/deploy-tl.sh`（手元の作業木から rsync）は今までどおり動きます。
+# 公開に戻すときは下の 1 行を消してください。
+#
+# `exclude` を書くと Jekyll の既定の一覧（Gemfile / node_modules / vendor）が
+# 置き換わります。**このリポジトリにはどれも無い**ので影響はありません。
+exclude:
+  - tools/tl
