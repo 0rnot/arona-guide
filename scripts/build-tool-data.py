@@ -6191,6 +6191,23 @@ def build_tl():
             out.append(k)
         return out
 
+    def _role_key(dn):
+        """**畳むための役どころ名。**連番を落として `_Move` の別名も同じにする。
+
+        `re.sub(r"\\d+$", ...)` は**末尾の数字しか落とせない**ので、
+        `Perorozilla_Torment_MiddleSize01_Move` の `01` が残って
+        **大きなペロロミニオン 30 体が 10 行に散っていた**
+        （2026-09-05。`_subs` の docstring は「30 体は 1 行にする」と
+        書いてあるのに、`_Move` の 9 体が 1 体ずつ別の行になっていた）。
+
+        散ると `board.js` の `aimFromHits` が**いちばん多い行のぶんしか数えない**ので、
+        マコト（水着）の EX が 6 体に当たっても「5 体」になる。
+        `DB/CharacterStatExcelTable.json` では 7305701〜7305730 の 30 体とも
+        HP 210000・防御 6000・Unarmed・`Summoned` で、**当たる数の数え方としては
+        同じもの**（2026-09-05 に原文で裏取り）。畳む鍵には HP・防御・装甲・
+        種別も入っているので、素性が違う体はここを通っても別行のまま残る。"""
+        return re.sub(r"_move$", "", re.sub(r"\d+(?=_|$)", "", _dev_role(dn)))
+
     def _subs_extra(cid, skip, cand):
         """`_subs_df` が拾った候補のうち、**その枝にまだ無い役どころだけ**を残す。
         これが無いと、同じ役どころの別装甲・別地形の行まで並んで部位が倍増する
@@ -6200,11 +6217,10 @@ def build_tl():
         for k in _by_pre.get(str(cid)[:-2], []):
             if k in skip or k == cid:
                 continue
-            have.add(re.sub(r"\d+$", "",
-                            _dev_role((ch_all.get(k) or {}).get("DevName"))))
+            have.add(_role_key((ch_all.get(k) or {}).get("DevName")))
         out = []
         for k in cand:
-            r0 = re.sub(r"\d+$", "", _dev_role((ch_all.get(k) or {}).get("DevName")))
+            r0 = _role_key((ch_all.get(k) or {}).get("DevName"))
             if r0 and r0 not in have:
                 out.append(k)
         return out
@@ -6224,7 +6240,7 @@ def build_tl():
             # **畳むのは「同じ役どころの連番」だけ。**末尾の数字を落とした
             # 役どころ名まで見ないと、ドラム缶ガニのフンドシと船体のように
             # HP と防御がたまたま同じ別物まで 1 行になる
-            _role = re.sub(r"\d+$", "", _dev_role(c.get("DevName")))
+            _role = _role_key(c.get("DevName"))
             _key = (_role, sr.get("MaxHP1"), sr.get("DefensePower1"),
                     c.get("ArmorType"), c.get("TacticEntityType"))
             if _key in seen:
@@ -6957,7 +6973,7 @@ def build_tl():
     ADAPT = ["D", "C", "B", "A", "S", "SS"]
     stu = as_list(get_json(SD.format("students")))
     st_out, dmg_out, ndmg, sinfo, build = {}, {}, 0, {}, {}
-    ncond = nstack = 0
+    ncond = nstack = nodt = 0
     buf_out, nbuf, nskip, ncond, nrst, novr, nstk = {}, 0, 0, 0, 0, 0, 0
     # **範囲を持つ枠**（生徒 → スキルの枠 → [形, 半径]）
     area_out = {}
@@ -7290,7 +7306,20 @@ def build_tl():
                       e["TargetHpRateModifier"].get("MultiplierMax")]
                      if e.get("TargetHpRateModifier") else None),
                     #   Acc … 蓄積（2026-09-03、56c）。出どころは `acc_info` の注記
-                    acc_info(e)]
+                    acc_info(e),
+                    #   OverrideSkillDamageType … **この一撃を どの枠のダメージとして
+                    #     数えるか**（2026-09-05、67 を追っていて見つけた）。
+                    #     ba-data の `DB/LogicEffect_PC.json` では整数で、
+                    #     `OverrideSkillDamageType` は 0 が 5,713 行・1 が 40 行。
+                    #     SchaleDB 側は同じものを文字列 `"Ex"` で持っていて、
+                    #     **件数も対象も 4 対 4 で一致する**ので `1 = Ex` が確定した:
+                    #       CH0334_Normal01_Effect01 / CH0334_Public01_Effect03
+                    #         ＝ 10134 アリス（臨戦） Normal / Public
+                    #       CH0368_Normal02_Effect01 / CH0368_Public01_Effect03
+                    #         ＝ 10149 ココロ Normal.FormChange / Public
+                    #     この 4 発は **EX ダメージとして数える**ので
+                    #     `EnhanceExDamageRate`（キサキ枠）が乗る。運んでいなかった
+                    e.get("OverrideSkillDamageType")]
             # **`Group` は「何段目か」で、足すものではなく択一。**
             # ネル（制服）の Ex1 は Group 0〜4 × 条件 2 通りの 10 件あって、
             # 全部足すと 1 発 5,727,546（ボス HP の 25%）になっていた。
@@ -7315,6 +7344,7 @@ def build_tl():
                 plain = [e for e in plain if id(e) not in _xid]
             plain0 = [e for e in plain if e.get("Group") is None]
             stack = [e for e in plain if e.get("Group") is not None]
+            nodt += sum(1 for e in dmg_all if e.get("OverrideSkillDamageType"))
             eff = [_row(e) for e in plain0]
             if eff:
                 per_skill[kind] = eff
@@ -7594,7 +7624,8 @@ def build_tl():
             _fv = fchg_of(x.get("DevName"))
             if _fv:
                 fchg_out[sid] = _fv
-    print(f"  生徒 {len(st_out)} 人 / ダメージを持つ生徒 {len(dmg_out)} 人・効果 {ndmg} 件")
+    print(f"  生徒 {len(st_out)} 人 / ダメージを持つ生徒 {len(dmg_out)} 人・効果 {ndmg} 件"
+          f"（うち OverrideSkillDamageType つき {nodt} 件）")
     print(f"  バフ {nbuf} 件（条件つき・周期ものを {nskip} 件外した／"
           f"相手の条件つき {nrst} 件は判定して乗せる／"
           f"枠を差し替える OverrideSlot {novr} 件／"

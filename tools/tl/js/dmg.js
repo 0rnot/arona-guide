@@ -471,8 +471,18 @@ export function dmgAt(idx, r, at, kind, pick, tg, gx, nso, only, nb) {
       var hf = hHi > hLo ? Math.max(0, Math.min(1, (hR - hLo) / (hHi - hLo))) : 0;
       hrM = e[17][2] + (e[17][3] - e[17][2]) * hf;
     }
+    // **`OverrideSkillDamageType` はこの一撃だけ別の枠のダメージとして数えさせる**
+    // （2026-09-05、67 を追っていて見つけた。出どころは `build-tool-data.py` の注記）。
+    // 4 発だけ `Ex` が付いていて、通常攻撃・ノーマルスキルなのに
+    // **EX ダメージ**として扱われる（＝ キサキ枠 `EnhanceExDamageRate` が乗り、
+    // 通常攻撃側の `EnhanceBasicsDamageRate` は乗らない）
+    var exMe = exM, baMe = baM;
+    if (e[19] === 1 || e[19] === 'Ex') {
+      exMe = cs.get('EnhanceExDamageRate') / 10000;
+      baMe = 1;
+    }
     var base = atk * tm * em * (sc / 10000) * mult * defModOf(ig) *
-               drA * drB * exM * baM * lvMod * tick * smM * hrM;
+               drA * drB * exMe * baMe * lvMod * tick * smM * hrM;
     // **蓄積（ワカモ・カンナ）**（2026-09-03、56c）。**倍率ではなく、
     // その間に味方が入れたダメージそのものが弾になる。**
     //   ・溜める秒数と取り込む割合は `AccumulateEffectDAO`（`build-tool-data.py` の注記）
