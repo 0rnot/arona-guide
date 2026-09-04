@@ -68,6 +68,14 @@ export function nsInfo(id) {
     return { iv: per / B.fps, st: per / B.fps, du: duF, src: 'auto',
              nm: n ? n.n : '', rule: 'Interval', need: need };
   }
+  // **EX を撃った N 秒後に 1 回**（2026-09-04、50b）。N は `B.ns` の 12 番目で、
+  // 「EX が開いた窓が閉じたとき」を DB から出したもの（`build-tool-data.py` の
+  // `ns_ex_delay` に原文がある）。ケイ 26.9333 秒（増幅装置の動作終了時）と
+  // クルミ 10.6333 秒（戦術防御状態の解除時）の 2 人だけ
+  if (au && au[11] > 0) {
+    return { iv: 0, st: 0, du: duF, src: 'exd', off: au[11],
+             nm: nsNameOf(id, n), rule: au[1], need: need };
+  }
   // **`OnAttackIng` は「通常攻撃 N 回毎に」**（2026-09-03）。N は `TryCount`（`au[6]`）で、
   // スキルの説明文に N が書いてある 22 件すべてで一致した（`ConditionArgument` は
   // "" / "0" / "1" しか入っておらず、回数と相関しない）。時刻は通常攻撃の並びから
@@ -207,6 +215,19 @@ export function nsTimes0(id, dur, idx) {
         }
       }
     }
+    return out;
+  }
+  // **EX を撃った N 秒後に 1 回。**置いた EX 1 発につき 1 回で、周期では出ない。
+  // **見ているのは `st.tl` に書いてある時刻**（`formOK` と同じ理由。
+  // `usesSorted()` を使うと `usesSorted → nsTimes → usesSorted` で輪になる）
+  if (n.src === 'exd') {
+    if (idx == null) { return out; }
+    var q5;
+    for (q5 = 0; q5 < st.tl.length; q5++) {
+      if (st.tl[q5].i !== idx || st.tl[q5].t == null) { continue; }
+      push(st.tl[q5].t + n.off);
+    }
+    out.sort(function (a, b) { return a - b; });
     return out;
   }
   // **弾数で出る NS。**その弾倉の `trig` 発目を撃った直後（1 発ぶんの間合いのあと）

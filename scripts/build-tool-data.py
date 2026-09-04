@@ -5714,6 +5714,162 @@ def ns_count(dev, ct, arg):
     return out
 
 
+# **「EX を撃った N 秒後に 1 回だけ出る NS」**（2026-09-04、50b）。
+# 引き金が札の名前で周期が出ない 12 行のうち、`ns_count` が拾えなかった 2 人
+# （ケイ・クルミ）は、どちらも**EX が開いた窓が閉じたとき**に出る。
+# **窓の長さも、窓が開くフレームも DB にある。**辿り方は 2 通り:
+#
+#   A 「終わったときにその札を撃つ」効果がある（ケイ）
+#     `LogicEffect_PC` の `CH0335_Ex01_Effect04`
+#     （`AccumulateDamageFromTargetsEffectDAO` ＝ 増幅装置の蓄積）が
+#       "EndCondition": 0, "EndConditionArgument": 25000,
+#       "ExecuteLogicEffectGroupId01": "CH0335_Ex01_Effect05"
+#     で、その `CH0335_Ex01_Effect05`（`Dummy_CH0335_PublicTrigger`）が
+#     `CH0335Public01` の `AutoUseRule.ConditionArgument`。
+#     スキル文「増幅装置の動作終了時、敵1人に対して…」と合う
+#
+#   B 「変身が解けたときに配られる札」（クルミ）
+#     `CH0173Public01` の引き金 `Dummy_CH0173_FormReleaseCheck` を配るのは
+#     `CH0173HiddenPassive02`（`Event 301` ＋
+#     `"GetCurrentBehavior() == [BehaviorType.ReleaseFormConversion]"`）。
+#     変身（`CH0173_Ex01_Effect06` `FormConversionEffectDAO`）は
+#     `EndConditionArgument: -1` ＝ 時間では切れず、
+#     `CH0173HiddenPassive04`（`Event 22` `Parameters "Buff_TacticalShield"`）の
+#     `DispelLogicEffectGroupIdEffectDAO` が消す。つまり**戦術防御盾が切れたとき。**
+#     盾 `CH0173_Ex01_Effect01` の `Duration` は 10000ms。
+#     スキル文「戦術防御状態の解除時、敵1人の…」と合う
+#
+# **窓が開くフレーム**は `LevelSkill/<DevName>Ex01.json` の `EntityTimeline` を
+# 下りながら `Frame` を足し、その札を配る ability の `StartDelay` を足したもの
+# （`MainEntityData` は `EntityTimeline` に置かれる前の実体そのものなので数えない）。
+# クルミの盾は 10 + 9 = **19 フレーム**で、SchaleDB の `ApplyFrame: 19` と一致する。
+# ケイの蓄積は 57 + 1 = **58 フレーム**。
+#
+#   ケイ    58/30 + 25.0 = 26.9333 秒
+#   クルミ  19/30 + 10.0 = 10.6333 秒
+_NSX = {}
+_NSX_ALL = None
+
+
+def _le_pc():
+    """`DB/LogicEffect_PC` を 1 回だけ落として返す。"""
+    global _NSX_ALL
+    if _NSX_ALL is None:
+        _NSX_ALL = as_list(get_json(BADB.format("LogicEffect_PC")))
+    return _NSX_ALL
+
+
+def _ls_of(group):
+    """`<DevName>_<枠><NN>_EffectMM` から `LevelSkill/<DevName><枠><NN>.json`。"""
+    m = _NS_SLOT.match(group or "")
+    if not m:
+        return None, None
+    try:
+        return get_json(BALS.format(m.group(1) + m.group(2) + m.group(3))) or {}, m.group(1)
+    except urllib.error.HTTPError:
+        return None, None
+
+
+def _ls_apply_frame(ls, group):
+    """`ls` の中でその札を配る ability までのフレーム。無ければ None。"""
+    best = [None]
+
+    def walk(node, acc):
+        if isinstance(node, dict):
+            for key in ("Abilities", "AreaAbilities"):
+                for ab in (node.get(key) or []):
+                    if group in (ab.get("LogicEffectGroupIds") or []):
+                        f = acc + (ab.get("StartDelay") or 0)
+                        if best[0] is None or f > best[0]:
+                            best[0] = f
+            for k, v in node.items():
+                if k == "MainEntityData":
+                    continue      # `EntityTimeline` に置かれる前の実体。二重に数えない
+                if k == "EntityTimeline" and isinstance(v, list):
+                    for ent in v:
+                        walk(ent, acc + ((ent or {}).get("Frame") or 0))
+                else:
+                    walk(v, acc)
+        elif isinstance(node, list):
+            for v in node:
+                walk(v, acc)
+
+    walk(ls, 0)
+    return best[0]
+
+
+def _nsx_window(dev, group):
+    """その札を撃つ「窓」を `(窓を開く札, 長さ ms)` で返す。無ければ None。"""
+    rows = _le_pc()
+    # A 終わったときにその札を撃つ効果
+    for r in rows:
+        if not str(r.get("GroupId") or "").startswith(dev + "_"):
+            continue
+        ex = [r.get(f"ExecuteLogicEffectGroupId0{i}") for i in range(1, 5)]
+        if group not in ex:
+            continue
+        if r.get("EndCondition") != 0:
+            continue
+        ms = r.get("EndConditionArgument")
+        if isinstance(ms, str):
+            ms = int(ms) if ms.lstrip("-").isdigit() else 0
+        if (ms or 0) > 0:
+            return r["GroupId"], ms
+    # B 変身が解けたときに配られる札
+    ls, _dev = _ls_of(group)
+    tg = (ls or {}).get("TriggerCondition") or {}
+    if tg.get("Event") != 301 or "ReleaseFormConversion" not in str(
+            tg.get("ConditionExpression") or ""):
+        return None
+    forms = [r["GroupId"] for r in rows
+             if str(r.get("GroupId") or "").startswith(dev + "_")
+             and "FormConversionEffectDAO" in str(r.get("$type") or "")]
+    for r in rows:
+        if r.get("LogicEffectGroupIdToDispel") not in forms:
+            continue
+        dls, _d2 = _ls_of(r.get("GroupId"))
+        dtg = (dls or {}).get("TriggerCondition") or {}
+        if dtg.get("Event") != 22 or not dtg.get("Parameters"):
+            continue
+        for r2 in rows:
+            if not str(r2.get("GroupId") or "").startswith(dev + "_"):
+                continue
+            if r2.get("TemplateId") != dtg["Parameters"]:
+                continue
+            if (r2.get("Duration") or 0) > 0:
+                return r2["GroupId"], r2["Duration"]
+    return None
+
+
+def ns_ex_delay(dev, ct, arg):
+    """「EX を撃った N 秒後に 1 回」の N（秒）。解けなければ None。"""
+    if not dev or not arg or "LogicEffect" not in str(ct or ""):
+        return None
+    key = (dev, arg)
+    if key in _NSX:
+        return _NSX[key]
+    if not _NSC_TPL:
+        for r in _le_pc():
+            t = r.get("TemplateId")
+            if t:
+                _NSC_TPL.setdefault(t, set()).add(r.get("GroupId"))
+    out = None
+    for g in sorted(y for y in (_NSC_TPL.get(arg) or {arg}) if y):
+        m = _NS_SLOT.match(g)
+        if not m or m.group(1) != dev:
+            continue
+        win = _nsx_window(dev, g)
+        if not win:
+            continue
+        ls, _d3 = _ls_of(win[0])
+        fr = _ls_apply_frame(ls or {}, win[0])
+        if fr is None:
+            continue
+        out = round(fr / TL_FPS + win[1] / 1000.0, 4)
+    _NSX[key] = out
+    return out
+
+
 # LevelSkill の中身を 1 回だけ落とすための入れ物（湧く体の数を数えるのに使う）
 _ls_cache = {}
 # 「味方N人」の相手選びの規則を 1 回だけ落とすための入れ物（2026-09-04）
@@ -6903,7 +7059,12 @@ def build_tl():
                                 au.get("MaxTriggerCount"), au.get("CoolTimeNotTrigger"),
                                 au.get("TryCount"), au.get("TriggerRate"), fi, _need,
                                 ns_count(x.get("DevName"), au.get("ConditionType"),
-                                         au.get("ConditionArgument"))]
+                                         au.get("ConditionArgument")),
+                                #   exd … **EX を撃った N 秒後に 1 回**（2026-09-04、50b）。
+                                #     ケイ 26.9333 秒・クルミ 10.6333 秒の 2 人だけ
+                                #     （`ns_ex_delay` の頭に原文がある）
+                                ns_ex_delay(x.get("DevName"), au.get("ConditionType"),
+                                            au.get("ConditionArgument"))]
             nns += 1
         ns_out[sid] = [seen_g[k] for k in sorted(seen_g)]
         # ---- サブスキル（SS）の引き金。**`LevelSkill/<ExtraPassiveSkillGroupId>.json`
@@ -7574,7 +7735,8 @@ def build_tl():
                    "TriggerRate(1万分率。10000 以外は確率)",
                    "FormIndex(その行の形態)",
                    "FormIndexCheck(この形態のときだけ発動する)",
-                   "cnt(変身している間の通常攻撃 N 発目。ns_count が辿れたものだけ)"],
+                   "cnt(変身している間の通常攻撃 N 発目。ns_count が辿れたものだけ)",
+                   "exd(EX を撃った N 秒後に 1 回。ns_ex_delay が辿れたものだけ)"],
         # サブスキルの引き金。**ダメージ・効果の時刻はここからしか出ない**
         "ep": ep_out,
         "epKeys": ["Event", "Parameters", "ConditionExpression", "TriggerRate",

@@ -376,6 +376,8 @@ export function draw() {
               (nw + ew).toFixed(1) + 'px" title="' +
               esc(nsn.nm || '通常スキル') + '\n' +
               (nsn.src === 'na' ? '通常攻撃 ' + nsn.tc + ' 回ごと'
+               : nsn.src === 'naform' ? '変身中の通常攻撃 ' + nsn.tc + ' 発目'
+               : nsn.src === 'exd' ? 'EX の ' + nsn.off.toFixed(1) + '秒後'
                : nsn.src === 'ammo' ? '弾倉ごと（弾薬 ' + nsn.trig + ' 発目）'
                : nsn.iv > 0 ? nsn.iv.toFixed(1) + '秒ごと（初回 ' + nsn.st.toFixed(1) + '秒）'
                             : '戦闘開始時に 1 回のみ') +
