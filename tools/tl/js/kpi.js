@@ -68,7 +68,8 @@ export function kpi() {
       }
     }
     return '<div class="k' + cls + '"><span class="kl">突破率' +
-      '<i class="hint" title="置いた TL で HP を削り切る確率です。' +
+      '<i class="hint" title="置いた最後のスキルまでで HP を削り切る確率です。' +
+      'そこより後ろの通常攻撃は数えていません。' +
       '1 発ごとのダメージの振れ・命中・会心を足し合わせて、合計を正規分布とみなしています。' +
       'TL が時間内に成立するか、盤の上で何体に当たるかは入っていません">?</i>' +
       '</span><b class="kv">' + pct1(cs2.p) + '%</b>' +

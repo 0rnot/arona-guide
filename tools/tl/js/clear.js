@@ -24,6 +24,23 @@ export function erf(x) {
   return s * y;
 }
 export function normCdf(z) { return 0.5 * (1 + erf(z / Math.SQRT2)); }
+/** **置いた最後の発の時刻。**置いた発が 1 つも無ければ `null`。
+
+    突破率は「**入れたスキルの最後で倒し切れる確率**」（2026-09-04 の先生の定義）なので、
+    ここより後ろの通常攻撃・サブスキルは数えない。**置いた発そのものは全部数える**
+    （最後の 1 発の着弾も含めて「その発で倒し切れたか」を見るため）。
+    置いた発が無いときは TL が無いということなので、今までどおり戦闘時間の終わりまで数える。 */
+export function lastUseAt(r) {
+  var us = usesSorted(), dur = (r && r.dur) || 240, i, t = null;
+  for (i = 0; i < us.length; i++) {
+    // **`no` が付いているのは自動で出るノーマルスキル**（`usesSorted0` が
+    // `nsTimes` から足している行）。人が置いた発ではないので数えない
+    if (us[i].no != null) { continue; }
+    if (us[i].t > dur + 1e-9) { continue; }
+    if (t == null || us[i].t > t) { t = us[i].t; }
+  }
+  return t;
+}
 export function clearStat(r, pf) {
   // **池ごとに出して掛け合わせる。**mu/sd/n は本体の池の値（表示用）
   var pk = partyCalc(st.pi).pools, deadAt = {}, carry = carryIn(st.pi), i, out = null, p = 1;
@@ -44,9 +61,16 @@ export function clearStat1(r, pf, pid, deadAt, hpNeed) {
   setPICKF(pf || 0);
   try {
     var mu = 0, va = 0, n = 0, us = usesSorted(), i, q;
+    // **「置いた最後の発」で切る**（2026-09-04、第 0 段）。先生の定義
+    // 「突破率は入れたスキルの最後で倒し切れる確率」。ここより後ろの
+    // 自動のノーマルスキル・通常攻撃・サブスキルは数えない。
+    // 置いた発が 1 つも無ければ TL が無いということなので、戦闘時間の終わりまで
+    var cut = lastUseAt(r);
+    if (cut == null) { cut = r.dur || 240; }
     for (i = 0; i < us.length; i++) {
       var u = us[i], tr = trOf(r, u.tg), mc = u.mc || 1, pp = u.tg == null ? (naPool(r, u.t, deadAt) || r.cid) : poolOf(r, u.tg);
       if (pp !== pid && !(pid === r.cid && u.tg != null && tr)) { continue; }
+      if (u.t > cut + 1e-9) { continue; }
       if (u.t > (r.dur || 240) + 1e-9 || awayAt(u.t, !/^Ex\d*$/.test(u.k), u.gx)) { continue; }
       // **よその池へ回った発は、その池の相手で引く**（2026-09-03。`dmgCurve0` と同じ）
       var d = dmgOf(u.i, r, u.t, u.k, u.pk,
@@ -80,6 +104,7 @@ export function clearStat1(r, pf, pid, deadAt, hpNeed) {
       if (!ts.length) { continue; }
       var bucket = {};
       for (q = 0; q < ts.length; q++) {
+        if (ts[q] > cut + 1e-9) { continue; }
         if (awayAt(ts[q], true) || naPool(r, ts[q], deadAt) !== pid) { continue; }
         var b = Math.floor(ts[q] / STEP);
         bucket[b] = (bucket[b] || 0) + 1;
