@@ -25,7 +25,7 @@ import { enemyAt, liveBuffs } from './target.js';
 import { altOf, pickOf } from './alt.js';
 import { dmgOf, dotTimes } from './dmg.js';
 import { clearStat, total } from './clear.js';
-import { aimOf, beaconOf, bodiesOf, coverOf, fightSecs, hitsNOf, hitsOf, secOfSummon, standOf, summonsOf } from './board.js';
+import { aimOf, beaconOf, bodiesOf, coverOf, fightSecs, hitsNOf, hitsOf, secOfSummon, spawnOn, standOf, summonsOf } from './board.js';
 import { restore, snapshot } from './io.js';
 import { autoPick, fcOf } from './parse-text.js';
 import { parseTL } from './parse-tl.js';
@@ -76,7 +76,7 @@ window.__TLDBG = { statsOf: statsOf, dmgOf: dmgOf, total: total, diff: diff,
                    bodiesOf: bodiesOf, beaconOf: beaconOf, aimOf: aimOf,
                    standOf: standOf, coverOf: coverOf, hitsOf: hitsOf,
                    summonsOf: summonsOf, secOfSummon: secOfSummon,
-                   fightSecs: fightSecs, hitsNOf: hitsNOf,
+                   fightSecs: fightSecs, hitsNOf: hitsNOf, spawnOn: spawnOn,
                    boss: boss, scen: scen, killAt: killAt, scoreOf: scoreOf,
                    enemyAt: enemyAt, mkStats: mkStats, danMax: danMax,
                    // 池ごとの曲線（シロ→クロ、ワカモ→ホバークラフト）。

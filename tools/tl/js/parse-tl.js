@@ -5,7 +5,6 @@ import { n0 } from './rate.js';
 import { wlvMax } from './passive.js';
 import { CIRC, aimIn, aliasOf, autoPick, fcOf, formHasDmg, formIn, formsOf, nrm, timeIn, whoIn, zen0 } from './parse-text.js';
 import { findStudent } from './parse-apply.js';
-import { hitsOf } from './board.js';
 
 /** 育成の行かどうか。**書き方は 1 つに縛らない**（2026-09-01 の先生の指示
     「TL はみんないろんな書き方してるから特化しなくていい」）
@@ -849,19 +848,21 @@ export function parseTL(txt) {
             break;
           }
         }
-        // **盤があるなら、当たる数は湧きの数ではなく形と座標で決まる**
-        // （2026-09-04 の第 1 段）。`spn` は「1 回に何体湧くか」で、
-        // **盤にはそれ以外の体も居る**（ペロロジラ Lunatic の節 0 は
-        // 大きなペロロ 6 ＋ 小さなペロロ 5 ＋ 本体で、どれも 100% 転移する）。
-        // 形の中に何体入るかを数えて置き換える。**人が入れた数のほうが優先**
-        // （ここは `mcn === 1`、つまり TL に書いていないときしか通らない）
-        var _hq = hitsOf(diff(), idBy[who], 'Ex');
-        if (aim != null && _hq && _hq.nb > 0) {
-          mcn = _hq.nb; hbo = _hq.hb;
-          res.notes.push('「' + ln.trim() + '」は盤の座標から ' + subsP[aim].n + ' ' + mcn +
-                         ' 体' + (hbo ? 'とボス本体' : '') + 'に当てました（' +
-                         _hq.hit.length + ' 体を覆う形）');
-        }
+        // **盤から数える案は、いまは既定にしない**（2026-09-04、第 1 段の結論）。
+        // `board.js` の `hitsOf()` は形と座標から当たる数を出せるようになったが、
+        // **止まった盤 1 枚では実戦と合わない。**
+        //   - ペロロジラ Lunatic の大きなペロロ 6 体は (0,31) (±3.5,30) (±3.5,32)
+        //     (2,30) に散っていて最小包含円が半径 3.64 ワールド。
+        //     コユキの円は `Radius: 300` ＝ 3.0 ワールドなので、
+        //     **どこを狙っても 6 体は覆えない**（幾何としてはこれで正しい）
+        //   - ところが盤の体は増える。Ex03 が `MiddleSize01..05` を、
+        //     Ex04 が `MiddleSize06..10` を、**別の名前で・`DestroyAlreadyExist: false`
+        //     で**召喚し、Ex09 が吸うのは HP 50% 未満で転倒した体だけ。
+        //     つまり同じ場所に 6 体・12 体・18 体と重なりうる
+        //   - 止まった盤 1 枚（6 体）で数えると、動画で討伐している TL まで
+        //     突破率 0% になった（`_s0chk.py`。平均 50,004,949 → 31,940,648）
+        // **時間で変わる盤を持つのは第 2 段の仕事。**それまでは今までどおり
+        // 「1 回の湧きの数」を既定にする。`hitsOf()` は `__TLDBG` から呼べる
       }
     }
     if (aim != null) {

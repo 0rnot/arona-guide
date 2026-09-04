@@ -4494,6 +4494,36 @@ def _dev_cid(name, by_dev):
     return hit[0] if len(hit) == 1 else None
 
 
+def _spawn_when(sec):
+    """その節の `{湧きの CommandID: いつ湧くか}`。
+
+    `Sections[].Events[]` は `Conditions[]`（いつ）と `Commands[]`（何をする）の組。
+    `GroundCommandSpawnEntity` の `CommandID` に、その事象の条件を貼る。
+    """
+    out = {}
+    for e in (sec.get("Events") or []):
+        tags = []
+        for c in (e.get("Conditions") or []):
+            t = str(c.get("$type") or "").split(",")[0].split(".")[-1]
+            t = t.replace("GroundCondition", "")
+            if t == "SectionStarted":
+                tags.append("start")
+            elif c.get("StatusToCheck"):
+                tags.append("st:" + str(c["StatusToCheck"]))
+            elif t == "CharacterPhaseChanged":
+                tags.append("ph:" + str(c.get("Phase")))
+            else:
+                tags.append(t)
+        if not tags:
+            continue
+        for c in (e.get("Commands") or []):
+            if "SpawnEntity" not in str(c.get("$type") or ""):
+                continue
+            if c.get("CommandID"):
+                out[c["CommandID"]] = "+".join(tags)
+    return out
+
+
 def tl_board(stage_name, ex_names, ls_cache, ch_all, stat):
     """盤の座標。引けなければ None。
 
@@ -4501,7 +4531,10 @@ def tl_board(stage_name, ex_names, ls_cache, ch_all, stat):
 
       u    … スキル単位 : ワールド座標（100）
       bcn  … 生徒の陣形ビーコン `[[SectionIndex, Index, x, y], …]`
-      spw  … 敵の湧き点 `[[SectionIndex, SpawnTemplateId, x, y, 最初から居るか, [CommandId…]], …]`
+      spw  … 敵の湧き点
+             `[[SectionIndex, SpawnTemplateId, x, y, 最初から居るか, [CommandId…], いつ湧くか], …]`
+             「いつ湧くか」は `start`（節の始まり）/ `st:Groggy`（ボスがグロッキー）/
+             `ph:1`（フェーズが変わる）/ 条件の型の名前。引けなければ None
       smn  … 召喚の座標 `{Ex 名: [[UniqueName, x, y], …]}`
       bd   … 体の素性 `{DevName: [CharacterId, BodyRadius, Range]}`
     """
@@ -4509,6 +4542,16 @@ def tl_board(stage_name, ex_names, ls_cache, ch_all, stat):
     if not st_j:
         return None
     bcn, spw, names = [], [], set()
+    # **湧き点は「最初から盤に居る」とはかぎらない。**
+    # ペロロジラの小さなペロロ 5 体は
+    #   EventName: SpawnMiniPeroro
+    #   条件 GroundConditionStatusCheck {"StatusToCheck": "Groggy", "ConditionID": "Perorozilla"}
+    #   命令 GroundCommandSpawnEntity {"CommandID": "CommandSpawnMiniPeroro1"}
+    # で、**ボスがグロッキーになったときだけ湧く**（節 2・4・6・8 も同じ条件。
+    # 2026-09-04 に先生の指摘を受けて原文で確かめた）。
+    # `Active: false` は運んでいたのに画面側が見ておらず、
+    # **開幕から 12 体居ることにして数えていた。**正しくは本体 1 ＋ 大きなペロロ 6 の 7 体。
+    # 節ごとに「その命令を出す事象の条件」を作って、湧き点に付ける
     for f in (st_j.get("Formations") or []):
         if f.get("IsEnemy"):
             continue
@@ -4516,6 +4559,7 @@ def tl_board(stage_name, ex_names, ls_cache, ch_all, stat):
         if p:
             bcn.append([f.get("SectionIndex", 0), f.get("Index", 0), p[0], p[1]])
     for si, sec in enumerate(st_j.get("Sections") or []):
+        when = _spawn_when(sec)
         for grp0 in (sec.get("EnemySpawnPointGroupList") or []):
             for sp in (grp0.get("SpawnPoints") or []):
                 nm = ((sp.get("SpawnData") or {}).get("SpawnTemplateId"))
@@ -4523,8 +4567,9 @@ def tl_board(stage_name, ex_names, ls_cache, ch_all, stat):
                 if not nm or not p:
                     continue
                 names.add(nm)
-                spw.append([si, nm, p[0], p[1], 1 if sp.get("Active") else 0,
-                            list(sp.get("CommandIdList") or [])])
+                cid = list(sp.get("CommandIdList") or [])
+                spw.append([si, nm, p[0], p[1], 1 if sp.get("Active") else 0, cid,
+                            next((when[c] for c in cid if c in when), None)])
     smn = {}
     for nm in (ex_names or []):
         if nm not in ls_cache:

@@ -5,7 +5,8 @@ import { B } from './util.js';
 // 範囲 EX だけ「湧いた数ぶん全部」）。**座標はデータに全部ある**ので数えられる。
 //
 //   `r.board.bcn`  生徒のビーコン `[[SectionIndex, Index, x, y], …]`
-//   `r.board.spw`  敵の湧き点 `[[SectionIndex, 名前, x, y, 最初から居るか, [CommandId…]], …]`
+//   `r.board.spw`  敵の湧き点
+//                  `[[SectionIndex, 名前, x, y, 最初から居るか, [CommandId…], いつ湧くか], …]`
 //   `r.board.smn`  召喚の座標 `{EX の枠: [[名前, x, y], …]}`
 //   `r.board.bd`   体の素性 `{名前: [CharacterId, BodyRadius, Range]}`
 //   `B.area[生徒][枠]` 形 `[Type, Radius, Degree, Width, Height, ExcludeRadius]`
@@ -64,11 +65,32 @@ export function summonsOf(r, si) {
   return out;
 }
 
-/** 盤に居る体（節 `si`、召喚の波 `ex`）。`[{n, x, y, br, cid, sum}]`。
+/** **その湧き点が今の場面で盤に居るか。**
+
+    `spw` の 7 番目が「いつ湧くか」（`start` / `st:Groggy` / `ph:1` / …）。
+    **ペロロジラの小さなペロロ 5 体は `st:Groggy`**——ボスがグロッキーに
+    なったときだけ湧くので、ふだんの盤には居ない（2026-09-04 に先生の指摘で
+    `Stage` の `Events` を原文で確かめた。それまで開幕から 12 体として数えていた）。
+    `on` に足すと、その引き金の体も盤に載る（既定は「最初から居るもの」だけ）。 */
+export function spawnOn(q, on) {
+  if (q[4]) { return true; }
+  var w = q[6];
+  if (!w) { return true; }
+  if (w.indexOf("start") >= 0) { return true; }
+  if (!on || !on.length) { return false; }
+  for (var i = 0; i < on.length; i++) {
+    if (w.indexOf(on[i]) >= 0) { return true; }
+  }
+  return false;
+}
+
+/** 盤に居る体（節 `si`、召喚の波 `ex`、追加の引き金 `on`）。
+    `[{n, x, y, br, cid, sum}]`。
 
     **召喚は 1 度に 1 波しか盤に居ない**（ペロロジラは Ex03 が 6 体出して
-    Ex09 が吸い、次に Ex04 が 6 体出す）。`ex` を省くとその節の 1 波目。 */
-export function bodiesOf(r, si, ex) {
+    Ex09 が吸い、次に Ex04 が 6 体出す）。`ex` を省くとその節の 1 波目。
+    `on` は `["st:Groggy"]` のように渡す。省くと「最初から居る体」だけ。 */
+export function bodiesOf(r, si, ex, on) {
   var bd = r && r.board;
   if (!bd) { return []; }
   var sec = si == null ? SEC0 : si, out = [], i, q;
@@ -82,7 +104,7 @@ export function bodiesOf(r, si, ex) {
   }
   for (i = 0; i < (bd.spw || []).length; i++) {
     q = bd.spw[i];
-    if (q[0] !== sec) { continue; }
+    if (q[0] !== sec || !spawnOn(q, on)) { continue; }
     out.push({ n: q[1], x: q[2], y: q[3], br: br(q[1]), cid: cid(q[1]), sum: null });
   }
   var wave = ex || summonsOf(r, sec)[0];
@@ -214,11 +236,11 @@ export function coverOf(sh, c, fw, bs, gm) {
       `Invoker`                        … 撃った子の足元が中心
       `InputPosition` / `InputBattleEntity` / `BattleEntity` … 狙った体が中心
       それ以外                          … 決められない（null） */
-export function hitsOf(r, sid, kind, si, ex) {
+export function hitsOf(r, sid, kind, si, ex, on) {
   var sh = ((B.area || {})[sid] || {})[kind],
       gm = ((B.geo || {})[sid] || {})[kind];
   if (!sh || !gm || !r || !r.board) { return null; }
-  var bs = bodiesOf(r, si, ex);
+  var bs = bodiesOf(r, si, ex, on);
   if (!bs.length) { return null; }
   var aim = aimOf(r, bs, si);
   if (!aim) { return null; }
@@ -247,7 +269,7 @@ export function hitsOf(r, sid, kind, si, ex) {
 }
 
 /** `hitsOf` の数だけ。数えられなければ null。 */
-export function hitsNOf(r, sid, kind, si, ex) {
-  var q = hitsOf(r, sid, kind, si, ex);
+export function hitsNOf(r, sid, kind, si, ex, on) {
+  var q = hitsOf(r, sid, kind, si, ex, on);
   return q ? q.n : null;
 }
