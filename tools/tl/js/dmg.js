@@ -30,9 +30,14 @@ export var PICKF = 0;
     **範囲攻撃でない発にも掛かる。**どの発が範囲かはデータから決められないので、
     まず「全部に当たる」で置いて動画と突き合わせる（2026-09-03。突き合わせの結果は
     `~/arona/tl-work/cards/` と `LOOP.md` の 42 に書く） */
-function gsplMul(r, at, tg, sid, kd) {
+function gsplMul(r, at, tg, sid, kd, hbOnly) {
   var g = r && r.gspl;
   if (!g || !g.n || !g.gg || !ggCritAt(at)) { return 1; }
+  // **「部位に当てた発がボス本体にも当たる」ぶんは、本体 1 体ぶん**（2026-09-04）。
+  // `dmgCurve0` はその一発を `tg` を `null` にして引き直しているので、
+  // ここまでは「当たる先を書いていない発」と区別が付かず、**グロッキー中に
+  // ×5 が乗っていた**。呼ぶ側が `hbOnly` を立てる
+  if (hbOnly) { return 1; }
   // **当てる先を決めてある発は、盤の座標から出す**（2026-09-04）。行の「当たる数」は
   // ふだんの盤で覆える数なので、グロッキー中に増えるぶんは倍率で乗せる。
   // `board.js` の `ggFactor` が、同じ形をふだんの盤とグロッキー中の盤で解いた比
@@ -54,14 +59,14 @@ export function nbOf(u) {
 }
 /** `nb` はその 1 発が当たる数（`u.mc`）。**「N人以下／N人以上」で倍率が変わる
     スキルは、これで候補が決まる**（2026-09-04。`alt.js` の `nRange`） */
-export function dmgOf(idx, r, at, kind, upk, tg, gx, nso, only, nb) {
+export function dmgOf(idx, r, at, kind, upk, tg, gx, nso, only, nb, hbOnly) {
   var p = st.party[idx];
   if (!p) { return null; }
   var kd = kind || 'Ex';
   // **候補の絞り込みは「当たる先」で変わる**（装甲が部位ごとに違うため。2026-09-03）
   var tb9 = aimOf(r, tg);
   var alt = altOf(p.id, kd, tb9, nb);
-  var gm9 = gsplMul(r, at, tg, p.id, kd);
+  var gm9 = gsplMul(r, at, tg, p.id, kd, hbOnly);
   if (!PICKF || !alt || alt.v.length < 2) {
     return gsplScale(dmgOf1(idx, r, at, kd, alt ? pickOf(idx, kd, upk, tb9, nb) : 0,
                             tg, gx, nso, only, nb), gm9);

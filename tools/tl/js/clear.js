@@ -87,7 +87,7 @@ export function clearStat1(r, pf, pid, deadAt, hpNeed) {
         // `dmgCurve0` は数えていたのに、突破率と与ダメージが数えていなかった
         // （2026-09-03。画面で選んでも上の数字が動かない）
         if (u.hb) {
-          var dbb = dmgOf(u.i, r, u.t, u.k, u.pk, null, u.gx, u.no, null, nbOf(u));
+          var dbb = dmgOf(u.i, r, u.t, u.k, u.pk, null, u.gx, u.no, null, nbOf(u), 1);
           if (dbb) { mu += dbb.avg; va += dbb.va || 0; }
         }
       } else {
@@ -179,7 +179,7 @@ export function total0(r) {
     // **「ボス本体にも当たる」を与ダメージにも数える**（2026-09-03。
     // `dmgCurve0` だけが数えていて、上の「与ダメージ」は素通りしていた）
     if (u.tg != null && u.hb) {
-      var dbh = dmgOf(u.i, r, u.t, u.k, u.pk, null, u.gx, u.no, null, nbOf(u));
+      var dbh = dmgOf(u.i, r, u.t, u.k, u.pk, null, u.gx, u.no, null, nbOf(u), 1);
       if (dbh) {
         d = { min: d.min + dbh.min, avg0: d.avg0 + dbh.avg0, avg: d.avg + dbh.avg,
               avgC: d.avgC + dbh.avgC, max: d.max + dbh.max };

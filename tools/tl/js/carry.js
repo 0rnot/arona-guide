@@ -126,7 +126,7 @@ export function dmgCurve0(r, key, pid, deadAt) {
     // **置くのは使う人**（帯の「ボス本体にも当たる」。2026-09-02 の先生の見立て）。
     // ボスと部位で防御が違うことがあるので、本体ぶんは本体の数字で出す
     if (d && u.tg != null && u.hb) {
-      var db = dmgOf(u.i, r, u.t, u.k, u.pk, null, u.gx, u.no);
+      var db = dmgOf(u.i, r, u.t, u.k, u.pk, null, u.gx, u.no, null, null, 1);
       if (db) { v0 += db[key]; }
     }
     // **継続ダメージ（DoT）は撃った瞬間ではなく `Period` ごとに入る**（2026-09-03）。
@@ -140,8 +140,8 @@ export function dmgCurve0(r, key, pid, deadAt) {
         var vN = dNow ? (tr && pp !== pid ? dNow[key] * tr : dNow[key] * mcp) : 0;
         var vD = dDot ? (tr && pp !== pid ? dDot[key] * tr : dDot[key] * mcp) : 0;
         if (d && u.tg != null && u.hb) {
-          var dbN = dmgOf(u.i, r, u.t, u.k, u.pk, null, u.gx, u.no, 'now');
-          var dbD = dmgOf(u.i, r, u.t, u.k, u.pk, null, u.gx, u.no, 'dot');
+          var dbN = dmgOf(u.i, r, u.t, u.k, u.pk, null, u.gx, u.no, 'now', null, 1);
+          var dbD = dmgOf(u.i, r, u.t, u.k, u.pk, null, u.gx, u.no, 'dot', null, 1);
           if (dbN) { vN += dbN[key]; }
           if (dbD) { vD += dbD[key]; }
         }
@@ -214,7 +214,14 @@ export function phaseSpans(r) {
   }
   var hp0 = (r.bs && r.bs.hp) || 0, cur = '0', out = [], t0 = 0, guard = 0;
   if (!hp0 || !r.ph[cur]) { return [{ p: '0', t0: 0, t1: dur, need: null }]; }
-  var cv = dmgCurve(r), carry0 = (carryIn(st.pi)[r.cid] || 0);
+  // **累計ダメージは HP で帯を割るときだけ要る。**ゲージで回るボス（`atg`）は
+  // 時刻だけで決まるので引かない。**`dmg.js` からここを呼べるようにするため**
+  // 遅らせている（先に引くと `dmgCurve → dmgOf → phaseSpans` で無限に回る。2026-09-04）
+  var cv = null, carry0 = null;
+  function needCv() {
+    if (cv === null) { cv = dmgCurve(r); carry0 = (carryIn(st.pi)[r.cid] || 0); }
+    return cv;
+  }
   while (guard++ < 12) {
     var cph = r.ph[cur] || {}, list = cph.hp || [];
     // **ゲージでフェーズが変わるボス**（2026-09-04）。HP ではなく通常攻撃の数で回る。
@@ -232,6 +239,7 @@ export function phaseSpans(r) {
     }
     if (!list.length) { break; }
     // 前の部隊が削ったぶんは、この部隊の 0 秒時点で既に減っている
+    needCv();
     var need = hp0 - list[0][0] - carry0, at = null, acc = 0, i;
     if (need <= 0) {
       var nx0 = list[0][1], q0;
@@ -438,27 +446,13 @@ export function ggAbsorbRuns(r, g) {
       if (!d) { continue; }
       hd.push([u.t, d[sc.key] || 0, Math.min(u.mc || 1, gg.cap)]);
     }
-    // **通常攻撃はいちばん近い敵に当たる**（2026-09-04）。
-    // `LevelSkill` の根の `TargetSortRule` は `{"SortCriteria": "Distance",
-    // "OrderBy": "Lowest"}` で、盤では大きなペロロ（y 30〜32）が生徒（y 25.95）と
-    // ボス（y 40.46）の間に居る。**転移が 100% なのでボスの HP の減り方は変わらない**が、
-    // 転倒（HP 半分）はこれで起きる。前は EX だけ数えていて、75 発のうち 6 発しか
-    // ゲージに効かず、実クリアの TL が 240 秒で 1 度もグロッキーにならなかった
-    // **束ねる幅は `dmgCurve0` と同じ 5 秒**（バフで 1 発の大きさが変わるので、
-    // 1 度計って使い回すと、その子のぶんが丸ごと 0 になることがある）
-    for (i = 0; i < SLOTS; i++) {
-      if (!st.party[i]) { continue; }
-      var nts = naTimes(i, dur), nbk = {}, bk2;
-      for (q = 0; q < nts.length; q++) {
-        if (nts[q] > dur + 1e-9 || awayAt(nts[q], true)) { continue; }
-        bk2 = Math.floor(Math.min(nts[q], dur) / 5);
-        if (!(bk2 in nbk)) {
-          var dn2 = dmgOf(i, r, (bk2 + 0.5) * 5, 'Normal', null, ix);
-          nbk[bk2] = dn2 ? (dn2[sc.key] || 0) : 0;
-        }
-        if (nbk[bk2]) { hd.push([nts[q], nbk[bk2], 1]); }
-      }
-    }
+    // **通常攻撃をゲージに数えるのは取り下げた**（2026-09-04）。
+    // 「いちばん近い敵に当たる」の根拠にした `TargetSortRule` は**スキルの相手選び**で、
+    // 通常攻撃の相手をそれが決めているという裏は取れていない。
+    // 入れると転倒が毎回 4〜6 体になってグロッキーが 3 回立ち、
+    // 屋外 `y4h8XEXXfgw` の平均が 40,020,560（実測）に対して 59,562,330 まで膨らんだ。
+    // **裏が取れたら戻す**（`OptionalCandidateRule.IgnoreUntargetable` と
+    // 大きなペロロの `Immortal` の札まわりを見ること）
     hd.sort(function (a, b) { return a[0] - b[0]; });
   } finally { setPICKF(sv); }
   var gauge = 0, prev = 0, until = -1;
