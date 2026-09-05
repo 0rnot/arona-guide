@@ -1,7 +1,7 @@
 import { $, B, esc } from './util.js';
 import { memo, st } from './core.js';
 import { diff } from './boss.js';
-import { bossAdv, phaseSpans, ggRuns, ggSolve } from './carry.js';
+import { bossAdv, ggMode, phaseSpans, ggRuns, ggSolve } from './carry.js';
 import { usesSorted } from './buff.js';
 import { hitTimes } from './dmg.js';
 import { aimFromHits, beaconOf, bestHitsOf, boardBox, bodiesOf, hitsAtOf, hitsOf,
@@ -73,8 +73,12 @@ export function rateSet(v) { RATE = v; }
 
     **吸収の EX が来たら盤の体は消える**——`Ex09` が 20.0 ワールドの中を
     全部吸ってから、グロッキーの小さなペロロが湧く。 */
-export function sceneAt(r, t) {
-  var sp = phaseSpans(r), gr = ggRuns(r), i, k;
+export function sceneAt(r, t, lite) {
+  // **`lite` は曲線を引かない場面**（`dsOf` 用）。HP の段は入口のまま、ダメージで
+  // 貯まるグロッキーは見ない（`ggRuns` が曲線を引くため）。吸収で貯まる
+  // ペロロジラは `ggAbsorbRuns` が曲線を引かないので、そのまま見る
+  var sp = phaseSpans(r, lite), i, k;
+  var gr = (lite && ggMode(r).kind === 'ダメージ') ? { hits: [] } : ggRuns(r);
   var cur = sp[sp.length - 1];
   for (i = 0; i < sp.length; i++) {
     if (t >= sp[i].t0 - 1e-9 && t < sp[i].t1) { cur = sp[i]; break; }
@@ -288,23 +292,33 @@ export function coverOfUse(r, u, sc, bp) {
     `hitTimes` / `dmgOf` に渡して、弾に乗る着弾の時刻をずらす（2026-09-05）。
     `memo` の鍵に置き方（`ax`/`ay`/`bp`）と窓（`st.bst`）を入れる——場面が変わると
     体の並びが変わる */
+var DS_BUSY = false;
 export function dsOf(r, u) {
   if (!r || !u || u.i == null || !st.party[u.i]) { return null; }
+  // **輪の保険。**場面 → 曲線 → 着弾 → ここ、と戻ってきたら null（覚えない）。
+  // 2026-09-05、ゲブラで `sceneAt → phaseSpans → dmgCurve → dsOf → sceneAt` が
+  // 無限に回った（`RangeError: Maximum call stack size exceeded`）。本筋は
+  // `sceneAt(r, t, true)` で曲線を引かないこと。これはそれでも戻ってきたときの止め
+  if (DS_BUSY) { return null; }
   var p = st.party[u.i], pd = placedOf(u);
   var key = ['ds', r.cid, p.id, u.k, u.t, u.tg, u.mc, pd.ax, pd.ay,
              pd.bp ? JSON.stringify(pd.bp) : '', JSON.stringify(st.bst || null)].join('|');
   return memo(key, function () {
-    var sc = sceneAt(r, u.t), q = coverOfUse(r, u, sc);
-    if (!q || !q.me || !q.c) { return null; }
-    var c = Math.hypot(q.c.x - q.me.x, q.c.y - q.me.y), e = c;
-    var bs = (q.hit && q.hit.length) ? q.hit : q.bs, best = null, bd = 0, i, dd;
-    for (i = 0; i < (bs || []).length; i++) {
-      dd = Math.hypot(bs[i].x - q.c.x, bs[i].y - q.c.y);
-      if (best == null || dd < bd) { best = bs[i]; bd = dd; }
-    }
-    if (best) { e = Math.max(0, Math.hypot(best.x - q.me.x, best.y - q.me.y) - (best.br || 0)); }
-    return { c: c, e: e };
+    DS_BUSY = true;
+    try { return dsOf0(r, u); } finally { DS_BUSY = false; }
   });
+}
+function dsOf0(r, u) {
+  var sc = sceneAt(r, u.t, true), q = coverOfUse(r, u, sc);
+  if (!q || !q.me || !q.c) { return null; }
+  var c = Math.hypot(q.c.x - q.me.x, q.c.y - q.me.y), e = c;
+  var bs = (q.hit && q.hit.length) ? q.hit : q.bs, best = null, bd = 0, i, dd;
+  for (i = 0; i < (bs || []).length; i++) {
+    dd = Math.hypot(bs[i].x - q.c.x, bs[i].y - q.c.y);
+    if (best == null || dd < bd) { best = bs[i]; bd = dd; }
+  }
+  if (best) { e = Math.max(0, Math.hypot(best.x - q.me.x, best.y - q.me.y) - (best.br || 0)); }
+  return { c: c, e: e };
 }
 
 /** **盤が決められる 1 発は、当たる先・当たる数・本体にも当たるかを盤から書く。**

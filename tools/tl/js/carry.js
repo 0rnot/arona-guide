@@ -280,7 +280,11 @@ export function entryPhase(r, hpNow) {
   }
   return null;
 }
-export function phaseSpans(r) {
+/** `lite` は**累計ダメージの曲線を引かない**形（2026-09-05）。HP で段が変わる
+    ボスでは入口の段のまま（ゲージで回る段はそのまま回る）。弾の飛ぶ距離を出す
+    `view.js` の `dsOf` が使う——曲線は着弾の時刻（＝飛ぶ距離）を要り、
+    距離は場面を要り、場面は曲線を要る、の輪をここで断つ */
+export function phaseSpans(r, lite) {
   var dur = r.dur || 240;
   if (st.phFix != null && r.ph[String(st.phFix)]) {
     return [{ p: String(st.phFix), t0: 0, t1: dur, need: null, fix: true }];
@@ -294,7 +298,7 @@ export function phaseSpans(r) {
   // 遅らせている（先に引くと `dmgCurve → dmgOf → phaseSpans` で無限に回る。2026-09-04）
   var cv = null, carry0 = null;
   function needCv() {
-    if (cv === null) { cv = dmgCurve(r); carry0 = (carryIn(st.pi)[r.cid] || 0); }
+    if (cv === null) { cv = lite ? [] : dmgCurve(r); carry0 = (carryIn(st.pi)[r.cid] || 0); }
     return cv;
   }
   while (guard++ < 12) {
