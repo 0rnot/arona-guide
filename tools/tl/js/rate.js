@@ -1,5 +1,6 @@
 import { $, B, S, esc, mmss } from './util.js';
 import { SLOTS, st } from './core.js';
+import { dsOf } from './view.js';
 import { diff } from './boss.js';
 import { scen, scenIx } from './scen.js';
 import { clamp } from './stats.js';
@@ -135,7 +136,7 @@ export function critNat() {
   try {
     for (i = 0; i < us.length; i++) {
       d = dmgOf(us[i].i, r, us[i].t, us[i].k, us[i].pk, us[i].tg, us[i].gx, us[i].no,
-                null, nbOf(us[i]));
+                null, nbOf(us[i]), 0, dsOf(r, us[i]));
       if (d && d.crit0 != null) { sum += d.crit0; n++; }
     }
     if (!n) {

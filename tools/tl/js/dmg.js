@@ -125,7 +125,8 @@ export function nbOf(u) {
 }
 /** `nb` はその 1 発が当たる数（`u.mc`）。**「N人以下／N人以上」で倍率が変わる
     スキルは、これで候補が決まる**（2026-09-04。`alt.js` の `nRange`） */
-export function dmgOf(idx, r, at, kind, upk, tg, gx, nso, only, nb, hbOnly) {
+/** `ds` は弾が飛ぶ距離（`view.js` の `dsOf`）。着弾の時刻＝バフを見る時刻がずれる */
+export function dmgOf(idx, r, at, kind, upk, tg, gx, nso, only, nb, hbOnly, ds) {
   var p = st.party[idx];
   if (!p) { return null; }
   var kd = kind || 'Ex';
@@ -135,13 +136,13 @@ export function dmgOf(idx, r, at, kind, upk, tg, gx, nso, only, nb, hbOnly) {
   var gm9 = gsplMul(r, at, tg, p.id, kd, hbOnly);
   if (!PICKF || !alt || alt.v.length < 2) {
     return gsplScale(dmgOf1(idx, r, at, kd, alt ? pickOf(idx, kd, upk, tb9, nb) : 0,
-                            tg, gx, nso, only, nb), gm9);
+                            tg, gx, nso, only, nb, ds), gm9);
   }
   // **候補ごとに最後まで計算して比べる。**倍率（`Scale`）だけで比べると、
   // 発数・防御無視・会心の有無が候補ごとに違うぶんを取りこぼす
   var best = null, i;
   for (i = 0; i < alt.v.length; i++) {
-    var d = dmgOf1(idx, r, at, kd, i, tg, gx, nso, only, nb);
+    var d = dmgOf1(idx, r, at, kd, i, tg, gx, nso, only, nb, ds);
     if (!d) { continue; }
     if (!best || (PICKF > 0 ? d.avg > best.avg : d.avg < best.avg)) { best = d; }
   }
@@ -188,11 +189,14 @@ export var SLICE = 6;
     着弾が多すぎるものは間引く（CH0133 は 601 フレームの帯に 20 回）。
     `B.imp` が無い枠は今までどおり演出を等分する。 */
 export var MAXHIT = 12;
-export function hitTimes(id, kind) {
-  var im = ((B.imp || {})[id] || {})[kind], out = [], i, step;
+export function hitTimes(id, kind, ds) {
+  var im = ((B.imp || {})[id] || {})[kind], pj = ((B.prj || {})[id] || {})[kind],
+      out = [], i, step;
   if (im && im.length) {
     step = Math.ceil(im.length / MAXHIT);
-    for (i = 0; i < im.length; i += step) { out.push(im[i] / B.fps); }
+    for (i = 0; i < im.length; i += step) {
+      out.push((im[i] + travelOf(pj && pj[i], ds, id, kind)) / B.fps);
+    }
     return out;
   }
   var ns = sliceOf(id, kind);
@@ -200,6 +204,31 @@ export function hitTimes(id, kind) {
   var D = formDur(id, kind);
   for (i = 0; i < ns; i++) { out.push(D * (i + 0.5) / ns); }
   return out;
+}
+
+/** **弾が飛ぶフレーム数。**`pj` は `B.prj` の 1 つ（`[Speed, 'c'|'p']`。`Speed` は
+    1/100 ワールド/秒で、マコト（水着）の EX は 2000 ＝ 20 ワールド/秒）。
+    `ds` は `view.js` の `dsOf`（`{c, e}`：撃つ子の立ち位置から置いた中心まで・
+    選んだ体の縁まで、ワールド）。相手の体を追う弾（`c`）は縁に当たるので `e`、
+    置いた点まで飛ぶ弾（`p`）は `c`。**盤が無くて距離が出せない発は届く距離
+    いっぱい（`B.rng`）から飛ばす**——動かない大きなボスには、生徒は届くところまで
+    しか近づかないので。着弾は次のフレーム境界で処理されるものとして切り上げる。
+
+    2026-09-05、GzfPSXaZKlU の最後の EX（1:58.600）。動画は発動の 105〜110
+    フレーム後に 5 コマが入って 110 フレーム目（01:54.933）で討伐、スコア
+    40,047,841 が示す討伐 125.066 秒とも合う。道具は飛ぶ時間 0 で 96〜100 に
+    置いていて 10 フレーム早く、スコアが 799 点（＝ 10 フレーム × 80 点）多かった。
+    盤の距離 6.49 ワールド ÷ 20 ＝ 0.325 秒 ＝ 9.7 → 10 フレーム。 */
+export function travelOf(pj, ds, id, kind) {
+  if (!pj || !pj[0]) { return 0; }
+  var d;
+  if (ds) { d = pj[1] === 'c' ? ds.e : ds.c; }
+  else {
+    var rg = ((B.rng || {})[id] || {})[kind];
+    d = rg ? rg / 100 : 0;
+  }
+  if (!(d > 0)) { return 0; }
+  return Math.ceil(d * 100 / pj[0] * B.fps - 1e-6);
 }
 
 export function sliceOf(id, kind) {
@@ -214,11 +243,11 @@ export function sliceOf(id, kind) {
   if (a) { for (i = 0; i < a.v.length; i++) { look(a.v[i]); } }
   return (n >= 4 && formDur(id, kind) >= 1) ? SLICE : 1;
 }
-export function dmgOf1(idx, r, at, kind, pick, tg, gx, nso, only, nb) {
+export function dmgOf1(idx, r, at, kind, pick, tg, gx, nso, only, nb, ds) {
   var p0 = st.party[idx];
   if (!p0) { return null; }
   var kd0 = kind || 'Ex';
-  var hts = at == null ? [0] : hitTimes(p0.id, kd0);
+  var hts = at == null ? [0] : hitTimes(p0.id, kd0, ds);
   var ns = hts.length;
   if (ns <= 1) {
     return dmgAt(idx, r, at == null ? at : Math.min(at + hts[0], r.dur || 240),

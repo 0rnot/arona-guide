@@ -2,7 +2,7 @@ import { memo, st } from './core.js';
 import { usesSorted } from './buff.js';
 import { PICKF, dmgOf, hitTimes, nbOf } from './dmg.js';
 import { awayAt, trOf } from './carry.js';
-import { bpAt, coverOfUse, placedOf, sceneAt } from './view.js';
+import { bpAt, coverOfUse, dsOf, placedOf, sceneAt } from './view.js';
 import { bodiesOf, coverOf, movedBodies, subIxOfCid } from './board.js';
 
 /** **HP が半分を切ったミニオンが放つ固定ダメージ**（ペロロジラ。2026-09-05）。
@@ -58,13 +58,13 @@ function deadlyPts0(r, key) {
     scenes[wk] = bs;
     var hit = hitBodies(r, u, cv, bs, subs);
     if (!hit.length) { continue; }
-    var ht = hitTimes(st.party[u.i].id, u.k) || [0];
+    var ht = hitTimes(st.party[u.i].id, u.k, dsOf(r, u)) || [0];
     var tA = ht.length > 1 ? ht.slice(1) : ht;
     var sel = cv && cv.c ? nearest(hit, cv.c) : hit[0];
     for (z = 0; z < hit.length; z++) {
       var b = hit[z], ix = subIxOfCid(r, b.cid);
       if (ix == null || !subs[ix].dead) { continue; }
-      var d = dmgOf(u.i, r, u.t, u.k, u.pk, ix, u.gx, u.no, null, nbOf(u));
+      var d = dmgOf(u.i, r, u.t, u.k, u.pk, ix, u.gx, u.no, null, nbOf(u), 0, dsOf(r, u));
       if (!d) { continue; }
       var one = d.one ? d.one[key] : 0, area = d[key] - one;
       for (q = 0; q < tA.length; q++) { ev.push([u.t + tA[q], wk, b.key, area / tA.length]); }

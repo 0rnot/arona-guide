@@ -9,7 +9,7 @@ import { altOf, altScale, lvlOf, pickOf } from './alt.js';
 import { dmgOf, nbOf } from './dmg.js';
 import { ROWS } from './rows.js';
 import { bstName } from './bossui.js';
-import { aimByBoard } from './view.js';
+import { aimByBoard, dsOf } from './view.js';
 
 // ---- 選んだ EX 1 発の設定（誰に渡すか・どの形態か）
 export function drawUse() {
@@ -153,7 +153,7 @@ export function drawUse() {
   }
   if (er) {
     var dk = exKind(er.fi),
-        dd = dmgOf(u.i, diff(), er.at, dk, u.pk, null, u.gx, null, null, nbOf(u));
+        dd = dmgOf(u.i, diff(), er.at, dk, u.pk, null, u.gx, null, null, nbOf(u), 0, dsOf(diff(), u));
     h2 += '<span class="mut tiny" title="平均ダメージ（最小〜最大・会心率）">' +
       (dd ? '<b>' + n0(dd.avg) + '</b>　' + n0(dd.min) + '\u301c' + n0(dd.max) +
             '　\u25c8' + (dd.crit * 100).toFixed(1) + '%'

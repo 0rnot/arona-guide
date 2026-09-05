@@ -4776,58 +4776,166 @@ def _ls_hits(group):
         return None
     if group in _hits_cache:
         return _hits_cache[group]
-    d = _ls_doc(group)
-    dm, out = _dmg_gids(), []
+    dm, out = _dmg_gids(), set()
+    for g, fs in _ls_frames(group).items():
+        if g in dm:
+            out.update(fs)
+    got = sorted(out) or None
+    _hits_cache[group] = got
+    return got
 
-    def _ab(node, at, key):
+
+_frames_cache = {}
+_frames_pj_cache = {}
+
+
+def _ls_frames(group):
+    """`LevelSkill/<枠>.json` の**札ごとの着弾フレーム** `{GroupId: [frame, …]}`。
+
+    たどり方は `_ls_hits` の注のとおり（`EntityTimeline[].Frame` を足しながら下り、
+    `SplashDelayFrame`・`Abilities[].StartDelay`・範囲の `HitFrames` を足す）。
+    ダメージの札はここから `_ls_hits` が拾い、**バフの札は `_ls_buf_frame` が拾う**
+    （2026-09-05、I）。SchaleDB の `ApplyFrame` は入れ子の**外側の `Frame` を
+    足していない**（ハレ（キャンプ）`CH0233Public01` は `EntityTimeline[1]` 45 の中の
+    `EntityTimeline[1]` 5 ＋ `HitFrames` 1 で 51 だが SchaleDB は 6。ラブ・ニコ・
+    ミネ（アイドル）・コユキ（パジャマ）も同じ形）ので、一次資料のこちらを採る。 """
+    if group in _frames_cache:
+        return _frames_cache[group]
+    d = _ls_doc(group)
+    out, pjm = {}, {}
+
+    def _put(g, f, pj):
+        out.setdefault(g, set()).add(f)
+        if pj:
+            pjm.setdefault(g, {}).setdefault(f, pj)
+
+    def _ab(node, at, key, pj):
         for a in (node.get(key) or []):
             if not isinstance(a, dict):
                 continue
-            gs = [g for g in (a.get("LogicEffectGroupIds") or []) if g in dm]
+            gs = a.get("LogicEffectGroupIds") or []
             if not gs:
                 continue
             base = at + (a.get("StartDelay") or 0)
-            if key == "AreaAbilities":
-                for h in (node.get("HitFrames") or [0]):
-                    out.append(base + h)
-            else:
-                out.append(base)
+            for g in gs:
+                if key == "AreaAbilities":
+                    for h in (node.get("HitFrames") or [0]):
+                        _put(g, base + h, pj)
+                else:
+                    _put(g, base, pj)
 
-    def _ent(e, at, dep):
+    def _ent(e, at, dep, pj):
         if not isinstance(e, dict) or dep > 6:
             return
-        _ab(e, at, "Abilities")
-        _ab(e, at, "AreaAbilities")
+        # **弾（`Speed` と `ProjectileType` を持つ体）の下は、着弾してからの相対。**
+        # マコト（水着）`CH0344Ex01Entity04` は 67 フレームに撃つ `TargetProjectileEntity`
+        # （`Speed` 2000）で、1 発目の `Abilities`（`StartDelay` 1）も 5 コマの範囲
+        # （`SkillEntitySpawnerData` の 23・24）も、弾が当たってから数える。
+        # 飛ぶ時間は撃つ子と相手の距離で変わるので、ここでは速さだけ添えて
+        # （`_ls_prj`）、道具が盤の距離から足す（`dmg.js` の `hitTimes`）。
+        # 2026-09-05、GzfPSXaZKlU の最後の EX が動画では発動 105〜110 フレーム後に
+        # 入っていて、飛ぶ時間 0 の 96〜100 より 10 フレーム遅かった。
+        # 盤の距離 6.49 ワールド ÷ 20 ワールド/秒 ＝ 0.325 秒 ＝ 9.7 フレーム
+        if not pj and e.get("Speed") and e.get("ProjectileType"):
+            pj = [e["Speed"], "c" if e.get("ProjectileType") == "TargetCharacter" else "p"]
+        _ab(e, at, "Abilities", pj)
+        _ab(e, at, "AreaAbilities", pj)
         sp = e.get("SplashAreaEntityData")
         if sp:
-            _ent(sp, at + (e.get("SplashDelayFrame") or 0), dep + 1)
+            _ent(sp, at + (e.get("SplashDelayFrame") or 0), dep + 1, pj)
         for k in ("SkillEntitySpawnerData", "AreaSpawnerData"):
             if e.get(k):
-                _tl(e[k], at, dep + 1)
-        _tl(e, at, dep + 1)
+                _tl(e[k], at, dep + 1, pj)
+        _tl(e, at, dep + 1, pj)
 
-    def _tl(node, at, dep):
+    def _tl(node, at, dep, pj):
         if not isinstance(node, dict) or dep > 6:
             return
         for et in (node.get("EntityTimeline") or []):
             if not isinstance(et, dict):
                 continue
             e = et.get("Entity") or et.get("AreaData") or et
-            _ent(e, at + (et.get("Frame") or 0), dep + 1)
+            _ent(e, at + (et.get("Frame") or 0), dep + 1, pj)
 
     names = set()
-    for et in (d.get("EntityTimeline") or []):
-        if isinstance(et, dict) and isinstance(et.get("Entity"), dict):
-            names.add(et["Entity"].get("EntityName"))
+
+    def _names(node, dep):
+        """`EntityTimeline` に並ぶ体の名前。**入れ子の奥まで**（2026-09-05）。
+        ケイ `CH0335Ex01` の `MainEntityData`（`CH0335Ex01Entity03`）は最上位には無く、
+        `EntityTimeline[0]` 57 の `SkillEntitySpawnerData` の中に居る。最上位だけ
+        見ていると宣言のほうを 0 フレームで数えてしまい、乗り始めが 58 → 0 に潰れた
+        （ハルカ（正月）・ミヤコ（水着）・ツバキ（ガイド）・ミネ（アイドル）も同じ形）。 """
+        if not isinstance(node, dict) or dep > 8:
+            return
+        for et in (node.get("EntityTimeline") or []):
+            if isinstance(et, dict):
+                e = et.get("Entity")
+                if isinstance(e, dict):
+                    names.add(e.get("EntityName"))
+                    _names(e, dep + 1)
+                    for k in ("SkillEntitySpawnerData", "AreaSpawnerData",
+                              "SplashAreaEntityData"):
+                        _names(e.get(k), dep + 1)
+    _names(d, 0)
+    for k in ("SkillEntitySpawnerData", "AreaSpawnerData"):
+        _names((d.get("MainEntityData") or {}).get(k), 1)
     me = d.get("MainEntityData")
     # **`MainEntityData` は宣言でもある。**同じ体が `EntityTimeline` にも
     # 並んでいるときは、そちらの `Frame` が本当の発射時刻なので二重に数えない
     if isinstance(me, dict) and me.get("EntityName") not in names:
-        _ent(me, 0, 0)
-    _tl(d, 0, 0)
-    got = sorted(set(out)) or None
-    _hits_cache[group] = got
+        _ent(me, 0, 0, None)
+    _tl(d, 0, 0, None)
+    got = {g: sorted(fs) for g, fs in out.items()}
+    _frames_cache[group] = got
+    _frames_pj_cache[group] = pjm
     return got
+
+
+def _ls_prj(group):
+    """`_ls_hits` と同じ並びで、その着弾が**弾に乗って届く**なら `[Speed, 種類]`、
+    撃った瞬間から数えるだけなら 0。種類は `c`（相手の体を追う
+    `TargetCharacter`。縁に当たる）か `p`（置いた点まで飛ぶ）。
+    1 つも弾が無い枠は None（`B.prj` に載せない）。 """
+    hs = _ls_hits(group)
+    if not hs:
+        return None
+    dm, pjm, out = _dmg_gids(), _frames_pj_cache.get(group) or {}, []
+    for f in hs:
+        pj = 0
+        for g, m in pjm.items():
+            if g in dm and m.get(f):
+                pj = m[f]
+                break
+        out.append(pj)
+    return out if any(out) else None
+
+
+_ch_of = None
+
+
+def _ch_of_gid():
+    """`DB/LogicEffect_PC` の 札 → `Channel`。`_Lv<数字>` を落とした名前でも引ける。"""
+    global _ch_of
+    if _ch_of is None:
+        _ch_of = {}
+        for r in _le_pc():
+            g = r.get("GroupId") or ""
+            if g and r.get("Channel") is not None:
+                _ch_of[g] = r["Channel"]
+                _ch_of.setdefault(re.sub(r"_Lv\d+$", "", g), r["Channel"])
+    return _ch_of
+
+
+def _ls_buf_frame(group, ch):
+    """その枠が `Channel` `ch` のバフを**最初に配るフレーム**。引けなければ None。
+
+    同じ Channel を 2 回以上配る枠（マリー `CH0072GearPublic01` の 20 と 25）は
+    早いほうが「乗り始め」。 """
+    if not group or ch is None:
+        return None
+    chs = _ch_of_gid()
+    fs = [f for g, fl in _ls_frames(group).items() if chs.get(g) == ch for f in fl]
+    return min(fs) if fs else None
 
 
 _single_cache = {}
@@ -7110,6 +7218,8 @@ def build_tl():
     st_out, dmg_out, ndmg, sinfo, build = {}, {}, 0, {}, {}
     ncond = nstack = nodt = 0
     buf_out, nbuf, nskip, ncond, nrst, novr, nstk = {}, 0, 0, 0, 0, 0, 0
+    # バフの乗り始めを `LevelSkill` から引けた件数と、SchaleDB の `ApplyFrame` と違った件数
+    nafl = nafd = 0
     # **範囲を持つ枠**（生徒 → スキルの枠 → [形, 半径]）
     area_out = {}
     # **範囲の中心と狙い方**（生徒 → 枠 → `_ls_geom` の 7 つ組）と**届く距離**
@@ -7119,7 +7229,7 @@ def build_tl():
     # （DB では `CH0368_Ex01_Effect01` 15000ms と `Effect02` 45000ms の 2 行が
     # `Dummy_CH0368_Check` で択一）。誰に付くかの決まりは `target.js` の `safeMul`
     bdur_out = {}
-    imp_out, nimp = {}, 0
+    imp_out, nimp, prj_out = {}, 0, {}
     na_out, nna = {}, 0
     naf_out = {}
     nform = 0
@@ -7569,6 +7679,11 @@ def build_tl():
             if _hf:
                 imp_out.setdefault(sid, {})[kind] = _hf
                 nimp += 1
+                # **弾に乗る着弾**（`_ls_prj`）。飛ぶ時間は道具が距離から足す
+                _pj = _ls_prj(_skill_gid(csl_all.get(x["Id"]), kind))
+                if _pj:
+                    prj_out.setdefault(sid, {})[kind] = _pj
+                    print(f"弾に乗る着弾: {sid} {kind} {_pj}")
             # **届く距離**（SchaleDB の `Range`。506 枠が持っている）。
             # どの生徒がどの体に届くかは、これが無いと決まらない
             if sk.get("Range"):
@@ -7589,8 +7704,24 @@ def build_tl():
                 tg = e.get("Target") or []
                 if isinstance(tg, str):
                     tg = [tg]
+                # **乗り始めのフレームは `LevelSkill` から**（2026-09-05、I）。
+                # SchaleDB の `ApplyFrame` は 329 件中 310 件が一致するが、
+                # 入れ子の外側の `Frame` を足していないものが 19 件
+                # （`tl-work/apf2.py`。ハレ（キャンプ）6 ↔ 51、ニコ 5 ↔ 86、
+                # コユキ（パジャマ）45 ↔ 79 など）、欄そのものが無いものが 273 件
+                # （常時のパッシブが大半。EX・NS では キサキ（水着）Ex1 151、
+                # ケイ 58、シロコ（ライディング）15 など）ある。
+                # 引けない枠だけ SchaleDB の値（無ければ 0）で埋める
+                _af = _ls_buf_frame(_skill_gid(csl_all.get(x["Id"]), kind),
+                                    e.get("Channel"))
+                if _af is None:
+                    _af = e.get("ApplyFrame") or 0
+                else:
+                    nafl += 1
+                    if e.get("ApplyFrame") is not None and int(e["ApplyFrame"]) != _af:
+                        nafd += 1
                 row = [tg, e["Stat"], e.get("Channel"),
-                       v[0], e.get("Duration"), e.get("ApplyFrame") or 0]
+                       v[0], e.get("Duration"), _af]
                 rs = e.get("Restrictions")
                 if rs:
                     row.append([[r.get("Property"), r.get("Operand"), r.get("Value")]
@@ -7791,14 +7922,16 @@ def build_tl():
     print(f"  バフ {nbuf} 件（条件つき・周期ものを {nskip} 件外した／"
           f"相手の条件つき {nrst} 件は判定して乗せる／"
           f"枠を差し替える OverrideSlot {novr} 件／"
-          f"段（スタック）を持つ {nstk} 件）")
+          f"段（スタック）を持つ {nstk} 件／"
+          f"乗り始めを LevelSkill から引けた {nafl} 件・うち SchaleDB と違う {nafd} 件）")
     print(f"  条件つき・段つきのダメージ {ncond} 件を候補にした（生徒 {len(alt_out)} 人・"
           f"スキル {sum(len(v) for v in alt_out.values())} 枠／うち段つき {nstack} 枠）")
     print(f"  通常攻撃（オートアタック）が引けた生徒 {nna} 人 / {len(st_out)} 人")
     _nar = sum(len(v) for v in area_out.values())
     print(f"  範囲を持つ枠 {_nar} 個 / 中心と狙い方が引けた枠 {ngeo} 個"
           f"、届く距離 {sum(len(v) for v in rng_out.values())} 個"
-          f"、着弾フレームが引けた枠 {nimp} 個")
+          f"、着弾フレームが引けた枠 {nimp} 個"
+          f"、弾に乗る枠 {sum(len(v) for v in prj_out.values())} 個")
     print(f"  EX の形態違い {nform} 件（Skills.Ex.ExtraSkills）")
     _one = sum(1 for v in tgt_out.values() for r in v.values() if r[0] == 1)
     print(f"  味方に効くスキル {sum(len(v) for v in tgt_out.values())} 枠 / "
@@ -7952,6 +8085,10 @@ def build_tl():
         "bdur": bdur_out,
         # 着弾フレーム（発動 0 からの相対、30fps）。**ダメージが入る瞬間だけ**
         "imp": imp_out,
+        # `imp` と同じ並びで、弾に乗って届く着弾は `[Speed(1/100 ワールド/秒), c|p]`、
+        # そうでなければ 0。**飛ぶ時間は撃つ子と相手の距離で変わる**ので、
+        # ここでは足さない（`dmg.js` の `hitTimes` が盤の距離から足す）
+        "prj": prj_out,
         "areaKeys": ["Type(Circle/Fan/Obb/Donut/Bounce)", "Radius",
                      "Degree", "Width", "Height", "ExcludeRadius"],
         "bufKeys": ["Target", "Stat", "Channel", "Value", "Duration", "ApplyFrame",

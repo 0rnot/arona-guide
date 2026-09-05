@@ -8,6 +8,7 @@ import { usesSorted } from './buff.js';
 import { PICKF, dmgOf, hitTimes, nbOf, setPICKF } from './dmg.js';
 import { deadlyPts } from './deadly.js';
 import { epEvery, epOkAt, epOn, epTierPick } from './ep.js';
+import { dsOf } from './view.js';
 
 /** **突破率。**置いた TL で、ボスの HP を削り切れる確率。
     1 発ごとの平均と分散（`dmgAt` の `va`）を足し合わせて、
@@ -40,7 +41,7 @@ export function lastUseAt(r) {
     if (us[i].t > dur + 1e-9) { continue; }
     // **最後の着弾まで。**「入れたスキルの最後で倒し切れる確率」（先生の定義）の
     // 「最後」は撃った瞬間ではなく、その発のダメージが入り終わる時刻
-    var ht = hitTimes((st.party[us[i].i] || {}).id, us[i].k) || [0];
+    var ht = hitTimes((st.party[us[i].i] || {}).id, us[i].k, dsOf(r, us[i])) || [0];
     var e = Math.min(us[i].t + ht[ht.length - 1], dur);
     if (t == null || e > t) { t = e; }
   }
@@ -80,7 +81,7 @@ export function clearStat1(r, pf, pid, deadAt, hpNeed) {
       // **よその池へ回った発は、その池の相手で引く**（2026-09-03。`dmgCurve0` と同じ）
       var d = dmgOf(u.i, r, u.t, u.k, u.pk,
                     u.tg == null && pp !== r.cid ? subIxOfPool(r, pp) : u.tg, u.gx, u.no,
-                    null, nbOf(u));
+                    null, nbOf(u), 0, dsOf(r, u));
       if (!d) { continue; }
       n++;
       if (u.tg != null && pp !== pid) {
@@ -94,7 +95,7 @@ export function clearStat1(r, pf, pid, deadAt, hpNeed) {
         // `dmgCurve0` は数えていたのに、突破率と与ダメージが数えていなかった
         // （2026-09-03。画面で選んでも上の数字が動かない）
         if (u.hb) {
-          var dbb = dmgOf(u.i, r, u.t, u.k, u.pk, null, u.gx, u.no, null, nbOf(u), 1);
+          var dbb = dmgOf(u.i, r, u.t, u.k, u.pk, null, u.gx, u.no, null, nbOf(u), 1, dsOf(r, u));
           if (dbb) { mu += dbb.avg - (dbb.one ? dbb.one.avg : 0); va += dbb.va || 0; }
         }
       } else {
@@ -182,7 +183,7 @@ export function total0(r) {
       ? Math.min(u.mc, poolBodies(r, pp2)) : 1;
     if (u.tg != null && !tr2 && mcp2 <= 1) { continue; }
     if (u.t > (r.dur || 240) + 1e-9 || awayAt(u.t, !/^Ex\d*$/.test(u.k), u.gx)) { continue; }
-    var d = dmgOf(u.i, r, u.t, u.k, u.pk, u.tg, u.gx, u.no, null, nbOf(u));
+    var d = dmgOf(u.i, r, u.t, u.k, u.pk, u.tg, u.gx, u.no, null, nbOf(u), 0, dsOf(r, u));
     if (!d) { continue; }
     if (tr2 || mcp2 > 1) {
       // **1 体にしか当たらないぶん（`one`）には体の数を掛けない**（2026-09-05。
@@ -197,7 +198,7 @@ export function total0(r) {
     // **「ボス本体にも当たる」を与ダメージにも数える**（2026-09-03。
     // `dmgCurve0` だけが数えていて、上の「与ダメージ」は素通りしていた）
     if (u.tg != null && u.hb) {
-      var dbh = dmgOf(u.i, r, u.t, u.k, u.pk, null, u.gx, u.no, null, nbOf(u), 1);
+      var dbh = dmgOf(u.i, r, u.t, u.k, u.pk, null, u.gx, u.no, null, nbOf(u), 1, dsOf(r, u));
       if (dbh) {
         // 1 体にしか当たらないぶんは選んだ体に入っていて、本体には入らない
         var o2 = dbh.one || zero();

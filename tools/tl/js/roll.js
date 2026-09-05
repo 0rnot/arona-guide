@@ -7,6 +7,7 @@ import { WANTU, dmgCap, dmgOf, nbOf, repUnits, setWANTU } from './dmg.js';
 import { deadlyPts } from './deadly.js';
 import { epEvery, epOkAt, epOn, epTierPick } from './ep.js';
 import { lastUseAt } from './clear.js';
+import { dsOf } from './view.js';
 
 /** **第 3 段 —— 生徒を 1 発ずつ回す**（2026-09-04）。
 
@@ -79,13 +80,13 @@ export function shotsOf(r, opt) {
       if (one) {
         // `total0` と同じ形——本体の池にまとめて足す
         if (u.tg != null && !tr2 && mcp2 <= 1) { continue; }
-        var d = dmgOf(u.i, r, u.t, u.k, u.pk, u.tg, u.gx, u.no, null, nbOf(u));
+        var d = dmgOf(u.i, r, u.t, u.k, u.pk, u.tg, u.gx, u.no, null, nbOf(u), 0, dsOf(r, u));
         if (!d || !d.u) { continue; }
         // **1 体にしか当たらない単位は体の数では増えない**（2026-09-05。`repUnits` の `m1`）。
         // 転移なら転移率だけ。本体だけのぶん（`hb`）にはその単位は入らない
         push(u, d, (tr2 || mcp2 > 1) ? (tr2 || mcp2) : 1, tr2 ? trOf(r, u.tg) : 1);
         if (u.tg != null && u.hb) {
-          var dbh = dmgOf(u.i, r, u.t, u.k, u.pk, null, u.gx, u.no, null, nbOf(u), 1);
+          var dbh = dmgOf(u.i, r, u.t, u.k, u.pk, null, u.gx, u.no, null, nbOf(u), 1, dsOf(r, u));
           if (dbh && dbh.u) { push(u, dbh, 1, 0); }
         }
       } else {
@@ -95,12 +96,12 @@ export function shotsOf(r, opt) {
         if (pp !== pid && !(pid === r.cid && u.tg != null && trp)) { continue; }
         var d2 = dmgOf(u.i, r, u.t, u.k, u.pk,
                        u.tg == null && pp !== r.cid ? subIxOfPool(r, pp) : u.tg,
-                       u.gx, u.no, null, nbOf(u));
+                       u.gx, u.no, null, nbOf(u), 0, dsOf(r, u));
         if (!d2 || !d2.u) { continue; }
         if (u.tg != null && pp !== pid) {
           push(u, d2, trp * mc, trp);
           if (u.hb) {
-            var dbb = dmgOf(u.i, r, u.t, u.k, u.pk, null, u.gx, u.no, null, nbOf(u), 1);
+            var dbb = dmgOf(u.i, r, u.t, u.k, u.pk, null, u.gx, u.no, null, nbOf(u), 1, dsOf(r, u));
             if (dbb && dbb.u) { push(u, dbb, 1, 0); }
           }
         } else {

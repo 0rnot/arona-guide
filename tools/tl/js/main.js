@@ -25,7 +25,7 @@ import { enemyAt, liveBuffs } from './target.js';
 import { altOf, pickOf } from './alt.js';
 import { rngOf, rollFixed, rollRun, rollStat, shotsOf } from './roll.js';
 import { dmgOf, dotTimes, hitTimes, nbOf } from './dmg.js';
-import { coverOfUse, sceneAt } from './view.js';
+import { coverOfUse, dsOf, sceneAt } from './view.js';
 import { clearStat, total } from './clear.js';
 import { aimOf, beaconOf, bestHitsOf, bodiesOf, coverOf, fightSecs, hitsNOf, hitsOf, secOfSummon, spawnOn, standOf, summonsOf } from './board.js';
 import { restore, snapshot } from './io.js';
@@ -63,7 +63,7 @@ window.__TLDBG = { statsOf: statsOf, dmgOf: dmgOf, total: total, diff: diff,
                    // **継続ダメージがいつ入るか**（2026-09-03 の 47b）
                    dotTimes: dotTimes,
                    // **場面・当たる先・着弾の時刻**（2026-09-05）。盤の数え方を外から確かめる
-                   sceneAt: sceneAt, coverOfUse: coverOfUse, nbOf: nbOf, hitTimes: hitTimes,
+                   sceneAt: sceneAt, coverOfUse: coverOfUse, nbOf: nbOf, hitTimes: hitTimes, dsOf: dsOf,
                    // **変身 EX の周期**（2026-09-03 の 60）
                    fcOf: fcOf,
                    // **「選ぶだけの札」の代わりに置く形態**（2026-09-04 の 61c）

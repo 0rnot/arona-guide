@@ -9,6 +9,7 @@ import { usesSorted } from './buff.js';
 import { PICKF, dmgOf, dotTimes, hitTimes, nbOf, setPICKF } from './dmg.js';
 import { deadlyPts } from './deadly.js';
 import { epEvery, epOkAt, epOn, epTierPick } from './ep.js';
+import { dsOf } from './view.js';
 
 // ------------------------------------------------------------ 部隊の持ち越し
 // **部隊 k の結果**（終了時刻・撃破時刻・池ごとに削った量）。前の部隊が削ったぶんを
@@ -109,7 +110,7 @@ export function dmgCurve0(r, key, pid, deadAt) {
       **合計は変えない——置く時刻だけを割る**（継続ダメージと同じやり方）。 */
   function put(u, v) {
     if (!v) { return; }
-    var ht = hitTimes((st.party[u.i] || {}).id, u.k) || [0], z;
+    var ht = hitTimes((st.party[u.i] || {}).id, u.k, dsOf(r, u)) || [0], z;
     for (z = 0; z < ht.length; z++) {
       pts.push([Math.min(u.t + ht[z], dur9), v / ht.length]);
     }
@@ -128,7 +129,7 @@ export function dmgCurve0(r, key, pid, deadAt) {
     if (u.t > (r.dur || 240) + 1e-9 || awayAt(u.t, !/^Ex\d*$/.test(u.k), u.gx)) { continue; }
     // **当たる先を書いていない発をよその池へ回すときは、その池の相手で引く**（2026-09-03）
     var aim = u.tg == null && pp !== r.cid ? subIxOfPool(r, pp) : u.tg;
-    var d = dmgOf(u.i, r, u.t, u.k, u.pk, aim, u.gx, u.no, null, nbOf(u));
+    var d = dmgOf(u.i, r, u.t, u.k, u.pk, aim, u.gx, u.no, null, nbOf(u), 0, dsOf(r, u));
     // **1 体にしか当たらないぶん（`one`）には体の数を掛けない**（2026-09-05。
     // マコト（水着）の 1 発目 275.51%。`dmg.js` の `o.one` の注記）。
     // 転移なら転移率だけ、本体の池なら 1 体ぶん
@@ -148,7 +149,7 @@ export function dmgCurve0(r, key, pid, deadAt) {
     // **置くのは使う人**（帯の「ボス本体にも当たる」。2026-09-02 の先生の見立て）。
     // ボスと部位で防御が違うことがあるので、本体ぶんは本体の数字で出す
     if (d && u.tg != null && u.hb) {
-      var db = dmgOf(u.i, r, u.t, u.k, u.pk, null, u.gx, u.no, null, nbOf(u), 1);
+      var db = dmgOf(u.i, r, u.t, u.k, u.pk, null, u.gx, u.no, null, nbOf(u), 1, dsOf(r, u));
       // 1 体にしか当たらないぶんは選んだ体に入っていて、本体には入らない
       if (db) { v0 += db[key] - (db.one ? db.one[key] : 0); }
     }
@@ -158,13 +159,13 @@ export function dmgCurve0(r, key, pid, deadAt) {
     if (d) {
       var tsD = dotTimes(u.i, r, u.t, u.k, u.pk, aim);
       if (tsD.length) {
-        var dNow = dmgOf(u.i, r, u.t, u.k, u.pk, aim, u.gx, u.no, 'now', nbOf(u));
-        var dDot = dmgOf(u.i, r, u.t, u.k, u.pk, aim, u.gx, u.no, 'dot', nbOf(u));
+        var dNow = dmgOf(u.i, r, u.t, u.k, u.pk, aim, u.gx, u.no, 'now', nbOf(u), 0, dsOf(r, u));
+        var dDot = dmgOf(u.i, r, u.t, u.k, u.pk, aim, u.gx, u.no, 'dot', nbOf(u), 0, dsOf(r, u));
         var vN = part(dNow, tr && pp !== pid ? tr : 0, mcp);
         var vD = part(dDot, tr && pp !== pid ? tr : 0, mcp);
         if (d && u.tg != null && u.hb) {
-          var dbN = dmgOf(u.i, r, u.t, u.k, u.pk, null, u.gx, u.no, 'now', nbOf(u), 1);
-          var dbD = dmgOf(u.i, r, u.t, u.k, u.pk, null, u.gx, u.no, 'dot', nbOf(u), 1);
+          var dbN = dmgOf(u.i, r, u.t, u.k, u.pk, null, u.gx, u.no, 'now', nbOf(u), 1, dsOf(r, u));
+          var dbD = dmgOf(u.i, r, u.t, u.k, u.pk, null, u.gx, u.no, 'dot', nbOf(u), 1, dsOf(r, u));
           if (dbN) { vN += dbN[key] - (dbN.one ? dbN.one[key] : 0); }
           if (dbD) { vD += dbD[key] - (dbD.one ? dbD.one[key] : 0); }
         }

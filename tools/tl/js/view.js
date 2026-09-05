@@ -1,5 +1,5 @@
 import { $, B, esc } from './util.js';
-import { st } from './core.js';
+import { memo, st } from './core.js';
 import { diff } from './boss.js';
 import { bossAdv, phaseSpans, ggRuns, ggSolve } from './carry.js';
 import { usesSorted } from './buff.js';
@@ -50,10 +50,10 @@ function clock(sec) {
     表示されないから、最終着弾までは表示させるようにして」）。
     着弾のデータが無い枠は 0.6 秒だけ出す。 */
 var HOLD = 0.6;
-function holdOf(u) {
+function holdOf(r, u) {
   var p = st.party[u.i];
   if (!p) { return HOLD; }
-  var ht = hitTimes(p.id, u.k) || [];
+  var ht = hitTimes(p.id, u.k, dsOf(r, u)) || [];
   return Math.max(HOLD, (ht.length ? ht[ht.length - 1] : 0) + 0.1);
 }
 
@@ -116,7 +116,7 @@ export function pickShot(r, t) {
   var at = t == null ? (VT == null ? 0 : VT) : t;
   var sel = st.sel != null ? st.tl[st.sel] : null;
   for (i = 0; i < us.length; i++) {
-    if (at < us[i].t - 1e-9 || at >= us[i].t + holdOf(us[i])) { continue; }
+    if (at < us[i].t - 1e-9 || at >= us[i].t + holdOf(r, us[i])) { continue; }
     if (!best || us[i].t > best.t - 1e-9) { best = us[i]; }
     // 同じ時刻に何発もあるときは、詳細を開いている発を優先する
     if (sel && us[i].ix === st.sel) { best = us[i]; break; }
@@ -280,6 +280,31 @@ export function coverOfUse(r, u, sc, bp) {
     if (q2) { return q2; }
   }
   return q;
+}
+
+/** **その 1 発の弾が飛ぶ距離**（ワールド）。`{c, e}`——`c` は撃つ子の立ち位置
+    （`standOf`）から置いた中心まで、`e` は選んだ体（中心にいちばん近い体）の縁まで。
+    盤が無い・形が無い枠は null（`dmg.js` の `travelOf` が届く距離で代える）。
+    `hitTimes` / `dmgOf` に渡して、弾に乗る着弾の時刻をずらす（2026-09-05）。
+    `memo` の鍵に置き方（`ax`/`ay`/`bp`）と窓（`st.bst`）を入れる——場面が変わると
+    体の並びが変わる */
+export function dsOf(r, u) {
+  if (!r || !u || u.i == null || !st.party[u.i]) { return null; }
+  var p = st.party[u.i], pd = placedOf(u);
+  var key = ['ds', r.cid, p.id, u.k, u.t, u.tg, u.mc, pd.ax, pd.ay,
+             pd.bp ? JSON.stringify(pd.bp) : '', JSON.stringify(st.bst || null)].join('|');
+  return memo(key, function () {
+    var sc = sceneAt(r, u.t), q = coverOfUse(r, u, sc);
+    if (!q || !q.me || !q.c) { return null; }
+    var c = Math.hypot(q.c.x - q.me.x, q.c.y - q.me.y), e = c;
+    var bs = (q.hit && q.hit.length) ? q.hit : q.bs, best = null, bd = 0, i, dd;
+    for (i = 0; i < (bs || []).length; i++) {
+      dd = Math.hypot(bs[i].x - q.c.x, bs[i].y - q.c.y);
+      if (best == null || dd < bd) { best = bs[i]; bd = dd; }
+    }
+    if (best) { e = Math.max(0, Math.hypot(best.x - q.me.x, best.y - q.me.y) - (best.br || 0)); }
+    return { c: c, e: e };
+  });
 }
 
 /** **盤が決められる 1 発は、当たる先・当たる数・本体にも当たるかを盤から書く。**
