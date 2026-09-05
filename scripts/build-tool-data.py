@@ -7924,6 +7924,17 @@ def build_tl():
                     if ("<s:%s>" % _mk) in ds:
                         n_ally = _n
                         break
+            # **跳ねる弾（`Radius[0].Type == "Bounce"`）は 1 人に当てたあと近くの
+            # 味方へ最大 N 回跳ねて同じ効果を配る**（2026-09-05）。ナツの NS
+            # 「パイを投擲して味方1人の攻撃力を増加 … パイがその方向にも飛んで
+            # 再度その効果を与えます（最大3回まで）」。`LevelSkill` の
+            # `TargetBounceProjectileEntityDAO` は `BounceRadius` 400 を持つだけで
+            # 回数は説明文にしか無い。人数は 1 ＋ N（跳ねた先は
+            # `AllowBounceTargetDuplication: false` で同じ子に戻らない）
+            _rad = (sk2.get("Radius") or [None])[0] or {}
+            _mb = re.search(r"最大(\d+)回まで", ds)
+            if n_ally and _rad.get("Type") == "Bounce" and _mb:
+                n_ally = n_ally + int(_mb.group(1))
             tg[kind] = [n_ally, 1 if "自身を除" in ds else 0]
         if tg:
             tgt_out[sid] = tg

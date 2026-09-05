@@ -193,6 +193,20 @@ export function liveBuffs0(t, to, r) {
     // **「味方2人」以上は、選んであればその人だけ**（選んでいなければ全員）
     var nT = tgtN(p.id, kd), pick = nT ? buffTo(u) : [];
     var limit = nT === 1 || (nT >= 2 && pick.length > 0);
+    // **跳ねる弾（ナツの NS「パイ」）は、当てた 1 人のあと近くの味方へ最大 N 回
+    // 跳ねて同じ効果を配る**（2026-09-05）。`B.tgt` の人数は 1 ＋ N
+    // （`build-tool-data.py` が説明文の「最大N回まで」から足す）。選んだ子を先に、
+    // 残りはストライカーの枠順 → スペシャルの枠順で人数まで埋める。**自分には
+    // 戻らない**（`AllowBounceTargetDuplication: false`）。`AllyMain` の札は
+    // 見ない——跳ねた先はスペシャルでもよい（説明文は「自身を除く味方」）
+    var bset = null, z1;
+    if (nT >= 2 && ((((B.area || {})[p.id] || {})[kd]) || [])[0] === 'Bounce') {
+      bset = pick.slice();
+      for (z1 = 0; z1 < SLOTS && bset.length < nT; z1++) {
+        if (z1 === u.i || bset.indexOf(z1) >= 0 || !st.party[z1]) { continue; }
+        bset.push(z1);
+      }
+    }
     for (q = 0; q < list.length; q++) {
       var e = list[q], st0 = u.t + (e[5] || 0) / B.fps;
       // **固有武器パッシブの「効果時間延長」を掛ける**（味方向けは eb、
@@ -222,8 +236,11 @@ export function liveBuffs0(t, to, r) {
         if (tg[z] === 'AllyMain' && isMain(idx) && (!mine || alsoSelf)) { hit = true; }
         if (tg[z] === 'AllySupport' && !isMain(idx) && (!mine || alsoSelf)) { hit = true; }
       }
-      if (hit && limit && tg.indexOf('Self') < 0 &&
-          pick.indexOf(+to.slice(4)) < 0) { hit = false; }
+      if (bset && to !== 'enemy') {
+        hit = bset.indexOf(+to.slice(4)) >= 0 ||
+              (tg.indexOf('Self') >= 0 && u.i === +to.slice(4));
+      } else if (hit && limit && tg.indexOf('Self') < 0 &&
+                 pick.indexOf(+to.slice(4)) < 0) { hit = false; }
       if (hit && !fits(e[6], to, r)) { hit = false; }
       if (!hit) { continue; }
       // **掛けた本人のスキルレベルで引く。**画面の共通スライダーではない。
