@@ -4,7 +4,7 @@ import { boss, crewCount, diff, ggNoDmg } from './boss.js';
 import { engIn, kindOf, recPower, whyOf } from './engine.js';
 import { costRun } from './chart.js';
 import { SCEN, scen, scenIx } from './scen.js';
-import { poolName, poolOrder } from './pool.js';
+import { poolHpAll, poolName, poolOrder } from './pool.js';
 import { carryIn, ggMode, killAt, partyCalc, scoreOf, secLab } from './carry.js';
 import { n0 } from './rate.js';
 import { exKind, usesSorted } from './buff.js';
@@ -15,7 +15,9 @@ import { clearStat, total } from './clear.js';
 import { PH_T, drawOrd, resetOrdKey } from './ord.js';
 
 export function kpi() {
-  var r = diff(), hp = (r.bs && r.bs.hp) || 0, t = total(r), run = costRun(r.dur || 240);
+  // **分母は討伐の池ぜんぶ**（2026-09-06。`total` が全部の池を数えるようになったので、
+  // カイテンジャーは 40,000,000 ＋ 30,000,000 と比べる。池が 1 つなら本体の HP）
+  var r = diff(), hp = poolHpAll(r), t = total(r), run = costRun(r.dur || 240);
   // **100% で止めるのは棒だけ。**数字は本当の値を出す（超えたら倒しきれる）
   // **見せる数字はシナリオで切り替える**（2026-09-01 の先生の指示）。
   // 図（フェーズの移り・グロッキー）も同じシナリオで引き直す

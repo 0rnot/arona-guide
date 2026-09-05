@@ -9,6 +9,7 @@ import { liveBuffs } from './target.js';
 import { altList } from './alt.js';
 import { dmgOf, nbOf } from './dmg.js';
 import { total } from './clear.js';
+import { poolHpAll } from './pool.js';
 import { fit } from './zoom.js';
 
 export function n0(v) { return Math.round(v).toLocaleString('ja-JP'); }
@@ -54,7 +55,8 @@ export function buffTip(idx, at, r, sides) {
 export var RHEAD = [['残HP／階層HP', '与ダメージ', 'EX合計', 'NS合計', '通常合計', 'SS合計'],
              ['目標までの残り', '達成率', '与ダメージ', '目標ダメージ', '1秒あたり', '制限時間']];
 export function drawRate() {
-  var r = diff(), hp = (r.bs && r.bs.hp) || 0, h = '', i, k;
+  // 分母は討伐の池ぜんぶ（`kpi.js` と同じ。2026-09-06）
+  var r = diff(), hp = poolHpAll(r), h = '', i, k;
   var cache = {};
   function tot(pf) {
     var key = String(pf);

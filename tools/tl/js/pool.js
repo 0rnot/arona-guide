@@ -49,6 +49,14 @@ export function poolBodies(r, pid) {
   for (i = 0; i < sb.length; i++) { if (sb[i].pool === pid) { n++; } }
   return n || 1;
 }
+/** **討伐に要る HP の合計**（池ぜんぶ）。池が 1 つならボス本体の HP と同じ。
+    「与ダメージ」を比べる分母はこちら（2026-09-06。カイテンジャーは
+    レンジャー 40,000,000 ＋ 本体 30,000,000 で、本体だけと比べると 2 倍に見えた） */
+export function poolHpAll(r) {
+  var o = poolOrder(r), s = 0, i;
+  for (i = 0; i < o.length; i++) { s += poolHp(r, o[i]); }
+  return s;
+}
 export function poolName(r, pid) {
   if (pid === r.cid) { return (boss() || {}).n || 'ボス'; }
   var i, sb = r.sub || [], ns = [];

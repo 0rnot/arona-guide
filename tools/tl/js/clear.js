@@ -169,22 +169,31 @@ export function total(r, pf) {
 }
 export function total0(r) {
   var ex = zero(), ns = zero(), na = zero(), ss = zero(), all = zero(), us = usesSorted(), i, k, q;
-  // 池が 2 つ以上あるボスは、前の池が生きている間の通常攻撃はそちらへ向く
-  var deadAt = {};
-  if (poolOrder(r).length > 1) {
+  // **池が 2 つ以上あるボスは、討伐の池ぜんぶに入ったぶんを数える**（2026-09-06、68）。
+  // カイテンジャーはレンジャー 5 体（40,000,000）→ 本体（30,000,000）の順で、
+  // 本体の池だけ数えていたので、レンジャーに当てた EX とレンジャーが生きている間の
+  // 通常攻撃・SS が丸ごと 0 になっていた（`bf78b46` から。`aw6t7Q1gFSs` で EX 0・通常 0）。
+  // 行き先の決め方は `dmgCurve0` と同じ——当たる先の無い発と通常攻撃は
+  // 「並びの中で生きている最初の池」へ、当たる先を置いた発はその部位の池へ
+  var deadAt = {}, order = poolOrder(r);
+  if (order.length > 1) {
     var pk0 = partyCalc(st.pi).pools;
     for (i = 0; i < pk0.length; i++) { deadAt[pk0[i].pid] = pk0[i].kill; }
   }
+  function inPool(pid) { return pid != null && order.indexOf(pid) >= 0; }
   for (i = 0; i < us.length; i++) {
     var u = us[i];
     var tr2 = trOf(r, u.tg) * (u.mc || 1);
     // **転移しない部位でも、池を分け合っているなら当たった数だけ入る**（2026-09-03）
-    var pp2 = u.tg == null ? null : poolOf(r, u.tg);
+    var pp2 = u.tg == null ? (naPool(r, u.t, deadAt) || r.cid) : poolOf(r, u.tg);
     var mcp2 = (u.tg != null && !tr2 && (u.mc || 1) > 1)
       ? Math.min(u.mc, poolBodies(r, pp2)) : 1;
-    if (u.tg != null && !tr2 && mcp2 <= 1) { continue; }
+    // 部位（柱・装置…）に当てた発は、転移もせず討伐の池でもなければ数えない
+    if (u.tg != null && !tr2 && mcp2 <= 1 && !inPool(pp2)) { continue; }
     if (u.t > (r.dur || 240) + 1e-9 || awayAt(u.t, !/^Ex\d*$/.test(u.k), u.gx)) { continue; }
-    var d = dmgOf(u.i, r, u.t, u.k, u.pk, u.tg, u.gx, u.no, null, nbOf(u), 0, dsOf(r, u));
+    // **当たる先を書いていない発をよその池へ回すときは、その池の相手で引く**（`dmgCurve0` と同じ）
+    var aim2 = u.tg == null && pp2 !== r.cid ? subIxOfPool(r, pp2) : u.tg;
+    var d = dmgOf(u.i, r, u.t, u.k, u.pk, aim2, u.gx, u.no, null, nbOf(u), 0, dsOf(r, u));
     if (!d) { continue; }
     if (tr2 || mcp2 > 1) {
       // **1 体にしか当たらないぶん（`one`）には体の数を掛けない**（2026-09-05。
@@ -220,15 +229,19 @@ export function total0(r) {
     if (!st.party[i]) { continue; }
     var ts = naTimes(i, dur);
     if (!ts.length) { continue; }
-    var bucket = {};
+    // **束は「5 秒の枠 × 向いている池」**（2026-09-06）。池が変わる枠は分けて、
+    // ダメージはその池の相手（装甲・防御）で引く。池が 1 つなら今までと同じ 1 束
+    var bucket = {}, bAt = {};
     for (q = 0; q < ts.length; q++) {
-      if (awayAt(ts[q], true) || naPool(r, ts[q], deadAt) !== r.cid) { continue; }
-      var b = Math.floor(ts[q] / STEP);
-      bucket[b] = (bucket[b] || 0) + 1;
+      var np = naPool(r, ts[q], deadAt);
+      if (np == null || awayAt(ts[q], true)) { continue; }
+      var b = Math.floor(ts[q] / STEP), bk0 = b + '|' + np;
+      bucket[bk0] = (bucket[bk0] || 0) + 1;
+      bAt[bk0] = { b: b, aim: subIxOfPool(r, np) };
     }
     for (var bk in bucket) {
-      var at = (+bk + 0.5) * STEP;
-      var dn = dmgOf(i, r, Math.min(at, dur), 'Normal');
+      var at = (bAt[bk].b + 0.5) * STEP;
+      var dn = dmgOf(i, r, Math.min(at, dur), 'Normal', null, bAt[bk].aim);
       if (!dn) { break; }
       na.n += bucket[bk]; all.n += bucket[bk];
       for (k = 0; k < KS.length; k++) {
@@ -240,12 +253,12 @@ export function total0(r) {
     if (epOn(st.party[i].id)) {
       var ev2 = epEvery(st.party[i].id), bs2;
       for (bs2 in bucket) {
-        var at2 = Math.min((+bs2 + 0.5) * STEP, dur);
+        var b2 = bAt[bs2].b, at2 = Math.min((b2 + 0.5) * STEP, dur);
         var cn2 = Math.floor(epShotN(st.party[i].id, bucket[bs2],
-                                     +bs2 * STEP, (+bs2 + 1) * STEP) / ev2);
-        if (!cn2 || !epOkAt(st.party[i].id, r, at2, null)) { continue; }
+                                     b2 * STEP, (b2 + 1) * STEP) / ev2);
+        if (!cn2 || !epOkAt(st.party[i].id, r, at2, bAt[bs2].aim)) { continue; }
         var ds2 = dmgOf(i, r, at2, 'ExtraPassive',
-                        epTierPick(st.party[i].id, r, at2, null));
+                        epTierPick(st.party[i].id, r, at2, bAt[bs2].aim), bAt[bs2].aim);
         if (!ds2) { break; }
         ss.n += cn2; all.n += cn2;
         for (k = 0; k < KS.length; k++) {
