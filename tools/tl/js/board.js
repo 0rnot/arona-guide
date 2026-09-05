@@ -141,34 +141,48 @@ export function slotPos(r, si, sl) {
   if (sl != null) { return out[0] || { x: b.x, y: b.y, sl: sl }; }
   return out.length ? out : [{ x: b.x, y: b.y, sl: 0 }];
 }
-/** **動く体の歩き方**（2026-09-05 夜に作り直した）。`_Move` の付いた大きなペロロは
-    **いちばん近い生徒の枠へまっすぐ歩いて、届いたら止まる**。
+/** **動く体の歩き方**（2026-09-06 に DB どおりへ直した）。`_Move` の付いた大きなペロロは
+    EX を 2 本持ち、それぞれ `RootMotionMoveWithSpeedDAO` で**決まった座標へ歩く**。
+    `mv` は builder の `_mv_of` が出す `[[x, y, start_ms, cool_ms, dur_frames, speed], …]`。
+    7305701 は Ex01 → (3, 31) start 0 / cool 10000、Ex02 → (−3, 31) start 5000 / cool 10000、
+    どちらも `Duration` 190 フレーム・`MoveSpeed` 100（＝ 1.0 ワールド/秒）。
 
-    出どころ:
-      ・`CharacterAIExcelTable` 5002 … `SearchAndMove` / `CloseToTarget` / `MinimumPositionGap 0`
-      ・`CharacterSkillListExcelTable` 7305701 … `IsRootMotion: true`、通常攻撃
-        `Perorozilla01InsaneMiddleSize01Normal01` は `Range 0`・`InvokerDirection ToTarget`・
-        `TargetSortRule Distance/Lowest`（いちばん近い相手まで寄って殴る）
-      ・EX（`Perorozilla01InsaneMiddleSizeEx01/02`）の `RootMotionMoveWithSpeed` は
-        `SpawnWorldPosition (±3, 31)` で、**横へずれるだけ**。前はこれを歩きの全部と
-        読んでいて、盤の体が生徒へ寄らず、2 体が同じ向きへ動いていた（先生の指摘）
-    **速さはデータに無い**（歩きはアニメーションの RootMotion で、`CharacterStat` の
-    `MoveSpeed` は 0）。動画 GzfPSXaZKlU のコマで、8 秒に湧いた 6 体が 17〜18 秒には
-    生徒の足元に居た（約 5 ワールド）ので **0.55 ワールド/秒** に置く。
-    止まるのは体の半径 ＋ 0.45（生徒ぶん）まで寄ったところ。`s` は湧いてからの秒 */
-var MVSPD = 0.55;
-export function posAt(r, si, p0, s, br0) {
-  if (!(s > 0)) { return p0; }
-  var sl = slotPos(r, si), best = null, bd2 = 0, i;
-  for (i = 0; i < sl.length; i++) {
-    var dd = d2(p0.x, p0.y, sl[i].x, sl[i].y);
-    if (best == null || dd < bd2) { best = sl[i]; bd2 = dd; }
+    **生徒へは寄らない。**前は「いちばん近い生徒の枠へ歩いて止まる」と作っていて、
+    盤の上で味方の足元に静止していた。先生の「ペロロミニオンの静止 そんなはずない、
+    ちゃんと確認して」（2026-09-06）で DB を読み直し、往復の正体がこの EX 2 本だと分かった。
+
+    読み方: 湧いてから `start_ms` 後に撃てるようになり、撃ったら撃ち始めから `cool_ms` は
+    撃てない。撃てるものが複数なら先に撃てるようになった方。撃っている `dur_frames` の間
+    `speed`/100 ワールド/秒で目標へ歩き、着いたら立つ。撃つものが無ければその場で待つ。
+    7305701 なら 3 秒で右端へ着き、以後 6.33 秒ごとに向きを変えて x ±3 を往復する
+    （動画 GzfPSXaZKlU でも味方の前を横に歩き続けている）。
+    クールタイムを撃ち終わりから数える読みだと左端で 3.67 秒立つ周期になるが、
+    動画にその停止は見えないので撃ち始めから数える。 */
+export function posAt(mv, p0, s) {
+  if (!mv || !mv.length || !(s > 0)) { return p0; }
+  var fps = B.fps || 30, x = p0.x, y = p0.y, t = 0, rd = [], i, k, guard = 0;
+  for (i = 0; i < mv.length; i++) { rd.push((mv[i][2] || 0) / 1000); }
+  while (t < s && guard++ < 10000) {
+    k = -1;
+    for (i = 0; i < mv.length; i++) {
+      if (rd[i] <= t + 1e-9 && (k < 0 || rd[i] < rd[k])) { k = i; }
+    }
+    if (k < 0) {
+      var nx = Infinity;
+      for (i = 0; i < mv.length; i++) { if (rd[i] < nx) { nx = rd[i]; } }
+      if (!(nx < Infinity) || nx >= s) { break; }
+      t = nx;
+      continue;
+    }
+    var m = mv[k], dur = (m[4] || 0) / fps, sp = (m[5] || 0) / 100, end = t + dur;
+    var dx = m[0] - x, dy = m[1] - y, dist = Math.sqrt(dx * dx + dy * dy);
+    var run = (Math.min(end, s) - t) * sp;
+    if (dist > 1e-9 && run > 0) { var f = Math.min(1, run / dist); x += dx * f; y += dy * f; }
+    rd[k] = t + (m[3] || 0) / 1000;
+    if (!(dur > 0)) { break; }
+    t = end;
   }
-  if (!best) { return p0; }
-  // `d2` は 2 乗ではなく距離そのもの（この盤の書き方）
-  var dist = bd2, stop = (br0 || 0.5) + 0.45, run = Math.max(0, dist - stop);
-  var f = run > 1e-9 ? Math.min(1, s * MVSPD / run) * (run / dist) : 0;
-  return { x: p0.x + (best.x - p0.x) * f, y: p0.y + (best.y - p0.y) * f };
+  return { x: x, y: y };
 }
 
 /** `tm` は時刻の文脈 `{t, w0, slot, fall}`（2026-09-05）——`t` はその時刻、`w0` は
@@ -223,7 +237,7 @@ export function bodiesOf(r, si, ex, on, tm) {
         // 先生の「倒れた地点でペロロミニオンは停止すべき」）
         var ft = tm.fall ? tm.fall[tm.w0 + '|' + wave + '|m' + i] : null;
         if (ft != null && ft - t0 < s) { s = Math.max(0, ft - t0); }
-        if (mv) { var p = posAt(r, sec, { x: x, y: y }, s, br(q[0])); x = p.x; y = p.y; }
+        if (mv) { var p = posAt(mv, { x: x, y: y }, s); x = p.x; y = p.y; }
       }
       out.push({ n: q[0], x: x, y: y, br: br(q[0]), cid: cid(q[0]), sum: wave,
                  key: 'm' + i, mv: MOVE.test(q[0]) });
