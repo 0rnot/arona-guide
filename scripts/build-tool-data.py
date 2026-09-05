@@ -4506,7 +4506,12 @@ def _spawn_when(sec):
         for c in (e.get("Conditions") or []):
             t = str(c.get("$type") or "").split(",")[0].split(".")[-1]
             t = t.replace("GroundCondition", "")
-            if t == "SectionStarted":
+            # **`BattleStarted` も「最初から居る」。**ビナー 15 難易度と
+            # グレゴリオ Hard〜Torment の湧きは `SectionStarted` ではなく
+            # `GroundConditionBattleStarted` で、`start` に落とさないと画面側の
+            # `spawnOn`（`board.js`）が「まだ湧いていない」と読んで盤が空になる
+            # （2026-09-05 に `data.js` の `spw` を 27 体ぶん数えて見つけた）
+            if t in ("SectionStarted", "BattleStarted"):
                 tags.append("start")
             elif c.get("StatusToCheck"):
                 tags.append("st:" + str(c["StatusToCheck"]))
