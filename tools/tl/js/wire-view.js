@@ -87,13 +87,21 @@ export function wireView() {
   pane.addEventListener('mousedown', function (e) {
     if (e.button !== 0 || !e.target.closest) { return; }
     if (!e.target.closest('#bsvg')) { return; }
-    var h = e.target.closest('[data-h="aim"]'), b = e.target.closest('circle.mv[data-k]');
+    var h = e.target.closest('[data-h="aim"]'), b = e.target.closest('circle.bd[data-k]');
     if (!h && !b) { return; }
     var sh = pickShot(diff());
     if (!sh || sh.ix == null || !st.tl[sh.ix]) { return; }
     e.preventDefault();
     mark();
-    drag = { sh: sh, k: b ? b.getAttribute('data-k') : null, moved: false };
+    // **体を押したら、その発はその体を狙う**（`bk`。2026-09-05 夜）。体は動かさない——
+    // 前は動く体をドラッグで置けたが、置いた瞬間に歩きが止まっていた（先生の指摘）
+    if (b) {
+      var ub = st.tl[sh.ix];
+      ub.bk = b.getAttribute('data-k'); delete ub.ax; delete ub.ay; delete ub.bp;
+      recount(sh); draw();
+      return;
+    }
+    drag = { sh: sh, k: null, moved: false };
   });
   window.addEventListener('mousemove', function (e) {
     if (!drag) { return; }
@@ -106,7 +114,7 @@ export function wireView() {
       if (!u.bp) { u.bp = {}; }
       u.bp[drag.k] = [+w.x.toFixed(2), +w.y.toFixed(2)];
     } else {
-      u.ax = +w.x.toFixed(2); u.ay = +w.y.toFixed(2);
+      u.ax = +w.x.toFixed(2); u.ay = +w.y.toFixed(2); delete u.bk;
     }
     drawView();
   });
@@ -130,7 +138,7 @@ export function wireView() {
     if (!sh || sh.ix == null || !st.tl[sh.ix]) { return; }
     mark();
     var u = st.tl[sh.ix];
-    delete u.ax; delete u.ay; delete u.bp;
+    delete u.ax; delete u.ay; delete u.bp; delete u.bk;
     recount(sh);
     draw();
   });

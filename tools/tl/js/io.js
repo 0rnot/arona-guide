@@ -78,6 +78,7 @@ export function restore(o) {
                        ax: (u.ax == null || !isFinite(u.ax)) ? undefined : +u.ax,
                        ay: (u.ay == null || !isFinite(u.ay)) ? undefined : +u.ay,
                        bp: (u.bp && typeof u.bp === 'object') ? u.bp : undefined,
+                       bk: (typeof u.bk === 'string' && u.bk) ? u.bk : undefined,
                        pk: u.pk || undefined });
         }
       }

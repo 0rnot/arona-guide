@@ -1,4 +1,5 @@
 import { $, B, esc } from './util.js';
+import { fallMap } from './deadly.js';
 import { memo, st } from './core.js';
 import { diff } from './boss.js';
 import { bossAdv, ggMode, phaseSpans, ggRuns, ggSolve } from './carry.js';
@@ -187,9 +188,9 @@ function boardSvg(r, sec, sh, q, bs, pk) {
          p.br.toFixed(2) + '" class="bd' + (p.cid === r.cid ? ' boss' : '') +
          (hitK[p.key] ? ' on' : '') + (p.mv ? ' mv' : '') +
          (p.put ? ' put' : '') + '"' +
-         (p.mv ? ' data-k="' + esc(p.key) + '"' : '') + '><title>' + esc(p.n) +
+         (p.cid !== r.cid ? ' data-k="' + esc(p.key) + '"' : '') + '><title>' + esc(p.n) +
          (p.sum ? '（' + p.sum + ' の召喚）' : '') +
-         (p.mv ? '\nドラッグで動かせます' : '') + '\n半径 ' + p.br.toFixed(2) +
+         (p.cid !== r.cid ? '\nクリックでこの体を狙う（動けば追いかける）' : '') + '\n半径 ' + p.br.toFixed(2) +
          '\n' + p.x.toFixed(2) + ', ' + p.y.toFixed(2) + '</title></circle>';
   }
   if (bc) { g += '<circle cx="' + bc.x + '" cy="' + bc.y + '" r="0.8" class="bcn"><title>生徒の立ち位置（ビーコン）</title></circle>'; }
@@ -260,8 +261,8 @@ function ring(cx, cy, R, EX, a, deg) {
     （ドラッグの最中は写しが古いことがある）。 */
 export function placedOf(u) {
   var raw = (u && u.ix != null) ? st.tl[u.ix] : null;
-  if (raw) { return { ax: raw.ax, ay: raw.ay, bp: raw.bp || null }; }
-  return { ax: u && u.ax, ay: u && u.ay, bp: (u && u.bp) || null };
+  if (raw) { return { ax: raw.ax, ay: raw.ay, bp: raw.bp || null, bk: raw.bk || null }; }
+  return { ax: u && u.ax, ay: u && u.ay, bp: (u && u.bp) || null, bk: (u && u.bk) || null };
 }
 
 /** **その 1 発の当たり。**人が置いていればその位置で、置いていなければ
@@ -275,7 +276,17 @@ export function coverOfUse(r, u, sc, bp) {
   var bpe = bp === undefined ? pd.bp : bp;
   var ex = sc.wave || false, on = sc.gg ? ['st:Groggy'] : null;
   // **時刻の文脈**（2026-09-05）: 発動時刻の位置に体を置き、撃つ子は自分の枠に立つ
-  var tm = { t: u.t, w0: sc.w0, slot: u.i };
+  var tm = { t: u.t, w0: sc.w0, slot: u.i, fall: fallMap(r) };
+  // **体を狙った発は、その体の発動時刻の位置へ**（`bk`。2026-09-05 夜、先生の
+  // 「動きながら追従して」）。動く体なら歩いた先、転倒していればその場所
+  if (pd.bk) {
+    var bl = bodiesOf(r, sc.sec, ex, on, tm), j;
+    for (j = 0; j < bl.length; j++) {
+      if (bl[j].key === pd.bk) {
+        return hitsAtOf(r, sid, kd, sc.sec, ex, on, { x: bl[j].x, y: bl[j].y }, bpe, tm);
+      }
+    }
+  }
   if (pd.ax != null && pd.ay != null) {
     return hitsAtOf(r, sid, kd, sc.sec, ex, on, { x: pd.ax, y: pd.ay }, bpe, tm);
   }
@@ -303,7 +314,7 @@ export function dsOf(r, u) {
   // `sceneAt(r, t, true)` で曲線を引かないこと。これはそれでも戻ってきたときの止め
   if (DS_BUSY) { return null; }
   var p = st.party[u.i], pd = placedOf(u);
-  var key = ['ds', r.cid, p.id, u.k, u.t, u.tg, u.mc, pd.ax, pd.ay,
+  var key = ['ds', r.cid, p.id, u.k, u.t, u.tg, u.mc, pd.ax, pd.ay, pd.bk || '',
              pd.bp ? JSON.stringify(pd.bp) : '', JSON.stringify(st.bst || null)].join('|');
   return memo(key, function () {
     DS_BUSY = true;
@@ -346,15 +357,15 @@ export function syncAim(r) {
     // y4h8XEXXfgw が 幅の中 90% → 9% まで落ちた。盤の湧き点は動く個体の
     // 実際の位置ではないので、覆う数を少なく見積もる）。
     // **置いていない発は今までどおり入力欄で決める。**
-    if (raw.ax == null && raw.ay == null && !raw.bp) { delete raw._ak; continue; }
+    if (raw.ax == null && raw.ay == null && !raw.bp && !raw.bk) { delete raw._ak; continue; }
     // **摘みが出るか（`placeKind`）では絞らない。**位置を選べない枠でも
     // 形と射程は決まっているので、当たりは盤から出せる
     if (!(B.area[sid] || {})[u.k] || !(B.geo[sid] || {})[u.k]) { delete raw._ak; continue; }
     sc = sceneAt(r, u.t);
     key = [r.cid, sid, u.k, sc.sec, sc.wave, sc.gg ? 1 : 0,
-           raw.ax, raw.ay, raw.bp ? JSON.stringify(raw.bp) : ''].join('|');
+           raw.ax, raw.ay, raw.bk || '', raw.bp ? JSON.stringify(raw.bp) : ''].join('|');
     if (raw._ak === key) { continue; }
-    q = coverOfUse(r, { i: u.i, k: u.k, ax: raw.ax, ay: raw.ay, bp: raw.bp }, sc);
+    q = coverOfUse(r, { i: u.i, k: u.k, ax: raw.ax, ay: raw.ay, bp: raw.bp, bk: raw.bk }, sc);
     a = aimFromHits(r, q);
     if (!a) { delete raw._ak; continue; }
     raw._ak = key; raw.tg = a.tg; raw.mc = a.mc; raw.hb = a.hb;
@@ -382,8 +393,8 @@ export function drawView() {
   var pd = placedOf(sh);
   var bs = q ? q.bs : movedBodies(bodiesOf(r, sc.sec, sc.wave || false,
                                            sc.gg ? ['st:Groggy'] : null,
-                                           { t: t, w0: sc.w0 }), bp);
-  var put = sh && (pd.ax != null || pd.bp);
+                                           { t: t, w0: sc.w0, fall: fallMap(r) }), bp);
+  var put = sh && (pd.ax != null || pd.bp || pd.bk);
   // **見出しは作り直さない。**再生中は 1 秒に何十回も描き直すので、毎回
   // `innerHTML` で入れ替えると押している最中にボタンが消えて
   // **click が発火しない**（2026-09-04 に実測。止められなくなる）。
@@ -400,7 +411,9 @@ export function drawView() {
   }
   hd.querySelector('.vpl').textContent = PLAY ? '\u23f8' : '\u25b6';
   hd.querySelector('.vrt').textContent = '\u00d7' + RATE;
-  hd.querySelector('.vrs').hidden = !put;
+  // **場所は空けたまま消す**（`visibility`）。`hidden` だと見出しの折り返しが変わって
+  // 盤の高さが揺れる（2026-09-05 夜、先生の「盤の敵表示が若干ちいさくなる」）
+  hd.querySelector('.vrs').style.visibility = put ? '' : 'hidden';
   hd.querySelector('.vclk').textContent = clock(dur - t);
   bx.innerHTML = boardSvg(r, sc.sec, sh, q, bs, pk);
   fitBoard(bx);

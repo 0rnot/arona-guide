@@ -33,6 +33,16 @@ import { bodiesOf, coverOf, movedBodies, subIxOfCid } from './board.js';
     `dmgCurve0` は池ごとに呼ぶ）。鍵にはダメージが変わる入口（`PICKF`・会心率の
     差し替え・ボスの状態の窓）も入れる——`memo` は編成や置いた発が変わったときにしか
     捨てられないので */
+/** **体が転倒した時刻**（`{波|体の札: 秒}`。2026-09-05 夜）。盤で体をそこに止めるのに使う。
+    `deadlyPts` の中（`coverOfUse` → `fallMap`）から戻ってきたときは null——
+    転倒前の位置で数えるので、止める必要が無い */
+var _fall = {}, FALL_BUSY = false;
+export function fallMap(r) {
+  if (FALL_BUSY || !r) { return null; }
+  FALL_BUSY = true;
+  try { deadlyPts(r, 'avg'); } finally { FALL_BUSY = false; }
+  return _fall;
+}
 export function deadlyPts(r, key) {
   var k = 'deadly|' + (r && r.cid) + '|' + key + '|' + PICKF + '|' +
           (st.crit == null ? '' : st.crit) + '|' + JSON.stringify(st.bst || []);
@@ -40,6 +50,7 @@ export function deadlyPts(r, key) {
 }
 function deadlyPts0(r, key) {
   var subs = (r && r.sub) || [], i, q, z, has = false;
+  _fall = {};
   for (i = 0; i < subs.length; i++) { if (subs[i].dead) { has = true; break; } }
   if (!has || !r.board) { return []; }
   var us = usesSorted(), ev = [], out = [], dur = r.dur || 240, scenes = {};
@@ -54,7 +65,7 @@ function deadlyPts0(r, key) {
     var cv = coverOfUse(r, u, sc, bp);
     var bs = cv ? cv.bs
            : movedBodies(bodiesOf(r, sc.sec, sc.wave, sc.gg ? ['st:Groggy'] : null,
-                                  { t: u.t, w0: sc.w0, slot: u.i }), bp);
+                                  { t: u.t, w0: sc.w0, slot: u.i, fall: null }), bp);
     if (!bs || !bs.length) { continue; }
     scenes[wk] = bs;
     var hit = hitBodies(r, u, cv, bs, subs);
@@ -88,6 +99,7 @@ function deadlyPts0(r, key) {
     var dd = ix != null ? subs[ix].dead : null;
     if (!dd || acc[k] < dd[1]) { return; }
     fired[k] = 1;
+    _fall[k] = t;
     // 放つ。円の中の本体には直に、ミニオンには転移率ぶんを本体へ。**自分は入らない**
     var nb = coverOf(['Circle', dd[2]], { x: b.x, y: b.y }, { x: 0, y: 1 }, scenes[wk2], null) || [];
     for (var j = 0; j < nb.length; j++) {
@@ -114,7 +126,7 @@ function deadlyPts0(r, key) {
 function hitBodies(r, u, cv, bs, subs) {
   var pd = placedOf(u), out = [], cand = [], i;
   if (u.tg == null || !subs[u.tg] || !subs[u.tg].dead) { return out; }
-  if (pd.ax != null && pd.ay != null && cv && cv.hit) {
+  if (((pd.ax != null && pd.ay != null) || pd.bk) && cv && cv.hit) {
     for (i = 0; i < cv.hit.length; i++) { if (cv.hit[i].cid !== r.cid) { out.push(cv.hit[i]); } }
     return out;
   }

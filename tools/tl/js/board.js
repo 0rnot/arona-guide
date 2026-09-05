@@ -128,60 +128,50 @@ export function secShift(r, si) {
   return { x: b0 && b1 ? b1.x - b0.x : 0, y: b0 && b1 ? b1.y - b0.y : 0 };
 }
 
-/** **動く体の歩き方の区間**（2026-09-05）。`mv` は `bd.bd[名前][3]`
-    ＝ `[[x, y, start_ms, cool_ms, dur_frames, speed], …]`（`build-tool-data.py` の `_mv_of`）。
-    `_Move` の付いた大きなペロロは EX スキル（`RootMotionMoveWithSpeed`）で決まった
-    座標へ歩く。**冷却の明けている EX を並びの順に使い、次の EX は今の EX が
-    終わって（`dur`）から**——ここは DB に無い仮定で、動画のコマで確かめる。
-    返すのは `[[t0, t1, from, to], …]`（湧いてからの秒） */
-var _segs = {};
-function mvSegs(mv, p0) {
-  var k = JSON.stringify([mv, p0.x, p0.y]);
-  if (_segs[k]) { return _segs[k]; }
-  var segs = [], pos = { x: p0.x, y: p0.y }, idle = 0, ready = [], i, guard = 0;
-  for (i = 0; i < mv.length; i++) { ready.push((mv[i][2] || 0) / 1000); }
-  while (guard++ < 200) {
-    // **使えるようになった順**（同時なら先に冷却の明けたほう、それも同じなら並びの順）。
-    // 並びの順だけで選ぶと、湧き点へ戻る EX（Ex03 → (3.5, 32)）を持つ子が
-    // 一度も出発しなくなる
-    var pick = -1, tu = Infinity, rd = Infinity;
-    for (i = 0; i < mv.length; i++) {
-      var at = Math.max(idle, ready[i]);
-      if (at < tu - 1e-9 || (Math.abs(at - tu) <= 1e-9 && ready[i] < rd - 1e-9)) {
-        tu = at; pick = i; rd = ready[i];
-      }
-    }
-    if (pick < 0 || tu > 300) { break; }
-    var e = mv[pick], spd = (e[5] || 0) / U, dur = (e[4] || 0) / B.fps;
-    var dx = e[0] - pos.x, dy = e[1] - pos.y, dist = Math.sqrt(dx * dx + dy * dy), to;
-    var tt = (spd > 0 && dist > 1e-9) ? Math.min(dist / spd, dur) : 0;
-    if (dist > 1e-9 && spd > 0 && tt < dist / spd - 1e-9) {
-      var f = tt * spd / dist;
-      to = { x: pos.x + dx * f, y: pos.y + dy * f };
-    } else {
-      to = dist > 1e-9 && spd > 0 ? { x: e[0], y: e[1] } : pos;
-    }
-    segs.push([tu, tu + tt, pos, to]);
-    pos = to; idle = tu + dur; ready[pick] = tu + (e[3] || 0) / 1000;
+/** **生徒の枠の座標**（ビーコン ＋ `fslot` をビーコンの向きで回したもの）。
+    `standOf` と同じ式。`sl` を省くと全部の枠を返す */
+export function slotPos(r, si, sl) {
+  var b = beaconOf(r, si), fs = (r && r.board && r.board.fslot) || [], fw = beaconFw(r, si), out = [], i;
+  if (!b) { return sl == null ? out : null; }
+  for (i = 0; i < fs.length; i++) {
+    if (sl != null && i !== sl) { continue; }
+    out.push({ x: b.x + fs[i][0] * fw.y + fs[i][1] * fw.x,
+               y: b.y - fs[i][0] * fw.x + fs[i][1] * fw.y, sl: i });
   }
-  _segs[k] = segs;
-  return segs;
+  if (sl != null) { return out[0] || { x: b.x, y: b.y, sl: sl }; }
+  return out.length ? out : [{ x: b.x, y: b.y, sl: 0 }];
 }
-/** 湧いてから `s` 秒のときの位置。湧く前（`s < 0`）は湧き点 */
-export function posAt(mv, p0, s) {
-  if (!mv || !mv.length || !(s >= 0)) { return p0; }
-  var segs = mvSegs(mv, p0), cur = p0, i;
-  for (i = 0; i < segs.length; i++) {
-    var sg = segs[i];
-    if (s < sg[0]) { break; }
-    if (s >= sg[1]) { cur = sg[3]; continue; }
-    var f = (s - sg[0]) / ((sg[1] - sg[0]) || 1);
-    return { x: sg[2].x + (sg[3].x - sg[2].x) * f, y: sg[2].y + (sg[3].y - sg[2].y) * f };
+/** **動く体の歩き方**（2026-09-05 夜に作り直した）。`_Move` の付いた大きなペロロは
+    **いちばん近い生徒の枠へまっすぐ歩いて、届いたら止まる**。
+
+    出どころ:
+      ・`CharacterAIExcelTable` 5002 … `SearchAndMove` / `CloseToTarget` / `MinimumPositionGap 0`
+      ・`CharacterSkillListExcelTable` 7305701 … `IsRootMotion: true`、通常攻撃
+        `Perorozilla01InsaneMiddleSize01Normal01` は `Range 0`・`InvokerDirection ToTarget`・
+        `TargetSortRule Distance/Lowest`（いちばん近い相手まで寄って殴る）
+      ・EX（`Perorozilla01InsaneMiddleSizeEx01/02`）の `RootMotionMoveWithSpeed` は
+        `SpawnWorldPosition (±3, 31)` で、**横へずれるだけ**。前はこれを歩きの全部と
+        読んでいて、盤の体が生徒へ寄らず、2 体が同じ向きへ動いていた（先生の指摘）
+    **速さはデータに無い**（歩きはアニメーションの RootMotion で、`CharacterStat` の
+    `MoveSpeed` は 0）。動画 GzfPSXaZKlU のコマで、8 秒に湧いた 6 体が 17〜18 秒には
+    生徒の足元に居た（約 5 ワールド）ので **0.55 ワールド/秒** に置く。
+    止まるのは体の半径 ＋ 0.45（生徒ぶん）まで寄ったところ。`s` は湧いてからの秒 */
+var MVSPD = 0.55;
+export function posAt(r, si, p0, s, br0) {
+  if (!(s > 0)) { return p0; }
+  var sl = slotPos(r, si), best = null, bd2 = 0, i;
+  for (i = 0; i < sl.length; i++) {
+    var dd = d2(p0.x, p0.y, sl[i].x, sl[i].y);
+    if (best == null || dd < bd2) { best = sl[i]; bd2 = dd; }
   }
-  return cur;
+  if (!best) { return p0; }
+  // `d2` は 2 乗ではなく距離そのもの（この盤の書き方）
+  var dist = bd2, stop = (br0 || 0.5) + 0.45, run = Math.max(0, dist - stop);
+  var f = run > 1e-9 ? Math.min(1, s * MVSPD / run) * (run / dist) : 0;
+  return { x: p0.x + (best.x - p0.x) * f, y: p0.y + (best.y - p0.y) * f };
 }
 
-/** `tm` は時刻の文脈 `{t, w0, slot}`（2026-09-05）——`t` はその時刻、`w0` は
+/** `tm` は時刻の文脈 `{t, w0, slot, fall}`（2026-09-05）——`t` はその時刻、`w0` は
     波の EX が始まった時刻（`sceneAt`）、`slot` は撃つ子の枠。**あれば、召喚の体は
     湧くフレーム（`smn[][3]`）を待ち、動く体は `posAt` の位置に置く。**無ければ今までどおり湧き点 */
 export function bodiesOf(r, si, ex, on, tm) {
@@ -227,9 +217,13 @@ export function bodiesOf(r, si, ex, on, tm) {
       q = bd.smn[wave][i];
       var x = q[1], y = q[2], e = bd.bd[q[0]], mv = e && e[3];
       if (tm && tm.t != null && tm.w0 != null) {
-        var s = tm.t - (tm.w0 + (q[3] || 0) / B.fps);
+        var t0 = tm.w0 + (q[3] || 0) / B.fps, s = tm.t - t0;
         if (s < -1e-9) { continue; }
-        if (mv) { var p = posAt(mv, { x: x, y: y }, s); x = p.x; y = p.y; }
+        // **転倒した体はそこで止まる**（`deadly.js` の `fallMap`。2026-09-05 夜、
+        // 先生の「倒れた地点でペロロミニオンは停止すべき」）
+        var ft = tm.fall ? tm.fall[tm.w0 + '|' + wave + '|m' + i] : null;
+        if (ft != null && ft - t0 < s) { s = Math.max(0, ft - t0); }
+        if (mv) { var p = posAt(r, sec, { x: x, y: y }, s, br(q[0])); x = p.x; y = p.y; }
       }
       out.push({ n: q[0], x: x, y: y, br: br(q[0]), cid: cid(q[0]), sum: wave,
                  key: 'm' + i, mv: MOVE.test(q[0]) });
