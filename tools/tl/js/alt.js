@@ -40,7 +40,26 @@ export function markerOn(mk) {
 // ホシノ（臨戦）／アタッカー の EX がこの 2 択（[1,9] と [10,10]）。既定が先頭の
 // 弱いほうになっていて、MMMM の子でも 1 段目の倍率で出ていた（2026-09-02、ペロロジラ
 // 4 本で「ホシノ EX 1 発が実測の半分」の一因）
-export function condOK(c, idx, tb) {
+/** **状態の札が付いている時刻か**（2026-09-05）。`B.spc[id][Key]` は
+    `[付ける枠, 持続 ms, ApplyFrame]`（`build-tool-data.py` の注記）。
+    ネルの `Fury` は NS が付けて 20 秒。EX を撃った時刻がその中なら 1.7 倍の候補 */
+export function spcOn(idx, key, at) {
+  var p = idx == null ? null : st.party[idx];
+  var sp = p ? ((B.spc || {})[p.id] || {})[key] : null;
+  if (!sp || at == null) { return null; }
+  var ts = [], i, dur = diff().dur || 240;
+  if (sp[0] === 'Ex') {
+    for (i = 0; i < st.tl.length; i++) {
+      if (st.tl[i].i === idx && st.tl[i].t != null) { ts.push(st.tl[i].t); }
+    }
+  } else { ts = nsTimes(p.id, dur, idx); }
+  var af = (sp[2] || 0) / (B.fps || 30), du = sp[1] / 1000;
+  for (i = 0; i < ts.length; i++) {
+    if (at >= ts[i] + af - 1e-9 && at < ts[i] + af + du - 1e-9) { return true; }
+  }
+  return false;
+}
+export function condOK(c, idx, tb, at) {
   // **相手の性質で決まる条件は、相手が分かっているのでこちらで決める。**
   // `Type=TargetProp Parameter=ArmorType Operand=Equal Value=Unarmed` が
   // サクラコ「光と共にあらんことを」＝ 特殊装甲への特攻で、装甲はどのボスにも
@@ -60,7 +79,9 @@ export function condOK(c, idx, tb) {
   }
   m = /Parameter=([A-Za-z0-9_]+) Operand=Exists Value=(True|False)/.exec(String(c || ''));
   if (m) {
-    var on = markerOn(m[1]);
+    // **撃つ時刻が分かっていれば、その時刻に札が付いているかで決める**（2026-09-05）
+    var on = spcOn(idx, m[1], at);
+    if (on == null) { on = markerOn(m[1]); }
     if (on == null) { return true; }
     return on === (m[2] === 'True');
   }
@@ -109,7 +130,7 @@ export function slotIdxOf(id) {
 /** `tb` は当たる先のステータス（`aimOf` の返り）。**省くとボス本体で判定する。**
     `nb` はその 1 発が当たる数（`u.mc`）。**渡すと「N人以下／N人以上」の候補が
     そこで決まる**（2026-09-04）。渡さなければ今までどおり候補を減らさない */
-export function altOf(id, kind, tb, nb) {
+export function altOf(id, kind, tb, nb, at) {
   var a = ((B.dmgalt || {})[id] || {})[kind];
   if (!(a && a.v && a.v.length)) { return null; }
   var keep = [], i, idx = slotIdxOf(id);
@@ -129,7 +150,7 @@ export function altOf(id, kind, tb, nb) {
       }
     }
   }
-  for (i = 0; i < a.v.length; i++) { if (condOK(a.c[i], idx, tb)) { keep.push(i); } }
+  for (i = 0; i < a.v.length; i++) { if (condOK(a.c[i], idx, tb, at)) { keep.push(i); } }
   // **1 つも当てはまらないなら、この枠のダメージは出ない。**`condOK` は
   // 決められない条件を true で返すので、ここへ来るのは「全部が決められて、
   // かつ全部外れた」ときだけ（2026-09-03。それまでは候補を丸ごと返していて、

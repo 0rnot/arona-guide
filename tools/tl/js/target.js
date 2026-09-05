@@ -51,6 +51,9 @@ export function buffTo(u) {
   // イブキ（水着）は `Ex` が「戦闘中ずっと」2 人を指定する作りで、
   // 1 発ごとではなく枠に持たせるほうが合う（2026-09-01）
   var per = toList(u.bto);
+  // **バフの相手が空でカードを渡す相手だけあるなら、それを使う**（2026-09-05。
+  // 逆向きは `engine.js` の `ordRow`）
+  if (!per.length && u.to != null) { per = [u.to]; }
   if (per.length) { return per; }
   var fix = toList(sl && sl.nsto);
   return fix.length ? fix : (autoTo(u) || []);

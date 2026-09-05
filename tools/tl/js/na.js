@@ -2,6 +2,7 @@ import { B } from './util.js';
 import { isMain, memo, slotOf, st } from './core.js';
 import { sim } from './engine.js';
 import { statsOf } from './passive.js';
+import { exStart, nsBusy } from './ns.js';
 
 // ------------------------------------------------------------ 通常攻撃
 // **出どころは SchaleDB の `students.min.json` の `Skills.Normal.Frames`**
@@ -169,6 +170,16 @@ export function naShots0(idx, dur, raw) {
     return af;
   }
   var busy = busyOf(idx), out = [], t = a.ent, k = 0, guard = 0;
+  // **NS の演出中も通常攻撃は止まる。EX は NS の演出が明けてから出る**（2026-09-05、
+  // `ns.js` の `nsBusy` / `exStart` の注記）。生の並び（`raw`）では見ない（輪になる）
+  if (!raw) {
+    var bz2 = [], q2;
+    for (q2 = 0; q2 < busy.length; q2++) {
+      var s2 = exStart(idx, busy[q2][0], dur);
+      bz2.push([s2, s2 + (busy[q2][1] - busy[q2][0])]);
+    }
+    busy = bz2.concat(nsBusy(idx, dur));
+  }
   function block(x) {
     for (var q = 0; q < busy.length; q++) {
       if (x >= busy[q][0] - 1e-9 && x < busy[q][1] - 1e-9) { return busy[q][1]; }

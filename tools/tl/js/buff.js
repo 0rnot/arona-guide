@@ -2,7 +2,7 @@ import { B } from './util.js';
 import { SLOTS, memo, st } from './core.js';
 import { diff } from './boss.js';
 import { kindOf, sim } from './engine.js';
-import { nsKind, nsTimes } from './ns.js';
+import { exStart, nsKind, nsTimes } from './ns.js';
 import { altOf } from './alt.js';
 
 // ------------------------------------------------------------ 時限のバフ・デバフ
@@ -61,7 +61,7 @@ export function usesSorted() {
 }
 export function usesSorted0() {
   var out = [], i, k;
-  var sm = sim(), rowOf = {};
+  var sm = sim(), rowOf = {}, dur9 = diff().dur || 240;
   for (i = 0; i < sm.rows.length; i++) {
     if (sm.rows[i].e && sm.rows[i].e._ix != null) { rowOf[sm.rows[i].e._ix] = sm.rows[i]; }
   }
@@ -96,7 +96,8 @@ export function usesSorted0() {
     // 6 発が 3〜9 秒後ろへずれて討伐時刻が合わなかった）
     var keepT = st.tl[i].md === 't' && r0 && r0.why && kindOf(r0) === 'cost';
     out.push({ i: sl0,
-               t: (r0 && r0.at != null && !keepT) ? r0.at : st.tl[i].t,
+               // **NS の演出中のタップは、演出が明けてから出る**（2026-09-05、`ns.js` の `exStart`）
+               t: exStart(sl0, (r0 && r0.at != null && !keepT) ? r0.at : st.tl[i].t, dur9),
                k: kd0, bto: st.tl[i].bto, pk: pk0,
                // **当たる先。**null ならボス本体
                tg: st.tl[i].tg == null ? null : st.tl[i].tg,

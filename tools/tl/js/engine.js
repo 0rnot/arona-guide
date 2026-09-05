@@ -51,7 +51,13 @@ export function ovOf(u) {
 }
 // 1 件を engine の order 行にする
 export function ordRow(u, t) {
-  return { i: u.i, t: t, to: u.to == null ? null : u.to, ov: ovOf(u),
+  // **カードを渡す相手が空なら、バフを渡す相手をそのまま使う**（2026-09-05、先生
+  // 「臨戦ユズのEXのコスト半減3回が反映されてない」）。ユズ（臨戦）・ウイ・セイアの
+  // EX は「自身を除く味方1人」にコスト減とバフを同時に配るので相手は 1 人で同じ。
+  // 入力欄が 2 つ（`to` / `bto`）に分かれていて、片方だけ入れると効かなかった
+  var to0 = u.to;
+  if (to0 == null) { var bt9 = buffTo(u); if (bt9.length === 1) { to0 = bt9[0]; } }
+  return { i: u.i, t: t, to: to0 == null ? null : to0, ov: ovOf(u),
            f: u.f == null ? null : u.f, bt: u.bt == null ? null : u.bt,
            // **1 発ごとに選んだ候補の段**（2026-09-04）。engine の `addCost` が
            // 「追加で最大 N コストを消耗して」の払う数として読む。

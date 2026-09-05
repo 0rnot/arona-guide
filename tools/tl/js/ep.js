@@ -384,14 +384,23 @@ export function ssBuffUses() {
       if (ab9.length !== 1 || (ab9[0] || []).length) { continue; }
       var sh9 = naShotsRaw(i, dur9);
       for (j = 0; j < sh9.length; j++) { ts.push(sh9[j].t); }
-    } else if (e[0] === 3 || e[0] === 17) {
+    } else if (e[0] === 3 || e[0] === 17 || e[0] === 18) {
       var pr = String(e[1] || '').split(',');
       for (k = 0; k < pr.length; k++) {
-        if (pr[k] === 'Ex') {
+        var pk9 = pr[k].trim();
+        // **Event 18 は「内部効果（札）が付いたとき」で、`Parameters` が札の名前**
+        // （2026-09-05、ネルの「<s:Fury>の時、攻撃力 +31.9%（30秒間）」）。
+        // 札を付ける枠は `eptl`（`build-tool-data.py`）。その枠の時刻に読み替える
+        if (e[0] === 18) {
+          var tp9 = ((B.eptl || {})[p.id] || {})[pk9];
+          if (!tp9) { bad = true; break; }
+          pk9 = tp9[0];
+        }
+        if (pk9 === 'Ex') {
           for (j = 0; j < st.tl.length; j++) {
             if (st.tl[j].i === i) { ts.push(st.tl[j].t); }
           }
-        } else if (pr[k] === 'Public' || pr[k] === 'GearPublic') {
+        } else if (pk9 === 'Public' || pk9 === 'GearPublic') {
           ts = ts.concat(nsTimes(p.id, dur9, i));
         } else { bad = true; }
       }

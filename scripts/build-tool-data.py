@@ -5062,6 +5062,58 @@ def _ls_single(group):
     return got
 
 
+_rate_cache = {}
+
+
+def _ls_rate(group):
+    """**出るかどうかが確率の効果**の名札（2026-09-05）。`{GroupId: 1 万分率}`。
+
+    アルの NS「50%の確率で、さらに円形範囲内の敵に攻撃力の476%分のダメージ」。
+    `LogicEffect_PC` の `ApplyRate` は両方 10000 で、確率はそこには無い。
+    `LevelSkill/AruPublic01.json` の弾（`TargetProjectileEntityDAO`）にぶら下がる
+    円（`SplashAreaEntityData`、`CircleAreaEntityDAO`）が `SpawnRate: 5000` を持ち、
+    その `AreaAbilities` が `Aru_Public01_Effect02` を配る。**実体が湧く確率**。
+    `LevelSkill` 全部を数えて `SpawnRate` が 10000 でないのはこの 1 枠だけ
+    （2026-09-05）。入れ子の実体は親の確率も掛ける。
+    返す鍵は `_ls_single` と同じ（見つかったダメージの名札すべて）で、
+    呼ぶ側が SchaleDB の行と並び順で結ぶ。 """
+    if not group:
+        return None
+    if group in _rate_cache:
+        return _rate_cache[group]
+    d = _ls_doc(group)
+    dm, got = _dmg_gids(), {}
+
+    def _ab(node, key, rate):
+        for a in (node.get(key) or []):
+            if not isinstance(a, dict):
+                continue
+            for g in (a.get("LogicEffectGroupIds") or []):
+                if g in dm:
+                    got[g] = min(got.get(g, 10000), rate)
+
+    def _walk(o, dep, rate):
+        if dep > 8:
+            return
+        if isinstance(o, dict):
+            sr = o.get("SpawnRate")
+            if isinstance(sr, int) and 0 < sr < 10000:
+                rate = rate * sr // 10000
+            if "Abilities" in o or "AreaAbilities" in o:
+                _ab(o, "Abilities", rate)
+                _ab(o, "AreaAbilities", rate)
+            for k, v in o.items():
+                if k != "$type":
+                    _walk(v, dep + 1, rate)
+        elif isinstance(o, list):
+            for v in o:
+                _walk(v, dep + 1, rate)
+    _walk(d, 0, 10000)
+    got = got or None
+    _rate_cache[group] = got
+    return got
+
+
 # **生徒の枠 → `LevelSkill` の名札**（`DB/CharacterSkillListExcelTable`）。
 # 行は `(MinimumTierCharacterGear, FormIndex)` ごとに 1 本ずつあり、
 # **`EmptySkill` でない最初の 1 枚**を取る（オトギ・トキで踏んだ形。6425 行の注を参照）。
@@ -7514,6 +7566,14 @@ def build_tl():
                 for _m in _ab:
                     if _m.get("TemplateId"):
                         ep_tid.setdefault(sid, []).append(_m["TemplateId"])
+            # **Event 18（内部効果が付いたとき）は `Parameters` が札の名前**（2026-09-05）。
+            # ネルの「<s:Fury>の時、攻撃力 +31.9%（30秒間）」は
+            # `Dummy_Neru_Rage, Dummy_Neru_GearPublicRage` で、NS が付ける札。
+            # 同じ表（`eptl`）に載せて、画面側が NS の時刻から SS のバフを置けるようにする
+            if ep[0] == 18 and ep[1]:
+                for _t in str(ep[1]).split(","):
+                    if _t.strip():
+                        ep_tid.setdefault(sid, []).append(_t.strip())
         # ---- 育成の中身。**適用の仕方は SchaleDB の CharacterStats そのまま**
         #   eqp … 装備の枠 3 つ（Hat / Hairpin / Watch など）
         #   wp  … 固有武器 [攻撃1, 攻撃100, HP1, HP100, 治癒1, 治癒100, 伸び方, 地形, 段数]
@@ -7715,7 +7775,11 @@ def build_tl():
                     #   Single … **1 体にしか当たらない効果**（2026-09-05）。
                     #     出どころは `_ls_single` の注記。画面側は範囲の体数（`mc`）を
                     #     このぶんには掛けない（`dmg.js` の `o.one`）
-                    1 if id(e) in _single_ids else None]
+                    1 if id(e) in _single_ids else None,
+                    #   SpawnRate … **出るかどうかが確率の効果**（2026-09-05）。
+                    #     1 万分率。出どころは `_ls_rate` の注記（アルの NS の円だけ）。
+                    #     画面側は 平均にその割合を掛け、下振れは出ない、上振れは出る
+                    _rate_ids.get(id(e))]
             # **`Group` は「何段目か」で、足すものではなく択一。**
             # ネル（制服）の Ex1 は Group 0〜4 × 条件 2 通りの 10 件あって、
             # 全部足すと 1 発 5,727,546（ボス HP の 25%）になっていた。
@@ -7740,6 +7804,16 @@ def build_tl():
                     if _sgl[_g]:
                         _single_ids.add(id(_e))
                         print(f"  単体の効果: {sid} {kind} {_g}"
+                              f"（DescParamId {_e.get('DescParamId')}）")
+            # **出るかどうかが確率の効果**（2026-09-05）。結び方は上と同じ
+            _rate_ids = {}
+            _rt = _ls_rate(_skill_gid(csl_all.get(x["Id"]), kind))
+            if _rt and len(_rt) == len(dmg_all):
+                _es_sorted = sorted(dmg_all, key=lambda e: (e.get("DescParamId") or 0))
+                for _g, _e in zip(sorted(_rt), _es_sorted):
+                    if _rt[_g] < 10000:
+                        _rate_ids[id(_e)] = _rt[_g]
+                        print(f"  確率つきの効果: {sid} {kind} {_g} {_rt[_g]}"
                               f"（DescParamId {_e.get('DescParamId')}）")
             _excl = tl_excl_desc(sk)
             xcand = ([e for e in plain
@@ -8105,6 +8179,12 @@ def build_tl():
     # **本人のスキルが付けるぶんだけ採る。**マリナ（チーパオ）の毒はミドリ・ジュリ・
     # サヤも付けるが、他人ぶんは時刻が決まらないので入れない
     ep_tpl, ntpl = {}, 0
+    # **状態の札**（2026-09-05）。`Skills.<枠>.Effects[].Type == "Special"` の `Key`
+    # （ネルの `Fury`、トキの `CH0187Mod`）を、`LogicEffect_PC` の同じ `Channel` の行に
+    # 結んで `[付ける枠, 持続(ms), ApplyFrame]`。`dmgalt` の
+    # 「Parameter=Fury Operand=Exists」を撃つ時刻で決めるのに要る（`alt.js` の `condOK`）。
+    # 持続は `EndConditionArgument`（ネル 20000 ＝ 20 秒）。無い（-1 や 0）ものは載せない
+    spc_out = {}
     if ep_tid:
         _le = as_list(get_json(BADB.format("LogicEffect_PC")))
         _by = {}
@@ -8164,6 +8244,32 @@ def build_tl():
         print("  SS の条件の札 " + str(ntpl) + " 件を解いた（生徒 "
               + str(len(ep_tpl)) + " 人）／内訳 "
               + str(_c.Counter(v[0] for m in ep_tpl.values() for v in m.values()).most_common()))
+        _bych = {}
+        for _r in _le:
+            if _r.get("Channel") is not None and _r.get("Level") in (1, None):
+                _bych.setdefault(_r["Channel"], []).append(_r)
+        for _sid, _sks in _sk.items():
+            for _slot0 in ("Ex", "Public", "GearPublic"):
+                _s0 = _sks.get(_slot0) or {}
+                for _e0 in (_s0.get("Effects") or []):
+                    if _e0.get("Type") != "Special" or not _e0.get("Key"):
+                        continue
+                    if _e0.get("Channel") is None:
+                        continue
+                    for _r in _bych.get(_e0["Channel"], []):
+                        _m2 = _slot.match(_r.get("GroupId") or "")
+                        if not _m2 or _m2.group(1) != _dev.get(_sid) or _m2.group(2) != _slot0:
+                            continue
+                        _du = _r.get("EndConditionArgument")
+                        if not _du or _du < 0:
+                            continue
+                        _old = spc_out.setdefault(_sid, {}).get(_e0["Key"])
+                        if _old is None or _du > _old[1]:
+                            spc_out[_sid][_e0["Key"]] = [_slot0, _du, _e0.get("ApplyFrame") or 0]
+                        break
+        print("  状態の札 " + str(sum(len(v) for v in spc_out.values())) + " 件（生徒 "
+              + str(len(spc_out)) + " 人）: "
+              + ", ".join(f"{k} {list(v.keys())}" for k, v in list(spc_out.items())[:8]))
 
     used = sorted({g for x in bosses for r in x["d"] for g in r["ex"]}
                   | {r["ns"] for x in bosses for r in x["d"] if r["ns"]})
@@ -8184,7 +8290,9 @@ def build_tl():
         "dmgKeys": ["Scale", "Hits", "CriticalCheck", "Block", "Period",
                     "Duration", "IgnoreDef", "HitFrames", "Zone", "Stab",
                     "MultiplySource", "MultiplierConstant", "Type", "ApplyFrame",
-                    "NsEvery(ノーマルスキルの発動 N 回毎に)"],
+                    "NsEvery(ノーマルスキルの発動 N 回毎に)", "HitCap", "StatMod",
+                    "HpRate", "Acc", "OverrideSkillDamageType", "Single",
+                    "SpawnRate(出る確率。1 万分率。無ければ必ず出る)"],
         # 条件でダメージが変わるもの。**画面のバーで 1 つ選ぶ。**
         # `c` は条件の原文、`v[i]` はその候補ぶんの効果（`dmg` と同じ並び）
         "dmgalt": alt_out,
@@ -8224,6 +8332,8 @@ def build_tl():
         #    1 回で付く個数, サブスキル 1 発で減る個数]
         # **4 番目・5 番目は説明文からしか出ない**（`LogicEffect_PC` は真偽値しか持たない）
         "eptl": ep_tpl,
+        # **状態の札**（2026-09-05）: `{Key: [付ける枠, 持続 ms, ApplyFrame]}`。上の注記
+        "spc": spc_out,
         # **範囲の形と半径**（`Skills.<枠>.Radius`）。**何体いるかは入っていない**
         "area": area_out,
         "geo": geo_out,

@@ -15,7 +15,15 @@ import { fits, liveBuffs } from './target.js';
 // `SkillType` がそう言っている（Ex=EXスキル / Public=ノーマルスキル /
 // Passive=パッシブスキル / WeaponPassive=パッシブスキル＋ / ExtraPassive=サブスキル）
 export var PASS = ['Passive', 'WeaponPassive', 'ExtraPassive'];
-export function passiveList() {
+/** **「EX スキルの使用中」だけ効く SS**（2026-09-05、アルの会心値 +38.3%）。
+    `B.ep` の Event が 301 で、条件が `GetCurrentBehavior() == [BehaviorType.UseExSkill01]`。
+    持続時間を持たないので常時に見えるが、**乗るのは EX の一撃だけ**
+    （NS・通常攻撃の会心値まで上がっていた）。`passiveList(true)` のときだけ乗せる */
+export function exOnly(id) {
+  var e = (B.ep || {})[id];
+  return !!(e && e[0] === 301 && /UseExSkill/.test(String(e[2] || '')));
+}
+export function passiveList(exOn) {
   var out = [], i, k, q;
   for (i = 0; i < SLOTS; i++) {
     var p = st.party[i];
@@ -32,6 +40,7 @@ export function passiveList() {
         var rv = rowVals(e, (sl0.stk || {})[slot] || 0), vals = rv.v;
         // **持続時間があるものは常時ではない**（何かで発動する）。乗せない
         if (e[4] != null) { continue; }
+        if (slot === 'ExtraPassive' && !exOn && exOnly(p.id)) { continue; }
         var mx = slot === 'ExtraPassive' ? sl0.sslv : sl0.plv;
         var lv = Math.min(mx, vals.length) || 1;
         out.push({ owner: i, slot: slot, tg: e[0] || [], stat: e[1],
@@ -53,8 +62,8 @@ export function ssCount(idx) {
   return [on, off];
 }
 // idx 番の枠に効く常時バフだけを取り出す
-export function passiveFor(idx) {
-  var all = passiveList(), out = [], i;
+export function passiveFor(idx, exOn) {
+  var all = passiveList(exOn), out = [], i;
   var want = isMain(idx) ? 'AllyMain' : 'AllySupport';
   for (i = 0; i < all.length; i++) {
     var e = all[i], hit = false, q;
@@ -105,10 +114,10 @@ export var _sc = {};
 // 1 回の描き直しで 9 万回引くので、その文字列を作るだけで重かった（2026-09-03）。
 // 覚えている答えは 編成・育成・置いた 1 発・ボス が変わったら捨てるので、
 // 同じ (生徒, 枠, 時刻) なら中身も同じ
-export function statsOf(id, idx, at) {
-  return memo('sf|' + id + '|' + idx + '|' + at, function () {
+export function statsOf(id, idx, at, exOn) {
+  return memo('sf|' + id + '|' + idx + '|' + at + (exOn ? '|ex' : ''), function () {
     var o = buildOpt(idx);
-    o.extra = idx == null ? [] : passiveFor(idx);
+    o.extra = idx == null ? [] : passiveFor(idx, exOn);
     if (idx != null && at != null) {
       o.extra = o.extra.concat(liveBuffs(at, 'ally' + idx, diff()));
     }

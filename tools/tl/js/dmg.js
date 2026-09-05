@@ -352,7 +352,8 @@ export function dmgAt(idx, r, at, kind, pick, tg, gx, nso, only, nb) {
   var effs = ((B.dmg[p.id] || {})[kd] || []).slice();
   // **条件でダメージが変わるぶんは、選んだ候補を 1 つだけ足す**（既定は先頭）。
   // 当たる先で候補が変わるので、`aimOf` の相手で絞る（2026-09-03）
-  var alt = altOf(p.id, kd, aimOf(r, tg), nb);
+  // **撃つ時刻を渡す。**状態の札（ネルの Fury）で候補が決まる（`alt.js` の `spcOn`）
+  var alt = altOf(p.id, kd, aimOf(r, tg), nb, at);
   if (alt) { effs = effs.concat(alt.v[pick || 0] || []); }
   // **`only` は「継続ダメージだけ」「それ以外だけ」の切り分け**（2026-09-03）。
   // 曲線を引くときに、DoT を撃った瞬間ではなく `Period` ごとに置くのに要る
@@ -366,7 +367,9 @@ export function dmgAt(idx, r, at, kind, pick, tg, gx, nso, only, nb) {
   var lv = slotOf(idx).lv || 90, bs = r.bs || {};
   // **スキルの段数はスキルごとに別。**NS を EX のレベルで引くと 5 段目になる
   var slv = lvlOf(idx, kd);
-  var cs = statsOf(p.id, idx, at);
+  // **EX の一撃には「EX スキルの使用中」だけ効く SS を乗せる**（2026-09-05、
+  // アルの会心値 +38.3%。`passive.js` の `exOnly` の注記）
+  var cs = statsOf(p.id, idx, at, /^Ex\d*$/.test(kd));
   if (!cs) { return null; }
   var tb = aimOf(r, tg);
   var eb = at == null ? { def: tb.def, dodge: tb.dodge, crR: tb.crR, cdR: tb.cdR,
@@ -566,6 +569,11 @@ export function dmgAt(idx, r, at, kind, pick, tg, gx, nso, only, nb) {
               : (((B.bam[e[18][2]] || {})[eb.armor] || [10000])[0] / 10000);
       base = aSum * (aEnd ? 1 : tm) * aEm * drA * drB * lvMod;
     }
+    // **出るかどうかが確率の効果**（2026-09-05、アルの NS の円 476% が 50%）。
+    // `LevelSkill` の実体の `SpawnRate`（1 万分率。`build-tool-data.py` の
+    // `_ls_rate` の注記）。**平均はその割合ぶん、下振れは出ない、上振れは出る。**
+    // 分散は「出る／出ない」のぶん（Bernoulli）を、発ごとの乱れの外側に掛ける
+    var pr = e[21] != null ? e[21] / 10000 : 1;
     // **グロッキー中は確定会心**（この関数の上、ggCritAt の注記に出典）
     var cr = e[2] === 'Never' ? 0
            : (e[2] === 'Always' || ggCritAt(at) ? 1 : cEff);
@@ -605,23 +613,23 @@ export function dmgAt(idx, r, at, kind, pick, tg, gx, nso, only, nb) {
         if (hsm > 0) {
           for (uz = 0; uz < hs.length; uz++) {
             ub = base / nt * (hs[uz] / hsm);
-            o.u.push({ b: ub, sN: sN, cr: cr, cm: cm, hit: hit, one: !!e[20] });
+            o.u.push({ b: ub, sN: sN, cr: cr, cm: cm, hit: hit, one: !!e[20], pr: pr });
           }
         } else {
-          o.u.push({ b: base / nt, sN: sN, cr: cr, cm: cm, hit: hit, one: !!e[20] });
+          o.u.push({ b: base / nt, sN: sN, cr: cr, cm: cm, hit: hit, one: !!e[20], pr: pr });
         }
       }
     }
-    o.min += capS(sN);
+    o.min += pr < 1 ? 0 : capS(sN);
     o.max += capS(cm);
-    o.avg0 += cA * hit;
-    o.avgC += cB * hit;
-    o.avg += ((1 - cr) * cA + cr * cB) * hit;
+    o.avg0 += cA * hit * pr;
+    o.avgC += cB * hit * pr;
+    o.avg += ((1 - cr) * cA + cr * cB) * hit * pr;
     // **1 体にしか当たらない効果はここにも積む**（マコト（水着）の 1 発目 275.51%）
     if (e[20]) {
-      o.one.min += capS(sN); o.one.max += capS(cm);
-      o.one.avg0 += cA * hit; o.one.avgC += cB * hit;
-      o.one.avg += ((1 - cr) * cA + cr * cB) * hit;
+      o.one.min += pr < 1 ? 0 : capS(sN); o.one.max += capS(cm);
+      o.one.avg0 += cA * hit * pr; o.one.avgC += cB * hit * pr;
+      o.one.avg += ((1 - cr) * cA + cr * cB) * hit * pr;
     }
     // 1 回ぶん（`tick` で割ったもの）の平均と 2 乗平均
     // **多段は 1 発ずつ別々に振られる。**まとめて 1 発として扱うと分散が
@@ -635,7 +643,9 @@ export function dmgAt(idx, r, at, kind, pick, tg, gx, nso, only, nb) {
     var eC = 1 + (cm - 1) * cr, eC2 = (1 - cr) + cr * cm * cm;
     var m1 = b1 * eR * hit * eC;
     var m2 = b1 * b1 * hf2 * eR2 * hit * eC2;
-    o.va += n1 * Math.max(0, m2 - m1 * m1 * hf2);
+    // 出る／出ないのぶん: Var = p·n·v1 + p(1−p)·(n·m1)²（`pr` が 1 なら前と同じ式）
+    var v1 = Math.max(0, m2 - m1 * m1 * hf2);
+    o.va += pr * n1 * v1 + pr * (1 - pr) * n1 * n1 * m1 * m1;
   }
   return o;
 }

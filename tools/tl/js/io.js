@@ -23,8 +23,18 @@ export function snapshot() {
 function remapTg(tg, subs) {
   if (tg == null) { return null; }
   tg = +tg;
-  if (!subs || !subs.length || tg < 0 || tg >= subs.length) { return tg; }
-  var id = subs[tg], now = diff().sub || [], i, best = -1;
+  var now = diff().sub || [], i, best = -1;
+  // **今の並びに無い番号は、転移する部位（範囲攻撃の既定の当たる先）へ寄せる**
+  // （2026-09-05 夜）。盤を直す前に入れた TL の `tg: 2` が、並びを 2 件にまとめたあと
+  // 宙に浮いて、本体だけ扱い（平均 34.6M・未討伐）になっていた。先生「盤を直す前の
+  // 入力だから正常に選択できなかったのかな」。null（本体）にはしない——
+  // その発は「当たる数」を持っていて、部位に当てるつもりで置かれている
+  if (!subs || !subs.length || tg < 0 || tg >= subs.length) {
+    if (tg < now.length) { return tg; }
+    for (i = 0; i < now.length; i++) { if (now[i].tr) { return i; } }
+    return null;
+  }
+  var id = subs[tg];
   for (i = 0; i < now.length; i++) { if (now[i].id === id) { return i; } }
   for (i = 0; i < now.length; i++) {
     if (!now[i].cnt || now[i].id > id) { continue; }

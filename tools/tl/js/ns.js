@@ -268,3 +268,33 @@ export function nsBuffDur(id) {
   }
   return mx;
 }
+
+/** **NS の演出の窓**（秒）。`[[開始, 終了], …]`。EX と同じで、**この間は通常攻撃が
+    止まる**。長さは `nsInfo().du`（`AutoUseRule` の `Duration`、フレーム）。
+    2026-09-05、先生「EXとNSが被った場合の処理、EXと通常攻撃が被った場合も正確に」。
+    それまで通常攻撃は EX の演出だけを避けていて、NS の演出中も撃ち続けていた。
+    **`naShotsRaw`（生の並び）からは呼ばない**（`nsTimes → naShotsRaw → nsBusy →
+    nsTimes` で輪になる。`na.js` の `raw` の分岐） */
+export function nsBusy(idx, dur) {
+  var p = st.party[idx];
+  if (!p) { return []; }
+  return memo('nsb|' + idx + '|' + dur, function () {
+    var n = nsInfo(p.id), out = [], i;
+    if (!n) { return out; }
+    var ts = nsTimes(p.id, dur, idx), du = (n.du || 0) / (B.fps || 30);
+    for (i = 0; i < ts.length; i++) { out.push([ts[i], ts[i] + du]); }
+    return out;
+  });
+}
+/** **NS の演出中にタップした EX は、演出が明けてから出る。**中でなければそのまま。
+    逆向き（EX の演出中に周期が来た NS）は `nsTimes0` の `push()` が前からやっている。
+    TL に書いてある秒はタップした時刻なので、置く側（`buff.js` の `usesSorted0`）と
+    通常攻撃を止める側（`na.js`）の両方がこれを通す */
+export function exStart(idx, t, dur) {
+  if (t == null) { return t; }
+  var w = nsBusy(idx, dur), i;
+  for (i = 0; i < w.length; i++) {
+    if (t >= w[i][0] - 1e-9 && t < w[i][1] - 1e-9) { return +w[i][1].toFixed(4); }
+  }
+  return t;
+}
