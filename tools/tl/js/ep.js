@@ -1,9 +1,9 @@
 import { B } from './util.js';
-import { st } from './core.js';
+import { memo, st } from './core.js';
 import { aimOf, enemyAt } from './target.js';
 import { diff } from './boss.js';
 import { nsTimes } from './ns.js';
-import { naShotsRaw } from './na.js';
+import { naShotsRaw, naTimes } from './na.js';
 
 // ------------------------------------------------------------ サブスキル（SS）のダメージ
 // **道具は長いあいだ `ExtraPassive` のダメージを 1 発も数えていなかった**
@@ -89,14 +89,23 @@ export function epCond(id, ms) {
     //   [貼る側のスロット, 持続(ms), 必要なスタック数]
     // **`CheckTarget: 1`（敵に貼る札）は入れない。**どの体に貼ったかを
     // 道具は持っていない（マキ・ノノミ（水着）がこれ）。
-    // **スタックが要るものも入れない**（レンゲ 50・ハレ（キャンプ）15）。
+    // **数える札は、付く数と減る数が読めるものだけ数える**（2026-09-05、ハレ（キャンプ））。
+    // `[枠, -1, 上限, 1 回で付く数, 1 発で減る数]` ＝ 切れない札を EX で 5 個付け
+    // （最大 15）、攻撃 1 発ごとに 1 個減らす。窓ではなく**発数**で決まるので、
+    // 時刻の判定（`epOkAt`）ではなく `epShots` / `epShotN` が 1 発ずつ引く。
+    // レンゲの 50 は状態で数えるものではない（`build-tool-data.py` の注記。`tp[2]` が 0 で来る）。
+    // 持続つきで数える札はまだ入れない
     if (m.t === 'LogicEffectTemplateModifierDAO' && m.IncludeType === 1 &&
         m.CheckTarget === 0) {
       var tp = ((B.eptl || {})[id] || {})[m.TemplateId];
-      if (!tp || !(tp[1] > 0) || tp[2] ||
-          (tp[0] !== 'Ex' && tp[0] !== 'Public' && tp[0] !== 'GearPublic')) {
+      if (!tp || (tp[0] !== 'Ex' && tp[0] !== 'Public' && tp[0] !== 'GearPublic')) {
         return null;
       }
+      if (tp[2] && !(tp[1] > 0) && tp[3] > 0 && tp[4] > 0) {
+        out.push({ k: 'stk', v: { slot: tp[0], cap: tp[2], gain: tp[3], lose: tp[4] } });
+        continue;
+      }
+      if (!(tp[1] > 0) || tp[2]) { return null; }
       out.push({ k: 'tmpl', v: { slot: tp[0], du: tp[1] / 1000 } });
       continue;
     }
@@ -137,12 +146,16 @@ export function epConds(id, abs) {
   }
   return out.length ? out : null;
 }
+function slotIx(id) {
+  var i;
+  for (i = 0; i < st.party.length; i++) {
+    if (st.party[i] && st.party[i].id === id) { return i; }
+  }
+  return -1;
+}
 /** その札が貼られている窓（開始時刻の並び）。編成に居ないときは空 */
 function tmplAt(id, slot) {
-  var i, idx = -1;
-  for (i = 0; i < st.party.length; i++) {
-    if (st.party[i] && st.party[i].id === id) { idx = i; break; }
-  }
+  var i, idx = slotIx(id);
   if (idx < 0) { return []; }
   if (slot === 'Ex') {
     var out = [];
@@ -162,6 +175,57 @@ function tmplCount(id, v, t) {
   return v.cap > 0 ? Math.min(n, v.cap) : n;
 }
 function inRange(n, lo, hi) { return n >= lo && n <= hi; }
+/** **数える札が減る発**（2026-09-05）。その子の EX（`v.slot`）が付けた札を
+    通常攻撃 1 発ごとに `lose` 個ずつ減らして、減らせた発の時刻を返す。
+    付く時刻は EX の効果と同じフレーム——ハレ（キャンプ）は `Frame 78` に
+    `LevelOneTimeAbility01`（味方の攻撃力）と `02`（自分の札）が並んでいる
+    （`LevelSkill/CH0233Ex01.json`）ので、`B.buf` の `ApplyFrame` を使う。
+    **通常攻撃の並びはバフ込み**（`naTimes`。曲線を引く側からしか呼ばれないので、
+    `ssBuffUses` のような輪にはならない）。退場の区間（`awayAt`）は見ていない
+    ——その発は束に入らないので damage は付かないが、札は減る扱いになる */
+function stkFires(id, v) {
+  var idx = slotIx(id);
+  if (idx < 0) { return []; }
+  var dur = diff().dur || 240;
+  return memo('stk|' + id + '|' + idx + '|' + dur, function () {
+    var gs = tmplAt(id, v.slot).slice().sort(function (a, b) { return a - b; });
+    var af = ((((B.buf[id] || {})[v.slot] || [])[0] || [])[5] || 0) / (B.fps || 30);
+    var sh = naTimes(idx, dur), out = [], n = 0, g = 0, j;
+    for (j = 0; j < sh.length; j++) {
+      while (g < gs.length && gs[g] + af <= sh[j] + 1e-9) { n = Math.min(v.cap, n + v.gain); g++; }
+      if (n >= v.lose) { n -= v.lose; out.push(sh[j]); }
+    }
+    return out;
+  });
+}
+function stkOf(id) {
+  var e = (B.ep || {})[id], cs = epConds(id, e && e[8]), i, j;
+  if (cs == null) { return null; }
+  for (j = 0; j < cs.length; j++) {
+    for (i = 0; i < cs[j].length; i++) { if (cs[j][i].k === 'stk') { return cs[j][i].v; } }
+  }
+  return null;
+}
+/** 束の中で SS が出る発だけに絞る。数える札の子でなければそのまま返す */
+export function epShots(id, times) {
+  var v = stkOf(id);
+  if (!v) { return times; }
+  var f = stkFires(id, v), out = [], i, j = 0;
+  for (i = 0; i < times.length; i++) {
+    while (j < f.length && f[j] < times[i] - 1e-6) { j++; }
+    if (j < f.length && Math.abs(f[j] - times[i]) <= 1e-6) { out.push(times[i]); j++; }
+  }
+  return out;
+}
+/** 同じことを発数だけで（`clear.js` は束に数しか持たない）。
+    `t0`〜`t1` の間に出る発の数で頭を打つ */
+export function epShotN(id, n, t0, t1) {
+  var v = stkOf(id);
+  if (!v) { return n; }
+  var f = stkFires(id, v), c = 0, i;
+  for (i = 0; i < f.length; i++) { if (f[i] >= t0 - 1e-9 && f[i] < t1 - 1e-9) { c++; } }
+  return Math.min(n, c);
+}
 /** 置けない理由。置けるなら null。**画面の「読み込み」の欄に出す** */
 /** SS のダメージの行。**条件つきのぶん（`dmgalt`）も数える**（2026-09-03）。
     ノノミの「大型の敵に対して +12.8%」は `Condition` 付きなので `dmg` が空で、
@@ -227,6 +291,8 @@ export function epOkAt(id, r, t, tg) {
         if (!hit) { ok = false; }
       }
       if (q.k === 'tmpln') { if (!inRange(tmplCount(id, q.v, t), q.lo, q.hi)) { ok = false; } }
+      // 数える札は発ごとに `epShots` / `epShotN` が引く。ここでは 1 発も出ないときだけ落とす
+      if (q.k === 'stk' && !stkFires(id, q.v).length) { ok = false; }
     }
     if (ok) { return true; }
   }

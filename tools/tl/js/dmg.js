@@ -544,13 +544,27 @@ export function dmgAt(idx, r, at, kind, pick, tg, gx, nso, only, nb) {
     //   ・`ApplyDefense` が無く `DefensePenetrationRate: 10000` なので**防御は引かない**
     //   ・`CriticalCheck: 1` で会心なし（説明文も「会心が発動しません」）
     // 地形・被ダメージ率・レベル差はそのまま掛かる（DAO の `Apply…` が全部 true）
+    // **黒板に溜めたぶんを弾にするもの**（2026-09-05、ケイの NS）。4 番目が `'End'`。
+    // 窓は撃つ時刻で閉じる（EX の 25 秒が終わってから NS が出る）ので、
+    // `at − 25 秒 〜 at` を取り込む。上限は**基本攻撃力**（説明文「ケイの基本攻撃力の
+    // 5000%まで」）なので、時限バフを外した `statsOf(…, null)` で引く。
+    // 地形は掛からない（`ApplyTerrainAdaptationDamage: false`）。
+    // **取り込むのは本体の池に入ったぶん全部**（`accIn`）で、説明文の「自身を除く
+    // 範囲内の味方」より広いが、Torment の速さでは数秒で上限に届くので差は出ない。
+    // 出どころは `build-tool-data.py` の `bb_rows` の注記
     if (e[18]) {
-      var aSec = (e[18][0] || 0) / 1000;
+      var aSec = (e[18][0] || 0) / 1000, aEnd = e[18][3] === 'End', aAtk = atk;
       var aRt = ((e[18][1] || [])[Math.min(slv, (e[18][1] || []).length) - 1] || 10000) / 10000;
-      var aSum = Math.min(atk * (sc / 10000), accIn(at, aSec) * aRt);
+      if (aEnd) {
+        var cs0 = statsOf(p.id, idx, null);
+        aAtk = cs0 ? cs0.get('AttackPower') : atk;
+        if (isMain(idx)) { aAtk += support('AttackPower', lv, r); }
+      }
+      var aSum = Math.min(aAtk * (sc / 10000),
+                          accIn(aEnd ? (at == null ? null : at - aSec) : at, aSec) * aRt);
       var aEm = eb.armor === 'Structure' ? 1
               : (((B.bam[e[18][2]] || {})[eb.armor] || [10000])[0] / 10000);
-      base = aSum * tm * aEm * drA * drB * lvMod;
+      base = aSum * (aEnd ? 1 : tm) * aEm * drA * drB * lvMod;
     }
     // **グロッキー中は確定会心**（この関数の上、ggCritAt の注記に出典）
     var cr = e[2] === 'Never' ? 0

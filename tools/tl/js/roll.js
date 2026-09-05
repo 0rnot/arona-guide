@@ -5,7 +5,7 @@ import { naTimes } from './na.js';
 import { usesSorted } from './buff.js';
 import { WANTU, dmgCap, dmgOf, nbOf, repUnits, setWANTU } from './dmg.js';
 import { deadlyPts } from './deadly.js';
-import { epEvery, epOkAt, epOn, epTierPick } from './ep.js';
+import { epEvery, epOkAt, epOn, epShots, epTierPick } from './ep.js';
 import { lastUseAt } from './clear.js';
 import { dsOf } from './view.js';
 
@@ -146,13 +146,14 @@ export function shotsOf(r, opt) {
         var ev1 = epEvery(st.party[i].id), bs1;
         for (bs1 in bucket) {
           var at1 = Math.min((+bs1 + 0.5) * STEP, dur);
-          var cn1 = Math.floor(bucket[bs1].length / ev1);
+          var tl1 = epShots(st.party[i].id, bucket[bs1]);
+          var cn1 = Math.floor(tl1.length / ev1);
           if (!cn1 || !epOkAt(st.party[i].id, r, at1, sub)) { continue; }
           var ds1 = dmgOf(i, r, at1, 'ExtraPassive',
                           epTierPick(st.party[i].id, r, at1, sub), sub);
           if (!ds1 || !ds1.u) { break; }
           for (q = 0; q < cn1; q++) {
-            ev.push({ t: bucket[bs1][q * ev1 + ev1 - 1] || at1, i: i,
+            ev.push({ t: tl1[q * ev1 + ev1 - 1] || at1, i: i,
                       k: 'ExtraPassive', nm: ds1.name, u: ds1.u });
           }
         }

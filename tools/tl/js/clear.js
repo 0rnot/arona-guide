@@ -7,7 +7,7 @@ import { naTimes } from './na.js';
 import { usesSorted } from './buff.js';
 import { PICKF, dmgOf, hitTimes, nbOf, setPICKF } from './dmg.js';
 import { deadlyPts } from './deadly.js';
-import { epEvery, epOkAt, epOn, epTierPick } from './ep.js';
+import { epEvery, epOkAt, epOn, epShotN, epTierPick } from './ep.js';
 import { dsOf } from './view.js';
 
 /** **突破率。**置いた TL で、ボスの HP を削り切れる確率。
@@ -137,7 +137,8 @@ export function clearStat1(r, pf, pid, deadAt, hpNeed) {
         var ev1 = epEvery(st.party[i].id), bs1;
         for (bs1 in bucket) {
           var at1 = Math.min((+bs1 + 0.5) * STEP, dur);
-          var cn1 = Math.floor(bucket[bs1] / ev1);
+          var cn1 = Math.floor(epShotN(st.party[i].id, bucket[bs1],
+                                       +bs1 * STEP, (+bs1 + 1) * STEP) / ev1);
           if (!cn1 || !epOkAt(st.party[i].id, r, at1, subIxOfPool(r, pid))) { continue; }
           // **段で分かれる子は、その時刻の段で候補を決める**（2026-09-04。ミサキ）。
           // 対応が取れない子は `null` が返るので、今までどおり枠の既定を使う
@@ -240,7 +241,8 @@ export function total0(r) {
       var ev2 = epEvery(st.party[i].id), bs2;
       for (bs2 in bucket) {
         var at2 = Math.min((+bs2 + 0.5) * STEP, dur);
-        var cn2 = Math.floor(bucket[bs2] / ev2);
+        var cn2 = Math.floor(epShotN(st.party[i].id, bucket[bs2],
+                                     +bs2 * STEP, (+bs2 + 1) * STEP) / ev2);
         if (!cn2 || !epOkAt(st.party[i].id, r, at2, null)) { continue; }
         var ds2 = dmgOf(i, r, at2, 'ExtraPassive',
                         epTierPick(st.party[i].id, r, at2, null));

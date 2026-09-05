@@ -8,7 +8,7 @@ import { naTimes } from './na.js';
 import { usesSorted } from './buff.js';
 import { PICKF, dmgOf, dotTimes, hitTimes, nbOf, setPICKF } from './dmg.js';
 import { deadlyPts } from './deadly.js';
-import { epEvery, epOkAt, epOn, epTierPick } from './ep.js';
+import { epEvery, epOkAt, epOn, epShots, epTierPick } from './ep.js';
 import { dsOf } from './view.js';
 
 // ------------------------------------------------------------ 部隊の持ち越し
@@ -201,14 +201,16 @@ export function dmgCurve0(r, key, pid, deadAt) {
       var ev3 = epEvery(st.party[i].id), bs3;
       for (bs3 in bucket) {
         var at3 = Math.min((+bs3 + 0.5) * STEP, dur);
-        var cn3 = Math.floor(bucket[bs3].length / ev3);
+        // **数える札の子は、札が減る発だけ**（ハレ（キャンプ）。`ep.js` の `stkFires`）
+        var tl3 = epShots(st.party[i].id, bucket[bs3]);
+        var cn3 = Math.floor(tl3.length / ev3);
         if (!cn3 || !epOkAt(st.party[i].id, r, at3, subIxOfPool(r, pid))) { continue; }
         // **段で分かれる子は、その時刻の段で候補を決める**（2026-09-04。`clear.js` と同じ）
         var ds3 = dmgOf(i, r, at3, 'ExtraPassive',
                         epTierPick(st.party[i].id, r, at3, subIxOfPool(r, pid)),
                         subIxOfPool(r, pid));
         if (!ds3) { break; }
-        for (q = 0; q < cn3; q++) { pts.push([bucket[bs3][q * ev3], ds3[key]]); }
+        for (q = 0; q < cn3; q++) { pts.push([tl3[q * ev3], ds3[key]]); }
       }
     }
   }

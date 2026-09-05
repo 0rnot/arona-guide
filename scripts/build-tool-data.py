@@ -5809,6 +5809,71 @@ def acc_info(e):
     return [dur, rates, "Mystic"]
 
 
+# **黒板に溜めたぶんを弾にする**（2026-09-05、ケイ `CH0335`）。
+# SchaleDB の `Effects` は素の `Damage`（281.97%）しか持たず、説明文の
+# 「さらに該当する増幅装置の蓄積量の<?2>分のダメージ」に当たる行が無い。一次資料は
+# `DB/LogicEffect_PC.json`:
+#   `ExtraStatDamageEffectDAO`（`CH0335_Public01_Effect01`）
+#     `BonusSourceBlackboardKeyString: "CH0335_AllyDamage"`、
+#     `BonusRateBlackboard` 4000〜10000（Level 1〜10 ＝ 説明文の 40%〜100%）、
+#     `CriticalCheck: 1`（会心なし）、`ApplyDefense: true` でも
+#     `DefensePenetrationRate: 10000`（防御を全部貫く）、`ApplyStability: false`、
+#     `ApplyTerrainAdaptationDamage: false`、`ApplyBulletType: true`、
+#     `ApplyDamageRatio: 3`、`ApplyLevelFactor: true`
+#   `AccumulateDamageFromTargetsEffectDAO`（`CH0335_Ex01_Effect04`）
+#     `BlackboardKeyToWrite: "CH0335_AllyDamage"`、`AccumulateRate: 1000`（10%）、
+#     `LimitSourceStat: 2`（攻撃力）× `LimitSourceStatRate: 500000`（5000%）、
+#     `EndConditionArgument: 25000`（25 秒。終わると `Effect05` で NS が出る）
+# 行は `dmg.js` の蓄積の枝（`Acc`）に乗せる。`Scale` を「上限 × 黒板の割合」、
+# 取り込む割合を「10% × 黒板の割合」にしておくと、
+#   min(攻撃力 × 5000%, 25 秒の味方ダメージ × 10%) × 黒板の割合
+# がそのまま出る。`Acc` の 4 番目 `"End"` は「窓は撃つ時刻で閉じる・上限は基本攻撃力・
+# 地形は掛からない」の印。**当たるのはケイの 1 行だけ**（`CH0346` の 3 行は割合が
+# 10〜12% 固定の別物で、`BlackboardKeyToWrite` を持つ蓄積が無いので落ちる）
+_BBD = None
+
+
+def bb_rows(x, kind, base):
+    """黒板の蓄積を足す行。`base` はその枠の素の行（`Block`・`ApplyFrame`・単体の印を写す）。"""
+    global _BBD
+    if kind not in ("Ex", "Public", "GearPublic"):
+        return []
+    if _BBD is None:
+        _BBD = {"x": {}, "a": {}}
+        for r in as_list(get_json(BADB.format("LogicEffect_PC"))):
+            ty = str(r.get("$type") or "")
+            if "ExtraStatDamageEffectDAO" in ty and r.get("BonusSourceBlackboardKeyString"):
+                _BBD["x"].setdefault(r["GroupId"], []).append(r)
+            elif ("AccumulateDamageFromTargetsEffectDAO" in ty
+                  and r.get("BlackboardKeyToWrite")):
+                _BBD["a"][r["BlackboardKeyToWrite"]] = r
+    dev = x.get("DevName") or ""
+    out = []
+    for gid, rows in _BBD["x"].items():
+        if not dev or not gid.startswith(f"{dev}_{kind}0"):
+            continue
+        acc = _BBD["a"].get(rows[0]["BonusSourceBlackboardKeyString"])
+        if not acc or not acc.get("LimitSourceStatRate") or not acc.get("AccumulateRate"):
+            continue
+        rows = sorted(rows, key=lambda r: r.get("Level") or 0)
+        br = [r.get("BonusRateBlackboard") or 0 for r in rows]
+        cap, rate, ms = acc["LimitSourceStatRate"], acc["AccumulateRate"], acc.get("EndConditionArgument")
+        b0 = base[0] if base else None
+        row = [None] * 21
+        row[0] = [cap * v // 10000 for v in br]
+        row[1] = [10000]
+        row[2] = "Never" if rows[0].get("CriticalCheck") == 1 else "Check"
+        row[3] = b0[3] if b0 else None
+        row[9] = 0 if rows[0].get("ApplyStability") is False else None
+        row[12] = "Accumulation"
+        row[13] = b0[13] if b0 else None
+        row[18] = [ms, [rate * v // 10000 for v in br], x.get("BulletType") or "Mystic", "End"]
+        row[20] = b0[20] if b0 else None
+        out.append(row)
+        print(f"  黒板の蓄積: {x['Id']} {kind} {gid} 上限 {cap} 取り込み {rate} 窓 {ms}ms")
+    return out
+
+
 # **変身がいつ切れるか**（2026-09-04、61f）。`Skills.Normal.FormChange` は
 # 効果とフレームを持っているが、**「いつからいつまでその形か」を持っていない。**
 # 一次資料は `DB/LogicEffect_PC.json` の `FormConversionEffectDAO` で、
@@ -7690,6 +7755,8 @@ def build_tl():
             stack = [e for e in plain if e.get("Group") is not None]
             nodt += sum(1 for e in dmg_all if e.get("OverrideSkillDamageType"))
             eff = [_row(e) for e in plain0]
+            # **黒板の蓄積を足す弾**（2026-09-05、ケイ）。出どころは `bb_rows` の注記
+            eff = eff + bb_rows(x, kind, eff)
             if eff:
                 per_skill[kind] = eff
                 ndmg += len(eff)
