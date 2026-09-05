@@ -128,7 +128,63 @@ export function secShift(r, si) {
   return { x: b0 && b1 ? b1.x - b0.x : 0, y: b0 && b1 ? b1.y - b0.y : 0 };
 }
 
-export function bodiesOf(r, si, ex, on) {
+/** **動く体の歩き方の区間**（2026-09-05）。`mv` は `bd.bd[名前][3]`
+    ＝ `[[x, y, start_ms, cool_ms, dur_frames, speed], …]`（`build-tool-data.py` の `_mv_of`）。
+    `_Move` の付いた大きなペロロは EX スキル（`RootMotionMoveWithSpeed`）で決まった
+    座標へ歩く。**冷却の明けている EX を並びの順に使い、次の EX は今の EX が
+    終わって（`dur`）から**——ここは DB に無い仮定で、動画のコマで確かめる。
+    返すのは `[[t0, t1, from, to], …]`（湧いてからの秒） */
+var _segs = {};
+function mvSegs(mv, p0) {
+  var k = JSON.stringify([mv, p0.x, p0.y]);
+  if (_segs[k]) { return _segs[k]; }
+  var segs = [], pos = { x: p0.x, y: p0.y }, idle = 0, ready = [], i, guard = 0;
+  for (i = 0; i < mv.length; i++) { ready.push((mv[i][2] || 0) / 1000); }
+  while (guard++ < 200) {
+    // **使えるようになった順**（同時なら先に冷却の明けたほう、それも同じなら並びの順）。
+    // 並びの順だけで選ぶと、湧き点へ戻る EX（Ex03 → (3.5, 32)）を持つ子が
+    // 一度も出発しなくなる
+    var pick = -1, tu = Infinity, rd = Infinity;
+    for (i = 0; i < mv.length; i++) {
+      var at = Math.max(idle, ready[i]);
+      if (at < tu - 1e-9 || (Math.abs(at - tu) <= 1e-9 && ready[i] < rd - 1e-9)) {
+        tu = at; pick = i; rd = ready[i];
+      }
+    }
+    if (pick < 0 || tu > 300) { break; }
+    var e = mv[pick], spd = (e[5] || 0) / U, dur = (e[4] || 0) / B.fps;
+    var dx = e[0] - pos.x, dy = e[1] - pos.y, dist = Math.sqrt(dx * dx + dy * dy), to;
+    var tt = (spd > 0 && dist > 1e-9) ? Math.min(dist / spd, dur) : 0;
+    if (dist > 1e-9 && spd > 0 && tt < dist / spd - 1e-9) {
+      var f = tt * spd / dist;
+      to = { x: pos.x + dx * f, y: pos.y + dy * f };
+    } else {
+      to = dist > 1e-9 && spd > 0 ? { x: e[0], y: e[1] } : pos;
+    }
+    segs.push([tu, tu + tt, pos, to]);
+    pos = to; idle = tu + dur; ready[pick] = tu + (e[3] || 0) / 1000;
+  }
+  _segs[k] = segs;
+  return segs;
+}
+/** 湧いてから `s` 秒のときの位置。湧く前（`s < 0`）は湧き点 */
+export function posAt(mv, p0, s) {
+  if (!mv || !mv.length || !(s >= 0)) { return p0; }
+  var segs = mvSegs(mv, p0), cur = p0, i;
+  for (i = 0; i < segs.length; i++) {
+    var sg = segs[i];
+    if (s < sg[0]) { break; }
+    if (s >= sg[1]) { cur = sg[3]; continue; }
+    var f = (s - sg[0]) / ((sg[1] - sg[0]) || 1);
+    return { x: sg[2].x + (sg[3].x - sg[2].x) * f, y: sg[2].y + (sg[3].y - sg[2].y) * f };
+  }
+  return cur;
+}
+
+/** `tm` は時刻の文脈 `{t, w0, slot}`（2026-09-05）——`t` はその時刻、`w0` は
+    波の EX が始まった時刻（`sceneAt`）、`slot` は撃つ子の枠。**あれば、召喚の体は
+    湧くフレーム（`smn[][3]`）を待ち、動く体は `posAt` の位置に置く。**無ければ今までどおり湧き点 */
+export function bodiesOf(r, si, ex, on, tm) {
   var bd = r && r.board;
   if (!bd) { return []; }
   var sec = si == null ? SEC0 : si, out = [], i, q;
@@ -169,7 +225,13 @@ export function bodiesOf(r, si, ex, on) {
   if (wave && bd.smn[wave]) {
     for (i = 0; i < bd.smn[wave].length; i++) {
       q = bd.smn[wave][i];
-      out.push({ n: q[0], x: q[1], y: q[2], br: br(q[0]), cid: cid(q[0]), sum: wave,
+      var x = q[1], y = q[2], e = bd.bd[q[0]], mv = e && e[3];
+      if (tm && tm.t != null && tm.w0 != null) {
+        var s = tm.t - (tm.w0 + (q[3] || 0) / B.fps);
+        if (s < -1e-9) { continue; }
+        if (mv) { var p = posAt(mv, { x: x, y: y }, s); x = p.x; y = p.y; }
+      }
+      out.push({ n: q[0], x: x, y: y, br: br(q[0]), cid: cid(q[0]), sum: wave,
                  key: 'm' + i, mv: MOVE.test(q[0]) });
     }
   }
@@ -282,6 +344,17 @@ export function beaconOf(r, si) {
   }
   return null;
 }
+/** ビーコンの向き（単位ベクトル）。データに無ければ前（0, 1） */
+export function beaconFw(r, si) {
+  var bd = r && r.board, sec = si == null ? SEC0 : si, i;
+  for (i = 0; bd && i < (bd.bcn || []).length; i++) {
+    if (bd.bcn[i][0] === sec && bd.bcn[i].length >= 6) {
+      var x = bd.bcn[i][4], y = bd.bcn[i][5], n = Math.sqrt(x * x + y * y) || 1;
+      return { x: x / n, y: y / n };
+    }
+  }
+  return { x: 0, y: 1 };
+}
 
 /** 湧き点を持つ節（＝戦う節）の並び。 */
 export function fightSecs(r) {
@@ -318,9 +391,17 @@ export function aimOf(r, bs, si) {
 
 /** **生徒の立ち位置。**ビーコンから狙う体へ、届くところまで進む。
     `range` はスキルの `Range`（1/100 ワールド）。 */
-export function standOf(r, aim, range, si) {
+export function standOf(r, aim, range, si, tm) {
   var b = beaconOf(r, si);
   if (!b) { return null; }
+  // **枠のずれ**（`fslot`。2026-09-05）。ビーコンの向き（`bcn[][4..5]`）で回す——
+  // `SlotX` は右へ、`SlotZ` は前へ
+  var fs = r.board && r.board.fslot, sl = tm && tm.slot != null ? tm.slot : null;
+  if (fs && sl != null && fs[sl]) {
+    var fw = beaconFw(r, si);
+    b = { x: b.x + fs[sl][0] * fw.y + fs[sl][1] * fw.x,
+          y: b.y - fs[sl][0] * fw.x + fs[sl][1] * fw.y };
+  }
   if (!aim || !range) { return { x: b.x, y: b.y }; }
   var far = d2(b.x, b.y, aim.x, aim.y) - aim.br, need = range / U;
   if (far <= need) { return { x: b.x, y: b.y }; }
@@ -449,13 +530,13 @@ export function movedBodies(bs, bp) {
 
 /** **中心（または狙う点）を人が置いたときの当たり。**`hitsOf` と同じ形を返す。
     `at` はワールド座標 `{x, y}`、`bp` は動かした体。 */
-export function hitsAtOf(r, sid, kind, si, ex, on, at, bp) {
+export function hitsAtOf(r, sid, kind, si, ex, on, at, bp, tm) {
   var sh = ((B.area || {})[sid] || {})[kind],
       gm = ((B.geo || {})[sid] || {})[kind];
   if (!sh || !gm || !r || !r.board || !at) { return null; }
   var pk = placeKind(gm);
   if (!pk) { return null; }
-  var bs = movedBodies(bodiesOf(r, si, ex, on), bp);
+  var bs = movedBodies(bodiesOf(r, si, ex, on, tm), bp);
   if (!bs.length) { return null; }
   // **敵を選ぶ枠は、置いた点にいちばん近い体の中心へ吸い付ける**（`'ent'`）
   if (pk === 'ent') {
@@ -468,7 +549,7 @@ export function hitsAtOf(r, sid, kind, si, ex, on, at, bp) {
   // キャラに盤が対応できてない」）。立ち位置は `bestHitsOf` と同じ「いちばん近い
   // 体へ届くところ」に固定して、置いた点は向きにだけ使う。それまでは置いた点へ
   // 届くところまで歩いていたので、摘みを引くと光線の根元が一緒に動いていた
-  var me = standOf(r, pk === 'aim' ? (aimOf(r, bs, si) || aim) : aim, gm[4], si);
+  var me = standOf(r, pk === 'aim' ? (aimOf(r, bs, si) || aim) : aim, gm[4], si, tm);
   if (!me) { return null; }
   // `Invoker` は撃つ子の足元が中心。狙う点は向きを決めるだけ
   var c = pk === 'aim' ? me : { x: at.x, y: at.y };
@@ -490,15 +571,15 @@ export function hitsAtOf(r, sid, kind, si, ex, on, at, bp) {
       `Invoker`                        … 撃った子の足元が中心
       `InputPosition` / `InputBattleEntity` / `BattleEntity` … 狙った体が中心
       それ以外                          … 決められない（null） */
-export function hitsOf(r, sid, kind, si, ex, on) {
+export function hitsOf(r, sid, kind, si, ex, on, tm) {
   var sh = ((B.area || {})[sid] || {})[kind],
       gm = ((B.geo || {})[sid] || {})[kind];
   if (!sh || !gm || !r || !r.board) { return null; }
-  var bs = bodiesOf(r, si, ex, on);
+  var bs = bodiesOf(r, si, ex, on, tm);
   if (!bs.length) { return null; }
   var aim = aimOf(r, bs, si);
   if (!aim) { return null; }
-  var me = standOf(r, aim, gm[4], si);
+  var me = standOf(r, aim, gm[4], si, tm);
   if (!me) { return null; }
   var spawn = gm[0], c;
   if (spawn === 'Invoker') {
@@ -582,16 +663,16 @@ function _facings(me, bs) {
 
 /** **その（生徒, 枠）が巻き込める最大数。**決められなければ null。
     返す形は `hitsOf` と同じ（`n` / `nb` / `hb` / `hit` / `c` / `me` / `aim`）。 */
-export function bestHitsOf(r, sid, kind, si, ex, on) {
+export function bestHitsOf(r, sid, kind, si, ex, on, tm) {
   var sh = ((B.area || {})[sid] || {})[kind],
       gm = ((B.geo || {})[sid] || {})[kind];
   if (!sh || !gm || !r || !r.board) { return null; }
-  var bs = bodiesOf(r, si, ex, on);
+  var bs = bodiesOf(r, si, ex, on, tm);
   if (!bs.length) { return null; }
   var spawn = gm[0], best = null, i, k;
   if (spawn === 'Invoker') {
     // 立ち位置は「いちばん近い体まで届くところ」。そこから向きだけ振る
-    var aim0 = aimOf(r, bs, si), me = standOf(r, aim0, gm[4], si);
+    var aim0 = aimOf(r, bs, si), me = standOf(r, aim0, gm[4], si, tm);
     if (!me) { return null; }
     var fws = _facings(me, bs);
     for (i = 0; i < fws.length; i++) {
@@ -604,7 +685,7 @@ export function bestHitsOf(r, sid, kind, si, ex, on) {
              || spawn === 'BattleEntity' || spawn === 'SkillCommandSelectedTarget') {
     var cs = _centers(sh, bs, spawn);
     for (k = 0; k < cs.length; k++) {
-      var c = cs[k], stand = standOf(r, { x: c.x, y: c.y, br: 0 }, gm[4], si);
+      var c = cs[k], stand = standOf(r, { x: c.x, y: c.y, br: 0 }, gm[4], si, tm);
       if (!stand) { continue; }
       var fw = { x: c.x - stand.x, y: c.y - stand.y };
       if (!fw.x && !fw.y) { fw = { x: 0, y: 1 }; }

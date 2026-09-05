@@ -4524,7 +4524,51 @@ def _spawn_when(sec):
     return out
 
 
-def tl_board(stage_name, ex_names, ls_cache, ch_all, stat):
+_fslot_cache = {}
+
+
+def _fslot_of(fgid):
+    """生徒の陣形の枠 `[[x, z], …]`（`DB/FormationLocationExcelTable`、ワールド）。
+    ペロロジラ（GroupID 10001）は前列 4 枠 `SlotX 2.25/0.75/−0.75/−2.25`、後列 4 枠が z −1。
+    **盤はいままでビーコン 1 点に全員を置いていた**（2026-09-05）。 """
+    if not fgid:
+        return None
+    if not _fslot_cache:
+        for r in as_list(get_json(BADB.format("FormationLocationExcelTable"))):
+            xs, zs = r.get("SlotX") or [], r.get("SlotZ") or []
+            _fslot_cache[r.get("GroupID")] = [[round(x, 3), round(z, 3)] for x, z in zip(xs, zs)]
+        _fslot_cache.setdefault(None, None)
+    return _fslot_cache.get(fgid)
+
+
+def _mv_of(cid, csl, cool, ls_cache):
+    """**動く体の歩き方。**`_Move` の付いた大きなペロロは EX スキルを 2 本持ち、
+    それぞれ `RootMotionMoveWithSpeedDAO` で決まった座標へ歩く（2026-09-05 に原文で確かめた。
+    7305701 は Ex01 → (3, 31)、Ex02 → (−3, 31)、`MoveSpeed 100` ＝ 1.0 ワールド/秒、
+    `Duration` 190 フレーム）。使う間隔は `SkillExcelTable` の `EnemyStartCoolTime` /
+    `EnemyCoolTime`（ms。Ex01 0/10000、Ex02 5000/10000）。静止する子は EX を持たない。
+    返すのは `[[x, y, start_ms, cool_ms, dur_frames, speed], …]`。無ければ None。 """
+    row = (csl or {}).get(cid) or {}
+    out = []
+    for g in (row.get("ExSkillGroupId") or []):
+        if not g:
+            continue
+        if g not in ls_cache:
+            try:
+                ls_cache[g] = get_json(BALS.format(g))
+            except Exception:  # noqa: BLE001 — 引けない枠は歩かない扱い
+                ls_cache[g] = {}
+        d = ls_cache[g] or {}
+        rm = d.get("RootMotionMoveData") or {}
+        p = _xy(rm.get("SpawnWorldPosition"))
+        if not p:
+            continue
+        sc = (cool or {}).get(g) or [0, 0]
+        out.append([p[0], p[1], sc[0], sc[1], d.get("Duration") or 0, rm.get("MoveSpeed") or 0])
+    return out or None
+
+
+def tl_board(stage_name, ex_names, ls_cache, ch_all, stat, csl=None, cool=None, fgid=None):
     """盤の座標。引けなければ None。
 
     返す形（`data.js` の `d[].board`）:
@@ -4557,7 +4601,9 @@ def tl_board(stage_name, ex_names, ls_cache, ch_all, stat):
             continue
         p = _xy(f.get("Position"))
         if p:
-            bcn.append([f.get("SectionIndex", 0), f.get("Index", 0), p[0], p[1]])
+            # 5・6 番目は陣形の向き（`Forward`）。枠のずれ（`fslot`）をこの向きで回す
+            fw = _xy(f.get("Forward")) or (0.0, 1.0)
+            bcn.append([f.get("SectionIndex", 0), f.get("Index", 0), p[0], p[1], fw[0], fw[1]])
     for si, sec in enumerate(st_j.get("Sections") or []):
         when = _spawn_when(sec)
         for grp0 in (sec.get("EnemySpawnPointGroupList") or []):
@@ -4579,14 +4625,23 @@ def tl_board(stage_name, ex_names, ls_cache, ch_all, stat):
                 ls_cache[nm] = {}
         rows = []
         # **`SummonGroups` は `MainEntityData` のこともあれば
-        # `EntityTimeline[…].Entity` のこともある**（2026-09-04）。丸ごとたどる
-        for sg0 in _find_all(ls_cache[nm] or {}, "SummonGroups"):
-            for g in (sg0.get("SummonGroups") or []):
-                for e in (g.get("SummonEntities") or []):
-                    q = _xy(e.get("SpawnWorldPosition"))
-                    if e.get("UniqueName") and q:
-                        rows.append([e["UniqueName"], q[0], q[1]])
-                        names.add(e["UniqueName"])
+        # `EntityTimeline[…].Entity` のこともある**（2026-09-04）。丸ごとたどる。
+        # **4 番目は湧くフレーム**（2026-09-05）。ペロロジラの Ex03/04/05 は
+        # `EntityTimeline[8].Frame 140`（4.67 秒後）で、動画でも EX の 4.5 秒後に湧く。
+        # `MainEntityData` は宣言なので 0 とし、同じ組が時系列にもあればそちらを採る
+        def _rows_of(node, frame):
+            for sg0 in _find_all(node or {}, "SummonGroups"):
+                for g in (sg0.get("SummonGroups") or []):
+                    for e in (g.get("SummonEntities") or []):
+                        q = _xy(e.get("SpawnWorldPosition"))
+                        if e.get("UniqueName") and q:
+                            rows.append([e["UniqueName"], q[0], q[1], frame])
+                            names.add(e["UniqueName"])
+        _doc = ls_cache[nm] or {}
+        for _et in (_doc.get("EntityTimeline") or []):
+            if isinstance(_et, dict):
+                _rows_of(_et.get("Entity"), _et.get("Frame") or 0)
+        _rows_of(_doc.get("MainEntityData"), 0)
         # **同じ組が 2 度出てくる**（`MainEntityData` と `EntityTimeline` の両方に
         # 同じ `SummonGroups` が入っている）。名前と座標の三つ組で重複を落とす。
         # **名前だけで落としてはいけない**——Lunatic Ex03 の `MiddleSize05` は
@@ -4612,9 +4667,18 @@ def tl_board(stage_name, ex_names, ls_cache, ch_all, stat):
             continue
         cr, sr = ch_all.get(cid) or {}, stat.get(cid) or {}
         bd[nm] = [cid, cr.get("BodyRadius"), sr.get("Range")]
+        # **動く体の歩き方**（4 番目）。`_Move` の子だけ持つ
+        _mv = _mv_of(cid, csl, cool, ls_cache) if "_Move" in nm else None
+        if _mv:
+            bd[nm].append(_mv)
+            print(f"動く体: {nm} {_mv}")
     if not (bcn or spw or smn):
         return None
-    return {"u": 100, "bcn": bcn, "spw": spw, "smn": smn, "bd": bd}
+    out = {"u": 100, "bcn": bcn, "spw": spw, "smn": smn, "bd": bd}
+    _fs = _fslot_of(fgid)
+    if _fs:
+        out["fslot"] = _fs
+    return out
 
 
 # ---- **範囲の中心と狙い方**（2026-09-04、第 1 段 1-2）。
@@ -6195,6 +6259,8 @@ def build_tl():
                 # 3 本（素・`_start2phase`・`_start3phase`）で、
                 # **座標は 3 本とも同じ**なので先頭だけを見る
                 "stage": ((g.get("StageFileName") or [None]) or [None])[0],
+                # 生徒の陣形の枠（`FormationLocationExcelTable.GroupID`）。盤の立ち位置に使う
+                "fgid": g.get("FormationGroupId"),
             })
     # `RaidBossGroup` の綴りは Raid の DevName と揃っていない
     # （カイテンジャー・ホバークラフトで外れる。build_raid_score と同じ）
@@ -6856,7 +6922,8 @@ def build_tl():
                     got["stg"] = _sg
                 # **盤**（2026-09-04、第 1 段）。座標・湧き点・召喚位置・体の大きさ。
                 # 「1 発が何体に当たるか」を人の入力ではなく計算で出すために要る
-                _bd = tl_board(sg.get("stage"), got.get("ex"), _ls_cache, ch_all, stat)
+                _bd = tl_board(sg.get("stage"), got.get("ex"), _ls_cache, ch_all, stat,
+                               csl, cool, sg.get("fgid"))
                 if _bd:
                     got["board"] = _bd
                 got["arm"] = sorted((grp_arm.get(g0, {}).get(df) or {}).keys(),

@@ -53,7 +53,8 @@ function deadlyPts0(r, key) {
     var bp = bpAt(r, u.t, sc);
     var cv = coverOfUse(r, u, sc, bp);
     var bs = cv ? cv.bs
-           : movedBodies(bodiesOf(r, sc.sec, sc.wave, sc.gg ? ['st:Groggy'] : null), bp);
+           : movedBodies(bodiesOf(r, sc.sec, sc.wave, sc.gg ? ['st:Groggy'] : null,
+                                  { t: u.t, w0: sc.w0, slot: u.i }), bp);
     if (!bs || !bs.length) { continue; }
     scenes[wk] = bs;
     var hit = hitBodies(r, u, cv, bs, subs);

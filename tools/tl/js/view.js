@@ -274,13 +274,15 @@ export function coverOfUse(r, u, sc, bp) {
   var pd = placedOf(u);
   var bpe = bp === undefined ? pd.bp : bp;
   var ex = sc.wave || false, on = sc.gg ? ['st:Groggy'] : null;
+  // **時刻の文脈**（2026-09-05）: 発動時刻の位置に体を置き、撃つ子は自分の枠に立つ
+  var tm = { t: u.t, w0: sc.w0, slot: u.i };
   if (pd.ax != null && pd.ay != null) {
-    return hitsAtOf(r, sid, kd, sc.sec, ex, on, { x: pd.ax, y: pd.ay }, bpe);
+    return hitsAtOf(r, sid, kd, sc.sec, ex, on, { x: pd.ax, y: pd.ay }, bpe, tm);
   }
-  var q = bestHitsOf(r, sid, kd, sc.sec, ex, on) || hitsOf(r, sid, kd, sc.sec, ex, on);
+  var q = bestHitsOf(r, sid, kd, sc.sec, ex, on, tm) || hitsOf(r, sid, kd, sc.sec, ex, on, tm);
   if (q && bpe) {
     // 体を動かしてあれば、置き方はそのままで数え直す
-    var q2 = hitsAtOf(r, sid, kd, sc.sec, ex, on, q.aim || q.c, bpe);
+    var q2 = hitsAtOf(r, sid, kd, sc.sec, ex, on, q.aim || q.c, bpe, tm);
     if (q2) { return q2; }
   }
   return q;
@@ -379,7 +381,8 @@ export function drawView() {
   var q = sh ? coverOfUse(r, sh, sc, bp) : null;
   var pd = placedOf(sh);
   var bs = q ? q.bs : movedBodies(bodiesOf(r, sc.sec, sc.wave || false,
-                                           sc.gg ? ['st:Groggy'] : null), bp);
+                                           sc.gg ? ['st:Groggy'] : null,
+                                           { t: t, w0: sc.w0 }), bp);
   var put = sh && (pd.ax != null || pd.bp);
   // **見出しは作り直さない。**再生中は 1 秒に何十回も描き直すので、毎回
   // `innerHTML` で入れ替えると押している最中にボタンが消えて
@@ -400,4 +403,30 @@ export function drawView() {
   hd.querySelector('.vrs').hidden = !put;
   hd.querySelector('.vclk').textContent = clock(dur - t);
   bx.innerHTML = boardSvg(r, sc.sec, sh, q, bs, pk);
+  fitBoard(bx);
+}
+
+/** **盤はパネルの高さに合わせる**（2026-09-05 の先生の指示「入力欄の EX スキル量に
+    よってパネルの大きさが変わらないようにして、盤がパネルに常にフィットするように
+    して」）。高さを決めていないパネルは盤の既定の大きさ（`boardSvg`）がそのまま
+    パネルの高さになり、行の表はその高さの中で巻く（`.rowbox`）。摘みで高さを
+    決めたパネル（`.sized`）では、空いた高さから盤の大きさを出し直す。
+    パネルの大きさが変わったら描き直す（`ResizeObserver`。摘みを引いている最中は
+    1 コマに 1 回にまとめる） */
+var _ro = null;
+function fitBoard(bx) {
+  var pane = $('rowpane'), svg = bx.querySelector('#bsvg');
+  if (!pane) { return; }
+  if (!_ro && window.ResizeObserver) {
+    _ro = new ResizeObserver(function () { if (VIEW && !_raf) { viewAt(VT == null ? 0 : VT); } });
+    _ro.observe(pane);
+  }
+  if (!svg || !pane.classList.contains('sized')) { return; }
+  var h = bx.clientHeight, vb = (svg.getAttribute('viewBox') || '').split(' ');
+  var ar = vb.length === 4 ? (+vb[2]) / (+vb[3]) : 0;
+  if (!(h > 40) || !(ar > 0)) { return; }
+  var BH = h, BW = BH * ar;
+  if (BW > 520) { BW = 520; BH = BW / ar; }
+  svg.style.width = Math.round(BW) + 'px';
+  svg.style.height = Math.round(BH) + 'px';
 }
