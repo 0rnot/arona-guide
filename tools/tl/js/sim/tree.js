@@ -144,6 +144,7 @@ export function skillEvents(doc) {
       for (j = 0; j < gids.length; j++) {
         for (q = 0; q < hits.length; q++) {
           out.push({ f: base + hits[q], gid: gids[j], sel: ctx.sel,
+                     share: ctx.share != null ? ctx.share : null,
                      area: key === 'AreaAbilities' ? ctx.area : null,
                      prj: ctx.prj || null, dist: ctx.dist != null ? ctx.dist : null,
                      single: singleOf(typ, key, ctx.sel),
@@ -194,7 +195,7 @@ export function skillEvents(doc) {
     }
     var area = shapeOf(e) || ctx.area || null;
     var c2 = { at: at, sel: sel, prj: prj, area: area, dist: ctx.dist,
-               rootEcr: ctx.rootEcr };
+               rootEcr: ctx.rootEcr, share: ctx.share };
     ability(e, 'Abilities', c2, typ);
     ability(e, 'AreaAbilities', c2, typ);
     interval(e, c2, typ);
@@ -208,6 +209,21 @@ export function skillEvents(doc) {
         timeline(sub, c2, dep + 1);
       } else {
         entity(sub, c2, dep + 1);
+      }
+    }
+    // **通常攻撃の弾は `ShotFrames` に入っている**（2026-09-06）。
+    // `[{Frame, DamageDistributeRate, Entity:{…弾…}}]` で、`Entity` が本体。
+    // ここを歩かないと**通常攻撃のダメージが 1 発も出ない**（アルの
+    // `AruNormal01` は事象 0 だった）。`DamageDistributeRate` は 1 発の取り分
+    if (Array.isArray(e.ShotFrames)) {
+      for (k = 0; k < e.ShotFrames.length; k++) {
+        var sf = e.ShotFrames[k];
+        if (!sf || !sf.Entity) { continue; }
+        entity(sf.Entity, { at: at + (sf.Frame || 0), sel: sel, prj: prj,
+                            area: area, dist: ctx.dist, rootEcr: ctx.rootEcr,
+                            share: (sf.DamageDistributeRate != null
+                                    ? sf.DamageDistributeRate : 10000) / 10000 },
+               dep + 1);
       }
     }
     // **繋がる帯は包みに入って配列で吊られている**（ペロロジラ Torment の EX01）。
@@ -238,6 +254,13 @@ export function skillEvents(doc) {
   }
 
   collectNames(doc, 0);
+  // **根の `ShotFrames` の体は `MainEntityData` と同じ弾の宣言**（2026-09-06）。
+  // 名前を控えておかないと、同じ弾を 2 回歩いて**通常攻撃が 1 発多く出る**
+  // （アリスは 28 コマの 1 発なのに [0, 28] の 2 発になっていた）
+  for (var s1 = 0; s1 < (doc.ShotFrames || []).length; s1++) {
+    var en = doc.ShotFrames[s1] && doc.ShotFrames[s1].Entity;
+    if (en && en.EntityName) { names[en.EntityName] = 1; }
+  }
   var me = doc.MainEntityData;
   if (me && typeof me === 'object') {
     var k2, sub2;
@@ -253,6 +276,19 @@ export function skillEvents(doc) {
   }
   timeline(doc, { at: 0, sel: root, prj: null, area: null, dist: null,
                   rootEcr: doc.EssentialCandidateRule }, 0);
+  // **通常攻撃は根に `ShotFrames` を持つ**（`NormalAttackSkillActionDAO`）。
+  // 体の中ではなく文書の直下なので、ここでも歩く。
+  // 落としていて**通常攻撃のダメージが 1 発も出ていなかった**（2026-09-06）
+  if (Array.isArray(doc.ShotFrames)) {
+    for (var s0 = 0; s0 < doc.ShotFrames.length; s0++) {
+      var sf0 = doc.ShotFrames[s0];
+      if (!sf0 || !sf0.Entity) { continue; }
+      entity(sf0.Entity, { at: sf0.Frame || 0, sel: root, prj: null, area: null,
+                           dist: null, rootEcr: doc.EssentialCandidateRule,
+                           share: (sf0.DamageDistributeRate != null
+                                   ? sf0.DamageDistributeRate : 10000) / 10000 }, 0);
+    }
+  }
 
   out.sort(function (a, b) { return a.f - b.f; });
   return out;
