@@ -208,6 +208,40 @@ def level_skill(group):
         return None
 
 
+
+# **ボスの素の被ダメージ率を掛けてよいか**（`dmgOnly`。2026-09-06）。
+#
+# `CharacterStatExcelTable.DamagedRatio` は ケセド 19000（＝ 0.1 倍）・ホド 19000・
+# ヒエロニムス 16000・ホバークラフト 17500・イェソド 19900 と 10000 でないボスがいるが、
+# **画面側がその素の値を掛けているのは「この効果以外の `DamagedRatio` の増加効果を
+# 無効化」と書いてあるボスだけ**（ケセドの剥き出しの玉座。`js/target.js:414`）。
+# 動画で確かめられたのもケセドだけで、ホド・ヒエロニムス・イェソドは 1.0 倍の計算で
+# 実クリア TL と合う。判定は `build-tool-data.py:_dmg_only` と同じ本文の照合。
+_DMG_ONLY = None
+
+
+def dmg_only_groups():
+    """素の被ダメージ率を掛けるボス群の名前（小文字）。"""
+    global _DMG_ONLY
+    if _DMG_ONLY is not None:
+        return _DMG_ONLY
+    _DMG_ONLY = set()
+    p = MIRROR / "raids.json"
+    if not p.exists():
+        return _DMG_ONLY
+    d = _read_json(p)
+    rsk = d.get("RaidSkills") or {}
+    named = {nm for nm, sk in rsk.items()
+             if "この効果以外" in (sk.get("Desc") or "")
+             and "DamagedRatio" in (sk.get("Desc") or "")
+             and "無効" in (sk.get("Desc") or "")}
+    for r in (d.get("Raid") or []):
+        for names in (r.get("RaidSkillList") or []):
+            if any(nm in named for nm in (names or [])):
+                _DMG_ONLY.add(str(r.get("PathName") or "").lower())
+    return _DMG_ONLY
+
+
 def strip(o):
     """飾りの欄だけ落とす。**構造は変えない。**"""
     if isinstance(o, dict):
@@ -451,6 +485,8 @@ def build_bosses(out_dir, chars, st_by, le_npc_by, le_pc_by, sk_by, want):
         gr0 = gr_pre
         pack = {
             "kind": kind, "stage": strip(sr),
+            # **素の被ダメージ率を掛けるボスか**（ケセドだけ）
+            "dmgOnly": str(sr.get("RaidBossGroupType") or "").lower() in dmg_only_groups(),
             "ground": strip(gr0),
             "board": board,
             "groups": groups, "csl": csl_rows, "ls": ls, "le": le, "sk": sk,

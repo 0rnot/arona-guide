@@ -805,13 +805,31 @@ export function run(o) {
     },
     defender: function (u) {
       var s = statsNow(u);
+      // **被ダメージ率は 10000 から始めて、札の動きぶんだけ足す。**
+      //
+      // `CharacterStatExcelTable.DamagedRatio` は ケセド 19000（＝ 0.1 倍）・
+      // ホド 19000・ヒエロニムス 16000・ホバークラフト 17500・イェソド 19900 と
+      // 10000 でないボスがいるが、**画面側がその素の値を掛けているのは
+      // 「この効果以外の DamagedRatio の増加効果を無効化」と書いてあるボス
+      // （ケセドの剥き出しの玉座）だけ**（`target.js:414`。動画で確かめたのも
+      // ケセドだけで、ホド・ヒエロニムス・イェソドは 1.0 倍で実クリア TL と合う）。
+      // 核はここを素の値から始めていて、ホドとケセドが 10 分の 1 になっていた
+      // （2026-09-06。`WpfoUpfz5qM` で `drA` が 0.1）。
+      // 素の値を掛けるのは `boss.dmgOnly`（束に入れてある。ケセドだけ）
+      var base = u.base || {};
+      var dg = 10000 + ((s.DamagedRatio == null ? 10000 : s.DamagedRatio)
+                        - (base.DamagedRatio == null ? 10000 : base.DamagedRatio));
+      var dg2 = 10000 + ((s.DamagedRatio2 == null ? 10000 : s.DamagedRatio2)
+                         - (base.DamagedRatio2 == null ? 10000 : base.DamagedRatio2));
       return {
         def: s.DefensePower || 0,
         dodge: s.DodgePoint || 0, critResist: s.CriticalResistPoint || 0,
         critDmgResist: s.CriticalDamageResistRate || 0,
-        // **被ダメージ率は札で動く。**`DamagedRatio` は 10000 が素
-        damaged: s.DamagedRatio != null ? s.DamagedRatio : 10000,
-        damaged2: s.DamagedRatio2 != null ? s.DamagedRatio2 : 10000,
+        damaged: dg, damaged2: dg2,
+        // ケセドの剥き出しの玉座。素の 19000 ＝ 0.1 倍で、
+        // グロッキー中の「+900%」（＝ 札で −9000）で 1.0 倍に戻る
+        dbase: (boss.dmgOnly && base.DamagedRatio)
+          ? (20000 - base.DamagedRatio) / 10000 : 1,
       };
     },
     /** **狙う先。**木の `EssentialCandidateRule.TargetSide` で振り分ける。
