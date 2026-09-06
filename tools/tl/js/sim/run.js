@@ -182,9 +182,25 @@ export function ssTrig(doc) {
     `Passive05`（HP ≧ 70%）・`Passive06`（HP < 30%）・`Passive07`（30〜70%）の
     3 枚が同時に乗り、`Passive08` / `Passive09`（別の体が死んだとき）まで 0 秒に出ていた。
 
-    置けるのは **1（常時）／ 301（条件つき常時）／ 105（周期）** の 3 通り。
-    **残りは盤の出来事が要るので置かない**——0 秒に撃つより、撃たないほうが原文に近い。
-    `null` を返したぶんは `R.miss['psEv:<番号>']` に数える。 */
+    置けるのは **1（常時）／ 301（条件つき常時）／ 105（周期）／ 14（自分が死んだとき）**
+    の 4 通り。**残りは盤の出来事が要るので置かない**——0 秒に撃つより、
+    撃たないほうが原文に近い。`null` を返したぶんは `R.miss['psEv:<番号>']` に数える。
+
+    **`14` は「自分が死んだとき」**（2026-09-07 に足した）。束ぜんぶで 45 群あり、
+    **どれも `Parameters` が空・`MaxTriggerCount: 1`・`TargetSide: Self`・
+    `AliveState: 0`（死んだ体も可）**で揃っている。ケセドがこれで動く——
+    雑魚 6 種がぜんぶ「死んだら `Debuff_AddGroggyGauge` を、
+    味方のうち攻撃力がいちばん高い 1 体（＝ボス本体）へ」を持っていて、
+    ボスの `GroggyGauge` 1,000,000,000 に対して
+    `ChesedDroid` 22,727,300 ／ `ChesedGoliath` 16,529,000 ／
+    `ChesedGuardTower` 42,355,400 を積む。満タンでグロッキーに入ると
+    `ChesedInsanePassive01`（`Event 301`・`GetCurrentBehavior() == [BehaviorType.Groggy]`）が
+    `DamagedRatio −9000` を自分に掛けて、**素の 19000（0.1 倍）が 10000（1.0 倍）に戻る。**
+    これを置くまでケセドは 240 秒ずっと 0.1 倍で、残り 96% で終わっていた。
+
+    まだ置けないもの: `18`（その札が付いたとき。`Parameters` が札の名前、41 群）・
+    `22`（7 群）・`23`（`Parameters` が `CrowdControl`、10 群）・`25`（7 群）・
+    `31`（`Parameters` が別の体の名前＝「その体が死んだら」、54 群）。 */
 function psTrig(doc) {
   var t = doc && doc.TriggerCondition;
   // 引き金の欄そのものが無い札は常時（雑魚の素の札にある）
@@ -192,6 +208,7 @@ function psTrig(doc) {
   var ev = +t.Event, ex = String(t.ConditionExpression || '').trim();
   if (ev === 1) { return ex ? { when: 'cond', expr: ex } : { when: 'always', expr: '' }; }
   if (ev === 301) { return { when: 'cond', expr: ex }; }
+  if (ev === 14) { return { when: 'dead', expr: ex }; }
   if (ev === 105) {
     return { when: 'every', ms: (+t.Parameters || 0) / FPS * 1000, expr: ex };
   }
@@ -388,10 +405,15 @@ function fire(R, ev, caster, target, lvl, at, mc) {
     // 吸って溜めるボス（ペロロジラ）は `CasterCoefficientAmount` がそのまま目盛りで、
     // 気絶した中サイズのペロロミニオンを何体吸ったかで
     // 0 / 834 / 1668 / 2502 / 3336 / 4170 / 5004 と段が変わる（6 体で 5004、2 回で満タン）。
-    // `CharacterStatExcelTable.GroggyGauge`（ペロロジラは 1,000,000,000）は
-    // **ダメージで溜めるときの目盛り**で、こちらでは使わない
-    // （`js/carry.js:ggMode` の「吸収」と同じ決め）
-    var gv = (r.flat || 0) + (r.amt || 0) + (r.tamt || 0);
+    //
+    // **`Amount` だけは絶対値で、目盛りは受ける側の `GroggyGauge`**
+    // （2026-09-07）。ケセドの雑魚が死ぬと `Debuff_AddGroggyGauge` の
+    // `Amount` 22,727,300 が積まれ、ボスの `GroggyGauge` 1,000,000,000 で満タン
+    // ＝ 44 体。1 万分率に直してから足す。`CasterCoefficientAmount` の側とは
+    // 物差しが違うので、ここで揃えないと 22,727,300 が 2,272 回ぶんになる
+    var need0 = (target.base && target.base.GroggyGauge) || 0;
+    var gv = (r.amt || 0) + (r.tamt || 0);
+    if (r.flat && need0 > 0) { gv += r.flat / need0 * 10000; }
     gv *= mul;
     if (R.ggLog) { R.ggLog.push([Math.round(at / 100) / 10, r.gid, Math.round(gv)]); }
     if (!target.ggImmune && gv > 0) {
@@ -602,13 +624,38 @@ function terrTable(common) {
   return m;
 }
 
+var GRADE = ['D', 'C', 'B', 'A', 'S', 'SS'];
+
+/** 盤の名前から装甲の語を抜く。盤は `Chesed_Outdoor_LightArmor_Torment`、
+    実体（`CharacterExcelTable.DevName`）は `Chesed_Outdoor_Torment` で綴りが違う。
+    `tree.js:resolveDev` はここでは使えない——頭が `Chesed` で尻が `Torment` の実体が
+    雑魚まで含めて 6 つあって、1 つに絞れず `null` を返す。 */
+function noArm2(nm) {
+  return String(nm || '').replace(
+    /_(LightArmor|HeavyArmor|Unarmed|ElasticArmor|Structure|NormalArmor)(?=_|$)/g, '');
+}
+
 /** その体の、この面での地形適性（`CharacterStatExcelTable` の 3 欄）。
-    **固有武器ぶんの上がりは入れていない**（`CharacterWeaponExcelTable` に欄が無く、
-    画面側は `data.js` の `adapt` から引いている）。 */
-function gradeOf(st, topo) {
+
+    **固有武器ぶんの 1 段を足す**（2026-09-07）。ここは「欄が無い」と書いて
+    諦めていたが、`DB/CharacterWeaponExcelTable` の `StatType` / `StatValue` が
+    まさにそれで、**275 人ぜんぶが 1 つ持っている**（`StreetBattleAdaptation_Base`
+    92 人・`IndoorBattleAdaptation_Base` 92 人・`OutdoorBattleAdaptation_Base` 91 人）。
+    開くのは**固有武器★3 から**（SchaleDB `common.js` 7812 行
+    `if (statPreviewWeaponGrade >= 3)`）で、`grow.js` が `i < wstar` で
+    足しているので `stats` に数として入っている。**素の欄は文字（`S` / `D`）**なので
+    `grow` の「数の欄だけ運ぶ」に引っかからず、混ざらない。
+
+    画面側の同じ計算は `js/passive.js:terrGrade`（`GRADE` の並びも clamp も同じ）。
+    道具の既定は `js/core.js:19` の `wlv: 50, wstar: 3` なので**既定で 1 段乗る。** */
+function gradeOf(st, topo, stats) {
   var k = topo === 'Indoor' ? 'IndoorBattleAdaptation'
         : (topo === 'Street' ? 'StreetBattleAdaptation' : 'OutdoorBattleAdaptation');
-  return (st && st[k]) || 'D';
+  var i = GRADE.indexOf((st && st[k]) || 'D');
+  if (i < 0) { i = 0; }
+  var b = stats ? +stats[k] : 0;
+  if (isFinite(b)) { i += b; }
+  return GRADE[Math.max(0, Math.min(5, i))];
 }
 
 /** **狙えない体。**`StatusAdd` の `TargetStatus: Untargetable` が付いているあいだ、
@@ -763,6 +810,31 @@ export function run(o) {
   var bd = null, sec = 0;
   var bnames = Object.keys(boss.board || {});
   if (bnames.length) { bd = boardPlan(boss.board[bnames[0]]); }
+  // **ボスが湧く節で戦う**（2026-09-07）。節 0 に居ないボスが 1 体だけいる——
+  // ケセドは 4 節あって、節 0 と 1 が雑魚の通路（湧き点 30 と 41）、節 2 が移動、
+  // **節 3 が玉座の間**（`SpawnChesed` ／ `SectionStarted` ／ 湧き点 1）。
+  // 節 0 のまま回すと、味方の原点が `Formations` の `SectionIndex 0`（y 6.0）で、
+  // ボスは節 3（y 55.74）——**盤の端と端**。湧き点も引けないので座標が `null` になる。
+  // 節 0 にボスが居る面（ほかの 12 面ぜんぶ）は今までどおり 0
+  //
+  // **名前は盤のほうに装甲が入る。**盤は `Chesed_Outdoor_LightArmor_Torment`、
+  // 実体（`CharacterExcelTable.DevName`）は `Chesed_Outdoor_Torment`。
+  // 装甲の語を抜いて突き合わせる（`tree.js:resolveDev` はここでは使えない——
+  // 頭が `Chesed` で尻が `Torment` の実体が雑魚まで含めて 6 つあって、
+  // 1 つに絞れず `null` を返す）
+  if (bd && bossU.dev) {
+    var bdev = noArm2(bossU.dev);
+    var hasB = function (si) {
+      var ps = (bd.sections[si] || {}).points || [], z2;
+      for (z2 = 0; z2 < ps.length; z2++) {
+        if (noArm2(ps[z2].dev) === bdev) { return true; }
+      }
+      return false;
+    };
+    if (!hasB(0)) {
+      for (i = 0; i < bd.sections.length; i++) { if (hasB(i)) { sec = i; break; } }
+    }
+  }
   var fgid = (boss.ground || {}).FormationGroupId;
   var formRow = null;
   for (i = 0; i < (common.form || []).length; i++) {
@@ -773,12 +845,16 @@ export function run(o) {
   // 遮蔽。**総力戦の盤にもある**（2026-09-07。`board.js` の注記）
   var obs = bd ? obstacleBoxes(bd, sec, common) : [];
   // 湧き点の座標を実体の名前で引けるように（同じ名前が複数あるので先頭）
+  // **装甲を抜いた名前でも引けるようにする。**盤は `..._LightArmor_Torment`、
+  // 実体は `..._Torment` で、そのままだとボスの座標が `null` のままになる
   var posOf = {};
   if (bd && bd.sections[sec]) {
     var pts0 = bd.sections[sec].points;
     for (i = 0; i < pts0.length; i++) {
-      if (pts0[i].dev && pts0[i].pos && !posOf[pts0[i].dev]) {
-        posOf[pts0[i].dev] = pts0[i].pos;
+      if (pts0[i].dev && pts0[i].pos) {
+        if (!posOf[pts0[i].dev]) { posOf[pts0[i].dev] = pts0[i].pos; }
+        var nm0 = noArm2(pts0[i].dev);
+        if (!posOf[nm0]) { posOf[nm0] = pts0[i].pos; }
       }
     }
   }
@@ -786,7 +862,7 @@ export function run(o) {
   for (i = 0; i < ekeys.length; i++) {
     var pool0 = byDev[ekeys[i]], w0;
     for (w0 = 0; w0 < pool0.length; w0++) {
-      pool0[w0].pos = posOf[ekeys[i]] || null;
+      pool0[w0].pos = posOf[ekeys[i]] || posOf[noArm2(ekeys[i])] || null;
     }
   }
 
@@ -800,7 +876,7 @@ export function run(o) {
       // **生徒の `st` は 1 枚の連想配列**（ボスの束は行の並び）。
       // `[0]` を取っていて全員 D 判定＝攻撃 0.8 倍になっていた（2026-09-06）
       adapt: gradeOf(Array.isArray(pc.st) ? pc.st[0] : pc.st,
-                     (boss.ground || {}).StageTopography),
+                     (boss.ground || {}).StageTopography, p.stats),
       radius: ch.BodyRadius, personality: ch.PersonalityId, aiId: ch.CharacterAIId,
       role: ch.TacticRole, school: ch.School, squad: ch.SquadType,
       hp: (p.stats && p.stats.MaxHP) || 1, maxHp: (p.stats && p.stats.MaxHP) || 1,
@@ -898,20 +974,27 @@ export function run(o) {
       // 核はここを素の値から始めていて、ホドとケセドが 10 分の 1 になっていた
       // （2026-09-06。`WpfoUpfz5qM` で `drA` が 0.1）。
       // 素の値を掛けるのは `boss.dmgOnly`（束に入れてある。ケセドだけ）
+      //
+      // **素の値を掛けるボス（ケセド）では、ずらさずそのまま使う**（2026-09-07）。
+      // ずらしと `dbase` を両方掛けると二重になる——グロッキー中は札が −9000 で
+      // `s.DamagedRatio` が 10000（＝ 1.0 倍）になるのに、
+      // `10000 + (10000 − 19000) = 1000` → `(20000 − 1000)/10000 = 1.9` に
+      // `dbase` 0.1 を掛けて **0.19 倍**になっていた。生の値なら
+      // 19000 → 0.1 倍・10000 → 1.0 倍で、どちらも正しく出る
       var base = u.base || {};
-      var dg = 10000 + ((s.DamagedRatio == null ? 10000 : s.DamagedRatio)
-                        - (base.DamagedRatio == null ? 10000 : base.DamagedRatio));
-      var dg2 = 10000 + ((s.DamagedRatio2 == null ? 10000 : s.DamagedRatio2)
-                         - (base.DamagedRatio2 == null ? 10000 : base.DamagedRatio2));
+      var raw = boss.dmgOnly && base.DamagedRatio != null;
+      var sd = s.DamagedRatio == null ? 10000 : s.DamagedRatio;
+      var sd2 = s.DamagedRatio2 == null ? 10000 : s.DamagedRatio2;
+      var dg = raw ? sd
+        : 10000 + (sd - (base.DamagedRatio == null ? 10000 : base.DamagedRatio));
+      var dg2 = raw ? sd2
+        : 10000 + (sd2 - (base.DamagedRatio2 == null ? 10000 : base.DamagedRatio2));
       return {
         def: s.DefensePower || 0,
         dodge: s.DodgePoint || 0, critResist: s.CriticalResistPoint || 0,
         critDmgResist: s.CriticalDamageResistRate || 0,
         damaged: dg, damaged2: dg2,
-        // ケセドの剥き出しの玉座。素の 19000 ＝ 0.1 倍で、
-        // グロッキー中の「+900%」（＝ 札で −9000）で 1.0 倍に戻る
-        dbase: (boss.dmgOnly && base.DamagedRatio)
-          ? (20000 - base.DamagedRatio) / 10000 : 1,
+        dbase: 1,
       };
     },
     /** **狙う先。**木の `EssentialCandidateRule.TargetSide` で振り分ける。
@@ -1175,6 +1258,7 @@ export function run(o) {
     for (z = condP.length - 1; z >= 0; z--) {
       if (condP[z].u === mu) { condP.splice(z, 1); }
     }
+    mu.onDead = [];
     for (z = 0; z < slots.length; z++) {
       v = cr[slots[z][0]];
       v = Array.isArray(v) ? v : (v ? [v] : []);
@@ -1190,6 +1274,8 @@ export function run(o) {
           cast(R, mu, g, slots[z][1], 1, at);
         } else if (tr.when === 'cond') {
           condP.push({ u: mu, gid: g, slot: slots[z][1], tr: tr, on: false });
+        } else if (tr.when === 'dead') {
+          mu.onDead.push([g, slots[z][1]]);
         } else if (tr.when === 'every' && tr.ms > 0) {
           (function (mu2, g2, sl2, ms) {
             var step2 = function (now) {
@@ -1324,6 +1410,13 @@ export function run(o) {
     // **倒れた体は盤から降ろす。**ここを入れるまで味方は 6 人揃ったままだった
     for (k = 0; k < us.length; k++) {
       if (us[k].hp <= 0 && us[k].alive) {
+        // **死ぬ瞬間の札を撃ってから降ろす**（`Event: 14`）。
+        // 降ろしたあとだと `R.pick` の候補から外れて、撃つ側が居なくなる
+        var od = us[k].onDead || [];
+        for (var y2 = 0; y2 < od.length; y2++) {
+          cast(R, us[k], od[y2][0], od[y2][1], 1, t3);
+        }
+        us[k].onDead = [];
         us[k].alive = false;
         if (us[k].side === 'ally') { downAt.push([us[k].key, t3 / 1000]); }
       }
@@ -1351,6 +1444,16 @@ export function run(o) {
       }
       return o2;
     })(),
+    // **味方の地形適性（固有武器ぶんを足したあと）と、この面の地形。**
+    // 乗っているかどうかを外から見るため（2026-09-07）
+    adapt: (function () {
+      var o3 = {}, z;
+      for (z = 0; z < allies.length; z++) { o3[allies[z].dev] = allies[z].adapt; }
+      return o3;
+    })(),
+    topo: R.topo, sec: sec,
+    origin: origin ? [origin.Position && origin.Position.x, origin.Position && origin.Position.y] : null,
+    bossPos: bossU.pos ? [bossU.pos.x, bossU.pos.y] : null,
     hp: hp, total: R.total, killAt: bossU.hp <= 0 ? t3 / 1000 : null,
     maxHp: bossU.maxHp, used: R.used,
     unknown: R.unknown, unknownBy: R.unknownBy, miss: R.miss, by: R.by,

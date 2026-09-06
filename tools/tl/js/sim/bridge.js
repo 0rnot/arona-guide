@@ -101,8 +101,18 @@ export function optOf(sl) {
 export async function simParty(o) {
   var L = o.load, st = o.st, pi = o.pi || 0;
   var index = await L.index();
-  var key = o.key || keyOfCid(index, o.cid);
+  var key = (o.key && index[o.key]) ? o.key : keyOfCid(index, o.cid);
   if (!key) { throw new Error('面が引けない cid=' + o.cid); }
+  // **面を名指しされたら、本体もその面のものにする**（2026-09-07）。
+  // 画面の `cid` は総力戦のボスなので、大決戦の束に渡すと本体が引けない。
+  // 答え合わせの道具（`scorecmp.py`）が動画ごとの面を名指しするために要る
+  var cid0 = o.cid;
+  if (o.key && index[o.key]) {
+    var cs0 = index[o.key].cids || [];
+    if (cid0 == null || (index[o.key].cid !== cid0 && cs0.indexOf(cid0) < 0)) {
+      cid0 = index[o.key].cid;
+    }
+  }
   var common = await L.common();
   var boss = await L.boss(key);
 
@@ -151,7 +161,7 @@ export async function simParty(o) {
   }
 
   var dur = o.dur != null ? o.dur : ((index[key].dur || 240000) / 1000);
-  var res = run({ common: common, boss: boss, party: party, tl: tl, cid: o.cid,
+  var res = run({ common: common, boss: boss, party: party, tl: tl, cid: cid0,
                   dur: dur, mc: 1, seed: o.seed, step: o.step, probe: o.probe });
   res.key = key;
   res.gaps = gaps;
