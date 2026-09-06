@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """TL 道具が回すための **DB の原文** を、生徒 1 人 1 ファイルに束ねる。
 
 2026-09-06、先生「DB を必要な箇所をそのまま丸ごと持ってきて実装することはできない？」。
@@ -32,7 +31,6 @@
 無ければ ba-data から取る。
 """
 import gzip
-import io
 import json
 import os
 import pathlib
@@ -45,6 +43,8 @@ OUT = ROOT / "tools" / "tl" / "db"
 MIRROR = pathlib.Path(os.path.expanduser("~/arona/tl-work"))
 BALS = "https://raw.githubusercontent.com/electricgoat/ba-data/jp/LevelSkill/{}.json"
 BADB = "https://raw.githubusercontent.com/electricgoat/ba-data/jp/DB/{}.json"
+BAEX = "https://raw.githubusercontent.com/electricgoat/ba-data/jp/Excel/{}.json"
+BABT = "https://raw.githubusercontent.com/electricgoat/ba-data/jp/Battle/{}.json"
 
 # **画面の飾りだけの欄は落とす。**戦闘の中身に効くものは 1 つも落とさない
 # （落としてよいと言い切れるものだけをここに並べる。迷ったら残す）
@@ -65,28 +65,95 @@ def _get(url):
         return json.loads(r.read().decode("utf-8"))
 
 
+def _read_json(path):
+    with open(path, encoding="utf-8") as f:
+        return json.loads(f.read())
+
+
 def db(table):
     """`DB/<table>.json` を行の配列で。写しがあればそちら。"""
     for p in (MIRROR / "badb" / "DB" / f"{table}.json",
               MIRROR / "badb" / f"{table}.json"):
         if p.exists():
-            d = json.loads(io.open(p, encoding="utf-8").read())
+            d = _read_json(p)
             return d["DataList"] if isinstance(d, dict) and "DataList" in d else d
     d = _get(BADB.format(table))
     return d["DataList"] if isinstance(d, dict) and "DataList" in d else d
 
 
+def ex(table):
+    """`Excel/<table>.json`。**`DB/` とは 100 個ちがう別の棚。**"""
+    p = MIRROR / "baex" / f"{table}.json"
+    if p.exists():
+        d = _read_json(p)
+    else:
+        d = _get(BAEX.format(table))
+    return d["DataList"] if isinstance(d, dict) and "DataList" in d else d
+
+
+def battle(name):
+    """`Battle/<name>.json`。遮蔽の形はここ。"""
+    p = MIRROR / "baex" / f"{name}.json"
+    if p.exists():
+        d = _read_json(p)
+    else:
+        d = _get(BABT.format(name))
+    return d["DataList"] if isinstance(d, dict) and "DataList" in d else d
+
+
+def entity_names(node, out):
+    """木の中の `CharacterEntityDAO.UniqueName`。**ミニオンはこの名前で呼ばれる。**"""
+    if isinstance(node, dict):
+        t = str(node.get("$type", "")).split(",")[0].split(".")[-1]
+        if t == "CharacterEntityDAO":
+            v = node.get("UniqueName")
+            if isinstance(v, str) and v:
+                out.add(v)
+        for k, v in node.items():
+            if k != "$type":
+                entity_names(v, out)
+    elif isinstance(node, list):
+        for v in node:
+            entity_names(v, out)
+
+
+def resolve_dev(name, by_dev):
+    """木の `UniqueName` を `CharacterExcelTable.DevName` に当てる。
+
+    **綴りが一致しない。**2026-09-06 に実物で確かめた例:
+
+        木   Perorozilla_Torment_Peroro_MiddleSize01_Move
+        DB   Perorozilla_Torment_MiddleSize01_Move
+
+    間に `_Peroro` が挟まっている。総力戦の盤ファイル（`Stage/` に**無い**）が
+    持っていた名前の名残りらしい。落とす綴りを増やすときはここに 1 行足す。
+    """
+    if name in by_dev:
+        return by_dev[name]
+    for drop in ("_Peroro", "_Peroro_"):
+        alt = name.replace(drop, "_").replace("__", "_")
+        if alt in by_dev:
+            return by_dev[alt]
+    # 末尾（MiddleSize01_Move など）で当てる。**同じ難度の中だけ**
+    tail = name.split("_")[-2:] if name.endswith("_Move") else name.split("_")[-1:]
+    tail = "_".join(tail)
+    head = name.split("_")[0]
+    cand = [d for d in by_dev if d.startswith(head) and d.endswith(tail)]
+    return by_dev[cand[0]] if len(cand) == 1 else None
+
+
 _ls_miss = set()
+_dev_miss = set()
 
 
 def level_skill(group):
     """`LevelSkill/<group>.json` の原文。無ければ None。"""
     p = MIRROR / "badata-git" / "LevelSkill" / f"{group}.json"
     if p.exists():
-        return json.loads(io.open(p, encoding="utf-8").read())
+        return _read_json(p)
     try:
         return _get(BALS.format(group))
-    except Exception:
+    except Exception:  # noqa: BLE001 — 取れない枠は名前を控えて先へ進む（1 枠で止めない）
         _ls_miss.add(group)
         return None
 
@@ -103,11 +170,15 @@ def strip(o):
 def effect_ids(node, out):
     """木の中で参照されている `LogicEffectGroupIds` を全部。**入れ子の奥まで。**"""
     if isinstance(node, dict):
-        for key in ("Abilities", "AreaAbilities"):
+        for key in ("Abilities", "AreaAbilities", "IntervalAbilities"):
             for a in (node.get(key) or []):
-                if isinstance(a, dict):
-                    for g in (a.get("LogicEffectGroupIds") or []):
-                        out.add(g)
+                if not isinstance(a, dict):
+                    continue
+                # `IntervalAbilities` は `{Phase, Frame, Abilities:[…]}` の入れ子
+                for b in ([a] + list(a.get("Abilities") or [])):
+                    if isinstance(b, dict):
+                        for g in (b.get("LogicEffectGroupIds") or []):
+                            out.add(g)
         # **消す側・条件側も札の名前で他の効果を指す**（`LogicEffectGroupIdToDispel` ほか）
         for k in ("LogicEffectGroupIdToDispel", "LogicEffectGroupId"):
             v = node.get(k)
@@ -123,34 +194,208 @@ def effect_ids(node, out):
             effect_ids(v, out)
 
 
+def build_common(out_dir):
+    """**全部の編成で同じもの。**戦闘の定数・式の係数・上限・陣形・遮蔽・装備。
+
+    ここに置くのは「生徒にもボスにも依らない表」だけ。生徒ぶん・ボスぶんとは別に
+    1 回だけ落として、画面はこれを 1 度読めばよい。
+    """
+    pack = {
+        # **戦闘の定数。**手札 3 枚・コスト上限 10・回復の遅れ 2000ms・
+        # 防御 / 命中 / 会心 の式の係数・時間の倍率（通常 1.3 / 倍速 1.7）
+        "const": (ex("ConstCombatExcelTable") or [{}])[0],
+        "constCommon": (ex("ConstCommonExcelTable") or [{}])[0],
+        # 式の係数
+        "ba": db("BulletArmorDamageFactorExcelTable"),
+        "terrain": db("TerrainAdaptationFactorExcelTable"),
+        "lvdiff": db("BattleLevelFactorExcelTable"),
+        "lvstat": db("CharacterLevelStatFactorExcelTable"),
+        "statInterp": db("StatLevelInterpolationExcelTable"),
+        # 上限
+        "statLimit": db("CharacterStatLimitExcelTable"),
+        "calcLimit": db("CharacterCalculationLimitExcelTable"),
+        "statsTrans": db("CharacterStatsTransExcelTable"),
+        # 盤
+        "form": db("FormationLocationExcelTable"),
+        "fireLine": db("ObstacleFireLineCheckExcelTable"),
+        "obstacleStat": db("ObstacleStatExcelTable"),
+        "obstacle": battle("obstacledata"),
+        # 内容ごとの決まり
+        "fever": db("ContentsFeverExcelTable"),
+        "hpbar": db("HpBarAbbreviationExcelTable"),
+        # 装備（生徒ぶんに入れると 274 回重複する）
+        "eq": [strip(r) for r in db("EquipmentExcelTable")],
+        "eqstat": [strip(r) for r in db("EquipmentStatExcelTable")],
+    }
+    raw = json.dumps(pack, ensure_ascii=False, separators=(",", ":")).encode()
+    gz = gzip.compress(raw, 9)
+    with open(out_dir / "common.json.gz", "wb") as f:
+        f.write(gz)
+    return len(raw), len(gz)
+
+
+def build_bosses(out_dir, chars, st_by, le_npc_by, le_pc_by, sk_by, want):
+    """**総力戦と大決戦のボス 1 面 1 ファイル。**原文のまま。
+
+    辿り方（2026-09-06 にペロロジラ Torment で端から端まで確かめた）:
+      RaidStage → BossCharacterId / GroundId
+                → CharacterExcelTable（ExternalBTId / CharacterAIId）
+                → BossExternalBT（段と行動）/ BossPhase（段ごとの通常と使う EX 枠）
+                → RaidSkillDescriptionList（枠の GroupId）→ LevelSkill の木
+                → 木の `CharacterEntityDAO.UniqueName` → DevName でミニオンの実体と素の値
+    """
+    ground = {r.get("Id"): r for r in db("GroundExcelTable")}
+    bt_by, ph_by = {}, {}
+    for r in db("BossExternalBTExcelTable"):
+        bt_by.setdefault(r.get("ExternalBTId"), []).append(r)
+    for r in ex("BossPhaseExcelTable"):
+        ph_by.setdefault(r.get("Id"), []).append(r)
+    desc = {}
+    for r in db("RaidSkillDescriptionListExcelTable"):
+        desc[(r.get("BossGroup"), r.get("Difficulty"))] = r
+    by_dev = {}
+    for c in chars:
+        if c.get("DevName"):
+            by_dev[c["DevName"]] = c
+
+    stages = [("raid", r) for r in db("RaidStageExcelTable")]
+    stages += [("elim", r) for r in db("EliminateRaidStageExcelTable")]
+    (out_dir / "boss").mkdir(parents=True, exist_ok=True)
+
+    index, tot_raw, tot_gz, n = {}, 0, 0, 0
+    for kind, sr in stages:
+        key = f"{kind}{sr.get('Id')}"
+        if want and key not in want and str(sr.get("Id")) not in want:
+            continue
+        d = desc.get((sr.get("RaidBossGroup"), sr.get("Difficulty")))
+        groups = list((d or {}).get("SkillGroupId") or [])
+        ents = {}
+        for cid in (sr.get("BossCharacterId") or []):
+            c = chars_by_id.get(cid)
+            if not c:
+                continue
+            ents[cid] = c
+            for pr in ph_by.get(cid, []):
+                g = pr.get("NormalAttackSkillUniqueName")
+                if g and g not in groups:
+                    groups.append(g)
+        ls, eids, names = {}, set(), set()
+        for g in groups:
+            t = level_skill(g)
+            if t is None:
+                continue
+            ls[g] = strip(t)
+            effect_ids(t, eids)
+            entity_names(t, names)
+        # ミニオンは名前で引く。**その子の木ももう一段だけ辿る**
+        for nm in sorted(names):
+            c = resolve_dev(nm, by_dev)
+            if c:
+                ents[c["Id"]] = c
+            else:
+                _dev_miss.add(nm)
+        le = []
+        for g in sorted(eids):
+            rows = le_npc_by.get(g) or le_pc_by.get(g) or []
+            le.extend(strip(r) for r in rows)
+        sk = []
+        for g in groups:
+            sk.extend(strip(r) for r in (sk_by.get(g) or []))
+        pack = {
+            "kind": kind, "stage": strip(sr),
+            "ground": strip(ground.get(sr.get("GroundId")) or {}),
+            "groups": groups, "ls": ls, "le": le, "sk": sk,
+            "bt": [strip(r) for cid in ents for r in bt_by.get(
+                (ents[cid] or {}).get("ExternalBTId"), [])],
+            "phase": [strip(r) for cid in ents for r in ph_by.get(cid, [])],
+            "ent": [strip(c) for c in ents.values()],
+            "st": [strip(st_by[c["Id"]]) for c in ents.values() if c["Id"] in st_by],
+        }
+        raw = json.dumps(pack, ensure_ascii=False, separators=(",", ":")).encode()
+        gz = gzip.compress(raw, 9)
+        with open(out_dir / "boss" / f"{key}.json.gz", "wb") as f:
+            f.write(gz)
+        index[key] = {"g": len(ls), "e": len(le), "n": len(ents), "b": len(gz)}
+        tot_raw += len(raw)
+        tot_gz += len(gz)
+        n += 1
+        if n % 20 == 0:
+            print(f"  ボス {n} 面 … {tot_gz:,} バイト")
+    if _dev_miss:
+        print(f"  当てられなかった実体名 {len(_dev_miss)}: {sorted(_dev_miss)[:6]}")
+    return index, tot_raw, tot_gz
+
+
+chars_by_id = {}
+
+
 def main(argv):
-    want = set(argv[1:])
+    args = [a for a in argv[1:] if not a.startswith("--")]
+    only = {a for a in argv[1:] if a.startswith("--")}
+    want = set(args)
     OUT.mkdir(parents=True, exist_ok=True)
 
     print("DB を読む …")
     csl = db("CharacterSkillListExcelTable")
     sk_tbl = db("SkillExcelTable")
     le_tbl = db("LogicEffect_PC")
+    le_npc = db("LogicEffect_NPC")
     chars = db("CharacterExcelTable")
+    stats = db("CharacterStatExcelTable")
+    chars_by_id.update({c.get("Id"): c for c in chars})
+    st_by = {r.get("CharacterId"): r for r in stats}
+
+    sk_by, le_by, le_npc_by = {}, {}, {}
+    for r in sk_tbl:
+        sk_by.setdefault(r.get("GroupId"), []).append(r)
+    for r in le_tbl:
+        le_by.setdefault(r.get("GroupId"), []).append(r)
+    for r in le_npc:
+        le_npc_by.setdefault(r.get("GroupId"), []).append(r)
+
+    if not only or "--common" in only:
+        raw, gz = build_common(OUT)
+        print(f"  common.json.gz  生 {raw:,} ／ gzip {gz:,} バイト")
+
+    if not only or "--boss" in only:
+        print("ボスを束ねる …")
+        bidx, braw, bgz = build_bosses(OUT, chars, st_by, le_npc_by, le_by, sk_by, want)
+        with open(OUT / "boss" / "index.json", "w", encoding="utf-8") as f:
+            f.write(json.dumps(bidx, ensure_ascii=False, separators=(",", ":")))
+        print(f"  ボス {len(bidx)} 面 ／ 生 {braw:,} ／ gzip {bgz:,} バイト")
+
+    if only and "--students" not in only:
+        return
 
     # **道具が持っている生徒だけ。**`data.js` の `stats` の並びをそのまま使う
-    src = io.open(ROOT / "tools" / "tl" / "data.js", encoding="utf-8").read()
+    with open(ROOT / "tools" / "tl" / "data.js", encoding="utf-8") as f:
+        src = f.read()
     m = re.search(r"window\.TLBOSS\s*=\s*", src)
     ids = list(json.loads(src[m.end():].rstrip().rstrip(";"))["stats"].keys())
     if want:
         ids = [i for i in ids if i in want]
-    print(f"  生徒 {len(ids)} 人")
+    print(f"生徒 {len(ids)} 人")
+
+    # 育成の表。**生徒ぶんに切って入れる**（画面が引き直さずに済む）
+    tr_by, pot_by, potst_by, gear_by, wp_by, fav_by = {}, {}, {}, {}, {}, {}
+    for r in db("CharacterTranscendenceExcelTable"):
+        tr_by.setdefault(str(r.get("CharacterId")), []).append(r)
+    for r in db("CharacterPotentialExcelTable"):
+        pot_by.setdefault(str(r.get("Id")), []).append(r)
+    for r in db("CharacterPotentialStatExcelTable"):
+        potst_by.setdefault(r.get("PotentialStatGroupId"), []).append(r)
+    for r in db("CharacterGearExcelTable"):
+        gear_by.setdefault(str(r.get("CharacterId")), []).append(r)
+    for r in db("CharacterWeaponExcelTable"):
+        wp_by.setdefault(str(r.get("Id")), []).append(r)
+    for r in db("FavorLevelRewardExcelTable"):
+        fav_by.setdefault(str(r.get("CharacterId")), []).append(r)
+    ai_by = {r.get("Id"): r for r in db("CharacterAIExcelTable")}
 
     dev = {str(c.get("Id")): c.get("DevName") for c in chars if c.get("Id")}
     csl_by = {}
     for r in csl:
         csl_by.setdefault(str(r.get("CharacterSkillListGroupId")), []).append(r)
-    sk_by = {}
-    for r in sk_tbl:
-        sk_by.setdefault(r.get("GroupId"), []).append(r)
-    le_by = {}
-    for r in le_tbl:
-        le_by.setdefault(r.get("GroupId"), []).append(r)
 
     index, tot_raw, tot_gz, tot_grp = {}, 0, 0, 0
     for sid in ids:
@@ -171,15 +416,29 @@ def main(argv):
             effect_ids(d, eids)
         le = []
         for g in sorted(eids):
-            le.extend(strip(r) for r in (le_by.get(g) or []))
+            le.extend(strip(r) for r in (le_by.get(g) or le_npc_by.get(g) or []))
         sk = []
         for g in groups:
             sk.extend(strip(r) for r in (sk_by.get(g) or []))
+        ch = chars_by_id.get(int(sid))
+        pots = pot_by.get(sid) or []
         pack = {"id": int(sid), "dev": dev.get(sid), "groups": groups,
-                "ls": ls, "le": le, "csl": [strip(r) for r in rows], "sk": sk}
+                "ls": ls, "le": le, "csl": [strip(r) for r in rows], "sk": sk,
+                # **実体と素の値。**画面が別表を引かずに済むよう 1 人ぶんだけ切って入れる
+                "ch": strip(ch) if ch else None,
+                "st": strip(st_by.get(int(sid))) if int(sid) in st_by else None,
+                "ai": strip(ai_by.get((ch or {}).get("CharacterAIId"))) if ch else None,
+                "tr": [strip(r) for r in (tr_by.get(sid) or [])],
+                "pot": [strip(r) for r in pots],
+                "potst": [strip(r) for p in pots
+                          for r in (potst_by.get(p.get("PotentialStatGroupId")) or [])],
+                "gear": [strip(r) for r in (gear_by.get(sid) or [])],
+                "wp": [strip(r) for r in (wp_by.get(sid) or [])],
+                "favor": [strip(r) for r in (fav_by.get(sid) or [])]}
         raw = json.dumps(pack, ensure_ascii=False, separators=(",", ":")).encode()
         gz = gzip.compress(raw, 9)
-        io.open(OUT / f"s{sid}.json.gz", "wb").write(gz)
+        with open(OUT / f"s{sid}.json.gz", "wb") as f:
+            f.write(gz)
         index[sid] = {"g": len(ls), "e": len(le), "b": len(gz)}
         tot_raw += len(raw)
         tot_gz += len(gz)
@@ -187,8 +446,9 @@ def main(argv):
         if len(index) % 40 == 0:
             print(f"  {len(index)}/{len(ids)} 人 … {tot_gz:,} バイト")
 
-    io.open(OUT / "index.json", "w", encoding="utf-8").write(
-        json.dumps(index, ensure_ascii=False, separators=(",", ":")))
+    with open(OUT / "index.json", "w", encoding="utf-8") as f:
+
+        f.write(json.dumps(index, ensure_ascii=False, separators=(",", ":")))
     print(f"\n書いた: {OUT}")
     print(f"  生徒 {len(index)} 人 ／ 枠 {tot_grp} ／ 生 {tot_raw:,} バイト ／ gzip {tot_gz:,} バイト")
     if _ls_miss:

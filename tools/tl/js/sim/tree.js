@@ -38,12 +38,20 @@
 export function typeOf(e) {
   var t = String((e && e.$type) || '').split(',')[0].split('.').pop();
   if (!t && e && e.BounceRadius != null) { return 'BounceProjectileEntity'; }
+  // **`ChainBeams` の中の帯は `$type` を持たない**（2026-09-06、ペロロジラ Torment
+  // の EX01。親の帯だけ `BeamEntityDAO` で、繋がる 2 本は型なし）
+  if (!t && e && e.ExpansionDuration != null && e.ObbWidth != null) {
+    return 'BeamEntityDAO';
+  }
   return t;
 }
 
 var AREA = { CircleAreaEntityDAO: 'Circle', FanAreaEntityDAO: 'Fan',
              ObbAreaEntityDAO: 'Obb', DonutAreaEntityDAO: 'Donut',
-             CircleAuraEntityDAO: 'CircleAura' };
+             CircleAuraEntityDAO: 'CircleAura',
+             // **敵側だけに出る型**（2026-09-06、ペロロジラ Torment の EX01 で見つけた）。
+             // 線の帯。`ObbWidth` が幅で、伸び 10 コマ・維持 310 コマ・消え 10 コマ
+             BeamEntityDAO: 'Beam' };
 
 /** 範囲の形。範囲の体でなければ null。単位は 1/100 ワールド（`PositionOffset` だけワールド） */
 export function shapeOf(e) {
@@ -52,7 +60,7 @@ export function shapeOf(e) {
   var po = e.PositionOffset || {};
   return { kind: k, r: e.Radius != null ? e.Radius : null,
            deg: e.Degree != null ? e.Degree : null,
-           w: e.Width != null ? e.Width : null,
+           w: e.Width != null ? e.Width : (e.ObbWidth != null ? e.ObbWidth : null),
            h: e.Height != null ? e.Height : null,
            exr: e.ExcludeRadius || null,
            off: (po.x || po.y) ? { x: po.x || 0, y: po.y || 0 } : null,
@@ -145,6 +153,20 @@ export function skillEvents(doc) {
     }
   }
 
+  /** **3 つめの容れ物。**`IntervalAbilities` は `{Phase, Frame, Abilities:[…]}` の配列で、
+      1 本の帯が決まったコマごとに効果を落とす（ペロロジラ Torment の EX01 が
+      30 コマおき）。`Abilities` / `AreaAbilities` と違って**もう一段深い。** */
+  function interval(node, ctx, typ) {
+    var list = node.IntervalAbilities || [], i, e;
+    for (i = 0; i < list.length; i++) {
+      e = list[i];
+      if (!e || typeof e !== 'object' || !e.Abilities) { continue; }
+      ability({ Abilities: e.Abilities }, 'Abilities',
+              { at: ctx.at + (e.Frame || 0), sel: ctx.sel, prj: ctx.prj,
+                area: ctx.area, dist: ctx.dist, rootEcr: ctx.rootEcr }, typ);
+    }
+  }
+
   var NEST = ['SplashAreaEntityData', 'BounceProjectileEntity',
               'SkillEntitySpawnerData', 'AreaSpawnerData',
               'InEffectRadiusAreaSpawnerEntity', 'InEffectRadiusSkillEntitySpawnerEntity'];
@@ -175,6 +197,7 @@ export function skillEvents(doc) {
                rootEcr: ctx.rootEcr };
     ability(e, 'Abilities', c2, typ);
     ability(e, 'AreaAbilities', c2, typ);
+    interval(e, c2, typ);
     for (k = 0; k < NEST.length; k++) {
       sub = e[NEST[k]];
       if (!sub || typeof sub !== 'object') { continue; }
@@ -185,6 +208,16 @@ export function skillEvents(doc) {
         timeline(sub, c2, dep + 1);
       } else {
         entity(sub, c2, dep + 1);
+      }
+    }
+    // **繋がる帯は包みに入って配列で吊られている**（ペロロジラ Torment の EX01）。
+    // `ChainBeams: [{Phase, MaxBranchCount, AllowParentTargetDupilication,
+    //                CheckTargetRadiusToSpawn, BeamEntityData: {…帯…}}]`
+    // で、包みの中の `BeamEntityData` が本体。**それぞれ別の効果を落とす。**
+    if (Array.isArray(e.ChainBeams)) {
+      for (k = 0; k < e.ChainBeams.length; k++) {
+        var cw = e.ChainBeams[k];
+        if (cw && cw.BeamEntityData) { entity(cw.BeamEntityData, c2, dep + 1); }
       }
     }
     timeline(e, c2, dep + 1);
