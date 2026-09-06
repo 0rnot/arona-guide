@@ -84,7 +84,10 @@ export function one(m, ctx, self, target) {
     return inc(m, n > 0);
   }
   if (t === 'CountLogicEffectTemplateModifierDAO') {
-    n = (ctx.marks(who) || {})[m.TemplateId] || 0;
+    // **`CheckTarget: 2` は「撃つ側の味方みんな」で、数えるのは体の数**
+    n = m.CheckTarget === 2
+      ? ctx.sideCount(self, m.TemplateId)
+      : ((ctx.marks(who) || {})[m.TemplateId] || 0);
     return inc(m, within(n, m.CountMin, m.CountMax));
   }
   if (t === 'CountListLogicEffectTemplateModifierDAO') {

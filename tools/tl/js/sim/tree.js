@@ -379,3 +379,57 @@ export function skillEvents(doc) {
 
 /** その枠の届く距離（`Range`）。無ければ null */
 export function rangeOf(doc) { return (doc && doc.Range) || null; }
+
+/** **その枠が呼ぶ実体。**`SummonGroups[].SummonEntities[]` の `CharacterEntityDAO`。
+
+    ペロロジラの Ex03（吸い込みの前に湧かせるほう）はここに中サイズのペロロミニオンを
+    並べている。**グロッキーの鎖の 1 本目**で、ここが無いと吸うものが無く、
+    ゲージが溜まらず、分裂も起きない（2026-09-06）。
+
+    返すのは `{f, name, dur}`。`f` は発動からのコマ（`SpawnDelay`）。 */
+export function summonsOf(doc) {
+  var out = [];
+  function walk(o, delay) {
+    if (!o || typeof o !== 'object') { return; }
+    if (Array.isArray(o)) {
+      for (var q = 0; q < o.length; q++) { walk(o[q], delay); }
+      return;
+    }
+    var d2 = o.SpawnDelay != null ? o.SpawnDelay : delay;
+    var gs = o.SummonGroups;
+    if (Array.isArray(gs)) {
+      for (var i = 0; i < gs.length; i++) {
+        var es = (gs[i] || {}).SummonEntities || [];
+        for (var j = 0; j < es.length; j++) {
+          var e = es[j];
+          if (e && e.UniqueName) {
+            out.push({ f: d2 || 0, name: e.UniqueName, dur: e.Duration || 0 });
+          }
+        }
+      }
+    }
+    for (var k in o) {
+      if (k === '$type' || k === 'SummonGroups') { continue; }
+      walk(o[k], d2);
+    }
+  }
+  walk(doc, 0);
+  return out;
+}
+
+/** 木の `UniqueName` を束の `DevName` に当てる。**綴りが一致しない。**
+    `build-tl-db.py` の `resolve_dev` と同じ規則（木は `_Peroro` を挟む）。 */
+export function resolveDev(name, byDev) {
+  if (byDev[name]) { return name; }
+  var alt = name.replace('_Peroro_', '_').replace('_Peroro', '_').replace('__', '_');
+  if (byDev[alt]) { return alt; }
+  var parts = name.split('_');
+  var tail = /_Move$/.test(name) ? parts.slice(-2).join('_') : parts.slice(-1).join('_');
+  var head = parts[0], keys = Object.keys(byDev), cand = [], i;
+  for (i = 0; i < keys.length; i++) {
+    if (keys[i].indexOf(head) === 0 && keys[i].slice(-tail.length) === tail) {
+      cand.push(keys[i]);
+    }
+  }
+  return cand.length === 1 ? cand[0] : null;
+}

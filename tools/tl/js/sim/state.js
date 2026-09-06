@@ -227,6 +227,23 @@ export function ctxOf(b) {
   }
   return {
     marks: function (u) { return cnt(u, 'tmpl'); },
+    // **`CheckTarget: 2` は「撃つ側の味方みんな」。**1 人の札を数えるのではなく、
+    // その札を持っている**体の数**を数える（ペロロジラの Ex09 は、気絶している
+    // 中サイズのペロロミニオンが何体居るかでグロッキーゲージの段が決まる。
+    // 2026-09-06。ここが無いあいだ段はいつも 0 で、ゲージが 1 も溜まらなかった）
+    sideCount: function (u, tmpl) {
+      var n = 0, i, j, k;
+      if (!u) { return 0; }
+      for (i = 0; i < b.order.length; i++) {
+        var v = b.units[b.order[i]];
+        if (!v || !v.alive || v.side !== u.side) { continue; }
+        for (j = 0; j < v.eff.length; j++) {
+          if (v.eff[j].tmpl === tmpl) { n++; break; }
+        }
+        k = 0;
+      }
+      return n;
+    },
     gids: function (u) { return cnt(u, 'gid'); },
     cats: function (u) { return cnt(u, 'cat'); },
     hpRate: function (u) {

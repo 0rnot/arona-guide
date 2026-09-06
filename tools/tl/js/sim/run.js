@@ -28,7 +28,7 @@
      `unknown` は**条件が判定できなかった回数**。ここが 0 でないうちは
      「再現できた」と言わない。
 */
-import { skillEvents } from './tree.js';
+import { skillEvents, summonsOf, resolveDev } from './tree.js';
 import { readAll, atLevel, kindOfList, isDamage } from './effect.js';
 import { all as condAll, mulOf, unknownOf } from './cond.js';
 import { makeBoard, makeUnit, add, living, ctxOf, applyMark, expire, tickCost }
@@ -306,11 +306,14 @@ function fire(R, ev, caster, target, lvl, at, mc) {
     return 0;
   }
   if (r.kind === 'groggy') {
-    // **1 万分率は `GroggyGauge` に対する割合。**撃つ側と受ける側で別の欄
-    var cs2 = statsNow(caster), ts2 = statsNow(target);
-    var gv = (r.flat || 0)
-      + (r.amt || 0) / 10000 * (cs2.GroggyGauge || 0)
-      + (r.tamt || 0) / 10000 * (ts2.GroggyGauge || 0);
+    // **ゲージは 1 万分率で持つ。**満タンが 10000。
+    // 吸って溜めるボス（ペロロジラ）は `CasterCoefficientAmount` がそのまま目盛りで、
+    // 気絶した中サイズのペロロミニオンを何体吸ったかで
+    // 0 / 834 / 1668 / 2502 / 3336 / 4170 / 5004 と段が変わる（6 体で 5004、2 回で満タン）。
+    // `CharacterStatExcelTable.GroggyGauge`（ペロロジラは 1,000,000,000）は
+    // **ダメージで溜めるときの目盛り**で、こちらでは使わない
+    // （`js/carry.js:ggMode` の「吸収」と同じ決め）
+    var gv = (r.flat || 0) + (r.amt || 0) + (r.tamt || 0);
     gv *= mul;
     if (!target.ggImmune && gv > 0) {
       target.gg = (target.gg || 0) + gv;
@@ -438,6 +441,17 @@ function cast(R, u, gid, slot, lvl, at, opt) {
       }, slot + ':' + e2.gid);
     })(e, t2);
   }
+  // **その枠が呼ぶ実体。**グロッキーの鎖の 1 本目（`tree.js:summonsOf` の注記）
+  if (R.summon) {
+    var sm = R.smCache[gid] || (R.smCache[gid] = summonsOf(doc));
+    for (var y = 0; y < sm.length; y++) {
+      (function (sv) {
+        var t4 = at + (sv.f || 0) / FPS * 1000;
+        if (t4 > R.durMs) { return; }
+        R.q.push(t4, function (now) { R.summon(sv.name, now, u); });
+      })(sm[y]);
+    }
+  }
   R.used.push({ t: at, who: u.key, slot: slot, gid: gid });
   // **スキルを使ったことを SS に知らせる**（Event 3 / 17）。
   // SS 自身とパッシブからは知らせない（際限なく回る）
@@ -543,7 +557,7 @@ export function run(o) {
 
   var R = {
     b: b, ctx: ctxOf(b), eff: eff, q: queue(), evCache: {},
-    total: 0, heal: 0, groggy: [], probe: o.probe ? [] : null, used: [], unknown: 0, unknownBy: {}, miss: {}, by: {},
+    total: 0, heal: 0, groggy: [], summoned: 0, smCache: {}, probe: o.probe ? [] : null, used: [], unknown: 0, unknownBy: {}, miss: {}, by: {},
     durMs: durMs, mc: o.mc || 1, C: constOf(common),
     unitOf: function (k) { return b.units[k] || null; },
     lvTable: common.lvdiff || null, caps: capsOf(common.calcLimit),
@@ -719,6 +733,28 @@ export function run(o) {
   // ここが無いあいだ、核は「ボスが棒立ちの的」を殴っているだけだった。
   // フェーズも通常攻撃も EX も無いので味方が一度も倒れず、答え合わせで
   // 31 本とも 240 秒ボスが生き残っていた（道具は 11 本討伐している）
+  /** 湧いた子の常時札を引く。**`PassiveSkillGroupId` は配列で、6 本入ることがある。**
+      先頭だけ引いていて、中サイズのペロロミニオンが自分を気絶させる
+      `Perorozilla01InsaneMiddleSize01Passive02`（4 本目）が抜けていた。
+      それが抜けると Ex09 が吸うものを見つけられず、グロッキーゲージが 1 も溜まらない
+      （2026-09-06） */
+  function castPassives(mu, at) {
+    var cr = mu.csl && mu.csl[0], z, v;
+    if (!cr) { return; }
+    var slots = [['PassiveSkillGroupId', 'Passive'],
+                 ['ExtraPassiveSkillGroupId', 'ExtraPassive'],
+                 ['HiddenSkillGroupId', 'Passive']];
+    for (z = 0; z < slots.length; z++) {
+      v = cr[slots[z][0]];
+      v = Array.isArray(v) ? v : (v ? [v] : []);
+      for (var w2 = 0; w2 < v.length; w2++) {
+        if (v[w2] && v[w2] !== 'EmptySkill') {
+          cast(R, mu, String(v[w2]), slots[z][1], 1, at);
+        }
+      }
+    }
+  }
+
   var bst = null, bd = null, sec = 0;
   var bnames = Object.keys(boss.board || {});
   if (bnames.length) { bd = boardPlan(boss.board[bnames[0]]); }
@@ -738,26 +774,35 @@ export function run(o) {
         mu.pos = pts[z].pos || null;
         mu.eff = [];
         n++;
-        // **湧いた子は自分の常時札を引く。**ペロロミニオンの被ダメージ転移がこれ
-        var cr = mu.csl && mu.csl[0];
-        if (cr) {
-          var pg2 = (cr.PassiveSkillGroupId || [])[0];
-          var eg2 = (cr.ExtraPassiveSkillGroupId || [])[0];
-          if (pg2 && pg2 !== 'EmptySkill') { cast(R, mu, String(pg2), 'Passive', 1, at); }
-          if (eg2 && eg2 !== 'EmptySkill') { cast(R, mu, String(eg2), 'ExtraPassive', 1, at); }
-        }
+        castPassives(mu, at);
         break;
       }
     }
     return n;
   }
 
+  /** 木が呼んだ実体を 1 体起こす。**名前は綴りが違うので当て直す。** */
+  R.summon = function (name, at, by) {
+    var dev = R.devFix[name];
+    if (dev === undefined) { dev = R.devFix[name] = resolveDev(name, byDev); }
+    if (!dev) { R.miss['summon:' + name] = (R.miss['summon:' + name] || 0) + 1; return; }
+    var pool = byDev[dev] || [], w;
+    for (w = 0; w < pool.length; w++) {
+      var mu = pool[w];
+      if (mu.alive || mu === bossU) { continue; }
+      mu.alive = true; mu.hp = mu.maxHp; mu.eff = []; mu.pos = by && by.pos;
+      R.summoned++;
+      castPassives(mu, at);
+      return;
+    }
+  };
+  R.devFix = {};
+
   // **グロッキー。**ゲージが `GroggyGauge` に届いたら `GroggyTime` のあいだ。
   // その間は会心が確定し、盤の台本が `st:Groggy` の湧きを出す
   // （ペロロジラは Immortal の小さなペロロミニオンで、受けたダメージを本体へ流す）
   R.onGroggy = function (u2, at) {
-    var need = (u2.base && (u2.base.GroggyGauge || 0)) || 0;
-    if (!need || (u2.gg || 0) < need) { return; }
+    if ((u2.gg || 0) < 10000) { return; }
     if (u2.groggyUntil != null && at < u2.groggyUntil) { return; }
     u2.gg = 0;
     var gt = (u2.base && u2.base.GroggyTime) || 0;
@@ -820,8 +865,9 @@ export function run(o) {
     hp: hp, total: R.total, killAt: bossU.hp <= 0 ? t3 / 1000 : null,
     maxHp: bossU.maxHp, used: R.used,
     unknown: R.unknown, unknownBy: R.unknownBy, miss: R.miss, by: R.by,
-    heal: R.heal, groggy: R.groggy, probe: R.probe, events: R.q.size(),
+    heal: R.heal, groggy: R.groggy, summoned: R.summoned, probe: R.probe, events: R.q.size(),
     // **ボスが何をしたか。**動いていないときに黙って通らないための報せ
+    bossGg: bossU.gg || 0, bossAtg: bossU.atg || 0,
     bossPhase: bst ? bst.phase : null, bossEx: bst ? bst.exCount : 0,
     bossNa: bst ? bst.n : 0, bossErr: R.bossErr || null,
     wipeAt: living(b, 'ally').length ? null : t3 / 1000, downAt: downAt,
