@@ -85,7 +85,11 @@ export function readOne(r) {
     kind: '?', t: t, gid: r.GroupId, lv: r.Level, ch: r.Channel,
     tmpl: r.TemplateId || null, cat: r.Category, rate: r.ApplyRate,
     dur: dur(r), endc: r.EndCondition != null ? r.EndCondition : null,
-    disp: r.Dispellable !== false
+    disp: r.Dispellable !== false,
+    // **重なり方はどの型にも付いている欄。**型ごとではなくここで読む
+    // （`stack` 0 なら積めない。1 以上ならその数まで積める）
+    stack: r.StackSameEffectApplied ? (r.StackSameEffectCount || 1) : 0,
+    expireOld: r.ExpireOldIfStackCountOver !== false
   };
   if (t === 'Damage') {
     o.kind = 'dmg';
@@ -113,7 +117,6 @@ export function readOne(r) {
     o.amt = amount(r);
     o.raw = r.StatType;
     o.casterStat = r.CasterStatType != null ? r.CasterStatType : null;
-    o.stack = r.StackSameEffectApplied ? (r.StackSameEffectCount || 0) : 0;
     return o;
   }
   if (t === 'Dummy') { o.kind = 'mark'; return o; }
