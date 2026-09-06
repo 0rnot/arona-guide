@@ -29,6 +29,7 @@
      form(who)       形態の番号
      skillLv(who, slot)
      armor(who) / bullet(who) / tags(who) / status(who) / bodies() / side(who)
+     cover(who, other)  1 隠れていない / 2 遮蔽の陰
 
    判定できない型は `null` を返す。**呼ぶ側は `null` を「分からない」として扱い、
    数えて出す。**「分からない」を黙って true にしない。 */
@@ -145,13 +146,22 @@ export function one(m, ctx, self, target) {
     return inc(m, !!(ctx.status(who) || {})[m.TargetStatus || m.Status]);
   }
   if (t === 'CoverStateConditionalModifierDAO') {
-    // **「盤に遮蔽が無い」は思い込みだった**（2026-09-07。`board.js` の注記。
-    // 束 700 面のうち 185 面に 8,831 個ある）。ただし核は**体が遮蔽の陰に
-    // 入っているか**を持っていない（線を遮るかは一撃ごとに見るだけで、
-    // 体の状態にしていない）ので、ここはまだ `CoverState` 1（隠れていない）を
-    // 常に立てる。**残っている穴。**
-    if (m.CoverState === 1) { return inc(m, true); }
-    return null;
+    // **`CoverState` は 1（隠れていない）と 2（隠れている）の 2 通りしか無い。**
+    // 束で使っているのは ビナー（全形態の通常・EX）と CH0071 / ヒナ / イオリの
+    // 固有パッシブだけで、値は 1 か 2 のみ（2026-09-07 に数えた）。
+    // **2 が「隠れている」なのは名前で決まる。**`BinahTormentExSkill01` は
+    // 同じ範囲に 2 本のアビリティを持っていて、
+    //   `Binah01_Torment_Ex01_LevelOneTimeAbility01`（`CoverState` 1）
+    //     → `Binah_Remake_Torment_Ex01_Effect01`  `BonusRateFirst` 16000
+    //   `Binah01_Torment_Ex01_LevelOneTimeAbility01_02_Covered`（`CoverState` 2）
+    //     → `Binah_Remake_Torment_Ex01_Effect03`  `BonusRateFirst`  8000
+    // **`_02_Covered` が付いているほうが 2 で、威力はちょうど半分。**
+    // 2 段目も同じ形（Effect02 5000 ／ Effect04 2500）。
+    if (!ctx.cover) { return null; }
+    var other = (who === target) ? self : target;
+    var cs = ctx.cover(who, other);
+    if (cs == null) { return null; }
+    return inc(m, cs === m.CoverState);
   }
   if (t === 'TargetSideConditionalModifierDAO') {
     if (!ctx.side) { return null; }

@@ -857,6 +857,17 @@ export function run(o) {
       var r = base + ((gv && gv.BlockFactor) || 0) - ((gu && gu.ShotFactor) || 0);
       return Math.max(0, Math.min(10000, r));
     },
+    /** 体が遮蔽の陰に入っているか（`CoverState`。**1 隠れていない / 2 隠れている**）。
+        `u` が見られる側、`v` が相手。
+        **見るのは `coverOf` と同じ線で、地形の足し引きは掛けない。**
+        あちらは「何割が当たらないか」、こちらは「陰に居るか居ないか」。
+        遮蔽の無い面（束 700 面のうち 515 面）と、盤の座標が引けない面は
+        **1（隠れていない）。**「分からない」ではなく、遮蔽が無ければ
+        誰も隠れていないのが事実。 */
+    coverState: function (u, v) {
+      if (!obs.length || !u || !v || !u.pos || !v.pos) { return 1; }
+      return coverRate(v.pos, u.pos, obs, u.radius) > 0 ? 2 : 1;
+    },
     /** その体の地形倍率（`AttackPowerFactor`）。 */
     terrOf: function (u) {
       var g = (R.terrT[R.topo] || {})[u.adapt || 'D'];
@@ -1196,6 +1207,7 @@ export function run(o) {
   R.ctx.groggy = function (u2) {
     return !!(u2 && u2.groggyUntil != null && b.t < u2.groggyUntil);
   };
+  R.ctx.cover = function (u2, v2) { return R.coverState(u2, v2); };
   R.ctx.ggRate = function (u2) {
     if (!u2) { return 0; }
     var need = (u2.base && u2.base.GroggyGauge) || 0;
