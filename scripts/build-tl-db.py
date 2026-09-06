@@ -286,6 +286,41 @@ def build_common(out_dir):
     return len(raw), len(gz)
 
 
+# **札の行そのものが、別の札を名前で指すことがある**（2026-09-06）。
+# 木から辿れるのは 1 段目だけなので、束ねた行をもう一度なめて閉じる。
+# ペロロジラの `DamageTransferEffectDAO` は
+# `TransferredDamageEffectGroupId: "Perorozilla01_TransferredDamage_Effect01"` を持つが、
+# その行は木のどこにも書いていないので束から丸ごと落ちていた
+# （`LogicEffect_NPC` を数えて出した欄。多い順）
+_LE_REFS = ("MaxGaugeLogicEffectGroupIdList", "LogicEffectGroupIdToDispel",
+            "CheckLogicEffectGroupId", "AlarmEffectGroupIdList",
+            "TransferredDamageEffectGroupId",
+            "ChangeSkillCardToCCToCasterLogicEffectGroupId",
+            "ApplyLogicEffectGroupIdWhenTriggered", "CapOverDeadlyAttackGroupId",
+            "EachAlarmEffectGroupIdList", "CombinedAlarmEffectGroupIdList",
+            "StackCountGroupId", "ApplyLogicEffectGroupId01")
+
+
+def close_effects(eids, npc_by, pc_by, rounds=4):
+    """束ねる札の名前を、行が指している先まで広げる。**同じ名前は 1 回だけ。**"""
+    seen = set(eids)
+    frontier = set(eids)
+    for _ in range(rounds):
+        nxt = set()
+        for g in frontier:
+            for r in (npc_by.get(g) or []) + (pc_by.get(g) or []):
+                for k in _LE_REFS:
+                    v = r.get(k)
+                    for x in (v if isinstance(v, list) else [v]):
+                        if isinstance(x, str) and x and x not in seen:
+                            nxt.add(x)
+        if not nxt:
+            break
+        seen |= nxt
+        frontier = nxt
+    return seen
+
+
 def take_ent(c, ents, csl_rows, groups, ph_by, csl_by):
     """敵を 1 体束に入れて、**その子の枠の名前を `groups` に足す。**
 
@@ -383,7 +418,7 @@ def build_bosses(out_dir, chars, st_by, le_npc_by, le_pc_by, sk_by, want):
                 else:
                     _dev_miss.add(nm)
         le = []
-        for g in sorted(eids):
+        for g in sorted(close_effects(eids, le_npc_by, le_pc_by)):
             rows = le_npc_by.get(g) or le_pc_by.get(g) or []
             le.extend(strip(r) for r in rows)
         sk = []
@@ -521,7 +556,7 @@ def main(argv):
             ls[g] = strip(d)
             effect_ids(d, eids)
         le = []
-        for g in sorted(eids):
+        for g in sorted(close_effects(eids, le_npc_by, le_by)):
             le.extend(strip(r) for r in (le_by.get(g) or le_npc_by.get(g) or []))
         sk = []
         for g in groups:

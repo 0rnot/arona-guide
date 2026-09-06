@@ -35,6 +35,7 @@ import { makeBoard, makeUnit, add, living, ctxOf, applyMark, expire, tickCost }
   from './state.js';
 import { once as hitOnce, roll as hitRoll, capsOf } from './hit.js';
 import { bossPlan, phaseWaits, driveBoss } from './boss.js';
+import { boardPlan, spawnFor } from './board.js';
 
 var FPS = 30;
 
@@ -305,11 +306,27 @@ function fire(R, ev, caster, target, lvl, at, mc) {
     return 0;
   }
   if (r.kind === 'groggy') {
-    // **`CasterCoefficientAmount` は撃つ子の値に対する割合ではなく、そのまま溜まる量**
-    var gv = (r.amt || 0) * mul;
-    if (!target.groggyImmune && gv > 0) {
+    // **1 万分率は `GroggyGauge` に対する割合。**撃つ側と受ける側で別の欄
+    var cs2 = statsNow(caster), ts2 = statsNow(target);
+    var gv = (r.flat || 0)
+      + (r.amt || 0) / 10000 * (cs2.GroggyGauge || 0)
+      + (r.tamt || 0) / 10000 * (ts2.GroggyGauge || 0);
+    gv *= mul;
+    if (!target.ggImmune && gv > 0) {
       target.gg = (target.gg || 0) + gv;
       if (R.onGroggy) { R.onGroggy(target, at); }
+    }
+    return 0;
+  }
+  // ---- 被ダメージの転移。**受けたぶんを別の体へ流す札**
+  if (r.kind === 'transfer') {
+    applyMark(target, r, caster.key, at, lvl);
+    target.xfer = { ratio: r.ratio == null ? 10000 : r.ratio, to: caster.key };
+    return 0;
+  }
+  if (r.kind === 'immune') {
+    for (var zz = 0; zz < (r.tmpl || []).length; zz++) {
+      if (String(r.tmpl[zz]).indexOf('Groggy') >= 0) { target.ggImmune = true; }
     }
     return 0;
   }
@@ -326,9 +343,25 @@ function fire(R, ev, caster, target, lvl, at, mc) {
     var d = R.defender(target);
     var s = {
       scale: r.rate || 0, mult: mul, tick: 1,
-      ig: r.pen != null && r.pen ? (10000 - r.pen) : null,
+      // **`DefensePenetrationRate: 10000` は「防御を全部貫く」ではなく、既定値。**
+      // `10000 - pen` にしていて、**ほぼ全部の一撃が防御を素通りしていた**
+      // （2026-09-06）。数えると `LogicEffect_PC` 5,753 行のうち 5,433 行、
+      // `LogicEffect_NPC` 1,100 行のうち 1,083 行が 10000 で、
+      // これを「貫通」と読むとゲームから防御という概念が消える。
+      // 本当に貫くものは SchaleDB の `IgnoreDef` に出ていて **30 効果しかない**
+      // （10025 の EX が段ごとに 7200/7200/6400/6400/5600 のように減る＝
+      // 段が上がるほど貫く）。`dmg.js:defModOf` の `ig` は
+      // 「**残る防御の割合**」なので、その値をそのまま渡す。
+      // `ApplyDefense` が偽（あるいは欄ごと無い）ものだけが防御を引かない
+      ig: (r.def === false) ? 0
+        : ((r.pen != null && r.pen !== 10000) ? r.pen : null),
       isEx: ev.slot === 'Ex', isBasic: ev.slot === 'Normal',
       lvDiff: (caster.lv || 0) - (target.lv || 0),
+      // **グロッキー中は会心が確定する。**ゲームの定数表には無い決めで、
+      // 出どころはボス個別の攻略記事（kamigame / gamerch のクロカゲ）と、
+      // 大決戦ビナー Torment の録画で実測が「平均」から「全会心平均」の線へ
+      // 乗り換わること。`js/carry.js` の注記と同じものをそのまま持ってきている
+      crit: (target.groggyUntil != null && at < target.groggyUntil) ? 1 : null,
       rate: r.rate2 != null ? r.rate2 : (list.applyRate != null ? list.applyRate : null),
       noCrit: r.crit === 1, noStab: r.stab === false,
     };
@@ -354,6 +387,22 @@ function fire(R, ev, caster, target, lvl, at, mc) {
     }
     target.hp = Math.max(0, target.hp - dmg);
     R.total += dmg;
+    // **1 発ごとの中身。**核が伸びないときに、どの掛け算が小さいかを外から見るため
+    if (R.probe) {
+      R.probe.push([Math.round(dmg), caster.key, ev.slot || '?', ev.gid,
+                    Math.round(at), s.scale, +(mul).toFixed(4), Math.round(a.atk),
+                    +(o.avg / Math.max(1, a.atk)).toFixed(3), s.tick, ev.dist, ev.share]);
+    }
+    // **受けたぶんを本体へ流す。**ペロロミニオンは Immortal で 100% を転移する。
+    // 流した先の HP を削るのはここだけで、`by` には転移として別に立てる
+    if (target.xfer && R.unitOf) {
+      var host = R.unitOf(target.xfer.to);
+      if (host && host !== target && host.alive) {
+        var xd = dmg * (target.xfer.ratio / 10000);
+        host.hp = Math.max(0, host.hp - xd);
+        R.by[caster.key + '/転移'] = (R.by[caster.key + '/転移'] || 0) + xd;
+      }
+    }
     // **どこから出たダメージか。**核の穴を探すのに要る（合計だけ見ても分からない）
     var bk = caster.key + '/' + (ev.slot || '?');
     R.by[bk] = (R.by[bk] || 0) + dmg;
@@ -441,7 +490,7 @@ export function run(o) {
   var durMs = (o.dur != null ? o.dur : 240) * 1000;
 
   // ---- 敵。**ボスと、木から呼ばれるミニオンまで束に入っている**
-  var ent = boss.ent || [], stx = {}, i;
+  var ent = boss.ent || [], stx = {}, byDev = {}, i;
   for (i = 0; i < (boss.st || []).length; i++) { stx[boss.st[i].CharacterId] = boss.st[i]; }
   var bossU = null;
   for (i = 0; i < ent.length; i++) {
@@ -460,6 +509,9 @@ export function run(o) {
     // **敵も自分の札を引く。**ここを空にしておくと `cast` が黙って帰る
     u.ls = boss.ls || {};
     u.skillLv = {};
+    u.csl = (boss.csl || {})[c.Id] || (boss.csl || {})[String(c.Id)] || null;
+    byDev[c.DevName] = byDev[c.DevName] || [];
+    byDev[c.DevName].push(u);
     // **盤に最初から居るのはボスだけ。**ミニオンは湧いてから
     if (c.TacticEntityType === 'Boss' && !bossU) { bossU = u; } else { u.alive = false; }
   }
@@ -491,8 +543,9 @@ export function run(o) {
 
   var R = {
     b: b, ctx: ctxOf(b), eff: eff, q: queue(), evCache: {},
-    total: 0, heal: 0, used: [], unknown: 0, unknownBy: {}, miss: {}, by: {},
+    total: 0, heal: 0, groggy: [], probe: o.probe ? [] : null, used: [], unknown: 0, unknownBy: {}, miss: {}, by: {},
     durMs: durMs, mc: o.mc || 1, C: constOf(common),
+    unitOf: function (k) { return b.units[k] || null; },
     lvTable: common.lvdiff || null, caps: capsOf(common.calcLimit),
     rnd: o.seed != null ? mulberry(o.seed) : null,
     // **撃つ側の値。**素の値に、**その瞬間に乗っている札**を畳んでから返す。
@@ -666,7 +719,54 @@ export function run(o) {
   // ここが無いあいだ、核は「ボスが棒立ちの的」を殴っているだけだった。
   // フェーズも通常攻撃も EX も無いので味方が一度も倒れず、答え合わせで
   // 31 本とも 240 秒ボスが生き残っていた（道具は 11 本討伐している）
-  var bst = null;
+  var bst = null, bd = null, sec = 0;
+  var bnames = Object.keys(boss.board || {});
+  if (bnames.length) { bd = boardPlan(boss.board[bnames[0]]); }
+
+  /** 合図 `tag` の湧き点を起こす。**同じ実体が何度も湧くので、
+      死んでいる体から順に使い回す**（束には 5〜30 体ぶん入っている） */
+  function spawn(tag, at) {
+    if (!bd) { return 0; }
+    var pts = spawnFor(bd, sec, tag), n = 0, z;
+    for (z = 0; z < pts.length; z++) {
+      var pool = byDev[pts[z].dev] || [], w;
+      for (w = 0; w < pool.length; w++) {
+        var mu = pool[w];
+        if (mu.alive || mu === bossU) { continue; }
+        mu.alive = true;
+        mu.hp = mu.maxHp;
+        mu.pos = pts[z].pos || null;
+        mu.eff = [];
+        n++;
+        // **湧いた子は自分の常時札を引く。**ペロロミニオンの被ダメージ転移がこれ
+        var cr = mu.csl && mu.csl[0];
+        if (cr) {
+          var pg2 = (cr.PassiveSkillGroupId || [])[0];
+          var eg2 = (cr.ExtraPassiveSkillGroupId || [])[0];
+          if (pg2 && pg2 !== 'EmptySkill') { cast(R, mu, String(pg2), 'Passive', 1, at); }
+          if (eg2 && eg2 !== 'EmptySkill') { cast(R, mu, String(eg2), 'ExtraPassive', 1, at); }
+        }
+        break;
+      }
+    }
+    return n;
+  }
+
+  // **グロッキー。**ゲージが `GroggyGauge` に届いたら `GroggyTime` のあいだ。
+  // その間は会心が確定し、盤の台本が `st:Groggy` の湧きを出す
+  // （ペロロジラは Immortal の小さなペロロミニオンで、受けたダメージを本体へ流す）
+  R.onGroggy = function (u2, at) {
+    var need = (u2.base && (u2.base.GroggyGauge || 0)) || 0;
+    if (!need || (u2.gg || 0) < need) { return; }
+    if (u2.groggyUntil != null && at < u2.groggyUntil) { return; }
+    u2.gg = 0;
+    var gt = (u2.base && u2.base.GroggyTime) || 0;
+    u2.groggyUntil = at + gt;
+    R.groggy.push([at / 1000, gt / 1000]);
+    spawn('st:Groggy', at);
+    if (bst && bst.applyGroggy) { bst.applyGroggy(at); }
+  };
+
   if (o.bossActs !== false) {
     try {
       var plan = bossPlan(boss, bossU.charId);
@@ -679,6 +779,8 @@ export function run(o) {
       R.bossErr = String(e && e.message || e);
     }
   }
+  // **節の最初から居る敵**（ボス以外に前座が居る盤がある）
+  spawn('start', 0);
 
   // ---- 回す。**0.1 秒刻みで札の時間切れとコストを進める**
   var step = o.step || 100, hp = [], t3, downAt = [];
@@ -703,10 +805,22 @@ export function run(o) {
     if (!living(b, 'ally').length) { break; }
   }
   return {
+    // **札が乗ったあとの攻撃力。**核が伸びないときに、素の値と見比べるため
+    atkNow: (function () {
+      var o2 = {}, z;
+      for (z = 0; z < allies.length; z++) {
+        var sn = statsNow(allies[z]);
+        o2[allies[z].key] = [Math.round(allies[z].base.AttackPower || 0),
+                             Math.round(sn.AttackPower || 0),
+                             Math.round(sn.CriticalPoint || 0),
+                             allies[z].eff.length];
+      }
+      return o2;
+    })(),
     hp: hp, total: R.total, killAt: bossU.hp <= 0 ? t3 / 1000 : null,
     maxHp: bossU.maxHp, used: R.used,
     unknown: R.unknown, unknownBy: R.unknownBy, miss: R.miss, by: R.by,
-    heal: R.heal, events: R.q.size(),
+    heal: R.heal, groggy: R.groggy, probe: R.probe, events: R.q.size(),
     // **ボスが何をしたか。**動いていないときに黙って通らないための報せ
     bossPhase: bst ? bst.phase : null, bossEx: bst ? bst.exCount : 0,
     bossNa: bst ? bst.n : 0, bossErr: R.bossErr || null,

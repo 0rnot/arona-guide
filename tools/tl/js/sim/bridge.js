@@ -146,7 +146,7 @@ export async function simParty(o) {
 
   var dur = o.dur != null ? o.dur : ((index[key].dur || 240000) / 1000);
   var res = run({ common: common, boss: boss, party: party, tl: tl,
-                  dur: dur, mc: 1, seed: o.seed, step: o.step });
+                  dur: dur, mc: 1, seed: o.seed, step: o.step, probe: o.probe });
   res.key = key;
   res.gaps = gaps;
   res.names = names;

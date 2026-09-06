@@ -246,7 +246,37 @@ export function readOne(r) {
   if (t === 'Knockback') { o.kind = 'knock'; return o; }
   if (t === 'ResetAutoUseRule') { o.kind = 'nsReset'; return o; }
   if (t === 'WriteEntityToBlackboard') { o.kind = 'bbWrite'; o.bb = r.BlackboardKey || null; return o; }
-  if (t === 'GroggyGauge') { o.kind = 'groggy'; o.amt = r.CasterCoefficientAmount || 0; return o; }
+  // **グロッキーゲージ。**欄が 3 つある。`Amount` はそのまま、
+  // `CasterCoefficientAmount` / `TargetCoefficientAmount` は
+  // 撃つ側 / 受ける側の `GroggyGauge` に対する 1 万分率。
+  // ペロロジラの Ex09（吸収）は吸った気絶ミニオンの数で
+  // 0 / 834 / 1668 / 2502 / 3336 / 4170 / 5004 と段が変わる（`CountLogicEffectTemplateModifier`）
+  if (t === 'GroggyGauge') {
+    o.kind = 'groggy';
+    o.flat = r.Amount || 0;
+    o.amt = r.CasterCoefficientAmount || 0;
+    o.tamt = r.TargetCoefficientAmount || 0;
+    return o;
+  }
+  // **被ダメージの転移。**ペロロジラのグロッキー中に湧く小さなペロロミニオンは
+  // Immortal で、受けたダメージの `TransferRatio`（100%）を本体へ流す。
+  // **総力戦の TL がグロッキー中に爆発するのはこれ**（2026-09-06）
+  if (t === 'DamageTransfer') {
+    o.kind = 'transfer';
+    o.ratio = r.TransferRatio != null ? r.TransferRatio : 10000;
+    o.to = r.TransferredDamageEffectGroupId || null;
+    o.toLv = r.TransferredDamageEffectLevel || 1;
+    return o;
+  }
+  if (t === 'Immune') {
+    o.kind = 'immune';
+    o.tmpl = [];
+    for (var z = 0; z < 10; z++) {
+      var kk = 'TargetLogicEffectTemplateId' + (z < 10 ? '0' + z : z);
+      if (r[kk]) { o.tmpl.push(r[kk]); }
+    }
+    return o;
+  }
   // **ボスの EX ゲージ**（`AddCurrentATGEffectDAO`）。ペロロジラは Ex09（吸収）が
   // 1 回 150 入れ、通常攻撃の `AddActiveGauge +1` と合わせて
   // 150 × 2 ＋ 1 ＝ 301 で `CheckActiveGaugeOver 301` を越えて段が回る。
