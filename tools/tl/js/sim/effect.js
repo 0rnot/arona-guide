@@ -293,7 +293,18 @@ export function readOne(r) {
   // 150 × 2 ＋ 1 ＝ 301 で `CheckActiveGaugeOver 301` を越えて段が回る。
   // **ここが無いあいだ、ボスの段は 0 のまま動かなかった**（2026-09-06）
   if (t === 'AddCurrentATG') { o.kind = 'atg'; o.amt = r.Amount || 0; return o; }
-  if (t === 'MaxHpOverHeal') { o.kind = 'overheal'; return o; }
+  // **最大 HP を越えて回す回復。**溢れたぶんは「仮の HP」になって、
+  // `TemporaryHpLimitRateByTargetMaxHp`（1 万分率、既定 50%）まで積める。
+  // 受け口は `run.js` で、仮の HP は盾と同じ器に入れている
+  if (t === 'MaxHpOverHeal') {
+    o.kind = 'overheal';
+    o.src = BONUS_SRC[r.BonusSource] || 'HealPower';
+    o.rate = r.BonusRate || 0;
+    o.tmpLimit = r.TemporaryHpLimitRateByTargetMaxHp != null
+      ? r.TemporaryHpLimitRateByTargetMaxHp : 5000;
+    o.tmpRate = r.TemporaryHpByOverHealRate != null ? r.TemporaryHpByOverHealRate : 10000;
+    return o;
+  }
   if (t === 'Summon') { o.kind = 'summon'; o.id = r.SummonId || null; return o; }
   return o;
 }

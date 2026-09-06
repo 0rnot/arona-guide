@@ -282,6 +282,24 @@ function fire(R, ev, caster, target, lvl, at, mc) {
   // 焼き出しの道具は味方をそもそも持っていないので、ここに手本は無い。
   // 式は `LogicEffectData` の欄そのまま: 撃つ子の `BonusSource` の値 ×
   // `BonusRate` ÷ 10000。受け手の `HealEffectivenessRate` が掛かる
+  // ---- 最大 HP を越える回復（`MaxHpOverHeal`）。溢れたぶんは仮の HP
+  if (r.kind === 'overheal') {
+    var os2 = statsNow(caster), or2 = statsNow(target);
+    var oa = (os2[r.src || 'HealPower'] || 0) * (r.rate || 0) / 10000 * mul;
+    oa *= (or2.HealEffectivenessRate != null ? or2.HealEffectivenessRate : 10000) / 10000;
+    if (target.hp > 0 && oa > 0) {
+      var w2 = target.hp;
+      target.hp = Math.min(target.maxHp, target.hp + oa);
+      R.heal += target.hp - w2;
+      var over = oa - (target.hp - w2);
+      if (over > 0) {
+        var cap = target.maxHp * ((r.tmpLimit == null ? 5000 : r.tmpLimit) / 10000);
+        var add = over * ((r.tmpRate == null ? 10000 : r.tmpRate) / 10000);
+        target.shield = Math.min(cap, (target.shield || 0) + add);
+      }
+    }
+    return 0;
+  }
   if (r.kind === 'heal' || r.kind === 'hot') {
     var hs = statsNow(caster), rs = statsNow(target);
     var amt = (hs[r.src || 'HealPower'] || 0) * (r.rate || 0) / 10000 * mul;
@@ -402,11 +420,13 @@ function fire(R, ev, caster, target, lvl, at, mc) {
     }
     target.hp = Math.max(floor, target.hp - dmg);
     R.total += dmg;
+    if (R.onDamaged && target.side === 'enemy') { R.onDamaged(target, dmg, at); }
     // **1 発ごとの中身。**核が伸びないときに、どの掛け算が小さいかを外から見るため
     if (R.probe) {
       R.probe.push([Math.round(dmg), caster.key, ev.slot || '?', ev.gid,
                     Math.round(at), s.scale, +(mul).toFixed(4), Math.round(a.atk),
-                    +(o.avg / Math.max(1, a.atk)).toFixed(3), s.tick, ev.dist, ev.share]);
+                    +(o.avg / Math.max(1, a.atk)).toFixed(3), s.tick, ev.dist, ev.share,
+                    target.key, Math.round(target.hp)]);
     }
     // **受けたぶんを本体へ流す。**ペロロミニオンは Immortal で 100% を転移する。
     // 流した先の HP を削るのはここだけで、`by` には転移として別に立てる
@@ -971,15 +991,34 @@ export function run(o) {
   // **グロッキー。**ゲージが `GroggyGauge` に届いたら `GroggyTime` のあいだ。
   // その間は会心が確定し、盤の台本が `st:Groggy` の湧きを出す
   // （ペロロジラは Immortal の小さなペロロミニオンで、受けたダメージを本体へ流す）
-  R.onGroggy = function (u2, at) {
-    if ((u2.gg || 0) < 10000) { return; }
+  function intoGroggy(u2, at) {
     if (u2.groggyUntil != null && at < u2.groggyUntil) { return; }
-    u2.gg = 0;
+    if (u2.ggImmune) { return; }
+    u2.gg = 0; u2.ggDmg = 0;
     var gt = (u2.base && u2.base.GroggyTime) || 0;
     u2.groggyUntil = at + gt;
     R.groggy.push([at / 1000, gt / 1000]);
     spawn('st:Groggy', at);
-    if (bst && bst.applyGroggy) { bst.applyGroggy(at); }
+    if (u2 === bossU && bst && bst.applyGroggy) { bst.applyGroggy(at); }
+  }
+  R.onGroggy = function (u2, at) {
+    if ((u2.gg || 0) < 10000) { return; }
+    intoGroggy(u2, at);
+  };
+  // **ダメージで溜まるほうのグロッキー**（2026-09-06。ここが無かった）。
+  //
+  // `CharacterStatExcelTable.GroggyGauge` が目盛りで、**受けたダメージがそのまま
+  // 溜まる。**ビナー 6,500,000／シロクロ 22,000,000／ゴズ 40,000,000／
+  // ヒエロニムス 9,000,000。**吸って溜めるボスだけが 1,000,000,000** で、
+  // これは HP の 20 倍を越える＝ダメージでは届かない印
+  // （`js/carry.js:ggMode` の「実質なし」の見分け方をそのまま使う）。
+  // 溜まりきると `GroggyTime` のあいだグロッキーで、会心が確定する
+  R.onDamaged = function (u2, dmg, at) {
+    var need = (u2.base && u2.base.GroggyGauge) || 0;
+    if (!need || !u2.maxHp || need > u2.maxHp * 20) { return; }
+    if (u2.groggyUntil != null && at < u2.groggyUntil) { return; }
+    u2.ggDmg = (u2.ggDmg || 0) + dmg;
+    if (u2.ggDmg >= need) { intoGroggy(u2, at); }
   };
 
   if (o.bossActs !== false) {

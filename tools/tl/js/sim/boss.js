@@ -93,7 +93,17 @@ export function bossPlan(boss, cid) {
   var keys = Object.keys(phases), k;
   for (k = 0; k < keys.length; k++) {
     var ps = phases[keys[k]], rows = ps.rows, j;
-    ps.na = naOf[keys[k]] || naOf[0] || fallbackNa;
+    // **段の表の名前が束に無いことがある。**総力戦ビナーの `BossPhase` は
+    // `BinahNormalAttackSkill01` を指すが、`LevelSkill/` にその名前のファイルは無く、
+    // Torment で実際に使うのは `BinahInsaneNormalSkill01`（`CharacterSkillList` 側）。
+    // 引けない名前を持つと通常攻撃が 1 発も出ず、`UseNormalSkill` の行が
+    // 丸ごと死ぬ（2026-09-06。raid7 で「通常 0 発 ／ EX 63 回」になっていた）
+    var cand = [naOf[keys[k]], naOf[0], fallbackNa], ci;
+    ps.na = null;
+    for (ci = 0; ci < cand.length; ci++) {
+      if (cand[ci] && ls[cand[ci]]) { ps.na = cand[ci]; break; }
+    }
+    if (!ps.na) { ps.na = naOf[keys[k]] || naOf[0] || fallbackNa; }
     var nf = ps.na ? frames(ls[ps.na]) : null;
     ps.naMs = nf ? (nf / FPS) * 1000 / spd : 0;
     // **1 周の長さ。**`UseNormalSkill C → ClearNormalSkill` があればその C、
@@ -205,16 +215,28 @@ export function driveBoss(ctx) {
     return 0;
   }
 
-  /** その瞬間に真になっている「数えない」引き金を引く。 */
+  /** その瞬間に真になっている「数えない」引き金を引く。
+
+      **ゲージは撃ったら空になる。**ここを空にしていなくて、ビナーが
+      `CheckActiveGaugeOver 100` を満たした 9 秒から **0.1 秒ごとに EX を撃ち続け**、
+      15 秒で味方 6 人を全滅させていた（2026-09-06。`IrVUx0ywuyo` で 63 回）。
+      木の読み方はこう:
+
+          Selector | CheckPeriod          1000 | AddActiveGauge   12
+          Selector | CheckActiveGaugeOver 100  | UseSelectExSkill 2
+
+      1 秒ごとに 12 溜まって、100 を越えたら撃つ ＝ **8.3 秒に 1 発**。
+      溜める側と撃つ側が 1 つの `Selector` の子で、撃つほうがゲージを使う。
+      空にしないと、越えたあとは毎刻み撃つことになる。 */
   function checkStanding(now) {
     var cur = ps();
     if (!cur) { return 0; }
-    var rows = cur.rows, i, extra = 0;
+    var rows = cur.rows, i, extra = 0, spent = false;
     for (i = 0; i < rows.length; i++) {
       var r = rows[i], tg = r.ExternalBTTrigger;
       if (tg === 'CheckActiveGaugeOver') {
         var lim = num(r.TriggerArgument);
-        if (lim != null && st.gauge > lim) { extra += behave(r, now); }
+        if (lim != null && st.gauge > lim) { extra += behave(r, now); spent = true; }
       } else if (tg === 'CheckActiveGaugeBetween') {
         var ab = pair(r.TriggerArgument);
         if (ab[0] != null && ab[1] != null
@@ -230,6 +252,7 @@ export function driveBoss(ctx) {
         }
       }
     }
+    if (spent) { st.gauge = 0; }
     return extra;
   }
 
@@ -255,12 +278,21 @@ export function driveBoss(ctx) {
   }
 
   // ---- `CheckPeriod`（ミリ秒ごと）。**1 は「いつでも」なので周期には使わない**
-  var cur0 = ps();
+  //
+  // 段が変わっても効くように、**段ぜんぶから間隔を集めて**積む。撃つときは
+  // そのときの段の行だけを見る。`ClearNormalSkill` は周期ではなく
+  // 「台本が一周した印」（`bossPlan` の `wrap`）なので、ここでは積まない
+  var allRows = [], pk = Object.keys(plan.phases), pj;
+  for (pj = 0; pj < pk.length; pj++) {
+    allRows = allRows.concat(plan.phases[pk[pj]].rows);
+  }
+  var cur0 = { rows: allRows };
   if (cur0) {
     var seen = {}, i2;
     for (i2 = 0; i2 < cur0.rows.length; i2++) {
       var r2 = cur0.rows[i2];
       if (r2.ExternalBTTrigger !== 'CheckPeriod') { continue; }
+      if (r2.ExternalBehavior === 'ClearNormalSkill') { continue; }
       var ms = num(r2.TriggerArgument);
       if (!ms || ms <= 1 || seen[ms]) { continue; }
       seen[ms] = 1;
@@ -273,6 +305,7 @@ export function driveBoss(ctx) {
               if (!c) { return; }
               for (j = 0; j < c.rows.length; j++) {
                 if (c.rows[j].ExternalBTTrigger === 'CheckPeriod'
+                    && c.rows[j].ExternalBehavior !== 'ClearNormalSkill'
                     && num(c.rows[j].TriggerArgument) === per) {
                   ex2 += behave(c.rows[j], now);
                 }
