@@ -1,5 +1,6 @@
 import { $, B, esc } from './util.js';
 import { fallMap } from './deadly.js';
+import { DSH } from './target.js';
 import { memo, st } from './core.js';
 import { diff } from './boss.js';
 import { bossAdv, ggMode, phaseSpans, ggRuns, ggSolve } from './carry.js';
@@ -321,6 +322,7 @@ export function dsOf(r, u) {
     try { return dsOf0(r, u); } finally { DS_BUSY = false; }
   });
 }
+DSH.of = dsOf;
 function dsOf0(r, u) {
   var sc = sceneAt(r, u.t, true), q = coverOfUse(r, u, sc);
   if (!q || !q.me || !q.c) { return null; }

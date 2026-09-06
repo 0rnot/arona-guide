@@ -23,6 +23,7 @@ import { drawRows } from './rows.js';
 import { bstName, bstTip } from './bossui.js';
 import { laneOn } from './lanes.js';
 import { epEvery, epWhy } from './ep.js';
+import { ssReloadFan } from './sshit.js';
 
 // ------------------------------------------------------------ 盤
 export function draw() {
@@ -444,7 +445,8 @@ export function draw() {
     // **ダメージを持つ SS は 2026-09-03 から数えている**（`ep.js`）。
     // 引き金が判定できない子は `epWhy` がその理由を返す
     var hasD2 = !!((B.dmg[vp.id] || {}).ExtraPassive || []).length;
-    var epw = hasD2 ? epWhy(vp.id) : null;
+    // **EX・NS のあとの通常攻撃で出る SS**（ホシノ（臨戦）の扇）は `sshit.js` が数える
+    var epw = hasD2 && !ssReloadFan(vp.id) ? epWhy(vp.id) : null;
     var sOff = !!cnt[1] || (hasD2 && epw != null);
     side += lbl(H.ss, img(vp.id, 'ic') + '<span class="nm">' + esc(vp.n) + '</span>');
     cv += lane(H.ss,

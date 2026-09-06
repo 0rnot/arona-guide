@@ -4,6 +4,7 @@ import { boss, crewCount, diff } from './boss.js';
 import { sim, whyOf } from './engine.js';
 import { n0 } from './rate.js';
 import { exKind, statAmt, statJA } from './buff.js';
+import { nsKind } from './ns.js';
 import { aimOf, liveBuffs, tgtN, tgtOf, toList } from './target.js';
 import { altOf, altScale, lvlOf, pickOf } from './alt.js';
 import { dmgOf, nbOf } from './dmg.js';
@@ -127,7 +128,10 @@ export function drawUse() {
     h2 += '<label class="f"><span>コスト' + (er.grant.vt === 'coef' ? '減少' : '増加') +
       'カードを渡す</span><select data-us="to"' +
       (er.grant.sd === 'self' ? ' disabled' : '') + '>' +
-      (er.grant.sd === 'self' ? '<option>自分</option>' : memOpts(u.to)) + '</select></label>';
+      (er.grant.sd === 'self' ? '<option>自分</option>'
+                               // **「自身を除く味方1人」のカードは自分に渡せない**（2026-09-06 の監査。
+                               // セイアの一覧に本人が並び、選ぶと自分の次の EX が半額になっていた）
+                               : memOpts(u.to, er.grant.sd === 'ally' ? 'other' : null)) + '</select></label>';
   }
   if (TE.ovlMs(d)) {
     h2 += '<label class="f"><span>オーバーコストを渡す</span><select data-us="ov">' +
@@ -150,6 +154,21 @@ export function drawUse() {
     h2 += '<label class="f' + (nB === 1 && !curB.length ? ' need' : '') +
           '"><span>バフを渡す相手' + (nB > 1 ? '（' + nB + '）' : '') +
           '</span><span class="two2">' + sB + '</span></label>';
+  }
+  // **NS の「味方1人」のバフは枠に渡し先を持つ**（`slots[].nsto`。2026-09-06 の監査。セイアの
+  // 「自身を除く味方1人」の貫通特効 +49.8% は Public 枠だけにあって、EX の欄からは選べず、
+  // 攻め手が 2 人以上だと誰にも乗らなかった）。**EX 側に渡し先の欄が無い子だけ出す**
+  // （ある子は `wire-rows.js` が EX の相手を枠にも写す）
+  var nk = nsKind(d.id), nN = tgtN(d.id, nk);
+  if (!(tgtN(d.id, bk) >= 1) && nN >= 1 && nN < crewCount()) {
+    var exN = (tgtOf(d.id, nk) || [])[1], curN = toList((st.slots[u.i] || {}).nsto), sN = '', nb3;
+    for (nb3 = 0; nb3 < nN; nb3++) {
+      sN += '<select data-us="nsto" data-slot="' + nb3 + '">' +
+            memOpts(curN[nb3] == null ? null : curN[nb3], null, exN ? u.i : -1) + '</select>';
+    }
+    h2 += '<label class="f' + (nN === 1 && !curN.length ? ' need' : '') +
+          '"><span>' + esc(((B.skname || {})[d.id] || {})[nk] || 'NS') + ' を渡す相手' +
+          (nN > 1 ? '（' + nN + '）' : '') + '</span><span class="two2">' + sN + '</span></label>';
   }
   if (er) {
     var dk = exKind(er.fi),

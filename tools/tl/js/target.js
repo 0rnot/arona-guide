@@ -1,4 +1,4 @@
-import { B, rowVals, stu } from './util.js';
+import { B, rowVals, stu, travelOf } from './util.js';
 import { SLOTS, TE, chSlot, isMain, memo, st } from './core.js';
 import { statsOf } from './passive.js';
 import { boss } from './boss.js';
@@ -177,6 +177,25 @@ export function fits(rs, to, r) {
   }
   return true;
 }
+/** **盤の距離を引く口。**`view.js` が読み込み時に `dsOf` を差す（`target.js` から
+    `view.js` を import すると `view → dmg → target` の輪になるので、関数だけ受け取る） */
+export var DSH = { of: null };
+/** **弾が運ぶ効果は、弾が着いてから乗る**（2026-09-06 の監査。カンナ（水着）の EX の
+    防御力 −47.81% は速さ 2400 の弾に乗って着弾 19 フレーム＋飛ぶ時間、ツクヨの NS の
+    −51.6%・マリーの NS の −24.6% も同じ）。ダメージ側は `dmg.js` の `hitTimes` が
+    `travelOf` で足していたのに、バフ側は `ApplyFrame` ちょうどで乗せていた。
+    `ApplyFrame` にいちばん近い着弾（2 フレーム以内）が弾なら、その弾の飛ぶ時間を足す */
+function bufTravel(id, kd, af, u, r) {
+  var pj = ((B.prj || {})[id] || {})[kd] || null, im = ((B.imp || {})[id] || {})[kd] || [];
+  var j, best = -1, bd = 3;
+  if (!pj || !im.length) { return 0; }
+  for (j = 0; j < im.length; j++) {
+    var dd = Math.abs(im[j] - (af || 0));
+    if (pj[j] && dd < bd) { bd = dd; best = j; }
+  }
+  if (best < 0) { return 0; }
+  return travelOf(pj[best], (DSH.of && r) ? DSH.of(r, u) : null, id, kd);
+}
 // t 秒の時点で生きているバフ。to は 'ally<枠>' か 'enemy'
 export function liveBuffs(t, to, r) {
   return memo('lb|' + t + '|' + to, function () { return liveBuffs0(t, to, r); });
@@ -211,7 +230,7 @@ export function liveBuffs0(t, to, r) {
       }
     }
     for (q = 0; q < list.length; q++) {
-      var e = list[q], st0 = u.t + (e[5] || 0) / B.fps;
+      var e = list[q], st0 = u.t + ((e[5] || 0) + bufTravel(p.id, kd, e[5], u, r)) / B.fps;
       // **固有武器パッシブの「効果時間延長」を掛ける**（味方向けは eb、
       // 敵向けは ed。2026-09-01 に足した）
       var tg0 = e[0] || [], sd0 = 'ally', z0;

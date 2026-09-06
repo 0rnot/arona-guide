@@ -1,4 +1,4 @@
-import { $, B } from './util.js';
+import { $, B, travelOf } from './util.js';
 import { TE, _byid, isMain, slotOf, st } from './core.js';
 import { accIn, ggCritAt, hpRateAt } from './carry.js';
 import { clamp } from './stats.js';
@@ -219,17 +219,6 @@ export function hitTimes(id, kind, ds) {
     40,047,841 が示す討伐 125.066 秒とも合う。道具は飛ぶ時間 0 で 96〜100 に
     置いていて 10 フレーム早く、スコアが 799 点（＝ 10 フレーム × 80 点）多かった。
     盤の距離 6.49 ワールド ÷ 20 ＝ 0.325 秒 ＝ 9.7 → 10 フレーム。 */
-export function travelOf(pj, ds, id, kind) {
-  if (!pj || !pj[0]) { return 0; }
-  var d;
-  if (ds) { d = pj[1] === 'c' ? ds.e : ds.c; }
-  else {
-    var rg = ((B.rng || {})[id] || {})[kind];
-    d = rg ? rg / 100 : 0;
-  }
-  if (!(d > 0)) { return 0; }
-  return Math.ceil(d * 100 / pj[0] * B.fps - 1e-6);
-}
 
 export function sliceOf(id, kind) {
   var effs = ((B.dmg[id] || {})[kind] || []), a = altOf(id, kind), i, q, n = 0;

@@ -1,13 +1,13 @@
 import { SLOTS, st } from './core.js';
 import { naPool, poolBodies, poolHp, poolOf, poolOrder, subIxOfPool } from './pool.js';
 import { awayAt, carryIn, partyCalc, trOf } from './carry.js';
-import { naTimes } from './na.js';
 import { usesSorted } from './buff.js';
 import { WANTU, dmgCap, dmgOf, nbOf, repUnits, setWANTU } from './dmg.js';
 import { deadlyPts } from './deadly.js';
-import { epEvery, epOkAt, epOn, epShots, epTierPick } from './ep.js';
+import { epEvery, epOkAt, epOn, epShots } from './ep.js';
 import { lastUseAt } from './clear.js';
 import { dsOf } from './view.js';
+import { naSplit, ssDmgOf } from './sshit.js';
 
 /** **第 3 段 —— 生徒を 1 発ずつ回す**（2026-09-04）。
 
@@ -124,8 +124,9 @@ export function shotsOf(r, opt) {
     var STEP = 5;
     for (i = 0; i < SLOTS; i++) {
       if (!st.party[i]) { continue; }
-      var ts = naTimes(i, dur);
-      if (!ts.length) { continue; }
+      // **EX・NS のあとの通常攻撃が SS（扇）に置き換わる子**は、その発を分けて数える（`sshit.js`）
+      var sp = naSplit(i, dur), ts = sp.na;
+      if (!ts.length && !sp.ss.length) { continue; }
       var bucket = {};
       for (q = 0; q < ts.length; q++) {
         if (ts[q] > cut + 1e-9) { continue; }
@@ -149,14 +150,21 @@ export function shotsOf(r, opt) {
           var tl1 = epShots(st.party[i].id, bucket[bs1]);
           var cn1 = Math.floor(tl1.length / ev1);
           if (!cn1 || !epOkAt(st.party[i].id, r, at1, sub)) { continue; }
-          var ds1 = dmgOf(i, r, at1, 'ExtraPassive',
-                          epTierPick(st.party[i].id, r, at1, sub), sub);
+          // **範囲を持つ SS は盤で当たる数だけ数える**（2026-09-06。`sshit.js`）
+          var ds1 = ssDmgOf(i, r, at1, pid, sub);
           if (!ds1 || !ds1.u) { break; }
           for (q = 0; q < cn1; q++) {
             ev.push({ t: tl1[q * ev1 + ev1 - 1] || at1, i: i,
                       k: 'ExtraPassive', nm: ds1.name, u: ds1.u });
           }
         }
+      }
+      for (q = 0; q < sp.ss.length; q++) {
+        var tq = sp.ss[q];
+        if (tq > cut + 1e-9 || awayAt(tq, true) || naPool(r, tq, deadAt) !== pid) { continue; }
+        var dq = ssDmgOf(i, r, Math.min(tq, dur), pid, sub);
+        if (!dq || !dq.u) { break; }
+        ev.push({ t: tq, i: i, k: 'ExtraPassive', nm: dq.name, u: dq.u });
       }
     }
   } finally { setWANTU(sv); }

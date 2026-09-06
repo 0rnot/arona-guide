@@ -4758,6 +4758,38 @@ def _find_area(o):
     return None
 
 
+def _find_area_dmg(o):
+    """**ダメージを配っている範囲の実体**を、入れ子ごと全部たどって最初の 1 つ。
+    `_find_area` と同じ返し方。無ければ None（2026-09-06 の監査。コハルの EX は
+    最初に見つかる円が回復の円（Ally）で、ダメージの円はその次に居る）。 """
+    dm = _dmg_gids()
+
+    def _has(node):
+        for key in ("Abilities", "AreaAbilities"):
+            for a in (node.get(key) or []):
+                if isinstance(a, dict) and any(
+                        g in dm for g in (a.get("LogicEffectGroupIds") or [])):
+                    return True
+        return False
+
+    if isinstance(o, dict):
+        t = str(o.get("$type") or "").split(",")[0].split(".")[-1]
+        if t.endswith(("AreaEntityDAO", "AuraEntityDAO")) and _has(o):
+            return o, t[:-9]
+        for k, v in o.items():
+            if k == "$type":
+                continue
+            r = _find_area_dmg(v)
+            if r:
+                return r
+    elif isinstance(o, list):
+        for v in o:
+            r = _find_area_dmg(v)
+            if r:
+                return r
+    return None
+
+
 def _ls_geom(group):
     """`LevelSkill/<枠>.json` から中心・狙い方・届く距離・当たるフレーム。
 
@@ -4780,10 +4812,16 @@ def _ls_geom(group):
         return _geom_cache[group]
     d = _ls_doc(group)
     got = None
-    r = _find_area(d)
+    r = _find_area_dmg(d) or _find_area(d)
     if r:
         area, base = r
         ecr = d.get("EssentialCandidateRule") or {}
+        # **範囲の実体が自前の相手選びを持つならそちら**（2026-09-06 の監査。コハルの EX は
+        # 根が回復の円の規則（`Ally`）で、ダメージの円は `TargetSide: Enemy`・
+        # `MaxTargetCount -1`。根で読むと盤が「位置を置ける枠」と見なさなかった）
+        ae = area.get("EssentialCandidateRule")
+        if isinstance(ae, dict) and ae.get("TargetSide"):
+            ecr = ae
         po = area.get("PositionOffset") or {}
         off = [round(float(po.get("x") or 0), 3), round(float(po.get("y") or 0), 3)]
         got = [area.get("SpawnPositionType"), ecr.get("TargetingType"),
@@ -4796,6 +4834,65 @@ def _ls_geom(group):
             got.pop()
     _geom_cache[group] = got
     return got
+
+
+def _ls_geom_ss(rows, rng):
+    """**SS（`ExtraPassive`）の範囲が本人の別のスキルに居るとき**（2026-09-06）。
+
+    ホシノ（臨戦）10099 の「制圧攻撃」（扇 850・30°）は、
+    `LevelSkill/CH0258_AttackerExtraPassive01.json` が札を貼るだけ
+    （`TargetAttachedEntityDAO`、`SpawnPositionType: None`）で範囲を持たない。
+    扇の実体は **2 本目の通常攻撃 `LevelSkill/CH0258_AttackerNormal02.json`** の
+    `MainEntityData`（`FanAreaEntityDAO`、`SpawnPositionType: Invoker`、
+    `Radius: 850`、`Degree: 30`、`SpawnDirectionType: Invoker`）で、その
+    `AreaAbilities[]` が `CH0258_01_ExtraPassive01_Effect02_Lv1〜10` を配っている
+    （原文「最初の通常攻撃は扇形範囲内の敵に対して攻撃力の<?3>分のダメージ」）。
+    本人の `NormalSkillGroupId` を全部開いて、**SS の札（名に `ExtraPassive` を含む
+    `LogicEffectGroupIds`）を配る範囲**を持つものを探し、`(その _ls_geom, その行の FormIndex)`
+    を返す。無ければ None（画面側は今までどおり 1 体で数える）。
+
+    **FormIndex は「その通常攻撃を撃つ形態」**（10099 は FormIndex 0 が `Normal01`、
+    1 が `Normal02`）。原文「EXスキル、またはノーマルスキルの使用時、すぐにリロードした後、
+    最初の通常攻撃は扇形範囲内の敵に対して攻撃力の<?3>分のダメージ」のとおり、
+    **EX・NS を使うたびにこの形態の通常攻撃が 1 発出る**。画面側（`tools/tl/js/sshit.js` の
+    `ssUseShots`）は `ssnf` が付いている子だけこの読みをする。
+
+    通常攻撃の `LevelSkill` は `Range` が 0 なので、届く距離は生徒の `Range`（`rng`）で埋める。
+    埋めないと `standOf` がビーコンから動かず、扇が誰にも届かない。
+    """
+    seen, form = [], {}
+    for r in rows or []:
+        for k in (r.get("NormalSkillGroupId") or []):
+            if k and k != "EmptySkill" and k not in seen:
+                seen.append(k)
+                form[k] = r.get("FormIndex") or 0
+
+    def _carries_ss(o):
+        if isinstance(o, dict):
+            for key in ("Abilities", "AreaAbilities"):
+                for a in (o.get(key) or []):
+                    if isinstance(a, dict) and any(
+                            "ExtraPassive" in (g or "")
+                            for g in (a.get("LogicEffectGroupIds") or [])):
+                        return True
+            return any(_carries_ss(v) for k, v in o.items() if k != "$type")
+        if isinstance(o, list):
+            return any(_carries_ss(v) for v in o)
+        return False
+
+    for k in seen:
+        d = _ls_doc(k)
+        r0 = _find_area(d)
+        if not r0 or not _carries_ss(r0[0]):
+            continue
+        got = _ls_geom(k)
+        if not got:
+            continue
+        if not got[4] and rng:
+            got = list(got)
+            got[4] = rng
+        return got, form[k]
+    return None
 
 
 _dmg_gid = None
@@ -4912,6 +5009,12 @@ def _ls_frames(group):
         sp = e.get("SplashAreaEntityData")
         if sp:
             _ent(sp, at + (e.get("SplashDelayFrame") or 0), dep + 1, pj)
+        # **跳ねる弾**（2026-09-06 の監査。ヒナタの愛用品 NS「最後の攻撃は周囲の敵 1 人に
+        # 跳ねて」は `BounceProjectileEntity` が親の着弾から 2 本目を飛ばす。跳ねる距離は
+        # `BounceRadius` 300 ＝ 3.0 ワールドまでなので、飛ぶ時間は親の弾のぶんで代える）
+        bp = e.get("BounceProjectileEntity")
+        if isinstance(bp, dict):
+            _ent(bp, at, dep + 1, pj)
         for k in ("SkillEntitySpawnerData", "AreaSpawnerData"):
             if e.get(k):
                 _tl(e[k], at, dep + 1, pj)
@@ -4938,9 +5041,18 @@ def _ls_frames(group):
             return
         for et in (node.get("EntityTimeline") or []):
             if isinstance(et, dict):
-                e = et.get("Entity")
+                e = et.get("Entity") or et.get("AreaData")
                 if isinstance(e, dict):
                     names.add(e.get("EntityName"))
+                    # **弾に付いた着弾の円と、跳ねる弾も体の名前を持つ**（2026-09-06 の監査。
+                    # マリーの NS は `MainEntityData` の円が `EntityTimeline[0]` の弾の
+                    # `SplashAreaEntityData` と name も EntityName も同じ＝宣言。ここで拾わないと
+                    # 宣言を 0 フレームで数えて着弾が 3 と 23 の 2 つになり、防御力 −24.6% の
+                    # 乗り始めも 2 フレームに潰れていた。同じ形は 297 枠中 44 枠）
+                    for k in ("SplashAreaEntityData", "BounceProjectileEntity"):
+                        sub9 = e.get(k)
+                        if isinstance(sub9, dict) and sub9.get("EntityName"):
+                            names.add(sub9["EntityName"])
                     _names(e, dep + 1)
                     for k in ("SkillEntitySpawnerData", "AreaSpawnerData",
                               "SplashAreaEntityData"):
@@ -5040,7 +5152,14 @@ def _ls_single(group):
             for g in (a.get("LogicEffectGroupIds") or []):
                 if g not in dm:
                     continue
-                sg = key == "Abilities" and one and typ.startswith("Target")
+                # **自前の相手選びを持つ体は体の規則で見る**（2026-09-06 の監査。ヒナタの
+                # 愛用品 NS の `BounceProjectileEntity` は `OverrideTargetingRule: true` で
+                # `EssentialCandidateRule.MaxTargetCount 1`＝跳ねた先の 1 体だけ）
+                one9 = one
+                if node.get("OverrideTargetingRule") and isinstance(
+                        node.get("EssentialCandidateRule"), dict):
+                    one9 = node["EssentialCandidateRule"].get("MaxTargetCount") == 1
+                sg = key == "Abilities" and one9 and typ.startswith(("Target", "Bounce"))
                 got[g] = got.get(g, True) and sg
 
     def _walk(o, dep):
@@ -6261,8 +6380,14 @@ def build_tl():
     appear = {r["Id"]: r.get("AppearFrame")
               for r in as_list(get_json(BADB.format("CharacterExcelTable")))}
     cool = {}
+    # **サブスキルのクールタイム**（`SkillExcelTable.CoolTime`、ms。2026-09-06 の監査。
+    # アル（ドレス）の SS「（クールタイム5秒）」は `LevelSkill` の `CoolTimeNotTrigger` 0 には
+    # 無く、ここにだけ 5000 がある。ハルナ（正月）も同じ形）
+    _sk_cool = {}
     for r in as_list(get_json(BADB.format("SkillExcelTable"))):
         g = r.get("GroupId")
+        if g and g not in _sk_cool and r.get("CoolTime"):
+            _sk_cool[g] = r["CoolTime"]
         if not g or g in cool:
             continue
         a, c = r.get("EnemyStartCoolTime") or 0, r.get("EnemyCoolTime") or 0
@@ -7413,6 +7538,8 @@ def build_tl():
     area_out = {}
     # **範囲の中心と狙い方**（生徒 → 枠 → `_ls_geom` の 7 つ組）と**届く距離**
     geo_out, ngeo, rng_out = {}, 0, {}
+    # **SS が「形態 N の通常攻撃」で出る子**（`_ls_geom_ss`。ホシノ（臨戦）の扇。2026-09-06）
+    ssnf_out = {}
     # **バフの持続時間を N 倍にする SS**（ココロの「安全証」。2026-09-05）。
     # SS の本文「該当EXスキルの効果持続時間が3倍に増加」から。機械で読める欄は無い
     # （DB では `CH0368_Ex01_Effect01` 15000ms と `Effect02` 45000ms の 2 行が
@@ -7560,6 +7687,8 @@ def build_tl():
                             [(k, v) for k, v in m.items() if k != "$type"]))
                     mods.append(one)
             ep.append(mods)
+            # 10 番目: `SkillExcelTable` の `CoolTime`（ms）。確率つきの再発動間隔
+            ep.append(_sk_cool.get(eg) or 0)
             ep_out[sid] = ep
             nep += 1
             for _ab in mods:
@@ -7805,6 +7934,14 @@ def build_tl():
                         _single_ids.add(id(_e))
                         print(f"  単体の効果: {sid} {kind} {_g}"
                               f"（DescParamId {_e.get('DescParamId')}）")
+            elif _sgl and len(_sgl) == 1 and all(_sgl.values()) and dmg_all:
+                # **名札が 1 つで行が複数**（2026-09-06 の監査。サツキ・ミノリ・ハスミ（体操服）・
+                # ノゾミの `Attack_Damage_ChangeRateByCost` は 1 効果が SchaleDB で Group 0〜3 の
+                # 4 行に展開される）。行の由来はその名札しか無いので、全行に印を配る。
+                # 印が無いとグロッキーで分裂するボスで EX が 5 倍・4 倍に数えられていた
+                for _e in dmg_all:
+                    _single_ids.add(id(_e))
+                print(f"  単体の効果（1 名札 → {len(dmg_all)} 行）: {sid} {kind} {list(_sgl)[0]}")
             # **出るかどうかが確率の効果**（2026-09-05）。結び方は上と同じ
             _rate_ids = {}
             _rt = _ls_rate(_skill_gid(csl_all.get(x["Id"]), kind))
@@ -7884,6 +8021,13 @@ def build_tl():
                 area_out.setdefault(sid, {})[kind] = _ar
                 # **中心と狙い方は `LevelSkill` から。**引けない枠は載せない
                 _gm = _ls_geom(_skill_gid(csl_all.get(x["Id"]), kind))
+                # **SS の範囲が本人の通常攻撃側に居る子**（ホシノ（臨戦）の扇。`_ls_geom_ss`）
+                if not _gm and kind == "ExtraPassive":
+                    _gs = _ls_geom_ss(csl_all.get(x["Id"]), x.get("Range"))
+                    if _gs:
+                        _gm, ssnf_out[sid] = _gs
+                        print(f"  SS の範囲を通常攻撃側から引いた: {sid} {_gm}"
+                              f"（形態 {ssnf_out[sid]} の通常攻撃）")
                 if _gm:
                     geo_out.setdefault(sid, {})[kind] = _gm
                     ngeo += 1
@@ -8325,7 +8469,8 @@ def build_tl():
         "ep": ep_out,
         "epKeys": ["Event", "Parameters", "ConditionExpression", "TriggerRate",
                    "MaxTriggerCount", "TryCount", "CoolTimeNotTrigger", "Duration",
-                   "Modifiers(アビリティごと [[{t: 型, …}], …]。中は かつ・間は または)"],
+                   "Modifiers(アビリティごと [[{t: 型, …}], …]。中は かつ・間は または)",
+                   "CoolTime(ms。SkillExcelTable。確率つきの再発動間隔)"],
         # サブスキルの条件が指す札 →
         #   [付けるスキルの枠, 持続(ms。-1 は時間で切れない),
         #    数える個数（説明文に個数が書いてあるときだけ。書いていなければ 0）,
@@ -8337,6 +8482,9 @@ def build_tl():
         # **範囲の形と半径**（`Skills.<枠>.Radius`）。**何体いるかは入っていない**
         "area": area_out,
         "geo": geo_out,
+        # **SS が「形態 N の通常攻撃」で出る子** `{生徒: FormIndex}`（`_ls_geom_ss`）。
+        # EX・NS を使うたびにその形態の通常攻撃が 1 発出て、SS のダメージを持つ
+        "ssnf": ssnf_out,
         "geoKeys": ["SpawnPositionType", "TargetingType", "TargetSide",
                     "MaxTargetCount", "Range", "HitFrames", "AreaDAO",
                     "PositionOffset(ワールド)", "AngleOffset", "SpawnDirectionType"],

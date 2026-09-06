@@ -8,7 +8,12 @@ import { busyOf, formWins, naInfo, naShotsRaw } from './na.js';
 // `ConditionType: "Interval"` なら `ConditionArgument` がフレーム（750 = 25 秒）。
 // `OnAttackIng` など間隔で決まらない型は、周期が出せないので置かない
 export function nsKind(id) {
-  return (gearT(id) >= 2 && (B.dmg[id] || {}).GearPublic) ? 'GearPublic' : 'Public';
+  if (gearT(id) < 2) { return 'Public'; }
+  // **愛用品 T2 で差し替わる札には、ダメージが無くバフだけ足す子がいる**（2026-09-06 の監査で
+  // 28 人。ハレ・ヒナ・ハナコ・ホシノ …）。`B.dmg` だけ見ていると T2 でも `Public` のバフ
+  // （ハレなら被回復率 −50.7%・15 秒）を読み続け、`GearPublic`（−67.6%・25 秒）が
+  // 一度も乗らなかった。`B.buf` の `GearPublic` も差し替えの印として見る
+  return ((B.dmg[id] || {}).GearPublic || (B.buf[id] || {}).GearPublic) ? 'GearPublic' : 'Public';
 }
 // その生徒が編成のどこに居るか（居なければ既定の育成）
 export function gearT(id) {

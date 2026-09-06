@@ -8,8 +8,9 @@ import { naTimes } from './na.js';
 import { usesSorted } from './buff.js';
 import { PICKF, dmgOf, dotTimes, hitTimes, nbOf, setPICKF } from './dmg.js';
 import { deadlyPts } from './deadly.js';
-import { epEvery, epOkAt, epOn, epShots, epTierPick } from './ep.js';
+import { epEvery, epOkAt, epOn, epShots } from './ep.js';
 import { dsOf } from './view.js';
+import { naSplit, ssDmgOf } from './sshit.js';
 
 // ------------------------------------------------------------ 部隊の持ち越し
 // **部隊 k の結果**（終了時刻・撃破時刻・池ごとに削った量）。前の部隊が削ったぶんを
@@ -182,8 +183,9 @@ export function dmgCurve0(r, key, pid, deadAt) {
   var dur = r.dur || 240, STEP = 5;
   for (i = 0; i < SLOTS; i++) {
     if (!st.party[i]) { continue; }
-    var ts = naTimes(i, dur), bucket = {}, bk;
-    if (!ts.length) { continue; }
+    // **EX・NS のあとの通常攻撃が SS（扇）に置き換わる子**は、その発を分けて数える（`sshit.js`）
+    var sp = naSplit(i, dur), ts = sp.na, bucket = {}, bk;
+    if (!ts.length && !sp.ss.length) { continue; }
     for (q = 0; q < ts.length; q++) {
       if (awayAt(ts[q], true) || naPool(r, ts[q], deadAt) !== pid) { continue; }
       var at0 = Math.min(ts[q], dur), b = Math.floor(at0 / STEP);
@@ -205,13 +207,18 @@ export function dmgCurve0(r, key, pid, deadAt) {
         var tl3 = epShots(st.party[i].id, bucket[bs3]);
         var cn3 = Math.floor(tl3.length / ev3);
         if (!cn3 || !epOkAt(st.party[i].id, r, at3, subIxOfPool(r, pid))) { continue; }
-        // **段で分かれる子は、その時刻の段で候補を決める**（2026-09-04。`clear.js` と同じ）
-        var ds3 = dmgOf(i, r, at3, 'ExtraPassive',
-                        epTierPick(st.party[i].id, r, at3, subIxOfPool(r, pid)),
-                        subIxOfPool(r, pid));
+        // **段で分かれる子は、その時刻の段で候補を決める**（2026-09-04。`clear.js` と同じ）。
+        // **範囲を持つ SS は盤で当たる数だけ数える**（2026-09-06。`sshit.js`）
+        var ds3 = ssDmgOf(i, r, at3, pid, subIxOfPool(r, pid));
         if (!ds3) { break; }
         for (q = 0; q < cn3; q++) { pts.push([tl3[q * ev3], ds3[key]]); }
       }
+    }
+    for (q = 0; q < sp.ss.length; q++) {
+      if (awayAt(sp.ss[q], true) || naPool(r, sp.ss[q], deadAt) !== pid) { continue; }
+      var dq3 = ssDmgOf(i, r, Math.min(sp.ss[q], dur), pid, subIxOfPool(r, pid));
+      if (!dq3) { break; }
+      pts.push([Math.min(sp.ss[q], dur9), dq3[key]]);
     }
   }
   pts.sort(function (a, b) { return a[0] - b[0]; });

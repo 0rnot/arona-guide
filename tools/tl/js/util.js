@@ -54,3 +54,19 @@ export function bufStk(id, kind) {
   for (q = 0; q < list.length; q++) { n = Math.max(n, rowStk(list[q])); }
   return n;
 }
+
+/** **弾が飛ぶフレーム数。**`pj` は builder の `prj`（[速さ, 'c'=体を狙う / 'p'=位置]）、
+    `ds` は盤の距離 `{c, e}`（無ければその枠の届く距離で代える）。
+    2026-09-06 に `dmg.js` から移した——`target.js` が弾で運ぶ弱体の乗り始めにも使うため
+    （`dmg.js` → `target.js` → `dmg.js` の輪を作らない） */
+export function travelOf(pj, ds, id, kind) {
+  if (!pj || !pj[0]) { return 0; }
+  var d;
+  if (ds) { d = pj[1] === 'c' ? ds.e : ds.c; }
+  else {
+    var rg = ((B.rng || {})[id] || {})[kind];
+    d = rg ? rg / 100 : 0;
+  }
+  if (!(d > 0)) { return 0; }
+  return Math.ceil(d * 100 / pj[0] * B.fps - 1e-6);
+}

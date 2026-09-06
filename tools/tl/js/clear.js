@@ -3,12 +3,12 @@ import { SLOTS, st } from './core.js';
 import { naPool, poolBodies, poolHp, poolOf, poolOrder, subIxOfPool } from './pool.js';
 import { awayAt, carryIn, ggSolve, partyCalc, trOf } from './carry.js';
 import { clamp } from './stats.js';
-import { naTimes } from './na.js';
 import { usesSorted } from './buff.js';
 import { PICKF, dmgOf, hitTimes, nbOf, setPICKF } from './dmg.js';
 import { deadlyPts } from './deadly.js';
-import { epEvery, epOkAt, epOn, epShotN, epTierPick } from './ep.js';
+import { epEvery, epOkAt, epOn, epShotN } from './ep.js';
 import { dsOf } from './view.js';
+import { naSplit, ssDmgOf } from './sshit.js';
 
 /** **突破率。**置いた TL で、ボスの HP を削り切れる確率。
     1 発ごとの平均と分散（`dmgAt` の `va`）を足し合わせて、
@@ -114,8 +114,9 @@ export function clearStat1(r, pf, pid, deadAt, hpNeed) {
     var dur = r.dur || 240, STEP = 5;
     for (i = 0; i < SLOTS; i++) {
       if (!st.party[i]) { continue; }
-      var ts = naTimes(i, dur);
-      if (!ts.length) { continue; }
+      // **EX・NS のあとの通常攻撃が SS（扇）に置き換わる子**は、その発を分けて数える（`sshit.js`）
+      var sp = naSplit(i, dur), ts = sp.na;
+      if (!ts.length && !sp.ss.length) { continue; }
       var bucket = {};
       for (q = 0; q < ts.length; q++) {
         if (ts[q] > cut + 1e-9) { continue; }
@@ -141,15 +142,21 @@ export function clearStat1(r, pf, pid, deadAt, hpNeed) {
                                        +bs1 * STEP, (+bs1 + 1) * STEP) / ev1);
           if (!cn1 || !epOkAt(st.party[i].id, r, at1, subIxOfPool(r, pid))) { continue; }
           // **段で分かれる子は、その時刻の段で候補を決める**（2026-09-04。ミサキ）。
-          // 対応が取れない子は `null` が返るので、今までどおり枠の既定を使う
-          var ds1 = dmgOf(i, r, at1, 'ExtraPassive',
-                          epTierPick(st.party[i].id, r, at1, subIxOfPool(r, pid)),
-                          subIxOfPool(r, pid));
+          // 対応が取れない子は `null` が返るので、今までどおり枠の既定を使う。
+          // **範囲を持つ SS は盤で当たる数だけ数える**（2026-09-06。`sshit.js`）
+          var ds1 = ssDmgOf(i, r, at1, pid, subIxOfPool(r, pid));
           if (!ds1) { break; }
           mu += ds1.avg * cn1;
           va += (ds1.va || 0) * cn1;
           n += cn1;
         }
+      }
+      for (q = 0; q < sp.ss.length; q++) {
+        var tq = sp.ss[q];
+        if (tq > cut + 1e-9 || awayAt(tq, true) || naPool(r, tq, deadAt) !== pid) { continue; }
+        var dq = ssDmgOf(i, r, Math.min(tq, dur), pid, subIxOfPool(r, pid));
+        if (!dq) { break; }
+        mu += dq.avg; va += dq.va || 0; n++;
       }
     }
     var hp = hpNeed == null ? ((r.bs && r.bs.hp) || 0) : hpNeed, sd = Math.sqrt(Math.max(0, va));
@@ -227,8 +234,9 @@ export function total0(r) {
   var dur = r.dur || 240, STEP = 5;
   for (i = 0; i < SLOTS; i++) {
     if (!st.party[i]) { continue; }
-    var ts = naTimes(i, dur);
-    if (!ts.length) { continue; }
+    // **EX・NS のあとの通常攻撃が SS（扇）に置き換わる子**は、その発を分けて数える（`sshit.js`）
+    var sp = naSplit(i, dur), ts = sp.na;
+    if (!ts.length && !sp.ss.length) { continue; }
     // **束は「5 秒の枠 × 向いている池」**（2026-09-06）。池が変わる枠は分けて、
     // ダメージはその池の相手（装甲・防御）で引く。池が 1 つなら今までと同じ 1 束
     var bucket = {}, bAt = {};
@@ -237,7 +245,7 @@ export function total0(r) {
       if (np == null || awayAt(ts[q], true)) { continue; }
       var b = Math.floor(ts[q] / STEP), bk0 = b + '|' + np;
       bucket[bk0] = (bucket[bk0] || 0) + 1;
-      bAt[bk0] = { b: b, aim: subIxOfPool(r, np) };
+      bAt[bk0] = { b: b, aim: subIxOfPool(r, np), pid: np };
     }
     for (var bk in bucket) {
       var at = (bAt[bk].b + 0.5) * STEP;
@@ -257,8 +265,8 @@ export function total0(r) {
         var cn2 = Math.floor(epShotN(st.party[i].id, bucket[bs2],
                                      b2 * STEP, (b2 + 1) * STEP) / ev2);
         if (!cn2 || !epOkAt(st.party[i].id, r, at2, bAt[bs2].aim)) { continue; }
-        var ds2 = dmgOf(i, r, at2, 'ExtraPassive',
-                        epTierPick(st.party[i].id, r, at2, bAt[bs2].aim), bAt[bs2].aim);
+        // **範囲を持つ SS は盤で当たる数だけ数える**（2026-09-06。`sshit.js`）
+        var ds2 = ssDmgOf(i, r, at2, bAt[bs2].pid, bAt[bs2].aim);
         if (!ds2) { break; }
         ss.n += cn2; all.n += cn2;
         for (k = 0; k < KS.length; k++) {
@@ -266,6 +274,14 @@ export function total0(r) {
           all[KS[k]] += ds2[KS[k]] * cn2;
         }
       }
+    }
+    for (q = 0; q < sp.ss.length; q++) {
+      var np2 = naPool(r, sp.ss[q], deadAt);
+      if (np2 == null || awayAt(sp.ss[q], true)) { continue; }
+      var dq2 = ssDmgOf(i, r, Math.min(sp.ss[q], dur), np2, subIxOfPool(r, np2));
+      if (!dq2) { break; }
+      ss.n++; all.n++;
+      for (k = 0; k < KS.length; k++) { ss[KS[k]] += dq2[KS[k]]; all[KS[k]] += dq2[KS[k]]; }
     }
   }
   // **HP が半分を切ったミニオンの固定ダメージ**（`deadly.js`。2026-09-05）。

@@ -30,6 +30,12 @@ export function onUse(e) {
     var bx = el.parentNode.querySelectorAll('select[data-us="bto"]'), lb = [], zz;
     for (zz = 0; zz < bx.length; zz++) { lb.push(bx[zz].value === '' ? null : +bx[zz].value); }
     u.bto = lb.length > 1 ? lb : (lb[0] == null ? null : lb[0]);
+  } else if (k === 'nsto' && el.getAttribute('data-slot') != null) {
+    // NS のバフの渡し先は枠に持つ（`useedit.js` の注記）
+    var bn = el.parentNode.querySelectorAll('select[data-us="nsto"]'), ln = [], zn;
+    for (zn = 0; zn < bn.length; zn++) { ln.push(bn[zn].value === '' ? null : +bn[zn].value); }
+    var sl9 = st.slots[u.i];
+    if (sl9) { sl9.nsto = ln.length > 1 ? ln : (ln[0] == null ? null : ln[0]); }
   } else {
     u[k] = raw === '' ? null : +raw;
   }

@@ -132,6 +132,14 @@ export function epCond(id, ms) {
                  hi: (m.CountMax == null || m.CountMax < 0) ? Infinity : m.CountMax });
       continue;
     }
+    // **「遮蔽物に隠れていない」**（`CoverStateConditionalModifierDAO`。2026-09-06、ヒナの SS
+    // 「攻撃時、攻撃力の 5.2% の追加ダメージ」。イオリ 10006・イチカ 10077 も同じ型）。
+    // 総力戦のボスは遮蔽に入らず、盤にも遮蔽が無いので、`CoverState` 1（隠れていない）は
+    // 相手（`CheckTarget` 1）でも自分（0）でも常に立つとみなす。判定側は何も見ない
+    if (m.t === 'CoverStateConditionalModifierDAO' && m.CoverState === 1) {
+      out.push({ k: 'cover' });
+      continue;
+    }
     return null;
   }
   return out;
@@ -374,16 +382,32 @@ export function ssBuffUses() {
     for (j = 0; j < list.length; j++) { if (list[j][4] != null) { timed = true; } }
     if (!timed) { continue; }
     var e = (B.ep || {})[p.id];
-    if (!e || e[3] !== 10000) { continue; }
+    if (!e) { continue; }
+    // **確率つきは Event 2 / 21 だけ、期待される発で置く**（下）。他の Event は 100% だけ
+    var p9 = (e[3] || 0) / 10000;
+    if (!(p9 > 0) || (p9 < 1 && e[0] !== 2 && e[0] !== 21)) { continue; }
     var ts = [], bad = false, dur9 = diff().dur || 240;
-    // **Event 2（通常攻撃時）と 21（攻撃時）は通常攻撃の並びに乗る。**
-    // 条件つきのもの（`Modifiers` が空でない）は、当たる先で立ったり立たなかったり
-    // するので入れない。`naShotsRaw` を使うのは輪を切るため（`na.js` の注記）
+    // **Event 2（通常攻撃時）と 21（攻撃時）。**アビリティどうしは「または」なので、
+    // **条件の無いアビリティが 1 本でもあれば乗る**（2026-09-06。レイサは 4 本のうち
+    // 条件つきが 1 本で、「ちょうど 1 本」の門に落ちて EX の防御力 −11.4% が一度も乗らなかった）。
+    // `Parameters` が「どの攻撃か」: `Ex` なら EX が当たったとき（着弾の 1 発目）、
+    // `Public` / `GearPublic` なら NS、空なら通常攻撃。`naShotsRaw` を使うのは輪を切るため
     if (e[0] === 2 || e[0] === 21) {
-      var ab9 = e[8] || [];
-      if (ab9.length !== 1 || (ab9[0] || []).length) { continue; }
-      var sh9 = naShotsRaw(i, dur9);
-      for (j = 0; j < sh9.length; j++) { ts.push(sh9[j].t); }
+      var ab9 = e[8] || [], free9 = false, z9;
+      for (z9 = 0; z9 < ab9.length; z9++) { if (!(ab9[z9] || []).length) { free9 = true; } }
+      if (!ab9.length || !free9) { continue; }
+      var pr2 = String(e[1] || '').trim();
+      if (pr2 === 'Ex') {
+        var im2 = ((B.imp || {})[p.id] || {}).Ex || [], f2 = im2.length ? im2[0] : 0;
+        for (j = 0; j < st.tl.length; j++) {
+          if (st.tl[j].i === i) { ts.push(st.tl[j].t + f2 / B.fps); }
+        }
+      } else if (pr2 === 'Public' || pr2 === 'GearPublic') {
+        ts = ts.concat(nsTimes(p.id, dur9, i));
+      } else {
+        var sh9 = naShotsRaw(i, dur9);
+        for (j = 0; j < sh9.length; j++) { ts.push(sh9[j].t); }
+      }
     } else if (e[0] === 3 || e[0] === 17 || e[0] === 18) {
       var pr = String(e[1] || '').split(',');
       for (k = 0; k < pr.length; k++) {
@@ -407,6 +431,25 @@ export function ssBuffUses() {
     } else { continue; }
     if (bad || !ts.length) { continue; }
     ts.sort(function (a, b) { return a - b; });
+    if (p9 < 1) {
+      // **確率つきは「期待される発」で乗せる**（2026-09-06。アル（ドレス）の SS は攻撃時 30% で
+      // 敵の会心発生抵抗力 −15.31%・13 秒・クールタイム 5 秒）。当たるまでの外れ数の期待値
+      // (1−p)/p を丸めた発で乗ったとみなし、乗ってから `CoolTime`（`SkillExcelTable`。`e[9]` ms）
+      // の間は撃てないので、その先の発から数え直す。30% × 1 秒間隔なら 3 発目に乗り、13 秒の
+      // 持続がクールタイム 5 秒より長いので一度乗ればほぼ切れない（8 発続けて外れる確率 5.8%）。
+      // 数字を合わせにいったのではなく期待値で置く決め（`dmg.js` の `SpawnRate` と同じ考え）
+      var skip9 = Math.round((1 - p9) / p9), cool9 = (e[9] || 0) / 1000, ts2 = [], z2 = 0;
+      while (z2 < ts.length) {
+        var q2 = z2 + skip9;
+        if (q2 >= ts.length) { break; }
+        ts2.push(ts[q2]);
+        var nx2 = ts[q2] + cool9;
+        z2 = q2 + 1;
+        while (z2 < ts.length && ts[z2] < nx2 - 1e-9) { z2++; }
+      }
+      ts = ts2;
+      if (!ts.length) { continue; }
+    }
     // **`TryCount` は「N 回に 1 度」**（`epEvery`）。1 なら毎回
     var ev = epEvery(p.id);
     for (j = ev - 1; j < ts.length; j += ev) {
