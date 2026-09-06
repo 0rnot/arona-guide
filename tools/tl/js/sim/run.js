@@ -35,7 +35,8 @@ import { makeBoard, makeUnit, add, living, ctxOf, applyMark, expire, tickCost }
   from './state.js';
 import { once as hitOnce, roll as hitRoll, capsOf } from './hit.js';
 import { bossPlan, phaseWaits, driveBoss } from './boss.js';
-import { boardPlan, spawnFor, originOf, slotPos, inArea, sortByRule } from './board.js';
+import { boardPlan, spawnFor, originOf, slotPos, inArea, sortByRule,
+         obstacleBoxes, coverRate } from './board.js';
 
 var FPS = 30;
 
@@ -464,6 +465,14 @@ function fire(R, ev, caster, target, lvl, at, mc) {
     // 実測が時間切れの TL を核が 87 秒で討伐した）。第 2 段で盤が入ったら、
     // ミニオン 1 体 1 体を狙って当てるので、この掛け算自体が要らなくなる
     dmg *= (ev.single || target.kind === 'Boss') ? 1 : (mc != null ? mc : (R.mc || 1));
+    // **遮蔽。**撃つ側と狙われる側のあいだに箱があると、その割合ぶん当たらない。
+    // 帯を出す回（`R.rnd` がある）は 1 発ごとに振り、素の 1 回は割合で減らす
+    var cov = R.coverOf ? R.coverOf(caster, target) : 0;
+    if (cov > 0) {
+      R.miss['cover'] = (R.miss['cover'] || 0) + 1;
+      if (R.rnd) { if (R.rnd() * 10000 < cov) { dmg = 0; } }
+      else { dmg *= 1 - cov / 10000; }
+    }
     // **盾が先に食う。**残りだけが HP を削る
     if (target.shield > 0) {
       var eat = Math.min(target.shield, dmg);
@@ -761,6 +770,8 @@ export function run(o) {
     if (fr0.GroupID === fgid || fr0.GroupId === fgid) { formRow = fr0; }
   }
   var origin = originOf(bd, sec);
+  // 遮蔽。**総力戦の盤にもある**（2026-09-07。`board.js` の注記）
+  var obs = bd ? obstacleBoxes(bd, sec, common) : [];
   // 湧き点の座標を実体の名前で引けるように（同じ名前が複数あるので先頭）
   var posOf = {};
   if (bd && bd.sections[sec]) {
@@ -831,6 +842,20 @@ export function run(o) {
         // 一撃ごとに `R.terrOf` / `R.effOf` が上書きする
         terr: 1, eff: 1,
       };
+    },
+    /** 遮蔽率（1/10000）。**線を遮る箱の `BlockRate` に、守る側の `BlockFactor` を
+        足し、撃つ側の `ShotFactor` を引く。**3 つとも 1/10000 の同じ物差しで、
+        地形の 2 欄は説明の鍵が `TerrainFactorDescription_*_Coverrate` と
+        `_IgnoreCoverrate`（＝遮蔽率と遮蔽貫通率）。
+        **足し引きにしたのは D が 0 だから。**掛け算だと D 適性で遮蔽そのものが消える。 */
+    coverOf: function (u, v) {
+      if (!obs.length || !u || !v || !u.pos || !v.pos) { return 0; }
+      var base = coverRate(u.pos, v.pos, obs, v.radius);
+      if (base <= 0) { return 0; }
+      var gv = (R.terrT[R.topo] || {})[v.adapt || 'D'];
+      var gu = (R.terrT[R.topo] || {})[u.adapt || 'D'];
+      var r = base + ((gv && gv.BlockFactor) || 0) - ((gu && gu.ShotFactor) || 0);
+      return Math.max(0, Math.min(10000, r));
     },
     /** その体の地形倍率（`AttackPowerFactor`）。 */
     terrOf: function (u) {

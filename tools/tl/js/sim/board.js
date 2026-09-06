@@ -8,7 +8,7 @@
 //       .SpawnPoints[]               湧き点。`SpawnData.SpawnTemplateId` が実体の DevName
 //                                    `CommandIdList` がこの点を起こす合図の名前
 //     .Events[]                      `Conditions[]`（いつ）と `Commands[]`（何をする）の組
-//     .Obstacles[]                   遮蔽（総力戦の盤には無い。大決戦にはある）
+//     .Obstacles[]                   遮蔽。**総力戦の盤にもある**（2026-09-07 に数えた）
 //   Formations[]                     味方の並びの原点。`SectionIndex` ごとに 1 つ
 //
 // 読み方は `build-tool-data.py` の `_spawn_when` と同じ形にしてある（あちらは
@@ -173,6 +173,112 @@ export function inArea(area, caster, aim, list) {
     if (ok) { out.push(v); }
   }
   return out;
+}
+
+// ---- 遮蔽（`Sections[].Obstacles[]`）
+//
+// **「総力戦の盤には遮蔽が無い」は思い込みだった**（2026-09-07 に数えた）。
+// 束 700 面のうち **185 面に 8,831 個**あって、ビナー街路 Torment の
+// `201107_raid_binah_street_torment` は 節 0 に 12 個・節 1 に 5 個・節 3 に 5 個。
+//
+// 形は `Battle/obstacledata`（`common.obstacle`、433 個）。**盤の側は面ごとの
+// 別名を使う**（`Common_CarWhite_Low_Binah`）ので、いちばん長い前置きで引く。
+// 束で使われている 39 通りのうち **26 が丸ごと一致・13 が前置き一致・引けないもの 0**。
+// 遮蔽率は `ObstacleStatExcelTable.BlockRate`（`NameHash` → `StringID`。
+// 433 個のうち 427 個が繋がる）。車もバリケードも 3000（＝ 30%）。
+//
+// **座標の軸が湧き点と違う。**`Obstacles[].Position` / `Forward` は 3 次元で
+// `y` が高さ、盤の平面は (x, z)。湧き点と `Formations` は 2 次元 `{x, y}` で、
+// その `y` がこの `z` にあたる（ビナーの節 3 の陣形 z = -100.65 と
+// 遮蔽 z = -102.85 が並ぶので確かめられる）。
+
+/** その名前の形。**いちばん長い前置きで引く。** */
+function shapeOf(common, name) {
+  var lst = (common && common.obstacle) || [], best = null, i;
+  for (i = 0; i < lst.length; i++) {
+    var u = lst[i].UniqueName;
+    if (u && name.indexOf(u) === 0 && (!best || u.length > best.UniqueName.length)) {
+      best = lst[i];
+    }
+  }
+  return best;
+}
+
+/** その節に置いてある遮蔽を、線を遮る箱の並びにする。 */
+export function obstacleBoxes(plan, si, common) {
+  var s = plan && plan.sections[si];
+  if (!s || !(s.obstacles || []).length) { return []; }
+  var stat = {}, sl = (common && common.obstacleStat) || [], i;
+  for (i = 0; i < sl.length; i++) { stat[sl[i].StringID] = sl[i]; }
+  var out = [];
+  for (i = 0; i < s.obstacles.length; i++) {
+    var o = s.obstacles[i];
+    if (o.IsDummy) { continue; }
+    var sh = shapeOf(common, String(o.UniqueName || ''));
+    if (!sh) { continue; }
+    var p = o.Position || {}, f = o.Forward || {};
+    var fx = f.x || 0, fy = f.z != null ? f.z : (f.y || 0);
+    var fl = Math.sqrt(fx * fx + fy * fy);
+    if (fl > 0) { fx /= fl; fy /= fl; } else { fx = 0; fy = 1; }
+    // 局所は（右, 前）。右は前の直交で `(fy, -fx)`
+    var of = sh.Offset || { x: 0, y: 0 };
+    var ox = of.x || 0, oy = of.y || 0;
+    var cx = (p.x || 0) + ox * fy + oy * fx;
+    var cy = (p.z != null ? p.z : (p.y || 0)) + ox * (-fx) + oy * fy;
+    var sc = sh.Scale || { x: 1, y: 1 }, sz = sh.Size || { x: 0, y: 0 };
+    var st = stat[sh.NameHash];
+    out.push({
+      c: { x: cx, y: cy }, f: { x: fx, y: fy },
+      hw: Math.abs((sz.x || 0) * (sc.x == null ? 1 : sc.x)) / 2,
+      hh: Math.abs((sz.y || 0) * (sc.y == null ? 1 : sc.y)) / 2,
+      block: (st && st.BlockRate) || 0,
+    });
+  }
+  return out;
+}
+
+/** 線分が箱を横切るか（局所に移してから 2 軸で挟む）。 */
+function segBox(p0, p1, b2) {
+  var rx = b2.f.y, ry = -b2.f.x;
+  function loc(p) {
+    var dx = p.x - b2.c.x, dy = p.y - b2.c.y;
+    return { x: dx * rx + dy * ry, y: dx * b2.f.x + dy * b2.f.y };
+  }
+  var a = loc(p0), c2 = loc(p1);
+  var ds = [c2.x - a.x, c2.y - a.y], ps = [a.x, a.y], hs = [b2.hw, b2.hh];
+  var t0 = 0, t1 = 1, k;
+  for (k = 0; k < 2; k++) {
+    var dd = ds[k], pp = ps[k], h = hs[k];
+    if (Math.abs(dd) < 1e-9) {
+      if (pp < -h || pp > h) { return false; }
+    } else {
+      var ta = (-h - pp) / dd, tb = (h - pp) / dd, tt;
+      if (ta > tb) { tt = ta; ta = tb; tb = tt; }
+      if (ta > t0) { t0 = ta; }
+      if (tb < t1) { t1 = tb; }
+      if (t0 > t1) { return false; }
+    }
+  }
+  return true;
+}
+
+/** `from` から `to` への線を遮っている箱のうち、いちばん高い `BlockRate`（1/10000）。
+    遮っているものが無ければ 0。
+    **狙われる側の体の大きさぶんは手前で切る。**`ObstacleFireLineCheckExcelTable` は
+    `EmptyObstacleFireLineCheck` だけが真＝**線を遮るのは遮蔽だけで、体は遮らない。**
+    体の大きいボスは中心が車の裏にあっても縁が出ているので、これで陰に入らない。 */
+export function coverRate(from, to, boxes, radius) {
+  if (!from || !to || !boxes || !boxes.length) { return 0; }
+  var d = sub(to, from), dl = len(d);
+  var cut = (radius || 0) / U;
+  if (dl <= cut) { return 0; }
+  var t1 = (dl - cut) / dl;
+  var end = { x: from.x + d.x * t1, y: from.y + d.y * t1 };
+  var best = 0, i;
+  for (i = 0; i < boxes.length; i++) {
+    if (boxes[i].block > best && segBox(from, end, boxes[i])) { best = boxes[i].block; }
+  }
+  return best;
 }
 
 /** 距離で並べ替える。`sel.sort` が `Distance` のときだけ。 */

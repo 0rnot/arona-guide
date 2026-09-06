@@ -145,8 +145,11 @@ export function one(m, ctx, self, target) {
     return inc(m, !!(ctx.status(who) || {})[m.TargetStatus || m.Status]);
   }
   if (t === 'CoverStateConditionalModifierDAO') {
-    // **総力戦のボスは遮蔽に入らず、盤にも遮蔽が無い。**
-    // `CoverState` 1（隠れていない）は自分でも相手でも常に立つ
+    // **「盤に遮蔽が無い」は思い込みだった**（2026-09-07。`board.js` の注記。
+    // 束 700 面のうち 185 面に 8,831 個ある）。ただし核は**体が遮蔽の陰に
+    // 入っているか**を持っていない（線を遮るかは一撃ごとに見るだけで、
+    // 体の状態にしていない）ので、ここはまだ `CoverState` 1（隠れていない）を
+    // 常に立てる。**残っている穴。**
     if (m.CoverState === 1) { return inc(m, true); }
     return null;
   }
