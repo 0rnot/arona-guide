@@ -237,6 +237,14 @@ function fire(R, ev, caster, target, lvl, at, mc) {
   var r = atLevel(list, lvl);
   if (!r) { return 0; }
 
+  // **レベルを名前に持つ群は、その子の段の 1 本だけ。**
+  // 同じアビリティに `_Lv01` 〜 `_Lv10` が並ぶ（`tree.js:lvPickOf`）
+  if (ev.lvPick) {
+    var want = (caster.skillLv && ev.lvPick.slot)
+      ? (caster.skillLv[ev.lvPick.slot] || 1) : 1;
+    if (ev.lvPick.n !== want) { return 0; }
+  }
+
   // ---- 条件。**`null`（判定できない）は数えて、当てない**
   if (ev.mods && ev.mods.length) {
     var ok = condAll(ev.mods, R.ctx, caster, target);

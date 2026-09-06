@@ -134,6 +134,22 @@ export function skillEvents(doc) {
     }
   }
 
+  /** **`…_Lv07` のようにレベルを名前に持つ群。**同じアビリティに `_Lv01` 〜 `_Lv10` が
+      並ぶことがあり（274 人で 18 枠）、効くのは**その子のスキル段の 1 本だけ**。
+      どの枠の段かは名前の途中が言う（`CH0124_ExtraPassive01_Effect01_Lv07` なら
+      サブスキルの 7 段目）。全部撃つと 10 本ぶん入る（CH0124 の通常攻撃が 20.6 倍だった）。
+      返すのは `{n, slot}` ／ レベルを持たない名前なら null */
+  function lvPickOf(gid) {
+    var m = /_Lv0?(\d{1,2})$/i.exec(gid);
+    if (!m) { return null; }
+    var k = /_(GearPublic|ExtraPassive|HiddenPassive|WeaponPassive|Passive|Public|Ex|Normal)\d*_/
+      .exec(gid);
+    var src = k ? k[1] : null;
+    var slot = src === 'GearPublic' ? 'Public'
+      : (src === 'WeaponPassive' || src === 'HiddenPassive') ? 'Passive' : src;
+    return { n: +m[1], slot: slot };
+  }
+
   function ability(node, key, ctx, typ) {
     var list = node[key] || [], i, j, q, a, gids, base, hits;
     for (i = 0; i < list.length; i++) {
@@ -149,7 +165,7 @@ export function skillEvents(doc) {
       }
       for (j = 0; j < gids.length; j++) {
         for (q = 0; q < hits.length; q++) {
-          out.push({ f: base + hits[q], gid: gids[j], sel: ctx.sel,
+          out.push({ f: base + hits[q], gid: gids[j], sel: ctx.sel, lvPick: null,
                      share: ctx.share != null ? ctx.share : null,
                      area: key === 'AreaAbilities' ? ctx.area : null,
                      prj: ctx.prj || null, dist: ctx.dist != null ? ctx.dist : null,
@@ -338,6 +354,23 @@ export function skillEvents(doc) {
                            share: (sf0.DamageDistributeRate != null
                                    ? sf0.DamageDistributeRate : 10000) / 10000 }, 0);
     }
+  }
+
+  // **段を名前に持つ群は、同じコマに一族が並ぶ。**（`_Lv01` 〜 `_Lv10`）
+  // 別々のアビリティに分かれていることがあるので、**出し終わってから**数える
+  var famN = {}, fi, fe, fp, fk;
+  for (fi = 0; fi < out.length; fi++) {
+    fp = lvPickOf(out[fi].gid);
+    if (!fp) { continue; }
+    fk = String(out[fi].gid).replace(/_Lv0?\d{1,2}$/i, '') + '@' + out[fi].f;
+    famN[fk] = (famN[fk] || 0) + 1;
+  }
+  for (fi = 0; fi < out.length; fi++) {
+    fe = out[fi];
+    fp = lvPickOf(fe.gid);
+    if (!fp) { continue; }
+    fk = String(fe.gid).replace(/_Lv0?\d{1,2}$/i, '') + '@' + fe.f;
+    if (famN[fk] > 1) { fe.lvPick = fp; }
   }
 
   out.sort(function (a, b) { return a.f - b.f; });
