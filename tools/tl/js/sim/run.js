@@ -30,7 +30,7 @@
 */
 import { skillEvents, summonsOf, resolveDev } from './tree.js';
 import { readAll, atLevel, kindOfList, isDamage } from './effect.js';
-import { all as condAll, mulOf, unknownOf } from './cond.js';
+import { all as condAll, mulOf, unknownOf, expr as condExpr } from './cond.js';
 import { makeBoard, makeUnit, add, living, ctxOf, applyMark, expire, tickCost }
   from './state.js';
 import { once as hitOnce, roll as hitRoll, capsOf } from './hit.js';
@@ -167,6 +167,34 @@ export function ssTrig(doc) {
   else if (ev === 105) { o.when = 'every'; o.ms = (+o.param || 0) / FPS * 1000; }
   else if (ev === 16) { o.when = 'reload'; }
   return o;
+}
+
+/** **ボス・雑魚の常時札の引き金。**同じ `TriggerCondition` だが、生徒のサブスキルと
+    出てくる `Event` の並びが違う（2026-09-06 に総力戦の束ぜんぶで数えた）:
+
+      1536  1    常時
+       859  301  状態条件つき常時（`ConditionExpression` を毎コマ見る）
+       852  14   ／ 716  18 ／ 213  25 ／ 175  22 ／ 55  23 ／ 54  31 …
+       343  105  N コマ毎
+
+    **ここまで引き金を丸ごと見ずに、湧いた瞬間に全部撃っていた。**ゲブラのヒーターは
+    `Passive05`（HP ≧ 70%）・`Passive06`（HP < 30%）・`Passive07`（30〜70%）の
+    3 枚が同時に乗り、`Passive08` / `Passive09`（別の体が死んだとき）まで 0 秒に出ていた。
+
+    置けるのは **1（常時）／ 301（条件つき常時）／ 105（周期）** の 3 通り。
+    **残りは盤の出来事が要るので置かない**——0 秒に撃つより、撃たないほうが原文に近い。
+    `null` を返したぶんは `R.miss['psEv:<番号>']` に数える。 */
+function psTrig(doc) {
+  var t = doc && doc.TriggerCondition;
+  // 引き金の欄そのものが無い札は常時（雑魚の素の札にある）
+  if (!t) { return { when: 'always', expr: '' }; }
+  var ev = +t.Event, ex = String(t.ConditionExpression || '').trim();
+  if (ev === 1) { return ex ? { when: 'cond', expr: ex } : { when: 'always', expr: '' }; }
+  if (ev === 301) { return { when: 'cond', expr: ex }; }
+  if (ev === 105) {
+    return { when: 'every', ms: (+t.Parameters || 0) / FPS * 1000, expr: ex };
+  }
+  return null;
 }
 
 /** 通常攻撃の刻み。**`AnimationFrames` は `[{Key, Frame}]` の配列**で、
@@ -581,8 +609,23 @@ function gradeOf(st, topo) {
 
     抜け道が 2 つ書いてある。
       `ParameterSecond`  それでも狙える枠の並び（`Ex` / `Ex, Passive` / 空）
-      `Parameter`        例外の札の名前。撃つ側がそれを持っていれば通る
-                         （`Dummy_HOD_IgnoreBossUnTarget` など） */
+      `Parameter`        例外の札の名前。**持っているかを見るのは狙われる側**
+
+    **`Parameter` は撃つ側だと読んでいた。**総力戦の束ぜんぶで
+    `TargetStatus: Untargetable` に `Parameter` が付いた札は 11 通りしか無く、
+    その札を配っているのは**どれも同じ体の別の効果**だった（2026-09-06 に数えた）:
+
+      HOD01_Passive03_Effect01（Untargetable）← HOD01_Passive03_Effect02 が配る
+      HODGuardTower_Cannon_Passive03_Effect03 ← HOD01_Ex04_Effect02 が配る
+      EN0010_Heater_Passive01_Effect01        ← EN0010_Heater_Passive01_Effect09 が配る
+
+    決め手は 2 行目。**ボスの EX04 が「守衛塔を狙えるようにする札」を配る。**
+    撃つ側（味方）にボスの EX が札を配るはずがないので、見るのは狙われる側。
+    札の `TemplateId` も `Dummy_StatusAdd_Untargetable_ExceptionLogicEffectTemplateId`
+    ——「例外の札」という名前そのもの。
+
+    撃つ側も一緒に見ておく（束の中に撃つ側へ配る例は 1 つも無いので効かないが、
+    出てきたときに黙って外れないように）。 */
 function untargeted(v, ev, u) {
   var i, j, m, types, ok;
   for (i = 0; i < v.eff.length; i++) {
@@ -594,7 +637,10 @@ function untargeted(v, ev, u) {
       if (types[j].trim() && types[j].trim() === ev.slot) { ok = true; }
     }
     if (!ok && m.param && m.param !== 'None') {
-      for (j = 0; j < u.eff.length; j++) {
+      for (j = 0; j < v.eff.length; j++) {
+        if (v.eff[j].tmpl === m.param) { ok = true; }
+      }
+      for (j = 0; !ok && j < u.eff.length; j++) {
         if (u.eff[j].tmpl === m.param) { ok = true; }
       }
     }
@@ -763,7 +809,7 @@ export function run(o) {
   var eff = readAll(le);
 
   var R = {
-    b: b, ctx: ctxOf(b), eff: eff, q: queue(), evCache: {},
+    b: b, ctx: ctxOf(b), eff: eff, q: queue(), evCache: {}, pgCache: {},
     total: 0, heal: 0, groggy: [], ggLog: [], summoned: 0, smCache: {}, probe: o.probe ? [] : null, used: [], unknown: 0, unknownBy: {}, miss: {}, by: {},
     durMs: durMs, mc: o.mc || 1, C: constOf(common),
     unitOf: function (k) { return b.units[k] || null; },
@@ -1037,24 +1083,101 @@ export function run(o) {
       `Perorozilla01InsaneMiddleSize01Passive02`（4 本目）が抜けていた。
       それが抜けると Ex09 が吸うものを見つけられず、グロッキーゲージが 1 も溜まらない
       （2026-09-06） */
+  // **条件つき常時（`Event: 301`）の札。**0.1 秒ごとに式を見て、
+  // 立ったら撃ち、落ちたらその札が置いたものを剥がす
+  var condP = [];
+
+  /** その枠が置く効果の `GroupId` ぜんぶ。剥がすときに要る */
+  function gidsOfSkill(gid, doc) {
+    if (R.pgCache[gid]) { return R.pgCache[gid]; }
+    var ev = R.evCache[gid] || (R.evCache[gid] = skillEvents(doc)), m = {}, i;
+    for (i = 0; i < ev.length; i++) { m[ev[i].gid] = 1; }
+    return (R.pgCache[gid] = m);
+  }
+
+  /** 条件が落ちたので剥がす。**撃った本人が置いた札だけ**を、盤の全員から */
+  function condOff(c, now) {
+    var g = gidsOfSkill(c.gid, c.u.ls && c.u.ls[c.gid]), i, j, us = living(b);
+    for (i = 0; i < us.length; i++) {
+      for (j = us[i].eff.length - 1; j >= 0; j--) {
+        if (g[us[i].eff[j].gid] && us[i].eff[j].src === c.u.key) {
+          us[i].eff.splice(j, 1);
+        }
+      }
+    }
+    c.on = false;
+  }
+
+  /** 0.1 秒ごと。**式が読めなかったら撃たない**（`R.miss` に数える） */
+  function pollCond(now) {
+    var i, c, v;
+    for (i = 0; i < condP.length; i++) {
+      c = condP[i];
+      if (!c.u.alive) { if (c.on) { condOff(c, now); } continue; }
+      v = condExpr(c.tr.expr, R.ctx, c.u);
+      if (v == null) {
+        if (!c.warned) { c.warned = 1; R.miss['psExpr:' + c.tr.expr] = 1; }
+        continue;
+      }
+      if (v && !c.on) { c.on = true; cast(R, c.u, c.gid, c.slot, 1, now); }
+      else if (!v && c.on) { condOff(c, now); }
+    }
+  }
+
   function castPassives(mu, at) {
     var cr = mu.csl && mu.csl[0], z, v;
     if (!cr) { return; }
     var slots = [['PassiveSkillGroupId', 'Passive'],
                  ['ExtraPassiveSkillGroupId', 'ExtraPassive'],
                  ['HiddenSkillGroupId', 'Passive']];
+    // この体ぶんの見張りは湧き直すたびに作り直す（前の生の分が残っていると二重に乗る）
+    for (z = condP.length - 1; z >= 0; z--) {
+      if (condP[z].u === mu) { condP.splice(z, 1); }
+    }
     for (z = 0; z < slots.length; z++) {
       v = cr[slots[z][0]];
       v = Array.isArray(v) ? v : (v ? [v] : []);
       for (var w2 = 0; w2 < v.length; w2++) {
-        if (v[w2] && v[w2] !== 'EmptySkill') {
-          cast(R, mu, String(v[w2]), slots[z][1], 1, at);
+        if (!v[w2] || v[w2] === 'EmptySkill') { continue; }
+        var g = String(v[w2]), doc = mu.ls && mu.ls[g], tr = psTrig(doc);
+        if (!tr) {
+          var evn = (doc && doc.TriggerCondition && doc.TriggerCondition.Event);
+          R.miss['psEv:' + evn] = (R.miss['psEv:' + evn] || 0) + 1;
+          continue;
+        }
+        if (tr.when === 'always') {
+          cast(R, mu, g, slots[z][1], 1, at);
+        } else if (tr.when === 'cond') {
+          condP.push({ u: mu, gid: g, slot: slots[z][1], tr: tr, on: false });
+        } else if (tr.when === 'every' && tr.ms > 0) {
+          (function (mu2, g2, sl2, ms) {
+            var step2 = function (now) {
+              if (!mu2.alive) { return; }
+              cast(R, mu2, g2, sl2, 1, now);
+              if (now + ms <= R.durMs) { R.q.push(now + ms, step2); }
+            };
+            R.q.push(at + ms, step2);
+          })(mu, g, slots[z][1], tr.ms);
         }
       }
     }
   }
 
   var bst = null;
+
+  // **引き金の式が読む 3 つ。**`ctxOf` は札と素の値しか知らないので、
+  // 盤の側にしか無いもの（フェーズ・グロッキー）をここで足す
+  R.ctx.phase = function () { return bst ? bst.phase : null; };
+  R.ctx.groggy = function (u2) {
+    return !!(u2 && u2.groggyUntil != null && b.t < u2.groggyUntil);
+  };
+  R.ctx.ggRate = function (u2) {
+    if (!u2) { return 0; }
+    var need = (u2.base && u2.base.GroggyGauge) || 0;
+    var byDmg = (need && u2.maxHp && need <= u2.maxHp * 20)
+      ? Math.round((u2.ggDmg || 0) / need * 10000) : 0;
+    return Math.max(u2.gg || 0, byDmg);
+  };
 
   /** 合図 `tag` の湧き点を起こす。**同じ実体が何度も湧くので、
       死んでいる体から順に使い回す**（束には 5〜30 体ぶん入っている） */
@@ -1144,6 +1267,10 @@ export function run(o) {
   }
   // **節の最初から居る敵**（ボス以外に前座が居る盤がある）
   spawn('start', 0);
+  // **本体の常時札。**`spawn` は「湧く体」しか見ないので `mu === bossU` を飛ばしていて、
+  // **ボス自身の `PassiveSkillGroupId` は一度も引かれていなかった**（2026-09-06）。
+  // ゴズの `GozInsanePassive01` が丸ごと抜けていて、`used` に敵の枠が 1 つも無い
+  castPassives(bossU, 0);
 
   // ---- 回す。**0.1 秒刻みで札の時間切れとコストを進める**
   var step = o.step || 100, hp = [], t3, downAt = [];
@@ -1161,6 +1288,8 @@ export function run(o) {
     }
     // **HP のしきい値はダメージが入った瞬間に効く**（`HPUnder → ChangePhase`）
     if (bst && bst.check) { bst.check(t3); }
+    // 条件つき常時（`Event: 301`）の入り切り。フェーズが動いたあとに見る
+    pollCond(t3);
     tickCost(b, step);
     hp.push([t3 / 1000, bossU.hp]);
     if (bossU.hp <= 0) { break; }

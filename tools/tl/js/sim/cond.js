@@ -201,6 +201,75 @@ export function mulOf(mods, ctx, self, target) {
   return mul;
 }
 
+// ------------------------------------------------------ 引き金の式（ConditionExpression）
+/* `TriggerCondition.ConditionExpression` は、常時札の引き金に付いている小さな式。
+   **総力戦の束ぜんぶで 24 通りしか無い**（2026-09-06 に数えた。内訳は出てきた数）:
+
+     252  GetCurrentBehavior() == [BehaviorType.Groggy]
+     426  GetActiveParts()==0 / ==1 / ==2
+     213  GetHPRate() < N（5000 / 3000 / 7500 / 1000 / 100 ／ >= 7000 ／ > 9900）
+      65  GetBossAIPhase() == 1 / == 2
+      46  GetCurrentBehavior() == [BehaviorType.UseExSkill01〜04]
+      25  GroggyGaugeRate() > 9999
+      19  GetHPInteger() <= 2 / < 11 / < 12
+       4  HasLogicEffectTemplate(名前) == true / false
+
+   **区切りは `&&` だけ**（`||` は 1 件も出てこない）。返すのは真・偽・`null`。
+   `null` は「読めない」で、`all` と同じ約束——**黙って true にしない。** */
+
+function cmpOp(op, a, b) {
+  if (a == null) { return null; }
+  if (op === '<') { return a < b; }
+  if (op === '>') { return a > b; }
+  if (op === '<=') { return a <= b; }
+  if (op === '>=') { return a >= b; }
+  if (op === '==') { return a === b; }
+  if (op === '!=') { return a !== b; }
+  return null;
+}
+
+var NUMFN = { 'GetHPRate': 'hpRate', 'GetBossAIPhase': 'phase',
+              'GroggyGaugeRate': 'ggRate' };
+
+function term(s, ctx, self) {
+  var m = /^(\w+)\(\)\s*(<=|>=|==|!=|<|>)\s*(-?\d+)$/.exec(s);
+  if (m && NUMFN[m[1]]) {
+    var f = ctx[NUMFN[m[1]]];
+    return f ? cmpOp(m[2], f(self), +m[3]) : null;
+  }
+  m = /^GetCurrentBehavior\(\)\s*(==|!=)\s*\[BehaviorType\.(\w+)\]$/.exec(s);
+  if (m) {
+    // **読めるのは `Groggy` だけ。**`UseExSkill01`〜`04` は
+    // 「いまその EX を撃っている最中」で、木の側に打っている合図が無い
+    if (m[2] !== 'Groggy' || !ctx.groggy) { return null; }
+    var g = !!ctx.groggy(self);
+    return m[1] === '==' ? g : !g;
+  }
+  m = /^HasLogicEffectTemplate\(([^)]*)\)\s*(==|!=)\s*(true|false)$/.exec(s);
+  if (m) {
+    if (!ctx.marks) { return null; }
+    var has = ((ctx.marks(self) || {})[m[1].trim()] || 0) > 0;
+    var want = (m[3] === 'true');
+    return m[2] === '==' ? (has === want) : (has !== want);
+  }
+  // `GetActiveParts()` は部位（体のどこが生きているか）、
+  // `GetHPInteger()` は HP の本数。どちらも盤に無いので読めない
+  return null;
+}
+
+/** 式 1 本。真・偽・`null`（読めない） */
+export function expr(s, ctx, self) {
+  var t = String(s == null ? '' : s).trim();
+  if (!t) { return true; }
+  var parts = t.split('&&'), i, r, unk = false;
+  for (i = 0; i < parts.length; i++) {
+    r = term(parts[i].trim(), ctx, self);
+    if (r === false) { return false; }
+    if (r == null) { unk = true; }
+  }
+  return unk ? null : true;
+}
+
 /** 読めない型を数える（「あと何を書けば全部か」を出すため） */
 export function unknownOf(mods, ctx, self, target) {
   var out = [], i;
