@@ -156,6 +156,7 @@ export function readOne(r) {
   }
   if (t === 'FormConversion') {
     o.kind = 'form';
+    o.formIndex = r.FormIndex != null ? r.FormIndex : 1;
     o.endKind = r.FormConversionEndCondition;   // 1 時間 ms / 2 リロード / 3 装弾数 / 5 EX 回数
     o.endArg = r.EndConditionArgument;
     o.release = r.ReleaseFormConversionDuration || 0;

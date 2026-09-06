@@ -148,7 +148,7 @@ export async function simParty(o) {
   }
 
   var dur = o.dur != null ? o.dur : ((index[key].dur || 240000) / 1000);
-  var res = run({ common: common, boss: boss, party: party, tl: tl,
+  var res = run({ common: common, boss: boss, party: party, tl: tl, cid: o.cid,
                   dur: dur, mc: 1, seed: o.seed, step: o.step, probe: o.probe });
   res.key = key;
   res.gaps = gaps;

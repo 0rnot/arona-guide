@@ -282,6 +282,28 @@ function fire(R, ev, caster, target, lvl, at, mc) {
   // 焼き出しの道具は味方をそもそも持っていないので、ここに手本は無い。
   // 式は `LogicEffectData` の欄そのまま: 撃つ子の `BonusSource` の値 ×
   // `BonusRate` ÷ 10000。受け手の `HealEffectivenessRate` が掛かる
+  // ---- 形態が変わる（`FormConversion`）。**枠がまるごと入れ替わる**
+  //
+  // `FormIndex` が新しい形態の番号で、`CharacterSkillListExcelTable` の
+  // `FormIndex` の行に切り替わる。終わり方は `FormConversionEndCondition`——
+  // **1 が時間**（`EndConditionArgument` ミリ秒。`-1` は戻らない）で 303 行中 218 行。
+  // 2（リロード）・3（装弾数）・5（EX の回数）はまだ置いていない（戻らない扱い）
+  if (r.kind === 'form') {
+    if (target.side === 'ally' && R.setupAlly) {
+      var pp = R.partyOf(target);
+      if (pp) {
+        target.form = r.formIndex != null ? r.formIndex : 1;
+        R.setupAlly(target, pp, at);
+        if (r.endKind === 1 && r.endArg != null && r.endArg > 0) {
+          R.q.push(at + r.endArg, function (now) {
+            target.form = 0;
+            R.setupAlly(target, pp, now);
+          });
+        }
+      }
+    }
+    return 0;
+  }
   // ---- 最大 HP を越える回復（`MaxHpOverHeal`）。溢れたぶんは仮の HP
   if (r.kind === 'overheal') {
     var os2 = statsNow(caster), or2 = statsNow(target);
@@ -635,9 +657,32 @@ export function run(o) {
     byDev[c.DevName] = byDev[c.DevName] || [];
     byDev[c.DevName].push(u);
     // **盤に最初から居るのはボスだけ。**ミニオンは湧いてから
-    if (c.TacticEntityType === 'Boss' && !bossU) { bossU = u; } else { u.alive = false; }
+    //
+    // **束には別の面のボスまで入っている。**総力戦ゴズの束には
+    // `Goz_default_Torment`（HP 50,000,000）と `Goz_Outdoor_default_Torment` が
+    // 両方いて、盤の `start` が後者を湧かせ、味方の攻撃が全部そちらへ行っていた
+    // （2026-09-06。`9FiPLXveLBs` で与ダメージ 21,056,301 に対して
+    // 画面が見ている本体は 0.2% しか減っていなかった）。
+    // **どの体が本体かは画面が選んだ `cid`** で決まる
+    if (c.TacticEntityType === 'Boss') {
+      if (o.cid != null ? (c.Id === o.cid) : !bossU) { bossU = u; } else { u.alive = false; }
+    } else { u.alive = false; }
+  }
+  if (!bossU) {
+    for (i = 0; i < ent.length; i++) {
+      if (ent[i].TacticEntityType === 'Boss' && b.units['e' + ent[i].Id]) {
+        bossU = b.units['e' + ent[i].Id]; bossU.alive = true; break;
+      }
+    }
   }
   if (!bossU) { throw new Error('ボスの実体が束に無い'); }
+  // **本体以外のボスは湧かせない。**盤の `start` が別の面のボスを起こしてしまう
+  var otherBoss = {};
+  for (i = 0; i < ent.length; i++) {
+    if (ent[i].TacticEntityType === 'Boss' && ent[i].Id !== bossU.charId) {
+      otherBoss[ent[i].DevName] = 1;
+    }
+  }
 
   // ---- 盤。**味方も敵もここで座標をもらう**（2026-09-06）
   //
@@ -813,6 +858,71 @@ export function run(o) {
   };
 
   // ---- 積む: 常時のパッシブ → 通常攻撃 → 通常スキル → EX
+  //
+  // **形態（`FormConversion`）で枠がまるごと入れ替わる。**制服ネル（CH0280）の
+  // EX は変身そのもので、変身前の通常攻撃は 0 ダメージの置き（2026-09-06 に
+  // `IrVUx0ywuyo` で踏んだ——24 発撃って与ダメージ 0）。だから通常攻撃と
+  // 通常スキルは「積んだら終わり」ではなく、**自分で次を積む形**にして、
+  // 形態が変わったら世代（`_gen`）を上げて古い列を止め、新しい枠で積み直す。
+  var setupAlly = function (au, p, from) {
+    var gen = ++au._gen;
+    var csl = cslRow(au.pack, p, au.form || 0);
+    var gid = function (k) {
+      var v = csl[k];
+      v = Array.isArray(v) ? v[0] : v;
+      return (v && v !== 'EmptySkill') ? String(v) : null;
+    };
+    var lvOf = function (slot) { return (p.skillLv && p.skillLv[slot]) || 1; };
+    var ng = gid('NormalSkillGroupId');
+    var pg = gid('PublicSkillGroupId');
+    var auto = (pg && au.ls[pg]) ? nsAuto(au.ls[pg]) : null;
+    au._ex = gid('ExSkillGroupId');
+    au._pub = pg;
+    au._pubLv = lvOf('Public');
+
+    // 通常攻撃。**構え → 弾倉ぶん撃つ → リロード**を繰り返す
+    var na = ng && au.ls[ng]
+      ? naInfo(au.ls[ng], (p.stats || {}).NormalAttackSpeed,
+               (p.stats || {}).AmmoCount, (p.stats || {}).AmmoCost) : null;
+    if (na) {
+      au._na = na;
+      var shot = 0;
+      var step = function (now) {
+        if (au._gen !== gen || now > durMs) { return; }
+        if (au.alive) {
+          cast(R, au, ng, 'Normal', 1, now);
+          au._shots++;
+          if (auto && auto.kind === 'shots' && pg && au._shots % auto.shots === 0) {
+            cast(R, au, pg, 'Public', lvOf('Public'), now, { to: p.nsto });
+          }
+          au._fireSS(now, 'attack');
+          if ((shot + 1) % na.mag === 0) { au._fireSS(now, 'reload'); }
+        }
+        shot++;
+        var nx = now + na.per;
+        if (shot % na.mag === 0) { nx += na.rel; }
+        if (nx <= durMs) { R.q.push(nx, step); }
+      };
+      R.q.push(from + (from === 0 ? na.ent : 0), step);
+    }
+    // 通常スキル。**周期のもの**
+    if (pg && auto && auto.kind === 'interval' && auto.ms > 0) {
+      var tick = function (now) {
+        if (au._gen !== gen || now > durMs) { return; }
+        if (au.alive) {
+          cast(R, au, pg, 'Public', lvOf('Public'), now, { to: p.nsto });
+        }
+        if (now + auto.ms <= durMs) { R.q.push(now + auto.ms, tick); }
+      };
+      R.q.push(from + auto.ms, tick);
+    }
+  };
+  R.setupAlly = setupAlly;
+  R.partyOf = function (au) {
+    var z; for (z = 0; z < allies.length; z++) { if (allies[z] === au) { return party[z]; } }
+    return null;
+  };
+
   for (i = 0; i < allies.length; i++) {
     (function (au, p) {
       var csl = cslRow(au.pack, p, 0);
@@ -827,9 +937,6 @@ export function run(o) {
       var ps = gid('PassiveSkillGroupId'), es = gid('ExtraPassiveSkillGroupId');
       if (ps) { R.q.push(0, function (t) { cast(R, au, ps, 'Passive', lvOf('Passive'), t); }); }
 
-      var ng = gid('NormalSkillGroupId');
-      var pg = gid('PublicSkillGroupId');
-      var auto = (pg && au.ls[pg]) ? nsAuto(au.ls[pg]) : null;
       var ss = (es && au.ls[es]) ? ssTrig(au.ls[es]) : null;
 
       // ---- サブスキル（SS）の引き金
@@ -859,44 +966,9 @@ export function run(o) {
         }
       }
 
-      // 通常攻撃。**構え → 弾倉ぶん撃つ → リロード**を繰り返す
-      var na = ng && au.ls[ng]
-        ? naInfo(au.ls[ng], (p.stats || {}).NormalAttackSpeed,
-                 (p.stats || {}).AmmoCount, (p.stats || {}).AmmoCost) : null;
       au._shots = 0;
-      if (na) {
-        var t = na.ent, shot = 0;
-        while (t <= durMs) {
-          (function (tt, reload) {
-            R.q.push(tt, function (now) {
-              cast(R, au, ng, 'Normal', 1, now);
-              au._shots++;
-              // **通常攻撃 N 発ごとの通常スキル**（`OnAttackIng` の `TryCount`）
-              if (auto && auto.kind === 'shots' && pg && au._shots % auto.shots === 0) {
-                cast(R, au, pg, 'Public', lvOf('Public'), now, { to: p.nsto });
-              }
-              au._fireSS(now, 'attack');
-              if (reload) { au._fireSS(now, 'reload'); }
-            });
-          })(t, (shot + 1) % na.mag === 0);
-          shot++;
-          t += na.per;
-          if (shot % na.mag === 0) { t += na.rel; }
-        }
-        au._na = na;
-      }
-      // 通常スキル。**周期のもの**
-      if (pg && auto && auto.kind === 'interval') {
-        for (var t2 = auto.ms; t2 <= durMs; t2 += auto.ms) {
-          (function (tt) {
-            R.q.push(tt, function (now) {
-              // **通常スキルの渡し先も枠ごと**（画面の `nsto`）
-              cast(R, au, pg, 'Public', lvOf('Public'), now, { to: p.nsto });
-            });
-          })(t2);
-        }
-      }
-      au._ex = gid('ExSkillGroupId');
+      au._gen = 0;
+      setupAlly(au, p, 0);
     })(allies[i], party[i]);
   }
   // EX は TL の指すとおりに。**行が `mc`（当たる体の数）と `f`（形態）を持てる**
@@ -904,16 +976,16 @@ export function run(o) {
     (function (row) {
       var au = allies[row.i];
       if (!au) { return; }
-      // 形態が指定されていれば、その形態の行の EX 枠を撃つ
-      var gid = au._ex;
-      if (row.f) {
-        var fr = cslRow(au.pack, party[row.i], row.f);
-        var fv = fr.ExSkillGroupId;
-        fv = Array.isArray(fv) ? fv[0] : fv;
-        if (fv && fv !== 'EmptySkill') { gid = String(fv); }
-      }
-      if (!gid) { return; }
       R.q.push(row.at * 1000, function (now) {
+        // **枠は撃つ瞬間に読む。**変身していれば変身後の EX になる
+        var gid = au._ex;
+        if (row.f) {
+          var fr = cslRow(au.pack, party[row.i], row.f);
+          var fv = fr.ExSkillGroupId;
+          fv = Array.isArray(fv) ? fv[0] : fv;
+          if (fv && fv !== 'EmptySkill') { gid = String(fv); }
+        }
+        if (!gid) { return; }
         cast(R, au, gid, 'Ex', (party[row.i].skillLv || {}).Ex || 1, now,
              { mc: row.mc, to: row.to });
       });
@@ -955,6 +1027,7 @@ export function run(o) {
     if (!bd) { return 0; }
     var pts = spawnFor(bd, sec, tag), n = 0, z;
     for (z = 0; z < pts.length; z++) {
+      if (otherBoss[pts[z].dev]) { continue; }
       var pool = byDev[pts[z].dev] || [], w;
       for (w = 0; w < pool.length; w++) {
         var mu = pool[w];
@@ -976,6 +1049,7 @@ export function run(o) {
     var dev = R.devFix[name];
     if (dev === undefined) { dev = R.devFix[name] = resolveDev(name, byDev); }
     if (!dev) { R.miss['summon:' + name] = (R.miss['summon:' + name] || 0) + 1; return; }
+    if (otherBoss[dev]) { return; }
     var pool = byDev[dev] || [], w;
     for (w = 0; w < pool.length; w++) {
       var mu = pool[w];
