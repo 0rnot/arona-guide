@@ -197,6 +197,10 @@ export function once(a, d, s, C, lvTable, caps) {
     va: pr * tick * v1 + pr * (1 - pr) * tick * tick * m1 * m1,
     hit: h, crit: cr, cdm: cdm, base: base, b1: b1, tick: tick,
     sMin: sMin, rate: pr, caps: caps,
+    // **掛け算の内訳**（0 になったときにどれが 0 かを外から見るため）
+    parts: { dm: dm, drA: drA, drB: drB, exM: exM, baM: baM,
+             lv: lvMod(s.lvDiff || 0, lvTable), tick: tick,
+             sm: (s.sm == null ? 1 : s.sm), hr: (s.hr == null ? 1 : s.hr) },
   };
 }
 

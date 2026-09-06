@@ -55,9 +55,18 @@ export function statsNow(u) {
     if (!acc[name]) { acc[name] = [pick(name), 0, 1, 0]; }
     return acc[name];
   }
+  // **素の行に無い「率」の欄は 0 ではなく 10000。**
+  //
+  // 2026-09-06 に踏んだ大穴。`EnhanceBasicsDamageRate` は生徒の素の行に無く、
+  // 制服ネル（CH0280）のパッシブが `Coefficient`（掛け算）で触る。素を 0 と
+  // 読むと `(0 + 0) × 倍率 = 0` になって、**通常攻撃のダメージが丸ごと 0** になる
+  // （`hit.js:once` の `baM` が 0 になる）。21 発撃って与ダメージ 0 だった。
+  // 率・割合・長さ・速さの欄は、素の行に無ければ 10000（＝ 1 倍）が既定
   function pick(name) {
     if (base[name] != null) { return base[name]; }
     if (base[name + '100'] != null) { return base[name + '100']; }
+    // 末尾に番号が付くもの（`DamageRatio2`）まで含める
+    if (/(Rate|Ratio|Duration|Speed)\d*$/.test(name)) { return 10000; }
     return 0;
   }
   for (i = 0; i < u.eff.length; i++) {
@@ -448,7 +457,12 @@ function fire(R, ev, caster, target, lvl, at, mc) {
       R.probe.push([Math.round(dmg), caster.key, ev.slot || '?', ev.gid,
                     Math.round(at), s.scale, +(mul).toFixed(4), Math.round(a.atk),
                     +(o.avg / Math.max(1, a.atk)).toFixed(3), s.tick, ev.dist, ev.share,
-                    target.key, Math.round(target.hp)]);
+                    target.key, Math.round(target.hp),
+                    // **掛け算の中身**（核が伸びないときに、どれが 0 かを見る）
+                    { eff: a.eff, terr: a.terr, hit: +o.hit.toFixed(3),
+                      rate: +o.rate.toFixed(3), crit: +o.crit.toFixed(3),
+                      sMin: +o.sMin.toFixed(3), base: Math.round(o.base),
+                      p: o.parts }]);
     }
     // **受けたぶんを本体へ流す。**ペロロミニオンは Immortal で 100% を転移する。
     // 流した先の HP を削るのはここだけで、`by` には転移として別に立てる
@@ -726,7 +740,10 @@ export function run(o) {
     var au = add(b, makeUnit({
       key: 'a' + i, side: 'ally', charId: pc.id, dev: pc.dev,
       kind: 'Student', lv: p.lv || 90, armor: ch.ArmorType, bullet: ch.BulletType,
-      adapt: gradeOf((pc.st || [])[0], (boss.ground || {}).StageTopography),
+      // **生徒の `st` は 1 枚の連想配列**（ボスの束は行の並び）。
+      // `[0]` を取っていて全員 D 判定＝攻撃 0.8 倍になっていた（2026-09-06）
+      adapt: gradeOf(Array.isArray(pc.st) ? pc.st[0] : pc.st,
+                     (boss.ground || {}).StageTopography),
       radius: ch.BodyRadius, personality: ch.PersonalityId, aiId: ch.CharacterAIId,
       role: ch.TacticRole, school: ch.School, squad: ch.SquadType,
       hp: (p.stats && p.stats.MaxHP) || 1, maxHp: (p.stats && p.stats.MaxHP) || 1,
