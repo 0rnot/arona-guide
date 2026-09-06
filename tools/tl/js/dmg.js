@@ -404,7 +404,11 @@ export function dmgAt(idx, r, at, kind, pick, tg, gx, nso, only, nb) {
   var exM = /^Ex\d*$/.test(kd) ? cs.get('EnhanceExDamageRate') / 10000 : 1;
   // 通常攻撃側の同じ形の枠。**14 章に載っているのは EX だけ**で、
   // こちらは同じ形として扱っている（データにある `EnhanceBasicsDamageRate`）
-  var baM = kd === 'Normal' ? cs.get('EnhanceBasicsDamageRate') / 10000 : 1;
+  // **EX・NS 明けの通常攻撃として出る SS（ホシノ（臨戦）の扇。`B.ssnf`）にも掛かる**（2026-09-06）。
+  // 扇は `LevelSkill/CH0258_AttackerNormal02.json`（`NormalAttackSkillActionDAO`）の弾で、
+  // 効果 `CH0258_01_ExtraPassive01_Effect02` は `ApplyEnhanceBasicsDamageRate: True`
+  var baM = (kd === 'Normal' || (kd === 'ExtraPassive' && (B.ssnf || {})[p.id] != null))
+    ? cs.get('EnhanceBasicsDamageRate') / 10000 : 1;
   var stab = cs.get('StabilityPoint'), stabR = cs.get('StabilityRate');
   var sMin = clamp(stab / (stab + 1000) + stabR / 10000, 0, 1);
   var acc = cs.get('AccuracyPoint');

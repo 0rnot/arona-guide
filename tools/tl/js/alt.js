@@ -181,8 +181,12 @@ export function altOf(id, kind, tb, nb, at) {
 // そのスキル枠に効くレベル。**EX と NS と サブは別の欄**
 export function lvlOf(idx, kind) {
   var sl = st.slots[idx] || {};
-  if (String(kind).indexOf('Ex') === 0) { return sl.ex || 5; }
+  // **順番が大事。**`ExtraPassive` は `Ex` で始まるので、EX の枝を先に置くと
+  // サブスキルが EX レベル（既定 5）で引かれる（2026-09-06 に見つけた。ホシノ（臨戦）の
+  // 制圧攻撃が 150.16%（Lv10）ではなく 106.67%（Lv5）・防御無視も Lv5 の値で、
+  // 通常攻撃より弱く出ていた。SS のダメージを持つ 45 人全員に効いていた）
   if (kind === 'ExtraPassive') { return sl.sslv || 10; }
+  if (String(kind).indexOf('Ex') === 0) { return sl.ex || 5; }
   return sl.sk || 10;
 }
 // **その 1 発の指定が先、無ければ枠の既定**（2026-09-01 の先生の指示
