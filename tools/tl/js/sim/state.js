@@ -159,11 +159,18 @@ export function dispel(u, opt) {
 /** 盤ぜんぶ。回す側（`run.js`）が持つ入れ物 */
 export function makeBoard(o) {
   var C = (o.common && o.common.const) || {};
-  var fever = 10000;
+  // **フィーバーは窓のある内容だけ。**`ContentsFeverExcelTable` の総力戦の行は
+  // `SkillCostFever 20000` だが `FeverStartTime 0` / `FeverDurationTime 0` で、
+  // **窓が無い＝掛からない**（窓があるのはアリーナだけ。開始 120,000ms から 60,000ms）。
+  // 2 倍にしていたのは読み違い（2026-09-06 に直した）。`tl-engine.js` は
+  // 素の 0.42/秒 で動画と 1 コマまで合っている（コスト 4 ÷ 0.42 = 9.5238 秒）。
+  var fever = 10000, fdur = 0, fstart = 0;
   var rows = (o.common && o.common.fever) || [];
   for (var i = 0; i < rows.length; i++) {
     if (rows[i].ConditionContent === (o.content || 'Raid')) {
-      fever = rows[i].SkillCostFever || 10000;
+      fdur = rows[i].FeverDurationTime || 0;
+      fstart = rows[i].FeverStartTime || 0;
+      if (fdur > 0) { fever = rows[i].SkillCostFever || 10000; }
     }
   }
   return {
@@ -182,7 +189,8 @@ export function makeBoard(o) {
     // 木のコマ数はそのまま実時間に直る。`NormalTimeScale` が何に掛かるかは未確定なので、
     // 値だけ持っておいて**使わない**（画面の再生速度らしい）
     timeScale: (C.NormalTimeScale || 13000) / 10000,
-    feverRate: fever / 10000,               // 総力戦は 2 倍
+    feverRate: fever / 10000,               // 窓が無ければ 1
+    feverFrom: fstart, feverFor: fdur,
     const: C,
     common: o.common || null,
     log: [],

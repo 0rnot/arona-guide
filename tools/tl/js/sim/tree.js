@@ -119,10 +119,16 @@ export function skillEvents(doc) {
       if (e.EntityName) { names[e.EntityName] = 1; }
       for (k = 0; k < NEST.length; k++) {
         sub = e[NEST[k]];
-        if (sub && typeof sub === 'object') {
-          if (sub.EntityName) { names[sub.EntityName] = 1; }
-          collectNames(sub, dep + 1);
+        if (!sub || typeof sub !== 'object') { continue; }
+        if (Array.isArray(sub)) {
+          for (var bq = 0; bq < sub.length; bq++) {
+            if (sub[bq] && sub[bq].EntityName) { names[sub[bq].EntityName] = 1; }
+            collectNames(sub[bq], dep + 1);
+          }
+          continue;
         }
+        if (sub.EntityName) { names[sub.EntityName] = 1; }
+        collectNames(sub, dep + 1);
       }
       collectNames(e, dep + 1);
     }
@@ -168,9 +174,15 @@ export function skillEvents(doc) {
     }
   }
 
+  // **下に体が吊れる欄。**全 274 人の木を総当たりで歩いて、
+  // `LogicEffectGroupIds` に届く道を数えて出した並び（2026-09-06 の `_abilscan.mjs`）。
+  // `Initial*` の 3 つと `BundledMainEntityDatas` / `EntityList` はここに無くて
+  // **59 群が事象に出ていなかった。**
   var NEST = ['SplashAreaEntityData', 'BounceProjectileEntity',
               'SkillEntitySpawnerData', 'AreaSpawnerData',
-              'InEffectRadiusAreaSpawnerEntity', 'InEffectRadiusSkillEntitySpawnerEntity'];
+              'InEffectRadiusAreaSpawnerEntity', 'InEffectRadiusSkillEntitySpawnerEntity',
+              'InitialAreaSpawnerEntity', 'InitialSkillEntitySpawnerData',
+              'InitialEntitySpawner', 'BundledMainEntityDatas'];
 
   function entity(e, ctx, dep) {
     if (!e || typeof e !== 'object' || dep > 8) { return; }
@@ -198,10 +210,48 @@ export function skillEvents(doc) {
                rootEcr: ctx.rootEcr, share: ctx.share };
     ability(e, 'Abilities', c2, typ);
     ability(e, 'AreaAbilities', c2, typ);
+    // **湧いた瞬間に落ちるアビリティ。**並びは `Abilities` と同じ
+    ability(e, 'InitialAbilities', c2, typ);
     interval(e, c2, typ);
+    // **順番に配るアビリティ。**`[{Ability: {…}}]` の包み（CH0193 の EX）
+    if (Array.isArray(e.AbilitiesInOrderOfInteraction)) {
+      var wr = [], wq;
+      for (wq = 0; wq < e.AbilitiesInOrderOfInteraction.length; wq++) {
+        var w0 = e.AbilitiesInOrderOfInteraction[wq];
+        if (w0 && w0.Ability) { wr.push(w0.Ability); }
+      }
+      if (wr.length) { ability({ Abilities: wr }, 'Abilities', c2, typ); }
+    }
+    // **その節自身が 1 つのアビリティのことがある**（`LogicEffectGroupIds` を直に持つ）。
+    // `MainEntityData` と時系列の体で 14 例（CH0115 の EX ほか）
+    if (Array.isArray(e.LogicEffectGroupIds) && e.LogicEffectGroupIds.length) {
+      ability({ Abilities: [e] }, 'Abilities', c2, typ);
+    }
+    // **相手に直接落とす欄**（CH0258_02 と CH0297 の EX）。**配列**
+    if (Array.isArray(e.ApplyLogicEffectToTarget) && e.ApplyLogicEffectToTarget.length) {
+      ability({ Abilities: e.ApplyLogicEffectToTarget }, 'Abilities', c2, typ);
+    } else if (e.ApplyLogicEffectToTarget &&
+               typeof e.ApplyLogicEffectToTarget === 'object') {
+      ability({ Abilities: [e.ApplyLogicEffectToTarget] }, 'Abilities', c2, typ);
+    }
+    // **弾の一覧**（`EntityList: [{ProjectileData: {…}}]`。CH0194 の NS）
+    if (Array.isArray(e.EntityList)) {
+      for (var el = 0; el < e.EntityList.length; el++) {
+        var ed = e.EntityList[el];
+        if (ed && ed.ProjectileData) { entity(ed.ProjectileData, c2, dep + 1); }
+        else if (ed && typeof ed === 'object' && ed.$type) { entity(ed, c2, dep + 1); }
+      }
+    }
     for (k = 0; k < NEST.length; k++) {
       sub = e[NEST[k]];
       if (!sub || typeof sub !== 'object') { continue; }
+      // **束ねた体は配列**（`BundledMainEntityDatas`。CH0347 の EX）
+      if (Array.isArray(sub)) {
+        for (var bn = 0; bn < sub.length; bn++) {
+          if (sub[bn] && typeof sub[bn] === 'object') { entity(sub[bn], c2, dep + 1); }
+        }
+        continue;
+      }
       if (NEST[k] === 'SplashAreaEntityData') {
         entity(sub, { at: at + (e.SplashDelayFrame || 0), sel: sel, prj: prj,
                       area: null, dist: ctx.dist, rootEcr: ctx.rootEcr }, dep + 1);

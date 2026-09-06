@@ -45,6 +45,7 @@ BALS = "https://raw.githubusercontent.com/electricgoat/ba-data/jp/LevelSkill/{}.
 BADB = "https://raw.githubusercontent.com/electricgoat/ba-data/jp/DB/{}.json"
 BAEX = "https://raw.githubusercontent.com/electricgoat/ba-data/jp/Excel/{}.json"
 BABT = "https://raw.githubusercontent.com/electricgoat/ba-data/jp/Battle/{}.json"
+BAST = "https://raw.githubusercontent.com/electricgoat/ba-data/jp/Stage/{}.json"
 
 # **画面の飾りだけの欄は落とす。**戦闘の中身に効くものは 1 つも落とさない
 # （落としてよいと言い切れるものだけをここに並べる。迷ったら残す）
@@ -99,6 +100,41 @@ def battle(name):
     else:
         d = _get(BABT.format(name))
     return d["DataList"] if isinstance(d, dict) and "DataList" in d else d
+
+
+def stage(name):
+    """`Stage/<name>.json` = **盤の実体**（2026-09-06、先生「DB 以外のディレクトリに
+    あるんじゃない？」）。`GroundExcelTable.StageFileName` が指す。中身は:
+
+      Formations[]                  味方の並びの原点（節ごとに x, y と向き）
+      Sections[].EnemySpawnPointGroupList[].SpawnPoints[]
+                                    敵の湧き位置（`Position` / `TileX` / `TileY` /
+                                    `Direction` / `SpawnTemplateId`）と湧く合図
+      Sections[].Events[]           節の台本。`Conditions` と `Commands` の対で、
+                                    フェーズの移り・グロッキー時のミニオン・
+                                    無敵の窓・待ち秒（ペロロジラ Torment は
+                                    `GroundConditionCharacterPhaseChanged Phase 1` →
+                                    `SetStatusImmune ImmuneGroggyGaugeAdd` →
+                                    `WaitSeconds 8000`）
+      Sections[].Obstacles[]        置いてある遮蔽（`Battle/obstacledata` の実体を指す）
+
+    **今まで動画から読んでいた「8 秒の間」や「ミニオンはいつ湧くか」がここにある。**
+    ペロロジラ Torment は生 39,218 バイト・gzip 2,420 バイトなので、束に入れて構わない。
+    """
+    for pdir in (MIRROR / "badata-git" / "Stage", MIRROR / "badata" / "Stage"):
+        q = pdir / f"{name}.json"
+        if q.exists():
+            return _read_json(q)
+    try:
+        d = _get(BAST.format(name))
+    except Exception:  # noqa: BLE001 - 面によっては指しているファイルが無い
+        return None
+    # **取ったものは写しに残す。**700 面 × 最大 3 本を毎回取り直さない
+    out = MIRROR / "badata-git" / "Stage"
+    out.mkdir(parents=True, exist_ok=True)
+    with open(out / f"{name}.json", "w", encoding="utf-8") as f:
+        f.write(json.dumps(d, ensure_ascii=False, separators=(",", ":")))
+    return d
 
 
 def entity_names(node, out):
@@ -168,17 +204,19 @@ def strip(o):
 
 
 def effect_ids(node, out):
-    """木の中で参照されている `LogicEffectGroupIds` を全部。**入れ子の奥まで。**"""
+    """木の中で参照されている `LogicEffectGroupIds` を全部。**入れ子の奥まで。**
+
+    **容れ物の名前で拾わない**（2026-09-06）。`Abilities` / `AreaAbilities` /
+    `IntervalAbilities` の 3 つだけを見ていて、`InitialAbilities`・
+    `AbilitiesInOrderOfInteraction`・`ApplyLogicEffectToTarget`・
+    節が直に持つ `LogicEffectGroupIds` を落としていた（274 人で 59 群。
+    CH0165 の EX はそれで効果が 1 つも束に入っていなかった）。
+    どの階層でも `LogicEffectGroupIds` を見たら拾う。
+    """
     if isinstance(node, dict):
-        for key in ("Abilities", "AreaAbilities", "IntervalAbilities"):
-            for a in (node.get(key) or []):
-                if not isinstance(a, dict):
-                    continue
-                # `IntervalAbilities` は `{Phase, Frame, Abilities:[…]}` の入れ子
-                for b in ([a] + list(a.get("Abilities") or [])):
-                    if isinstance(b, dict):
-                        for g in (b.get("LogicEffectGroupIds") or []):
-                            out.add(g)
+        for g in (node.get("LogicEffectGroupIds") or []):
+            if isinstance(g, str):
+                out.add(g)
         # **消す側・条件側も札の名前で他の効果を指す**（`LogicEffectGroupIdToDispel` ほか）
         for k in ("LogicEffectGroupIdToDispel", "LogicEffectGroupId"):
             v = node.get(k)
@@ -301,9 +339,17 @@ def build_bosses(out_dir, chars, st_by, le_npc_by, le_pc_by, sk_by, want):
         sk = []
         for g in groups:
             sk.extend(strip(r) for r in (sk_by.get(g) or []))
+        # **盤。**`StageFileName` は 1〜3 本（本編・2 フェーズ開始・3 フェーズ開始）
+        gr0 = ground.get(sr.get("GroundId")) or {}
+        board = {}
+        for nm in (gr0.get("StageFileName") or []):
+            sd = stage(nm)
+            if sd:
+                board[nm] = sd
         pack = {
             "kind": kind, "stage": strip(sr),
-            "ground": strip(ground.get(sr.get("GroundId")) or {}),
+            "ground": strip(gr0),
+            "board": board,
             "groups": groups, "ls": ls, "le": le, "sk": sk,
             "bt": [strip(r) for cid in ents for r in bt_by.get(
                 (ents[cid] or {}).get("ExternalBTId"), [])],

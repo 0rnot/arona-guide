@@ -92,6 +92,65 @@ export function nsInterval(doc) {
   return +f / FPS * 1000;
 }
 
+/** **通常スキルの自動発動の読み方。**`AutoUseRule.ConditionType` ごと。
+
+    `Interval`     `ConditionArgument` がコマ（750 = 25 秒）。**周期**
+    `OnAttackIng`  通常攻撃 `TryCount` 発ごと（CH0194 は 21 発ごと）。**回数**
+    それ以外（`HpUnder` ほか）は盤の状態が要るので、まだ置けない。
+      274 人ぶんの内訳は `_nsauto.mjs` が数える。
+
+    返り値: `{kind: 'interval'|'shots', ms, shots, rate, max}` ／ 置けなければ null */
+export function nsAuto(doc) {
+  var r = doc && doc.AutoUseRule;
+  if (!r || !r.IsValid) { return null; }
+  var rate = r.TriggerRate == null ? 10000 : r.TriggerRate;
+  var max = r.MaxTriggerCount == null ? -1 : r.MaxTriggerCount;
+  if (r.ConditionType === 'Interval') {
+    var f = r.ConditionArgument;
+    if (f == null || !(+f > 0)) { return null; }
+    return { kind: 'interval', ms: +f / FPS * 1000, rate: rate, max: max };
+  }
+  if (r.ConditionType === 'OnAttackIng') {
+    var n = r.TryCount == null ? 0 : +r.TryCount;
+    if (!(n > 0)) { return null; }
+    return { kind: 'shots', shots: n, rate: rate, max: max };
+  }
+  return null;
+}
+
+/** **サブスキル（SS）の引き金。**`LevelSkill/<枠>.json` の `TriggerCondition`。
+
+    `Event` の対応は `build-tool-data.py` が全生徒の記述文と突き合わせて確かめたもの:
+      1=常時 ／ 2=通常攻撃時 ／ 3=スキル発動と同時 ／ 11=被弾 ／ 13=会心 ／
+      15=撃破時 ／ 16=リロード時 ／ 17=スキル使用時 ／ 18=内部効果 ／ 21=攻撃時 ／
+      105=N コマ毎 ／ 301=状態条件つき常時
+
+    274 人の内訳（2026-09-06 に数えた）:
+      1 が 118 人・21 が 56 人・3 が 19 人・17 が 18 人・301 が 15 人。
+      残り 48 人は 24/2/18/16/13/15/105/302/23/30/7/8/11/12/19/37 に散る。
+
+    ここで置けるのは **1・301（常時）／ 2・21（攻撃）／ 3・17（スキル）／
+    105（周期）／ 16（リロード）** の 5 通り。**残りは盤の出来事が要るので置かない。**
+
+    **2 と 21 の違いはデータから決まらない。**どちらも「通常攻撃 1 発ごと」として扱う
+    （2 は 7 人、21 は 56 人）。決まったら分ける。 */
+export function ssTrig(doc) {
+  var t = doc && doc.TriggerCondition;
+  if (!t) { return null; }
+  var ev = +t.Event;
+  var o = { ev: ev, param: t.Parameters || '', rate: t.TriggerRate == null ? 10000 : t.TriggerRate,
+            max: doc.MaxTriggerCount == null ? -1 : doc.MaxTriggerCount,
+            tries: doc.TryCount == null ? 1 : (+doc.TryCount || 1),
+            cool: doc.CoolTimeNotTrigger ? (+doc.CoolTimeNotTrigger / FPS * 1000) : 0,
+            when: null };
+  if (ev === 1 || ev === 301) { o.when = 'always'; }
+  else if (ev === 2 || ev === 21) { o.when = 'attack'; }
+  else if (ev === 3 || ev === 17) { o.when = 'cast'; }
+  else if (ev === 105) { o.when = 'every'; o.ms = (+o.param || 0) / FPS * 1000; }
+  else if (ev === 16) { o.when = 'reload'; }
+  return o;
+}
+
 /** 通常攻撃の刻み。**`AnimationFrames` は `[{Key, Frame}]` の配列**で、
     `AttackIngDuration` / `AttackEnterDuration` / `AttackBurstRoundOverDelay` /
     `AttackReloadDuration` が入っている（アルは 42 / 45 / 50 / 70）。
@@ -217,6 +276,9 @@ function fire(R, ev, caster, target, lvl, at, mc) {
     dmg *= (ev.single ? 1 : (mc != null ? mc : (R.mc || 1)));
     target.hp = Math.max(0, target.hp - dmg);
     R.total += dmg;
+    // **どこから出たダメージか。**核の穴を探すのに要る（合計だけ見ても分からない）
+    var bk = caster.key + '/' + (ev.slot || '?');
+    R.by[bk] = (R.by[bk] || 0) + dmg;
     return dmg;
   }
 
@@ -249,6 +311,11 @@ function cast(R, u, gid, slot, lvl, at, opt) {
     })(e, t2);
   }
   R.used.push({ t: at, who: u.key, slot: slot, gid: gid });
+  // **スキルを使ったことを SS に知らせる**（Event 3 / 17）。
+  // SS 自身とパッシブからは知らせない（際限なく回る）
+  if (u._fireSS && slot !== 'ExtraPassive' && slot !== 'Passive') {
+    u._fireSS(at, 'cast', slot);
+  }
 }
 
 /** **その育ちで実際に効いている `CharacterSkillListExcelTable` の行。**
@@ -342,7 +409,7 @@ export function run(o) {
 
   var R = {
     b: b, ctx: ctxOf(b), eff: eff, q: queue(), evCache: {},
-    total: 0, used: [], unknown: 0, unknownBy: {}, miss: {},
+    total: 0, used: [], unknown: 0, unknownBy: {}, miss: {}, by: {},
     durMs: durMs, mc: o.mc || 1, C: constOf(common),
     lvTable: common.lvdiff || null, caps: capsOf(common.calcLimit),
     rnd: o.seed != null ? mulberry(o.seed) : null,
@@ -408,30 +475,68 @@ export function run(o) {
       // 常時のパッシブ（0 秒）
       var ps = gid('PassiveSkillGroupId'), es = gid('ExtraPassiveSkillGroupId');
       if (ps) { R.q.push(0, function (t) { cast(R, au, ps, 'Passive', lvOf('Passive'), t); }); }
-      if (es) { R.q.push(0, function (t) { cast(R, au, es, 'ExtraPassive', lvOf('ExtraPassive'), t); }); }
+
+      var ng = gid('NormalSkillGroupId');
+      var pg = gid('PublicSkillGroupId');
+      var auto = (pg && au.ls[pg]) ? nsAuto(au.ls[pg]) : null;
+      var ss = (es && au.ls[es]) ? ssTrig(au.ls[es]) : null;
+
+      // ---- サブスキル（SS）の引き金
+      au._ssN = 0; au._ssHit = 0; au._ssLast = -1e9;
+      au._fireSS = function (now, kind, what) {
+        if (!ss || !es || ss.when !== kind) { return; }
+        if (kind === 'cast' && ss.param && ss.param.indexOf(what) < 0) { return; }
+        au._ssN++;
+        if (ss.tries > 1 && au._ssN % ss.tries !== 0) { return; }
+        if (ss.cool && now - au._ssLast < ss.cool) { return; }
+        if (ss.max >= 0 && au._ssHit >= ss.max) { return; }
+        if (ss.rate < 10000 && R.rnd && R.rnd() * 10000 >= ss.rate) { return; }
+        au._ssLast = now; au._ssHit++;
+        cast(R, au, es, 'ExtraPassive', lvOf('ExtraPassive'), now);
+      };
+      // **常時（1 / 301）は 0 秒に 1 回。**引き金が読めない型もここに落とす
+      // （置かないより、常時として置くほうが元の `csl[0]` 時代と同じ）
+      if (es && (!ss || ss.when === 'always' || ss.when === null)) {
+        R.q.push(0, function (t) {
+          cast(R, au, es, 'ExtraPassive', lvOf('ExtraPassive'), t);
+        });
+      }
+      // **N コマ毎（105）**
+      if (ss && ss.when === 'every' && ss.ms > 0) {
+        for (var ts = ss.ms; ts <= durMs; ts += ss.ms) {
+          (function (tt) { R.q.push(tt, function (now) { au._fireSS(now, 'every'); }); })(ts);
+        }
+      }
 
       // 通常攻撃。**構え → 弾倉ぶん撃つ → リロード**を繰り返す
-      var ng = gid('NormalSkillGroupId');
       var na = ng && au.ls[ng]
         ? naInfo(au.ls[ng], (p.stats || {}).NormalAttackSpeed,
                  (p.stats || {}).AmmoCount, (p.stats || {}).AmmoCost) : null;
+      au._shots = 0;
       if (na) {
         var t = na.ent, shot = 0;
         while (t <= durMs) {
-          (function (tt) {
-            R.q.push(tt, function (now) { cast(R, au, ng, 'Normal', 1, now); });
-          })(t);
+          (function (tt, reload) {
+            R.q.push(tt, function (now) {
+              cast(R, au, ng, 'Normal', 1, now);
+              au._shots++;
+              // **通常攻撃 N 発ごとの通常スキル**（`OnAttackIng` の `TryCount`）
+              if (auto && auto.kind === 'shots' && pg && au._shots % auto.shots === 0) {
+                cast(R, au, pg, 'Public', lvOf('Public'), now);
+              }
+              au._fireSS(now, 'attack');
+              if (reload) { au._fireSS(now, 'reload'); }
+            });
+          })(t, (shot + 1) % na.mag === 0);
           shot++;
           t += na.per;
           if (shot % na.mag === 0) { t += na.rel; }
         }
         au._na = na;
       }
-      // 通常スキル。**`AutoUseRule` が `Interval` のときだけ置ける**
-      var pg = gid('PublicSkillGroupId');
-      var iv = pg ? nsInterval(au.ls[pg]) : null;
-      if (pg && iv) {
-        for (var t2 = iv; t2 <= durMs; t2 += iv) {
+      // 通常スキル。**周期のもの**
+      if (pg && auto && auto.kind === 'interval') {
+        for (var t2 = auto.ms; t2 <= durMs; t2 += auto.ms) {
           (function (tt) {
             R.q.push(tt, function (now) { cast(R, au, pg, 'Public', lvOf('Public'), now); });
           })(t2);
@@ -475,7 +580,7 @@ export function run(o) {
   return {
     hp: hp, total: R.total, killAt: bossU.hp <= 0 ? t3 / 1000 : null,
     maxHp: bossU.maxHp, used: R.used,
-    unknown: R.unknown, unknownBy: R.unknownBy, miss: R.miss,
+    unknown: R.unknown, unknownBy: R.unknownBy, miss: R.miss, by: R.by,
     events: R.q.size(),
   };
 }
