@@ -4820,12 +4820,15 @@ def _ls_geom(group):
         # 根が回復の円の規則（`Ally`）で、ダメージの円は `TargetSide: Enemy`・
         # `MaxTargetCount -1`。根で読むと盤が「位置を置ける枠」と見なさなかった）
         ae = area.get("EssentialCandidateRule")
-        if isinstance(ae, dict) and ae.get("TargetSide"):
+        # **`TargetSide` は文字列 `"None"` のことがある**（2026-09-06 の監査。チェリノの EX の
+        # 円は `TargetSide: "None"` で、Python では真になって根の `Enemy` を隠していた）
+        if isinstance(ae, dict) and ae.get("TargetSide") not in (None, "", "None"):
             ecr = ae
         po = area.get("PositionOffset") or {}
         off = [round(float(po.get("x") or 0), 3), round(float(po.get("y") or 0), 3)]
         got = [area.get("SpawnPositionType"), ecr.get("TargetingType"),
-               ecr.get("TargetSide"), ecr.get("MaxTargetCount"),
+               (None if ecr.get("TargetSide") in ("", "None") else ecr.get("TargetSide")),
+               ecr.get("MaxTargetCount"),
                d.get("Range"), list(area.get("HitFrames") or []), base,
                off if (off[0] or off[1]) else None,
                area.get("AngleOffset") or None,
@@ -4983,9 +4986,15 @@ def _ls_frames(group):
             if not gs:
                 continue
             base = at + (a.get("StartDelay") or 0)
+            # **同じ相手に二度入らない範囲は最初の `HitFrames` だけ**（2026-09-06 の監査。
+            # チェリノの EX は 73/93/113/133 の円がそれぞれ `HitFrames [1, 4, 7]`・
+            # `AllowDuplicateHit: false` で、DB の 4 発が道具では 12 点になっていた）
+            hfs = list(node.get("HitFrames") or [0])
+            if key == "AreaAbilities" and node.get("AllowDuplicateHit") is False and hfs:
+                hfs = hfs[:1]
             for g in gs:
                 if key == "AreaAbilities":
-                    for h in (node.get("HitFrames") or [0]):
+                    for h in hfs:
                         _put(g, base + h, pj)
                 else:
                     _put(g, base, pj)
@@ -5002,8 +5011,18 @@ def _ls_frames(group):
         # 2026-09-05、GzfPSXaZKlU の最後の EX が動画では発動 105〜110 フレーム後に
         # 入っていて、飛ぶ時間 0 の 96〜100 より 10 フレーム遅かった。
         # 盤の距離 6.49 ワールド ÷ 20 ワールド/秒 ＝ 0.325 秒 ＝ 9.7 フレーム
-        if not pj and e.get("Speed") and e.get("ProjectileType"):
+        typ9 = str(e.get("$type") or "")
+        # **決まったコマで届く弾**（2026-09-06 の監査。レイの EX の 18 発目は 80 フレームに
+        # 撃つ `FixedFrameTargetProjectileEntityDAO` が `FrameToHit 7` で 88 に届く。
+        # 速さではなくコマ数なので、飛ぶ時間は足さずここで数える）
+        if "FixedFrameTargetProjectile" in typ9:
+            at = at + (e.get("FireDelayFrame") or 0) + (e.get("FrameToHit") or 0)
+        elif not pj and e.get("Speed") and e.get("ProjectileType"):
             pj = [e["Speed"], "c" if e.get("ProjectileType") == "TargetCharacter" else "p"]
+        # **置いた物が動き出すまでの待ち**（2026-09-06 の監査。ムツキの NS の地雷は
+        # `BattleItemEntityDAO` の `ActiveDelayInFrame 30` のあとに中の時間軸が回る）
+        if "BattleItemEntityDAO" in typ9:
+            at = at + (e.get("ActiveDelayInFrame") or 0)
         _ab(e, at, "Abilities", pj)
         _ab(e, at, "AreaAbilities", pj)
         sp = e.get("SplashAreaEntityData")
@@ -5018,6 +5037,10 @@ def _ls_frames(group):
         for k in ("SkillEntitySpawnerData", "AreaSpawnerData"):
             if e.get(k):
                 _tl(e[k], at, dep + 1, pj)
+        # **効果半径に入ったときに湧く体**（ムツキの地雷。中の時間軸はここにしか無い）
+        for k in ("InEffectRadiusAreaSpawnerEntity", "InEffectRadiusSkillEntitySpawnerEntity"):
+            if isinstance(e.get(k), dict):
+                _ent(e[k], at, dep + 1, pj)
         _tl(e, at, dep + 1, pj)
 
     def _tl(node, at, dep, pj):
@@ -5055,7 +5078,8 @@ def _ls_frames(group):
                             names.add(sub9["EntityName"])
                     _names(e, dep + 1)
                     for k in ("SkillEntitySpawnerData", "AreaSpawnerData",
-                              "SplashAreaEntityData"):
+                              "SplashAreaEntityData", "InEffectRadiusAreaSpawnerEntity",
+                              "InEffectRadiusSkillEntitySpawnerEntity"):
                         _names(e.get(k), dep + 1)
     _names(d, 0)
     for k in ("SkillEntitySpawnerData", "AreaSpawnerData"):
@@ -5146,6 +5170,10 @@ def _ls_single(group):
 
     def _ab(node, key):
         typ = str(node.get("$type") or "").split(",")[0].split(".")[-1]
+        # **跳ねる弾の節は `$type` を持たない**（2026-09-06 の監査。ヒナタの愛用品 NS の
+        # `BounceProjectileEntity` は `BounceRadius` だけで型が分かる）
+        if not typ and node.get("BounceRadius") is not None:
+            typ = "BounceProjectileEntity"
         for a in (node.get(key) or []):
             if not isinstance(a, dict):
                 continue
@@ -5957,13 +5985,26 @@ _ACC = {}
 _BT = {1: "Explosion", 2: "Pierce", 3: "Mystic", 4: "Sonic", 5: "Mystic"}
 
 
-def acc_info(e):
-    """`Accumulation` の [溜める ms, 段ごとの取り込み割合, 弾種]。当たらなければ None。"""
+_ACCBT = {}
+
+
+def acc_info(e, dev=None, own_bt=None):
+    """`Accumulation` の [溜める ms, 段ごとの取り込み割合, 弾種]。当たらなければ None。
+
+    **弾種は `AccumulateDamageEffectDAO` の `IsOverrideBulletType` で決まる**（2026-09-06 の
+    監査）。ワカモ `CH0111_Ex01_Effect03` もカンナ `CH0170_Ex01_Effect03` も `false`
+    （`BulletType 5` は使われない）＝**撃つ子自身の弾種**。ワカモは本人が神秘なので前の
+    決め打ち「神秘」でも合っていたが、カンナは貫通で、重装甲では 0.5 倍 対 2.0 倍だった。 """
     if e.get("Type") != "Accumulation":
         return None
     if not _ACC:
         for r in as_list(get_json(BADB.format("LogicEffect_PC"))):
             ty = str(r.get("$type") or "")
+            if "AccumulateDamageEffectDAO" in ty:
+                m9 = re.match(r"^(.*?)_(?:Ex|Public)\d+_Effect\d+$", str(r.get("GroupId") or ""))
+                if m9:
+                    _ACCBT[m9.group(1)] = [bool(r.get("IsOverrideBulletType")), r.get("BulletType")]
+                continue
             if "AccumulateEffectDAO" not in ty:
                 continue
             if not r.get("LimitSourceStatRate"):
@@ -5975,9 +6016,11 @@ def acc_info(e):
     dur, rates = _ACC[sc[0]][0], []
     for v in sc:
         rates.append((_ACC.get(v) or [None, 10000])[1] or 10000)
-    # **弾種は出すほうの弾（`AccumulateDamageEffectDAO`）の `BulletType`。**
-    # ワカモもカンナも 5（神秘）。カンナ自身は貫通なので、ここで上書きしないと外れる
-    return [dur, rates, "Mystic"]
+    bt = "Mystic"
+    ab = _ACCBT.get(dev) if dev else None
+    if ab is not None:
+        bt = (_BT.get(ab[1]) or "Mystic") if ab[0] else (own_bt or "Mystic")
+    return [dur, rates, bt]
 
 
 # **黒板に溜めたぶんを弾にする**（2026-09-05、ケイ `CH0335`）。
@@ -7887,7 +7930,7 @@ def build_tl():
                       e["TargetHpRateModifier"].get("MultiplierMax")]
                      if e.get("TargetHpRateModifier") else None),
                     #   Acc … 蓄積（2026-09-03、56c）。出どころは `acc_info` の注記
-                    acc_info(e),
+                    acc_info(e, x.get("DevName"), x.get("BulletType")),
                     #   OverrideSkillDamageType … **この一撃を どの枠のダメージとして
                     #     数えるか**（2026-09-05、67 を追っていて見つけた）。
                     #     ba-data の `DB/LogicEffect_PC.json` では整数で、
@@ -7934,14 +7977,17 @@ def build_tl():
                         _single_ids.add(id(_e))
                         print(f"  単体の効果: {sid} {kind} {_g}"
                               f"（DescParamId {_e.get('DescParamId')}）")
-            elif _sgl and len(_sgl) == 1 and all(_sgl.values()) and dmg_all:
+            elif _sgl and all(_sgl.values()) and dmg_all:
+                # **名札が全部単体なら、数が合わなくても全行が単体**（2026-09-06 の監査。
+                # ネル（制服）の Ex1 は印あり／なしの 10 行を `_form_cond` で 5 行に畳んだあとで
+                # 数が合わず、カンナの EX は 1 名札が 2 行に展開されていて、印が付かなかった）
                 # **名札が 1 つで行が複数**（2026-09-06 の監査。サツキ・ミノリ・ハスミ（体操服）・
                 # ノゾミの `Attack_Damage_ChangeRateByCost` は 1 効果が SchaleDB で Group 0〜3 の
                 # 4 行に展開される）。行の由来はその名札しか無いので、全行に印を配る。
                 # 印が無いとグロッキーで分裂するボスで EX が 5 倍・4 倍に数えられていた
                 for _e in dmg_all:
                     _single_ids.add(id(_e))
-                print(f"  単体の効果（1 名札 → {len(dmg_all)} 行）: {sid} {kind} {list(_sgl)[0]}")
+                print(f"  単体の効果（名札 {len(_sgl)} → {len(dmg_all)} 行）: {sid} {kind} {list(_sgl)[0]}")
             # **出るかどうかが確率の効果**（2026-09-05）。結び方は上と同じ
             _rate_ids = {}
             _rt = _ls_rate(_skill_gid(csl_all.get(x["Id"]), kind))
@@ -8041,6 +8087,26 @@ def build_tl():
                 if _pj:
                     prj_out.setdefault(sid, {})[kind] = _pj
                     print(f"弾に乗る着弾: {sid} {kind} {_pj}")
+            else:
+                # **ダメージの無い枠でも、弾に乗って届く効果は弾の時刻を持つ**（2026-09-06 の
+                # 監査。マキの NS は 32 フレームに撃つ `TargetProjectileEntity`（速さ 600）に
+                # 防御力ダウンと印を乗せていて、道具は飛ぶ時間 0 で乗せていた）。
+                # 読むのは `target.js` の `bufTravel`
+                _gid9 = _skill_gid(csl_all.get(x["Id"]), kind)
+                _fr9 = _ls_frames(_gid9) if _gid9 else {}
+                _pm9 = (_frames_pj_cache.get(_gid9) or {}) if _gid9 else {}
+                _fp9 = {}
+                for _g9, _fl9 in _fr9.items():
+                    for _f9 in _fl9:
+                        _p9 = (_pm9.get(_g9) or {}).get(_f9)
+                        if _p9:
+                            _fp9.setdefault(_f9, _p9)
+                if _fp9:
+                    _fs9 = sorted(_fp9)
+                    imp_out.setdefault(sid, {})[kind] = _fs9
+                    prj_out.setdefault(sid, {})[kind] = [_fp9[_f] for _f in _fs9]
+                    nimp += 1
+                    print(f"弾に乗る効果（ダメージ無し）: {sid} {kind} {_fs9}")
             # **届く距離**（SchaleDB の `Range`。506 枠が持っている）。
             # どの生徒がどの体に届くかは、これが無いと決まらない
             if sk.get("Range"):
@@ -8073,6 +8139,15 @@ def build_tl():
                                     e.get("Channel"))
                 if _af is None:
                     _af = e.get("ApplyFrame") or 0
+                    # **「命中した時」の自バフは着弾のコマ**（2026-09-06 の監査。ユズの愛用品 NS
+                    # 「敵に命中した時、会心値 +33.9%（20秒間）」は `LevelSkill` に札が無く
+                    # SchaleDB も `ApplyFrame` を持たないので 0 になり、着弾 75 より 2.5 秒早く
+                    # 窓が開いて自分の一撃にも乗っていた）
+                    if not _af and "命中" in str(sk.get("Desc") or ""):
+                        _hf9 = _ls_hits(_skill_gid(csl_all.get(x["Id"]), kind))
+                        if _hf9:
+                            _af = min(_hf9)
+                            print(f"  命中の自バフ: {sid} {kind} ch{e.get('Channel')} → {_af}")
                 else:
                     nafl += 1
                     if e.get("ApplyFrame") is not None and int(e["ApplyFrame"]) != _af:
@@ -8406,6 +8481,10 @@ def build_tl():
                             continue
                         _du = _r.get("EndConditionArgument")
                         if not _du or _du < 0:
+                            continue
+                        # **切れ方が時間（1）でない変身は ms ではない**（2026-09-06 の監査。
+                        # ノノミ（水着）の `FormChange` は装弾数 100 で、読まれれば 0.1 秒になる）
+                        if _r.get("FormConversionEndCondition") not in (None, 1):
                             continue
                         _old = spc_out.setdefault(_sid, {}).get(_e0["Key"])
                         if _old is None or _du > _old[1]:
