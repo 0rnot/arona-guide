@@ -66,7 +66,10 @@ export function makeLoader(base, getGz, getJson) {
 export function keyOfCid(index, cid) {
   var best = null, bestN = -1, k;
   for (k in index) {
-    if (index[k].cid !== cid) { continue; }
+    // **本体が 2 体以上いる面がある**（カイテンジャー）。`cid` は先頭だけなので
+    // `cids` も見る（2026-09-06。`面が引けない cid=7404700` で 2 本落ちていた）
+    var cs = index[k].cids;
+    if (index[k].cid !== cid && !(cs && cs.indexOf(cid) >= 0)) { continue; }
     var n = parseInt(String(k).replace(/^\D+/, ''), 10) || 0;
     if (n > bestN) { bestN = n; best = k; }
   }

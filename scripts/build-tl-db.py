@@ -507,6 +507,11 @@ def build_bosses(out_dir, chars, st_by, le_npc_by, le_pc_by, sk_by, want):
         gr = ground.get(sr.get("GroundId")) or {}
         index[key] = {"g": len(ls), "e": len(le), "n": len(ents), "b": len(gz),
                       "cid": (sr.get("BossCharacterId") or [None])[0],
+                      # **本体が 2 体以上いる面がある**（カイテンジャーは
+                      # `BossCharacterId` が複数）。画面が渡す `cid` が先頭とは
+                      # 限らないので、全部並べておく（2026-09-06。
+                      # `面が引けない cid=7404700` で 2 本落ちていた）
+                      "cids": list(sr.get("BossCharacterId") or []),
                       "grp": sr.get("RaidBossGroup"), "df": sr.get("Difficulty"),
                       "dur": sr.get("BattleDuration"),
                       "arm": gr.get("EnemyArmorType"), "bul": gr.get("EnemyBulletType"),
