@@ -68,6 +68,14 @@ function amount(r) {
     ハスミ `3` の "1"）。ms と読むと持続 1 ミリ秒になる。
     `Duration` を持つ型（`DamageOverTime` ほか）はそちらが持続 */
 function dur(r) {
+  // **`Duration` が負なら「切れない」。**`-1` をそのまま ms で返していて、
+  // `applyMark` が `until = now - 1` を付け、次の刻みで消していた
+  // （2026-09-06。中サイズのペロロミニオンが自分に掛ける気絶
+  // `Dummy_Perorozilla_MiddleSize_CrowdControl_StatusAdd_Stunned` が
+  // `Duration: -1` で、**1 刻みも保たずに消えていた**。
+  // ボスがそれを吸えず、グロッキーが 1 度も起きなかった）。
+  // 負の `Duration` は NPC 側 383 行・PC 側 81 行ある
+  if (r.Duration != null && r.Duration < 0) { return null; }
   if (r.Duration != null && r.Duration !== 0) { return r.Duration; }
   if (r.EndCondition != null && r.EndCondition !== 0) { return null; }
   var v = r.EndConditionArgumentFirst != null ? r.EndConditionArgumentFirst
@@ -141,6 +149,9 @@ export function readOne(r) {
     o.kind = 'status';
     o.status = r.TargetStatus || r.Status || null;
     o.param = r.Parameter != null ? r.Parameter : null;
+    // **`ParameterSecond` は「それでも狙える枠」の並び**（`Ex, Passive` など）。
+    // 空なら誰も狙えない。`Untargetable` の読み方は `run.js:untargeted`
+    o.param2 = r.ParameterSecond != null ? r.ParameterSecond : null;
     return o;
   }
   if (t === 'FormConversion') {

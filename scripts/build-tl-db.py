@@ -396,6 +396,28 @@ def build_bosses(out_dir, chars, st_by, le_npc_by, le_pc_by, sk_by, want):
             c = chars_by_id.get(cid)
             if c:
                 take_ent(c, ents, csl_rows, groups, ph_by, csl_by)
+        # **盤の湧き点が名指ししている実体も束に入れる**（2026-09-06）。
+        # 木からしか拾っていなくて、グロッキー中に湧く
+        # `Perorozilla_Torment_Peroro_SmallSize01`〜`05`（被ダメージを本体へ転移する
+        # Immortal の子）が丸ごと入っていなかった
+        gr_pre = ground.get(sr.get("GroundId")) or {}
+        board = {}
+        for nm in (gr_pre.get("StageFileName") or []):
+            sd = stage(nm)
+            if sd:
+                board[nm] = sd
+        for sd in board.values():
+            for sec in (sd.get("Sections") or []):
+                for gl in (sec.get("EnemySpawnPointGroupList") or []):
+                    for sp in (gl.get("SpawnPoints") or []):
+                        tid = ((sp.get("SpawnData") or {}).get("SpawnTemplateId") or "")
+                        if not tid:
+                            continue
+                        c = resolve_dev(tid, by_dev)
+                        if c:
+                            take_ent(c, ents, csl_rows, groups, ph_by, csl_by)
+                        else:
+                            _dev_miss.add(tid)
         # **木を歩いて、出てきた実体の枠もまた歩く。**ミニオンは自分でも撃つので、
         # 1 周で止めると湧いた子の通常攻撃と EX が束に入らない
         ls, eids, names, walked = {}, set(), set(), set()
@@ -424,13 +446,9 @@ def build_bosses(out_dir, chars, st_by, le_npc_by, le_pc_by, sk_by, want):
         sk = []
         for g in groups:
             sk.extend(strip(r) for r in (sk_by.get(g) or []))
-        # **盤。**`StageFileName` は 1〜3 本（本編・2 フェーズ開始・3 フェーズ開始）
-        gr0 = ground.get(sr.get("GroundId")) or {}
-        board = {}
-        for nm in (gr0.get("StageFileName") or []):
-            sd = stage(nm)
-            if sd:
-                board[nm] = sd
+        # **盤**は上で読んである（`StageFileName` は 1〜3 本。
+        # 本編・2 フェーズ開始・3 フェーズ開始）
+        gr0 = gr_pre
         pack = {
             "kind": kind, "stage": strip(sr),
             "ground": strip(gr0),

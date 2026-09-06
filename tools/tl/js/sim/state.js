@@ -52,6 +52,7 @@ export function makeUnit(o) {
     lv: o.lv || 1,
     armor: o.armor || null,
     bullet: o.bullet || null,
+    adapt: o.adapt || 'D',            // この面での地形適性（SS〜D）
     tags: o.tags || {},               // { 札: true }
     role: o.role || null,             // TacticRole
     school: o.school || null,
@@ -260,7 +261,7 @@ export function ctxOf(b) {
       if (!u) { return m; }
       for (i = 0; i < u.eff.length; i++) {
         e = u.eff[i];
-        if (e.kind === 'status' && e.stat) { m[e.stat] = true; }
+        if (e.kind === 'status' && e.raw && e.raw.status) { m[e.raw.status] = true; }
       }
       return m;
     },

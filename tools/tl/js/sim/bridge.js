@@ -119,6 +119,9 @@ export async function simParty(o) {
     map[i] = party.length;
     names.push(pack.dev);
     party.push({
+      // **画面の枠の番号。**盤に置くとき、陣形のどの枠に立つかがこれで決まる
+      // （前列 0〜3 がストライカー、後列 4〜7 がスペシャル）
+      slot: i,
       pack: pack, lv: op.lv, stats: stats,
       wlv: op.wlv, wstar: op.wstar, gearT: op.gear,
       // 渡し先は全部の枠を数え終えてから直す（後ろの枠を指すことがある）

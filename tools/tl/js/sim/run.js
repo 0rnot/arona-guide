@@ -35,7 +35,7 @@ import { makeBoard, makeUnit, add, living, ctxOf, applyMark, expire, tickCost }
   from './state.js';
 import { once as hitOnce, roll as hitRoll, capsOf } from './hit.js';
 import { bossPlan, phaseWaits, driveBoss } from './boss.js';
-import { boardPlan, spawnFor } from './board.js';
+import { boardPlan, spawnFor, originOf, slotPos, inArea, sortByRule } from './board.js';
 
 var FPS = 30;
 
@@ -315,6 +315,7 @@ function fire(R, ev, caster, target, lvl, at, mc) {
     // （`js/carry.js:ggMode` の「吸収」と同じ決め）
     var gv = (r.flat || 0) + (r.amt || 0) + (r.tamt || 0);
     gv *= mul;
+    if (R.ggLog) { R.ggLog.push([Math.round(at / 100) / 10, r.gid, Math.round(gv)]); }
     if (!target.ggImmune && gv > 0) {
       target.gg = (target.gg || 0) + gv;
       if (R.onGroggy) { R.onGroggy(target, at); }
@@ -344,6 +345,10 @@ function fire(R, ev, caster, target, lvl, at, mc) {
   if (isDamage(r.kind)) {
     var a = R.attacker(caster, ev, at);
     var d = R.defender(target);
+    // **地形と特効。**効果の欄が偽なら掛からない
+    // （`ApplyTerrainAdaptationDamage` / `ApplyBulletType`）
+    a.terr = (r.terr === false) ? 1 : R.terrOf(caster);
+    a.eff = (r.bt === false) ? 1 : R.effOf(caster, target, statsNow(caster));
     var s = {
       scale: r.rate || 0, mult: mul, tick: 1,
       // **`DefensePenetrationRate: 10000` は「防御を全部貫く」ではなく、既定値。**
@@ -388,7 +393,14 @@ function fire(R, ev, caster, target, lvl, at, mc) {
       target.shield -= eat;
       dmg -= eat;
     }
-    target.hp = Math.max(0, target.hp - dmg);
+    // **Immortal の体は倒れない。**中サイズのペロロミニオンがこれで、
+    // 倒せてしまうとボスが吸うものが無くなってグロッキーが起きない
+    // （`Dummy_Perorozilla_MiddleSize_Immortal`。2026-09-06）
+    var floor = 0, zi;
+    for (zi = 0; zi < target.eff.length; zi++) {
+      if (/Immortal/.test(String(target.eff[zi].tmpl || ''))) { floor = 1; break; }
+    }
+    target.hp = Math.max(floor, target.hp - dmg);
     R.total += dmg;
     // **1 発ごとの中身。**核が伸びないときに、どの掛け算が小さいかを外から見るため
     if (R.probe) {
@@ -460,6 +472,81 @@ function cast(R, u, gid, slot, lvl, at, opt) {
   }
 }
 
+// ---- 特効と地形。**撃つ側と受ける側の組ごとに決まる**（2026-09-06）
+//
+// ここまで `run()` の引数 `terr` / `effmod` を全員に同じだけ掛けていた。
+// 画面はそれで足りる（見ているのは味方 → ボスの 1 組だけ）が、核は
+// **ボスが味方を殴る**ので、同じ数を掛けるとボスの攻撃にも味方の特効が乗る。
+// しかも `bridge.js` はどちらも渡していないので、実際には**特効が丸ごと抜けていた**
+// ——弱点を突く編成が素の 1 倍で殴っていた。
+//
+// 出どころは `passive.js` の `effMod` / `terrMod` と同じ表:
+//   `BulletArmorDamageFactorExcelTable`（`common.ba`）
+//   `TerrainAdaptationFactorExcelTable`（`common.terrain`）
+
+/** 弱点のときだけ「◯◯特効増加」が乗る組（`passive.js:ENH` と同じ） */
+var ENH = { Explosion: 'LightArmor', Pierce: 'HeavyArmor',
+            Mystic: 'Unarmed', Sonic: 'ElasticArmor' };
+
+function baTable(common) {
+  var m = {}, i, r, rows = (common && common.ba) || [];
+  for (i = 0; i < rows.length; i++) {
+    r = rows[i];
+    if (r.DamageFactorGroupId && r.DamageFactorGroupId !== 'default') { continue; }
+    if (!m[r.BulletType]) { m[r.BulletType] = {}; }
+    m[r.BulletType][r.ArmorType] = r.DamageRate;
+  }
+  return m;
+}
+
+function terrTable(common) {
+  var m = {}, i, r, rows = (common && common.terrain) || [];
+  for (i = 0; i < rows.length; i++) {
+    r = rows[i];
+    if (!m[r.TerrainAdaptation]) { m[r.TerrainAdaptation] = {}; }
+    m[r.TerrainAdaptation][r.TerrainAdaptationStat] = r;
+  }
+  return m;
+}
+
+/** その体の、この面での地形適性（`CharacterStatExcelTable` の 3 欄）。
+    **固有武器ぶんの上がりは入れていない**（`CharacterWeaponExcelTable` に欄が無く、
+    画面側は `data.js` の `adapt` から引いている）。 */
+function gradeOf(st, topo) {
+  var k = topo === 'Indoor' ? 'IndoorBattleAdaptation'
+        : (topo === 'Street' ? 'StreetBattleAdaptation' : 'OutdoorBattleAdaptation');
+  return (st && st[k]) || 'D';
+}
+
+/** **狙えない体。**`StatusAdd` の `TargetStatus: Untargetable` が付いているあいだ、
+    その体は的から外れる。ゲブラのヒーターがこれで、外していないと
+    味方の攻撃が全部その 1 体（不死・HP 1）に吸われてボスに 0 しか入らない
+    （2026-09-06 に踏んだ。elim2121107 で削った 0.0%）。
+
+    抜け道が 2 つ書いてある。
+      `ParameterSecond`  それでも狙える枠の並び（`Ex` / `Ex, Passive` / 空）
+      `Parameter`        例外の札の名前。撃つ側がそれを持っていれば通る
+                         （`Dummy_HOD_IgnoreBossUnTarget` など） */
+function untargeted(v, ev, u) {
+  var i, j, m, types, ok;
+  for (i = 0; i < v.eff.length; i++) {
+    m = v.eff[i].raw;
+    if (!m || m.kind !== 'status' || m.status !== 'Untargetable') { continue; }
+    ok = false;
+    types = String(m.param2 || '').split(',');
+    for (j = 0; j < types.length; j++) {
+      if (types[j].trim() && types[j].trim() === ev.slot) { ok = true; }
+    }
+    if (!ok && m.param && m.param !== 'None') {
+      for (j = 0; j < u.eff.length; j++) {
+        if (u.eff[j].tmpl === m.param) { ok = true; }
+      }
+    }
+    if (!ok) { return true; }
+  }
+  return false;
+}
+
 /** **その育ちで実際に効いている `CharacterSkillListExcelTable` の行。**
 
     生徒 1 人に 4 行ある（固有武器 ★2 の有無 × 愛用品 T2 の有無）。
@@ -515,6 +602,7 @@ export function run(o) {
     var u = add(b, makeUnit({
       key: 'e' + c.Id, side: 'enemy', charId: c.Id, dev: c.DevName,
       kind: c.TacticEntityType, lv: lv, armor: c.ArmorType, bullet: c.BulletType,
+      adapt: gradeOf(s, (boss.ground || {}).StageTopography),
       radius: c.BodyRadius, personality: c.PersonalityId, aiId: c.CharacterAIId,
       role: c.TacticRole, school: c.School, squad: c.SquadType,
       hp: s.MaxHP100, maxHp: s.MaxHP100,
@@ -531,6 +619,41 @@ export function run(o) {
   }
   if (!bossU) { throw new Error('ボスの実体が束に無い'); }
 
+  // ---- 盤。**味方も敵もここで座標をもらう**（2026-09-06）
+  //
+  // 味方は「その節の `Formations` の原点」＋「陣形の枠のずれ」。
+  // 敵は湧き点の `Position`。**盤の単位はスキルの射程の 1/100。**
+  // ここが無いあいだ、範囲攻撃は距離に関係なく盤の全部に当たっていて、
+  // 味方が中サイズのペロロミニオンを湧いた端から全部倒し、
+  // ボスが吸うものを見つけられずグロッキーが 1 度も起きなかった
+  var bd = null, sec = 0;
+  var bnames = Object.keys(boss.board || {});
+  if (bnames.length) { bd = boardPlan(boss.board[bnames[0]]); }
+  var fgid = (boss.ground || {}).FormationGroupId;
+  var formRow = null;
+  for (i = 0; i < (common.form || []).length; i++) {
+    var fr0 = common.form[i];
+    if (fr0.GroupID === fgid || fr0.GroupId === fgid) { formRow = fr0; }
+  }
+  var origin = originOf(bd, sec);
+  // 湧き点の座標を実体の名前で引けるように（同じ名前が複数あるので先頭）
+  var posOf = {};
+  if (bd && bd.sections[sec]) {
+    var pts0 = bd.sections[sec].points;
+    for (i = 0; i < pts0.length; i++) {
+      if (pts0[i].dev && pts0[i].pos && !posOf[pts0[i].dev]) {
+        posOf[pts0[i].dev] = pts0[i].pos;
+      }
+    }
+  }
+  var ekeys = Object.keys(byDev);
+  for (i = 0; i < ekeys.length; i++) {
+    var pool0 = byDev[ekeys[i]], w0;
+    for (w0 = 0; w0 < pool0.length; w0++) {
+      pool0[w0].pos = posOf[ekeys[i]] || null;
+    }
+  }
+
   // ---- 味方
   var party = o.party || [], allies = [];
   for (i = 0; i < party.length; i++) {
@@ -538,6 +661,7 @@ export function run(o) {
     var au = add(b, makeUnit({
       key: 'a' + i, side: 'ally', charId: pc.id, dev: pc.dev,
       kind: 'Student', lv: p.lv || 90, armor: ch.ArmorType, bullet: ch.BulletType,
+      adapt: gradeOf((pc.st || [])[0], (boss.ground || {}).StageTopography),
       radius: ch.BodyRadius, personality: ch.PersonalityId, aiId: ch.CharacterAIId,
       role: ch.TacticRole, school: ch.School, squad: ch.SquadType,
       hp: (p.stats && p.stats.MaxHP) || 1, maxHp: (p.stats && p.stats.MaxHP) || 1,
@@ -545,7 +669,8 @@ export function run(o) {
     }));
     au.ls = pc.ls;
     au.pack = pc;
-    au.slot = i;
+    au.slot = p.slot != null ? p.slot : i;
+    au.pos = origin ? slotPos(origin, formRow, au.slot) : null;
     allies.push(au);
   }
 
@@ -557,10 +682,12 @@ export function run(o) {
 
   var R = {
     b: b, ctx: ctxOf(b), eff: eff, q: queue(), evCache: {},
-    total: 0, heal: 0, groggy: [], summoned: 0, smCache: {}, probe: o.probe ? [] : null, used: [], unknown: 0, unknownBy: {}, miss: {}, by: {},
+    total: 0, heal: 0, groggy: [], ggLog: [], summoned: 0, smCache: {}, probe: o.probe ? [] : null, used: [], unknown: 0, unknownBy: {}, miss: {}, by: {},
     durMs: durMs, mc: o.mc || 1, C: constOf(common),
     unitOf: function (k) { return b.units[k] || null; },
     lvTable: common.lvdiff || null, caps: capsOf(common.calcLimit),
+    baT: baTable(common), terrT: terrTable(common),
+    topo: (boss.ground || {}).StageTopography || 'Outdoor',
     rnd: o.seed != null ? mulberry(o.seed) : null,
     // **撃つ側の値。**素の値に、**その瞬間に乗っている札**を畳んでから返す。
     // 焼き出しにはこれができなかった（状態を持っていないので）
@@ -572,8 +699,27 @@ export function run(o) {
         exRate: s.EnhanceExDamageRate, baRate: s.EnhanceBasicsDamageRate,
         stab: s.StabilityPoint, stabR: s.StabilityRate,
         acc: s.AccuracyPoint, crit: s.CriticalPoint, critDmg: s.CriticalDamageRate,
-        terr: (o.terr != null ? o.terr : 1), eff: (o.effmod != null ? o.effmod : 1),
+        // **地形と特効は組で決まる。**ここでは素の 1 を入れておいて、
+        // 一撃ごとに `R.terrOf` / `R.effOf` が上書きする
+        terr: 1, eff: 1,
       };
+    },
+    /** その体の地形倍率（`AttackPowerFactor`）。 */
+    terrOf: function (u) {
+      var g = (R.terrT[R.topo] || {})[u.adapt || 'D'];
+      return g ? (g.AttackPowerFactor || 10000) / 10000 : 1;
+    },
+    /** 撃つ側の弾種 × 受ける側の装甲。**弱点のときだけ「特効増加」が掛かる。**
+        `passive.js:effMod` と同じ読み方（足さずに掛ける。2026-09-05 に動画で確定）。 */
+    effOf: function (u, v, st) {
+      if (!v || v.armor === 'Structure') { return 1; }
+      var e = ((R.baT[u.bullet] || {})[v.armor]);
+      if (e == null) { e = 10000; }
+      if (ENH[u.bullet] === v.armor) {
+        var k = st['Enhance' + u.bullet + 'Rate'];
+        if (k != null) { e = e * k / 10000; }
+      }
+      return e / 10000;
     },
     defender: function (u) {
       var s = statsNow(u);
@@ -607,6 +753,19 @@ export function run(o) {
       var team;
       if (side === 'Enemy') { team = mine ? living(b, 'enemy') : alive; }
       else { team = mine ? alive : living(b, 'enemy'); }
+      // **`Ally_Except_Self` は自分を外す。**外していなくて、
+      // ボスが自分自身に被ダメージ転移の札を貼っていた（2026-09-06）
+      if (/Except_Self/.test(String(side))) {
+        var t2 = [], z2;
+        for (z2 = 0; z2 < team.length; z2++) { if (team[z2] !== u) { t2.push(team[z2]); } }
+        team = t2;
+      }
+      // **狙えない体を外す**（`Untargetable`）。外れて誰も居なくなったら撃たない
+      var t3 = [], z3;
+      for (z3 = 0; z3 < team.length; z3++) {
+        if (!untargeted(team[z3], ev, u)) { t3.push(team[z3]); }
+      }
+      team = t3;
       var max = ev.sel ? ev.sel.max : null;
       // **味方 1 人にだけ乗る札は、TL の「渡し先」へ。**
       // 指定が無いと枠の先頭に乗って、ヒマリの攻撃力バフがタンクに付く
@@ -615,8 +774,21 @@ export function run(o) {
           && allies[to] && allies[to].alive) {
         return [allies[to]];
       }
-      if (max != null && max > 0 && team.length > max) { team = team.slice(0, max); }
-      return team;
+      // **狙う先は距離で決まる**（`TargetSortRule` の `SortCriteria: Distance`）。
+      // 座標が無い面では並びが変わらないので、今までどおり前から取る
+      var sorted = sortByRule(u, team, ev.sel);
+      if (!ev.area) {
+        if (max != null && max > 0 && sorted.length > max) { sorted = sorted.slice(0, max); }
+        return sorted;
+      }
+      // **範囲。**狙う先を決めてから、その形の中に居るものを全部。
+      // ここが `mc`（人が数えていた巻き込み数）の代わりになる
+      var aim = sorted[0];
+      if (!aim) { return []; }
+      var hit = inArea(ev.area, u, aim, sorted);
+      if (hit.indexOf(aim) < 0) { hit = [aim].concat(hit); }
+      if (max != null && max > 0 && hit.length > max) { hit = hit.slice(0, max); }
+      return hit;
     },
   };
 
@@ -755,9 +927,7 @@ export function run(o) {
     }
   }
 
-  var bst = null, bd = null, sec = 0;
-  var bnames = Object.keys(boss.board || {});
-  if (bnames.length) { bd = boardPlan(boss.board[bnames[0]]); }
+  var bst = null;
 
   /** 合図 `tag` の湧き点を起こす。**同じ実体が何度も湧くので、
       死んでいる体から順に使い回す**（束には 5〜30 体ぶん入っている） */
@@ -865,7 +1035,10 @@ export function run(o) {
     hp: hp, total: R.total, killAt: bossU.hp <= 0 ? t3 / 1000 : null,
     maxHp: bossU.maxHp, used: R.used,
     unknown: R.unknown, unknownBy: R.unknownBy, miss: R.miss, by: R.by,
-    heal: R.heal, groggy: R.groggy, summoned: R.summoned, probe: R.probe, events: R.q.size(),
+    heal: R.heal, groggy: R.groggy, ggLog: R.ggLog, summoned: R.summoned,
+    aliveEnd: living(b, 'enemy').map(function (v) {
+      return [v.dev, Math.round(v.hp), v.eff.map(function (e) { return e.tmpl; })];
+    }), probe: R.probe, events: R.q.size(),
     // **ボスが何をしたか。**動いていないときに黙って通らないための報せ
     bossGg: bossU.gg || 0, bossAtg: bossU.atg || 0,
     bossPhase: bst ? bst.phase : null, bossEx: bst ? bst.exCount : 0,
