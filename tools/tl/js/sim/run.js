@@ -295,6 +295,7 @@ function cast(R, u, gid, slot, lvl, at, opt) {
   var doc = u.ls && u.ls[gid];
   if (!doc) { return; }
   var mc = opt && opt.mc != null ? opt.mc : null;
+  var to = opt && opt.to != null ? opt.to : null;
   var ev = R.evCache[gid] || (R.evCache[gid] = skillEvents(doc));
   for (var i = 0; i < ev.length; i++) {
     var e = ev[i];
@@ -305,8 +306,8 @@ function cast(R, u, gid, slot, lvl, at, opt) {
     (function (e2, t3) {
       R.q.push(t3, function (now) {
         e2.slot = slot;
-        var to = R.pick(u, e2), k;
-        for (k = 0; k < to.length; k++) { fire(R, e2, u, to[k], lvl, now, mc); }
+        var tg = R.pick(u, e2, to), k;
+        for (k = 0; k < tg.length; k++) { fire(R, e2, u, tg[k], lvl, now, mc); }
       }, slot + ':' + e2.gid);
     })(e, t2);
   }
@@ -448,7 +449,7 @@ export function run(o) {
 
         人数は `MaxTargetCount`（-1 は無制限）。**位置で絞るのは第 2 段**なので、
         いまは前から順に取る。 */
-    pick: function (u, ev) {
+    pick: function (u, ev, to) {
       var side = (ev.sel && ev.sel.side) || (u.side === 'ally' ? 'Enemy' : 'Player');
       if (side === 'Self') { return [u]; }
       var mine = u.side === 'ally';
@@ -456,6 +457,12 @@ export function run(o) {
       if (side === 'Enemy') { team = mine ? living(b, 'enemy') : allies.slice(); }
       else { team = mine ? allies.slice() : living(b, 'enemy'); }
       var max = ev.sel ? ev.sel.max : null;
+      // **味方 1 人にだけ乗る札は、TL の「渡し先」へ。**
+      // 指定が無いと枠の先頭に乗って、ヒマリの攻撃力バフがタンクに付く
+      // （TL の `to` は枠の番号。`bridge.js` が核の並びに直して渡す）
+      if (to != null && mine && side !== 'Enemy' && max === 1 && allies[to]) {
+        return [allies[to]];
+      }
       if (max != null && max > 0 && team.length > max) { team = team.slice(0, max); }
       return team;
     },
@@ -522,7 +529,7 @@ export function run(o) {
               au._shots++;
               // **通常攻撃 N 発ごとの通常スキル**（`OnAttackIng` の `TryCount`）
               if (auto && auto.kind === 'shots' && pg && au._shots % auto.shots === 0) {
-                cast(R, au, pg, 'Public', lvOf('Public'), now);
+                cast(R, au, pg, 'Public', lvOf('Public'), now, { to: p.nsto });
               }
               au._fireSS(now, 'attack');
               if (reload) { au._fireSS(now, 'reload'); }
@@ -538,7 +545,10 @@ export function run(o) {
       if (pg && auto && auto.kind === 'interval') {
         for (var t2 = auto.ms; t2 <= durMs; t2 += auto.ms) {
           (function (tt) {
-            R.q.push(tt, function (now) { cast(R, au, pg, 'Public', lvOf('Public'), now); });
+            R.q.push(tt, function (now) {
+              // **通常スキルの渡し先も枠ごと**（画面の `nsto`）
+              cast(R, au, pg, 'Public', lvOf('Public'), now, { to: p.nsto });
+            });
           })(t2);
         }
       }
@@ -561,7 +571,7 @@ export function run(o) {
       if (!gid) { return; }
       R.q.push(row.at * 1000, function (now) {
         cast(R, au, gid, 'Ex', (party[row.i].skillLv || {}).Ex || 1, now,
-             { mc: row.mc });
+             { mc: row.mc, to: row.to });
       });
     })(o.tl[i]);
   }

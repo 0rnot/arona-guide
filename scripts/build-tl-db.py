@@ -121,13 +121,27 @@ def stage(name):
     **今まで動画から読んでいた「8 秒の間」や「ミニオンはいつ湧くか」がここにある。**
     ペロロジラ Torment は生 39,218 バイト・gzip 2,420 バイトなので、束に入れて構わない。
     """
-    for pdir in (MIRROR / "badata-git" / "Stage", MIRROR / "badata" / "Stage"):
-        q = pdir / f"{name}.json"
-        if q.exists():
-            return _read_json(q)
-    try:
-        d = _get(BAST.format(name))
-    except Exception:  # noqa: BLE001 - 面によっては指しているファイルが無い
+    # **倉庫のファイル名は全部小文字。**`GroundExcelTable` は
+    # `6011107_eliminateRaid_...`（R が大文字）と書いてあるが、実物は
+    # `6011107_eliminateraid_...`。raw.githubusercontent は大小を区別するので、
+    # そのまま取ると大決戦 532 面ぶんが丸ごと 404 になる（2026-09-06）
+    cands = [name]
+    if name.lower() != name:
+        cands.append(name.lower())
+    for nm in cands:
+        for pdir in (MIRROR / "badata-git" / "Stage", MIRROR / "badata" / "Stage"):
+            q = pdir / f"{nm}.json"
+            if q.exists():
+                return _read_json(q)
+    d = None
+    for nm in cands:
+        try:
+            d = _get(BAST.format(nm))
+            name = nm
+            break
+        except Exception:  # noqa: BLE001,S112 - 大小の綴りを 2 通り試すだけ。無ければ次へ
+            continue
+    if d is None:
         return None
     # **取ったものは写しに残す。**700 面 × 最大 3 本を毎回取り直さない
     out = MIRROR / "badata-git" / "Stage"

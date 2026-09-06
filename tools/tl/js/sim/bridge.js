@@ -121,16 +121,27 @@ export async function simParty(o) {
     party.push({
       pack: pack, lv: op.lv, stats: stats,
       wlv: op.wlv, wstar: op.wstar, gearT: op.gear,
+      // 渡し先は全部の枠を数え終えてから直す（後ろの枠を指すことがある）
+      _nsto: sl.nsto,
       skillLv: { Ex: sl.ex || 1, Public: sl.sk || 1, Normal: sl.sk || 1,
                  Passive: sl.plv || 1, ExtraPassive: sl.sslv || 1 },
     });
+  }
+
+  // **通常スキルが「味方 1 人」のときの渡し先。**画面の枠の番号を核の並びに直す
+  for (i = 0; i < party.length; i++) {
+    var nt = party[i]._nsto;
+    party[i].nsto = (nt != null && map[nt] != null) ? map[nt] : null;
+    delete party[i]._nsto;
   }
 
   var tl = [], rows = (pt.tl || []).slice().sort(function (a, b) { return a.t - b.t; });
   for (i = 0; i < rows.length; i++) {
     var r = rows[i];
     if (map[r.i] == null) { continue; }
-    tl.push({ at: r.t, i: map[r.i], mc: r.mc == null ? null : r.mc, f: r.f || 0 });
+    // `to` は枠の番号。核の並びに直す（空いている枠を詰めているので番号が変わる）
+    var to = (r.to != null && map[r.to] != null) ? map[r.to] : null;
+    tl.push({ at: r.t, i: map[r.i], mc: r.mc == null ? null : r.mc, f: r.f || 0, to: to });
   }
 
   var dur = o.dur != null ? o.dur : ((index[key].dur || 240000) / 1000);
