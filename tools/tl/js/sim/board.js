@@ -85,10 +85,72 @@ export function boardPlan(doc) {
         }
       }
     }
+    // ---- 通路の進み方（2026-09-07）。**1 枚目の盤には節ぜんぶが書いてある。**
+    //
+    // ケセド大決戦はこう並んでいる:
+    //
+    //     節 0  z 17.9 まで進む → `Wave`（2 波・3 秒おき）→ 全滅 → 7.5 秒 → 節 1 へ
+    //     節 1  z 42.1 まで進む → `Wave` → 全滅 → 7.5 秒 → 節 2 へ
+    //     節 2  z 54.0 まで進む → 1.55 秒 → 節 3 へ
+    //     節 3  `SectionStarted` でボスが湧く
+    //
+    //   walkTo   その節で味方が進む先（`GroundConditionArea` の z）
+    //   wave     `GroundCommandWave` の `Waves[]`（湧き点の命令 id と `WaveDelay`）
+    //   endWait  波を片付けてから次の節へ移るまでの待ち（`WaitSeconds`）
+    var got = eventsOf(evs);
     out.push({ i: i, points: points, byTag: byTag, waits: waits, next: next,
+               walkTo: got.walkTo, wave: got.wave, starts: got.starts,
+               instant: got.instant,
                obstacles: sec.Obstacles || [] });
   }
-  return { sections: out, formations: (doc && doc.Formations) || [] };
+  var gl = eventsOf(((doc && doc.Global) || {}).Events || []);
+  return { sections: out, formations: (doc && doc.Formations) || [],
+           globalStarts: gl.starts };
+}
+
+/** 事象の並びから、進行に要るものを取り出す（2026-09-07）。
+
+      walkTo   その節で味方が進む先（`GroundConditionArea` の z）
+      wave     `GroundCommandWave` の `Waves[]`（湧き点の命令 id と `WaveDelay`）
+      starts   `GroundCommandStartSection` を持つ事象
+               `{tags, to, wait}`。**`SectionID` は 1 始まり**なので添字は −1
+      instant  `ForceMoveToFormationBeacon` / `ForceMoveToGroundPoint` の
+               `IsInstantMove`。**長い移動は歩かずに飛ぶ**——ケセドの節 2 は
+               42.1 → 125.0 の 83 単位で、歩くと 41 秒かかるが実際は暗転して一瞬
+
+    **`Global` の事象にも `StartSection` がある**（ホドはそちら側だけ。
+    節の中に 1 つも無いので、見ていないあいだホドは節 0 から動かなかった）。 */
+function eventsOf(evs) {
+  var walkTo = null, wave = [], starts = [], instant = false, j, m;
+  for (j = 0; j < evs.length; j++) {
+    var cs2 = evs[j].Conditions || [], cm2 = evs[j].Commands || [], q2;
+    var to = null, wsec = 0, areaZ = null, hasW = false;
+    for (q2 = 0; q2 < cm2.length; q2++) {
+      var t2 = typeOf(cm2[q2]);
+      if (t2.indexOf('Wave') >= 0 && cm2[q2].Waves) {
+        hasW = true;
+        for (m = 0; m < cm2[q2].Waves.length; m++) {
+          wave.push({ cmd: String(cm2[q2].Waves[m].SpawnPointCommandId || ''),
+                      delay: cm2[q2].Waves[m].WaitDelay
+                        || cm2[q2].Waves[m].WaveDelay || 0 });
+        }
+      } else if (t2.indexOf('StartSection') >= 0) {
+        to = (cm2[q2].SectionID || 1) - 1;
+      } else if (t2.indexOf('WaitSeconds') >= 0) {
+        wsec += cm2[q2].Milliseconds || 0;
+      } else if (t2.indexOf('ForceMove') >= 0 && cm2[q2].IsInstantMove) {
+        instant = true;
+      }
+    }
+    for (q2 = 0; q2 < cs2.length; q2++) {
+      if (typeOf(cs2[q2]).indexOf('Area') >= 0 && cs2[q2].Position) {
+        areaZ = cs2[q2].Position.z != null ? cs2[q2].Position.z : cs2[q2].Position.y;
+      }
+    }
+    if (areaZ != null && (hasW || to != null) && walkTo == null) { walkTo = areaZ; }
+    if (to != null) { starts.push({ tags: tagsOf(evs[j]), to: to, wait: wsec }); }
+  }
+  return { walkTo: walkTo, wave: wave, starts: starts, instant: instant };
 }
 
 /** その節で合図 `tag` を出したときに湧く湧き点。 */
@@ -97,21 +159,14 @@ export function spawnFor(plan, si, tag) {
   return (s && s.byTag[tag]) || [];
 }
 
-/** 味方の並びの原点（その節の `Formations`）。
-
-    **同じ節に複数あるときは `Index` がいちばん大きいもの**（2026-09-07）。
-    その節を進みきった場所で、`GroundCommandForceMoveToFormationBeacon` が
-    味方を運ぶ先。ケセドの節 3 は `Index 0` が y 55.74（入口）・`Index 1` が y 125.0 で、
-    ボスの湧き点は y 143。入口のままだと 87 も離れていて、どの射程にも入らない。
-    節 0 にボスが居る面（ほかの 12 面）は `Index 0` しか無いので今までと同じ。 */
+/** 味方の並びの原点（その節の `Formations`）。**その節に入ったときの立ち位置**で、
+    `Index 0`。そこから `walkTo` まで歩く（`run.js` の節の進行）。
+    同じ節に `Index` が複数あるのは進む途中の目印で、終点は `walkTo` のほう。 */
 export function originOf(plan, si) {
-  var f = (plan && plan.formations) || [], i, best = null;
+  var f = (plan && plan.formations) || [], i;
   for (i = 0; i < f.length; i++) {
-    if (f[i].SectionIndex === si && !f[i].IsEnemy) {
-      if (!best || (f[i].Index || 0) > (best.Index || 0)) { best = f[i]; }
-    }
+    if (f[i].SectionIndex === si && !f[i].IsEnemy) { return f[i]; }
   }
-  if (best) { return best; }
   for (i = 0; i < f.length; i++) { if (!f[i].IsEnemy) { return f[i]; } }
   return null;
 }

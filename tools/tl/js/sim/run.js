@@ -831,19 +831,8 @@ export function run(o) {
   // 装甲の語を抜いて突き合わせる（`tree.js:resolveDev` はここでは使えない——
   // 頭が `Chesed` で尻が `Torment` の実体が雑魚まで含めて 6 つあって、
   // 1 つに絞れず `null` を返す）
-  if (bd && bossU.dev) {
-    var bdev = noArm2(bossU.dev);
-    var hasB = function (si) {
-      var ps = (bd.sections[si] || {}).points || [], z2;
-      for (z2 = 0; z2 < ps.length; z2++) {
-        if (noArm2(ps[z2].dev) === bdev) { return true; }
-      }
-      return false;
-    };
-    if (!hasB(0)) {
-      for (i = 0; i < bd.sections.length; i++) { if (hasB(i)) { sec = i; break; } }
-    }
-  }
+  // **節は順に歩く**（2026-09-07）。ボスが節 0 に居ない面（ケセド）へ
+  // いきなり飛ばす細工はやめた。通路ぶんの時間が丸ごと落ちるため
   var fgid = (boss.ground || {}).FormationGroupId;
   var formRow = null;
   for (i = 0; i < (common.form || []).length; i++) {
@@ -851,29 +840,41 @@ export function run(o) {
     if (fr0.GroupID === fgid || fr0.GroupId === fgid) { formRow = fr0; }
   }
   var origin = originOf(bd, sec);
+  // **味方の立ち位置は節をまたいで続く。**歩いた先を持ち回るための入れ物で、
+  // `Formations` の行をそのまま持つと次の節で巻き戻る
+  var org = origin
+    ? { Position: { x: (origin.Position || {}).x || 0, y: (origin.Position || {}).y || 0 },
+        Forward: origin.Forward, IgnorePathFind: origin.IgnorePathFind }
+    : null;
   // 遮蔽。**総力戦の盤にもある**（2026-09-07。`board.js` の注記）
   var obs = bd ? obstacleBoxes(bd, sec, common) : [];
   // 湧き点の座標を実体の名前で引けるように（同じ名前が複数あるので先頭）
   // **装甲を抜いた名前でも引けるようにする。**盤は `..._LightArmor_Torment`、
   // 実体は `..._Torment` で、そのままだとボスの座標が `null` のままになる
   var posOf = {};
-  if (bd && bd.sections[sec]) {
-    var pts0 = bd.sections[sec].points;
-    for (i = 0; i < pts0.length; i++) {
-      if (pts0[i].dev && pts0[i].pos) {
-        if (!posOf[pts0[i].dev]) { posOf[pts0[i].dev] = pts0[i].pos; }
-        var nm0 = noArm2(pts0[i].dev);
-        if (!posOf[nm0]) { posOf[nm0] = pts0[i].pos; }
+  function readPositions() {
+    posOf = {};
+    if (!bd || !bd.sections[sec]) { return; }
+    var pts0 = bd.sections[sec].points, z4;
+    for (z4 = 0; z4 < pts0.length; z4++) {
+      if (pts0[z4].dev && pts0[z4].pos) {
+        if (!posOf[pts0[z4].dev]) { posOf[pts0[z4].dev] = pts0[z4].pos; }
+        var nm0 = noArm2(pts0[z4].dev);
+        if (!posOf[nm0]) { posOf[nm0] = pts0[z4].pos; }
+      }
+    }
+    var ek = Object.keys(byDev), z5, w5;
+    for (z5 = 0; z5 < ek.length; z5++) {
+      var pl = byDev[ek[z5]];
+      for (w5 = 0; w5 < pl.length; w5++) {
+        // **生きている体は動かさない。**節が変わっても、いま盤に立っている体の
+        // 座標を書き換えると、殴り合いの最中に瞬間移動する
+        if (pl[w5].alive) { continue; }
+        pl[w5].pos = posOf[ek[z5]] || posOf[noArm2(ek[z5])] || null;
       }
     }
   }
-  var ekeys = Object.keys(byDev);
-  for (i = 0; i < ekeys.length; i++) {
-    var pool0 = byDev[ekeys[i]], w0;
-    for (w0 = 0; w0 < pool0.length; w0++) {
-      pool0[w0].pos = posOf[ekeys[i]] || posOf[noArm2(ekeys[i])] || null;
-    }
-  }
+  readPositions();
 
   // ---- 味方
   var party = o.party || [], allies = [];
@@ -894,7 +895,7 @@ export function run(o) {
     au.ls = pc.ls;
     au.pack = pc;
     au.slot = p.slot != null ? p.slot : i;
-    au.pos = origin ? slotPos(origin, formRow, au.slot) : null;
+    au.pos = org ? slotPos(org, formRow, au.slot) : null;
     allies.push(au);
   }
 
@@ -906,7 +907,7 @@ export function run(o) {
 
   var R = {
     b: b, ctx: ctxOf(b), eff: eff, q: queue(), evCache: {}, pgCache: {},
-    total: 0, heal: 0, groggy: [], ggLog: [], summoned: 0, smCache: {}, probe: o.probe ? [] : null, used: [], unknown: 0, unknownBy: {}, miss: {}, by: {},
+    total: 0, heal: 0, groggy: [], ggLog: [], secLog: [], summoned: 0, smCache: {}, probe: o.probe ? [] : null, used: [], unknown: 0, unknownBy: {}, miss: {}, by: {},
     durMs: durMs, mc: o.mc || 1, C: constOf(common),
     unitOf: function (k) { return b.units[k] || null; },
     lvTable: common.lvdiff || null, caps: capsOf(common.calcLimit),
@@ -1345,6 +1346,158 @@ export function run(o) {
     return n;
   }
 
+  // ---------------------------------------------------------------- 節の進行
+  //
+  // **1 枚目の盤には道のりがまるごと書いてある**（2026-09-07。先生の
+  // 「足りない場合材料を徹底的に探すをデフォルトにして」を受けて数え直した）。
+  // 核はこれを全部飛ばして最初からボスの前に立っていた。
+  //
+  //     ケセド大決戦  節 0 で z 17.9 まで進む → 雑魚の波 → 全滅 → 7.5 秒 → 節 1
+  //                   → z 42.1 → 波 → 全滅 → 節 2 → z 125.0 → 節 3（玉座の間）
+  //     ペロロジラ    節 0 でボスと戦う → 段が変わる → 8 秒 → 節 1 で z 83.7 まで進む
+  //                   → 節 2 でまた戦う（同じ形が 4 回）
+  //
+  // 陣形の目印は `Formations`、進む先は `walkTo`、速さは `MoveSpeed`
+  // （アルは 200。盤の単位はスキルの射程と同じ 1/100 なので **2 単位/秒**）。
+  // ケセドは目印が y 6.0 → 125.0 で、通路だけで 59.5 秒になる。
+  //
+  // 次の節へ移る合図は 3 つ。`boardPlan` の `next` に入っている:
+  //   `EndWave`   その節の雑魚を片付けたら
+  //   `ph:N`      ボスの段が N になったら（`waits` に移るまでの待ちが入る）
+  //   `Area`      進む先に着いたら
+  var walkGoal = null, secWait = -1, secPhase = null, secTo = -1, sawFoe = false;
+
+  /** その節の最後の目印（`Formations` の `Index` がいちばん大きいもの）。 */
+  function beaconY(i2) {
+    var f = (bd && bd.formations) || [], z9, best = null;
+    for (z9 = 0; z9 < f.length; z9++) {
+      if (f[z9].SectionIndex === i2 && !f[z9].IsEnemy
+          && (!best || (f[z9].Index || 0) > (best.Index || 0))) { best = f[z9]; }
+    }
+    return best ? (best.Position || {}).y : null;
+  }
+
+  function moveAllies() {
+    var z9;
+    for (z9 = 0; z9 < allies.length; z9++) {
+      allies[z9].pos = slotPos(org, formRow, allies[z9].slot);
+    }
+  }
+
+  /** その節の湧き点のうち、命令 id が `cmd` のものを起こす（`GroundCommandWave`）。 */
+  function spawnCmd(cmd, at) {
+    if (!bd || !bd.sections[sec]) { return 0; }
+    var pts = bd.sections[sec].points, n = 0, z6, w6;
+    for (z6 = 0; z6 < pts.length; z6++) {
+      var pt = pts[z6];
+      if (!pt.dev || otherBoss[pt.dev]) { continue; }
+      if (cmd && (pt.cmds || []).indexOf(cmd) < 0) { continue; }
+      var pool = byDev[pt.dev] || [], mu2 = null;
+      for (w6 = 0; w6 < pool.length; w6++) {
+        if (!pool[w6].alive && pool[w6] !== bossU) { mu2 = pool[w6]; break; }
+      }
+      if (!mu2) { mu2 = moreBody(pt.dev); }
+      if (!mu2) { continue; }
+      mu2.alive = true; mu2.hp = mu2.maxHp; mu2.eff = []; mu2.pos = pt.pos || null;
+      n++;
+      castPassives(mu2, at);
+    }
+    return n;
+  }
+
+  /** その節の波を出す。 */
+  function fireWave(at) {
+    var sc2 = bd.sections[sec] || {}, wv = sc2.wave || [], z7;
+    for (z7 = 0; z7 < wv.length; z7++) {
+      (function (w7) {
+        var t7 = at + (w7.delay || 0);
+        if (t7 <= R.durMs) { R.q.push(t7, function (now) { spawnCmd(w7.cmd, now); }); }
+      })(wv[z7]);
+    }
+  }
+
+  /** その節に入る。**立ち位置は持ち回る**（前の節の終わりに立っていた場所）。 */
+  function enterSection(i2, at) {
+    sec = i2;
+    if (R.secLog) {
+      R.secLog.push([Math.round(at / 100) / 10, i2,
+                     org ? Math.round(org.Position.y * 10) / 10 : null]);
+    }
+    readPositions();
+    obs = bd ? obstacleBoxes(bd, sec, common) : [];
+    var sc2 = bd.sections[sec] || {};
+    walkGoal = (sc2.walkTo != null) ? sc2.walkTo : null;
+    secWait = -1; secTo = -1; secPhase = null; sawFoe = false;
+    spawn('start', at);
+    // **暗転して飛ぶ節は歩かない**（`ForceMove... IsInstantMove`）。
+    // 行き先の節の最後の目印へ即座に移す。ケセドの節 2 は 42.1 → 125.0 の
+    // 83 単位で、歩かせると 41 秒かかるが実際は一瞬
+    if (sc2.instant && org) {
+      var to2 = (sc2.starts && sc2.starts[0]) ? sc2.starts[0].to : sec + 1;
+      var by = beaconY(to2);
+      if (by != null) { org.Position.y = by; moveAllies(); }
+    }
+    if (walkGoal == null) { fireWave(at); }
+  }
+
+  /** 合図が satisfied か。**読めない合図は満たさない**（勝手に進まない）。 */
+  function tagOk(tag) {
+    if (tag === 'start') { return true; }
+    if (tag === 'EndWave' || tag === 'CharactersDead') {
+      return sawFoe && R.minionCount() === 0;
+    }
+    if (tag.indexOf('ph:') === 0) {
+      return !!bst && secPhase != null && bst.phase !== secPhase
+        && String(bst.phase) === tag.slice(3);
+    }
+    if (tag === 'Area') { return walkGoal == null; }
+    return false;
+  }
+
+  /** 0.1 秒ごと。歩く・波を出す・次の節へ移る。 */
+  function stepSection(t7, dt) {
+    if (!bd || !org) { return; }
+    var sc2 = bd.sections[sec] || {};
+    if (secPhase == null && bst) { secPhase = bst.phase; }
+    if (R.minionCount() > 0) { sawFoe = true; }
+    // ---- 歩く。**いちばん遅い子に合わせる**（隊列は崩れない）
+    if (walkGoal != null) {
+      var sp = 1e9, z8, vs8 = living(b, 'ally');
+      for (z8 = 0; z8 < vs8.length; z8++) {
+        var ms = (statsNow(vs8[z8]).MoveSpeed || 200) / 100;
+        if (ms < sp) { sp = ms; }
+      }
+      if (!vs8.length) { sp = 2; }
+      var d8 = walkGoal - org.Position.y, mv = sp * dt / 1000;
+      if (Math.abs(d8) <= mv) {
+        org.Position.y = walkGoal;
+        walkGoal = null;
+        fireWave(t7);
+      } else {
+        org.Position.y += (d8 > 0 ? mv : -mv);
+      }
+      moveAllies();
+      R.walked = Math.round(org.Position.y * 10) / 10;
+      return;
+    }
+    // ---- 次の節へ移る合図。節の側と `Global` の両方を見る
+    if (secWait < 0) {
+      var lst = (sc2.starts || []).concat(bd.globalStarts || []), z9, w9;
+      for (z9 = 0; z9 < lst.length; z9++) {
+        var st9 = lst[z9];
+        if (!(st9.to > sec) || !bd.sections[st9.to]) { continue; }
+        var ok9 = st9.tags.length > 0;
+        for (w9 = 0; w9 < st9.tags.length; w9++) {
+          if (!tagOk(st9.tags[w9])) { ok9 = false; }
+        }
+        if (ok9) { secWait = t7 + (st9.wait || 0); secTo = st9.to; break; }
+      }
+    }
+    if (secWait >= 0 && t7 >= secWait && bd.sections[secTo]) {
+      enterSection(secTo, t7);
+    }
+  }
+
   /** **空きが無いときは体を 1 つ増やす**（2026-09-07）。
 
       束の `ent` は **DevName 1 つにつき 1 行**しか無い面がある（ケセドがそれ。
@@ -1434,8 +1587,9 @@ export function run(o) {
       R.bossErr = String(e && e.message || e);
     }
   }
-  // **節の最初から居る敵**（ボス以外に前座が居る盤がある）
-  spawn('start', 0);
+  // **節の最初から居る敵**（ボス以外に前座が居る盤がある）。
+  // ここから節の進行が始まる（歩く → 波 → 片付ける → 次の節）
+  enterSection(0, 0);
   // **本体の常時札。**`spawn` は「湧く体」しか見ないので `mu === bossU` を飛ばしていて、
   // **ボス自身の `PassiveSkillGroupId` は一度も引かれていなかった**（2026-09-06）。
   // ゴズの `GozInsanePassive01` が丸ごと抜けていて、`used` に敵の枠が 1 つも無い
@@ -1466,6 +1620,8 @@ export function run(o) {
     if (bst && bst.check) { bst.check(t3); }
     // 条件つき常時（`Event: 301`）の入り切り。フェーズが動いたあとに見る
     pollCond(t3);
+    // **節の進行。**歩く・波を出す・片付いたら次の節へ
+    stepSection(t3, step);
     tickCost(b, step);
     hp.push([t3 / 1000, bossU.hp]);
     if (bossU.hp <= 0) { break; }
@@ -1492,8 +1648,9 @@ export function run(o) {
       for (z = 0; z < allies.length; z++) { o3[allies[z].dev] = allies[z].adapt; }
       return o3;
     })(),
-    topo: R.topo, sec: sec,
-    origin: origin ? [origin.Position && origin.Position.x, origin.Position && origin.Position.y] : null,
+    topo: R.topo, sec: sec, secLog: R.secLog,
+    origin: org ? [org.Position.x, org.Position.y] : null,
+    sectionEnd: sec,
     bossPos: bossU.pos ? [bossU.pos.x, bossU.pos.y] : null,
     hp: hp, total: R.total, killAt: bossU.hp <= 0 ? t3 / 1000 : null,
     maxHp: bossU.maxHp, used: R.used,

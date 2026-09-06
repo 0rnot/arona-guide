@@ -211,7 +211,7 @@ export function driveBoss(ctx) {
     if (b === 'ChangePhase' || b === 'ForceChangePhase') {
       var p = num(arg);
       if (p == null || !plan.phases[p]) { return 0; }
-      st.phase = p; st.n = 0; st.gauge = 0;
+      st.phase = p; st.n = 0; st.gauge = 0; u.atg = 0;
       return waits[p] || 0;
     }
     if (b === 'ClearNormalSkill') { st.n = 0; return 0; }
@@ -239,6 +239,14 @@ export function driveBoss(ctx) {
     // **この一巡ぶんの「撃っている最中か」。**行ごとに見ると、同じ引き金の
     // `Sequence`（`UseSelectExSkill` ＋ `AddActiveGauge -50`）の 2 行目が落ちる
     var busy = now < (st.busyUntil || 0);
+    // **ゲージは 2 つの入口がある**（2026-09-07）。木が足す `AddActiveGauge` と、
+    // 札が足す `AddCurrentATG`（`run.js` の `u.atg`）。後者を見ていなくて、
+    // **ペロロジラの段が一度も変わらなかった**——あのボスの段は
+    // `CheckActiveGaugeOver 301`、つまり気絶したミニオンを吸って溜まる
+    // ゲージが 301 を越えたときに動く。1 戦ずっと段 0 のままで、
+    // 節も進まず（盤の `StartSection` が `CharacterPhaseChanged` 待ち）、
+    // 8 秒の間も 4 回ぶん丸ごと落ちていた
+    var gnow = (st.gauge || 0) + (u.atg || 0);
     for (i = 0; i < rows.length; i++) {
       var r = rows[i], tg = r.ExternalBTTrigger;
       if (tg === 'CheckSummonCharacterCountUnder') {
@@ -253,11 +261,11 @@ export function driveBoss(ctx) {
         }
       } else if (tg === 'CheckActiveGaugeOver') {
         var lim = num(r.TriggerArgument);
-        if (lim != null && st.gauge > lim) { extra += behave(r, now); spent = true; }
+        if (lim != null && gnow > lim) { extra += behave(r, now); spent = true; }
       } else if (tg === 'CheckActiveGaugeBetween') {
         var ab = pair(r.TriggerArgument);
         if (ab[0] != null && ab[1] != null
-            && st.gauge >= ab[0] && st.gauge <= ab[1]) { extra += behave(r, now); }
+            && gnow >= ab[0] && gnow <= ab[1]) { extra += behave(r, now); }
       } else if (tg === 'HPUnder') {
         // `TriggerArgument` は 1/100000（75000 ＝ 75%）。**1 度だけ**
         var pct = num(r.TriggerArgument);
@@ -269,7 +277,7 @@ export function driveBoss(ctx) {
         }
       }
     }
-    if (spent) { st.gauge = 0; }
+    if (spent) { st.gauge = 0; u.atg = 0; }
     return extra;
   }
 
