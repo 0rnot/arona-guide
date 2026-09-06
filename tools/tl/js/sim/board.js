@@ -128,6 +128,7 @@ export function dist(a, b) {
 // 形は `tree.js:shapeOf` が出す `{kind, r, deg, w, h, exr, off, angle, spawn, dir}`。
 // `kind` は Circle / Fan / Obb / Donut / CircleAura / Beam の 6 つ。
 // **範囲の中心は `spawn` で決まる** —— `Invoker` なら撃った子、
+// `WorldPosition` なら盤の絶対座標（`SpawnWorldPosition`）、
 // それ以外（`BattleEntity` / `InputBattleEntity` / `InputPosition`）は狙った先。
 
 var U = 100;   // スキルの射程 → 盤の単位
@@ -137,13 +138,19 @@ function len(v) { return Math.sqrt(v.x * v.x + v.y * v.y); }
 
 /** 形の中に居る体だけ。**座標が無いものは全部通す**（盤が読めない面のため）。 */
 export function inArea(area, caster, aim, list) {
-  if (!area || !aim || !aim.pos || !caster || !caster.pos) { return list; }
+  if (!area) { return list; }
+  // **`WorldPosition` の範囲は盤の絶対座標に置く。**狙った先には付いてこない
+  var wp = (String(area.spawn || '') === 'WorldPosition' && area.wp) ? area.wp : null;
+  if (!wp && (!aim || !aim.pos || !caster || !caster.pos)) { return list; }
   var self = /Invoker/.test(String(area.spawn || ''));
-  var c = self ? caster.pos : aim.pos;
+  var c = wp || (self ? caster.pos : aim.pos);
   if (area.off) { c = { x: c.x + area.off.x, y: c.y + area.off.y }; }
-  var fwd = sub(aim.pos, caster.pos);
-  var fl = len(fwd);
-  if (fl > 0) { fwd = { x: fwd.x / fl, y: fwd.y / fl }; } else { fwd = { x: 0, y: 1 }; }
+  var fwd = { x: 0, y: 1 }, fl = 0;
+  if (aim && aim.pos && caster && caster.pos) {
+    fwd = sub(aim.pos, caster.pos);
+    fl = len(fwd);
+    if (fl > 0) { fwd = { x: fwd.x / fl, y: fwd.y / fl }; } else { fwd = { x: 0, y: 1 }; }
+  }
   var out = [], i;
   for (i = 0; i < list.length; i++) {
     var v = list[i];

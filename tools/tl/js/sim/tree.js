@@ -14,7 +14,7 @@
      f       発動からのコマ（30 コマ = 1 秒）
      gid     効果の札（`LogicEffect_PC` の `GroupId`）
      sel     誰に  `{side, type, max, sort, order, apply}`
-     area    範囲  `{kind, r, deg, w, h, exr, off, angle, spawn, dir}` ／ 単体なら null
+     area    範囲  `{kind, wp, r, deg, w, h, exr, off, angle, spawn, dir}` ／ 単体なら null
      prj     弾    `{speed, kind}`（`kind` は `c` 相手を追う ／ `p` 置いた点へ）／ 無ければ null
      dist    その発の取り分（`DamageDistributeRate`。1 万分率）／ 無ければ null
      single  1 体にしか入らないか
@@ -58,7 +58,14 @@ export function shapeOf(e) {
   var k = AREA[typeOf(e)];
   if (!k) { return null; }
   var po = e.PositionOffset || {};
-  return { kind: k, r: e.Radius != null ? e.Radius : null,
+  // **`SpawnPositionType: WorldPosition` の範囲は盤の絶対座標に置かれる。**
+  // 狙った先に付いてくるのではない（2026-09-07）。シロクロ Torment の EX は
+  // 1 発ごとに半径 150 の円を 4〜5 個、(-3.4/0.1/3.6, 24/27/30) の格子へ落とす。
+  // ここを持ち歩いていなくて、**その全部が「いちばん近い味方」の足元に重なり**、
+  // EX 1 回で味方が 5 発ぶん受けて 23.9 秒に 3 人まとめて倒れていた
+  var wp = (String(e.SpawnPositionType || '') === 'WorldPosition' && e.SpawnWorldPosition)
+    ? { x: e.SpawnWorldPosition.x || 0, y: e.SpawnWorldPosition.y || 0 } : null;
+  return { kind: k, wp: wp, r: e.Radius != null ? e.Radius : null,
            deg: e.Degree != null ? e.Degree : null,
            w: e.Width != null ? e.Width : (e.ObbWidth != null ? e.ObbWidth : null),
            h: e.Height != null ? e.Height : null,

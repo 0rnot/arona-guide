@@ -968,7 +968,12 @@ export function run(o) {
       var aim = sorted[0];
       if (!aim) { return []; }
       var hit = inArea(ev.area, u, aim, sorted);
-      if (hit.indexOf(aim) < 0) { hit = [aim].concat(hit); }
+      // **盤の絶対座標に置いた範囲には「必ず当たる 1 人」が居ない。**
+      // `EssentialCandidateRule.TargetingType` も `Target` ではなく `Position` で、
+      // 狙った先ではなく置いた点が中心（シロクロ Torment の EX の格子）
+      var anchored = String((ev.area && ev.area.spawn) || '') === 'WorldPosition'
+        && ev.area.wp;
+      if (!anchored && hit.indexOf(aim) < 0) { hit = [aim].concat(hit); }
       if (max != null && max > 0 && hit.length > max) { hit = hit.slice(0, max); }
       return hit;
     },
