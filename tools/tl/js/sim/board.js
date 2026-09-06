@@ -97,12 +97,21 @@ export function spawnFor(plan, si, tag) {
   return (s && s.byTag[tag]) || [];
 }
 
-/** 味方の並びの原点（その節の `Formations`）。 */
+/** 味方の並びの原点（その節の `Formations`）。
+
+    **同じ節に複数あるときは `Index` がいちばん大きいもの**（2026-09-07）。
+    その節を進みきった場所で、`GroundCommandForceMoveToFormationBeacon` が
+    味方を運ぶ先。ケセドの節 3 は `Index 0` が y 55.74（入口）・`Index 1` が y 125.0 で、
+    ボスの湧き点は y 143。入口のままだと 87 も離れていて、どの射程にも入らない。
+    節 0 にボスが居る面（ほかの 12 面）は `Index 0` しか無いので今までと同じ。 */
 export function originOf(plan, si) {
-  var f = (plan && plan.formations) || [], i;
+  var f = (plan && plan.formations) || [], i, best = null;
   for (i = 0; i < f.length; i++) {
-    if (f[i].SectionIndex === si && !f[i].IsEnemy) { return f[i]; }
+    if (f[i].SectionIndex === si && !f[i].IsEnemy) {
+      if (!best || (f[i].Index || 0) > (best.Index || 0)) { best = f[i]; }
+    }
   }
+  if (best) { return best; }
   for (i = 0; i < f.length; i++) { if (!f[i].IsEnemy) { return f[i]; } }
   return null;
 }

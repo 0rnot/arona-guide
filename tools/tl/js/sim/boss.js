@@ -197,6 +197,10 @@ export function driveBoss(ctx) {
       if (!gid || gid === 'EmptySkill') { return 0; }
       cast(u, gid, 'Ex', 1, now);
       st.exCount++;
+      // **撃っている間は木を引き直さない。**`CheckSummonCharacterCountUnder` は
+      // ゲージのように「使い切る」ものが無いので、これが無いと 0.1 秒ごとに
+      // 呼び直して盤が雑魚で埋まる（2026-09-07）
+      st.busyUntil = Math.max(st.busyUntil || 0, now + (plan.exMs[k] || 0));
       return plan.exMs[k] || 0;
     }
     if (b === 'AddActiveGauge') {
@@ -232,9 +236,22 @@ export function driveBoss(ctx) {
     var cur = ps();
     if (!cur) { return 0; }
     var rows = cur.rows, i, extra = 0, spent = false;
+    // **この一巡ぶんの「撃っている最中か」。**行ごとに見ると、同じ引き金の
+    // `Sequence`（`UseSelectExSkill` ＋ `AddActiveGauge -50`）の 2 行目が落ちる
+    var busy = now < (st.busyUntil || 0);
     for (i = 0; i < rows.length; i++) {
       var r = rows[i], tg = r.ExternalBTTrigger;
-      if (tg === 'CheckActiveGaugeOver') {
+      if (tg === 'CheckSummonCharacterCountUnder') {
+        // **呼んだ子が N 体以下なら呼び直す。**ケセドの筋道の 1 本目
+        // （`TriggerArgument: "0"` ＝ 1 体も居ないとき。段ごとに呼ぶ EX が変わる
+        //  ——段 1 なら `UseSelectExSkill 1` ＝ `ExSkillGroupId[1]`）。
+        // これが無いあいだ、ケセドは `ChesedInsaneExSkill02` だけを 11 回撃って
+        // 雑魚を 1 体も呼ばず、**グロッキーの鎖が始まらなかった**
+        var lim2 = num(r.TriggerArgument);
+        if (!busy && lim2 != null && R.minionCount && R.minionCount() <= lim2) {
+          extra += behave(r, now);
+        }
+      } else if (tg === 'CheckActiveGaugeOver') {
         var lim = num(r.TriggerArgument);
         if (lim != null && st.gauge > lim) { extra += behave(r, now); spent = true; }
       } else if (tg === 'CheckActiveGaugeBetween') {

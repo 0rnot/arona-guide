@@ -330,7 +330,16 @@ function fire(R, ev, caster, target, lvl, at, mc) {
   // これが `data.js` の `Hits` の正体（2026-09-06）。ズンコの EX は同じ札が 4 回出て
   // 取り分がそれぞれ 2500 で、合わせて 1 発ぶん。**掛けていなくて 4 倍になっていた。**
   // 木は前から `dist` として運んでいたのに、ここで使っていなかった
-  if (ev.dist != null) { mul *= ev.dist / 10000; }
+  //
+  // **かかるのは「量」の効果だけ。**欄の名前どおり `Damage` の取り分で、
+  // ゲージ（グロッキー・EX）のような数え上げには掛けない（2026-09-07）。
+  // ケセドの雑魚が死んで積む `Debuff_AddGroggyGauge` は
+  // `ActionRelease` の取り分が `0` で、掛けると 227 が 0 になり、
+  // **44 体倒してもグロッキーに入らなかった。**束ぜんぶで 0 と正の値が混ざる札は
+  // 13,483 本中 8,108 本あり、そのうち 3,790 本は 0 の側にも体がある
+  // （`BinahExSkill03` は `[0(体あり), 10000(体あり), 0(体なし)]`）ので、
+  // 「0 は指定なし」と読むほうは採れない
+  var dist = (ev.dist != null) ? ev.dist / 10000 : 1;
 
   // ---- 回復。**味方が生き延びるかはここで決まる。**
   // ボスが殴るようになるまで要らなかったので置いていなかった（2026-09-06）。
@@ -362,7 +371,7 @@ function fire(R, ev, caster, target, lvl, at, mc) {
   // ---- 最大 HP を越える回復（`MaxHpOverHeal`）。溢れたぶんは仮の HP
   if (r.kind === 'overheal') {
     var os2 = statsNow(caster), or2 = statsNow(target);
-    var oa = (os2[r.src || 'HealPower'] || 0) * (r.rate || 0) / 10000 * mul;
+    var oa = (os2[r.src || 'HealPower'] || 0) * (r.rate || 0) / 10000 * mul * dist;
     oa *= (or2.HealEffectivenessRate != null ? or2.HealEffectivenessRate : 10000) / 10000;
     if (target.hp > 0 && oa > 0) {
       var w2 = target.hp;
@@ -379,7 +388,7 @@ function fire(R, ev, caster, target, lvl, at, mc) {
   }
   if (r.kind === 'heal' || r.kind === 'hot') {
     var hs = statsNow(caster), rs = statsNow(target);
-    var amt = (hs[r.src || 'HealPower'] || 0) * (r.rate || 0) / 10000 * mul;
+    var amt = (hs[r.src || 'HealPower'] || 0) * (r.rate || 0) / 10000 * mul * dist;
     amt *= (rs.HealEffectivenessRate != null ? rs.HealEffectivenessRate : 10000) / 10000;
     var ht = 1;
     if (r.kind === 'hot' && r.period && r.dur) {
@@ -415,7 +424,7 @@ function fire(R, ev, caster, target, lvl, at, mc) {
     var gv = (r.amt || 0) + (r.tamt || 0);
     if (r.flat && need0 > 0) { gv += r.flat / need0 * 10000; }
     gv *= mul;
-    if (R.ggLog) { R.ggLog.push([Math.round(at / 100) / 10, r.gid, Math.round(gv)]); }
+    if (R.ggLog) { R.ggLog.push([Math.round(at / 100) / 10, r.gid, Math.round(gv), target.dev, need0]); }
     if (!target.ggImmune && gv > 0) {
       target.gg = (target.gg || 0) + gv;
       if (R.onGroggy) { R.onGroggy(target, at); }
@@ -437,7 +446,7 @@ function fire(R, ev, caster, target, lvl, at, mc) {
   // ---- 盾。**受けたぶんを先に食う**（`CasterStatType` × `CasterCoefficientAmount`）
   if (r.kind === 'shield') {
     var ss = statsNow(caster);
-    var sh = (ss[r.src || 'MaxHP'] || 0) * (r.rate || 0) / 10000 * mul;
+    var sh = (ss[r.src || 'MaxHP'] || 0) * (r.rate || 0) / 10000 * mul * dist;
     if (sh > 0) { target.shield = (target.shield || 0) + sh; }
     return 0;
   }
@@ -450,7 +459,7 @@ function fire(R, ev, caster, target, lvl, at, mc) {
     a.terr = (r.terr === false) ? 1 : R.terrOf(caster);
     a.eff = (r.bt === false) ? 1 : R.effOf(caster, target, statsNow(caster));
     var s = {
-      scale: r.rate || 0, mult: mul, tick: 1,
+      scale: r.rate || 0, mult: mul * dist, tick: 1,
       // **`DefensePenetrationRate: 10000` は「防御を全部貫く」ではなく、既定値。**
       // `10000 - pen` にしていて、**ほぼ全部の一撃が防御を素通りしていた**
       // （2026-09-06）。数えると `LogicEffect_PC` 5,753 行のうち 5,433 行、
@@ -514,7 +523,7 @@ function fire(R, ev, caster, target, lvl, at, mc) {
     // **1 発ごとの中身。**核が伸びないときに、どの掛け算が小さいかを外から見るため
     if (R.probe) {
       R.probe.push([Math.round(dmg), caster.key, ev.slot || '?', ev.gid,
-                    Math.round(at), s.scale, +(mul).toFixed(4), Math.round(a.atk),
+                    Math.round(at), s.scale, +(mul * dist).toFixed(4), Math.round(a.atk),
                     +(o.avg / Math.max(1, a.atk)).toFixed(3), s.tick, ev.dist, ev.share,
                     target.key, Math.round(target.hp),
                     // **掛け算の中身**（核が伸びないときに、どれが 0 かを見る）
@@ -1299,6 +1308,12 @@ export function run(o) {
     return !!(u2 && u2.groggyUntil != null && b.t < u2.groggyUntil);
   };
   R.ctx.cover = function (u2, v2) { return R.coverState(u2, v2); };
+  // **いま盤に居る、ボス以外の敵の数。**木の `CheckSummonCharacterCountUnder` 用
+  R.minionCount = function () {
+    var vs = living(b, 'enemy'), c = 0, z3;
+    for (z3 = 0; z3 < vs.length; z3++) { if (vs[z3] !== bossU) { c++; } }
+    return c;
+  };
   R.ctx.ggRate = function (u2) {
     if (!u2) { return 0; }
     var need = (u2.base && u2.base.GroggyGauge) || 0;
@@ -1330,21 +1345,47 @@ export function run(o) {
     return n;
   }
 
+  /** **空きが無いときは体を 1 つ増やす**（2026-09-07）。
+
+      束の `ent` は **DevName 1 つにつき 1 行**しか無い面がある（ケセドがそれ。
+      ボス 1 ＋ 雑魚 6 種で 7 行）。使い回しだけだと**同時に 6 体までしか湧けず**、
+      ケセドの EX が 1 回で 22 体呼ぶ台本（`CharacterEntityDAO` が 22 個）でも
+      22 体にならなかった。倒した数がグロッキーゲージになるボスでは、
+      ここが頭打ちになると鎖が始まらない。上限は 60 体（暴走よけ）。 */
+  function moreBody(dev) {
+    var pool = byDev[dev] || (byDev[dev] = []);
+    if (!pool.length || pool.length >= 60) { return null; }
+    var src = pool[0];
+    var u2 = add(b, makeUnit({
+      key: src.key + '#' + pool.length, side: 'enemy', charId: src.charId, dev: dev,
+      kind: src.kind, lv: src.lv, armor: src.armor, bullet: src.bullet,
+      adapt: src.adapt, radius: src.radius, personality: src.personality,
+      aiId: src.aiId, role: src.role, school: src.school, squad: src.squad,
+      hp: src.maxHp, maxHp: src.maxHp, base: src.base,
+    }));
+    u2.ls = src.ls;
+    u2.skillLv = src.skillLv;
+    u2.csl = src.csl;
+    u2.alive = false;
+    pool.push(u2);
+    return u2;
+  }
+
   /** 木が呼んだ実体を 1 体起こす。**名前は綴りが違うので当て直す。** */
   R.summon = function (name, at, by) {
     var dev = R.devFix[name];
     if (dev === undefined) { dev = R.devFix[name] = resolveDev(name, byDev); }
     if (!dev) { R.miss['summon:' + name] = (R.miss['summon:' + name] || 0) + 1; return; }
     if (otherBoss[dev]) { return; }
-    var pool = byDev[dev] || [], w;
+    var pool = byDev[dev] || [], w, mu = null;
     for (w = 0; w < pool.length; w++) {
-      var mu = pool[w];
-      if (mu.alive || mu === bossU) { continue; }
-      mu.alive = true; mu.hp = mu.maxHp; mu.eff = []; mu.pos = by && by.pos;
-      R.summoned++;
-      castPassives(mu, at);
-      return;
+      if (!pool[w].alive && pool[w] !== bossU) { mu = pool[w]; break; }
     }
+    if (!mu) { mu = moreBody(dev); }
+    if (!mu) { return; }
+    mu.alive = true; mu.hp = mu.maxHp; mu.eff = []; mu.pos = by && by.pos;
+    R.summoned++;
+    castPassives(mu, at);
   };
   R.devFix = {};
 
