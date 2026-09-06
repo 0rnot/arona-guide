@@ -890,7 +890,7 @@ export function run(o) {
   // ここが無いあいだ、範囲攻撃は距離に関係なく盤の全部に当たっていて、
   // 味方が中サイズのペロロミニオンを湧いた端から全部倒し、
   // ボスが吸うものを見つけられずグロッキーが 1 度も起きなかった
-  var bd = null, sec = 0;
+  var bd = null, sec = 0, snap = null;
   var bnames = Object.keys(boss.board || {});
   if (bnames.length) { bd = boardPlan(boss.board[bnames[0]]); }
   // **ボスが湧く節で戦う**（2026-09-07）。節 0 に居ないボスが 1 体だけいる——
@@ -1092,6 +1092,11 @@ export function run(o) {
 
         人数は `MaxTargetCount`（-1 は無制限）。**位置で絞るのは第 2 段**なので、
         いまは前から順に取る。 */
+    /** その事象が何の札か（`effect.js:kindOfList`）。渡し先の判定に要る */
+    kindOf: function (ev) {
+      var l = R.eff[ev.gid];
+      return l ? kindOfList(l) : null;
+    },
     pick: function (u, ev, to) {
       var side = (ev.sel && ev.sel.side) || (u.side === 'ally' ? 'Enemy' : 'Player');
       if (side === 'Self') { return [u]; }
@@ -1116,12 +1121,28 @@ export function run(o) {
       }
       team = t3;
       var max = ev.sel ? ev.sel.max : null;
-      // **味方 1 人にだけ乗る札は、TL の「渡し先」へ。**
-      // 指定が無いと枠の先頭に乗って、ヒマリの攻撃力バフがタンクに付く
-      // （TL の `to` は枠の番号。`bridge.js` が核の並びに直して渡す）
-      if (to != null && mine && side !== 'Enemy' && max === 1
-          && allies[to] && allies[to].alive) {
-        return [allies[to]];
+      // **味方に配る札は、TL の「渡し先」へ。**規則は旧い道（`target.js:buffTo` と
+      // `liveBuffs0` の `limit`）をそのまま写した——**「味方 1 人」なら選んだ子だけ、
+      // 「2 人以上」でも選んであればその子たちだけ。**`Self` が並んでいる行は
+      // 本人にも乗る。指定が無ければ今までどおり距離で選ぶ。
+      //
+      // ここが `max === 1` のときだけだったので、イブキ（水着）の EX
+      // （会心ダメージ率 +60.72%・2 人指定）がネルではなく近い 2 人に乗っていた。
+      // ネルの `EnhancePierceRate` が 20,871 のところ 15,983 にしかならず、
+      // 特効が 4.3742 対 3.1966 で **1.37 倍ぶん足りなかった**（2026-09-07）。
+      // **ダメージと回復には掛けない**——回復は HP の低い子へ行くのが正しい
+      var kd4 = R.kindOf(ev);
+      if (to != null && mine && side !== 'Enemy' && !isDamage(kd4) &&
+          kd4 !== 'heal' && kd4 !== 'hot' && kd4 !== 'healByHit') {
+        var tl4 = (Object.prototype.toString.call(to) === '[object Array]') ? to : [to];
+        var want = [], zt, ax;
+        for (zt = 0; zt < tl4.length; zt++) {
+          ax = allies[tl4[zt]];
+          if (ax && ax.alive && want.indexOf(ax) < 0) { want.push(ax); }
+        }
+        if (/Self/.test(String(side)) && !/Except_Self/.test(String(side))
+            && want.indexOf(u) < 0) { want.push(u); }
+        if (want.length) { return want; }
       }
       // **狙う先は距離で決まる**（`TargetSortRule` の `SortCriteria: Distance`）。
       // 座標が無い面では並びが変わらないので、今までどおり前から取る
@@ -1759,6 +1780,23 @@ export function run(o) {
     pollCond(t3);
     // **節の進行。**歩く・波を出す・片付いたら次の節へ
     stepSection(t3, step);
+    // **指した時刻で味方の札を写し取る**（`o.snapAt` ミリ秒。外から中を見る窓）
+    if (o.snapAt != null && !snap && t3 >= o.snapAt) {
+      snap = {};
+      for (var sk9 = 0; sk9 < allies.length; sk9++) {
+        var au9 = allies[sk9];
+        if (!au9) { continue; }
+        var sn9 = statsNow(au9);
+        snap['a' + sk9] = {
+          atk: sn9.AttackPower, pierce: sn9.EnhancePierceRate,
+          exR: sn9.EnhanceExDamageRate, cdr: sn9.CriticalDamageRate,
+          crit: sn9.CriticalPoint, dr2: sn9.DamageRatio2,
+          eff: au9.eff.map(function (e9) {
+            return [e9.gid, e9.raw && e9.raw.stat, e9.raw && e9.raw.amt];
+          })
+        };
+      }
+    }
     tickCost(b, step);
     hp.push([t3 / 1000, bossHp()]);
     if (bossHp() <= 0) { break; }
@@ -1793,6 +1831,7 @@ export function run(o) {
     maxHp: bossMax, bossKeys: bossUnits.map(function (v) { return [v.dev, v.maxHp]; }),
     used: R.used,
     unknown: R.unknown, unknownBy: R.unknownBy, miss: R.miss, by: R.by, fireN: R.fireN,
+    snap: snap,
     heal: R.heal, groggy: R.groggy, ggLog: R.ggLog, summoned: R.summoned,
     aliveEnd: living(b, 'enemy').map(function (v) {
       return [v.dev, Math.round(v.hp), v.eff.map(function (e) { return e.tmpl; })];

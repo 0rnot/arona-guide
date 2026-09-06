@@ -98,6 +98,20 @@ export function optOf(sl) {
       cid   `__TLDBG.diff().cid`
 
     返すのは `run()` の返り値に `key` / `gaps` / `slots` を足したもの。 */
+/** **渡し先を核の並びに直す。**画面の枠の番号（0〜9）で来て、1 つでも配列でも
+    受ける（`target.js:toList` と同じ）。空いている枠を詰めているので番号が変わる。
+    返すのは核の並びの配列か `null` */
+function mapTo(v, map) {
+  if (v == null) { return null; }
+  var lst = (Object.prototype.toString.call(v) === '[object Array]') ? v : [v];
+  var out = [], i;
+  for (i = 0; i < lst.length; i++) {
+    if (lst[i] == null || lst[i] === '') { continue; }
+    if (map[+lst[i]] != null) { out.push(map[+lst[i]]); }
+  }
+  return out.length ? out : null;
+}
+
 export async function simParty(o) {
   var L = o.load, st = o.st, pi = o.pi || 0;
   var index = await L.index();
@@ -146,8 +160,7 @@ export async function simParty(o) {
 
   // **通常スキルが「味方 1 人」のときの渡し先。**画面の枠の番号を核の並びに直す
   for (i = 0; i < party.length; i++) {
-    var nt = party[i]._nsto;
-    party[i].nsto = (nt != null && map[nt] != null) ? map[nt] : null;
+    party[i].nsto = mapTo(party[i]._nsto, map);
     delete party[i]._nsto;
   }
 
@@ -155,14 +168,18 @@ export async function simParty(o) {
   for (i = 0; i < rows.length; i++) {
     var r = rows[i];
     if (map[r.i] == null) { continue; }
-    // `to` は枠の番号。核の並びに直す（空いている枠を詰めているので番号が変わる）
-    var to = (r.to != null && map[r.to] != null) ? map[r.to] : null;
+    // `to` は枠の番号。核の並びに直す（空いている枠を詰めているので番号が変わる）。
+    // **配列で来ることがある**（イブキ（水着）の「2 人指定」は `[3, 2]`）。
+    // `[3, 2]` を鍵にして引いていたので、その行の渡し先が丸ごと落ちていた
+    // （2026-09-07。`target.js:toList` と同じ読み方に合わせた）
+    var to = mapTo(r.bto != null ? r.bto : r.to, map);
     tl.push({ at: r.t, i: map[r.i], mc: r.mc == null ? null : r.mc, f: r.f || 0, to: to });
   }
 
   var dur = o.dur != null ? o.dur : ((index[key].dur || 240000) / 1000);
   var res = run({ common: common, boss: boss, party: party, tl: tl, cid: cid0,
-                  dur: dur, mc: 1, seed: o.seed, step: o.step, probe: o.probe });
+                  dur: dur, mc: 1, seed: o.seed, step: o.step, probe: o.probe,
+                  snapAt: o.snapAt });
   res.key = key;
   res.gaps = gaps;
   res.names = names;
