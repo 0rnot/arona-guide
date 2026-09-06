@@ -116,6 +116,11 @@ export function skillEvents(doc) {
   var root = selOf(doc.EssentialCandidateRule, doc.TargetSortRule);
   var names = {};
 
+  // **体の名札。**`EntityName` が空の体がある（`SummonGroupSpawnerDAO` は全部空）。
+  // 空のままだと `MainEntityData` と時系列の同じ体を別物と見て**2 回歩く**
+  // （ペロロジラの Ex03 は 6 体呼ぶのに 12 体湧いていた。2026-09-07）
+  function idOf(e) { return (e && (e.EntityName || e.name)) || ''; }
+
   function collectNames(node, dep) {
     if (!node || typeof node !== 'object' || dep > 8) { return; }
     var tl = node.EntityTimeline;
@@ -123,18 +128,18 @@ export function skillEvents(doc) {
     for (i = 0; tl && i < tl.length; i++) {
       e = tl[i] && (tl[i].Entity || tl[i].AreaData);
       if (!e || typeof e !== 'object') { continue; }
-      if (e.EntityName) { names[e.EntityName] = 1; }
+      if (idOf(e)) { names[idOf(e)] = 1; }
       for (k = 0; k < NEST.length; k++) {
         sub = e[NEST[k]];
         if (!sub || typeof sub !== 'object') { continue; }
         if (Array.isArray(sub)) {
           for (var bq = 0; bq < sub.length; bq++) {
-            if (sub[bq] && sub[bq].EntityName) { names[sub[bq].EntityName] = 1; }
+            if (sub[bq] && idOf(sub[bq])) { names[idOf(sub[bq])] = 1; }
             collectNames(sub[bq], dep + 1);
           }
           continue;
         }
-        if (sub.EntityName) { names[sub.EntityName] = 1; }
+        if (idOf(sub)) { names[idOf(sub)] = 1; }
         collectNames(sub, dep + 1);
       }
       collectNames(e, dep + 1);
@@ -332,7 +337,7 @@ export function skillEvents(doc) {
   // （アリスは 28 コマの 1 発なのに [0, 28] の 2 発になっていた）
   for (var s1 = 0; s1 < (doc.ShotFrames || []).length; s1++) {
     var en = doc.ShotFrames[s1] && doc.ShotFrames[s1].Entity;
-    if (en && en.EntityName) { names[en.EntityName] = 1; }
+    if (en && idOf(en)) { names[idOf(en)] = 1; }
   }
   var me = doc.MainEntityData;
   if (me && typeof me === 'object') {
@@ -342,7 +347,7 @@ export function skillEvents(doc) {
       if (sub2 && typeof sub2 === 'object') { collectNames(sub2, 1); }
     }
     // **`MainEntityData` は宣言でもある。**同じ体が時系列にも並んでいたら数えない
-    if (!names[me.EntityName]) {
+    if (!names[idOf(me)]) {
       entity(me, { at: 0, sel: root, prj: null, area: null, dist: null,
                    rootEcr: doc.EssentialCandidateRule }, 0);
     }
@@ -396,8 +401,20 @@ export function rangeOf(doc) { return (doc && doc.Range) || null; }
     返すのは `{f, name, dur}`。`f` は発動からのコマ（`SpawnDelay`）。 */
 export function summonsOf(doc) {
   var out = [];
+  // **`MainEntityData` は宣言でもある。**同じ体が `EntityTimeline` にも並んでいたら、
+  // 数えるのは時系列の側だけ。両方歩くと**同じ群が 2 回湧く**
+  // （Ex03 は 6 体なのに 12 体出て、不死身のミニオンが受けたダメージを
+  // 全部本体へ流していた。2026-09-07）
+  var skip = null;
+  if (doc && doc.MainEntityData && Array.isArray(doc.EntityTimeline)) {
+    var mn = doc.MainEntityData.name;
+    for (var z = 0; mn && z < doc.EntityTimeline.length; z++) {
+      var ez = doc.EntityTimeline[z] && doc.EntityTimeline[z].Entity;
+      if (ez && ez.name === mn) { skip = doc.MainEntityData; break; }
+    }
+  }
   function walk(o, delay) {
-    if (!o || typeof o !== 'object') { return; }
+    if (!o || typeof o !== 'object' || o === skip) { return; }
     if (Array.isArray(o)) {
       for (var q = 0; q < o.length; q++) { walk(o[q], delay); }
       return;
