@@ -254,6 +254,11 @@ function fire(R, ev, caster, target, lvl, at, mc) {
   // **1 発の取り分**（`ShotFrames[].DamageDistributeRate`）。
   // CH0155 の通常攻撃は 7 発 × 14.28% で 1 周
   if (ev.share != null) { mul *= ev.share; }
+  // **時系列の側の取り分**（`EntityTimeline[].DamageDistributeRate`）。
+  // これが `data.js` の `Hits` の正体（2026-09-06）。ズンコの EX は同じ札が 4 回出て
+  // 取り分がそれぞれ 2500 で、合わせて 1 発ぶん。**掛けていなくて 4 倍になっていた。**
+  // 木は前から `dist` として運んでいたのに、ここで使っていなかった
+  if (ev.dist != null) { mul *= ev.dist / 10000; }
 
   if (isDamage(r.kind)) {
     var a = R.attacker(caster, ev, at);
