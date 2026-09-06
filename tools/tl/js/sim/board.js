@@ -27,6 +27,11 @@ function tagsOf(ev) {
     if (t === 'SectionStarted' || t === 'BattleStarted') { out.push('start'); }
     else if (c.StatusToCheck) { out.push('st:' + c.StatusToCheck); }
     else if (t === 'CharacterPhaseChanged') { out.push('ph:' + c.Phase); }
+    // **`CharactersDead` は「誰が死んだら」を名前で指す。**名前があるときは
+    // その名前を持つ湧き点の体だけを見る（無いときは今までどおり「全部」）
+    else if (t === 'CharactersDead' && c.ConditionID) {
+      out.push('CharactersDead:' + c.ConditionID);
+    }
     else { out.push(t); }
   }
   return out;
@@ -45,6 +50,11 @@ export function boardPlan(doc) {
         points.push({
           dev: sd.SpawnTemplateId || null,
           cmds: p.CommandIdList || [],
+          // **この点で湧いた体の死を指す名前**（`SpawnConditionIdList`）。
+          // 節の `CharactersDead` の `ConditionID` がこれを指す。
+          // カイテンジャーの `ConditionDeadDummyBoss` は棒だけの体を指していて、
+          // 「レンジャー 5 人が死ぬ」ではなく「棒が 0 になる」が節の進む合図
+          cond: p.SpawnConditionIdList || [],
           pos: p.Position || null,
           tile: [p.TileX, p.TileY],
           active: p.Active !== false,
@@ -100,7 +110,7 @@ export function boardPlan(doc) {
     var got = eventsOf(evs);
     out.push({ i: i, points: points, byTag: byTag, waits: waits, next: next,
                walkTo: got.walkTo, wave: got.wave, starts: got.starts,
-               instant: got.instant,
+               instant: got.instant, dies: got.dies,
                obstacles: sec.Obstacles || [] });
   }
   var gl = eventsOf(((doc && doc.Global) || {}).Events || []);
@@ -121,7 +131,7 @@ export function boardPlan(doc) {
     **`Global` の事象にも `StartSection` がある**（ホドはそちら側だけ。
     節の中に 1 つも無いので、見ていないあいだホドは節 0 から動かなかった）。 */
 function eventsOf(evs) {
-  var walkTo = null, wave = [], starts = [], instant = false, j, m;
+  var walkTo = null, wave = [], starts = [], instant = false, dies = [], j, m;
   for (j = 0; j < evs.length; j++) {
     var cs2 = evs[j].Conditions || [], cm2 = evs[j].Commands || [], q2;
     var to = null, wsec = 0, areaZ = null, hasW = false;
@@ -140,6 +150,12 @@ function eventsOf(evs) {
         wsec += cm2[q2].Milliseconds || 0;
       } else if (t2.indexOf('ForceMove') >= 0 && cm2[q2].IsInstantMove) {
         instant = true;
+      } else if (t2.indexOf('CharacterDie') >= 0) {
+        // **合図で体を消す。**カイテンジャーは棒が 0 になった瞬間に
+        // レンジャー 5 人がまとめて消える（`CharacterCommandIdList`）
+        dies.push({ tags: tagsOf(evs[j]),
+                    cmds: cm2[q2].CharacterCommandIdList || [],
+                    devs: cm2[q2].CharacterSpawnTemplateIdList || [] });
       }
     }
     for (q2 = 0; q2 < cs2.length; q2++) {
@@ -150,7 +166,7 @@ function eventsOf(evs) {
     if (areaZ != null && (hasW || to != null) && walkTo == null) { walkTo = areaZ; }
     if (to != null) { starts.push({ tags: tagsOf(evs[j]), to: to, wait: wsec }); }
   }
-  return { walkTo: walkTo, wave: wave, starts: starts, instant: instant };
+  return { walkTo: walkTo, wave: wave, starts: starts, instant: instant, dies: dies };
 }
 
 /** その節で合図 `tag` を出したときに湧く湧き点。 */

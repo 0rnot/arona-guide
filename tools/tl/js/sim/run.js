@@ -296,6 +296,10 @@ function queue() {
 
 /** 木の 1 事象を実際に当てる。**返すのは入ったダメージ。** */
 function fire(R, ev, caster, target, lvl, at, mc) {
+  if (R.fireN) {
+    var fk0 = caster.key + '/' + (ev.slot || '?');
+    R.fireN[fk0] = (R.fireN[fk0] || 0) + 1;
+  }
   var list = R.eff[ev.gid];
   if (!list) { R.miss[ev.gid] = (R.miss[ev.gid] || 0) + 1; return 0; }
   var r = atLevel(list, lvl);
@@ -604,6 +608,8 @@ function cast(R, u, gid, slot, lvl, at, opt) {
       R.q.push(t3, function (now) {
         e2.slot = slot;
         var tg = R.pick(u, e2, to), k;
+        // **狙う先が 1 つも取れなかった回数。**核が伸びないときの手がかり
+        if (!tg.length) { R.miss['狙えず:' + slot] = (R.miss['狙えず:' + slot] || 0) + 1; }
         for (k = 0; k < tg.length; k++) { fire(R, e2, u, tg[k], lvl, now, mc); }
       }, slot + ':' + e2.gid);
     })(e, t2);
@@ -790,6 +796,30 @@ export function run(o) {
 
   // ---- 敵。**ボスと、木から呼ばれるミニオンまで束に入っている**
   var ent = boss.ent || [], stx = {}, byDev = {}, i;
+  // **盤が実際に湧かせる体の名前。**束には別の面のボスまで入っていて、
+  // 総力戦ゴズの束は `Goz_default_Torment` と `Goz_Outdoor_default_Torment` を
+  // 両方持っているが、盤に湧き点があるのは後者だけ。
+  // 逆に**盤に湧き点がある「ボス型」は全部が本物**——カイテンジャーは
+  // レンジャーの棒（40,000,000）とカイテン FX Mk-0（30,000,000）で 1 本の 7,000 万、
+  // シロクロはシロ（35,000,000）とクロ（45,000,000）で 8,000 万（2026-09-07）
+  var onBoard = {};
+  (function () {
+    var bs = boss.board || {}, kk, dd, ss, gg, pp;
+    for (kk in bs) {
+      dd = bs[kk];
+      if (!dd || !dd.Sections) { continue; }
+      for (ss = 0; ss < dd.Sections.length; ss++) {
+        gg = dd.Sections[ss].EnemySpawnPointGroupList || [];
+        for (var g2 = 0; g2 < gg.length; g2++) {
+          pp = gg[g2].SpawnPoints || [];
+          for (var p2 = 0; p2 < pp.length; p2++) {
+            var nm2 = (pp[p2].SpawnData || {}).SpawnTemplateId;
+            if (nm2) { onBoard[nm2] = 1; }
+          }
+        }
+      }
+    }
+  }());
   for (i = 0; i < (boss.st || []).length; i++) { stx[boss.st[i].CharacterId] = boss.st[i]; }
   var bossU = null;
   for (i = 0; i < ent.length; i++) {
@@ -832,13 +862,26 @@ export function run(o) {
     }
   }
   if (!bossU) { throw new Error('ボスの実体が束に無い'); }
-  // **本体以外のボスは湧かせない。**盤の `start` が別の面のボスを起こしてしまう
-  var otherBoss = {};
+  // **盤に湧き点が無いボスは湧かせない。**束に混ざっている別の面のボス
+  // （総力戦ゴズの `Goz_default_Torment`）がこれ。
+  // **盤に湧き点があるボスは本物**なので、湧かせるし HP の棒にも数える
+  var otherBoss = {}, bossUnits = [];
   for (i = 0; i < ent.length; i++) {
-    if (ent[i].TacticEntityType === 'Boss' && ent[i].Id !== bossU.charId) {
-      otherBoss[ent[i].DevName] = 1;
-    }
+    if (ent[i].TacticEntityType !== 'Boss') { continue; }
+    var bu2 = b.units['e' + ent[i].Id];
+    if (!bu2) { continue; }
+    if (onBoard[ent[i].DevName] || bu2 === bossU) { bossUnits.push(bu2); }
+    else { otherBoss[ent[i].DevName] = 1; }
   }
+  if (!bossUnits.length) { bossUnits = [bossU]; }
+  /** **棒に残っている HP。**盤に出るボスぜんぶの合計（まだ湧いていない体は満タン） */
+  function bossHp() {
+    var z2, v2 = 0;
+    for (z2 = 0; z2 < bossUnits.length; z2++) { v2 += Math.max(0, bossUnits[z2].hp); }
+    return v2;
+  }
+  var bossMax = 0;
+  for (i = 0; i < bossUnits.length; i++) { bossMax += bossUnits[i].maxHp || 0; }
 
   // ---- 盤。**味方も敵もここで座標をもらう**（2026-09-06）
   //
@@ -938,7 +981,7 @@ export function run(o) {
 
   var R = {
     b: b, ctx: ctxOf(b), eff: eff, q: queue(), evCache: {}, pgCache: {},
-    total: 0, heal: 0, groggy: [], ggLog: [], secLog: [], summoned: 0, smCache: {}, probe: o.probe ? [] : null, used: [], unknown: 0, unknownBy: {}, miss: {}, by: {},
+    fireN: {}, total: 0, heal: 0, groggy: [], ggLog: [], secLog: [], summoned: 0, smCache: {}, probe: o.probe ? [] : null, used: [], unknown: 0, unknownBy: {}, miss: {}, by: {},
     durMs: durMs, mc: o.mc || 1, C: constOf(common),
     unitOf: function (k) { return b.units[k] || null; },
     lvTable: common.lvdiff || null, caps: capsOf(common.calcLimit),
@@ -1492,6 +1535,23 @@ export function run(o) {
     if (tag === 'EndWave' || tag === 'CharactersDead') {
       return sawFoe && R.minionCount() === 0;
     }
+    // **`CharactersDead:<名前>` は「その名前の湧き点で出た体が全部死んだら」。**
+    // カイテンジャーの `ConditionDeadDummyBoss` はレンジャーの棒を指していて、
+    // 5 人を倒すことではなく**棒が 0 になること**が節 2 へ進む合図
+    // （そのあと `GroundCommandCharacterDie` で 5 人が消える。2026-09-07）
+    if (tag.indexOf('CharactersDead:') === 0) {
+      var cid3 = tag.slice(15), any3 = false, z3, w3;
+      var pts3 = ((bd && bd.sections[sec]) || {}).points || [];
+      for (z3 = 0; z3 < pts3.length; z3++) {
+        if ((pts3[z3].cond || []).indexOf(cid3) < 0) { continue; }
+        var pool3 = byDev[pts3[z3].dev] || [];
+        for (w3 = 0; w3 < pool3.length; w3++) {
+          any3 = true;
+          if (pool3[w3].hp > 0) { return false; }
+        }
+      }
+      return any3 ? true : (sawFoe && R.minionCount() === 0);
+    }
     if (tag.indexOf('ph:') === 0) {
       return !!bst && secPhase != null && bst.phase !== secPhase
         && String(bst.phase) === tag.slice(3);
@@ -1501,6 +1561,25 @@ export function run(o) {
   }
 
   /** 0.1 秒ごと。歩く・波を出す・次の節へ移る。 */
+  /** 合図で体を消す（`GroundCommandCharacterDie`）。**湧き点の命令 id で選ぶ。** */
+  function killByCmd(cmds, devs) {
+    var pts4 = ((bd && bd.sections[sec]) || {}).points || [], z4, w4, q4;
+    for (z4 = 0; z4 < pts4.length; z4++) {
+      var hit4 = false;
+      for (q4 = 0; q4 < (cmds || []).length; q4++) {
+        if ((pts4[z4].cmds || []).indexOf(cmds[q4]) >= 0) { hit4 = true; }
+      }
+      for (q4 = 0; q4 < (devs || []).length; q4++) {
+        if (pts4[z4].dev === devs[q4]) { hit4 = true; }
+      }
+      if (!hit4) { continue; }
+      var pool4 = byDev[pts4[z4].dev] || [];
+      for (w4 = 0; w4 < pool4.length; w4++) {
+        if (pool4[w4].alive) { pool4[w4].hp = 0; }
+      }
+    }
+  }
+
   function stepSection(t7, dt) {
     if (!bd || !org) { return; }
     var sc2 = bd.sections[sec] || {};
@@ -1525,6 +1604,18 @@ export function run(o) {
       moveAllies();
       R.walked = Math.round(org.Position.y * 10) / 10;
       return;
+    }
+    // ---- 合図で消える体（`GroundCommandCharacterDie`）
+    var dl = sc2.dies || [], z10, w10;
+    for (z10 = 0; z10 < dl.length; z10++) {
+      if (dl[z10].done) { continue; }
+      var ok10 = dl[z10].tags.length > 0;
+      for (w10 = 0; w10 < dl[z10].tags.length; w10++) {
+        if (!tagOk(dl[z10].tags[w10])) { ok10 = false; }
+      }
+      if (!ok10) { continue; }
+      dl[z10].done = 1;
+      killByCmd(dl[z10].cmds, dl[z10].devs);
     }
     // ---- 次の節へ移る合図。節の側と `Global` の両方を見る
     if (secWait < 0) {
@@ -1669,8 +1760,8 @@ export function run(o) {
     // **節の進行。**歩く・波を出す・片付いたら次の節へ
     stepSection(t3, step);
     tickCost(b, step);
-    hp.push([t3 / 1000, bossU.hp]);
-    if (bossU.hp <= 0) { break; }
+    hp.push([t3 / 1000, bossHp()]);
+    if (bossHp() <= 0) { break; }
     // **全滅したらそこで終わり**
     if (!living(b, 'ally').length) { break; }
   }
@@ -1698,9 +1789,10 @@ export function run(o) {
     origin: org ? [org.Position.x, org.Position.y] : null,
     sectionEnd: sec,
     bossPos: bossU.pos ? [bossU.pos.x, bossU.pos.y] : null,
-    hp: hp, total: R.total, killAt: bossU.hp <= 0 ? t3 / 1000 : null,
-    maxHp: bossU.maxHp, used: R.used,
-    unknown: R.unknown, unknownBy: R.unknownBy, miss: R.miss, by: R.by,
+    hp: hp, total: R.total, killAt: bossHp() <= 0 ? t3 / 1000 : null,
+    maxHp: bossMax, bossKeys: bossUnits.map(function (v) { return [v.dev, v.maxHp]; }),
+    used: R.used,
+    unknown: R.unknown, unknownBy: R.unknownBy, miss: R.miss, by: R.by, fireN: R.fireN,
     heal: R.heal, groggy: R.groggy, ggLog: R.ggLog, summoned: R.summoned,
     aliveEnd: living(b, 'enemy').map(function (v) {
       return [v.dev, Math.round(v.hp), v.eff.map(function (e) { return e.tmpl; })];
