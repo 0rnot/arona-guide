@@ -172,7 +172,7 @@ function queue() {
 }
 
 /** 木の 1 事象を実際に当てる。**返すのは入ったダメージ。** */
-function fire(R, ev, caster, target, lvl, at) {
+function fire(R, ev, caster, target, lvl, at, mc) {
   var list = R.eff[ev.gid];
   if (!list) { R.miss[ev.gid] = (R.miss[ev.gid] || 0) + 1; return 0; }
   var r = atLevel(list, lvl);
@@ -214,7 +214,7 @@ function fire(R, ev, caster, target, lvl, at) {
     }
     var o = hitOnce(a, d, s, R.C, R.lvTable, R.caps);
     var dmg = R.rnd ? hitRoll(o, R.rnd) : o.avg;
-    dmg *= (ev.single ? 1 : (R.mc || 1));
+    dmg *= (ev.single ? 1 : (mc != null ? mc : (R.mc || 1)));
     target.hp = Math.max(0, target.hp - dmg);
     R.total += dmg;
     return dmg;
@@ -227,10 +227,12 @@ function fire(R, ev, caster, target, lvl, at) {
   return 0;
 }
 
-/** 1 枠ぶんを撃つ。木を歩いて、事象ごとに `fire` を呼ぶ */
-function cast(R, u, gid, slot, lvl, at) {
+/** 1 枠ぶんを撃つ。木を歩いて、事象ごとに `fire` を呼ぶ。
+    `opt.mc` はこの 1 発が当たる体の数（TL の行が持っている。無ければ `R.mc`） */
+function cast(R, u, gid, slot, lvl, at, opt) {
   var doc = u.ls && u.ls[gid];
   if (!doc) { return; }
+  var mc = opt && opt.mc != null ? opt.mc : null;
   var ev = R.evCache[gid] || (R.evCache[gid] = skillEvents(doc));
   for (var i = 0; i < ev.length; i++) {
     var e = ev[i];
@@ -242,11 +244,40 @@ function cast(R, u, gid, slot, lvl, at) {
       R.q.push(t3, function (now) {
         e2.slot = slot;
         var to = R.pick(u, e2), k;
-        for (k = 0; k < to.length; k++) { fire(R, e2, u, to[k], lvl, now); }
+        for (k = 0; k < to.length; k++) { fire(R, e2, u, to[k], lvl, now, mc); }
       }, slot + ':' + e2.gid);
     })(e, t2);
   }
   R.used.push({ t: at, who: u.key, slot: slot, gid: gid });
+}
+
+/** **その育ちで実際に効いている `CharacterSkillListExcelTable` の行。**
+
+    生徒 1 人に 4 行ある（固有武器 ★2 の有無 × 愛用品 T2 の有無）。
+    アルは素だと `AruPassive01` / `AruPublic01`、固有 2 で `AruWeaponPassive01`、
+    愛用品 T2 で `AruGearPublic01` に**枠ごと入れ替わる**。
+    **先頭の行を取ると素の枠になる**（2026-09-06 まで `csl[0]` を取っていた）。
+
+    採り方: `MinimumGradeCharacterWeapon`（固有武器の星）と
+    `MinimumTierCharacterGear`（愛用品の段）がどちらも「以下」の行のうち、
+    **2 つの合計がいちばん大きいもの**。`FormIndex` は変身後の形態で、
+    既定は 0。 */
+export function cslRow(pack, o, form) {
+  var rows = pack.csl || [], best = null, fb = null, i, r;
+  var ws = (o && o.wlv) ? (o.wstar || 1) : 0, gt = (o && o.gearT) || 0;
+  var fi = form || 0;
+  for (i = 0; i < rows.length; i++) {
+    r = rows[i];
+    if ((r.FormIndex || 0) !== fi) { continue; }
+    if (!fb) { fb = r; }
+    if ((r.MinimumGradeCharacterWeapon || 0) > ws) { continue; }
+    if ((r.MinimumTierCharacterGear || 0) > gt) { continue; }
+    if (!best || (r.MinimumGradeCharacterWeapon || 0) + (r.MinimumTierCharacterGear || 0) >
+        (best.MinimumGradeCharacterWeapon || 0) + (best.MinimumTierCharacterGear || 0)) {
+      best = r;
+    }
+  }
+  return best || fb || rows[0] || {};
 }
 
 /** **本体。**
@@ -366,7 +397,7 @@ export function run(o) {
   // ---- 積む: 常時のパッシブ → 通常攻撃 → 通常スキル → EX
   for (i = 0; i < allies.length; i++) {
     (function (au, p) {
-      var csl = (au.pack.csl || [])[0] || {};
+      var csl = cslRow(au.pack, p, 0);
       var gid = function (k) {
         var v = csl[k];
         v = Array.isArray(v) ? v[0] : v;
@@ -409,13 +440,23 @@ export function run(o) {
       au._ex = gid('ExSkillGroupId');
     })(allies[i], party[i]);
   }
-  // EX は TL の指すとおりに
+  // EX は TL の指すとおりに。**行が `mc`（当たる体の数）と `f`（形態）を持てる**
   for (i = 0; i < (o.tl || []).length; i++) {
     (function (row) {
       var au = allies[row.i];
-      if (!au || !au._ex) { return; }
+      if (!au) { return; }
+      // 形態が指定されていれば、その形態の行の EX 枠を撃つ
+      var gid = au._ex;
+      if (row.f) {
+        var fr = cslRow(au.pack, party[row.i], row.f);
+        var fv = fr.ExSkillGroupId;
+        fv = Array.isArray(fv) ? fv[0] : fv;
+        if (fv && fv !== 'EmptySkill') { gid = String(fv); }
+      }
+      if (!gid) { return; }
       R.q.push(row.at * 1000, function (now) {
-        cast(R, au, au._ex, 'Ex', (party[row.i].skillLv || {}).Ex || 1, now);
+        cast(R, au, gid, 'Ex', (party[row.i].skillLv || {}).Ex || 1, now,
+             { mc: row.mc });
       });
     })(o.tl[i]);
   }

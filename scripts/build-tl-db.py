@@ -315,7 +315,17 @@ def build_bosses(out_dir, chars, st_by, le_npc_by, le_pc_by, sk_by, want):
         gz = gzip.compress(raw, 9)
         with open(out_dir / "boss" / f"{key}.json.gz", "wb") as f:
             f.write(gz)
-        index[key] = {"g": len(ls), "e": len(le), "n": len(ents), "b": len(gz)}
+        # **索引は「どの面か」を引ける形にする**（2026-09-06）。画面は
+        # ボス群・難易度・装甲しか持っていないので、それで 1 面に絞れないと
+        # ファイル名が決まらない。`cid` は 51 組が重なる（同じボスが 2 期）ので
+        # 群・難易度・装甲で引き、同じものが 2 つあれば新しい面（大きい Id）を採る
+        gr = ground.get(sr.get("GroundId")) or {}
+        index[key] = {"g": len(ls), "e": len(le), "n": len(ents), "b": len(gz),
+                      "cid": (sr.get("BossCharacterId") or [None])[0],
+                      "grp": sr.get("RaidBossGroup"), "df": sr.get("Difficulty"),
+                      "dur": sr.get("BattleDuration"),
+                      "arm": gr.get("EnemyArmorType"), "bul": gr.get("EnemyBulletType"),
+                      "ter": gr.get("StageTopography"), "lvb": gr.get("LevelBoss")}
         tot_raw += len(raw)
         tot_gz += len(gz)
         n += 1

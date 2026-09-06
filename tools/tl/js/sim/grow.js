@@ -247,8 +247,13 @@ export function grow(pack, common, o) {
     }
   }
 
-  // ---- 潜在。**既定は 0。**`StatBonusRate` は 1 万分率として掛ける（要確認）
-  if (o.pot) {
+  // ---- 潜在（限界突破）。**既定は 0。**`CharacterPotentialStatExcelTable` の
+  // `StatBonusRate` は 1 段 20、25 段で 500 の 1 万分率。
+  // **掛けるのは「素の補間値」で、星の倍率は掛けない。固定値として足す。**
+  // Lv90 未満では付かない（SchaleDB `js/common.js` 7649 行 `if (level >= 90)`、
+  // 847 行 `interpolateStat(...) * (potentialLevel * 0.002)`。0.002 = 20/10000 で
+  // DB の 1 段ぶんと一致する）。上限は 25 段
+  if (o.pot && lv >= 90) {
     var pst = {}, ps = pack.potst || [];
     for (i = 0; i < ps.length; i++) {
       (pst[ps[i].PotentialStatGroupId] || (pst[ps[i].PotentialStatGroupId] = {}))
@@ -256,10 +261,12 @@ export function grow(pack, common, o) {
     }
     var pg = pack.pot || [];
     for (i = 0; i < pg.length; i++) {
-      var want2 = o.pot[pg[i].PotentialStatBonusRateType] || 0;
-      if (!want2) { continue; }
+      var pk = pg[i].PotentialStatBonusRateType;
+      var want2 = Math.min(o.pot[pk] || 0, 25);
+      if (!want2 || st[pk + '1'] == null) { continue; }
       var rate = (pst[pg[i].PotentialStatGroupId] || {})[want2] || 0;
-      add(acc, pg[i].PotentialStatBonusRateType + '_Coefficient', rate);
+      add(acc, pk + '_Base',
+          Math.round(ip(st[pk + '1'], st[pk + '100'], sc) * rate / 10000));
     }
   }
 
