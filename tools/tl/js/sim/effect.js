@@ -307,6 +307,15 @@ export function readOne(r) {
     return o;
   }
   if (t === 'Summon') { o.kind = 'summon'; o.id = r.SummonId || null; return o; }
+  // **固定ダメージ。**`Amount` をそのまま引く（防御も装甲も通らない）。
+  // ペロロの中サイズが HP 半分で撒く 250,000、ゴズの 99,999,999 がこれ
+  if (t === 'DeadlyAttack') {
+    o.kind = 'deadly'; o.amt = r.Amount || 0; return o;
+  }
+  // **即死。**`IgnoreImmortal` が真なら不死身でも倒れる
+  if (t === 'ImmediateKill') {
+    o.kind = 'kill'; o.ignoreImmortal = !!r.IgnoreImmortal; return o;
+  }
   return o;
 }
 

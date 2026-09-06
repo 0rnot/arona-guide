@@ -437,6 +437,37 @@ function fire(R, ev, caster, target, lvl, at, mc) {
     target.xfer = { ratio: r.ratio == null ? 10000 : r.ratio, to: caster.key };
     return 0;
   }
+  // ---- 固定ダメージ（`DeadlyAttackEffectDAO`）。**`Amount` をそのまま引く。**
+  // 防御も装甲も地形も通らないし、盾も食わない。ペロロの中サイズが HP 半分で
+  // 撒く 250,000、ケセドの 999,999、ゴズの 99,999,999 がこれ（2026-09-07）
+  if (r.kind === 'deadly') {
+    var dq = (r.amt || 0) * mul;
+    if (dq > 0 && target.hp > 0) {
+      var dfl = 0, dz;
+      for (dz = 0; dz < target.eff.length; dz++) {
+        if (/Immortal/.test(String(target.eff[dz].tmpl || ''))) { dfl = 1; break; }
+      }
+      target.hp = Math.max(dfl, target.hp - dq);
+      R.by[caster.key + '/固定'] = (R.by[caster.key + '/固定'] || 0) + dq;
+      if (target.side === 'enemy') { R.total += dq; }
+      if (R.onDamaged && target.side === 'enemy') { R.onDamaged(target, dq, at); }
+    }
+    return 0;
+  }
+  // ---- 即死（`ImmediateKillEffectDAO`）。`IgnoreImmortal` が真なら不死身も倒す
+  if (r.kind === 'kill') {
+    if (target.hp > 0) {
+      var kfl = 0, kz;
+      if (!r.ignoreImmortal) {
+        for (kz = 0; kz < target.eff.length; kz++) {
+          if (/Immortal/.test(String(target.eff[kz].tmpl || ''))) { kfl = 1; break; }
+        }
+      }
+      if (target.side === 'enemy') { R.total += target.hp - kfl; }
+      target.hp = kfl;
+    }
+    return 0;
+  }
   if (r.kind === 'immune') {
     for (var zz = 0; zz < (r.tmpl || []).length; zz++) {
       if (String(r.tmpl[zz]).indexOf('Groggy') >= 0) { target.ggImmune = true; }
@@ -1082,10 +1113,18 @@ export function run(o) {
   var setupAlly = function (au, p, from) {
     var gen = ++au._gen;
     var csl = cslRow(au.pack, p, au.form || 0);
+    // **枠の名前は配列で、空きが `'EmptySkill'` で埋めてある。**先頭とは限らない
+    // ——変身後の行は空きが前に来る（制服ネルの形態 1 は
+    // `ExSkillGroupId: ['EmptySkill', 'CH0280Ex02']`）。`[0]` を取ると
+    // **変身したとたんに EX が無くなる**（2026-09-07 に `IrVUx0ywuyo` で踏んだ）。
+    // 中身のある最初の枠を取る
     var gid = function (k) {
-      var v = csl[k];
-      v = Array.isArray(v) ? v[0] : v;
-      return (v && v !== 'EmptySkill') ? String(v) : null;
+      var v = csl[k], z;
+      if (!Array.isArray(v)) { return (v && v !== 'EmptySkill') ? String(v) : null; }
+      for (z = 0; z < v.length; z++) {
+        if (v[z] && v[z] !== 'EmptySkill') { return String(v[z]); }
+      }
+      return null;
     };
     var lvOf = function (slot) { return (p.skillLv && p.skillLv[slot]) || 1; };
     var ng = gid('NormalSkillGroupId');
@@ -1196,8 +1235,15 @@ export function run(o) {
         var gid = au._ex;
         if (row.f) {
           var fr = cslRow(au.pack, party[row.i], row.f);
-          var fv = fr.ExSkillGroupId;
-          fv = Array.isArray(fv) ? fv[0] : fv;
+          var fv = fr.ExSkillGroupId, fz;
+          if (Array.isArray(fv)) {
+            fv = null;
+            for (fz = 0; fz < (fr.ExSkillGroupId || []).length; fz++) {
+              if (fr.ExSkillGroupId[fz] && fr.ExSkillGroupId[fz] !== 'EmptySkill') {
+                fv = fr.ExSkillGroupId[fz]; break;
+              }
+            }
+          }
           if (fv && fv !== 'EmptySkill') { gid = String(fv); }
         }
         if (!gid) { return; }
@@ -1658,7 +1704,17 @@ export function run(o) {
     heal: R.heal, groggy: R.groggy, ggLog: R.ggLog, summoned: R.summoned,
     aliveEnd: living(b, 'enemy').map(function (v) {
       return [v.dev, Math.round(v.hp), v.eff.map(function (e) { return e.tmpl; })];
-    }), probe: R.probe, events: R.q.size(),
+    }),
+    // **味方に乗っている札。**支援の強化が届いているかを外から見る（2026-09-07）
+    allyEnd: Object.keys(b.units).filter(function (k) {
+      return b.units[k].side === 'ally';
+    }).map(function (k) {
+      var v = b.units[k];
+      return [v.key, v.dev, v.eff.map(function (e) {
+        return [e.gid, e.raw && e.raw.stat, e.raw && e.raw.amt];
+      })];
+    }),
+    probe: R.probe, events: R.q.size(),
     // **ボスが何をしたか。**動いていないときに黙って通らないための報せ
     bossGg: bossU.gg || 0, bossAtg: bossU.atg || 0,
     bossPhase: bst ? bst.phase : null, bossEx: bst ? bst.exCount : 0,

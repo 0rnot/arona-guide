@@ -214,6 +214,17 @@ export function driveBoss(ctx) {
       st.phase = p; st.n = 0; st.gauge = 0; u.atg = 0;
       return waits[p] || 0;
     }
+    // **雑魚の HP を 1 本の棒に束ねる**（`ConnectCharacterToDummy`。束に 355 行）。
+    // カイテンジャーは 5 人のレンジャーが `Kaitenranger_Boss`（棒だけの体）に
+    // 繋がっていて、**誰を撃っても同じ棒が減る。**繋いでいなかったので、
+    // 与ダメージ 6,225,406 のうち棒に届いたのは 27,706 だけだった（2026-09-07）。
+    // 流し方は `DamageTransferEffectDAO` と同じ札を使う
+    if (b === 'ConnectCharacterToDummy') {
+      var cid2 = num(arg);
+      var cu = (cid2 != null && R.unitOf) ? R.unitOf('e' + cid2) : null;
+      if (cu && cu !== u) { cu.xfer = { ratio: 10000, to: u.key }; }
+      return 0;
+    }
     if (b === 'ClearNormalSkill') { st.n = 0; return 0; }
     if (b === 'AddGroggy') { st.groggy = true; return 0; }
     return 0;
