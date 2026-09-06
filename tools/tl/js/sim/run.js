@@ -273,7 +273,13 @@ function fire(R, ev, caster, target, lvl, at, mc) {
     }
     var o = hitOnce(a, d, s, R.C, R.lvTable, R.caps);
     var dmg = R.rnd ? hitRoll(o, R.rnd) : o.avg;
-    dmg *= (ev.single ? 1 : (mc != null ? mc : (R.mc || 1)));
+    // **当たる体の数を掛けるのは、ボス本体以外だけ。**
+    // TL の `mc` は「範囲に入るミニオンの数」で、ボス本体に当たるかどうかは別の欄（`hb`）。
+    // 盤がまだ無くてミニオンが湧かないので、ここで `mc` を掛けるとボスの HP が
+    // **ミニオンぶんまで削れる**（2026-09-06。ペロロジラの答え合わせで、
+    // 実測が時間切れの TL を核が 87 秒で討伐した）。第 2 段で盤が入ったら、
+    // ミニオン 1 体 1 体を狙って当てるので、この掛け算自体が要らなくなる
+    dmg *= (ev.single || target.kind === 'Boss') ? 1 : (mc != null ? mc : (R.mc || 1));
     target.hp = Math.max(0, target.hp - dmg);
     R.total += dmg;
     // **どこから出たダメージか。**核の穴を探すのに要る（合計だけ見ても分からない）
