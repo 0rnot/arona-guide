@@ -14,7 +14,11 @@
    SchaleDB の `js/common.js` の `calculateDamage` ／ Zenn「ブルーアーカイブ
    ダメージ計算の仕組み」13〜14 章 ／ ItJustWorks の Library of Stats and Formulas。
    定数は `Excel/ConstCombatExcelTable`（`DefenceConstC 6000` / `AccuracyConstC 3000` /
-   `CriticalConstA 4000` `CriticalConstC 6000`）。
+   `CriticalConstA 4000` `CriticalConstC 6000`）と
+   `DB/CharacterLevelStatFactorExcelTable`（`DefenceFactor 1000` / `AccuracyFactor 200` /
+   `CriticalFactor 1000` / `StabilityFactor 1000`。**レベルで変わらない**ことを
+   全 200 行で確かめた。`dmg.js` の `* 1000` と `/ 5` はこれの決め打ちだった）。
+   `C` にはこの 2 つの表を合わせたものを渡す（`run.js` の `constOf`）。
 
    ## 引数
 
@@ -42,27 +46,32 @@ function clamp(v, a, b) { return v < a ? a : (v > b ? b : v); }
 export function defMod(def, pen, ig, C) {
   var c = (C && C.DefenceConstC) || 6000;
   var a = (C && C.DefenceConstA) || 10000;
+  var f = (C && C.DefenceFactor) || 1000;
   var d2 = Math.max(((def || 0) - (pen || 0)) * ((ig == null ? 10000 : ig) / 10000), 0);
-  return (a * 1000) / (d2 * c + a * 1000);
+  return (a * f) / (d2 * c + a * f);
 }
 
 /** 命中率。**`dmg.js` の写し。**`AccuracyConstA 10000` / `AccuracyConstC 3000` */
 export function hitRate(dodge, acc, C) {
   var a = (C && C.AccuracyConstA) || 10000;
   var c = (C && C.AccuracyConstC) || 3000;
-  return clamp((a / 5) / (Math.max((dodge || 0) - (acc || 0), 0) * (c / 1000) + a / 5), 0, 1);
+  // `AccuracyFactor 200` → `a * 200 / 1000` = `a / 5`。**`dmg.js` と同じ値**
+  var f = a * ((C && C.AccuracyFactor) || 200) / 1000;
+  return clamp(f / (Math.max((dodge || 0) - (acc || 0), 0) * (c / 1000) + f), 0, 1);
 }
 
 /** 会心率。**`dmg.js` の写し。**`CriticalConstA 4000` / `CriticalConstC 6000` */
 export function critRate(cp, resist, C) {
   var a = (C && C.CriticalConstA) || 4000;
   var c = (C && C.CriticalConstC) || 6000;
-  return clamp(1 - (a * 1000) / (Math.max((cp || 0) - (resist || 0), 0) * c + a * 1000), 0, 1);
+  var f = (C && C.CriticalFactor) || 1000;
+  return clamp(1 - (a * f) / (Math.max((cp || 0) - (resist || 0), 0) * c + a * f), 0, 1);
 }
 
 /** 安定値からくる最小倍率。**`dmg.js` の写し**（`stab / (stab + 1000) + stabR / 10000`） */
-export function stabMin(stab, stabR) {
-  return clamp((stab || 0) / ((stab || 0) + 1000) + (stabR || 0) / 10000, 0, 1);
+export function stabMin(stab, stabR, C) {
+  var f = (C && C.StabilityFactor) || 1000;
+  return clamp((stab || 0) / ((stab || 0) + f) + (stabR || 0) / 10000, 0, 1);
 }
 
 /** レベル差の倍率。**表は `BattleLevelFactorExcelTable`。**
@@ -145,7 +154,7 @@ export function once(a, d, s, C, lvTable, caps) {
              drA * drB * exM * baM * lvMod(s.lvDiff || 0, lvTable) * tick *
              (s.sm == null ? 1 : s.sm) * (s.hr == null ? 1 : s.hr);
 
-  var sMin = s.noStab ? 1 : stabMin(a.stab, a.stabR);
+  var sMin = s.noStab ? 1 : stabMin(a.stab, a.stabR, C);
   var h = s.hit != null ? s.hit : hitRate(d.dodge, a.acc, C);
   var cr = s.crit != null ? s.crit : critRate(a.crit, d.critResist, C);
   // **会心の倍率には 1 倍の下限。**下限が無いと合計が負になる

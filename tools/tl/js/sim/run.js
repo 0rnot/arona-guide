@@ -124,6 +124,17 @@ export function naInfo(doc, spd, ammo, cost) {
     ヒープにして 1 戦あたりの取り出しが log n になる。
     処理の途中で新しい事象が入る（技が技を呼ぶ）ので、
     並べ替えて添字で進める作りにはできない。 */
+/** 式に使う定数。**`Excel/ConstCombatExcelTable` と
+    `DB/CharacterLevelStatFactorExcelTable` を 1 つに。**後者は全 200 行で同じ値
+    （`DefenceFactor 1000` / `AccuracyFactor 200` / `CriticalFactor 1000` /
+    `StabilityFactor 1000`）なので、レベルでは引かず先頭の行を使う。 */
+function constOf(common) {
+  var C = {}, k, src = common.const || {}, lv = (common.lvstat || [])[0] || {};
+  for (k in src) { C[k] = src[k]; }
+  for (k in lv) { if (k !== 'Level') { C[k] = lv[k]; } }
+  return C;
+}
+
 function queue() {
   var a = [], seq = 0;
   function less(x, y) { return x.t < y.t || (x.t === y.t && x.i < y.i); }
@@ -301,7 +312,7 @@ export function run(o) {
   var R = {
     b: b, ctx: ctxOf(b), eff: eff, q: queue(), evCache: {},
     total: 0, used: [], unknown: 0, unknownBy: {}, miss: {},
-    durMs: durMs, mc: o.mc || 1, C: common.const || {},
+    durMs: durMs, mc: o.mc || 1, C: constOf(common),
     lvTable: common.lvdiff || null, caps: capsOf(common.calcLimit),
     rnd: o.seed != null ? mulberry(o.seed) : null,
     // **撃つ側の値。**素の値に、**その瞬間に乗っている札**を畳んでから返す。
