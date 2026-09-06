@@ -34,6 +34,7 @@ import { all as condAll, mulOf, unknownOf } from './cond.js';
 import { makeBoard, makeUnit, add, living, ctxOf, applyMark, expire, tickCost }
   from './state.js';
 import { once as hitOnce, roll as hitRoll, capsOf } from './hit.js';
+import { bossPlan, phaseWaits, driveBoss } from './boss.js';
 
 var FPS = 30;
 
@@ -76,8 +77,15 @@ export function statsNow(u) {
   // 既定が 10000 の欄（素の行に無いことがある）
   var DEF = ['DamageRatio', 'DamageRatio2', 'EnhanceExDamageRate', 'EnhanceBasicsDamageRate'];
   for (i = 0; i < DEF.length; i++) { if (out[DEF[i]] == null) { out[DEF[i]] = 10000; } }
-  if (out.DefensePower == null && base.DefensePower100 != null) {
-    out.DefensePower = base.DefensePower100;
+  // **敵の素の行は `X1` / `X100` の 2 本立てで、素の名前を持っていない。**
+  // ここを埋めるまで、ボスの `AttackPower` が `undefined` → 一撃が 0 になっていた
+  // （2026-09-06。ボスは 32 発殴っていたのに味方が 1 人も減らなかった）。
+  // 生徒の側は `grow.js` が素の名前で返すので、この輪は空回りする
+  for (k in base) {
+    if (k.length > 3 && k.slice(-3) === '100') {
+      var bare = k.slice(0, -3);
+      if (out[bare] == null && base[bare + '1'] != null) { out[bare] = base[k]; }
+    }
   }
   return out;
 }
@@ -268,6 +276,51 @@ function fire(R, ev, caster, target, lvl, at, mc) {
   // 木は前から `dist` として運んでいたのに、ここで使っていなかった
   if (ev.dist != null) { mul *= ev.dist / 10000; }
 
+  // ---- 回復。**味方が生き延びるかはここで決まる。**
+  // ボスが殴るようになるまで要らなかったので置いていなかった（2026-09-06）。
+  // 焼き出しの道具は味方をそもそも持っていないので、ここに手本は無い。
+  // 式は `LogicEffectData` の欄そのまま: 撃つ子の `BonusSource` の値 ×
+  // `BonusRate` ÷ 10000。受け手の `HealEffectivenessRate` が掛かる
+  if (r.kind === 'heal' || r.kind === 'hot') {
+    var hs = statsNow(caster), rs = statsNow(target);
+    var amt = (hs[r.src || 'HealPower'] || 0) * (r.rate || 0) / 10000 * mul;
+    amt *= (rs.HealEffectivenessRate != null ? rs.HealEffectivenessRate : 10000) / 10000;
+    var ht = 1;
+    if (r.kind === 'hot' && r.period && r.dur) {
+      ht = Math.max(0, Math.min(Math.floor(r.dur / r.period),
+                                Math.floor((R.durMs - at) / r.period)));
+    }
+    amt *= ht;
+    if (target.hp > 0 && amt > 0) {
+      var was = target.hp;
+      target.hp = Math.min(target.maxHp, target.hp + amt);
+      R.heal += target.hp - was;
+    }
+    return 0;
+  }
+  // ---- ボスの EX ゲージ・グロッキーゲージ。**盤の状態そのもの**
+  if (r.kind === 'atg') {
+    target.atg = (target.atg || 0) + (r.amt || 0);
+    if (R.onAtg) { R.onAtg(target, at); }
+    return 0;
+  }
+  if (r.kind === 'groggy') {
+    // **`CasterCoefficientAmount` は撃つ子の値に対する割合ではなく、そのまま溜まる量**
+    var gv = (r.amt || 0) * mul;
+    if (!target.groggyImmune && gv > 0) {
+      target.gg = (target.gg || 0) + gv;
+      if (R.onGroggy) { R.onGroggy(target, at); }
+    }
+    return 0;
+  }
+  // ---- 盾。**受けたぶんを先に食う**（`CasterStatType` × `CasterCoefficientAmount`）
+  if (r.kind === 'shield') {
+    var ss = statsNow(caster);
+    var sh = (ss[r.src || 'MaxHP'] || 0) * (r.rate || 0) / 10000 * mul;
+    if (sh > 0) { target.shield = (target.shield || 0) + sh; }
+    return 0;
+  }
+
   if (isDamage(r.kind)) {
     var a = R.attacker(caster, ev, at);
     var d = R.defender(target);
@@ -293,6 +346,12 @@ function fire(R, ev, caster, target, lvl, at, mc) {
     // 実測が時間切れの TL を核が 87 秒で討伐した）。第 2 段で盤が入ったら、
     // ミニオン 1 体 1 体を狙って当てるので、この掛け算自体が要らなくなる
     dmg *= (ev.single || target.kind === 'Boss') ? 1 : (mc != null ? mc : (R.mc || 1));
+    // **盾が先に食う。**残りだけが HP を削る
+    if (target.shield > 0) {
+      var eat = Math.min(target.shield, dmg);
+      target.shield -= eat;
+      dmg -= eat;
+    }
     target.hp = Math.max(0, target.hp - dmg);
     R.total += dmg;
     // **どこから出たダメージか。**核の穴を探すのに要る（合計だけ見ても分からない）
@@ -398,6 +457,9 @@ export function run(o) {
       hp: s.MaxHP100, maxHp: s.MaxHP100,
       base: s,
     }));
+    // **敵も自分の札を引く。**ここを空にしておくと `cast` が黙って帰る
+    u.ls = boss.ls || {};
+    u.skillLv = {};
     // **盤に最初から居るのはボスだけ。**ミニオンは湧いてから
     if (c.TacticEntityType === 'Boss' && !bossU) { bossU = u; } else { u.alive = false; }
   }
@@ -429,7 +491,7 @@ export function run(o) {
 
   var R = {
     b: b, ctx: ctxOf(b), eff: eff, q: queue(), evCache: {},
-    total: 0, used: [], unknown: 0, unknownBy: {}, miss: {}, by: {},
+    total: 0, heal: 0, used: [], unknown: 0, unknownBy: {}, miss: {}, by: {},
     durMs: durMs, mc: o.mc || 1, C: constOf(common),
     lvTable: common.lvdiff || null, caps: capsOf(common.calcLimit),
     rnd: o.seed != null ? mulberry(o.seed) : null,
@@ -472,14 +534,18 @@ export function run(o) {
       var side = (ev.sel && ev.sel.side) || (u.side === 'ally' ? 'Enemy' : 'Player');
       if (side === 'Self') { return [u]; }
       var mine = u.side === 'ally';
+      // **倒れた体は狙わない。**ここが `allies.slice()` のままだと、
+      // ボスは最初の 1 人の死体を殴り続ける（2026-09-06）
+      var alive = living(b, 'ally');
       var team;
-      if (side === 'Enemy') { team = mine ? living(b, 'enemy') : allies.slice(); }
-      else { team = mine ? allies.slice() : living(b, 'enemy'); }
+      if (side === 'Enemy') { team = mine ? living(b, 'enemy') : alive; }
+      else { team = mine ? alive : living(b, 'enemy'); }
       var max = ev.sel ? ev.sel.max : null;
       // **味方 1 人にだけ乗る札は、TL の「渡し先」へ。**
       // 指定が無いと枠の先頭に乗って、ヒマリの攻撃力バフがタンクに付く
       // （TL の `to` は枠の番号。`bridge.js` が核の並びに直して渡す）
-      if (to != null && mine && side !== 'Enemy' && max === 1 && allies[to]) {
+      if (to != null && mine && side !== 'Enemy' && max === 1
+          && allies[to] && allies[to].alive) {
         return [allies[to]];
       }
       if (max != null && max > 0 && team.length > max) { team = team.slice(0, max); }
@@ -595,22 +661,56 @@ export function run(o) {
     })(o.tl[i]);
   }
 
+  // ---- ボスを動かす。**木（BossExternalBT）をそのまま回す**（2026-09-06）
+  //
+  // ここが無いあいだ、核は「ボスが棒立ちの的」を殴っているだけだった。
+  // フェーズも通常攻撃も EX も無いので味方が一度も倒れず、答え合わせで
+  // 31 本とも 240 秒ボスが生き残っていた（道具は 11 本討伐している）
+  var bst = null;
+  if (o.bossActs !== false) {
+    try {
+      var plan = bossPlan(boss, bossU.charId);
+      var waits = phaseWaits(boss.board);
+      bst = driveBoss({
+        R: R, u: bossU, plan: plan, waits: waits, durMs: durMs,
+        cast: function (cu, gid, slot, lv, at) { cast(R, cu, gid, slot, lv, at); },
+      });
+    } catch (e) {
+      R.bossErr = String(e && e.message || e);
+    }
+  }
+
   // ---- 回す。**0.1 秒刻みで札の時間切れとコストを進める**
-  var step = o.step || 100, hp = [], t3;
+  var step = o.step || 100, hp = [], t3, downAt = [];
   for (t3 = 0; t3 <= durMs; t3 += step) {
     b.t = t3;
     R.q.drain(t3, 200000);
     var us = living(b), k;
     for (k = 0; k < us.length; k++) { expire(us[k], t3); }
+    // **倒れた体は盤から降ろす。**ここを入れるまで味方は 6 人揃ったままだった
+    for (k = 0; k < us.length; k++) {
+      if (us[k].hp <= 0 && us[k].alive) {
+        us[k].alive = false;
+        if (us[k].side === 'ally') { downAt.push([us[k].key, t3 / 1000]); }
+      }
+    }
+    // **HP のしきい値はダメージが入った瞬間に効く**（`HPUnder → ChangePhase`）
+    if (bst && bst.check) { bst.check(t3); }
     tickCost(b, step);
     hp.push([t3 / 1000, bossU.hp]);
     if (bossU.hp <= 0) { break; }
+    // **全滅したらそこで終わり**
+    if (!living(b, 'ally').length) { break; }
   }
   return {
     hp: hp, total: R.total, killAt: bossU.hp <= 0 ? t3 / 1000 : null,
     maxHp: bossU.maxHp, used: R.used,
     unknown: R.unknown, unknownBy: R.unknownBy, miss: R.miss, by: R.by,
-    events: R.q.size(),
+    heal: R.heal, events: R.q.size(),
+    // **ボスが何をしたか。**動いていないときに黙って通らないための報せ
+    bossPhase: bst ? bst.phase : null, bossEx: bst ? bst.exCount : 0,
+    bossNa: bst ? bst.n : 0, bossErr: R.bossErr || null,
+    wipeAt: living(b, 'ally').length ? null : t3 / 1000, downAt: downAt,
   };
 }
 

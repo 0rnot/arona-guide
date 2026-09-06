@@ -247,6 +247,11 @@ export function readOne(r) {
   if (t === 'ResetAutoUseRule') { o.kind = 'nsReset'; return o; }
   if (t === 'WriteEntityToBlackboard') { o.kind = 'bbWrite'; o.bb = r.BlackboardKey || null; return o; }
   if (t === 'GroggyGauge') { o.kind = 'groggy'; o.amt = r.CasterCoefficientAmount || 0; return o; }
+  // **ボスの EX ゲージ**（`AddCurrentATGEffectDAO`）。ペロロジラは Ex09（吸収）が
+  // 1 回 150 入れ、通常攻撃の `AddActiveGauge +1` と合わせて
+  // 150 × 2 ＋ 1 ＝ 301 で `CheckActiveGaugeOver 301` を越えて段が回る。
+  // **ここが無いあいだ、ボスの段は 0 のまま動かなかった**（2026-09-06）
+  if (t === 'AddCurrentATG') { o.kind = 'atg'; o.amt = r.Amount || 0; return o; }
   if (t === 'MaxHpOverHeal') { o.kind = 'overheal'; return o; }
   if (t === 'Summon') { o.kind = 'summon'; o.id = r.SummonId || null; return o; }
   return o;

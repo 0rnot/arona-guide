@@ -286,6 +286,33 @@ def build_common(out_dir):
     return len(raw), len(gz)
 
 
+def take_ent(c, ents, csl_rows, groups, ph_by, csl_by):
+    """敵を 1 体束に入れて、**その子の枠の名前を `groups` に足す。**
+
+    枠は `CharacterSkillListExcelTable` の行から取る。木の `UseSelectExSkill k` が
+    指すのは `ExSkillGroupId[k]` で、`RaidSkillDescriptionList`（画面の説明）とは別物。
+    """
+    cid = c.get("Id")
+    if cid in ents:
+        return
+    ents[cid] = c
+    for pr in ph_by.get(cid, []):
+        g = pr.get("NormalAttackSkillUniqueName")
+        if g and g not in groups:
+            groups.append(g)
+    rows = csl_by.get(cid) or []
+    if rows:
+        csl_rows[cid] = [strip(r) for r in rows]
+    for r in rows:
+        for fld in ("ExSkillGroupId", "NormalSkillGroupId", "PassiveSkillGroupId",
+                    "ExtraPassiveSkillGroupId", "PublicSkillGroupId",
+                    "HiddenSkillGroupId"):
+            v = r.get(fld)
+            for g in (v if isinstance(v, list) else [v]):
+                if g and g != "EmptySkill" and g not in groups:
+                    groups.append(g)
+
+
 def build_bosses(out_dir, chars, st_by, le_npc_by, le_pc_by, sk_by, want):
     """**総力戦と大決戦のボス 1 面 1 ファイル。**原文のまま。
 
@@ -297,6 +324,14 @@ def build_bosses(out_dir, chars, st_by, le_npc_by, le_pc_by, sk_by, want):
                 → 木の `CharacterEntityDAO.UniqueName` → DevName でミニオンの実体と素の値
     """
     ground = {r.get("Id"): r for r in db("GroundExcelTable")}
+    # **敵の枠は `CharacterSkillListExcelTable` にある。**キーは `CharacterId` ではなく
+    # `CharacterSkillListGroupId` で、ボスとミニオンはそこに実 ID がそのまま入る。
+    # 木の `UseSelectExSkill k` はこの行の `ExSkillGroupId[k]`（10 枠）を指す。
+    # `RaidSkillDescriptionList` の並びは画面に出す説明で、**枠とは別物**
+    # （ペロロジラは説明が 6 本しか無く、Ex04〜Ex08 が束から丸ごと抜けていた）
+    csl_by = {}
+    for r in db("CharacterSkillListExcelTable"):
+        csl_by.setdefault(r.get("CharacterSkillListGroupId"), []).append(r)
     bt_by, ph_by = {}, {}
     for r in db("BossExternalBTExcelTable"):
         bt_by.setdefault(r.get("ExternalBTId"), []).append(r)
@@ -321,31 +356,32 @@ def build_bosses(out_dir, chars, st_by, le_npc_by, le_pc_by, sk_by, want):
             continue
         d = desc.get((sr.get("RaidBossGroup"), sr.get("Difficulty")))
         groups = list((d or {}).get("SkillGroupId") or [])
-        ents = {}
+        ents, csl_rows = {}, {}
         for cid in (sr.get("BossCharacterId") or []):
             c = chars_by_id.get(cid)
-            if not c:
-                continue
-            ents[cid] = c
-            for pr in ph_by.get(cid, []):
-                g = pr.get("NormalAttackSkillUniqueName")
-                if g and g not in groups:
-                    groups.append(g)
-        ls, eids, names = {}, set(), set()
-        for g in groups:
-            t = level_skill(g)
-            if t is None:
-                continue
-            ls[g] = strip(t)
-            effect_ids(t, eids)
-            entity_names(t, names)
-        # ミニオンは名前で引く。**その子の木ももう一段だけ辿る**
-        for nm in sorted(names):
-            c = resolve_dev(nm, by_dev)
             if c:
-                ents[c["Id"]] = c
-            else:
-                _dev_miss.add(nm)
+                take_ent(c, ents, csl_rows, groups, ph_by, csl_by)
+        # **木を歩いて、出てきた実体の枠もまた歩く。**ミニオンは自分でも撃つので、
+        # 1 周で止めると湧いた子の通常攻撃と EX が束に入らない
+        ls, eids, names, walked = {}, set(), set(), set()
+        for _ in range(4):
+            todo = [g for g in groups if g not in walked]
+            if not todo:
+                break
+            for g in todo:
+                walked.add(g)
+                t = level_skill(g)
+                if t is None:
+                    continue
+                ls[g] = strip(t)
+                effect_ids(t, eids)
+                entity_names(t, names)
+            for nm in sorted(names):
+                c = resolve_dev(nm, by_dev)
+                if c:
+                    take_ent(c, ents, csl_rows, groups, ph_by, csl_by)
+                else:
+                    _dev_miss.add(nm)
         le = []
         for g in sorted(eids):
             rows = le_npc_by.get(g) or le_pc_by.get(g) or []
@@ -364,7 +400,7 @@ def build_bosses(out_dir, chars, st_by, le_npc_by, le_pc_by, sk_by, want):
             "kind": kind, "stage": strip(sr),
             "ground": strip(gr0),
             "board": board,
-            "groups": groups, "ls": ls, "le": le, "sk": sk,
+            "groups": groups, "csl": csl_rows, "ls": ls, "le": le, "sk": sk,
             "bt": [strip(r) for cid in ents for r in bt_by.get(
                 (ents[cid] or {}).get("ExternalBTId"), [])],
             "phase": [strip(r) for cid in ents for r in ph_by.get(cid, [])],
