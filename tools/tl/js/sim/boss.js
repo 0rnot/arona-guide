@@ -4,22 +4,50 @@
 // 畳まない。畳むと、味方が速くて周回が早まったときに追随しない。
 //
 // 木は 1 行が「引き金 → ふるまい」の組で、`AIPhase` ごとに束ねてある。
+// **どの体の木かは `CharacterExcelTable.ExternalBTId`**（シロクロは 7302700 / 7302701、
+// カイテンジャーは棒 7404701 と本体 7404700 で別々。2026-09-07 まで全部を 1 体に
+// 束ねていた）。
 //
 //   ExternalBTTrigger        TriggerArgument     いつ
 //     UseNormalSkill           N                 通常攻撃 N 発目のあと
-//     CheckPeriod              ミリ秒            その間隔ごと（1 は「いつでも」＝落ち穂拾い）
-//     CheckActiveGaugeOver     N                 ゲージが N を越えたら
+//     CheckPeriod              ミリ秒            その間隔ごと（1 は「いつでも」）
+//     CheckActiveGaugeOver     N                 ゲージが N 以上なら
 //     CheckActiveGaugeBetween  a,b               ゲージが a〜b のあいだ
-//     HPUnder                  1/100000 単位     HP がその割合を切ったら
+//     HPUnder                  HP                **HP がその値以下**（割合ではない。
+//                                                ビナー 13,800,000 / 5,750,000、
+//                                                シロクロの 45,000,001 は「最初から」）
 //     ApplyGroggy              —                 グロッキーに入ったら
 //     OnSpawned                —                 湧いた直後
-//     CheckSummonCharacterCountUnder N           呼んだ子が N 体未満なら
+//     CheckSummonCharacterCountUnder/Over N      呼んだ子が N 体以下／以上
+//     CheckHallucinationCountUnder/Over N        幻影（ゴズ）が N 体以下／以上
+//     ApplyLogicEffectTemplateId T               その札（TemplateId）がどこかに貼られたら
+//                                                （ホドの仮設タワーが死んで貼る
+//                                                `Dummy_HOD_TemporaryDeadChangePhase01`、
+//                                                ケセドの `Attack_Damage_Chesed`）
 //
 //   ExternalBehavior         BehaviorArgument    何をする
 //     UseSelectExSkill         k                 `ExSkillGroupId[k]` を撃つ（10 枠）
+//     AlivePartsUseExSkill     k                 その部位が生きていれば撃つ
 //     AddActiveGauge           ±d                ゲージを足す
 //     ChangePhase              p                 段を移る（ForceChangePhase も同じ）
 //     ClearNormalSkill         —                 通常攻撃の数えを 0 に戻す
+//
+// **`ExternalBTNodeType` が木の形**（2026-09-07。全 10,868 行のうち Instant 33,331・
+// Selector 4,374・Sequence 2,163・SubNode 1,187 — 束の合計）:
+//     Instant    その行だけ
+//     Selector   その行と、続く `SubNode` の行が候補。**上から順に、できた 1 つで止まる**
+//                （ヒエロニムスは 4 発目のあと EX1、クールタイム中なら EX2、それも駄目なら EX0。
+//                 ゴズは 3333 / 5000 / 10000 の順で振って 3 つから 1 つ）
+//     Sequence   その行と続く `SubNode` を順に全部。できなかったらそこで止まる
+//     SubNode    直前の Selector / Sequence の子（`AIPhase` は当てにならない。
+//                カイテンジャーは段 1 の Selector に段 0 の SubNode がぶら下がる）
+//
+// **EX には 3 つの都合がある**（`SkillExcelTable`）:
+//     UseAtg              その EX が使うゲージ（ヒエロニムス EX04 100、ゴズ EX02 900、
+//                         ホド EX05 100）。`CheckActiveGaugeOver N` の N と揃う。
+//                         足りなければ撃てず、撃ったらそのぶん減る
+//     EnemyStartCoolTime  戦闘開始からこのミリ秒は撃てない（ヒエロニムス EX02 45,000）
+//     EnemyCoolTime       撃ってからこのミリ秒は撃てない
 //
 // **通常攻撃 1 発は「構え → 撃つ → 戻す」で 1 周**（`AttackStartDuration` ＋
 // `AttackIngDuration` ＋ `AttackEndDuration`）。**EX を撃っている間は数えが止まる**ので、
@@ -57,7 +85,7 @@ function pair(v) {
 
 /** 台本を段ごとにまとめる。**回す前に 1 回だけ。** */
 export function bossPlan(boss, cid) {
-  var bt = boss.bt || [], ph = boss.phase || [], ls = boss.ls || {};
+  var bt0 = boss.bt || [], ph = boss.phase || [], ls = boss.ls || {};
   var csl = (boss.csl || {})[cid] || (boss.csl || {})[String(cid)] || [];
   var row0 = csl[0] || {};
   var ex = row0.ExSkillGroupId || [];
@@ -67,43 +95,86 @@ export function bossPlan(boss, cid) {
   }
   var spd = ((stx && stx.NormalAttackSpeed) || 10000) / 10000;
 
-  // EX 1 枠ぶんのモーション（ミリ秒）
-  var exMs = [];
-  for (i = 0; i < ex.length; i++) {
-    var f = (ex[i] && ex[i] !== 'EmptySkill') ? frames(ls[ex[i]]) : null;
-    exMs.push(f ? (f / FPS) * 1000 : 0);
+  // ---- この体の木だけ（`ExternalBTId`）。引けない束は今までどおり全部
+  var btId = null;
+  for (i = 0; i < (boss.ent || []).length; i++) {
+    if (boss.ent[i].Id === cid && boss.ent[i].ExternalBTId) { btId = boss.ent[i].ExternalBTId; }
   }
+  var bt = [];
+  for (i = 0; i < bt0.length; i++) {
+    if (btId == null || bt0[i].ExternalBTId == null || bt0[i].ExternalBTId === btId) { bt.push(bt0[i]); }
+  }
+  if (!bt.length) { bt = bt0; }
 
-  // 段ごとの通常攻撃
-  var naOf = {};
+  // ---- EX 1 枠ぶんのモーション（ミリ秒）と、ゲージ・クールタイム（`SkillExcelTable`）
+  var skBy = {}, sk = boss.sk || [];
+  for (i = 0; i < sk.length; i++) { if (!skBy[sk[i].GroupId]) { skBy[sk[i].GroupId] = sk[i]; } }
+  // **形態ごとの枠**（`CharacterSkillList` の `FormIndex`。ホドは形態 1 で
+  // `HODInsaneNormal02` と本物の `HODEx03_Torment` に入れ替わる。2026-09-07）
+  var forms = {}, fz;
+  for (fz = 0; fz < csl.length; fz++) {
+    var rowF = csl[fz], exF = rowF.ExSkillGroupId || [], fi = rowF.FormIndex || 0;
+    if (forms[fi]) { continue; }
+    var fo = { ex: exF, exMs: [], atg: [], cool: [], na: (rowF.NormalSkillGroupId || [])[0] || null };
+    for (i = 0; i < exF.length; i++) {
+      var fF = (exF[i] && exF[i] !== 'EmptySkill') ? frames(ls[exF[i]]) : null;
+      fo.exMs.push(fF ? (fF / FPS) * 1000 : 0);
+      var srowF = skBy[exF[i]] || {};
+      fo.atg.push(+srowF.UseAtg || 0);
+      fo.cool.push({ start: +srowF.EnemyStartCoolTime || 0, cool: +srowF.EnemyCoolTime || 0 });
+    }
+    forms[fi] = fo;
+  }
+  var f0 = forms[0] || { ex: ex, exMs: [], atg: [], cool: [], na: null };
+  var exMs = f0.exMs, atg = f0.atg, cool = f0.cool;
+
+  // ---- 段ごとの通常攻撃
+  var naOf = {}, hasRow = {};
   for (i = 0; i < ph.length; i++) {
     if (ph[i].Id !== cid) { continue; }
     naOf[ph[i].AIPhase] = ph[i].NormalAttackSkillUniqueName || null;
+    hasRow[ph[i].AIPhase] = 1;
   }
   // 段の表が無いボスは `CharacterSkillList` の通常枠で代える
   var fallbackNa = (row0.NormalSkillGroupId || [])[0] || null;
 
-  var phases = {};
+  // ---- 行を節に束ねる。Selector / Sequence に続く SubNode がその子
+  var nodes = [], cur = null;
   for (i = 0; i < bt.length; i++) {
-    var r = bt[i];
-    var p = r.AIPhase == null ? 0 : r.AIPhase;
-    if (!phases[p]) { phases[p] = { rows: [], na: null, naMs: 0, wrap: 0 }; }
-    phases[p].rows.push(r);
+    var r = bt[i], ty = String(r.ExternalBTNodeType || 'Instant');
+    if (ty === 'SubNode' && cur) { cur.kids.push(r); continue; }
+    cur = { type: ty === 'SubNode' ? 'Instant' : ty,
+            trig: String(r.ExternalBTTrigger || 'None'), arg: r.TriggerArgument,
+            phase: r.AIPhase == null ? 0 : r.AIPhase, kids: [r], i: i };
+    nodes.push(cur);
+  }
+  var phases = {};
+  for (i = 0; i < nodes.length; i++) {
+    var p = nodes[i].phase;
+    if (!phases[p]) { phases[p] = { rows: [], nodes: [], na: null, naMs: 0, wrap: 0 }; }
+    phases[p].nodes.push(nodes[i]);
+    phases[p].rows.push(nodes[i].kids[0]);
   }
   var keys = Object.keys(phases), k;
   for (k = 0; k < keys.length; k++) {
     var ps = phases[keys[k]], rows = ps.rows, j;
-    // **段の表の名前が束に無いことがある。**総力戦ビナーの `BossPhase` は
-    // `BinahNormalAttackSkill01` を指すが、`LevelSkill/` にその名前のファイルは無く、
-    // Torment で実際に使うのは `BinahInsaneNormalSkill01`（`CharacterSkillList` 側）。
-    // 引けない名前を持つと通常攻撃が 1 発も出ず、`UseNormalSkill` の行が
-    // 丸ごと死ぬ（2026-09-06。raid7 で「通常 0 発 ／ EX 63 回」になっていた）
-    var cand = [naOf[keys[k]], naOf[0], fallbackNa], ci;
-    ps.na = null;
-    for (ci = 0; ci < cand.length; ci++) {
-      if (cand[ci] && ls[cand[ci]]) { ps.na = cand[ci]; break; }
+    // **段の表が「通常攻撃なし」と言っている段は撃たない**（ホドの段 0・1。
+    // 仮設タワーを壊すまで本体は立っているだけ）
+    if (hasRow[keys[k]] && !naOf[keys[k]]) {
+      ps.na = null;
+    } else {
+      // **段の表の名前が束に無いことがある。**総力戦ビナーの `BossPhase` は
+      // `BinahNormalAttackSkill01` を指すが、`LevelSkill/` にその名前のファイルは無く、
+      // Torment で実際に使うのは `BinahInsaneNormalSkill01`（`CharacterSkillList` 側）。
+      // 引けない名前を持つと通常攻撃が 1 発も出ず、`UseNormalSkill` の行が
+      // 丸ごと死ぬ（2026-09-06。raid7 で「通常 0 発 ／ EX 63 回」になっていた）
+      var cand = [naOf[keys[k]], naOf[0], fallbackNa], ci;
+      ps.na = null;
+      for (ci = 0; ci < cand.length; ci++) {
+        if (cand[ci] && ls[cand[ci]]) { ps.na = cand[ci]; break; }
+      }
+      if (!ps.na) { ps.na = naOf[keys[k]] || naOf[0] || fallbackNa; }
     }
-    if (!ps.na) { ps.na = naOf[keys[k]] || naOf[0] || fallbackNa; }
     var nf = ps.na ? frames(ls[ps.na]) : null;
     ps.naMs = nf ? (nf / FPS) * 1000 / spd : 0;
     // **1 周の長さ。**`UseNormalSkill C → ClearNormalSkill` があればその C、
@@ -125,7 +196,8 @@ export function bossPlan(boss, cid) {
     ps.wrap = clr.length ? clr[0] : (anyPeriodClear && mx ? mx : 0);
     ps.max = mx;
   }
-  return { cid: cid, ex: ex, exMs: exMs, phases: phases, spd: spd };
+  return { cid: cid, btId: btId, ex: ex, exMs: exMs, atg: atg, cool: cool, phases: phases, spd: spd,
+           forms: forms, ls: ls, naOf: naOf, hasRow: hasRow, fallbackNa: fallbackNa };
 }
 
 /** 盤の台本から「段 p に入ったときの待ち」を拾う（ミリ秒）。
@@ -162,6 +234,16 @@ export function phaseWaits(board) {
   return out;
 }
 
+/** その節の子に EX を撃つ行があるか。 */
+function usesEx(nd) {
+  var i, b;
+  for (i = 0; i < nd.kids.length; i++) {
+    b = nd.kids[i].ExternalBehavior;
+    if (b === 'UseSelectExSkill' || b === 'AlivePartsUseExSkill') { return true; }
+  }
+  return false;
+}
+
 /** ボスを回す。`ctx` は run.js が渡す小さな取っ手。
 
       R       回している場（待ち行列と乱数を持っている）
@@ -170,49 +252,112 @@ export function phaseWaits(board) {
       waits   `phaseWaits` の返り
       durMs   戦闘の長さ
       cast    (u, gid, slot, lv, at) → その技を撃つ
-      onSpawn (何体, どの子) → ミニオンを湧かせる（run.js 側）
 
-    返すのは `{ st }`（外から HP とグロッキーの合図を入れるため）。 */
+    返すのは `st`（外から HP とグロッキーの合図を入れるため）。 */
 export function driveBoss(ctx) {
   var R = ctx.R, u = ctx.u, plan = ctx.plan, durMs = ctx.durMs;
   var waits = ctx.waits || {}, cast = ctx.cast;
   var st = {
     phase: 0, n: 0, gauge: 0, exCount: 0,
-    hpTriggered: {}, groggy: false, stopped: false,
+    hpTriggered: {}, groggy: false, stopped: false, busyUntil: 0,
+    coolUntil: {}, seenTmpl: {}, log: [],
   };
   var first = plan.phases[0] ? 0 : num(Object.keys(plan.phases)[0]) || 0;
   st.phase = first;
+  var k0;
+  for (k0 = 0; k0 < plan.ex.length; k0++) {
+    st.coolUntil[k0] = (plan.cool[k0] && plan.cool[k0].start) || 0;
+  }
 
   function ps() { return plan.phases[st.phase] || null; }
+  /** いまの形態の枠（EX の並び・モーション・ゲージ・クールタイム） */
+  function fp() { return (plan.forms && plan.forms[u.form || 0]) || (plan.forms && plan.forms[0]) || plan; }
+  /** いまの段・形態の通常攻撃。段の表が '' なら無し。表の名前が束に無ければ形態の枠で代える */
+  function naNow() {
+    var cur = ps(), ph = st.phase, ls = plan.ls || {};
+    if (!cur) { return null; }
+    if (plan.hasRow && plan.hasRow[ph] && !(plan.naOf || {})[ph]) { return null; }
+    var cand = [(plan.naOf || {})[ph], fp().na, (plan.naOf || {})[0], plan.fallbackNa], ci;
+    for (ci = 0; ci < cand.length; ci++) { if (cand[ci] && ls[cand[ci]]) { return cand[ci]; } }
+    return cur.na || null;
+  }
+  function naMsNow() {
+    var na = naNow(), nf = na ? frames((plan.ls || {})[na]) : null;
+    return nf ? (nf / FPS) * 1000 / (plan.spd || 1) : 0;
+  }
 
-  /** ふるまいを 1 つ実行して、**次の通常攻撃までに足す時間**を返す。 */
+  // **ゲージは 2 つの入口がある**（2026-09-07）。木が足す `AddActiveGauge` と、
+  // 札が足す `AddCurrentATG`（`run.js` の `u.atg`）。後者を見ていなくて、
+  // **ペロロジラの段が一度も変わらなかった**——あのボスの段は
+  // `CheckActiveGaugeOver 301`、つまり気絶したミニオンを吸って溜まる
+  // ゲージが 301 を越えたときに動く。
+  function gaugeNow() { return (st.gauge || 0) + (u.atg || 0); }
+  function spend(v) {
+    var g = gaugeNow() - v;
+    st.gauge = g < 0 ? 0 : g; u.atg = 0;
+  }
+
+  /** 呼んだ子の数（`Summoned` だけ。無ければボス以外ぜんぶ） */
+  function summons() {
+    if (R.summonCount) { return R.summonCount(); }
+    return R.minionCount ? R.minionCount() : 0;
+  }
+
+  function roll(r) {
+    var rate = r.BehaviorRate;
+    if (rate != null && rate < 10000 && R.rnd && R.rnd() * 10000 >= rate) { return false; }
+    return true;
+  }
+
+  /** 段を移る。**数えとゲージは 0 に戻る**（ペロロジラは `UseAtg 0` の EX09 で
+      ゲージが減らないので、ここで戻さないと同じ刻みで段を回り続ける）。
+      盤の `CharacterPhaseChanged → WaitSeconds` があればそのあいだ立っている。 */
+  function changePhase(p, now) {
+    st.phase = p; st.n = 0; st.gauge = 0; u.atg = 0;
+    var w = waits[p] || 0;
+    if (w > 0) { st.busyUntil = Math.max(st.busyUntil || 0, now + w); }
+    if (st.log) { st.log.push([now, 'ph' + p]); }
+    // 通常攻撃の無い段（ホドの段 0・1）から有る段へ。止めていた拍を起こす
+    if (st.stopped) {
+      st.stopped = false;
+      R.q.push(Math.max(now, st.busyUntil || 0), beat);
+    }
+  }
+
+  /** ふるまいを 1 つ実行して、**できたら true**。Selector はこれで次の子へ回るかを決める。 */
   function behave(r, now) {
     var b = r.ExternalBehavior, arg = r.BehaviorArgument;
-    if (r.BehaviorRate != null && r.BehaviorRate < 10000
-        && R.rnd && R.rnd() * 10000 >= r.BehaviorRate) { return 0; }
     if (b === 'UseSelectExSkill' || b === 'AlivePartsUseExSkill') {
       var k = num(arg);
-      if (k == null) { return 0; }
-      var gid = plan.ex[k];
-      if (!gid || gid === 'EmptySkill') { return 0; }
+      if (k == null) { return false; }
+      var fo = fp(), gid = fo.ex[k];
+      if (!gid || gid === 'EmptySkill') { return false; }
+      // クールタイム（`EnemyStartCoolTime` / `EnemyCoolTime`）とゲージ（`UseAtg`）
+      if (now < (st.coolUntil[k] || 0)) { return false; }
+      var need = fo.atg[k] || 0;
+      if (need > 0 && gaugeNow() < need) { return false; }
+      if (b === 'AlivePartsUseExSkill' && R.partAlive && !R.partAlive(u, k)) { return false; }
       cast(u, gid, 'Ex', 1, now);
       st.exCount++;
+      if (need > 0) { spend(need); }
+      if (fo.cool[k] && fo.cool[k].cool > 0) { st.coolUntil[k] = now + fo.cool[k].cool; }
       // **撃っている間は木を引き直さない。**`CheckSummonCharacterCountUnder` は
       // ゲージのように「使い切る」ものが無いので、これが無いと 0.1 秒ごとに
       // 呼び直して盤が雑魚で埋まる（2026-09-07）
-      st.busyUntil = Math.max(st.busyUntil || 0, now + (plan.exMs[k] || 0));
-      return plan.exMs[k] || 0;
+      st.busyUntil = Math.max(st.busyUntil || 0, now + (fo.exMs[k] || 0));
+      if (st.log) { st.log.push([now, 'Ex' + k]); }
+      return true;
     }
     if (b === 'AddActiveGauge') {
       st.gauge += (num(arg) || 0);
       if (st.gauge < 0) { st.gauge = 0; }
-      return 0;
+      return true;
     }
     if (b === 'ChangePhase' || b === 'ForceChangePhase') {
       var p = num(arg);
-      if (p == null || !plan.phases[p]) { return 0; }
-      st.phase = p; st.n = 0; st.gauge = 0; u.atg = 0;
-      return waits[p] || 0;
+      if (p == null || !plan.phases[p]) { return false; }
+      changePhase(p, now);
+      return true;
     }
     // **雑魚の HP を 1 本の棒に束ねる**（`ConnectCharacterToDummy`。束に 355 行）。
     // カイテンジャーは 5 人のレンジャーが `Kaitenranger_Boss`（棒だけの体）に
@@ -223,113 +368,142 @@ export function driveBoss(ctx) {
       var cid2 = num(arg);
       var cu = (cid2 != null && R.unitOf) ? R.unitOf('e' + cid2) : null;
       if (cu && cu !== u) { cu.xfer = { ratio: 10000, to: u.key }; }
-      return 0;
+      return true;
     }
-    if (b === 'ClearNormalSkill') { st.n = 0; return 0; }
-    if (b === 'AddGroggy') { st.groggy = true; return 0; }
-    return 0;
+    if (b === 'ClearNormalSkill') { st.n = 0; return true; }
+    if (b === 'AddGroggy') { st.groggy = true; return true; }
+    R.miss['bt:' + b] = (R.miss['bt:' + b] || 0) + 1;
+    return true;
+  }
+
+  /** 節を 1 つ引く。Selector は「できた 1 つ」で止まり、Sequence は失敗で止まる。 */
+  function runNode(nd, now) {
+    var kids = nd.kids, i, ok, any = false;
+    if (nd.type === 'Selector') {
+      for (i = 0; i < kids.length; i++) {
+        if (!roll(kids[i])) { continue; }
+        if (behave(kids[i], now)) { return true; }
+      }
+      return false;
+    }
+    for (i = 0; i < kids.length; i++) {
+      if (!roll(kids[i])) {
+        if (nd.type === 'Sequence') { return any; }
+        continue;
+      }
+      ok = behave(kids[i], now);
+      any = any || ok;
+      if (!ok && nd.type === 'Sequence') { return any; }
+    }
+    return any;
   }
 
   /** その瞬間に真になっている「数えない」引き金を引く。
 
-      **ゲージは撃ったら空になる。**ここを空にしていなくて、ビナーが
-      `CheckActiveGaugeOver 100` を満たした 9 秒から **0.1 秒ごとに EX を撃ち続け**、
-      15 秒で味方 6 人を全滅させていた（2026-09-06。`IrVUx0ywuyo` で 63 回）。
+      **`CheckActiveGaugeOver` は EX の `UseAtg` ぶんだけ減る**（2026-09-07）。
+      以前はここで 0 に戻していた——ゲージを空にしないと、越えたあとは毎刻み
+      撃つことになる（2026-09-06。`IrVUx0ywuyo` で 63 回）。`UseAtg 0` の EX
+      （ペロロジラの EX09）は `ChangePhase` の側で戻る。
       木の読み方はこう:
 
           Selector | CheckPeriod          1000 | AddActiveGauge   12
           Selector | CheckActiveGaugeOver 100  | UseSelectExSkill 2
 
-      1 秒ごとに 12 溜まって、100 を越えたら撃つ ＝ **8.3 秒に 1 発**。
-      溜める側と撃つ側が 1 つの `Selector` の子で、撃つほうがゲージを使う。
-      空にしないと、越えたあとは毎刻み撃つことになる。 */
+      1 秒ごとに 12 溜まって、100 に届いたら撃つ ＝ **8.3 秒に 1 発**。 */
   function checkStanding(now) {
     var cur = ps();
-    if (!cur) { return 0; }
-    var rows = cur.rows, i, extra = 0, spent = false;
-    // **この一巡ぶんの「撃っている最中か」。**行ごとに見ると、同じ引き金の
-    // `Sequence`（`UseSelectExSkill` ＋ `AddActiveGauge -50`）の 2 行目が落ちる
-    var busy = now < (st.busyUntil || 0);
-    // **ゲージは 2 つの入口がある**（2026-09-07）。木が足す `AddActiveGauge` と、
-    // 札が足す `AddCurrentATG`（`run.js` の `u.atg`）。後者を見ていなくて、
-    // **ペロロジラの段が一度も変わらなかった**——あのボスの段は
-    // `CheckActiveGaugeOver 301`、つまり気絶したミニオンを吸って溜まる
-    // ゲージが 301 を越えたときに動く。1 戦ずっと段 0 のままで、
-    // 節も進まず（盤の `StartSection` が `CharacterPhaseChanged` 待ち）、
-    // 8 秒の間も 4 回ぶん丸ごと落ちていた
-    var gnow = (st.gauge || 0) + (u.atg || 0);
-    for (i = 0; i < rows.length; i++) {
-      var r = rows[i], tg = r.ExternalBTTrigger;
+    if (!cur) { return; }
+    var nodes = cur.nodes, i, ph0 = st.phase, busy;
+    for (i = 0; i < nodes.length; i++) {
+      var nd = nodes[i], tg = nd.trig, a = nd.arg, lim;
+      // **撃っている最中は撃つ節を引かない。**節ごとに見直す——ホドの `HPUnder 9,000,000 …
+      // 8,100,000 → EX3` は 10 行あって、一巡の頭で 1 回だけ見ると 10 発が同じ瞬間に出る
+      busy = now < (st.busyUntil || 0);
+      if (busy && usesEx(nd)) { continue; }
       if (tg === 'CheckSummonCharacterCountUnder') {
         // **呼んだ子が N 体以下なら呼び直す。**ケセドの筋道の 1 本目
-        // （`TriggerArgument: "0"` ＝ 1 体も居ないとき。段ごとに呼ぶ EX が変わる
-        //  ——段 1 なら `UseSelectExSkill 1` ＝ `ExSkillGroupId[1]`）。
-        // これが無いあいだ、ケセドは `ChesedInsaneExSkill02` だけを 11 回撃って
-        // 雑魚を 1 体も呼ばず、**グロッキーの鎖が始まらなかった**
-        var lim2 = num(r.TriggerArgument);
-        if (!busy && lim2 != null && R.minionCount && R.minionCount() <= lim2) {
-          extra += behave(r, now);
-        }
+        // （`TriggerArgument: "0"` ＝ 1 体も居ないとき。段ごとに呼ぶ EX が変わる）
+        lim = num(a);
+        if (lim != null && summons() <= lim) { runNode(nd, now); }
+      } else if (tg === 'CheckSummonCharacterCountOver') {
+        lim = num(a);
+        if (lim != null && summons() >= lim) { runNode(nd, now); }
+      } else if (tg === 'CheckHallucinationCountUnder') {
+        lim = num(a);
+        if (lim != null && R.hallucinationCount && R.hallucinationCount() <= lim) { runNode(nd, now); }
+      } else if (tg === 'CheckHallucinationCountOver') {
+        lim = num(a);
+        if (lim != null && R.hallucinationCount && R.hallucinationCount() >= lim) { runNode(nd, now); }
       } else if (tg === 'CheckActiveGaugeOver') {
-        var lim = num(r.TriggerArgument);
-        if (lim != null && gnow > lim) { extra += behave(r, now); spent = true; }
+        lim = num(a);
+        if (lim != null && gaugeNow() >= lim) { runNode(nd, now); }
       } else if (tg === 'CheckActiveGaugeBetween') {
-        var ab = pair(r.TriggerArgument);
+        var ab = pair(a);
         if (ab[0] != null && ab[1] != null
-            && gnow >= ab[0] && gnow <= ab[1]) { extra += behave(r, now); }
+            && gaugeNow() >= ab[0] && gaugeNow() <= ab[1]) { runNode(nd, now); }
       } else if (tg === 'HPUnder') {
-        // `TriggerArgument` は 1/100000（75000 ＝ 75%）。**1 度だけ**
-        var pct = num(r.TriggerArgument);
-        var kk = st.phase + '/' + i;
-        if (pct != null && !st.hpTriggered[kk]
-            && u.maxHp > 0 && (u.hp / u.maxHp) * 100000 <= pct) {
+        // **`TriggerArgument` は HP そのもの**（13 面ぜんぶ。割合ではない）。1 度だけ
+        var hv = num(a), kk = st.phase + '/' + nd.i;
+        if (hv != null && !st.hpTriggered[kk] && u.hp <= hv) {
           st.hpTriggered[kk] = 1;
-          extra += behave(r, now);
+          runNode(nd, now);
         }
+      } else if (tg === 'CheckPeriod' && (num(a) || 0) <= 1) {
+        // **`CheckPeriod 1` は「いつでも」。**`ClearNormalSkill` だけは台本の一周の印
+        // （`bossPlan` の `wrap`）なので引かない。`ChangePhase 1`（カイテンジャー・クロ）は
+        // 入った瞬間に段が移る
+        var onlyClr = true, z;
+        for (z = 0; z < nd.kids.length; z++) {
+          if (nd.kids[z].ExternalBehavior !== 'ClearNormalSkill') { onlyClr = false; }
+        }
+        if (!onlyClr) { runNode(nd, now); }
       }
+      if (st.phase !== ph0) { break; }
     }
-    if (spent) { st.gauge = 0; u.atg = 0; }
-    return extra;
   }
 
   /** 通常攻撃 1 発 → 木を引く → 次を積む。 */
   function beat(now) {
     if (st.stopped || now > durMs || !u.alive || u.hp <= 0) { return; }
-    var cur = ps();
-    if (!cur || !cur.na || !cur.naMs) { st.stopped = true; return; }
-    cast(u, cur.na, 'Normal', 1, now);
+    // EX の演出中・段替わりの待ちの中は撃たない。明けた瞬間に撃つ
+    if (now < (st.busyUntil || 0)) { R.q.push(st.busyUntil, beat); return; }
+    var cur = ps(), na = naNow(), naMs = naMsNow();
+    if (!cur || !na || !naMs) { st.stopped = true; return; }
+    cast(u, na, 'Normal', 1, now);
     st.n++;
-    var extra = 0, rows = cur.rows, i;
-    for (i = 0; i < rows.length; i++) {
-      if (rows[i].ExternalBTTrigger !== 'UseNormalSkill') { continue; }
-      if (num(rows[i].TriggerArgument) !== st.n) { continue; }
-      extra += behave(rows[i], now);
+    var before = st.busyUntil || 0, nodes = cur.nodes, i, ph0 = st.phase;
+    for (i = 0; i < nodes.length; i++) {
+      if (nodes[i].trig !== 'UseNormalSkill') { continue; }
+      if (num(nodes[i].arg) !== st.n) { continue; }
+      runNode(nodes[i], now);
+      if (st.phase !== ph0) { break; }
     }
-    extra += checkStanding(now);
+    checkStanding(now);
+    // この拍で撃った EX のモーションぶんだけ、次の通常攻撃が遅れる
+    var extra = Math.max(0, (st.busyUntil || 0) - Math.max(before, now));
     // **台本が一周したら数えを戻す**（`CheckPeriod → ClearNormalSkill` の枝）
     var back = ps();
     if (back && back.wrap && st.n >= back.wrap) { st.n = 0; }
-    var next = now + (back ? back.naMs : cur.naMs) + extra;
+    var next = now + (naMsNow() || naMs) + extra;
     if (next <= durMs) { R.q.push(next, beat); }
   }
 
   // ---- `CheckPeriod`（ミリ秒ごと）。**1 は「いつでも」なので周期には使わない**
   //
   // 段が変わっても効くように、**段ぜんぶから間隔を集めて**積む。撃つときは
-  // そのときの段の行だけを見る。`ClearNormalSkill` は周期ではなく
+  // そのときの段の節だけを見る。`ClearNormalSkill` は周期ではなく
   // 「台本が一周した印」（`bossPlan` の `wrap`）なので、ここでは積まない
-  var allRows = [], pk = Object.keys(plan.phases), pj;
+  var allNodes = [], pk = Object.keys(plan.phases), pj;
   for (pj = 0; pj < pk.length; pj++) {
-    allRows = allRows.concat(plan.phases[pk[pj]].rows);
+    allNodes = allNodes.concat(plan.phases[pk[pj]].nodes);
   }
-  var cur0 = { rows: allRows };
-  if (cur0) {
+  (function () {
     var seen = {}, i2;
-    for (i2 = 0; i2 < cur0.rows.length; i2++) {
-      var r2 = cur0.rows[i2];
-      if (r2.ExternalBTTrigger !== 'CheckPeriod') { continue; }
-      if (r2.ExternalBehavior === 'ClearNormalSkill') { continue; }
-      var ms = num(r2.TriggerArgument);
+    for (i2 = 0; i2 < allNodes.length; i2++) {
+      var nd2 = allNodes[i2];
+      if (nd2.trig !== 'CheckPeriod') { continue; }
+      if (nd2.kids[0].ExternalBehavior === 'ClearNormalSkill') { continue; }
+      var ms = num(nd2.arg);
       if (!ms || ms <= 1 || seen[ms]) { continue; }
       seen[ms] = 1;
       (function (per) {
@@ -337,14 +511,15 @@ export function driveBoss(ctx) {
         for (t = per; t <= durMs; t += per) {
           (function (tt) {
             R.q.push(tt, function (now) {
-              var c = ps(), j, ex2 = 0;
+              var c = ps(), j, ph0 = st.phase;
               if (!c) { return; }
-              for (j = 0; j < c.rows.length; j++) {
-                if (c.rows[j].ExternalBTTrigger === 'CheckPeriod'
-                    && c.rows[j].ExternalBehavior !== 'ClearNormalSkill'
-                    && num(c.rows[j].TriggerArgument) === per) {
-                  ex2 += behave(c.rows[j], now);
-                }
+              for (j = 0; j < c.nodes.length; j++) {
+                var nd3 = c.nodes[j];
+                if (nd3.trig !== 'CheckPeriod' || num(nd3.arg) !== per) { continue; }
+                if (nd3.kids[0].ExternalBehavior === 'ClearNormalSkill') { continue; }
+                if (now < (st.busyUntil || 0) && usesEx(nd3)) { continue; }
+                runNode(nd3, now);
+                if (st.phase !== ph0) { break; }
               }
               checkStanding(now);
             });
@@ -352,15 +527,15 @@ export function driveBoss(ctx) {
         }
       })(ms);
     }
-  }
+  }());
 
   // ---- `OnSpawned`（0 秒）
   var cur1 = ps();
   if (cur1) {
     R.q.push(0, function (now) {
       var j;
-      for (j = 0; j < cur1.rows.length; j++) {
-        if (cur1.rows[j].ExternalBTTrigger === 'OnSpawned') { behave(cur1.rows[j], now); }
+      for (j = 0; j < cur1.nodes.length; j++) {
+        if (cur1.nodes[j].trig === 'OnSpawned') { runNode(cur1.nodes[j], now); }
       }
     });
   }
@@ -372,8 +547,45 @@ export function driveBoss(ctx) {
     var c = ps(), j;
     if (!c) { return; }
     st.groggy = true;
-    for (j = 0; j < c.rows.length; j++) {
-      if (c.rows[j].ExternalBTTrigger === 'ApplyGroggy') { behave(c.rows[j], now); }
+    for (j = 0; j < c.nodes.length; j++) {
+      if (c.nodes[j].trig === 'ApplyGroggy') { runNode(c.nodes[j], now); }
+    }
+  };
+
+  /** **札が貼られたとき**（`ApplyLogicEffectTemplateId`）。`run.js` の `fire` が
+      札とダメージの `TemplateId` を全部ここへ流す。**同じ発（`castId`）の同じ札は
+      1 回だけ**——ケセドの `Attack_Damage_Chesed` は当たった人数ぶん飛んでくる。
+      撃っている最中なら明けてから引く。 */
+  st.onTemplate = function (tmpl, now, castId) {
+    var c = ps(), j, key = tmpl + '/' + (castId == null ? Math.round(now) : castId);
+    if (!c || !tmpl) { return; }
+    if (st.seenTmpl[key]) { return; }
+    var hit = false, ph0 = st.phase;
+    for (j = 0; j < c.nodes.length; j++) {
+      var nd = c.nodes[j];
+      if (nd.trig !== 'ApplyLogicEffectTemplateId' || String(nd.arg || '') !== tmpl) { continue; }
+      hit = true;
+      if (now < (st.busyUntil || 0) && usesEx(nd)) {
+        (function (nd4, key4) {
+          R.q.push(st.busyUntil, function (t4) {
+            if (st.seenTmpl[key4 + '/late']) { return; }
+            st.seenTmpl[key4 + '/late'] = 1;
+            runNode(nd4, t4);
+          });
+        })(nd, key);
+        continue;
+      }
+      runNode(nd, now);
+      if (st.phase !== ph0) { break; }
+    }
+    if (hit) { st.seenTmpl[key] = 1; }
+  };
+  /** 形態が変わった（`run.js` の `R.onForm`）。通常攻撃の無い形態から有る形態へなら拍を起こす */
+  st.setForm = function (fi, now) {
+    if (st.log) { st.log.push([now, 'form' + fi]); }
+    if (st.stopped && naNow()) {
+      st.stopped = false;
+      R.q.push(Math.max(now, st.busyUntil || 0), beat);
     }
   };
   st.check = checkStanding;

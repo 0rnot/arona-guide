@@ -440,6 +440,17 @@ def build_bosses(out_dir, chars, st_by, le_npc_by, le_pc_by, sk_by, want):
             sd = stage(nm)
             if sd:
                 board[nm] = sd
+        # **盤が撃つ技も束に入れる**（`GroundCommandUseSkill.SkillGroupId`。2026-09-07）。
+        # ホドの節 3 は地面の体 18001002 が `HODGroundEx02` を本体に撃って、形態 1 と
+        # 段を進める札を貼る。ここが無いと本体は最後まで狙えないまま
+        for sd in board.values():
+            for sec in (sd.get("Sections") or []) + [sd.get("Global") or {}]:
+                for ev in (sec.get("Events") or []):
+                    for cm in (ev.get("Commands") or []):
+                        if "UseSkill" in str(cm.get("$type") or "") and cm.get("SkillGroupId"):
+                            g = str(cm["SkillGroupId"])
+                            if g not in groups:
+                                groups.append(g)
         for sd in board.values():
             for sec in (sd.get("Sections") or []):
                 for gl in (sec.get("EnemySpawnPointGroupList") or []):

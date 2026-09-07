@@ -36,7 +36,7 @@ import { makeBoard, makeUnit, add, living, ctxOf, applyMark, expire, dispel, tic
 import { once as hitOnce, roll as hitRoll, capsOf } from './hit.js';
 import { bossPlan, phaseWaits, driveBoss } from './boss.js';
 import { boardPlan, spawnFor, originOf, slotPos, inArea, sortByRule,
-         obstacleBoxes, coverRate } from './board.js';
+         obstacleBoxes, coverRate, coverBox, coverPoints } from './board.js';
 
 var FPS = 30;
 
@@ -370,7 +370,12 @@ function fire(R, ev, caster, target, lvl, at, mc) {
   // 13,483 本中 8,108 本あり、そのうち 3,790 本は 0 の側にも体がある
   // （`BinahExSkill03` は `[0(体あり), 10000(体あり), 0(体なし)]`）ので、
   // 「0 は指定なし」と読むほうは採れない
-  var dist = (ev.dist != null) ? ev.dist / 10000 : 1;
+  //
+  // **回復と盾には掛けない**（2026-09-07）。回復・盾を運ぶ時系列の取り分は 97 本中 71 本が 0
+  // （エイミの EX 回復・ホシノの NS が 0、ホシノのサブスキルは 10000）で、掛けると
+  // 回復が 0 になる。イブキ（水着）`CH0295Public01` の回復（治癒力 10,220 × 103.9%）が
+  // 0 で入っていて、ビナーで味方が回復なしに倒れていた
+  var dist = (ev.dist != null && isDamage(r.kind)) ? ev.dist / 10000 : 1;
 
   // ---- 回復。**味方が生き延びるかはここで決まる。**
   // ボスが殴るようになるまで要らなかったので置いていなかった（2026-09-06）。
@@ -395,11 +400,34 @@ function fire(R, ev, caster, target, lvl, at, mc) {
         var rf = Object.assign({}, r, { slot: ev.slot,
           dur: (r.endKind === 1 && r.endArg != null && r.endArg > 0) ? r.endArg : null });
         applyMark(target, rf, caster.key, at, lvl);
+        if (R.onApply) { R.onApply(target, rf.tmpl, at, R.curCast); }
         if (target._fireSS) { target._fireSS(at, 'apply', rf.gid); }
         R.syncForm(target, at, false);
         if (rf.dur != null) {
           R.q.push(at + rf.dur, function (now) { R.syncForm(target, now, false); });
         }
+      }
+    }
+    // **敵の形態**（2026-09-07）。ホドは盤の `HODGroundEx02` が `FormConversion`（形態 1・
+    // 戻らない）を貼り、形態 1 の枠は `HODInsaneNormal02` と本物の `HODEx03_Torment`。
+    // 形態の札は貼っておき、`u.form` を `boss.js` が読む
+    if (target.side === 'enemy') {
+      var rf2 = Object.assign({}, r, { slot: ev.slot,
+        dur: (r.endKind === 1 && r.endArg != null && r.endArg > 0) ? r.endArg : null });
+      applyMark(target, rf2, caster.key, at, lvl);
+      if (R.onApply) { R.onApply(target, rf2.tmpl, at, R.curCast); }
+      var fi2 = r.formIndex != null ? r.formIndex : 1;
+      target.form = fi2;
+      if (R.onForm) { R.onForm(target, fi2, at); }
+      if (rf2.dur != null) {
+        R.q.push(at + rf2.dur, function (now) {
+          var live2 = false, z2;
+          for (z2 = 0; z2 < target.eff.length; z2++) {
+            var m2 = target.eff[z2];
+            if (m2.raw && m2.raw.kind === 'form' && (m2.until == null || m2.until > now + 1e-6)) { live2 = true; }
+          }
+          if (!live2 && target.form) { target.form = 0; if (R.onForm) { R.onForm(target, 0, now); } }
+        });
       }
     }
     return 0;
@@ -444,6 +472,11 @@ function fire(R, ev, caster, target, lvl, at, mc) {
                                 Math.floor((R.durMs - at) / r.period)));
     }
     amt *= ht;
+    if (R.probe) { R.probe.push(['heal', caster.key, target.key, Math.round(amt), Math.round(at), ev.gid, hs[r.src || 'HealPower'] || 0, r.rate]); }
+    if (target.side === 'ally' && amt > 0 && R.byAlly) {
+      var hk9 = 'heal:' + caster.key + '>' + target.key + ':' + ev.gid;
+      R.byAlly[hk9] = (R.byAlly[hk9] || 0) + amt;
+    }
     if (target.hp > 0 && amt > 0) {
       var was = target.hp;
       target.hp = Math.min(target.maxHp, target.hp + amt);
@@ -482,6 +515,7 @@ function fire(R, ev, caster, target, lvl, at, mc) {
   // ---- 被ダメージの転移。**受けたぶんを別の体へ流す札**
   if (r.kind === 'transfer') {
     applyMark(target, r, caster.key, at, lvl);
+    if (R.onApply) { R.onApply(target, r.tmpl, at, R.curCast); }
     target.xfer = { ratio: r.ratio == null ? 10000 : r.ratio, to: caster.key };
     return 0;
   }
@@ -513,6 +547,7 @@ function fire(R, ev, caster, target, lvl, at, mc) {
       }
       if (target.side === 'enemy') { R.total += target.hp - kfl; }
       target.hp = kfl;
+      if (R.killLog) { R.killLog.push([Math.round(at), caster.key, target.key, ev.gid, ev.slot || '?']); }
     }
     return 0;
   }
@@ -527,6 +562,11 @@ function fire(R, ev, caster, target, lvl, at, mc) {
     var ss = statsNow(caster);
     var sh = (ss[r.src || 'MaxHP'] || 0) * (r.rate || 0) / 10000 * mul * dist;
     if (sh > 0) { target.shield = (target.shield || 0) + sh; }
+    if (R.probe) { R.probe.push(['shield', caster.key, target.key, Math.round(sh), Math.round(at), ev.gid, ss[r.src || 'MaxHP'] || 0, r.rate]); }
+    if (target.side === 'ally' && sh > 0 && R.byAlly) {
+      var sk9 = 'shield:' + caster.key + '>' + target.key + ':' + ev.gid;
+      R.byAlly[sk9] = (R.byAlly[sk9] || 0) + sh;
+    }
     return 0;
   }
 
@@ -579,11 +619,18 @@ function fire(R, ev, caster, target, lvl, at, mc) {
     dmg *= (ev.single || target.kind === 'Boss') ? 1 : (mc != null ? mc : (R.mc || 1));
     // **遮蔽。**撃つ側と狙われる側のあいだに箱があると、その割合ぶん当たらない。
     // 帯を出す回（`R.rnd` がある）は 1 発ごとに振り、素の 1 回は割合で減らす
-    var cov = R.coverOf ? R.coverOf(caster, target) : 0;
+    // 物差し用: `o.god` で味方は削れない（生存だけを外して討伐秒を見る）
+    if (R.god && target.side === 'ally') { dmg = 0; }
+    // **遮蔽で止まるのは弾だけ**（`tree.js:blockable`。範囲は `CheckBlockHit` が真のときだけ）
+    var cov = (ev.blk && R.coverOf) ? R.coverOf(caster, target) : 0;
     if (cov > 0) {
       R.miss['cover'] = (R.miss['cover'] || 0) + 1;
-      if (R.rnd) { if (R.rnd() * 10000 < cov) { dmg = 0; } }
-      else { dmg *= 1 - cov / 10000; }
+      // **止めた弾は遮蔽物へ流れる**（ItJustWorks の Block Rate。壊れる形は
+      // 体力が尽きると消えて、陰に居た子は隠れ直す）
+      var blocked = 0;
+      if (R.rnd) { if (R.rnd() * 10000 < cov) { blocked = dmg; dmg = 0; } }
+      else { blocked = dmg * cov / 10000; dmg -= blocked; }
+      if (blocked > 0 && R.hitCover) { R.hitCover(caster, target, blocked, at); }
     }
     // **盾が先に食う。**残りだけが HP を削る
     if (target.shield > 0) {
@@ -604,6 +651,9 @@ function fire(R, ev, caster, target, lvl, at, mc) {
     target.hp = Math.max(floor, target.hp - dmg);
     R.total += dmg;
     if (R.onDamaged && target.side === 'enemy') { R.onDamaged(target, dmg, at); }
+    // **ダメージの札の名前もボスの木へ**（`ApplyLogicEffectTemplateId`。ケセドは自分の
+    // EX01 の `Attack_Damage_Chesed` が当たった瞬間に段を移す）
+    if (R.onApply && r.tmpl) { R.onApply(target, r.tmpl, at, R.curCast); }
     // **1 発ごとの中身。**核が伸びないときに、どの掛け算が小さいかを外から見るため
     if (R.probe) {
       R.probe.push([Math.round(dmg), caster.key, ev.slot || '?', ev.gid,
@@ -630,6 +680,11 @@ function fire(R, ev, caster, target, lvl, at, mc) {
     // **どこから出たダメージか。**核の穴を探すのに要る（合計だけ見ても分からない）
     var bk = caster.key + '/' + (ev.slot || '?');
     R.by[bk] = (R.by[bk] || 0) + dmg;
+    // **味方が受けたぶん**（誰の何で削られたか。倒れる理由を外から見る）
+    if (target.side === 'ally' && R.byAlly) {
+      var bk2 = bk + '>' + target.key + ':' + ev.gid;
+      R.byAlly[bk2] = (R.byAlly[bk2] || 0) + dmg;
+    }
     return dmg;
   }
 
@@ -651,6 +706,9 @@ function fire(R, ev, caster, target, lvl, at, mc) {
     }
   }
   applyMark(target, r9, caster.key, at, lvl);
+  // **札の名前をボスの木へ**（`ApplyLogicEffectTemplateId`。ホドは仮設タワーが死んで
+  // 自分に貼る `Dummy_HOD_TemporaryDeadChangePhase01` で段が進む。2026-09-07）
+  if (R.onApply) { R.onApply(target, r9.tmpl, at, R.curCast); }
   // **札が貼られたら撃つサブスキル**（`TriggerCondition.Event 30`。`ssTrig` の注記）
   if (target._fireSS) { target._fireSS(at, 'apply', r9.gid); }
   // **札が切れたら撃つ通常スキルの見張り**（`setupAlly` の `_nsWatch`）。
@@ -773,8 +831,11 @@ function spawnOk(R, list, u, target, castId, phase) {
 function cast(R, u, gid, slot, lvl, at, opt) {
   var doc = u.ls && u.ls[gid];
   if (!doc) { return; }
+  if (R.castLog) { var ck9 = u.key + '/' + slot + ':' + gid; R.castLog[ck9] = (R.castLog[ck9] || 0) + 1; }
   var mc = opt && opt.mc != null ? opt.mc : null;
   var to = opt && opt.to != null ? opt.to : null;
+  // **狙う先を外から決める**（盤が撃つ技。`TargetCharacterCommandId` で名指し）
+  var force = opt && opt.force ? opt.force : null;
   var ev = R.evCache[gid] || (R.evCache[gid] = skillEvents(doc));
   var castId = ++R.castN;
   // **演出中の印。**`TimelineSkillActionDAO` の `Duration`（フレーム）のあいだ、
@@ -793,10 +854,11 @@ function cast(R, u, gid, slot, lvl, at, opt) {
       R.q.push(t3, function (now) {
         e2.slot = slot;
         R.now = now;
+        R.curCast = castId;
         // **湧く条件**（`SpawnCondition`。撃つ側で見るもの）と **1 つだけ湧く規則**
         // （`SpawnRule: SpawnOnlyOne`）。狙った先で見る条件は相手が決まってから下で
         if (e2.sc && !spawnOk(R, e2.sc, u, null, castId, 'caster')) { return; }
-        var tg = R.pick(u, e2, to), k;
+        var tg = force ? force.filter(function (v9) { return v9.alive; }) : R.pick(u, e2, to), k;
         // **狙う先が 1 つも取れなかった回数。**核が伸びないときの手がかり
         if (!tg.length) {
           R.miss['狙えず:' + slot] = (R.miss['狙えず:' + slot] || 0) + 1;
@@ -936,11 +998,13 @@ function untargeted(v, ev, u) {
     for (j = 0; j < types.length; j++) {
       if (types[j].trim() && types[j].trim() === ev.slot) { ok = true; }
     }
+    // **例外の札を持っているのは撃つ側**（2026-09-07 に読み直した）。ホドは本体が
+    // `Untargetable`（`Parameter: Dummy_HOD_IgnoreBossUnTarget`）で、その札を持つのは
+    // 本体・仮設タワー・守衛塔——敵の側だけ。味方が本体を撃てるようになるのは、
+    // 盤の節 3（玉座の前）が `GroundCommandSetStatus Untargetable isAdd:false` で
+    // 外したとき。狙われる側の札で見ていて、本体が 0 秒から狙えて 89 秒で倒れていた
     if (!ok && m.param && m.param !== 'None') {
-      for (j = 0; j < v.eff.length; j++) {
-        if (v.eff[j].tmpl === m.param) { ok = true; }
-      }
-      for (j = 0; !ok && j < u.eff.length; j++) {
+      for (j = 0; j < u.eff.length; j++) {
         if (u.eff[j].tmpl === m.param) { ok = true; }
       }
     }
@@ -1120,6 +1184,9 @@ export function run(o) {
     : null;
   // 遮蔽。**総力戦の盤にもある**（2026-09-07。`board.js` の注記）
   var obs = bd ? obstacleBoxes(bd, sec, common) : [];
+  // 遮蔽の立ち位置（`board.js:coverPoints`）。生徒はここへ移って隠れる
+  var cpts = bd ? coverPoints(bd, sec, common, obs) : [];
+  var coverLog = [];
   // 湧き点の座標を実体の名前で引けるように（同じ名前が複数あるので先頭）
   // **装甲を抜いた名前でも引けるようにする。**盤は `..._LightArmor_Torment`、
   // 実体は `..._Torment` で、そのままだとボスの座標が `null` のままになる
@@ -1147,6 +1214,13 @@ export function run(o) {
     }
   }
   readPositions();
+  // **本体の座標は湧き点から。**`readPositions` は「生きている体は動かさない」ので、
+  // 最初から生きている本体だけ (0, 0) のまま残っていた（2026-09-07。ビナーで
+  // 狙う先の「いちばん近い子」と遮蔽の線が全部ずれていた）
+  if (bossU && bossU.dev) {
+    var bp0 = posOf[bossU.dev] || posOf[noArm2(bossU.dev)];
+    if (bp0) { bossU.pos = { x: bp0.x, y: bp0.y }; }
+  }
 
   // ---- 味方
   var party = o.party || [], allies = [];
@@ -1171,6 +1245,37 @@ export function run(o) {
     allies.push(au);
   }
 
+  /** **遮蔽に隠れる。**隊列の席から、ボスとのあいだに箱が入る空いた立ち位置のうち
+      いちばん近いところへ移る（席の順。1 点に 1 人）。スペシャルは盤に立たない。
+      動画（IrVUx0ywuyo の 0:44）では 4 人がトラックと樽の陰に居て、
+      隊列の席のまま立たせた核では通常攻撃 3 発で 1 人目が倒れていた（2026-09-07）。
+      無い点・隠れられない点しか無ければ席のまま（陰なし）。
+      `one` を渡すとその子だけ選び直す（陰の遮蔽物が壊れたとき） */
+  function takeCover(one, at) {
+    var z, w, bp = bossU && bossU.pos;
+    if (!one) { for (z = 0; z < cpts.length; z++) { cpts[z].used = null; } }
+    for (z = 0; z < allies.length; z++) {
+      var a2 = allies[z];
+      if (one && a2 !== one) { continue; }
+      if (one && a2.cover) { a2.cover.used = null; }
+      a2.cover = null;
+      if (a2.squad === 'Support' || !a2.pos || !bp || !cpts.length) { continue; }
+      var home = a2.home || (a2.home = { x: a2.pos.x, y: a2.pos.y }), best = null, bd2 = 0;
+      for (w = 0; w < cpts.length; w++) {
+        var cp = cpts[w];
+        if (cp.used || cp.box.dead) { continue; }
+        if (!coverBox(bp, cp, [cp.box], a2.radius)) { continue; }
+        var dx2 = cp.x - home.x, dy2 = cp.y - home.y, dd = dx2 * dx2 + dy2 * dy2;
+        if (!best || dd < bd2) { best = cp; bd2 = dd; }
+      }
+      if (best) { best.used = a2.key; a2.pos = { x: best.x, y: best.y }; a2.cover = best; }
+      else { a2.pos = { x: home.x, y: home.y }; }
+      coverLog.push([Math.round((at || 0) / 100) / 10, a2.key,
+                     best ? best.box.name + '(' + Math.round(best.x * 10) / 10 + ',' + Math.round(best.y * 10) / 10 + ')' : 'なし',
+                     cpts.map(function (c9) { return c9.used ? c9.used : (c9.box.dead ? 'x' : '-'); }).join('')]);
+    }
+  }
+
   // ---- 効果の索引。味方とボスをまとめて 1 つに
   var le = [];
   for (i = 0; i < party.length; i++) { le = le.concat(party[i].pack.le || []); }
@@ -1178,9 +1283,10 @@ export function run(o) {
   var eff = readAll(le);
 
   var R = {
+    god: !!o.god, castLog: {},
     b: b, ctx: ctxOf(b), eff: eff, q: queue(), evCache: {}, pgCache: {},
     castN: 0, scPick: {},
-    fireN: {}, missBy: {}, missT: {}, missWhy: {}, deaths: [], noBossDmg: !!o.noBossDmg, noUntargetable: !!o.noUntargetable, total: 0, heal: 0, groggy: [], ggLog: [], secLog: [], summoned: 0, smCache: {}, probe: o.probe ? [] : null, used: [], unknown: 0, unknownBy: {}, miss: {}, by: {},
+    fireN: {}, missBy: {}, missT: {}, missWhy: {}, deaths: [], killLog: [], byAlly: {}, noBossDmg: !!o.noBossDmg, noUntargetable: !!o.noUntargetable, total: 0, heal: 0, groggy: [], ggLog: [], secLog: [], summoned: 0, smCache: {}, probe: o.probe ? [] : null, used: [], unknown: 0, unknownBy: {}, miss: {}, by: {},
     durMs: durMs, mc: o.mc || 1, C: constOf(common),
     unitOf: function (k) { return b.units[k] || null; },
     lvTable: common.lvdiff || null, caps: capsOf(common.calcLimit),
@@ -1207,6 +1313,18 @@ export function run(o) {
         地形の 2 欄は説明の鍵が `TerrainFactorDescription_*_Coverrate` と
         `_IgnoreCoverrate`（＝遮蔽率と遮蔽貫通率）。
         **足し引きにしたのは D が 0 だから。**掛け算だと D 適性で遮蔽そのものが消える。 */
+    hitCover: function (u, v, amt, at) {
+      var bx = coverBox(u.pos, v.pos, obs, v.radius);
+      if (!bx) { return; }
+      R.coverDmg = (R.coverDmg || 0) + amt;
+      if (!bx.destroy) { return; }
+      bx.hp -= amt;
+      if (bx.hp <= 0 && !bx.dead) {
+        bx.dead = true;
+        if (R.secLog) { R.secLog.push([Math.round(at / 100) / 10, 'cover-', bx.name + '@' + v.key]); }
+        if (v.side === 'ally') { takeCover(v, at); }
+      }
+    },
     coverOf: function (u, v) {
       if (!obs.length || !u || !v || !u.pos || !v.pos) { return 0; }
       var base = coverRate(u.pos, v.pos, obs, v.radius);
@@ -1754,8 +1872,12 @@ export function run(o) {
     }
   }
 
-  function castPassives(mu, at) {
-    var cr = mu.csl && mu.csl[0], z, v;
+  function castPassives(mu, at, fi) {
+    var cr = null, z, v, zf;
+    for (zf = 0; mu.csl && zf < mu.csl.length; zf++) {
+      if ((mu.csl[zf].FormIndex || 0) === (fi || 0)) { cr = mu.csl[zf]; break; }
+    }
+    if (!cr && !fi) { cr = mu.csl && mu.csl[0]; }
     if (!cr) { return; }
     var slots = [['PassiveSkillGroupId', 'Passive'],
                  ['ExtraPassiveSkillGroupId', 'ExtraPassive'],
@@ -1810,6 +1932,31 @@ export function run(o) {
     var vs = living(b, 'enemy'), c = 0, z3;
     for (z3 = 0; z3 < vs.length; z3++) { if (vs[z3] !== bossU) { c++; } }
     return c;
+  };
+  // **幻影の数**（ゴズ。`TacticEntityType: Hallucination`）。木の `CheckHallucinationCount*` 用
+  R.hallucinationCount = function () {
+    var vs = living(b, 'enemy'), c = 0, z3;
+    for (z3 = 0; z3 < vs.length; z3++) { if (vs[z3].kind === 'Hallucination') { c++; } }
+    return c;
+  };
+  // **呼んだ子の数**（`TacticEntityType: Summoned`）。木の `CheckSummonCharacterCount*` 用。
+  // `minionCount`（ボス以外ぜんぶ）だと、ホドの狙えない守衛塔 4 基が最初から数に入って
+  // `CheckSummonCharacterCountOver 1 → ClearNormalSkill` が毎刻み立ち、通常攻撃の数えが進まない
+  R.summonCount = function () {
+    var vs = living(b, 'enemy'), c = 0, z3;
+    for (z3 = 0; z3 < vs.length; z3++) { if (vs[z3].kind === 'Summoned') { c++; } }
+    return c;
+  };
+  // **形態が変わった合図**（敵）。本体なら木の枠を引き直す
+  R.onForm = function (u2, fi, at) {
+    if (u2 === bossU) {
+      if (bst && bst.setForm) { bst.setForm(fi, at); }
+      castPassives(u2, at, fi);
+    }
+  };
+  // **札が貼られた合図をボスの木へ**（`ApplyLogicEffectTemplateId`）
+  R.onApply = function (tg2, tmpl, at, castId) {
+    if (bst && bst.onTemplate && tmpl) { bst.onTemplate(String(tmpl), at, castId); }
   };
   R.ctx.ggRate = function (u2) {
     if (!u2) { return 0; }
@@ -1877,6 +2024,8 @@ export function run(o) {
     var z9;
     for (z9 = 0; z9 < allies.length; z9++) {
       allies[z9].pos = slotPos(org, formRow, allies[z9].slot);
+      allies[z9].home = null;
+      allies[z9].cover = null;
     }
   }
 
@@ -1921,6 +2070,7 @@ export function run(o) {
     }
     readPositions();
     obs = bd ? obstacleBoxes(bd, sec, common) : [];
+    cpts = bd ? coverPoints(bd, sec, common, obs) : [];
     var sc2 = bd.sections[sec] || {};
     walkGoal = (sc2.walkTo != null) ? sc2.walkTo : null;
     secWait = -1; secTo = -1; secPhase = null; sawFoe = false;
@@ -1931,7 +2081,10 @@ export function run(o) {
     if (sc2.instant && org) {
       var to2 = (sc2.starts && sc2.starts[0]) ? sc2.starts[0].to : sec + 1;
       var by = beaconY(to2);
-      if (by != null) { org.Position.y = by; moveAllies(); }
+      if (by != null) { org.Position.y = by; moveAllies(); takeCover(null, at); }
+    } else if (walkGoal == null) {
+      // 歩かない節は入った席のまま隠れる。歩く節は着いてから（`takeCover` は歩き終わりで）
+      takeCover(null, at);
     }
     if (walkGoal == null) { fireWave(at); }
   }
@@ -1987,6 +2140,60 @@ export function run(o) {
     }
   }
 
+  /** 湧き点の命令 id で体を引く（盤ぜんぶの節から。本体は節 0 の点で湧いている） */
+  function unitsByCmd(cmds) {
+    var out = [], z4, w4, q4, s4;
+    for (s4 = 0; bd && s4 < bd.sections.length; s4++) {
+      var pts4 = bd.sections[s4].points || [];
+      for (z4 = 0; z4 < pts4.length; z4++) {
+        var hit4 = false;
+        for (q4 = 0; q4 < (cmds || []).length; q4++) {
+          if ((pts4[z4].cmds || []).indexOf(cmds[q4]) >= 0) { hit4 = true; }
+        }
+        if (!hit4 || !pts4[z4].dev) { continue; }
+        var pool4 = byDev[pts4[z4].dev] || byDev[noArm2(pts4[z4].dev)] || [];
+        for (w4 = 0; w4 < pool4.length; w4++) {
+          if (pool4[w4].alive && out.indexOf(pool4[w4]) < 0) { out.push(pool4[w4]); }
+        }
+      }
+    }
+    return out;
+  }
+
+  /** 盤が状態を付け外しする（`GroundCommandSetStatus`）。外すときは
+      その状態の札を全部落とす（ホドの `Untargetable` は `IsDispellable` が無い札） */
+  function setStatus(u2, status, add, at) {
+    var z, n = 0;
+    if (!add) {
+      for (z = u2.eff.length - 1; z >= 0; z--) {
+        var rw = u2.eff[z].raw;
+        if (rw && rw.kind === 'status' && rw.status === status) { u2.eff.splice(z, 1); n++; }
+      }
+      if (R.secLog) { R.secLog.push([Math.round(at / 100) / 10, 'status-', u2.key + ':' + status + ':' + n]); }
+      return n;
+    }
+    applyMark(u2, { gid: 'Ground_' + status, tmpl: 'Ground_' + status, kind: 'status', status: status,
+                    cat: 7, dur: null, ch: 0, disp: false, slot: 'Ground' }, 'ground', at, 1);
+    if (R.secLog) { R.secLog.push([Math.round(at / 100) / 10, 'status+', u2.key + ':' + status]); }
+    return 1;
+  }
+
+  /** 盤が撃つ技（`GroundCommandUseSkill`）。撃つのは盤に立たない地面の体で、
+      狙う先は命令 id で名指しされた体（`force`） */
+  var groundU = null;
+  function castGround(gid, targets, at) {
+    if (!boss.ls || !boss.ls[gid]) { R.miss['ground:' + gid] = (R.miss['ground:' + gid] || 0) + 1; return; }
+    if (!groundU) {
+      groundU = makeUnit({ key: 'ground', side: 'enemy', charId: 18001002, dev: 'Ground', kind: 'Ground',
+                           lv: 90, hp: 1, maxHp: 1, base: {} });
+      groundU.ls = boss.ls; groundU.skillLv = {}; groundU.alive = true; groundU.eff = [];
+    }
+    R.q.push(at, function (now) {
+      if (R.secLog) { R.secLog.push([Math.round(now / 100) / 10, 'ground', gid]); }
+      cast(R, groundU, gid, 'Ex', 1, now, { force: targets });
+    });
+  }
+
   function stepSection(t7, dt) {
     if (!bd || !org) { return; }
     var sc2 = bd.sections[sec] || {};
@@ -2004,6 +2211,7 @@ export function run(o) {
       if (Math.abs(d8) <= mv) {
         org.Position.y = walkGoal;
         walkGoal = null;
+        takeCover(null, t7);
         fireWave(t7);
       } else {
         org.Position.y += (d8 > 0 ? mv : -mv);
@@ -2023,6 +2231,32 @@ export function run(o) {
       if (!ok10) { continue; }
       dl[z10].done = 1;
       killByCmd(dl[z10].cmds, dl[z10].devs);
+    }
+    // ---- 盤が付け外しする状態（`GroundCommandSetStatus`）と、盤が撃つ技（`GroundCommandUseSkill`）
+    var sl = sc2.status || [], z11, w11;
+    for (z11 = 0; z11 < sl.length; z11++) {
+      if (sl[z11].done) { continue; }
+      var ok11 = sl[z11].tags.length > 0;
+      for (w11 = 0; w11 < sl[z11].tags.length; w11++) { if (!tagOk(sl[z11].tags[w11])) { ok11 = false; } }
+      if (!ok11) { continue; }
+      sl[z11].done = 1;
+      (function (row, us11) {
+        R.q.push(t7 + (row.delay || 0), function (now) {
+          var w12;
+          for (w12 = 0; w12 < us11.length; w12++) { setStatus(us11[w12], row.status, row.add, now); }
+        });
+      })(sl[z11], unitsByCmd([sl[z11].cmd]));
+    }
+    var gl2 = sc2.skills || [], z12, w12;
+    for (z12 = 0; z12 < gl2.length; z12++) {
+      if (gl2[z12].done) { continue; }
+      var ok12 = gl2[z12].tags.length > 0;
+      for (w12 = 0; w12 < gl2[z12].tags.length; w12++) { if (!tagOk(gl2[z12].tags[w12])) { ok12 = false; } }
+      if (!ok12) { continue; }
+      gl2[z12].done = 1;
+      var tg12 = unitsByCmd(gl2[z12].to || []);
+      if (tg12.length) { castGround(gl2[z12].gid, tg12, t7 + (gl2[z12].delay || 0)); }
+      else { R.miss['ground:的なし:' + gl2[z12].gid] = (R.miss['ground:的なし:' + gl2[z12].gid] || 0) + 1; }
     }
     // ---- 次の節へ移る合図。節の側と `Global` の両方を見る
     if (secWait < 0) {
@@ -2230,6 +2464,9 @@ export function run(o) {
     origin: org ? [org.Position.x, org.Position.y] : null,
     sectionEnd: sec,
     bossPos: bossU.pos ? [bossU.pos.x, bossU.pos.y] : null,
+    cover: allies.map(function (a9) { return [a9.key, a9.cover ? [Math.round(a9.cover.x * 100) / 100, Math.round(a9.cover.y * 100) / 100, a9.cover.box.name] : null]; }),
+    coverDmg: Math.round(R.coverDmg || 0), coverLog: coverLog, castLog: R.castLog,
+    allyStats: allies.map(function (a9) { return [a9.key, a9.base.AttackPower, a9.base.DefensePower, a9.base.MaxHP, a9.base.DodgePoint, a9.adapt, (a9.pack && a9.pack.ch && a9.pack.ch.TacticRange), a9.radius]; }),
     hp: hp, total: R.total, killAt: bossHp() <= 0 ? t3 / 1000 : null,
     maxHp: bossMax, bossKeys: bossUnits.map(function (v) { return [v.dev, v.maxHp]; }),
     used: R.used,
@@ -2253,6 +2490,8 @@ export function run(o) {
     bossGg: bossU.gg || 0, bossAtg: bossU.atg || 0,
     bossPhase: bst ? bst.phase : null, bossEx: bst ? bst.exCount : 0,
     bossNa: bst ? bst.n : 0, bossErr: R.bossErr || null,
+    bossLog: bst ? bst.log : null, bossForm: bossU.form || 0, killLog: R.killLog, byAlly: R.byAlly,
+    allyHp: allies.map(function (a9) { return [a9.key, a9.dev, Math.round(a9.maxHp), Math.round(a9.hp), a9.pos ? [Math.round(a9.pos.x * 10) / 10, Math.round(a9.pos.y * 10) / 10] : null]; }),
     wipeAt: living(b, 'ally').length ? null : t3 / 1000, downAt: downAt,
   };
 }

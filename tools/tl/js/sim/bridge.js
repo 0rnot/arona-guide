@@ -212,7 +212,7 @@ export async function simParty(o) {
 
   var dur = o.dur != null ? o.dur : ((index[key].dur || 240000) / 1000);
   var res = run({ common: common, boss: boss, party: party, tl: tl, cid: cid0,
-                  dur: dur, mc: 1, seed: o.seed, step: o.step, probe: o.probe,
+                  dur: dur, mc: 1, seed: o.seed, step: o.step, probe: o.probe, god: o.god,
                   snapAt: o.snapAt,
                   // 測定用の栓（`_cmp.py`）。画面からは渡さない
                   noBossDmg: o.noBossDmg, noUntargetable: o.noUntargetable });

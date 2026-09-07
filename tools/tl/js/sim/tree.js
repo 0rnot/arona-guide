@@ -53,6 +53,19 @@ var AREA = { CircleAreaEntityDAO: 'Circle', FanAreaEntityDAO: 'Fan',
              // 線の帯。`ObbWidth` が幅で、伸び 10 コマ・維持 310 コマ・消え 10 コマ
              BeamEntityDAO: 'Beam' };
 
+/** **遮蔽で止まる弾か。**弾（通常攻撃の弾・投射物）は止まる。範囲の体は
+    `CheckBlockHit` が真のときだけ（生徒の扇 29・箱 10・円 1 が真。ボスの範囲は
+    1,416 個ぜんぶ偽 = ビナーの光線は遮蔽で減らず、隠れている側の効果
+    （`CoverState` 2 の `_Covered`）に切り替わるだけ。2026-09-07 に数えた）。
+    ItJustWorks「When a block occurs, damage is redirected into the blocking entity」 */
+var BULLET = { NormalAttackBulletEntityDAO: 1, TargetProjectileEntityDAO: 1,
+               NontargetProjectileEntityDAO: 1, BounceProjectileEntity: 1,
+               FixedFrameTargetProjectileEntityDAO: 1 };
+function blockable(node, typ, key) {
+  if (key === 'AreaAbilities' || AREA[typ]) { return node && node.CheckBlockHit === true; }
+  return !!BULLET[typ];
+}
+
 /** 範囲の形。範囲の体でなければ null。単位は 1/100 ワールド（`PositionOffset` だけワールド） */
 export function shapeOf(e) {
   var k = AREA[typeOf(e)];
@@ -205,6 +218,8 @@ export function skillEvents(doc) {
                      prj: ctx.prj || null, dist: ctx.dist != null ? ctx.dist : null,
                      single: singleOf(typ, key, ctx.sel),
                      sc: ctx.sc || null,
+                     // 遮蔽で止まる弾か（`run.js:fire` の遮蔽率はこれが真のときだけ）
+                     blk: blockable(node, typ, key),
                      mods: (a.Modifiers && a.Modifiers.length) ? a.Modifiers : null });
         }
       }

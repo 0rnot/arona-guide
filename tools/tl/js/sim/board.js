@@ -111,6 +111,7 @@ export function boardPlan(doc) {
     out.push({ i: i, points: points, byTag: byTag, waits: waits, next: next,
                walkTo: got.walkTo, wave: got.wave, starts: got.starts,
                instant: got.instant, dies: got.dies,
+               status: got.status, skills: got.skills,
                obstacles: sec.Obstacles || [] });
   }
   var gl = eventsOf(((doc && doc.Global) || {}).Events || []);
@@ -132,9 +133,10 @@ export function boardPlan(doc) {
     節の中に 1 つも無いので、見ていないあいだホドは節 0 から動かなかった）。 */
 function eventsOf(evs) {
   var walkTo = null, wave = [], starts = [], instant = false, dies = [], j, m;
+  var status = [], skills = [];
   for (j = 0; j < evs.length; j++) {
     var cs2 = evs[j].Conditions || [], cm2 = evs[j].Commands || [], q2;
-    var to = null, wsec = 0, areaZ = null, hasW = false;
+    var to = null, wsec = 0, areaZ = null, hasW = false, hasSp = false;
     for (q2 = 0; q2 < cm2.length; q2++) {
       var t2 = typeOf(cm2[q2]);
       if (t2.indexOf('Wave') >= 0 && cm2[q2].Waves) {
@@ -150,6 +152,22 @@ function eventsOf(evs) {
         wsec += cm2[q2].Milliseconds || 0;
       } else if (t2.indexOf('ForceMove') >= 0 && cm2[q2].IsInstantMove) {
         instant = true;
+      } else if (t2.indexOf('SetStatusImmune') < 0 && t2.indexOf('SetStatus') >= 0) {
+        // **盤が状態を付け外しする**（`GroundCommandSetStatus`。2026-09-07）。
+        // ホドは節 3（玉座の前）で本体の `Untargetable` を外す（`isAdd: false`）。
+        // これを見ていないあいだ、本体は最後まで狙えなかった
+        status.push({ tags: tagsOf(evs[j]), cmd: String(cm2[q2].CommandID || ''),
+                      status: String(cm2[q2].heroStatus || ''), add: cm2[q2].isAdd !== false,
+                      delay: wsec });
+      } else if (t2.indexOf('UseSkill') >= 0 && cm2[q2].SkillGroupId) {
+        // **盤が撃つ技**（`GroundCommandUseSkill`。撃つのは地面の体 18001002）。
+        // ホドの節 3 は `HODGroundEx02` で本体を形態 1（`HODInsaneNormal02`・本物の EX03）にし、
+        // 段を進める札 `Dummy_HOD_TemporaryDeadChangePhase01` を貼る
+        skills.push({ tags: tagsOf(evs[j]), gid: String(cm2[q2].SkillGroupId),
+                      to: cm2[q2].TargetCharacterCommandId || [],
+                      cmd: String(cm2[q2].CommandID || ''), delay: wsec });
+      } else if (t2.indexOf('SpawnEntity') >= 0) {
+        hasSp = true;
       } else if (t2.indexOf('CharacterDie') >= 0) {
         // **合図で体を消す。**カイテンジャーは棒が 0 になった瞬間に
         // レンジャー 5 人がまとめて消える（`CharacterCommandIdList`）
@@ -163,10 +181,12 @@ function eventsOf(evs) {
         areaZ = cs2[q2].Position.z != null ? cs2[q2].Position.z : cs2[q2].Position.y;
       }
     }
-    if (areaZ != null && (hasW || to != null) && walkTo == null) { walkTo = areaZ; }
+    // **着いたら湧く・撃つ節も歩く**（ホドの節 1。仮設タワーは `GroundConditionArea` で湧く）
+    if (areaZ != null && (hasW || to != null || hasSp) && walkTo == null) { walkTo = areaZ; }
     if (to != null) { starts.push({ tags: tagsOf(evs[j]), to: to, wait: wsec }); }
   }
-  return { walkTo: walkTo, wave: wave, starts: starts, instant: instant, dies: dies };
+  return { walkTo: walkTo, wave: wave, starts: starts, instant: instant, dies: dies,
+           status: status, skills: skills };
 }
 
 /** その節で合図 `tag` を出したときに湧く湧き点。 */
@@ -319,7 +339,44 @@ export function obstacleBoxes(plan, si, common) {
       hw: Math.abs((sz.x || 0) * (sc.x == null ? 1 : sc.x)) / 2,
       hh: Math.abs((sz.y || 0) * (sc.y == null ? 1 : sc.y)) / 2,
       block: (st && st.BlockRate) || 0,
+      // **遮蔽物にも体力がある。**止めた弾はここへ流れる（ItJustWorks
+      // 「When a block occurs, damage is redirected into the blocking entity」）。
+      // `MaxHP100`（敵の体と同じく 100 の欄をそのまま）。`DestroyType` が 0/無しの
+      // 形（トラック・樽）は壊れない
+      idx: i, name: String(o.UniqueName || ''), hp: (st && st.MaxHP100) || 0,
+      destroy: sh.DestroyType || 0, dead: false,
+      org: { x: p.x || 0, y: (p.z != null ? p.z : (p.y || 0)) }, sc: sc,
     });
+  }
+  return out;
+}
+
+/** **遮蔽の立ち位置。**盤の `Obstacles[].ActivePlayerPointIndices` が指す
+    `PlayerPoints` だけ（面ごとに設計者が開けている点。ビナー屋外 Torment の節 0 は
+    21 個の遮蔽のうち 15 個に 1 点ずつ）。局所→世界の変換は箱と同じで、
+    `Scale` も箱と同じく掛ける。返すのは `{x, y, box, used}` の並び。 */
+export function coverPoints(plan, si, common, boxes) {
+  var s = plan && plan.sections[si];
+  if (!s || !(s.obstacles || []).length || !boxes || !boxes.length) { return []; }
+  var byIdx = {}, i, j;
+  for (i = 0; i < boxes.length; i++) { byIdx[boxes[i].idx] = boxes[i]; }
+  var out = [];
+  for (i = 0; i < s.obstacles.length; i++) {
+    var o = s.obstacles[i], bx = byIdx[i];
+    if (!bx) { continue; }
+    var sh = shapeOf(common, String(o.UniqueName || ''));
+    var pts = (sh && sh.PlayerPoints) || [], act = o.ActivePlayerPointIndices || [];
+    for (j = 0; j < act.length; j++) {
+      var q = pts[act[j]];
+      if (!q) { continue; }
+      var lx = (q.x || 0) * (bx.sc.x == null ? 1 : bx.sc.x);
+      var ly = (q.y || 0) * (bx.sc.y == null ? 1 : bx.sc.y);
+      out.push({
+        x: bx.org.x + lx * bx.f.y + ly * bx.f.x,
+        y: bx.org.y + lx * (-bx.f.x) + ly * bx.f.y,
+        box: bx, used: null,
+      });
+    }
   }
   return out;
 }
@@ -355,10 +412,16 @@ function segBox(p0, p1, b2) {
     `EmptyObstacleFireLineCheck` だけが真＝**線を遮るのは遮蔽だけで、体は遮らない。**
     体の大きいボスは中心が車の裏にあっても縁が出ているので、これで陰に入らない。 */
 export function coverRate(from, to, boxes, radius) {
-  if (!from || !to || !boxes || !boxes.length) { return 0; }
+  var bx = coverBox(from, to, boxes, radius);
+  return bx ? bx.block : 0;
+}
+
+/** 線を遮っている箱そのもの（無ければ null）。止めた弾の行き先に要る。 */
+export function coverBox(from, to, boxes, radius) {
+  if (!from || !to || !boxes || !boxes.length) { return null; }
   var d = sub(to, from), dl = len(d);
   var cut = (radius || 0) / U;
-  if (dl <= cut) { return 0; }
+  if (dl <= cut) { return null; }
   var t1 = (dl - cut) / dl;
   var end = { x: from.x + d.x * t1, y: from.y + d.y * t1 };
   // **遮蔽は「狙われる側が箱の陰に居る」ときだけ**（2026-09-07）。箱が撃つ側の
@@ -367,10 +430,11 @@ export function coverRate(from, to, boxes, radius) {
   // だけを数える。ここが線の全部だったので、リオの NS も生徒の通常攻撃もボスへ
   // 0.7 倍で入っていた（IrVUx0ywuyo で 99 発）。旧い道は味方 → ボスに遮蔽を掛けない。
   // 「陰に居る」の判定そのもの（`CoverState`）は `run.js:coverState` がこの関数で見る
-  var best = 0, i;
+  var best = null, i;
   for (i = 0; i < boxes.length; i++) {
-    if (boxes[i].block > best && segBox(from, end, boxes[i]) &&
-        pointBoxDist(to, boxes[i]) <= cut + 1.5) { best = boxes[i].block; }
+    if (boxes[i].dead) { continue; }
+    if (boxes[i].block > (best ? best.block : 0) && segBox(from, end, boxes[i]) &&
+        pointBoxDist(to, boxes[i]) <= cut + 1.5) { best = boxes[i]; }
   }
   return best;
 }
