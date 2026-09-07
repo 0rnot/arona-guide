@@ -361,11 +361,27 @@ export function coverRate(from, to, boxes, radius) {
   if (dl <= cut) { return 0; }
   var t1 = (dl - cut) / dl;
   var end = { x: from.x + d.x * t1, y: from.y + d.y * t1 };
+  // **遮蔽は「狙われる側が箱の陰に居る」ときだけ**（2026-09-07）。箱が撃つ側の
+  // 足元にあっても弾は減らない（生徒が自分の遮蔽物の陰からボスを撃つ形がそれ）。
+  // 線を遮る箱のうち、**狙われる側の体に接している箱**（体の縁から 1.5 単位＝ 150 cm 以内）
+  // だけを数える。ここが線の全部だったので、リオの NS も生徒の通常攻撃もボスへ
+  // 0.7 倍で入っていた（IrVUx0ywuyo で 99 発）。旧い道は味方 → ボスに遮蔽を掛けない。
+  // 「陰に居る」の判定そのもの（`CoverState`）は `run.js:coverState` がこの関数で見る
   var best = 0, i;
   for (i = 0; i < boxes.length; i++) {
-    if (boxes[i].block > best && segBox(from, end, boxes[i])) { best = boxes[i].block; }
+    if (boxes[i].block > best && segBox(from, end, boxes[i]) &&
+        pointBoxDist(to, boxes[i]) <= cut + 1.5) { best = boxes[i].block; }
   }
   return best;
+}
+
+/** 点と箱の距離（箱の中なら 0）。局所に移してから 2 軸で測る */
+function pointBoxDist(p, b2) {
+  var rx = b2.f.y, ry = -b2.f.x;
+  var dx = p.x - b2.c.x, dy = p.y - b2.c.y;
+  var lx = dx * rx + dy * ry, ly = dx * b2.f.x + dy * b2.f.y;
+  var ox = Math.max(Math.abs(lx) - b2.hw, 0), oy = Math.max(Math.abs(ly) - b2.hh, 0);
+  return Math.sqrt(ox * ox + oy * oy);
 }
 
 /** 距離で並べ替える。`sel.sort` が `Distance` のときだけ。 */

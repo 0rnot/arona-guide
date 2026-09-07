@@ -34,6 +34,8 @@
    判定できない型は `null` を返す。**呼ぶ側は `null` を「分からない」として扱い、
    数えて出す。**「分からない」を黙って true にしない。 */
 
+var ROLE_NAME = { 1: 'DamageDealer', 2: 'Tanker', 3: 'Supporter', 4: 'Healer', 5: 'Vehicle' };
+
 function tOf(m) { return String((m && m.$type) || '').split(',')[0].split('.').pop(); }
 
 /** `CheckTarget` 0 自分 / 1 当てる相手 / 2 味方 */
@@ -86,9 +88,28 @@ export function one(m, ctx, self, target) {
   }
   if (t === 'CountLogicEffectTemplateModifierDAO') {
     // **`CheckTarget: 2` は「撃つ側の味方みんな」で、数えるのは体の数**
-    n = m.CheckTarget === 2
+    // **`CheckTarget: 5` も味方みんな**（2026-09-07）。イブキ（水着）の NS
+    // `CH0347Public01` が「お友達」の役職の札（`Dummy_CH0347_PlayFriend_Dealer`）を
+    // 1 人ぶんか 2 人ぶんかで数える（2 人とも同じ役職なら効果 2 倍）。DB 全体で 26 か所
+    n = (m.CheckTarget === 2 || m.CheckTarget === 5)
       ? ctx.sideCount(self, m.TemplateId)
       : ((ctx.marks(who) || {})[m.TemplateId] || 0);
+    return inc(m, within(n, m.CountMin, m.CountMax));
+  }
+  if (t === 'CountListTacticRoleModifierDAO') {
+    // **役職（`TacticRole`）で絞る**（2026-09-07）。`TacticRoleList` は番号で、
+    // `CharacterExcelTable.TacticRole` の並び 1 DamageDealer / 2 Tanker / 3 Supporter /
+    // 4 Healer / 5 Vehicle（イブキ（水着）の EX `CH0347Ex01` が Effect07〜10 で
+    // お友達の役職ごとの札を貼る。`TacticRoleList: [1]` が `Dummy_CH0347_PlayFriend_Dealer`）。
+    // `CheckTarget` 1 なら当てる相手の役職が並びにあるかで 0 / 1、2 / 5 なら味方の中の人数
+    if (!ctx.role) { return null; }
+    var rl = m.TacticRoleList || [], rn = [], rz;
+    for (rz = 0; rz < rl.length; rz++) { if (ROLE_NAME[rl[rz]]) { rn.push(ROLE_NAME[rl[rz]]); } }
+    if (m.CheckTarget === 2 || m.CheckTarget === 5) {
+      n = ctx.sideRoleCount ? ctx.sideRoleCount(self, rn) : 0;
+    } else {
+      n = rn.indexOf(ctx.role(who)) >= 0 ? 1 : 0;
+    }
     return inc(m, within(n, m.CountMin, m.CountMax));
   }
   if (t === 'CountListLogicEffectTemplateModifierDAO') {

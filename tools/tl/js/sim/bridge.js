@@ -158,6 +158,40 @@ export async function simParty(o) {
     });
   }
 
+  // **支援値（スペシャル → ストライカー）**（2026-09-07）。`CharacterStatsTransExcelTable`
+  // （`common.statsTrans`、`StatTransType: SpecialTransStat`）の万分率で、スペシャル生徒の
+  // 育った素の値（パッシブ抜き）× 率 を切り捨てて足す。**係数の溜まりの外**に足す
+  // （旧い道 `passive.js:support` と `dmg.js:dmgAt` の `atk += support(...)` と同じ形）。
+  // Base: MaxHP 1000 ／ AttackPower 1000 ／ DefensePower 500 ／ HealPower 500。
+  // ネル（制服）の攻撃が 14,441 のところ 15,563 になる（リオ 8,082 + イブキ 7,591 の 10%）
+  var trans = {}, tr, k9;
+  for (i = 0; i < ((common && common.statsTrans) || []).length; i++) {
+    tr = common.statsTrans[i];
+    if (tr.StatTransType !== 'SpecialTransStat') { continue; }
+    if ((tr.EchelonExtensionType || 'Base') !== 'Base') { continue; }
+    trans[tr.TransSupportStats] = tr.TransSupportStatsFactor;
+  }
+  var sup = {};
+  var sqOf = function (pe) { return (pe.pack && pe.pack.ch && pe.pack.ch.SquadType) || pe.squad || null; };
+  for (i = 0; i < party.length; i++) {
+    if (sqOf(party[i]) !== 'Support') { continue; }
+    for (k9 in trans) {
+      sup[k9] = (sup[k9] || 0) + Math.floor((party[i].stats[k9] || 0) * trans[k9] / 10000);
+    }
+  }
+  for (i = 0; i < party.length; i++) {
+    if (sqOf(party[i]) !== 'Main') { continue; }
+    var st9 = party[i].stats, rw9 = st9.__raw;
+    for (k9 in sup) {
+      if (!sup[k9]) { continue; }
+      st9[k9] = (st9[k9] || 0) + sup[k9];
+      if (rw9) {
+        if (!rw9[k9]) { rw9[k9] = [0, 0, 1, 0]; }
+        rw9[k9][3] += sup[k9];
+      }
+    }
+  }
+
   // **通常スキルが「味方 1 人」のときの渡し先。**画面の枠の番号を核の並びに直す
   for (i = 0; i < party.length; i++) {
     party[i].nsto = mapTo(party[i]._nsto, map);
@@ -179,7 +213,9 @@ export async function simParty(o) {
   var dur = o.dur != null ? o.dur : ((index[key].dur || 240000) / 1000);
   var res = run({ common: common, boss: boss, party: party, tl: tl, cid: cid0,
                   dur: dur, mc: 1, seed: o.seed, step: o.step, probe: o.probe,
-                  snapAt: o.snapAt });
+                  snapAt: o.snapAt,
+                  // 測定用の栓（`_cmp.py`）。画面からは渡さない
+                  noBossDmg: o.noBossDmg, noUntargetable: o.noUntargetable });
   res.key = key;
   res.gaps = gaps;
   res.names = names;

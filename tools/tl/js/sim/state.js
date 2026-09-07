@@ -81,6 +81,7 @@ export function makeUnit(o) {
 function makeMark(r, src, now, lvl) {
   return {
     gid: r.gid, tmpl: r.tmpl, cat: r.cat, ch: r.ch,
+    slot: r.slot,                     // 撃った枠（Ex / Public / Passive …）。Channel の押し出しは同じ枠どうしだけ
     kind: r.kind, stat: r.stat, val: r.val, mode: r.mode,
     dispellable: r.disp !== false,
     src: src,                         // 撃った側の key
@@ -122,10 +123,17 @@ export function applyMark(u, r, src, now, lvl) {
       u.eff.splice(oi, 1);
     }
   }
-  // **同じ Channel の別の札は押し出す**（0 は「溝なし」で押し出さない）
+  // **同じ Channel の別の札は押し出す**（0 は「溝なし」で押し出さない）。
+  // **ただし同じ枠の種類（Ex / Public / Passive …）どうしだけ**（2026-09-07）。
+  // 旧い道（`target.js:liveBuffs0`、動画で確かめ済み）は「同じ（枠, Channel）は
+  // 遅く始まったほうを残す」で、枠が違えば同じ Channel でも並ぶ。ここが Channel だけ
+  // だったので、セイアの EX（防御 −47.81%、Channel 603）がリオの NS（−25.51%、同じ 603）を
+  // 押し出していた。IrVUx0ywuyo の 54.3 秒でボスの防御が 1814 のところ 3549 になり、
+  // ネルの 1 発が 0.667 倍
   if (ch) {
     for (i = u.eff.length - 1; i >= 0; i--) {
-      if (u.eff[i].ch === ch && u.eff[i].gid !== r.gid) { u.eff.splice(i, 1); }
+      if (u.eff[i].ch === ch && u.eff[i].gid !== r.gid &&
+          String(u.eff[i].slot || '') === String(r.slot || '')) { u.eff.splice(i, 1); }
     }
   }
   u.eff.push(makeMark(r, src, now, lvl));
@@ -251,6 +259,18 @@ export function ctxOf(b) {
       return (u && u.maxHp) ? Math.round(u.hp / u.maxHp * 10000) : 0;
     },
     form: function (u) { return u ? u.form : 0; },
+    role: function (u) { return u ? u.role : null; },
+    // 役職の札を持つ体の数ではなく、**その役職の体の数**（`CountListTacticRoleModifierDAO` の
+    // `CheckTarget: 2 / 5`。2026-09-07）
+    sideRoleCount: function (u, roles) {
+      var n = 0, i, v;
+      if (!u) { return 0; }
+      for (i = 0; i < b.order.length; i++) {
+        v = b.units[b.order[i]];
+        if (v && v.alive && v.side === u.side && roles.indexOf(v.role) >= 0) { n++; }
+      }
+      return n;
+    },
     skillLv: function (u, slot) { return (u && u.skillLv[slot]) || 1; },
     armor: function (u) { return u ? u.armor : null; },
     bullet: function (u) { return u ? u.bullet : null; },

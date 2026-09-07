@@ -180,6 +180,9 @@ export function skillEvents(doc) {
           out.push({ f: base + hits[q], gid: gids[j], sel: ctx.sel, lvPick: null,
                      share: ctx.share != null ? ctx.share : null,
                      area: key === 'AreaAbilities' ? ctx.area : null,
+                     // 体の置き方。`TargetSide: None` の体の相手を決めるのに要る
+                     // （`run.js:pick`。`Invoker` なら撃った本人）
+                     spawn: ctx.spawn || (ctx.area && ctx.area.spawn) || null,
                      prj: ctx.prj || null, dist: ctx.dist != null ? ctx.dist : null,
                      single: singleOf(typ, key, ctx.sel),
                      mods: (a.Modifiers && a.Modifiers.length) ? a.Modifiers : null });
@@ -198,7 +201,7 @@ export function skillEvents(doc) {
       if (!e || typeof e !== 'object' || !e.Abilities) { continue; }
       ability({ Abilities: e.Abilities }, 'Abilities',
               { at: ctx.at + (e.Frame || 0), sel: ctx.sel, prj: ctx.prj,
-                area: ctx.area, dist: ctx.dist, rootEcr: ctx.rootEcr }, typ);
+                area: ctx.area, dist: ctx.dist, rootEcr: ctx.rootEcr, spawn: ctx.spawn }, typ);
     }
   }
 
@@ -235,7 +238,10 @@ export function skillEvents(doc) {
     }
     var area = shapeOf(e) || ctx.area || null;
     var c2 = { at: at, sel: sel, prj: prj, area: area, dist: ctx.dist,
-               rootEcr: ctx.rootEcr, share: ctx.share };
+               rootEcr: ctx.rootEcr, share: ctx.share,
+               // 体の置き方（`SpawnPositionType`）。形の無い体にも要る（`run.js:pick` が
+               // `TargetSide: None` の相手をこれで決める。`Invoker` は撃った本人）
+               spawn: e.SpawnPositionType || ctx.spawn || null };
     ability(e, 'Abilities', c2, typ);
     ability(e, 'AreaAbilities', c2, typ);
     // **湧いた瞬間に落ちるアビリティ。**並びは `Abilities` と同じ

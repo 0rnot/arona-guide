@@ -284,5 +284,10 @@ export function grow(pack, common, o) {
   }
   // **足りなかったものを持たせる。**統計として数えられないよう列挙から外す
   Object.defineProperty(out, '__gaps', { value: gaps, enumerable: false });
+  // **係数を畳む前の形も持たせる**（2026-09-07）。`run.js:statsNow` はここから始める。
+  // 装備の `AttackPower_Coefficient`（帽子 +50%）はバフの `Coefficient` と**同じ溜まり**で、
+  // 畳んだ値にバフの係数を掛け直すと装備ぶんが 2 度掛かる（ネル（制服）で
+  // 16,603 対 14,441。旧い道 `stats.js:mkStats` は 1 つの溜まりで足してから掛ける）
+  Object.defineProperty(out, '__raw', { value: acc, enumerable: false });
   return out;
 }

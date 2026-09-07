@@ -53,7 +53,13 @@ var FPS = 30;
 export function statsNow(u) {
   var base = u.base || {}, acc = {}, i, k;
   function slot(name) {
-    if (!acc[name]) { acc[name] = [pick(name), 0, 1, 0]; }
+    if (!acc[name]) {
+      // **係数を畳む前の形から始める**（`grow.js` の `__raw`。2026-09-07）。
+      // 装備の係数（帽子の攻撃 +50%）とバフの係数は同じ溜まりで足してから掛ける。
+      // 畳んだ値に掛け直すと装備ぶんが 2 度掛かる（旧い道 `stats.js:mkStats` と同じ形に）
+      var rw = base.__raw && base.__raw[name];
+      acc[name] = rw ? rw.slice() : [pick(name), 0, 1, 0];
+    }
     return acc[name];
   }
   // **素の行に無い「率」の欄は 0 ではなく 10000。**
@@ -133,6 +139,16 @@ export function nsAuto(doc) {
     var n = r.TryCount == null ? 0 : +r.TryCount;
     if (!(n > 0)) { return null; }
     return { kind: 'shots', shots: n, rate: rate, max: max };
+  }
+  // **`RemoveLogicEffectTemplateId`: 自分に付いた札（`ConditionArgument` の TemplateId）が
+  // 切れた瞬間に撃つ**（2026-09-07）。イブキ（水着）`CH0347Public01` がこれで、札は
+  // 隠しパッシブが NS の発動と同時に貼る `Dummy_CH0347_HiddenPassive03_PublicDummy`
+  // （`CH0347_HiddenPassive03_Effect01`、30,000 ms）。説明文は「「イブキのお友達！」
+  // 使用後30秒毎に」。**札の長さを周期として置く**（長さは `setupAlly` が札の行から引く）。
+  // `CH0347_HiddenPassive04_Effect01`（Event 17、25,000 ms）も同じ札を貼るが、
+  // 「無いときだけ」（IncludeType 2）なので Event 3 の 30 秒が先に立って効かない
+  if (r.ConditionType === 'RemoveLogicEffectTemplateId' && r.ConditionArgument) {
+    return { kind: 'onRemove', tmpl: String(r.ConditionArgument), rate: rate, max: max };
   }
   return null;
 }
@@ -552,6 +568,9 @@ function fire(R, ev, caster, target, lvl, at, mc) {
     for (zi = 0; zi < target.eff.length; zi++) {
       if (/Immortal/.test(String(target.eff[zi].tmpl || ''))) { floor = 1; break; }
     }
+    // **測定用の栓**（段階 0 の物差し）。`noBossDmg` のときは味方の HP を減らさない。
+    // ゲームの規則ではなく、味方側の数を敵の干渉なしに測るための道具
+    if (R.noBossDmg && target.side === 'ally') { dmg = 0; }
     target.hp = Math.max(floor, target.hp - dmg);
     R.total += dmg;
     if (R.onDamaged && target.side === 'enemy') { R.onDamaged(target, dmg, at); }
@@ -564,6 +583,7 @@ function fire(R, ev, caster, target, lvl, at, mc) {
                     // **掛け算の中身**（核が伸びないときに、どれが 0 かを見る）
                     { eff: a.eff, terr: a.terr, hit: +o.hit.toFixed(3),
                       rate: +o.rate.toFixed(3), crit: +o.crit.toFixed(3),
+                      cdm: o.cdm == null ? null : +o.cdm.toFixed(4), cap: o.caps == null ? null : o.caps,
                       sMin: +o.sMin.toFixed(3), base: Math.round(o.base),
                       p: o.parts }]);
     }
@@ -586,7 +606,39 @@ function fire(R, ev, caster, target, lvl, at, mc) {
   // ---- ダメージ以外は札として盤に置く。**確率はここで振る**
   if (r.rate != null && r.kind !== 'stat' && R.rnd && r.rate < 10000 &&
       r.kind !== 'dmg' && R.rnd() * 10000 >= r.rate) { return 0; }
-  applyMark(target, r, caster.key, at, lvl);
+  // **持続時間の延長。**撃つ側の `ExtendBuffDuration`（味方に貼る札）／
+  // `ExtendDebuffDuration`（敵に貼る札）を掛ける。出どころは固有武器の
+  // `WeaponPassive`（StatType 46 / 47）。旧い道の `TE.extend` と同じく
+  // ミリ秒で丸める（15000 × 1.19 が 17849.999… にならないように）
+  // 札に撃った枠を載せる（`state.js:applyMark` の Channel 押し出しが枠を見る）
+  var r9 = Object.assign({}, r, { slot: ev.slot });
+  if (r.dur != null && r.dur > 0 && caster && caster !== target) {
+    var cs9 = statsNow(caster);
+    // `statsNow` の率系は素が 10000（＝ ×1.0）。固有武器 Lv10 なら 11900 ＝ ×1.19
+    var ext9 = (target.side === caster.side) ? (cs9.ExtendBuffDuration || 0) : (cs9.ExtendDebuffDuration || 0);
+    if (ext9 > 0 && ext9 !== 10000) {
+      r9 = Object.assign({}, r9, { dur: Math.round(r.dur * (ext9 / 10000)) });
+    }
+  }
+  applyMark(target, r9, caster.key, at, lvl);
+  // **札が切れたら撃つ通常スキルの見張り**（`setupAlly` の `_nsWatch`）。
+  // 貼った札の「切れる時刻」に、同じ札が生きていなければ撃つ。
+  // 貼り直し（同じ札の延長）は新しい切れる時刻で積み直すので、古い見張りは空振りする
+  if (target._nsWatch && r9.tmpl && r9.tmpl === target._nsWatch.tmpl && r9.dur > 0) {
+    (function (tg9, un9, tm9) {
+      R.q.push(un9, function (now) {
+        var z9, live9 = false;
+        // 切れた札を先に落とす。落とさないと、撃った NS と同時に貼り直す隠しパッシブの
+        // 「札が無いときだけ」（`CountLogicEffectTemplate` IncludeType 2）が古い札を数える
+        expire(tg9, now);
+        for (z9 = 0; z9 < tg9.eff.length; z9++) {
+          var m9 = tg9.eff[z9];
+          if (m9.tmpl === tm9 && (m9.until == null || m9.until > now + 1e-6)) { live9 = true; break; }
+        }
+        if (!live9 && tg9._nsWatch && tg9._nsWatch.tmpl === tm9) { tg9._nsWatch.fire(now); }
+      });
+    })(target, at + r9.dur, r9.tmpl);
+  }
   return 0;
 }
 
@@ -598,6 +650,12 @@ function cast(R, u, gid, slot, lvl, at, opt) {
   var mc = opt && opt.mc != null ? opt.mc : null;
   var to = opt && opt.to != null ? opt.to : null;
   var ev = R.evCache[gid] || (R.evCache[gid] = skillEvents(doc));
+  // **演出中の印。**`TimelineSkillActionDAO` の `Duration`（フレーム）のあいだ、
+  // その子は次の NS を撃たない（旧い道の `busyOf` / `exStart` と同じ）
+  if ((slot === 'Ex' || slot === 'Public') && doc.Duration > 0) {
+    var bu9 = at + doc.Duration / FPS * 1000;
+    if (u._busyUntil == null || bu9 > u._busyUntil) { u._busyUntil = bu9; u._busyKind = slot; }
+  }
   for (var i = 0; i < ev.length; i++) {
     var e = ev[i];
     var t2 = at + e.f / FPS * 1000;
@@ -607,9 +665,16 @@ function cast(R, u, gid, slot, lvl, at, opt) {
     (function (e2, t3) {
       R.q.push(t3, function (now) {
         e2.slot = slot;
+        R.now = now;
         var tg = R.pick(u, e2, to), k;
         // **狙う先が 1 つも取れなかった回数。**核が伸びないときの手がかり
-        if (!tg.length) { R.miss['狙えず:' + slot] = (R.miss['狙えず:' + slot] || 0) + 1; }
+        if (!tg.length) {
+          R.miss['狙えず:' + slot] = (R.miss['狙えず:' + slot] || 0) + 1;
+          // **誰の・どの枠の・どの事象が狙えなかったか**（段階 0 の物差し用）
+          var mk9 = u.key + '/' + slot + '/' + e2.gid;
+          R.missBy[mk9] = (R.missBy[mk9] || 0) + 1;
+          if (!R.missT[mk9]) { R.missT[mk9] = [now, now]; } else { R.missT[mk9][1] = now; }
+        }
         for (k = 0; k < tg.length; k++) { fire(R, e2, u, tg[k], lvl, now, mc); }
       }, slot + ':' + e2.gid);
     })(e, t2);
@@ -628,7 +693,7 @@ function cast(R, u, gid, slot, lvl, at, opt) {
   R.used.push({ t: at, who: u.key, slot: slot, gid: gid });
   // **スキルを使ったことを SS に知らせる**（Event 3 / 17）。
   // SS 自身とパッシブからは知らせない（際限なく回る）
-  if (u._fireSS && slot !== 'ExtraPassive' && slot !== 'Passive') {
+  if (u._fireSS && slot !== 'ExtraPassive' && slot !== 'Passive' && slot !== 'HiddenPassive') {
     u._fireSS(at, 'cast', slot);
   }
 }
@@ -890,7 +955,7 @@ export function run(o) {
   // ここが無いあいだ、範囲攻撃は距離に関係なく盤の全部に当たっていて、
   // 味方が中サイズのペロロミニオンを湧いた端から全部倒し、
   // ボスが吸うものを見つけられずグロッキーが 1 度も起きなかった
-  var bd = null, sec = 0, snap = null;
+  var bd = null, sec = 0, snaps = {}, snapDone = {}, snap = null;
   var bnames = Object.keys(boss.board || {});
   if (bnames.length) { bd = boardPlan(boss.board[bnames[0]]); }
   // **ボスが湧く節で戦う**（2026-09-07）。節 0 に居ないボスが 1 体だけいる——
@@ -981,7 +1046,7 @@ export function run(o) {
 
   var R = {
     b: b, ctx: ctxOf(b), eff: eff, q: queue(), evCache: {}, pgCache: {},
-    fireN: {}, total: 0, heal: 0, groggy: [], ggLog: [], secLog: [], summoned: 0, smCache: {}, probe: o.probe ? [] : null, used: [], unknown: 0, unknownBy: {}, miss: {}, by: {},
+    fireN: {}, missBy: {}, missT: {}, missWhy: {}, deaths: [], noBossDmg: !!o.noBossDmg, noUntargetable: !!o.noUntargetable, total: 0, heal: 0, groggy: [], ggLog: [], secLog: [], summoned: 0, smCache: {}, probe: o.probe ? [] : null, used: [], unknown: 0, unknownBy: {}, miss: {}, by: {},
     durMs: durMs, mc: o.mc || 1, C: constOf(common),
     unitOf: function (k) { return b.units[k] || null; },
     lvTable: common.lvdiff || null, caps: capsOf(common.calcLimit),
@@ -1098,7 +1163,15 @@ export function run(o) {
       return l ? kindOfList(l) : null;
     },
     pick: function (u, ev, to) {
-      var side = (ev.sel && ev.sel.side) || (u.side === 'ally' ? 'Enemy' : 'Player');
+      var side = (ev.sel && ev.sel.side) || null;
+      // **`TargetSide` が無い／`None` の体は、置き方（`SpawnPositionType`）で相手が決まる**
+      // （2026-09-07）。`Invoker` は撃った本人に付く体（イブキ（水着）の隠しパッシブ
+      // `CH0347_HiddenPassive03_LevelTargetAttachedEntity01` がこれで、NS の札を自分に貼る）。
+      // ここが無くて札がボスに付き（無指定は「相手の側」に落ちる）、札切れで撃つ NS が
+      // 2 発目から出なかった。`InputBattleEntity`（指した相手）は今までどおり下の「渡し先」で拾う
+      var sp9 = ev.spawn || (ev.area && ev.area.spawn) || null;
+      if ((side == null || side === 'None') && sp9 === 'Invoker') { side = 'Self'; }
+      if (side == null) { side = (u.side === 'ally' ? 'Enemy' : 'Player'); }
       if (side === 'Self') { return [u]; }
       var mine = u.side === 'ally';
       // **倒れた体は狙わない。**ここが `allies.slice()` のままだと、
@@ -1114,10 +1187,43 @@ export function run(o) {
         for (z2 = 0; z2 < team.length; z2++) { if (team[z2] !== u) { t2.push(team[z2]); } }
         team = t2;
       }
+      // **`ApplyEntityType` で絞る**（2026-09-07）。木の `EssentialCandidateRule.ApplyEntityType` は
+      // 体の種類のビット集合で、**1 = 盤に立つ体（ストライカー・敵）、8 = スペシャル生徒**。
+      // `LocalizeSkillExcelTable` の説明文と突き合わせて決めた:
+      //   `CH0260ExtraPassive01`（Ally_Except_Self, 8）「自身とスペシャル生徒の攻撃力を…増加」
+      //   `CH0076Public01`（Ally_Except_Self, 1）「ストライカーの味方の会心ダメージ率を…増加」
+      //   `CH0055ExtraPassive01`（Ally, 9 = 1+8）「味方の治癒力を…増加」
+      //   敵を狙う技は 5 / 7（1 を含む）、敵の技が生徒を狙うのも 5 / 7
+      // 2 と 4 は遮蔽物・召喚物のたぐい（未確定。生徒は持たない）。
+      // ここが無くて、カンナ（水着）のサブスキル（スペシャル向け +30.61%）がネルに乗っていた
+      var am = ev.sel ? ev.sel.apply : null;
+      if (am != null && am > 0) {
+        var t5 = [], z5;
+        for (z5 = 0; z5 < team.length; z5++) {
+          var bits5 = (team[z5].side === 'ally' && team[z5].squad === 'Support') ? 8 : 1;
+          if (bits5 & am) { t5.push(team[z5]); }
+        }
+        team = t5;
+      }
       // **狙えない体を外す**（`Untargetable`）。外れて誰も居なくなったら撃たない
-      var t3 = [], z3;
+      var t3 = [], z3, n0 = team.length;
       for (z3 = 0; z3 < team.length; z3++) {
-        if (!untargeted(team[z3], ev, u)) { t3.push(team[z3]); }
+        if (R.noUntargetable || !untargeted(team[z3], ev, u)) { t3.push(team[z3]); }
+      }
+      // **誰も狙えなかった最初の場面を覚える**（段階 0 の物差し用）。
+      // 生きている敵の数・狙えない札の中身・その時刻
+      if (!t3.length && R.missWhy) {
+        var mw = u.key + '/' + (ev.slot || '?') + '/' + side;
+        if (!R.missWhy[mw]) {
+          var marks = [], zm, zu;
+          for (zm = 0; zm < team.length; zm++) {
+            for (zu = 0; zu < team[zm].eff.length; zu++) {
+              var rw = team[zm].eff[zu].raw;
+              if (rw && rw.kind === 'status') { marks.push([team[zm].key, rw.status, rw.param || '', rw.param2 || '', team[zm].eff[zu].tmpl || '', team[zm].eff[zu].gid || '', team[zm].eff[zu].src || '', Math.round(team[zm].eff[zu].at || 0), team[zm].eff[zu].until == null ? null : Math.round(team[zm].eff[zu].until)]); }
+            }
+          }
+          R.missWhy[mw] = { n0: n0, alive: living(b, 'enemy').length, marks: marks.slice(0, 8), t: R.now };
+        }
       }
       team = t3;
       var max = ev.sel ? ev.sel.max : null;
@@ -1194,6 +1300,8 @@ export function run(o) {
     var ng = gid('NormalSkillGroupId');
     var pg = gid('PublicSkillGroupId');
     var auto = (pg && au.ls[pg]) ? nsAuto(au.ls[pg]) : null;
+    if (!R.nsAutoBy) { R.nsAutoBy = {}; }
+    R.nsAutoBy[au.key + '/' + (au.form || 0)] = { pg: pg, auto: auto };
     au._ex = gid('ExSkillGroupId');
     au._pub = pg;
     au._pubLv = lvOf('Public');
@@ -1207,6 +1315,16 @@ export function run(o) {
       var shot = 0;
       var step = function (now) {
         if (au._gen !== gen || now > durMs) { return; }
+        // **EX・NS の演出中は通常攻撃が止まる。明けたら構え直し（`AttackEnterDuration`）で、
+        // 弾倉の数えは 0 から**（2026-09-07。旧い道 `na.js:naShots0` の `block` →
+        // `t = b + frames(b).ent; k = 0` をそのまま写した）。ここが無くて、制服ネルが
+        // 7.63 秒の EX の最中も撃ち続け、討伐までの通常攻撃が 23 発のところ 52 発だった
+        if (au._busyUntil != null && au._busyUntil > now + 1e-6) {
+          shot = 0;
+          var re9 = au._busyUntil + na.ent;
+          if (re9 <= durMs) { R.q.push(re9, step); }
+          return;
+        }
         if (au.alive) {
           cast(R, au, ng, 'Normal', 1, now);
           au._shots++;
@@ -1224,15 +1342,47 @@ export function run(o) {
       R.q.push(from + (from === 0 ? na.ent : 0), step);
     }
     // 通常スキル。**周期のもの**
+    //
+    // **周期は戦闘開始から数え、形態が変わっても引き継ぐ**（2026-09-07）。
+    // ここで `from + auto.ms` から数え直していて、制服ネルの NS が 18.9 秒の変身から
+    // 35 秒後（53.9 秒）に出ていた。旧い道（`ns.js`、動画で確かめ済み）は 35.0 秒に
+    // 満期 → EX の演出中なので明けた 41.4 秒に出る。`AutoUseRule` の `Interval` は
+    // 時計であって、`FormConversion` に時計を戻す欄は無い。
+    // **演出中（EX・NS のモーション）は撃たず、明けた瞬間に撃つ。次の満期は
+    // 実際に撃った時刻から周期**（リオ 29.9 秒の EX → 36.6 秒 → 66.6 秒 → 96.6 秒）
     if (pg && auto && auto.kind === 'interval' && auto.ms > 0) {
+      if (au._nsDue == null) { au._nsDue = auto.ms; }
       var tick = function (now) {
         if (au._gen !== gen || now > durMs) { return; }
+        if (au._busyUntil != null && au._busyUntil > now + 1e-6) {
+          R.q.push(au._busyUntil, tick);
+          return;
+        }
         if (au.alive) {
           cast(R, au, pg, 'Public', lvOf('Public'), now, { to: p.nsto });
         }
-        if (now + auto.ms <= durMs) { R.q.push(now + auto.ms, tick); }
+        au._nsDue = now + auto.ms;
+        if (au._nsDue <= durMs) { R.q.push(au._nsDue, tick); }
       };
-      R.q.push(from + auto.ms, tick);
+      R.q.push(Math.max(from, au._nsDue), tick);
+    }
+    // 通常スキル。**札が切れたら撃つもの**（`RemoveLogicEffectTemplateId`。`nsAuto` の注記）。
+    // 札は `fire()` が貼るときに「切れる時刻」へ見張りを積む（`_nsWatch`）。
+    // 切れた瞬間に生きている同じ札が無ければ撃つ。演出中なら明けてから
+    if (pg && auto && auto.kind === 'onRemove') {
+      var tickR = function (now) {
+        if (au._gen !== gen || now > durMs) { return; }
+        if (au._busyUntil != null && au._busyUntil > now + 1e-6) {
+          R.q.push(au._busyUntil, tickR);
+          return;
+        }
+        if (au.alive) {
+          cast(R, au, pg, 'Public', lvOf('Public'), now, { to: p.nsto });
+        }
+      };
+      au._nsWatch = { tmpl: auto.tmpl, fire: tickR };
+    } else {
+      au._nsWatch = null;
     }
   };
   R.setupAlly = setupAlly;
@@ -1255,33 +1405,58 @@ export function run(o) {
       var ps = gid('PassiveSkillGroupId'), es = gid('ExtraPassiveSkillGroupId');
       if (ps) { R.q.push(0, function (t) { cast(R, au, ps, 'Passive', lvOf('Passive'), t); }); }
 
-      var ss = (es && au.ls[es]) ? ssTrig(au.ls[es]) : null;
-
-      // ---- サブスキル（SS）の引き金
-      au._ssN = 0; au._ssHit = 0; au._ssLast = -1e9;
-      au._fireSS = function (now, kind, what) {
-        if (!ss || !es || ss.when !== kind) { return; }
-        if (kind === 'cast' && ss.param && ss.param.indexOf(what) < 0) { return; }
-        au._ssN++;
-        if (ss.tries > 1 && au._ssN % ss.tries !== 0) { return; }
-        if (ss.cool && now - au._ssLast < ss.cool) { return; }
-        if (ss.max >= 0 && au._ssHit >= ss.max) { return; }
-        if (ss.rate < 10000 && R.rnd && R.rnd() * 10000 >= ss.rate) { return; }
-        au._ssLast = now; au._ssHit++;
-        cast(R, au, es, 'ExtraPassive', lvOf('ExtraPassive'), now);
-      };
-      // **常時（1 / 301）は 0 秒に 1 回。**引き金が読めない型もここに落とす
-      // （置かないより、常時として置くほうが元の `csl[0]` 時代と同じ）
-      if (es && (!ss || ss.when === 'always' || ss.when === null)) {
-        R.q.push(0, function (t) {
-          cast(R, au, es, 'ExtraPassive', lvOf('ExtraPassive'), t);
-        });
-      }
-      // **N コマ毎（105）**
-      if (ss && ss.when === 'every' && ss.ms > 0) {
-        for (var ts = ss.ms; ts <= durMs; ts += ss.ms) {
-          (function (tt) { R.q.push(tt, function (now) { au._fireSS(now, 'every'); }); })(ts);
+      // ---- サブスキル（SS）と隠しパッシブの引き金（2026-09-07 に隠しパッシブを足した）
+      //
+      // `CharacterSkillListExcelTable` の `HiddenPassiveSkillGroupId` は生徒の内部処理で、
+      // ここまで丸ごと置いていなかった。イブキ（水着）は 4 枚持っていて、
+      // `HiddenPassive03`（Event 3 'Public'）が NS の発動と同時に 30 秒の札を貼り、
+      // その札が切れると NS が出る（`RemoveLogicEffectTemplateId`）。置かないと NS が
+      // 1 回きりになる。引き金の読み方は SS と同じ `ssTrig`。
+      // **読めない引き金（Event 28 = コスト消費 など）は撃たずに `R.miss['hpEv:<番号>']` に数える**
+      // （SS は元どおり「常時として置く」。SS はそれで動画と合っている）
+      var ssList = [];
+      if (es) { ssList.push({ gid: es, slot: 'ExtraPassive', trig: au.ls[es] ? ssTrig(au.ls[es]) : null, n: 0, hit: 0, last: -1e9 }); }
+      var hps = csl.HiddenPassiveSkillGroupId || [], hz;
+      for (hz = 0; hz < hps.length; hz++) {
+        if (hps[hz] && hps[hz] !== 'EmptySkill' && au.ls[hps[hz]]) {
+          ssList.push({ gid: String(hps[hz]), slot: 'HiddenPassive', trig: ssTrig(au.ls[hps[hz]]), n: 0, hit: 0, last: -1e9 });
         }
+      }
+      au._fireSS = function (now, kind, what) {
+        var q9, e9, ss9;
+        for (q9 = 0; q9 < ssList.length; q9++) {
+          e9 = ssList[q9]; ss9 = e9.trig;
+          if (!ss9 || ss9.when !== kind) { continue; }
+          if (kind === 'cast' && ss9.param && ss9.param.indexOf(what) < 0) { continue; }
+          e9.n++;
+          if (ss9.tries > 1 && e9.n % ss9.tries !== 0) { continue; }
+          if (ss9.cool && now - e9.last < ss9.cool) { continue; }
+          if (ss9.max >= 0 && e9.hit >= ss9.max) { continue; }
+          if (ss9.rate < 10000 && R.rnd && R.rnd() * 10000 >= ss9.rate) { continue; }
+          e9.last = now; e9.hit++;
+          cast(R, au, e9.gid, e9.slot, e9.slot === 'ExtraPassive' ? lvOf('ExtraPassive') : 1, now);
+        }
+      };
+      for (hz = 0; hz < ssList.length; hz++) {
+        (function (e9) {
+          var ss9 = e9.trig;
+          // **常時（1 / 301）は 0 秒に 1 回。**SS は引き金が読めない型もここに落とす
+          // （置かないより、常時として置くほうが元の `csl[0]` 時代と同じ）
+          if (e9.slot === 'ExtraPassive' && (!ss9 || ss9.when === 'always' || ss9.when === null)) {
+            R.q.push(0, function (t) { cast(R, au, e9.gid, e9.slot, lvOf('ExtraPassive'), t); });
+          } else if (e9.slot === 'HiddenPassive' && ss9 && ss9.when === 'always' && ss9.ev === 1) {
+            R.q.push(0, function (t) { cast(R, au, e9.gid, e9.slot, 1, t); });
+          } else if (e9.slot === 'HiddenPassive' && (!ss9 || ss9.when == null || ss9.ev === 301)) {
+            var k9 = 'hpEv:' + (ss9 ? ss9.ev : '?');
+            R.miss[k9] = (R.miss[k9] || 0) + 1;
+          }
+          // **N コマ毎（105）**
+          if (ss9 && ss9.when === 'every' && ss9.ms > 0) {
+            for (var ts = ss9.ms; ts <= durMs; ts += ss9.ms) {
+              (function (tt) { R.q.push(tt, function (now) { au._fireSS(now, 'every'); }); })(ts);
+            }
+          }
+        })(ssList[hz]);
       }
 
       au._shots = 0;
@@ -1294,7 +1469,12 @@ export function run(o) {
     (function (row) {
       var au = allies[row.i];
       if (!au) { return; }
-      R.q.push(row.at * 1000, function (now) {
+      var fireEx = function (now) {
+        // **NS の演出中のタップは、演出が明けてから出る**（旧い道 `ns.js` の `exStart`。2026-09-05 に動画で確認）
+        if (au._busyKind === 'Public' && au._busyUntil != null && au._busyUntil > now + 1e-6) {
+          R.q.push(au._busyUntil, fireEx);
+          return;
+        }
         // **枠は撃つ瞬間に読む。**変身していれば変身後の EX になる
         var gid = au._ex;
         if (row.f) {
@@ -1313,7 +1493,8 @@ export function run(o) {
         if (!gid) { return; }
         cast(R, au, gid, 'Ex', (party[row.i].skillLv || {}).Ex || 1, now,
              { mc: row.mc, to: row.to });
-      });
+      };
+      R.q.push(row.at * 1000, fireEx);
     })(o.tl[i]);
   }
 
@@ -1763,6 +1944,7 @@ export function run(o) {
     // **倒れた体は盤から降ろす。**ここを入れるまで味方は 6 人揃ったままだった
     for (k = 0; k < us.length; k++) {
       if (us[k].hp <= 0 && us[k].alive) {
+        R.deaths.push([Math.round(t3), us[k].key]);
         // **死ぬ瞬間の札を撃ってから降ろす**（`Event: 14`）。
         // 降ろしたあとだと `R.pick` の候補から外れて、撃つ側が居なくなる
         var od = us[k].onDead || [];
@@ -1781,20 +1963,35 @@ export function run(o) {
     // **節の進行。**歩く・波を出す・片付いたら次の節へ
     stepSection(t3, step);
     // **指した時刻で味方の札を写し取る**（`o.snapAt` ミリ秒。外から中を見る窓）
-    if (o.snapAt != null && !snap && t3 >= o.snapAt) {
-      snap = {};
-      for (var sk9 = 0; sk9 < allies.length; sk9++) {
-        var au9 = allies[sk9];
-        if (!au9) { continue; }
-        var sn9 = statsNow(au9);
-        snap['a' + sk9] = {
-          atk: sn9.AttackPower, pierce: sn9.EnhancePierceRate,
-          exR: sn9.EnhanceExDamageRate, cdr: sn9.CriticalDamageRate,
-          crit: sn9.CriticalPoint, dr2: sn9.DamageRatio2,
-          eff: au9.eff.map(function (e9) {
-            return [e9.gid, e9.raw && e9.raw.stat, e9.raw && e9.raw.amt];
-          })
-        };
+    // 複数の時刻を渡せる（配列）。1 つなら今までどおり `snap` に、配列なら `snaps[ms]` に
+    if (o.snapAt != null) {
+      var sl9 = Array.isArray(o.snapAt) ? o.snapAt : [o.snapAt], si9;
+      for (si9 = 0; si9 < sl9.length; si9++) {
+        if (snapDone[si9] || t3 < sl9[si9]) { continue; }
+        snapDone[si9] = 1;
+        var sn0 = {};
+        for (var sk9 = 0; sk9 < allies.length; sk9++) {
+          var au9 = allies[sk9];
+          if (!au9) { continue; }
+          var sn9 = statsNow(au9);
+          sn0['a' + sk9] = {
+            atk: sn9.AttackPower, pierce: sn9.EnhancePierceRate,
+            exR: sn9.EnhanceExDamageRate, cdr: sn9.CriticalDamageRate,
+            crit: sn9.CriticalPoint, dr2: sn9.DamageRatio2,
+            ext: sn9.ExtendBuffDuration, extD: sn9.ExtendDebuffDuration,
+            eff: au9.eff.map(function (e9) {
+              return [e9.gid, e9.raw && e9.raw.stat, e9.raw && e9.raw.amt, e9.src, Math.round(e9.at || 0), e9.until == null ? null : Math.round(e9.until), e9.lvl];
+            })
+          };
+        }
+        // 敵の札も（防御デバフなど）
+        var en9 = living(b, 'enemy'), ei9;
+        for (ei9 = 0; ei9 < en9.length; ei9++) {
+          sn0[en9[ei9].key] = { eff: en9[ei9].eff.map(function (e9) {
+            return [e9.gid, e9.raw && e9.raw.stat, e9.raw && e9.raw.amt, e9.src, Math.round(e9.at || 0), e9.until == null ? null : Math.round(e9.until)];
+          }) };
+        }
+        if (Array.isArray(o.snapAt)) { snaps[sl9[si9]] = sn0; } else { snap = sn0; }
       }
     }
     tickCost(b, step);
@@ -1830,9 +2027,9 @@ export function run(o) {
     hp: hp, total: R.total, killAt: bossHp() <= 0 ? t3 / 1000 : null,
     maxHp: bossMax, bossKeys: bossUnits.map(function (v) { return [v.dev, v.maxHp]; }),
     used: R.used,
-    unknown: R.unknown, unknownBy: R.unknownBy, miss: R.miss, by: R.by, fireN: R.fireN,
-    snap: snap,
-    heal: R.heal, groggy: R.groggy, ggLog: R.ggLog, summoned: R.summoned,
+    unknown: R.unknown, unknownBy: R.unknownBy, miss: R.miss, missBy: R.missBy, missT: R.missT, missWhy: R.missWhy, deaths: R.deaths, units: Object.keys(b.units).map(function (k9) { var u9 = b.units[k9]; return [k9, u9.dev || u9.charId || '', u9.side, u9.alive ? 1 : 0, Math.round(u9.maxHp || 0), Math.round(u9.hp || 0), Math.round((u9.base && u9.base.DefensePower) || 0), Math.round((u9.base && u9.base.AttackPower) || 0)]; }), by: R.by, fireN: R.fireN,
+    snap: snap, snaps: snaps,
+    heal: R.heal, groggy: R.groggy, ggLog: R.ggLog, summoned: R.summoned, nsAuto: R.nsAutoBy || {},
     aliveEnd: living(b, 'enemy').map(function (v) {
       return [v.dev, Math.round(v.hp), v.eff.map(function (e) { return e.tmpl; })];
     }),
