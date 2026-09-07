@@ -31,7 +31,7 @@
 import { skillEvents, summonsOf, resolveDev } from './tree.js';
 import { readAll, atLevel, kindOfList, isDamage } from './effect.js';
 import { all as condAll, mulOf, unknownOf, expr as condExpr } from './cond.js';
-import { makeBoard, makeUnit, add, living, ctxOf, applyMark, expire, tickCost }
+import { makeBoard, makeUnit, add, living, ctxOf, applyMark, expire, dispel, tickCost }
   from './state.js';
 import { once as hitOnce, roll as hitRoll, capsOf } from './hit.js';
 import { bossPlan, phaseWaits, driveBoss } from './boss.js';
@@ -133,7 +133,14 @@ export function nsAuto(doc) {
   if (r.ConditionType === 'Interval') {
     var f = r.ConditionArgument;
     if (f == null || !(+f > 0)) { return null; }
-    return { kind: 'interval', ms: +f / FPS * 1000, rate: rate, max: max };
+    // **`CoolTimeNotTrigger` は「使ってからこのコマ数は撃たない」。**`ConditionArgument` が
+    // 1 コマの子（`CH0344Public01`: 1 / 900、`CH0302Public01`: 1 / 1200）はこちらが周期
+    // （旧い道 `ns.js` と同じ読み方。最初の 1 発もその周期の満期）。
+    // **`MaxTriggerCount` は戦闘中に撃てる回数**（-1 は無制限）。ヒナ（ドレス）
+    // `CH0230Public01` は 1 コマ・1 回で、回数を見ずに周期として回すと、演出 4.5 秒の
+    // 明けるたびに撃ち続けて、EX のタップまで演出待ちで 4 秒遅れていた（2026-09-07、pJGNXB2CqNc）
+    var cool = r.CoolTimeNotTrigger == null ? 0 : +r.CoolTimeNotTrigger;
+    return { kind: 'interval', ms: Math.max(+f, cool) / FPS * 1000, rate: rate, max: max };
   }
   if (r.ConditionType === 'OnAttackIng') {
     var n = r.TryCount == null ? 0 : +r.TryCount;
@@ -183,6 +190,10 @@ export function ssTrig(doc) {
   else if (ev === 3 || ev === 17) { o.when = 'cast'; }
   else if (ev === 105) { o.when = 'every'; o.ms = (+o.param || 0) / FPS * 1000; }
   else if (ev === 16) { o.when = 'reload'; }
+  // **30 = 札が貼られたとき**（`Parameters` がその札の GroupId。2026-09-07）。
+  // ヒナ（ドレス）「想いをここに」は 起動の札 `CH0230_Ex01_Effect01` が付いた瞬間に
+  // 特効 +63.51%（説明文「集中射撃体勢中」。剥がすのは `syncForm` が形態 0 に戻すとき）
+  else if (ev === 30) { o.when = 'apply'; }
   return o;
 }
 
@@ -373,19 +384,36 @@ function fire(R, ev, caster, target, lvl, at, mc) {
   // **1 が時間**（`EndConditionArgument` ミリ秒。`-1` は戻らない）で 303 行中 218 行。
   // 2（リロード）・3（装弾数）・5（EX の回数）はまだ置いていない（戻らない扱い）
   if (r.kind === 'form') {
-    if (target.side === 'ally' && R.setupAlly) {
+    if (target.side === 'ally' && R.syncForm) {
       var pp = R.partyOf(target);
       if (pp) {
-        target.form = r.formIndex != null ? r.formIndex : 1;
-        R.setupAlly(target, pp, at);
-        if (r.endKind === 1 && r.endArg != null && r.endArg > 0) {
-          R.q.push(at + r.endArg, function (now) {
-            target.form = 0;
-            R.setupAlly(target, pp, now);
-          });
+        // **札として貼る**（2026-09-07）。Channel（16000）の押し出し・解除
+        // （`Buff_Dispel_LogicEffectTemplate`）・時間切れが、ほかの札と同じ道を通る。
+        // ヒナ（ドレス）は 起動（形態 1）→ 1 射目（2）→ 2 射目（3）→ 終演（解除で 0）で、
+        // 各段が 10,500 ms。以前は時計を札と別に積んでいたので、起動の時計が 3 射目の
+        // 途中で形態を 0 に戻し、終演の解除は読んでいなかった（pJGNXB2CqNc）
+        var rf = Object.assign({}, r, { slot: ev.slot,
+          dur: (r.endKind === 1 && r.endArg != null && r.endArg > 0) ? r.endArg : null });
+        applyMark(target, rf, caster.key, at, lvl);
+        if (target._fireSS) { target._fireSS(at, 'apply', rf.gid); }
+        R.syncForm(target, at, false);
+        if (rf.dur != null) {
+          R.q.push(at + rf.dur, function (now) { R.syncForm(target, now, false); });
         }
       }
     }
+    return 0;
+  }
+  // ---- 解除。**札の種類（TemplateId）・GroupId・区分（Category）で剥がす**（2026-09-07）。
+  // `Dispellable` が偽の札は残る（`state.js:dispel`）。形態の札が剥がれたら形態も戻す
+  if (r.kind === 'dispel' || r.kind === 'dispelGid' || r.kind === 'dispelCat') {
+    var nd = 0, cz;
+    if (r.kind === 'dispel') { nd = dispel(target, { tmpls: r.templates || [] }); }
+    else if (r.kind === 'dispelGid') { nd = dispel(target, { gids: r.gids || [] }); }
+    else if (r.cats && r.cats.length) {
+      for (cz = 0; cz < r.cats.length; cz++) { nd += dispel(target, { cat: r.cats[cz] }); }
+    } else { R.miss['dispel:区分なし'] = (R.miss['dispel:区分なし'] || 0) + 1; }
+    if (nd > 0 && target.side === 'ally' && R.syncForm) { R.syncForm(target, at, true); }
     return 0;
   }
   // ---- 最大 HP を越える回復（`MaxHpOverHeal`）。溢れたぶんは仮の HP
@@ -529,7 +557,9 @@ function fire(R, ev, caster, target, lvl, at, mc) {
       // 出どころはボス個別の攻略記事（kamigame / gamerch のクロカゲ）と、
       // 大決戦ビナー Torment の録画で実測が「平均」から「全会心平均」の線へ
       // 乗り換わること。`js/carry.js` の注記と同じものをそのまま持ってきている
-      crit: (target.groggyUntil != null && at < target.groggyUntil) ? 1 : null,
+      // **`CriticalCheck: 3` は必ず会心**（2026-09-07。24 行。イロハ（水着）の EX
+      // `CH0346_Ex01_Effect01` がこれで、`SchaleDB` の "Always"）。1 は出ない、2 は判定
+      crit: (r.crit === 3 || (target.groggyUntil != null && at < target.groggyUntil)) ? 1 : null,
       rate: r.rate2 != null ? r.rate2 : (list.applyRate != null ? list.applyRate : null),
       noCrit: r.crit === 1, noStab: r.stab === false,
     };
@@ -621,13 +651,29 @@ function fire(R, ev, caster, target, lvl, at, mc) {
     }
   }
   applyMark(target, r9, caster.key, at, lvl);
+  // **札が貼られたら撃つサブスキル**（`TriggerCondition.Event 30`。`ssTrig` の注記）
+  if (target._fireSS) { target._fireSS(at, 'apply', r9.gid); }
   // **札が切れたら撃つ通常スキルの見張り**（`setupAlly` の `_nsWatch`）。
   // 貼った札の「切れる時刻」に、同じ札が生きていなければ撃つ。
   // 貼り直し（同じ札の延長）は新しい切れる時刻で積み直すので、古い見張りは空振りする
-  if (target._nsWatch && r9.tmpl && r9.tmpl === target._nsWatch.tmpl && r9.dur > 0) {
-    (function (tg9, un9, tm9) {
+  if (target._nsWatch && r9.tmpl && target._nsWatch[r9.tmpl] && r9.dur > 0) {
+    // **見張るのは「いま貼ったその札」が時間切れになる瞬間**（2026-09-07）。
+    // 同じ Channel の札に押し出された札の見張りは空振りにする。「切れる時刻にその札が
+    // 無ければ撃つ」だと、押し出された古い札の見張りが、NS の直後（隠しパッシブが
+    // 貼り直すまでの 0.9 秒）に空を見て NS をもう 1 発撃っていた——イロハ（水着）の
+    // NS が 35.0 秒の次に 40.9 秒（演出明け）にも出て、EX のタップが 46.7 秒まで遅れた
+    var mk9 = null, zk9;
+    for (zk9 = target.eff.length - 1; zk9 >= 0; zk9--) {
+      if (target.eff[zk9].gid === r9.gid && Math.abs(target.eff[zk9].at - at) < 1e-6) { mk9 = target.eff[zk9]; break; }
+    }
+    (function (tg9, un9, tm9, m0) {
       R.q.push(un9, function (now) {
-        var z9, live9 = false;
+        var z9, live9 = false, here9 = false;
+        for (z9 = 0; z9 < tg9.eff.length; z9++) {
+          if (tg9.eff[z9] === m0) { here9 = true; break; }
+        }
+        // 押し出されていた（もう盤に無い）か、貼り直されて切れる時刻が延びた札は見ない
+        if (!here9 || m0 == null || m0.until == null || m0.until > now + 1e-6) { return; }
         // 切れた札を先に落とす。落とさないと、撃った NS と同時に貼り直す隠しパッシブの
         // 「札が無いときだけ」（`CountLogicEffectTemplate` IncludeType 2）が古い札を数える
         expire(tg9, now);
@@ -635,11 +681,91 @@ function fire(R, ev, caster, target, lvl, at, mc) {
           var m9 = tg9.eff[z9];
           if (m9.tmpl === tm9 && (m9.until == null || m9.until > now + 1e-6)) { live9 = true; break; }
         }
-        if (!live9 && tg9._nsWatch && tg9._nsWatch.tmpl === tm9) { tg9._nsWatch.fire(now); }
+        if (!live9 && tg9._nsWatch && tg9._nsWatch[tm9]) { tg9._nsWatch[tm9](now); }
       });
-    })(target, at + r9.dur, r9.tmpl);
+    })(target, at + r9.dur, r9.tmpl, mk9);
   }
   return 0;
+}
+
+/** **湧く条件 1 つ**（`EntityTimeline[].SpawnCondition`。2026-09-07）。
+    `chk` が `Caster` なら撃つ側、`Target` なら狙った先で見る。
+    束ぜんぶで: None 12,700 ／ IncludeLogicEffectTemplateId 9,000（札を持っていたら）／
+    IncludeTag 2,600（ボスの札）／ Rate 1,100（確率）／ IncludeArmorType 144 ／
+    ExcludeLogicEffectTemplateId 76 ／ TargetSideId 4 ／ UsedExtraSkillCost… 2 ／ HPRateUnder 1。
+    ここが無いあいだ、条件つきの体が**全部**湧いていた（イロハ（水着）のサブスキルは
+    相棒向け／自分向けの札を両方貼り、同じ Channel の後勝ちで自分向けだけが残っていた） */
+function spawnCondOk(R, c, u, target, phase) {
+  var chk = c.chk || 'Caster';
+  if ((chk === 'Target') !== (phase === 'target')) { return null; }
+  var who = (chk === 'Target') ? target : u, cond = c.cond || 'None', prm = c.param;
+  if (cond === 'None') { return true; }
+  if (cond === 'Rate') {
+    var r = +prm || 0;
+    if (r >= 10000) { return true; }
+    if (r <= 0) { return false; }
+    return R.rnd ? (R.rnd() * 10000 < r) : (r >= 5000);
+  }
+  if (cond === 'IncludeLogicEffectTemplateId' || cond === 'ExcludeLogicEffectTemplateId') {
+    var has = false, z;
+    for (z = 0; who && z < who.eff.length; z++) {
+      var m = who.eff[z];
+      if (m.tmpl === prm && (m.until == null || m.until > R.now + 1e-6)) { has = true; break; }
+    }
+    return cond === 'IncludeLogicEffectTemplateId' ? has : !has;
+  }
+  if (cond === 'IncludeTag' || cond === 'ExcludeTag') {
+    var tg = c.tag || prm, tags = (who && who.tags) || {}, known = false, tk;
+    for (tk in tags) { if (Object.prototype.hasOwnProperty.call(tags, tk)) { known = true; break; } }
+    // 札（Tag）を持たない体の条件は読めない。止めずに数える
+    if (!known) { R.miss['sc:tag?'] = (R.miss['sc:tag?'] || 0) + 1; return true; }
+    return cond === 'IncludeTag' ? !!tags[tg] : !tags[tg];
+  }
+  if (cond === 'IncludeArmorType') { return !!who && who.armor === prm; }
+  if (cond === 'ExcludeArmorType') { return !!who && who.armor !== prm; }
+  if (cond === 'TargetSideId') {
+    return !!who && ((who.side !== u.side) ? 'Enemy' : 'Player') === prm;
+  }
+  if (cond === 'HPRateUnder' || cond === 'HPRateOver') {
+    if (!who || !(who.maxHp > 0)) { return false; }
+    var hr = who.hp / who.maxHp * 10000;
+    return cond === 'HPRateUnder' ? hr < (+prm || 0) : hr > (+prm || 0);
+  }
+  R.miss['sc:' + cond] = (R.miss['sc:' + cond] || 0) + 1;
+  return true;
+}
+
+/** 事象の湧く条件の列（入れ子の湧かせ手ぶん）。`SpawnOnlyOne` は**順に見て最初に
+    通った 1 つだけ**（同じ発の同じ群では 1 回だけ決める。`R.scPick`）、
+    `SpawnOnlyOnePerFrame` はコマごとに 1 つ、`SpawnAll` は条件の通ったものぜんぶ */
+function spawnOk(R, list, u, target, castId, phase) {
+  var i, c, k, e, ok, key, chosen, needT;
+  for (i = 0; i < list.length; i++) {
+    c = list[i];
+    if (c.rule === 'SpawnAll') {
+      ok = spawnCondOk(R, c, u, target, phase);
+      if (ok === false) { return false; }
+      continue;
+    }
+    needT = false;
+    for (k = 0; k < c.ents.length; k++) { if ((c.ents[k].chk || 'Caster') === 'Target') { needT = true; } }
+    if (needT !== (phase === 'target')) { continue; }
+    key = castId + '/' + c.grp + (c.rule === 'SpawnOnlyOnePerFrame' ? '/' + c.f : '') +
+          (needT ? '/' + target.key : '');
+    chosen = R.scPick[key];
+    if (chosen == null) {
+      chosen = -1;
+      for (k = 0; k < c.ents.length; k++) {
+        e = c.ents[k];
+        ok = spawnCondOk(R, e, u, target, (e.chk || 'Caster') === 'Target' ? 'target' : 'caster');
+        if (ok === null) { ok = true; }
+        if (ok) { chosen = e.idx; break; }
+      }
+      R.scPick[key] = chosen;
+    }
+    if (chosen !== c.idx) { return false; }
+  }
+  return true;
 }
 
 /** 1 枠ぶんを撃つ。木を歩いて、事象ごとに `fire` を呼ぶ。
@@ -650,6 +776,7 @@ function cast(R, u, gid, slot, lvl, at, opt) {
   var mc = opt && opt.mc != null ? opt.mc : null;
   var to = opt && opt.to != null ? opt.to : null;
   var ev = R.evCache[gid] || (R.evCache[gid] = skillEvents(doc));
+  var castId = ++R.castN;
   // **演出中の印。**`TimelineSkillActionDAO` の `Duration`（フレーム）のあいだ、
   // その子は次の NS を撃たない（旧い道の `busyOf` / `exStart` と同じ）
   if ((slot === 'Ex' || slot === 'Public') && doc.Duration > 0) {
@@ -666,6 +793,9 @@ function cast(R, u, gid, slot, lvl, at, opt) {
       R.q.push(t3, function (now) {
         e2.slot = slot;
         R.now = now;
+        // **湧く条件**（`SpawnCondition`。撃つ側で見るもの）と **1 つだけ湧く規則**
+        // （`SpawnRule: SpawnOnlyOne`）。狙った先で見る条件は相手が決まってから下で
+        if (e2.sc && !spawnOk(R, e2.sc, u, null, castId, 'caster')) { return; }
         var tg = R.pick(u, e2, to), k;
         // **狙う先が 1 つも取れなかった回数。**核が伸びないときの手がかり
         if (!tg.length) {
@@ -675,7 +805,10 @@ function cast(R, u, gid, slot, lvl, at, opt) {
           R.missBy[mk9] = (R.missBy[mk9] || 0) + 1;
           if (!R.missT[mk9]) { R.missT[mk9] = [now, now]; } else { R.missT[mk9][1] = now; }
         }
-        for (k = 0; k < tg.length; k++) { fire(R, e2, u, tg[k], lvl, now, mc); }
+        for (k = 0; k < tg.length; k++) {
+          if (e2.sc && !spawnOk(R, e2.sc, u, tg[k], castId, 'target')) { continue; }
+          fire(R, e2, u, tg[k], lvl, now, mc);
+        }
       }, slot + ':' + e2.gid);
     })(e, t2);
   }
@@ -1046,6 +1179,7 @@ export function run(o) {
 
   var R = {
     b: b, ctx: ctxOf(b), eff: eff, q: queue(), evCache: {}, pgCache: {},
+    castN: 0, scPick: {},
     fireN: {}, missBy: {}, missT: {}, missWhy: {}, deaths: [], noBossDmg: !!o.noBossDmg, noUntargetable: !!o.noUntargetable, total: 0, heal: 0, groggy: [], ggLog: [], secLog: [], summoned: 0, smCache: {}, probe: o.probe ? [] : null, used: [], unknown: 0, unknownBy: {}, miss: {}, by: {},
     durMs: durMs, mc: o.mc || 1, C: constOf(common),
     unitOf: function (k) { return b.units[k] || null; },
@@ -1171,6 +1305,11 @@ export function run(o) {
       // 2 発目から出なかった。`InputBattleEntity`（指した相手）は今までどおり下の「渡し先」で拾う
       var sp9 = ev.spawn || (ev.area && ev.area.spawn) || null;
       if ((side == null || side === 'None') && sp9 === 'Invoker') { side = 'Self'; }
+      // **規則そのものが無い事象（`PassiveSkillDAO` は `EssentialCandidateRule` を持たない）は
+      // 撃った本人に**（2026-09-07）。ヒナ（ドレス）のサブスキル `CH0230ExtraPassive01`
+      // （特効 +63.51%）が「相手の側」に落ちてボスに付いていた。ダメージの事象は今までどおり
+      var kd9 = (side == null && (sp9 == null || sp9 === 'None')) ? R.kindOf(ev) : null;
+      if (kd9 && kd9 !== '?' && !/^(dmg|dot|deadly|kill|transfer)/.test(kd9)) { side = 'Self'; }
       if (side == null) { side = (u.side === 'ally' ? 'Enemy' : 'Player'); }
       if (side === 'Self') { return [u]; }
       var mine = u.side === 'ally';
@@ -1296,12 +1435,28 @@ export function run(o) {
       }
       return null;
     };
+    /** 中身のある枠ぜんぶ（通常スキルは 2 本以上あることがある） */
+    var gidAll = function (k) {
+      var v = csl[k], z, out = [];
+      if (!Array.isArray(v)) { return (v && v !== 'EmptySkill') ? [String(v)] : []; }
+      for (z = 0; z < v.length; z++) {
+        if (v[z] && v[z] !== 'EmptySkill') { out.push(String(v[z])); }
+      }
+      return out;
+    };
     var lvOf = function (slot) { return (p.skillLv && p.skillLv[slot]) || 1; };
     var ng = gid('NormalSkillGroupId');
-    var pg = gid('PublicSkillGroupId');
-    var auto = (pg && au.ls[pg]) ? nsAuto(au.ls[pg]) : null;
+    // **通常スキルは 2 本以上あることがある**（2026-09-07）。イロハ（水着）は
+    // `PublicSkillGroupId: ['CH0346Public01', 'CH0346Public02']` で、どちらも札切れで撃つ
+    // （相棒向けの札 `Dummy_CH0346_Public01Trigger` ／ 自分向けの `..Public02Trigger`）。
+    // 先頭だけ見ていて 2 本目が一度も出なかった。3 人（CH0187 は 3 本・CH0263・CH0346）
+    var pgs = gidAll('PublicSkillGroupId'), pz, pg = pgs.length ? pgs[0] : null;
+    var autos = [];
+    for (pz = 0; pz < pgs.length; pz++) {
+      autos.push({ pg: pgs[pz], auto: au.ls[pgs[pz]] ? nsAuto(au.ls[pgs[pz]]) : null });
+    }
     if (!R.nsAutoBy) { R.nsAutoBy = {}; }
-    R.nsAutoBy[au.key + '/' + (au.form || 0)] = { pg: pg, auto: auto };
+    R.nsAutoBy[au.key + '/' + (au.form || 0)] = autos.length === 1 ? autos[0] : { list: autos };
     au._ex = gid('ExSkillGroupId');
     au._pub = pg;
     au._pubLv = lvOf('Public');
@@ -1328,8 +1483,10 @@ export function run(o) {
         if (au.alive) {
           cast(R, au, ng, 'Normal', 1, now);
           au._shots++;
-          if (auto && auto.kind === 'shots' && pg && au._shots % auto.shots === 0) {
-            cast(R, au, pg, 'Public', lvOf('Public'), now, { to: p.nsto });
+          for (var pq = 0; pq < autos.length; pq++) {
+            if (autos[pq].auto && autos[pq].auto.kind === 'shots' && au._shots % autos[pq].auto.shots === 0) {
+              cast(R, au, autos[pq].pg, 'Public', lvOf('Public'), now, { to: p.nsto });
+            }
           }
           au._fireSS(now, 'attack');
           if ((shot + 1) % na.mag === 0) { au._fireSS(now, 'reload'); }
@@ -1350,45 +1507,91 @@ export function run(o) {
     // 時計であって、`FormConversion` に時計を戻す欄は無い。
     // **演出中（EX・NS のモーション）は撃たず、明けた瞬間に撃つ。次の満期は
     // 実際に撃った時刻から周期**（リオ 29.9 秒の EX → 36.6 秒 → 66.6 秒 → 96.6 秒）
-    if (pg && auto && auto.kind === 'interval' && auto.ms > 0) {
-      if (au._nsDue == null) { au._nsDue = auto.ms; }
-      var tick = function (now) {
-        if (au._gen !== gen || now > durMs) { return; }
-        if (au._busyUntil != null && au._busyUntil > now + 1e-6) {
-          R.q.push(au._busyUntil, tick);
-          return;
+    if (!au._nsN) { au._nsN = {}; }
+    if (!au._nsDue) { au._nsDue = {}; }
+    au._nsWatch = null;
+    for (pz = 0; pz < autos.length; pz++) {
+      (function (pg, auto) {
+        if (!pg || !auto) { return; }
+        if (auto.kind === 'interval' && auto.ms > 0) {
+          if (au._nsDue[pg] == null) { au._nsDue[pg] = auto.ms; }
+          var tick = function (now) {
+            if (au._gen !== gen || now > durMs) { return; }
+            // **回数の上限**（`MaxTriggerCount`）。形態が変わっても同じ枠の回数は引き継ぐ
+            if (auto.max > 0 && (au._nsN[pg] || 0) >= auto.max) { return; }
+            if (au._busyUntil != null && au._busyUntil > now + 1e-6) {
+              R.q.push(au._busyUntil, tick);
+              return;
+            }
+            if (au.alive) {
+              cast(R, au, pg, 'Public', lvOf('Public'), now, { to: p.nsto });
+              au._nsN[pg] = (au._nsN[pg] || 0) + 1;
+            }
+            au._nsDue[pg] = now + auto.ms;
+            if (au._nsDue[pg] <= durMs) { R.q.push(au._nsDue[pg], tick); }
+          };
+          R.q.push(Math.max(from, au._nsDue[pg]), tick);
         }
-        if (au.alive) {
-          cast(R, au, pg, 'Public', lvOf('Public'), now, { to: p.nsto });
+        // 通常スキル。**札が切れたら撃つもの**（`RemoveLogicEffectTemplateId`。`nsAuto` の注記）。
+        // 札は `fire()` が貼るときに「切れる時刻」へ見張りを積む（`_nsWatch[札の種類]`）。
+        // 切れた瞬間に生きている同じ札が無ければ撃つ。演出中なら明けてから
+        if (auto.kind === 'onRemove') {
+          var tickR = function (now) {
+            if (au._gen !== gen || now > durMs) { return; }
+            if (au._busyUntil != null && au._busyUntil > now + 1e-6) {
+              R.q.push(au._busyUntil, tickR);
+              return;
+            }
+            if (au.alive) {
+              cast(R, au, pg, 'Public', lvOf('Public'), now, { to: p.nsto });
+            }
+          };
+          if (!au._nsWatch) { au._nsWatch = {}; }
+          au._nsWatch[auto.tmpl] = tickR;
         }
-        au._nsDue = now + auto.ms;
-        if (au._nsDue <= durMs) { R.q.push(au._nsDue, tick); }
-      };
-      R.q.push(Math.max(from, au._nsDue), tick);
-    }
-    // 通常スキル。**札が切れたら撃つもの**（`RemoveLogicEffectTemplateId`。`nsAuto` の注記）。
-    // 札は `fire()` が貼るときに「切れる時刻」へ見張りを積む（`_nsWatch`）。
-    // 切れた瞬間に生きている同じ札が無ければ撃つ。演出中なら明けてから
-    if (pg && auto && auto.kind === 'onRemove') {
-      var tickR = function (now) {
-        if (au._gen !== gen || now > durMs) { return; }
-        if (au._busyUntil != null && au._busyUntil > now + 1e-6) {
-          R.q.push(au._busyUntil, tickR);
-          return;
-        }
-        if (au.alive) {
-          cast(R, au, pg, 'Public', lvOf('Public'), now, { to: p.nsto });
-        }
-      };
-      au._nsWatch = { tmpl: auto.tmpl, fire: tickR };
-    } else {
-      au._nsWatch = null;
+      })(autos[pz].pg, autos[pz].auto);
     }
   };
   R.setupAlly = setupAlly;
   R.partyOf = function (au) {
     var z; for (z = 0; z < allies.length; z++) { if (allies[z] === au) { return party[z]; } }
     return null;
+  };
+  /** **形態は札から決める。**生きている `FormConversion` の札のいちばん新しいものの
+      `FormIndex`、無ければ 0。変わったときだけ枠を積み直す。時間切れで戻るときは解除の演出
+      （`ReleaseFormConversionDuration` コマ）のあいだ演出中。解除（Dispel）で戻るときは
+      `UseImmediateFormReleaseOnDispel` が真なら即、偽なら同じ演出 */
+  R.syncForm = function (u, now, byDispel) {
+    var pp = R.partyOf(u), z, m, best = null, prev = u._formMark || null;
+    if (!pp) { return; }
+    for (z = 0; z < u.eff.length; z++) {
+      m = u.eff[z];
+      if (m.kind !== 'form') { continue; }
+      if (m.until != null && m.until <= now + 1e-6) { continue; }
+      if (!best || m.at > best.at) { best = m; }
+    }
+    var want = best ? (best.raw.formIndex != null ? best.raw.formIndex : 1) : 0;
+    u._formMark = best;
+    if (want === (u.form || 0)) { return; }
+    if (want === 0 && prev && prev.raw.release > 0 && !(byDispel && prev.raw.immediate)) {
+      var bu = now + prev.raw.release / FPS * 1000;
+      if (u._busyUntil == null || bu > u._busyUntil) { u._busyUntil = bu; u._busyKind = 'Form'; }
+    }
+    // **形態の札で立つサブスキル（Event 30、引き金が `FormConversion` の札）は、
+    // 形態が 0 に戻ったら剥がす**（説明文「集中射撃体勢中」。1 射目で起動の札が
+    // 押し出されても体勢は続くので、引き金の札ではなく形態で見る）
+    if (want === 0 && u._ssList) {
+      var sl9 = u._ssList, q9, e9, l9, k9;
+      for (q9 = 0; q9 < sl9.length; q9++) {
+        e9 = sl9[q9];
+        if (!e9.trig || e9.trig.when !== 'apply' || !e9.hit) { continue; }
+        l9 = R.eff[e9.trig.param];
+        k9 = l9 ? kindOfList(l9) : null;
+        if (k9 === 'form') { condOff({ gid: e9.gid, u: u }, now); }
+      }
+    }
+    u.form = want;
+    setupAlly(u, pp, now);
   };
 
   for (i = 0; i < allies.length; i++) {
@@ -1422,12 +1625,14 @@ export function run(o) {
           ssList.push({ gid: String(hps[hz]), slot: 'HiddenPassive', trig: ssTrig(au.ls[hps[hz]]), n: 0, hit: 0, last: -1e9 });
         }
       }
+      au._ssList = ssList;
       au._fireSS = function (now, kind, what) {
         var q9, e9, ss9;
         for (q9 = 0; q9 < ssList.length; q9++) {
           e9 = ssList[q9]; ss9 = e9.trig;
           if (!ss9 || ss9.when !== kind) { continue; }
           if (kind === 'cast' && ss9.param && ss9.param.indexOf(what) < 0) { continue; }
+          if (kind === 'apply' && String(ss9.param || '') !== String(what || '')) { continue; }
           e9.n++;
           if (ss9.tries > 1 && e9.n % ss9.tries !== 0) { continue; }
           if (ss9.cool && now - e9.last < ss9.cool) { continue; }
@@ -1976,6 +2181,7 @@ export function run(o) {
           var sn9 = statsNow(au9);
           sn0['a' + sk9] = {
             atk: sn9.AttackPower, pierce: sn9.EnhancePierceRate,
+            expl: sn9.EnhanceExplosionRate, myst: sn9.EnhanceMysticRate, sonic: sn9.EnhanceSonicRate,
             exR: sn9.EnhanceExDamageRate, cdr: sn9.CriticalDamageRate,
             crit: sn9.CriticalPoint, dr2: sn9.DamageRatio2,
             ext: sn9.ExtendBuffDuration, extD: sn9.ExtendDebuffDuration,

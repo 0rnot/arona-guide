@@ -120,6 +120,25 @@ export function skillEvents(doc) {
   // 空のままだと `MainEntityData` と時系列の同じ体を別物と見て**2 回歩く**
   // （ペロロジラの Ex03 は 6 体呼ぶのに 12 体湧いていた。2026-09-07）
   function idOf(e) { return (e && (e.EntityName || e.name)) || ''; }
+  /** その節の下にある `LogicEffectGroupIds` ぜんぶ（入れ子も）。`MainEntityData` が
+      宣言だけかどうかを、時系列の体の効果と突き合わせるのに使う */
+  function gidsUnder(o, out, dep) {
+    var q, g, k;
+    if (!o || typeof o !== 'object' || dep > 14) { return out; }
+    if (Array.isArray(o)) {
+      for (q = 0; q < o.length; q++) { gidsUnder(o[q], out, dep + 1); }
+      return out;
+    }
+    if (Array.isArray(o.LogicEffectGroupIds)) {
+      for (g = 0; g < o.LogicEffectGroupIds.length; g++) { out[o.LogicEffectGroupIds[g]] = 1; }
+    }
+    for (k in o) {
+      if (Object.prototype.hasOwnProperty.call(o, k) && o[k] && typeof o[k] === 'object') {
+        gidsUnder(o[k], out, dep + 1);
+      }
+    }
+    return out;
+  }
 
   function collectNames(node, dep) {
     if (!node || typeof node !== 'object' || dep > 8) { return; }
@@ -185,6 +204,7 @@ export function skillEvents(doc) {
                      spawn: ctx.spawn || (ctx.area && ctx.area.spawn) || null,
                      prj: ctx.prj || null, dist: ctx.dist != null ? ctx.dist : null,
                      single: singleOf(typ, key, ctx.sel),
+                     sc: ctx.sc || null,
                      mods: (a.Modifiers && a.Modifiers.length) ? a.Modifiers : null });
         }
       }
@@ -238,7 +258,7 @@ export function skillEvents(doc) {
     }
     var area = shapeOf(e) || ctx.area || null;
     var c2 = { at: at, sel: sel, prj: prj, area: area, dist: ctx.dist,
-               rootEcr: ctx.rootEcr, share: ctx.share,
+               rootEcr: ctx.rootEcr, share: ctx.share, sc: ctx.sc || null,
                // 体の置き方（`SpawnPositionType`）。形の無い体にも要る（`run.js:pick` が
                // `TargetSide: None` の相手をこれで決める。`Invoker` は撃った本人）
                spawn: e.SpawnPositionType || ctx.spawn || null };
@@ -288,7 +308,7 @@ export function skillEvents(doc) {
       }
       if (NEST[k] === 'SplashAreaEntityData') {
         entity(sub, { at: at + (e.SplashDelayFrame || 0), sel: sel, prj: prj,
-                      area: null, dist: ctx.dist, rootEcr: ctx.rootEcr }, dep + 1);
+                      area: null, dist: ctx.dist, rootEcr: ctx.rootEcr, sc: ctx.sc || null }, dep + 1);
       } else if (NEST[k] === 'SkillEntitySpawnerData' || NEST[k] === 'AreaSpawnerData') {
         timeline(sub, c2, dep + 1);
       } else {
@@ -323,15 +343,33 @@ export function skillEvents(doc) {
     timeline(e, c2, dep + 1);
   }
 
+  var spawnSeq = 0;
   function timeline(node, ctx, dep) {
     if (!node || typeof node !== 'object' || dep > 8) { return; }
-    var tl = node.EntityTimeline || [], i, et, e;
+    var tl = node.EntityTimeline || [], i, et, e, sc0;
+    // **湧く条件**（`SpawnCondition`）と **1 つだけ湧く規則**（`SpawnRule`）。
+    // 撃つ瞬間の盤で決まるので、ここでは畳まずに事象へ載せる（`run.js:spawnOk`）。
+    // 群（この時系列）の全行を持たせるのは、`SpawnOnlyOne` が「順に見て最初に通った 1 つ」だから
+    var rule = node.SpawnRule || 'SpawnAll', grp = ++spawnSeq, ents = [];
+    for (i = 0; i < tl.length; i++) {
+      et = tl[i];
+      if (!et || typeof et !== 'object') { continue; }
+      ents.push({ idx: i, cond: et.SpawnCondition || 'None', param: et.SpawnConditionParameter,
+                  tag: et.SpawnConditionParameterForTag, chk: et.SpawnConditionCheckTarget || 'Caster' });
+    }
     for (i = 0; i < tl.length; i++) {
       et = tl[i];
       if (!et || typeof et !== 'object') { continue; }
       e = et.Entity || et.AreaData || et;
+      sc0 = ctx.sc || null;
+      if (rule !== 'SpawnAll' || (et.SpawnCondition && et.SpawnCondition !== 'None')) {
+        sc0 = (ctx.sc || []).concat([{ rule: rule, grp: grp, idx: i, ents: ents, f: et.Frame || 0,
+                                      cond: et.SpawnCondition || 'None', param: et.SpawnConditionParameter,
+                                      tag: et.SpawnConditionParameterForTag,
+                                      chk: et.SpawnConditionCheckTarget || 'Caster' }]);
+      }
       entity(e, { at: ctx.at + (et.Frame || 0), sel: ctx.sel, prj: ctx.prj,
-                  area: ctx.area,
+                  area: ctx.area, sc: sc0,
                   dist: et.DamageDistributeRate != null ? et.DamageDistributeRate : ctx.dist,
                   rootEcr: ctx.rootEcr }, dep + 1);
     }
@@ -352,8 +390,16 @@ export function skillEvents(doc) {
       sub2 = me[NEST[k2]];
       if (sub2 && typeof sub2 === 'object') { collectNames(sub2, 1); }
     }
-    // **`MainEntityData` は宣言でもある。**同じ体が時系列にも並んでいたら数えない
-    if (!names[idOf(me)]) {
+    // **`MainEntityData` は宣言でもある。**同じ体が時系列にも並んでいたら数えない。
+    // **同じ体でなくても、その効果（`LogicEffectGroupIds`）がぜんぶ時系列の体に
+    // 載っていたら宣言だけ**（2026-09-07）。ヒナ（ドレス）の 1 射目 `CH0230Ex02` は
+    // `MainEntityData` が狙いを示す直線（`ObbAreaEntity`、`HighlightOption 2`）で、
+    // 当たりは時系列の弾 3 本（コマ 6・8・10）。SchaleDB の Hits も 3。歩くと 4 発目が出て、
+    // 終演（7 発）も 8 発になっていた
+    var meG = gidsUnder(me, {}, 0), tlG = gidsUnder(doc.EntityTimeline || [], {}, 0);
+    var gk, anyG = false, coveredG = true;
+    for (gk in meG) { anyG = true; if (!tlG[gk]) { coveredG = false; break; } }
+    if (!names[idOf(me)] && !(anyG && coveredG)) {
       entity(me, { at: 0, sel: root, prj: null, area: null, dist: null,
                    rootEcr: doc.EssentialCandidateRule }, 0);
     }
