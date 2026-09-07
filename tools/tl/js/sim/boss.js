@@ -256,7 +256,9 @@ function usesEx(nd) {
     返すのは `st`（外から HP とグロッキーの合図を入れるため）。 */
 export function driveBoss(ctx) {
   var R = ctx.R, u = ctx.u, plan = ctx.plan, durMs = ctx.durMs;
-  var waits = ctx.waits || {}, cast = ctx.cast;
+  // 湧いた時刻。盤が途中で湧かせる本体（ケセドは節 3）はここから木が回る
+  var t0 = ctx.t0 || 0;
+  var waits = ctx.waits || {}, cast = ctx.cast, outOfRange = ctx.outOfRange || null;
   var st = {
     phase: 0, n: 0, gauge: 0, exCount: 0,
     hpTriggered: {}, groggy: false, stopped: false, busyUntil: 0,
@@ -410,9 +412,13 @@ export function driveBoss(ctx) {
           Selector | CheckActiveGaugeOver 100  | UseSelectExSkill 2
 
       1 秒ごとに 12 溜まって、100 に届いたら撃つ ＝ **8.3 秒に 1 発**。 */
+  /** **グロッキーの間は木が止まる。**EX も通常攻撃も出ない（ケセドは雑魚を全滅させた瞬間に
+      グロッキーへ入り、同じ刻の `CheckSummonCharacterCountUnder 0 → UseSelectExSkill` で
+      次の群を出していた。動画では明けるまで何も湧かず、その 20 秒で本体を削っている。2026-09-07） */
+  function inGroggy(now) { return u.groggyUntil != null && now < u.groggyUntil; }
   function checkStanding(now) {
     var cur = ps();
-    if (!cur) { return; }
+    if (!cur || inGroggy(now)) { return; }
     var nodes = cur.nodes, i, ph0 = st.phase, busy;
     for (i = 0; i < nodes.length; i++) {
       var nd = nodes[i], tg = nd.trig, a = nd.arg, lim;
@@ -467,8 +473,11 @@ export function driveBoss(ctx) {
     if (st.stopped || now > durMs || !u.alive || u.hp <= 0) { return; }
     // EX の演出中・段替わりの待ちの中は撃たない。明けた瞬間に撃つ
     if (now < (st.busyUntil || 0)) { R.q.push(st.busyUntil, beat); return; }
+    if (inGroggy(now)) { R.q.push(u.groggyUntil, beat); return; }
     var cur = ps(), na = naNow(), naMs = naMsNow();
     if (!cur || !na || !naMs) { st.stopped = true; return; }
+    // **射程の外では撃たない**（`run.js:outOfRange`。近づくのは `stepApproach`）
+    if (outOfRange && outOfRange(u)) { R.q.push(now + 100, beat); return; }
     cast(u, na, 'Normal', 1, now);
     st.n++;
     var before = st.busyUntil || 0, nodes = cur.nodes, i, ph0 = st.phase;
@@ -508,7 +517,7 @@ export function driveBoss(ctx) {
       seen[ms] = 1;
       (function (per) {
         var t;
-        for (t = per; t <= durMs; t += per) {
+        for (t = t0 + per; t <= durMs; t += per) {
           (function (tt) {
             R.q.push(tt, function (now) {
               var c = ps(), j, ph0 = st.phase;
@@ -518,6 +527,7 @@ export function driveBoss(ctx) {
                 if (nd3.trig !== 'CheckPeriod' || num(nd3.arg) !== per) { continue; }
                 if (nd3.kids[0].ExternalBehavior === 'ClearNormalSkill') { continue; }
                 if (now < (st.busyUntil || 0) && usesEx(nd3)) { continue; }
+                if (inGroggy(now) && usesEx(nd3)) { continue; }
                 runNode(nd3, now);
                 if (st.phase !== ph0) { break; }
               }
@@ -529,19 +539,21 @@ export function driveBoss(ctx) {
     }
   }());
 
-  // ---- `OnSpawned`（0 秒）
-  var cur1 = ps();
+  // ---- `OnSpawned`（湧いた瞬間。盤が途中で湧かせる本体は `ctx.t0`）
+  // **湧いた刻に、その場で木を一度引く**（2026-09-07）。列に積むと、同じ刻に積んであった
+  // 味方の 1 発が先に当たって `HPUnder 20,999,999 → ChangePhase 1` が立ち、ケセドの 1 波目
+  // （段 0 の `UseSelectExSkill 0`＝ドロイド）が飛んで 2 波目（ドローン）から始まっていた。
+  // ゲームは湧いた瞬間（殴られる前）に木を見るので、`OnSpawned` も立っている節もここで引く
+  var cur1 = ps(), j1;
   if (cur1) {
-    R.q.push(0, function (now) {
-      var j;
-      for (j = 0; j < cur1.nodes.length; j++) {
-        if (cur1.nodes[j].trig === 'OnSpawned') { runNode(cur1.nodes[j], now); }
-      }
-    });
+    for (j1 = 0; j1 < cur1.nodes.length; j1++) {
+      if (cur1.nodes[j1].trig === 'OnSpawned') { runNode(cur1.nodes[j1], t0); }
+    }
   }
+  checkStanding(t0);
 
   // ---- 通常攻撃の 1 発目
-  R.q.push(0, beat);
+  R.q.push(t0, beat);
 
   st.applyGroggy = function (now) {
     var c = ps(), j;

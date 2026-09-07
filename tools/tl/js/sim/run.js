@@ -531,6 +531,7 @@ function fire(R, ev, caster, target, lvl, at, mc) {
       }
       target.hp = Math.max(dfl, target.hp - dq);
       R.by[caster.key + '/固定'] = (R.by[caster.key + '/固定'] || 0) + dq;
+      if (R.probe) { R.probe.push(['deadly', caster.key, target.key, Math.round(dq), Math.round(at), ev.gid]); }
       if (target.side === 'enemy') { R.total += dq; }
       if (R.onDamaged && target.side === 'enemy') { R.onDamaged(target, dq, at); }
     }
@@ -552,8 +553,13 @@ function fire(R, ev, caster, target, lvl, at, mc) {
     return 0;
   }
   if (r.kind === 'immune') {
+    // **名指しの札は貼れない**（`ImmuneEffectDAO` の `TargetLogicEffectTemplateId00..`。
+    // 名前は丸ごと一致。ケセドの `Debuff_StatChange_DamagedRatio` 無効は
+    // 自分のグロッキー札 `Debuff_StatChange_DamagedRatio_Self` には効かない。2026-09-07）
+    if (!target.immune) { target.immune = {}; }
     for (var zz = 0; zz < (r.tmpl || []).length; zz++) {
       if (String(r.tmpl[zz]).indexOf('Groggy') >= 0) { target.ggImmune = true; }
+      if (r.tmpl[zz]) { target.immune[String(r.tmpl[zz])] = 1; }
     }
     return 0;
   }
@@ -578,7 +584,7 @@ function fire(R, ev, caster, target, lvl, at, mc) {
     a.terr = (r.terr === false) ? 1 : R.terrOf(caster);
     a.eff = (r.bt === false) ? 1 : R.effOf(caster, target, statsNow(caster));
     var s = {
-      scale: r.rate || 0, mult: mul * dist, tick: 1,
+      scale: r.rate || 0, flat: r.flat || 0, mult: mul * dist, tick: 1,
       // **`DefensePenetrationRate: 10000` は「防御を全部貫く」ではなく、既定値。**
       // `10000 - pen` にしていて、**ほぼ全部の一撃が防御を素通りしていた**
       // （2026-09-06）。数えると `LogicEffect_PC` 5,753 行のうち 5,433 行、
@@ -648,6 +654,10 @@ function fire(R, ev, caster, target, lvl, at, mc) {
     // **測定用の栓**（段階 0 の物差し）。`noBossDmg` のときは味方の HP を減らさない。
     // ゲームの規則ではなく、味方側の数を敵の干渉なしに測るための道具
     if (R.noBossDmg && target.side === 'ally') { dmg = 0; }
+    // **当たった 1 発は 1 以上**（2026-09-07）。HP は整数で、ケセドが自分に撃つ
+    // `Attack_Damage_Chesed`（素の量 10 × 被ダメージ 0.1 ＝ 1）が 0.9 に丸まると
+    // `HPUnder 20,999,999 → ChangePhase 1` が立たず、段 0 の召喚（ドロイド）を 3 度繰り返していた
+    if (dmg > 0 && dmg < 1) { dmg = 1; }
     target.hp = Math.max(floor, target.hp - dmg);
     R.total += dmg;
     if (R.onDamaged && target.side === 'enemy') { R.onDamaged(target, dmg, at); }
@@ -704,6 +714,10 @@ function fire(R, ev, caster, target, lvl, at, mc) {
     if (ext9 > 0 && ext9 !== 10000) {
       r9 = Object.assign({}, r9, { dur: Math.round(r.dur * (ext9 / 10000)) });
     }
+  }
+  if (target.immune && r9.tmpl && target.immune[String(r9.tmpl)]) {
+    R.miss['immune:' + r9.tmpl] = (R.miss['immune:' + r9.tmpl] || 0) + 1;
+    return 0;
   }
   applyMark(target, r9, caster.key, at, lvl);
   // **札の名前をボスの木へ**（`ApplyLogicEffectTemplateId`。ホドは仮設タワーが死んで
@@ -881,7 +895,7 @@ function cast(R, u, gid, slot, lvl, at, opt) {
       (function (sv) {
         var t4 = at + (sv.f || 0) / FPS * 1000;
         if (t4 > R.durMs) { return; }
-        R.q.push(t4, function (now) { R.summon(sv.name, now, u); });
+        R.q.push(t4, function (now) { R.summon(sv.name, now, u, sv); });
       })(sm[y]);
     }
   }
@@ -1094,7 +1108,8 @@ export function run(o) {
       kind: c.TacticEntityType, lv: lv, armor: c.ArmorType, bullet: c.BulletType,
       adapt: gradeOf(s, (boss.ground || {}).StageTopography),
       radius: c.BodyRadius, personality: c.PersonalityId, aiId: c.CharacterAIId,
-      role: c.TacticRole, school: c.School, squad: c.SquadType,
+      role: c.TacticRole, school: c.School, squad: c.SquadType, move: c.CanMove !== false,
+      appear: c.AppearFrame,
       hp: s.MaxHP100, maxHp: s.MaxHP100,
       base: s,
     }));
@@ -1221,6 +1236,19 @@ export function run(o) {
     var bp0 = posOf[bossU.dev] || posOf[noArm2(bossU.dev)];
     if (bp0) { bossU.pos = { x: bp0.x, y: bp0.y }; }
   }
+  // **盤が途中で湧かせる本体は、湧くまで居ない**（2026-09-07）。ケセドは節 3 の
+  // `CommandSpawnChesed` で (0, 143) に出るのに、0 秒から (0, 0) に居て、味方は波を
+  // 素通りして 0.1 倍の本体を殴っていた（bduU6UliYdQ で 240 秒 12%）。
+  // 節 0 の `start` で湧く本体（ビナー・ホド）は今までどおり最初から居る。
+  // 盤に湧き点が無い本体も今までどおり（湧かせようが無い）
+  var bossLate = false;
+  if (bd && bossU && bossU.dev && (onBoard[bossU.dev] || onBoard[noArm2(bossU.dev)])) {
+    var sp0 = spawnFor(bd, 0, 'start'), z0, atStart = false;
+    for (z0 = 0; z0 < sp0.length; z0++) {
+      if (sp0[z0].dev === bossU.dev || noArm2(sp0[z0].dev) === noArm2(bossU.dev)) { atStart = true; }
+    }
+    if (!atStart) { bossLate = true; bossU.alive = false; }
+  }
 
   // ---- 味方
   var party = o.party || [], allies = [];
@@ -1234,15 +1262,110 @@ export function run(o) {
       adapt: gradeOf(Array.isArray(pc.st) ? pc.st[0] : pc.st,
                      (boss.ground || {}).StageTopography, p.stats),
       radius: ch.BodyRadius, personality: ch.PersonalityId, aiId: ch.CharacterAIId,
-      role: ch.TacticRole, school: ch.School, squad: ch.SquadType,
+      role: ch.TacticRole, school: ch.School, squad: ch.SquadType, move: ch.CanMove !== false,
       hp: (p.stats && p.stats.MaxHP) || 1, maxHp: (p.stats && p.stats.MaxHP) || 1,
       base: p.stats || {}, skillLv: p.skillLv || {},
     }));
+    // **射程と足の速さは素の行から**（`grow.js` は成長する欄しか返さない。2026-09-07）。
+    // `Range` 550（HG）〜、`MoveSpeed` 200。無いと射程 0 ＝ 相手の足元まで歩いてしまう
+    var st0 = Array.isArray(pc.st) ? pc.st[0] : (pc.st || {});
+    if (au.base.Range == null && st0 && st0.Range != null) { au.base.Range = st0.Range; }
+    if (au.base.MoveSpeed == null && st0 && st0.MoveSpeed != null) { au.base.MoveSpeed = st0.MoveSpeed; }
     au.ls = pc.ls;
     au.pack = pc;
     au.slot = p.slot != null ? p.slot : i;
     au.pos = org ? slotPos(org, formRow, au.slot) : null;
     allies.push(au);
+  }
+
+  // ---- 射程と足。**ItJustWorks の「行動の列」をそのまま写す**（2026-09-07）
+  //
+  //   1. 視界に敵が居なければ前へ（＝盤の `walkTo`。`stepSection` が歩かせる）
+  //   2. 視界に敵が居て射程に居なければ、射程に入るまで近づく
+  //   3. 射程内の遮蔽に隠れる
+  //   4. 撃つ（射程の外では撃たない）
+  //
+  // 射程は `CharacterStat.Range`（1/100 単位）で、**相手の体の縁まで**
+  // （`BodyRadius` を引く。`board.js:sortByRule` の並べ方と同じ物差し）。
+  // 足は `MoveSpeed`（1/100 単位 / 秒）、動けるかは `CharacterExcelTable.CanMove`。
+  // 敵も同じ列で動く——ケセドの雑魚（`Range` 500・`MoveSpeed` 255）は本体の手前に湧いてから
+  // 味方へ歩いてくるので、本体（縁が 3.5 手前に出る `BodyRadius` 350）より近くなる。
+  // 置くまで味方は湧いた場所の雑魚より本体の縁を近いと見て、0.1 倍の本体を殴り続けていた
+  var UNIT = 100;
+  function edgeDist(u9, t9) {
+    if (!u9 || !t9 || !u9.pos || !t9.pos) { return 0; }
+    var dx9 = t9.pos.x - u9.pos.x, dy9 = t9.pos.y - u9.pos.y;
+    return Math.sqrt(dx9 * dx9 + dy9 * dy9) - (t9.radius || 0) / UNIT;
+  }
+  function rangeOf(u9) { var rg = statsNow(u9).Range; return (rg == null ? 0 : rg) / UNIT; }
+  function inRange(u9, t9) { return edgeDist(u9, t9) <= rangeOf(u9) + 1e-9; }
+  /** いちばん近い相手（縁まで）。スペシャルは盤に立たないので相手にならない */
+  function aimOf(u9) {
+    var vs = living(b, u9.side === 'ally' ? 'enemy' : 'ally'), z9, best = null, bd9 = 0, d9;
+    for (z9 = 0; z9 < vs.length; z9++) {
+      var v9 = vs[z9];
+      if (!v9.pos || v9 === u9) { continue; }
+      if (v9.side === 'ally' && v9.squad === 'Support') { continue; }
+      d9 = edgeDist(u9, v9);
+      if (!best || d9 < bd9) { best = v9; bd9 = d9; }
+    }
+    return best;
+  }
+  /** 射程の外なら撃たずに待つ（`R.miss['射程外:<枠>']` に数える）。射程が無い体は今までどおり撃つ */
+  function outOfRange(u9, slot) {
+    if (rangeOf(u9) <= 0) { return false; }
+    var a9 = aimOf(u9);
+    if (!a9 || inRange(u9, a9)) { return false; }
+    R.miss['射程外:' + slot] = (R.miss['射程外:' + slot] || 0) + 1;
+    return true;
+  }
+  /** 1 刻みぶん近づく。着いたら味方は射程内の遮蔽に隠れ直す */
+  function stepApproach(now, dt) {
+    var us9 = living(b, 'ally').concat(living(b, 'enemy')), z9;
+    for (z9 = 0; z9 < us9.length; z9++) {
+      var u9 = us9[z9];
+      if (!u9.pos) { continue; }
+      // **盤に行き先を指された体は、そこへ歩く**（`ForceMoveToGroundPoint`）
+      if (u9.goal) {
+        var gx = u9.goal.x - u9.pos.x, gy = u9.goal.y - u9.pos.y, gl = Math.sqrt(gx * gx + gy * gy);
+        var gs = ((statsNow(u9).MoveSpeed || 0) / UNIT) * dt / 1000;
+        if (gl <= gs || gs <= 0) { u9.pos = { x: u9.goal.x, y: u9.goal.y }; u9.goal = null; }
+        else { u9.pos = { x: u9.pos.x + gx / gl * gs, y: u9.pos.y + gy / gl * gs }; }
+        continue;
+      }
+      if (u9.move === false || rangeOf(u9) <= 0) { continue; }
+      if (u9.appearUntil != null && now < u9.appearUntil) { continue; }   // 湧きの演出中は立ったまま
+      if (u9.side === 'ally' && (u9.squad === 'Support' || walkGoal != null)) { continue; }
+      var aim9 = aimOf(u9);
+      if (!aim9) { u9.moving = false; continue; }
+      var gap = edgeDist(u9, aim9) - rangeOf(u9);
+      if (gap <= 1e-9) {
+        if (u9.moving) { u9.moving = false; if (u9.side === 'ally') { takeCover(u9, now); } }
+        continue;
+      }
+      var sp9 = ((statsNow(u9).MoveSpeed || 0) / UNIT) * dt / 1000;
+      if (sp9 <= 0) { continue; }
+      var mv9 = Math.min(sp9, gap), ddx = aim9.pos.x - u9.pos.x, ddy = aim9.pos.y - u9.pos.y;
+      var ln9 = Math.sqrt(ddx * ddx + ddy * ddy) || 1;
+      if (!u9.moving) {
+        u9.moving = true;
+        if (u9.cover) { u9.cover.used = null; u9.cover = null; }
+        moveLog.push([Math.round(now / 100) / 10, u9.key, Math.round(u9.pos.x * 10) / 10, Math.round(u9.pos.y * 10) / 10, aim9.key, Math.round(gap * 10) / 10]);
+      }
+      u9.pos = { x: u9.pos.x + ddx / ln9 * mv9, y: u9.pos.y + ddy / ln9 * mv9 };
+    }
+  }
+  var moveLog = [];
+  /** **TL の合図に使う出来事**（2026-09-07）。`[秒, 種類, 詳細]`。
+      種類は `spawn`（敵が湧いた。節の波と召喚）・`move`（隊列が動き出した。歩きも飛びも）。
+      TL の「敵出現」「移動開始後」「移動中」「左の扉が開いたら」はコストではなく
+      これらの出来事で撃つ行なので、画面のコスト計算に渡す前にここへ結び付ける
+      （`tl-work/_cue.py`）。召喚は 1 発の EX で十数体出るので 0.1 秒以内はまとめる */
+  var evLog = [];
+  function logEv(at, kind, what) {
+    var last = evLog.length ? evLog[evLog.length - 1] : null;
+    if (last && last[1] === kind && last[2] === what && at - last[0] * 1000 < 100) { return; }
+    evLog.push([Math.round(at) / 1000, kind, what]);
   }
 
   /** **遮蔽に隠れる。**隊列の席から、ボスとのあいだに箱が入る空いた立ち位置のうち
@@ -1252,18 +1375,25 @@ export function run(o) {
       無い点・隠れられない点しか無ければ席のまま（陰なし）。
       `one` を渡すとその子だけ選び直す（陰の遮蔽物が壊れたとき） */
   function takeCover(one, at) {
-    var z, w, bp = bossU && bossU.pos;
+    var z, w;
     if (!one) { for (z = 0; z < cpts.length; z++) { cpts[z].used = null; } }
     for (z = 0; z < allies.length; z++) {
       var a2 = allies[z];
       if (one && a2 !== one) { continue; }
       if (one && a2.cover) { a2.cover.used = null; }
       a2.cover = null;
+      // **隠れる相手はいちばん近い敵**（居なければ本体）。**射程に入る立ち位置だけ**
+      // （ItJustWorks の手順: 射程に入るまで前へ → 射程内の遮蔽に隠れる → 撃つ。2026-09-07）。
+      // 歩いて着いた子は、着いた場所が「席」になる
+      var foe = aimOf(a2) || ((bossU && bossU.alive) ? bossU : null), bp = foe && foe.pos;
+      if (one) { a2.home = { x: a2.pos.x, y: a2.pos.y }; }
       if (a2.squad === 'Support' || !a2.pos || !bp || !cpts.length) { continue; }
       var home = a2.home || (a2.home = { x: a2.pos.x, y: a2.pos.y }), best = null, bd2 = 0;
+      var rg2 = rangeOf(a2);
       for (w = 0; w < cpts.length; w++) {
         var cp = cpts[w];
         if (cp.used || cp.box.dead) { continue; }
+        if (rg2 > 0 && edgeDist({ pos: cp }, foe) > rg2) { continue; }
         if (!coverBox(bp, cp, [cp.box], a2.radius)) { continue; }
         var dx2 = cp.x - home.x, dy2 = cp.y - home.y, dd = dx2 * dx2 + dy2 * dy2;
         if (!best || dd < bd2) { best = cp; bd2 = dd; }
@@ -1599,6 +1729,8 @@ export function run(o) {
           return;
         }
         if (au.alive) {
+          // **射程の外では撃たない。**近づく（`stepApproach`）のを 0.1 秒ずつ待つ。弾倉の数えは進めない
+          if (outOfRange(au, 'Normal')) { R.q.push(now + 100, step); return; }
           cast(R, au, ng, 'Normal', 1, now);
           au._shots++;
           for (var pq = 0; pq < autos.length; pq++) {
@@ -1800,7 +1932,12 @@ export function run(o) {
         }
         // **枠は撃つ瞬間に読む。**変身していれば変身後の EX になる
         var gid = au._ex;
-        if (row.f) {
+        // **形態の札は DB の枠名で撃つ**（2026-09-07。`bridge.js` の `formGid`）。画面の `f` は
+        // SchaleDB の並びで `FormIndex` ではない。ミカ（水着）の 3 行が SelectEx01（何も起きない札）
+        // に化けていた。on/off だけ来たら「態勢の切り替え」＝今の形態で決める
+        if (row.gid) { gid = String(row.gid); }
+        else if (row.on || row.off) { gid = (au.form || 0) ? (row.off || row.on) : (row.on || row.off); }
+        else if (row.f) {
           var fr = cslRow(au.pack, party[row.i], row.f);
           var fv = fr.ExSkillGroupId, fz;
           if (Array.isArray(fv)) {
@@ -1976,13 +2113,14 @@ export function run(o) {
       var pool = byDev[pts[z].dev] || [], w;
       for (w = 0; w < pool.length; w++) {
         var mu = pool[w];
-        if (mu.alive || mu === bossU) { continue; }
+        if (mu.alive) { continue; }
         mu.alive = true;
         mu.hp = mu.maxHp;
         mu.pos = pts[z].pos || null;
         mu.eff = [];
         n++;
         castPassives(mu, at);
+        if (mu === bossU) { startBoss(at); }
         break;
       }
     }
@@ -2008,7 +2146,49 @@ export function run(o) {
   //   `EndWave`   その節の雑魚を片付けたら
   //   `ph:N`      ボスの段が N になったら（`waits` に移るまでの待ちが入る）
   //   `Area`      進む先に着いたら
-  var walkGoal = null, secWait = -1, secPhase = null, secTo = -1, sawFoe = false;
+  var walkGoal = null, secWait = -1, secPhase = null, secTo = -1, secVia = null, sawFoe = false;
+  /** その節の隊列の目印（`Formations`。`Index` がいちばん大きいもの＝終点） */
+  function beaconOf(i2) {
+    var f = (bd && bd.formations) || [], z9, best = null;
+    for (z9 = 0; z9 < f.length; z9++) {
+      if (f[z9].SectionIndex === i2 && !f[z9].IsEnemy
+          && (!best || (f[z9].Index || 0) > (best.Index || 0))) { best = f[z9]; }
+    }
+    return best ? { x: (best.Position || {}).x || 0, y: (best.Position || {}).y || 0 } : null;
+  }
+  /** 盤の点の座標（湧き点の `CommandIdList` の名前で引く。どの節でも） */
+  function groundPoint(id) {
+    var z9, w9, secs9 = (bd && bd.sections) || [];
+    for (z9 = 0; z9 < secs9.length; z9++) {
+      var pts9 = secs9[z9].points || [];
+      for (w9 = 0; w9 < pts9.length; w9++) {
+        if ((pts9[w9].cmds || []).indexOf(id) >= 0 && pts9[w9].pos) {
+          var p9 = pts9[w9].pos;
+          return { x: p9.x || 0, y: p9.z != null ? p9.z : (p9.y || 0) };
+        }
+      }
+    }
+    return null;
+  }
+  /** 本体を盤の点へ（飛ぶ／歩く。歩きは `stepApproach` が `goal` へ運ぶ） */
+  function bossGo(bt, at) {
+    var p9 = bt && groundPoint(bt.id);
+    if (!p9 || !bossU) { if (bt) { R.miss['bossTo:' + bt.id] = 1; } return; }
+    if (bt.instant) { bossU.pos = { x: p9.x, y: p9.y }; bossU.goal = null; }
+    else { bossU.goal = { x: p9.x, y: p9.y }; }
+    moveLog.push([Math.round(at / 100) / 10, bossU.key, bossU.pos ? Math.round(bossU.pos.x * 10) / 10 : null, bossU.pos ? Math.round(bossU.pos.y * 10) / 10 : null, bt.id, bt.instant ? 'jump' : 'walk']);
+  }
+  /** 隊列を目印へ（飛ぶ／歩く） */
+  function formationGo(dest, instant, at) {
+    if (!dest || !org) { return; }
+    logEv(at, 'move', instant ? 'jump' : 'walk');
+    if (instant) {
+      org.Position.x = dest.x; org.Position.y = dest.y;
+      walkGoal = null; moveAllies(); takeCover(null, at);
+    } else {
+      walkGoal = { x: dest.x, y: dest.y };
+    }
+  }
 
   /** その節の最後の目印（`Formations` の `Index` がいちばん大きいもの）。 */
   function beaconY(i2) {
@@ -2030,39 +2210,92 @@ export function run(o) {
   }
 
   /** その節の湧き点のうち、命令 id が `cmd` のものを起こす（`GroundCommandWave`）。 */
-  function spawnCmd(cmd, at) {
-    if (!bd || !bd.sections[sec]) { return 0; }
-    var pts = bd.sections[sec].points, n = 0, z6, w6;
+  /** **湧いてから動き出すまで**（ms）。`CharacterExcelTable.AppearFrame` を 30 コマ/秒で読む
+      （ケセドの召喚ドロイド 65 コマ＝ 2.17 秒、本体 20 コマ。2026-09-07）。
+      動画（QnKBiKMMUQE の 98〜101 秒）では湧いた体が 2 秒ほど湧き位置に立ってから歩き出す。
+      核はその間も体を狙える（HP バーは湧いた瞬間から出ている）。本体の木もこの刻から回す */
+  function appearMs(u2) { return Math.round(((u2 && u2.appear) || 0) * 1000 / 30); }
+  /** 湧き点 1 つぶんを起こす。**体は湧く刻に起こす**（`delay` のぶん遅れて） */
+  function spawnAt(pt, at) {
+    var pool = byDev[pt.dev] || [], mu2 = null, w6;
+    for (w6 = 0; w6 < pool.length; w6++) {
+      if (!pool[w6].alive) { mu2 = pool[w6]; break; }
+    }
+    // 本体は増やさない（同じ命令が 2 度来ても 2 体目の本体は作らない）
+    if (!mu2 && !(pool.length && pool[0] === bossU)) { mu2 = moreBody(pt.dev); }
+    if (!mu2) { return false; }
+    mu2.alive = true; mu2.hp = mu2.maxHp; mu2.eff = []; mu2.pos = pt.pos || null;
+    mu2.appearUntil = at + appearMs(mu2);
+    castPassives(mu2, at);
+    if (mu2 === bossU) { startBoss(mu2.appearUntil); }
+    return true;
+  }
+  /** 命令 `cmd` の湧き点をぜんぶ起こす。**点ごとの `Delay` を守る**（2026-09-07。
+      同時に出していて、ケセドの節 0 の 15 体が 1 扇で消え、波が 4 秒で終わっていた。
+      DB は 0〜10 秒に散らしている）。全部が湧いたら `done()`。合図の記録は最初の体の刻に 1 回 */
+  function spawnCmd(cmd, at, done) {
+    if (!bd || !bd.sections[sec]) { if (done) { done(at); } return 0; }
+    var pts = bd.sections[sec].points, n = 0, z6, left, first = null;
+    var list = [];
     for (z6 = 0; z6 < pts.length; z6++) {
       var pt = pts[z6];
       if (!pt.dev || otherBoss[pt.dev]) { continue; }
       if (cmd && (pt.cmds || []).indexOf(cmd) < 0) { continue; }
-      var pool = byDev[pt.dev] || [], mu2 = null;
-      for (w6 = 0; w6 < pool.length; w6++) {
-        if (!pool[w6].alive && pool[w6] !== bossU) { mu2 = pool[w6]; break; }
-      }
-      if (!mu2) { mu2 = moreBody(pt.dev); }
-      if (!mu2) { continue; }
-      mu2.alive = true; mu2.hp = mu2.maxHp; mu2.eff = []; mu2.pos = pt.pos || null;
-      n++;
-      castPassives(mu2, at);
+      list.push(pt);
+      if (first == null || (pt.delay || 0) < first) { first = pt.delay || 0; }
     }
-    return n;
+    left = list.length;
+    if (!left) { if (done) { done(at); } return 0; }
+    for (z6 = 0; z6 < list.length; z6++) {
+      (function (pt2) {
+        var t6 = at + (pt2.delay || 0);
+        R.q.push(t6, function (now) {
+          if (spawnAt(pt2, now)) { n++; }
+          if ((pt2.delay || 0) === first) { logEv(now, 'spawn', 'wave:' + sec); }
+          left--;
+          if (left === 0 && done) { done(now); }
+        });
+      })(list[z6]);
+    }
+    return list.length;
   }
 
-  /** その節の波を出す。 */
+  /** その節の波を出す。**波は順番**（2026-09-07）。`GroundCommandWave.Waves[]` は
+      1 波目を片付けてから `WaveDelay` 置いて 2 波目が出る（ケセドの節 0〜2 は
+      同じ湧き点に命令 1 と 2 が重なっていて、同時に出すと 2 倍湧く）。
+      `EndWave` は最後の波まで片付いてから */
+  var waveQ = [], waveLive = false, waveSpawned = false;
   function fireWave(at) {
-    var sc2 = bd.sections[sec] || {}, wv = sc2.wave || [], z7;
-    for (z7 = 0; z7 < wv.length; z7++) {
-      (function (w7) {
-        var t7 = at + (w7.delay || 0);
-        if (t7 <= R.durMs) { R.q.push(t7, function (now) { spawnCmd(w7.cmd, now); }); }
-      })(wv[z7]);
-    }
+    var sc2 = bd.sections[sec] || {};
+    waveQ = (sc2.wave || []).slice();
+    waveLive = false; waveSpawned = false;
+    nextWave(at);
+  }
+  function nextWave(at) {
+    if (!waveQ.length) { return; }
+    var w7 = waveQ.shift(), t7 = at + (w7.delay || 0);
+    if (t7 > R.durMs) { return; }
+    waveLive = true; waveSpawned = false;
+    R.q.push(t7, function (now) { spawnCmd(w7.cmd, now, function () { waveSpawned = true; }); });
   }
 
   /** その節に入る。**立ち位置は持ち回る**（前の節の終わりに立っていた場所）。 */
-  function enterSection(i2, at) {
+  /** 節の途中の移動（`ForceMove…` を持つ、節を進めない事象）。合図が揃った刻に 1 回。
+      行き先は次の節の目印（ケセドの節 2: z 54 の区画に入ったら (0, 125) へ飛ぶ） */
+  function runMoves(at) {
+    var sc3 = (bd && bd.sections[sec]) || {}, mvs = sc3.moves || [], z12, w12;
+    for (z12 = 0; z12 < mvs.length; z12++) {
+      if (mvs[z12].done) { continue; }
+      var ok12 = mvs[z12].tags.length > 0;
+      for (w12 = 0; w12 < mvs[z12].tags.length; w12++) { if (!tagOk(mvs[z12].tags[w12])) { ok12 = false; } }
+      if (!ok12) { continue; }
+      mvs[z12].done = 1;
+      var to2 = (sc3.starts && sc3.starts[0]) ? sc3.starts[0].to : sec + 1;
+      if (mvs[z12].beacon) { formationGo(beaconOf(to2) || beaconOf(sec), mvs[z12].beacon.instant, at); }
+      if (mvs[z12].bossTo) { bossGo(mvs[z12].bossTo, at); }
+    }
+  }
+  function enterSection(i2, at, via) {
     sec = i2;
     if (R.secLog) {
       R.secLog.push([Math.round(at / 100) / 10, i2,
@@ -2072,17 +2305,28 @@ export function run(o) {
     obs = bd ? obstacleBoxes(bd, sec, common) : [];
     cpts = bd ? coverPoints(bd, sec, common, obs) : [];
     var sc2 = bd.sections[sec] || {};
-    walkGoal = (sc2.walkTo != null) ? sc2.walkTo : null;
-    secWait = -1; secTo = -1; secPhase = null; sawFoe = false;
+    walkGoal = (sc2.walkTo != null && org) ? { x: org.Position.x, y: sc2.walkTo } : null;
+    if (walkGoal) { logEv(at, 'move', 'walk'); }
+    secWait = -1; secTo = -1; secVia = null; secPhase = null; sawFoe = false;
+    waveQ = []; waveLive = false; waveSpawned = false;
     spawn('start', at);
-    // **暗転して飛ぶ節は歩かない**（`ForceMove... IsInstantMove`）。
-    // 行き先の節の最後の目印へ即座に移す。ケセドの節 2 は 42.1 → 125.0 の
-    // 83 単位で、歩かせると 41 秒かかるが実際は一瞬
-    if (sc2.instant && org) {
-      var to2 = (sc2.starts && sc2.starts[0]) ? sc2.starts[0].to : sec + 1;
-      var by = beaconY(to2);
-      if (by != null) { org.Position.y = by; moveAllies(); takeCover(null, at); }
-    } else if (walkGoal == null) {
+    // **節を進めた事象に付いていた移動**（`ForceMoveToFormationBeacon` /
+    // `ForceMoveToGroundPoint`。ビナーの段 1: 隊列は節 1 の目印 (1.06, −14.12) へ歩き、
+    // 本体は `1PhaseBinahPoint` (7.69, −3.29) へ歩く。2026-09-07）
+    // **段替わりの移動は時計の外**（2026-09-07）。ビナーの段 1 で隊列と本体が歩く 8 秒ほどの間、
+    // 動画のタイマーは 2.7 秒しか進まない（IrVUx0ywuyo の OCR: 12.17M のまま 71.8 → 74.5 秒）。
+    // 演出の間は時計が止まるので、戦闘時間の上では一瞬で着く
+    var phaseMove = false, z14;
+    for (z14 = 0; via && z14 < via.tags.length; z14++) { if (String(via.tags[z14]).indexOf('ph:') === 0) { phaseMove = true; } }
+    if (via && via.beacon) { formationGo(beaconOf(sec), via.beacon.instant || phaseMove, at); }
+    if (via && via.bossTo) { bossGo(Object.assign({}, via.bossTo, { instant: via.bossTo.instant || phaseMove }), at); }
+    // **節が始まった合図で飛ぶ移動**（`SectionStarted` の `IsInstantMove`）。
+    // 行き先は次の節の目印——ケセドの節 2 は 42.1 → 125.0 の 83 単位で、歩かせると
+    // 41 秒かかるが実際は一瞬。ビナーの段 2 も (22.56, −100.65) へ暗転して飛ぶ
+    var mvs = sc2.moves || [], z12;
+    for (z12 = 0; z12 < mvs.length; z12++) { mvs[z12].done = 0; }
+    runMoves(at);
+    if (walkGoal == null && !(via && via.beacon)) {
       // 歩かない節は入った席のまま隠れる。歩く節は着いてから（`takeCover` は歩き終わりで）
       takeCover(null, at);
     }
@@ -2093,7 +2337,7 @@ export function run(o) {
   function tagOk(tag) {
     if (tag === 'start') { return true; }
     if (tag === 'EndWave' || tag === 'CharactersDead') {
-      return sawFoe && R.minionCount() === 0;
+      return sawFoe && R.minionCount() === 0 && !waveLive && !waveQ.length;
     }
     // **`CharactersDead:<名前>` は「その名前の湧き点で出た体が全部死んだら」。**
     // カイテンジャーの `ConditionDeadDummyBoss` はレンジャーの棒を指していて、
@@ -2199,6 +2443,11 @@ export function run(o) {
     var sc2 = bd.sections[sec] || {};
     if (secPhase == null && bst) { secPhase = bst.phase; }
     if (R.minionCount() > 0) { sawFoe = true; }
+    // ---- 波を片付けたら次の波
+    if (waveLive && waveSpawned && R.minionCount() === 0) {
+      waveLive = false; waveSpawned = false;
+      nextWave(t7);
+    }
     // ---- 歩く。**いちばん遅い子に合わせる**（隊列は崩れない）
     if (walkGoal != null) {
       var sp = 1e9, z8, vs8 = living(b, 'ally');
@@ -2207,19 +2456,24 @@ export function run(o) {
         if (ms < sp) { sp = ms; }
       }
       if (!vs8.length) { sp = 2; }
-      var d8 = walkGoal - org.Position.y, mv = sp * dt / 1000;
-      if (Math.abs(d8) <= mv) {
-        org.Position.y = walkGoal;
+      var dx8 = walkGoal.x - org.Position.x, dy8 = walkGoal.y - org.Position.y;
+      var dd8 = Math.sqrt(dx8 * dx8 + dy8 * dy8), mv = sp * dt / 1000;
+      if (dd8 <= mv) {
+        org.Position.x = walkGoal.x; org.Position.y = walkGoal.y;
         walkGoal = null;
         takeCover(null, t7);
         fireWave(t7);
       } else {
-        org.Position.y += (d8 > 0 ? mv : -mv);
+        // **歩いている間だけ席へ戻す。**着いた刻は `takeCover` が置いた場所を崩さない
+        //（崩すと次の刻に射程の外と見て歩き直し、空いた遮蔽が無くなる。2026-09-07）
+        org.Position.x += dx8 / dd8 * mv; org.Position.y += dy8 / dd8 * mv;
+        moveAllies();
       }
-      moveAllies();
       R.walked = Math.round(org.Position.y * 10) / 10;
       return;
     }
+    // ---- 節の途中の移動（区画に入ったら飛ぶ、など）
+    runMoves(t7);
     // ---- 合図で消える体（`GroundCommandCharacterDie`）
     var dl = sc2.dies || [], z10, w10;
     for (z10 = 0; z10 < dl.length; z10++) {
@@ -2268,11 +2522,11 @@ export function run(o) {
         for (w9 = 0; w9 < st9.tags.length; w9++) {
           if (!tagOk(st9.tags[w9])) { ok9 = false; }
         }
-        if (ok9) { secWait = t7 + (st9.wait || 0); secTo = st9.to; break; }
+        if (ok9) { secWait = t7 + (st9.wait || 0); secTo = st9.to; secVia = st9; break; }
       }
     }
     if (secWait >= 0 && t7 >= secWait && bd.sections[secTo]) {
-      enterSection(secTo, t7);
+      enterSection(secTo, t7, secVia);
     }
   }
 
@@ -2290,7 +2544,7 @@ export function run(o) {
     var u2 = add(b, makeUnit({
       key: src.key + '#' + pool.length, side: 'enemy', charId: src.charId, dev: dev,
       kind: src.kind, lv: src.lv, armor: src.armor, bullet: src.bullet,
-      adapt: src.adapt, radius: src.radius, personality: src.personality,
+      adapt: src.adapt, radius: src.radius, personality: src.personality, move: src.move, appear: src.appear,
       aiId: src.aiId, role: src.role, school: src.school, squad: src.squad,
       hp: src.maxHp, maxHp: src.maxHp, base: src.base,
     }));
@@ -2303,7 +2557,27 @@ export function run(o) {
   }
 
   /** 木が呼んだ実体を 1 体起こす。**名前は綴りが違うので当て直す。** */
-  R.summon = function (name, at, by) {
+  /** **呼んだ体の向き。**敵は味方陣（y の小さい側）を、味方は敵陣を向いているものとする。
+      盤の体は `Direction` を持つが、戦闘中は狙う相手のほうを向くので、陣の向きで足りる */
+  function facingOf(u2) {
+    return u2 && u2.side === 'enemy' ? { x: 0, y: -1 } : { x: 0, y: 1 };
+  }
+  /** **湧く座標。**`SpawnPositionType` Invoker ＝ 呼んだ体の足元、`PositionOffset` は
+      `OffsetDirectionType` Invoker なら呼んだ体の向きで回す（前 = 向き、右 = (fy, −fx)。
+      `board.js` の箱と同じ約束）。知らない種類は足元に置いて `R.miss` に数える */
+  function summonPos(by, sv) {
+    if (!by || !by.pos) { return null; }
+    var o = (sv && sv.off) || { x: 0, y: 0 }, f = facingOf(by);
+    if (sv && sv.spos && sv.spos !== 'Invoker') {
+      R.miss['spos:' + sv.spos] = (R.miss['spos:' + sv.spos] || 0) + 1;
+    }
+    if (sv && sv.odir && sv.odir !== 'Invoker') {
+      R.miss['odir:' + sv.odir] = (R.miss['odir:' + sv.odir] || 0) + 1;
+      return { x: by.pos.x + o.x, y: by.pos.y + o.y };
+    }
+    return { x: by.pos.x + o.x * f.y + o.y * f.x, y: by.pos.y + o.x * (-f.x) + o.y * f.y };
+  }
+  R.summon = function (name, at, by, sv) {
     var dev = R.devFix[name];
     if (dev === undefined) { dev = R.devFix[name] = resolveDev(name, byDev); }
     if (!dev) { R.miss['summon:' + name] = (R.miss['summon:' + name] || 0) + 1; return; }
@@ -2314,8 +2588,10 @@ export function run(o) {
     }
     if (!mu) { mu = moreBody(dev); }
     if (!mu) { return; }
-    mu.alive = true; mu.hp = mu.maxHp; mu.eff = []; mu.pos = by && by.pos;
+    mu.alive = true; mu.hp = mu.maxHp; mu.eff = []; mu.pos = summonPos(by, sv) || (by && by.pos) || null;
+    mu.appearUntil = at + appearMs(mu);
     R.summoned++;
+    logEv(at, 'spawn', 'summon');
     castPassives(mu, at);
   };
   R.devFix = {};
@@ -2353,25 +2629,28 @@ export function run(o) {
     if (u2.ggDmg >= need) { intoGroggy(u2, at); }
   };
 
-  if (o.bossActs !== false) {
+  /** 本体の木を回し始める。最初から居る本体は 0 秒、盤が途中で湧かせる本体は湧いた瞬間 */
+  function startBoss(at) {
+    if (bst || o.bossActs === false) { return; }
     try {
       var plan = bossPlan(boss, bossU.charId);
       var waits = phaseWaits(boss.board);
       bst = driveBoss({
-        R: R, u: bossU, plan: plan, waits: waits, durMs: durMs,
-        cast: function (cu, gid, slot, lv, at) { cast(R, cu, gid, slot, lv, at); },
+        R: R, u: bossU, plan: plan, waits: waits, durMs: durMs, t0: at,
+        outOfRange: function (u9) { return outOfRange(u9, 'Normal'); },
+        cast: function (cu, gid, slot, lv, at2) { cast(R, cu, gid, slot, lv, at2); },
       });
     } catch (e) {
       R.bossErr = String(e && e.message || e);
     }
   }
+  if (!bossLate) { startBoss(0); }
   // **節の最初から居る敵**（ボス以外に前座が居る盤がある）。
   // ここから節の進行が始まる（歩く → 波 → 片付ける → 次の節）
   enterSection(0, 0);
-  // **本体の常時札。**`spawn` は「湧く体」しか見ないので `mu === bossU` を飛ばしていて、
-  // **ボス自身の `PassiveSkillGroupId` は一度も引かれていなかった**（2026-09-06）。
-  // ゴズの `GozInsanePassive01` が丸ごと抜けていて、`used` に敵の枠が 1 つも無い
-  castPassives(bossU, 0);
+  // **本体の常時札。**最初から居る本体はここで（湧く本体は `spawn` が引く）。
+  // ゴズの `GozInsanePassive01` が丸ごと抜けていた（2026-09-06）
+  if (!bossLate && !bossU._psDone) { castPassives(bossU, 0); }
 
   // ---- 回す。**0.1 秒刻みで札の時間切れとコストを進める**
   var step = o.step || 100, hp = [], t3, downAt = [];
@@ -2399,6 +2678,8 @@ export function run(o) {
     if (bst && bst.check) { bst.check(t3); }
     // 条件つき常時（`Event: 301`）の入り切り。フェーズが動いたあとに見る
     pollCond(t3);
+    // **射程に入るまで近づく**（味方も敵も。歩いている節は隊列ごと動くので待つ）
+    stepApproach(t3, step);
     // **節の進行。**歩く・波を出す・片付いたら次の節へ
     stepSection(t3, step);
     // **指した時刻で味方の札を写し取る**（`o.snapAt` ミリ秒。外から中を見る窓）
@@ -2464,8 +2745,12 @@ export function run(o) {
     origin: org ? [org.Position.x, org.Position.y] : null,
     sectionEnd: sec,
     bossPos: bossU.pos ? [bossU.pos.x, bossU.pos.y] : null,
+    moveLog: moveLog.slice(0, 80),
+    evLog: evLog,
+    coverPts: cpts.map(function (c9) { return [c9.box.name, Math.round(c9.x * 10) / 10, Math.round(c9.y * 10) / 10, c9.box.dead ? 'x' : (c9.used || '-')]; }),
     cover: allies.map(function (a9) { return [a9.key, a9.cover ? [Math.round(a9.cover.x * 100) / 100, Math.round(a9.cover.y * 100) / 100, a9.cover.box.name] : null]; }),
     coverDmg: Math.round(R.coverDmg || 0), coverLog: coverLog, castLog: R.castLog,
+    enemyPos: living(b, 'enemy').map(function (e9) { return [e9.key, e9.dev, Math.round(e9.hp), e9.pos ? [Math.round(e9.pos.x * 10) / 10, Math.round(e9.pos.y * 10) / 10] : null, e9.kind]; }).slice(0, 12),
     allyStats: allies.map(function (a9) { return [a9.key, a9.base.AttackPower, a9.base.DefensePower, a9.base.MaxHP, a9.base.DodgePoint, a9.adapt, (a9.pack && a9.pack.ch && a9.pack.ch.TacticRange), a9.radius]; }),
     hp: hp, total: R.total, killAt: bossHp() <= 0 ? t3 / 1000 : null,
     maxHp: bossMax, bossKeys: bossUnits.map(function (v) { return [v.dev, v.maxHp]; }),

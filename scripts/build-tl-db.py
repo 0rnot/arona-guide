@@ -455,14 +455,20 @@ def build_bosses(out_dir, chars, st_by, le_npc_by, le_pc_by, sk_by, want):
             for sec in (sd.get("Sections") or []):
                 for gl in (sec.get("EnemySpawnPointGroupList") or []):
                     for sp in (gl.get("SpawnPoints") or []):
-                        tid = ((sp.get("SpawnData") or {}).get("SpawnTemplateId") or "")
-                        if not tid:
-                            continue
-                        c = resolve_dev(tid, by_dev)
-                        if c:
-                            take_ent(c, ents, csl_rows, groups, ph_by, csl_by)
-                        else:
-                            _dev_miss.add(tid)
+                        # **`RandomSpawnPoint` は `SpawnList[].SpawnData` に体を持つ**（2026-09-07）。
+                        # ケセド屋外 Torment の波（71 点）がこれで、`ChesedDroid_…_AR_Torment` 5 種が
+                        # 束に入らず、波は何も湧かないまま本体だけを 0 秒から殴っていた
+                        tids = [((sp.get("SpawnData") or {}).get("SpawnTemplateId") or "")]
+                        for sl in (sp.get("SpawnList") or []):
+                            tids.append(((sl.get("SpawnData") or {}).get("SpawnTemplateId") or ""))
+                        for tid in tids:
+                            if not tid:
+                                continue
+                            c = resolve_dev(tid, by_dev)
+                            if c:
+                                take_ent(c, ents, csl_rows, groups, ph_by, csl_by)
+                            else:
+                                _dev_miss.add(tid)
         # **木を歩いて、出てきた実体の枠もまた歩く。**ミニオンは自分でも撃つので、
         # 1 周で止めると湧いた子の通常攻撃と EX が束に入らない
         ls, eids, names, walked = {}, set(), set(), set()

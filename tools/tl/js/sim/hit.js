@@ -149,8 +149,14 @@ export function once(a, d, s, C, lvTable, caps) {
   var baM = s.isBasic ? ((a.baRate == null ? 10000 : a.baRate) / 10000) : 1;
 
   var tick = Math.max(1, s.tick == null ? 1 : s.tick);
-  var base = (a.atk || 0) * (a.terr == null ? 1 : a.terr) * (a.eff == null ? 1 : a.eff) *
-             ((s.scale || 0) / 10000) * (s.mult == null ? 1 : s.mult) * dm *
+  // **`Amount` は素の量**（2026-09-07）。`DamageEffectDAO` の `Amount` は攻撃力 × 倍率に
+  // 足してから、地形・特効・防御を掛ける（欄の `ApplyBulletType` / `ApplyDefense` /
+  // `ApplyLevelFactor` がぜんぶ真）。束ぜんぶで持つのはケセドの 2 本だけ——
+  // `Chesed_Ex03_Effect01`（2,500,000 ＋ 攻撃力 10 の 2000%）と `Chesed_Ex01_Effect02`（10）。
+  // 足すまで EX03 が 88 ダメージで、40 秒ごとの砲撃が無いも同然だった
+  var base = ((a.atk || 0) * ((s.scale || 0) / 10000) + (s.flat || 0)) *
+             (a.terr == null ? 1 : a.terr) * (a.eff == null ? 1 : a.eff) *
+             (s.mult == null ? 1 : s.mult) * dm *
              drA * drB * exM * baM * lvMod(s.lvDiff || 0, lvTable) * tick *
              (s.sm == null ? 1 : s.sm) * (s.hr == null ? 1 : s.hr);
 

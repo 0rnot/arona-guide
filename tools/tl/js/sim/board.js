@@ -47,6 +47,11 @@ export function boardPlan(doc) {
       var sp = gl[j].SpawnPoints || [];
       for (k = 0; k < sp.length; k++) {
         var p = sp[k], sd = p.SpawnData || {};
+        // **`RandomSpawnPoint` は `SpawnList[].SpawnData` に体を持つ**（ケセドの波。2026-09-07）。
+        // 並びが 1 つなら決まりで、複数なら `RandomAmount` の重みで 1 つ（いまは先頭）
+        if (!sd.SpawnTemplateId && p.SpawnList && p.SpawnList.length) {
+          sd = p.SpawnList[0].SpawnData || {};
+        }
         points.push({
           dev: sd.SpawnTemplateId || null,
           cmds: p.CommandIdList || [],
@@ -56,6 +61,9 @@ export function boardPlan(doc) {
           // 「レンジャー 5 人が死ぬ」ではなく「棒が 0 になる」が節の進む合図
           cond: p.SpawnConditionIdList || [],
           pos: p.Position || null,
+          // **点ごとの湧く遅れ**（`Delay` ミリ秒。2026-09-07）。ケセドの節 0 は 15 体が 0〜5 秒、
+          // 節 0 の 2 波目は扉の 5 体が +5 秒・奥の 5 体が +10 秒に散っている。同時に出すと 1 扇で全滅する
+          delay: p.Delay || 0,
           tile: [p.TileX, p.TileY],
           active: p.Active !== false,
         });
@@ -110,7 +118,7 @@ export function boardPlan(doc) {
     var got = eventsOf(evs);
     out.push({ i: i, points: points, byTag: byTag, waits: waits, next: next,
                walkTo: got.walkTo, wave: got.wave, starts: got.starts,
-               instant: got.instant, dies: got.dies,
+               instant: got.instant, dies: got.dies, moves: got.moves,
                status: got.status, skills: got.skills,
                obstacles: sec.Obstacles || [] });
   }
@@ -133,10 +141,11 @@ export function boardPlan(doc) {
     節の中に 1 つも無いので、見ていないあいだホドは節 0 から動かなかった）。 */
 function eventsOf(evs) {
   var walkTo = null, wave = [], starts = [], instant = false, dies = [], j, m;
-  var status = [], skills = [];
+  var status = [], skills = [], moves = [];
   for (j = 0; j < evs.length; j++) {
     var cs2 = evs[j].Conditions || [], cm2 = evs[j].Commands || [], q2;
     var to = null, wsec = 0, areaZ = null, hasW = false, hasSp = false;
+    var beacon = null, bossTo = null;
     for (q2 = 0; q2 < cm2.length; q2++) {
       var t2 = typeOf(cm2[q2]);
       if (t2.indexOf('Wave') >= 0 && cm2[q2].Waves) {
@@ -150,8 +159,18 @@ function eventsOf(evs) {
         to = (cm2[q2].SectionID || 1) - 1;
       } else if (t2.indexOf('WaitSeconds') >= 0) {
         wsec += cm2[q2].Milliseconds || 0;
-      } else if (t2.indexOf('ForceMove') >= 0 && cm2[q2].IsInstantMove) {
-        instant = true;
+      } else if (t2.indexOf('ForceMoveToFormationBeacon') >= 0) {
+        // **隊列を目印へ**（`IsInstantMove` なら飛ぶ、でなければ歩く）。
+        // ビナーの段 1 は歩き（原点 (−18.2, −5.6) → 節 1 の目印 (1.06, −14.12)）、
+        // 段 2 とケセドの節 2 は暗転して飛ぶ（2026-09-07）
+        beacon = { instant: !!cm2[q2].IsInstantMove };
+        if (cm2[q2].IsInstantMove) { instant = true; }
+      } else if (t2.indexOf('ForceMoveToGroundPoint') >= 0) {
+        // **本体を盤の点へ**（`PointCommandID` は湧き点の `CommandIdList` の名前。
+        // ビナーは段 1 で `1PhaseBinahPoint` (7.69, −3.29) へ歩き、段 2 で
+        // `2PhaseBinahPoint` (20.8, −88.4) へ飛ぶ）
+        bossTo = { id: String(cm2[q2].PointCommandID || ''), instant: !!cm2[q2].IsInstantMove };
+        if (cm2[q2].IsInstantMove) { instant = true; }
       } else if (t2.indexOf('SetStatusImmune') < 0 && t2.indexOf('SetStatus') >= 0) {
         // **盤が状態を付け外しする**（`GroundCommandSetStatus`。2026-09-07）。
         // ホドは節 3（玉座の前）で本体の `Untargetable` を外す（`isAdd: false`）。
@@ -182,11 +201,18 @@ function eventsOf(evs) {
       }
     }
     // **着いたら湧く・撃つ節も歩く**（ホドの節 1。仮設タワーは `GroundConditionArea` で湧く）
-    if (areaZ != null && (hasW || to != null || hasSp) && walkTo == null) { walkTo = areaZ; }
-    if (to != null) { starts.push({ tags: tagsOf(evs[j]), to: to, wait: wsec }); }
+    // **移動だけの事象も歩く先になる**（ケセドの節 2: z 54 の区画に入ったら暗転して飛ぶ。
+    // 飛ぶ先の z 125 が先に歩く先になっていて、83 単位を 41 秒かけて歩いていた。2026-09-07）
+    if (areaZ != null && (hasW || to != null || hasSp || beacon || bossTo) && walkTo == null) { walkTo = areaZ; }
+    if (to != null) {
+      starts.push({ tags: tagsOf(evs[j]), to: to, wait: wsec, beacon: beacon, bossTo: bossTo });
+    } else if (beacon || bossTo) {
+      // 節を進めない移動（節が始まった合図で飛ぶ、など）
+      moves.push({ tags: tagsOf(evs[j]), beacon: beacon, bossTo: bossTo, wait: wsec });
+    }
   }
   return { walkTo: walkTo, wave: wave, starts: starts, instant: instant, dies: dies,
-           status: status, skills: skills };
+           status: status, skills: skills, moves: moves };
 }
 
 /** その節で合図 `tag` を出したときに湧く湧き点。 */

@@ -223,8 +223,28 @@ export function formsOf(id) {
   for (i = 0; i < ss.length; i++) { if (ss[i].id === id) { d = ss[i]; break; } }
   if (!d) { return []; }
   var out = [{ n: d.en }], xs = d.xs || [];
-  for (i = 0; i < xs.length; i++) { out.push({ n: xs[i].n }); }
+  for (i = 0; i < xs.length; i++) { out.push({ n: xs[i].n, g: xs[i].g || '', fw: xs[i].fw || '' }); }
   return out;
+}
+/** **形態の札を「起動」「解除」で引く**（2026-09-07）。データの `fw` は説明文から読んだ
+    「態勢に入る側（on）」「解除する側（off）」（`build-tool-data.py` の `form_word`）。
+    「ミカ起動」＝静かなる決意（2 コスト）、「ミカ解除」＝心のゆとり（0 コスト）。
+    これが無いと両方とも星の軌跡（4→6→10 コスト）に化けて、コストの都合で
+    TL が 70 秒遅れていた（QnKBiKMMUQE。ケセドの召喚が出る前に EX を撃ち切る）。
+    括弧の中は見ない（そちらは `formIn`）。当てはまらなければ -1 */
+export function formByWord(text, id) {
+  var q = nrm(text || '').replace(/[（(\[［][^）)\]］]*[)）\]］]/g, ' '), fl = formsOf(id), want, i;
+  if (!q || fl.length < 2) { return -1; }
+  want = /解除/.test(q) ? 'off' : /起動/.test(q) ? 'on' : '';
+  if (!want) { return -1; }
+  for (i = 0; i < fl.length; i++) { if (fl[i].fw === want) { return i; } }
+  return -1;
+}
+/** `fw` が `want` の形態。無ければ -1 */
+export function formByFw(id, want) {
+  var fl = formsOf(id), i;
+  for (i = 0; i < fl.length; i++) { if (fl[i].fw === want) { return i; } }
+  return -1;
 }
 /** **変身 EX の周期。**形態 0 のあとに形態 1 を撃つ回数（トキ 3・キサキ（水着）2）。
     出どころは `build-tool-data.py` が Ex の説明文から読む `fc`（60 の注記に原文）。
@@ -275,6 +295,10 @@ export function formIn(inner, id) {
   // （2026-09-02、大決戦シロクロ。6 行が「星の軌跡」になっていた）
   // **「(自身)」で 0 に落とすのは ミカ（水着）(10122) だけ。**アリス（臨戦）の「即アリス(自身)」は
   // 撃つ側（覚醒：スーパーノヴァ）で、全員に掛けると 10 行がダメージ 0 になっていた（2026-09-02、グミの報告）
+  // **「(連射解除)」は解除側の札、「(連射モード)」は入る側の札**（2026-09-07。データに `fw` が
+  // あればそちら。解除は 0 コスト・起動は 2 コストで、選ぶだけの札（4 コスト）ではない）
+  if (/連射解除|連射切/.test(q) && formByFw(id, 'off') >= 0) { return formByFw(id, 'off'); }
+  if (/連射モード|連射態勢/.test(q) && !/解除|切/.test(q) && formByFw(id, 'on') >= 0) { return formByFw(id, 'on'); }
   if ((/連射モード|連射態勢|連射解除|連射切/.test(q) || (/自身|^自$/.test(q) && id === 10122)) && !formHasDmg(id, 0)) { return 0; }
   for (j = 0; j < FORMWORD.length; j++) {
     if (q.indexOf(FORMWORD[j][0]) < 0) { continue; }

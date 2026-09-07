@@ -26,7 +26,12 @@ export var STAT = {
   13: 'MoveSpeed', 16: 'StabilityPoint', 19: 'AmmoCount', 20: 'IgnoreDelayCount',
   21: 'Range', 22: 'BlockRate', 30: 'HealEffectivenessRate',
   31: 'CriticalChanceResistPoint', 32: 'CriticalDamageResistRate',
-  34: 'AttackSpeed', 40: 'OppressionPower', 41: 'OppressionResist',
+  34: 'AttackSpeed', 39: 'DamagedRatio', 40: 'OppressionPower', 41: 'OppressionResist',
+  // **39・10・61 は 2026-09-07 に足した。**束ぜんぶの `TemplateId` で数えると
+  // 39 → `Debuff_StatChange_DamagedRatio` 245 件、10 → `CriticalChanceRate` 72 件、
+  // 61 → `DamagedRatio2Increase` 203 件。39 が無くて、被ダメージ率を触る札が
+  // ぜんぶ素通り（ケセドのグロッキー中の −9000 も、生徒の被ダメ増加も）だった
+  10: 'CriticalChanceRate', 61: 'DamagedRatio2Increase',
   42: 'RegenCost', 44: 'DefensePenetration', 46: 'ExtendBuffDuration',
   47: 'ExtendDebuffDuration', 49: 'EnhanceExplosionRate', 50: 'EnhancePierceRate',
   51: 'EnhanceMysticRate', 59: 'DamageRatio2', 62: 'DamagedRatio2',

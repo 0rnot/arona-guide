@@ -1536,6 +1536,20 @@ COST_COND = {
 }
 
 
+
+def form_word(desc):
+    """形態の札が「態勢に入る側」か「解除する側」か（2026-09-07）。
+    TL の「ミカ起動」「ミカ解除」を形態に結び付けるための札で、説明文から読む。
+    ミカ（水着）: 静かなる決意「連射態勢に転換（30秒間）」→ on ／
+    心のゆとり「連射態勢をすぐに解除」→ off。当てはまらなければ空。
+    **起動側の説明文にも「（連射態勢解除時、…）」が入る**ので、「を…解除」だけを off と読む。"""
+    d = desc or ""
+    if re.search(r"態勢に(?:転換|入|移)", d):
+        return "on"
+    if re.search(r"態勢を(?:すぐに)?解除", d):
+        return "off"
+    return ""
+
 def build_cost_timeline():
     print("TL のコスト計算機")
     students = as_list(get_json(SD.format("students")))
@@ -1966,7 +1980,13 @@ def build_cost_timeline():
             if not x.get("Cost"):
                 continue          # コストを持たない行は「別のカード」ではない
             item = {"n": x.get("Name", ""), "ei": x.get("Icon", ""),
-                    "c": x.get("Cost") or [], "d": x.get("Duration") or 0}
+                    "c": x.get("Cost") or [], "d": x.get("Duration") or 0,
+                    # **DB の枠名（`CH0294Ex01`）。**画面の形態番号は SchaleDB の並びで、
+                    # DB の `FormIndex` とは別物。核はこれで撃つ枠を引く（2026-09-07）
+                    "g": x.get("Id") or ""}
+            fw = form_word(x.get("Desc") or "")
+            if fw:
+                item["fw"] = fw
             item.update(skill_extras(x))
             xs.append(item)
         if xs:

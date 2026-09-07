@@ -494,7 +494,14 @@ export function summonsOf(doc) {
         for (var j = 0; j < es.length; j++) {
           var e = es[j];
           if (e && e.UniqueName) {
-            out.push({ f: d2 || 0, name: e.UniqueName, dur: e.Duration || 0 });
+            // **湧く場所も持って帰る。**`SpawnPositionType`（Invoker ＝ 呼んだ体の足元）と
+            // `PositionOffset`（`OffsetDirectionType` Invoker ＝ 呼んだ体の向きで回す）。
+            // ケセドの雑魚は本体の 1〜6 先（味方側）に並ぶので、本体より近い＝先に狙われる
+            // （2026-09-07。本体の足元に重ねていて、味方が 0.1 倍の本体を殴り続けていた）
+            var po = e.PositionOffset || {};
+            out.push({ f: d2 || 0, name: e.UniqueName, dur: e.Duration || 0,
+                       off: { x: +po.x || 0, y: +po.y || 0 },
+                       odir: e.OffsetDirectionType || 'Invoker', spos: e.SpawnPositionType || 'Invoker' });
           }
         }
       }

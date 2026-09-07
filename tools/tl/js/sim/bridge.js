@@ -112,6 +112,28 @@ function mapTo(v, map) {
   return out.length ? out : null;
 }
 
+/** **形態の札を DB の枠名に直す**（2026-09-07）。画面の形態番号 `f` は SchaleDB の並び
+    （コストを持つ ExtraSkills の順）で、DB の `FormIndex` とは別物。ミカ（水着）は
+    f1＝CH0294Ex01（静かなる決意）・f2＝CH0294Ex03（心のゆとり）・f3＝CH0294Ex02（星の軌跡）で、
+    `FormIndex` で引いていたときは 3 行とも SelectEx01（選ぶだけの札。何も起きない）を撃っていた。
+    `data.js` の `xs[].g` が SchaleDB の `Id`＝ DB の GroupId。
+    `f` が 0 で、on/off の札を持つ子は「態勢の切り替え」（「(自身)」）なので両方渡して、
+    核が今の形態で決める。持っていない子は null（核は今までどおり枠の先頭） */
+function formGid(pt, r) {
+  var sl = (pt.slots || [])[r.i], id = sl && sl.id, S9 = (typeof window !== 'undefined' && window.TL) || null;
+  var d = null, i, xs, on = null, off = null;
+  if (!S9 || id == null) { return null; }
+  for (i = 0; i < (S9.students || []).length; i++) { if (S9.students[i].id === id) { d = S9.students[i]; break; } }
+  if (!d || !d.xs) { return null; }
+  xs = d.xs;
+  if (r.f > 0) { return xs[r.f - 1] && xs[r.f - 1].g ? { gid: String(xs[r.f - 1].g) } : null; }
+  for (i = 0; i < xs.length; i++) {
+    if (xs[i].fw === 'on' && xs[i].g) { on = String(xs[i].g); }
+    if (xs[i].fw === 'off' && xs[i].g) { off = String(xs[i].g); }
+  }
+  return (on || off) ? { on: on, off: off } : null;
+}
+
 export async function simParty(o) {
   var L = o.load, st = o.st, pi = o.pi || 0;
   var index = await L.index();
@@ -207,7 +229,9 @@ export async function simParty(o) {
     // `[3, 2]` を鍵にして引いていたので、その行の渡し先が丸ごと落ちていた
     // （2026-09-07。`target.js:toList` と同じ読み方に合わせた）
     var to = mapTo(r.bto != null ? r.bto : r.to, map);
-    tl.push({ at: r.t, i: map[r.i], mc: r.mc == null ? null : r.mc, f: r.f || 0, to: to });
+    var fg = formGid(pt, r);
+    tl.push({ at: r.t, i: map[r.i], mc: r.mc == null ? null : r.mc, f: r.f || 0, to: to,
+              gid: fg && fg.gid ? fg.gid : null, on: fg && fg.on ? fg.on : null, off: fg && fg.off ? fg.off : null });
   }
 
   var dur = o.dur != null ? o.dur : ((index[key].dur || 240000) / 1000);

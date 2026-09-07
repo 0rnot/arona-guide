@@ -3,7 +3,7 @@ import { MAIN_MAX, SLOTS, TE, _byid, live } from './core.js';
 import { diff, has } from './boss.js';
 import { n0 } from './rate.js';
 import { wlvMax } from './passive.js';
-import { CIRC, aimIn, aliasOf, autoPick, fcOf, formHasDmg, formIn, formsOf, nrm, timeIn, whoIn, zen0 } from './parse-text.js';
+import { CIRC, aimIn, aliasOf, autoPick, fcOf, formByWord, formHasDmg, formIn, formsOf, nrm, timeIn, whoIn, zen0 } from './parse-text.js';
 import { findStudent } from './parse-apply.js';
 import { aimFromHits, bestHitsOf } from './board.js';
 import { poolBodies, poolOf } from './pool.js';
@@ -396,6 +396,13 @@ export function parseTL(txt) {
   // 「➝ Cost7：ミカ → ヒマリ → ミカ → ギブアップ」。2026-09-02、総力戦ホド _tH1tzFHoUM と
   // ホバークラフト c3eN2Cf7QVc）。矢印が 3 つ以上つながる行は 1 発ずつの行に割る。
   // 2 つだけなら「→ ネル」の渡し先なのでそのまま。`[➡ミカ]` のような括弧の中は割らない
+  // **矢印の両側が同じ子なら渡し先ではなく次の 1 発**（「敵出現　ハナコ→ハナコ©」。2026-09-07、
+  // ケセド QnKBiKMMUQE。ハナコがハナコを渡し先にして 1 発消えていた）
+  var sameKid = function (a, b) {
+    var sa = findStudent(a.replace(/[（(\[［][^）)\]］]*[)）\]］]/g, ' '), null),
+        sb = findStudent(b.replace(/[（(\[［][^）)\]］]*[)）\]］]/g, ' '), null);
+    return !!(sa && sb && sa.id === sb.id);
+  };
   var lines2 = [], lz, lq;
   for (lz = 0; lz < lines.length; lz++) {
     var body2 = lines[lz].replace(/[※].*$/, ''), note2 = (lines[lz].match(/[※].*$/) || [''])[0];
@@ -415,7 +422,7 @@ export function parseTL(txt) {
     // 括弧の中が「その行の子とは別の子」に引けることを条件にする
     var chain2 = pcs2.length === 2 &&
                  (/^(即|最速)/.test(nrm(pcs2[1])) || !!timeIn(pcs2[1].replace(/[（(\[［][^）)\]］]*[)）\]］]/g, ' '), dur) ||
-                  targParen(pcs2[0]) || targParen(pcs2[1]));
+                  targParen(pcs2[0]) || targParen(pcs2[1]) || sameKid(pcs2[0], pcs2[1]));
     if (pcs2.length < 3 && !chain2) { lines2.push(lines[lz]); continue; }
     for (lq = 0; lq < pcs2.length; lq++) {
       var pc = pcs2[lq];
@@ -813,6 +820,12 @@ export function parseTL(txt) {
           if (f3 >= 0) { frm = f3; }
         }
       }
+    }
+    // **括弧の外の「起動」「解除」は形態の札**（「ミカ起動」「ミカ解除」。2026-09-07、
+    // QnKBiKMMUQE。データの `fw` で引くので、持っていない子には効かない）
+    if (frm == null && idBy[who]) {
+      var f5 = formByWord(cut, idBy[who]);
+      if (f5 >= 0) { frm = f5; }
     }
     // **「(全員巻き込む)」「(5体巻き込む)」は部位の名前を書かない**（2026-09-03、
     // 屋内ペロロジラ MYqGzhY5Jmc。3 行とも当たる数 1 のままだった）。

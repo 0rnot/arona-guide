@@ -61,6 +61,8 @@ export function makeUnit(o) {
     aiId: o.aiId != null ? o.aiId : null,
     pos: o.pos ? { x: o.pos.x, y: o.pos.y } : { x: 0, y: 0 },
     radius: o.radius || 0,            // BodyRadius
+    appear: o.appear || 0,            // CharacterExcelTable.AppearFrame（湧いてから動けるまでのコマ）
+    appearUntil: null,                // 湧いた体が動き出せる刻（ms）。それまでは立ったまま
     base: o.base || {},               // 素の値（stats.js が出したもの）
     hp: o.hp || 0,
     maxHp: o.maxHp || 0,
