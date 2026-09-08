@@ -34,7 +34,7 @@ import { all as condAll, mulOf, unknownOf, expr as condExpr } from './cond.js';
 import { makeBoard, makeUnit, add, living, ctxOf, applyMark, expire, dispel, tickCost }
   from './state.js';
 import { once as hitOnce, roll as hitRoll, capsOf } from './hit.js';
-import { bossPlan, phaseWaits, driveBoss } from './boss.js';
+import { bossPlan, phaseWaits, driveBoss, partsOf } from './boss.js';
 import { levelScale } from './grow.js';
 import { boardPlan, spawnFor, originOf, slotPos, inArea, sortByRule,
          obstacleBoxes, coverRate, coverBox, coverPoints } from './board.js';
@@ -1251,6 +1251,8 @@ export function run(o) {
     u.ls = boss.ls || {};
     u.skillLv = {};
     u.csl = (boss.csl || {})[c.Id] || (boss.csl || {})[String(c.Id)] || null;
+    // **部位**（`GetActiveParts()` と `AlivePartsUseExSkill`）。持たない体は null
+    u.parts = partsOf(boss, c.Id);
     byDev[c.DevName] = byDev[c.DevName] || [];
     byDev[c.DevName].push(u);
     // **盤に最初から居るのはボスだけ。**ミニオンは湧いてから
@@ -2287,6 +2289,14 @@ export function run(o) {
     return !!(u2 && u2.groggyUntil != null && b.t < u2.groggyUntil);
   };
   R.ctx.cover = function (u2, v2) { return R.coverState(u2, v2); };
+  /** **部位 k が生きているか**（`GetActiveParts()==k` と `AlivePartsUseExSkill k`）。
+      部位は木の `SetMaxHPToParts` が作る（`boss.js`）。持たない体は `null`＝読めない */
+  R.partAlive = function (u2, k) {
+    var pp = u2 && u2.parts;
+    if (!pp || k == null || k < 0 || k >= pp.length) { return null; }
+    return !!pp[k].alive;
+  };
+  R.ctx.partAlive = R.partAlive;
   // **いま盤に居る、ボス以外の敵の数。**木の `CheckSummonCharacterCountUnder` 用
   /** **その側でグロッキーゲージを持っている体**（面に 1 体。ふつうはボス） */
   R.groggyHolder = function (side) {

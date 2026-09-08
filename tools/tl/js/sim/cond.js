@@ -240,7 +240,7 @@ export function mulOf(mods, ctx, self, target) {
    **総力戦の束ぜんぶで 24 通りしか無い**（2026-09-06 に数えた。内訳は出てきた数）:
 
      252  GetCurrentBehavior() == [BehaviorType.Groggy]
-     426  GetActiveParts()==0 / ==1 / ==2
+     426  GetActiveParts()==0 / ==1 / ==2（束の実体は 14 本。ぜんぶカイテンジャー）
      213  GetHPRate() < N（5000 / 3000 / 7500 / 1000 / 100 ／ >= 7000 ／ > 9900）
       65  GetBossAIPhase() == 1 / == 2
       46  GetCurrentBehavior() == [BehaviorType.UseExSkill01〜04]
@@ -286,8 +286,26 @@ function term(s, ctx, self) {
     var want = (m[3] === 'true');
     return m[2] === '==' ? (has === want) : (has !== want);
   }
-  // `GetActiveParts()` は部位（体のどこが生きているか）、
-  // `GetHPInteger()` は HP の本数。どちらも盤に無いので読めない
+  /* **`GetActiveParts()==N` は「部位 N が生きているか」**（2026-09-09。切り分けは
+     3＝材料が足りない。部位そのものを盤に置いていなかった）。
+
+     数ではなく番号なのは、束の中でこれを持つ 14 本がぜんぶカイテンジャーで、
+     `==0` / `==1` / `==2` が配る効果の `TemplateId` が
+     `KaitenFxMk0_RightArm_StatChanage_AttackPower_Self`（攻撃力 +50%）／
+     `KaitenFxMk0_Chest_StatChanage_AttackPower_Check`（見張り。BaseAmount 1）／
+     `KaitenFxMk0_LeftArm_StatChanage_DefensePower_Self`（防御力 +1000）と、
+     **右腕・胸・左腕の 3 つに 1 対 1 で並ぶ**から。木の
+     `ConnectExSkillToParts 0,ExSkill01 / 1,ExSkill02 / 2,ExSkill03` も同じ 0・1・2 で、
+     `SubPartsCount` は 3。数なら開幕の 3 に当たる本があるはずだが 1 本も無い。 */
+  m = /^GetActiveParts\(\)\s*(==|!=)\s*(-?\d+)$/.exec(s);
+  if (m) {
+    if (!ctx.partAlive) { return null; }
+    var pa = ctx.partAlive(self, +m[2]);
+    if (pa == null) { return null; }
+    return m[1] === '==' ? pa : !pa;
+  }
+  // `GetHPInteger()` は HP の本数。盤に無いので読めない（束に 7 本。
+  // `EN0002` / `EN0013` / `EN0022` / ホバークラフトで、**測っている 21 本には出てこない**）
   return null;
 }
 

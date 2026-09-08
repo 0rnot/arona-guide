@@ -28,6 +28,9 @@
 //   ExternalBehavior         BehaviorArgument    何をする
 //     UseSelectExSkill         k                 `ExSkillGroupId[k]` を撃つ（10 枠）
 //     AlivePartsUseExSkill     k                 その部位が生きていれば撃つ
+//     SetMaxHPToParts          a,b,c             部位を作る（束の中でカイテンジャーだけ。
+//                                                3 つで 11,000,000 ずつ。`SubPartsCount` と同じ数）
+//     ConnectExSkillToParts    k,ExSkillNN       部位 k が持つ EX（`AlivePartsUseExSkill k` の k）
 //     AddActiveGauge           ±d                ゲージを足す
 //     ChangePhase              p                 段を移る（ForceChangePhase も同じ）
 //     ClearNormalSkill         —                 通常攻撃の数えを 0 に戻す
@@ -81,6 +84,33 @@ function num(v) {
 function pair(v) {
   var a = String(v == null ? '' : v).split(',');
   return [num(a[0]), num(a[1])];
+}
+
+/** **その体の部位**（`SubPartsCount` と木の `OnSpawned → SetMaxHPToParts`）。
+    持たない体は `null`。2026-09-09。
+
+    木を回すのは面に 1 体だけ（`run.js:startBoss` の `bossU`）なのに、
+    **部位を持つのはカイテンジャーでは本体のほう**で、画面が本体に選ぶのは
+    棒（`Kaitenranger_Boss_…`。`BossCharacterId` の 1 つ目）。
+    `behave` の `SetMaxHPToParts` だけに任せると本体の部位が 1 つも作られないので、
+    湧かせるところでもここから読む。 */
+export function partsOf(boss, cid) {
+  var ent = boss.ent || [], bt = boss.bt || [], i, me = null;
+  for (i = 0; i < ent.length; i++) { if (ent[i].Id === cid) { me = ent[i]; } }
+  if (!me || !(me.SubPartsCount > 0)) { return null; }
+  for (i = 0; i < bt.length; i++) {
+    if (bt[i].ExternalBehavior !== 'SetMaxHPToParts') { continue; }
+    if (me.ExternalBTId != null && bt[i].ExternalBTId != null
+        && bt[i].ExternalBTId !== me.ExternalBTId) { continue; }
+    var hs = String(bt[i].BehaviorArgument == null ? '' : bt[i].BehaviorArgument).split(',');
+    var out = [], j, v;
+    for (j = 0; j < hs.length; j++) {
+      v = num(hs[j]);
+      if (v != null) { out.push({ hp: v, max: v, alive: true }); }
+    }
+    if (out.length) { return out; }
+  }
+  return null;
 }
 
 /** 台本を段ごとにまとめる。**回す前に 1 回だけ。** */
@@ -260,7 +290,7 @@ export function driveBoss(ctx) {
   var t0 = ctx.t0 || 0;
   var waits = ctx.waits || {}, cast = ctx.cast, outOfRange = ctx.outOfRange || null;
   var st = {
-    phase: 0, n: 0, gauge: 0, exCount: 0,
+    phase: 0, n: 0, gauge: 0, exCount: 0, parts: null,
     hpTriggered: {}, groggy: false, stopped: false, busyUntil: 0,
     coolUntil: {}, seenTmpl: {}, log: [],
   };
@@ -344,7 +374,9 @@ export function driveBoss(ctx) {
       if (now < (st.coolUntil[k] || 0)) { return false; }
       var need = fo.atg[k] || 0;
       if (need > 0 && gaugeNow() < need) { return false; }
-      if (b === 'AlivePartsUseExSkill' && R.partAlive && !R.partAlive(u, k)) { return false; }
+      // **部位が死んでいるときだけ止める。**`null` は「部位を持っていない体」で、
+      // そこは今までどおり撃つ（`R.partAlive` は 2026-09-09 に置いた）
+      if (b === 'AlivePartsUseExSkill' && R.partAlive && R.partAlive(u, k) === false) { return false; }
       cast(u, gid, 'Ex', 1, now);
       st.exCount++;
       if (need > 0) { spend(need); }
@@ -376,6 +408,31 @@ export function driveBoss(ctx) {
       var cid2 = num(arg);
       var cu = (cid2 != null && R.unitOf) ? R.unitOf('e' + cid2) : null;
       if (cu && cu !== u) { cu.xfer = { ratio: 10000, to: u.key }; }
+      return true;
+    }
+    // **部位を作る**（`SetMaxHPToParts`。2026-09-09）。束の中でこれを持つのは
+    // カイテンジャーだけで、`SubPartsCount` 3 と数が揃う（11,000,000 が 3 つ）。
+    // これが無いあいだ `GetActiveParts()` が読めず、本体の常時札 3 本
+    // （右腕＝攻撃力 +50%・胸＝見張り・左腕＝防御力 +1000）が 1 度も乗らなかった。
+    // **削り方は束に無い**（`Excel/` で `Part` を持つ欄は `SubPartsCount` だけ）ので、
+    // ここでは湧いた形のまま置く。`ActivatePart` も削れないうちは動かしようがない
+    if (b === 'SetMaxHPToParts') {
+      var hps = String(arg == null ? '' : arg).split(','), pz, pv, ps2 = [];
+      for (pz = 0; pz < hps.length; pz++) {
+        pv = num(hps[pz]);
+        if (pv == null) { continue; }
+        ps2.push({ hp: pv, max: pv, alive: true });
+      }
+      if (!ps2.length) { return false; }
+      st.parts = ps2; u.parts = ps2;
+      return true;
+    }
+    // 部位 k が持つ EX の名前。`AlivePartsUseExSkill k` の k と揃っているかの裏取り用
+    if (b === 'ConnectExSkillToParts') {
+      var pr = String(arg == null ? '' : arg).split(','), pk = num(pr[0]);
+      if (pk == null) { return false; }
+      st.partEx = st.partEx || {};
+      st.partEx[pk] = String(pr[1] || '').trim();
       return true;
     }
     if (b === 'ClearNormalSkill') { st.n = 0; return true; }
