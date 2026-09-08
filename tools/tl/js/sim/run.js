@@ -2263,9 +2263,19 @@ export function run(o) {
   // **いま盤に居る、ボス以外の敵の数。**木の `CheckSummonCharacterCountUnder` 用
   /** **その側でグロッキーゲージを持っている体**（面に 1 体。ふつうはボス） */
   R.groggyHolder = function (side) {
-    var hs = living(b, side === 'ally' ? 'ally' : 'enemy'), zg;
+    var want = side === 'ally' ? 'ally' : 'enemy';
+    var hs = living(b, want), zg;
     for (zg = 0; zg < hs.length; zg++) {
       if (hs[zg].base && hs[zg].base.GroggyGauge) { return hs[zg]; }
+    }
+    // **まだ盤に出ていない体も持ち主になる**（2026-09-08）。ケセドのゲージは
+    // 節 0（湧き点 30）と節 1（41）の雑魚を倒して溜めるものだが、**本体が湧くのは節 3。**
+    // 生きている体しか見ていなかったので**それまでの死は 1 つも数えられず**、
+    // グロッキーは 152.2 秒——動画が討伐した 152.47 秒とほぼ同時にしか来なかった。
+    // ゲージは体の持ちもので、盤に出ているかどうかとは別
+    for (zg = 0; zg < b.order.length; zg++) {
+      var u9g = b.units[b.order[zg]];
+      if (u9g && u9g.side === want && u9g.base && u9g.base.GroggyGauge) { return u9g; }
     }
     return null;
   };
@@ -2376,6 +2386,8 @@ export function run(o) {
       // 21,000,000 のままで、その間に 1 群目が出ている
       if (mu === bossU) { startBoss(at); }
       else { setupMinion(mu, at, 0); }
+      // 湧く前にゲージが満タンになっていたら、ここでグロッキーに入る
+      if (mu.ggWait) { mu.ggWait = false; intoGroggy(mu, at); }
     }
     return n;
   }
@@ -2991,6 +3003,9 @@ export function run(o) {
   function intoGroggy(u2, at) {
     if (u2.groggyUntil != null && at < u2.groggyUntil) { return; }
     if (u2.ggImmune) { return; }
+    // **盤に出ていない体は、出てから入る**（2026-09-08）。満タンになった時刻から
+    // `GroggyTime` を数え始めると、湧く前に切れてしまう
+    if (!u2.alive) { u2.ggWait = true; return; }
     u2.gg = 0; u2.ggDmg = 0;
     var gt = (u2.base && u2.base.GroggyTime) || 0;
     u2.groggyUntil = at + gt;
@@ -3055,6 +3070,9 @@ export function run(o) {
         // **死ぬ瞬間の札を撃ってから降ろす**（`Event: 14`）。
         // 降ろしたあとだと `R.pick` の候補から外れて、撃つ側が居なくなる
         var od = us[k].onDead || [];
+        if (!od.length && us[k].side === 'enemy') {
+          R.miss['死に技なし:' + us[k].dev] = (R.miss['死に技なし:' + us[k].dev] || 0) + 1;
+        }
         for (var y2 = 0; y2 < od.length; y2++) {
           cast(R, us[k], od[y2][0], od[y2][1], 1, t3);
         }
