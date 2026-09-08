@@ -1653,7 +1653,15 @@ export function run(o) {
       // `dbase` 0.1 を掛けて **0.19 倍**になっていた。生の値なら
       // 19000 → 0.1 倍・10000 → 1.0 倍で、どちらも正しく出る
       var base = u.base || {};
-      var raw = boss.dmgOnly && base.DamagedRatio != null;
+      // **ボス以外は素の値をそのまま使う**（2026-09-08 夜）。上の但し書きは
+      // **本体の話**で、盤に立っている雑魚・砲台まで 1.0 倍にする理由は無い。
+      // ホドの仮設タワー（`Hod_TemporaryTower_Torment`、HP 1,800,000）は
+      // `DamagedRatio 18000`（＝ 0.2 倍）なのに 1.0 倍で殴られていて、
+      // **17 秒で壊れていた**（動画 `efTRM2tMTW4` は 75 秒ほどかけている）。
+      // 節 1 → 2 の合図がその死なので、そのぶん節が丸ごと前へ詰まっていた。
+      // 守衛塔は 10000（1.0 倍）なので、この直しでは動かない
+      var raw = base.DamagedRatio != null
+        && (boss.dmgOnly || (u.kind && u.kind !== 'Boss'));
       var sd = s.DamagedRatio == null ? 10000 : s.DamagedRatio;
       var sd2 = s.DamagedRatio2 == null ? 10000 : s.DamagedRatio2;
       var dg = raw ? sd
