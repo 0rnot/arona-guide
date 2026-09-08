@@ -236,16 +236,29 @@ export function ssTrig(doc) {
     ホドの `HODGuardTower_*Passive01` / `HODTemporaryTowerExtraPassive01`〜`06` が
     これで動く。`R.onApply` から `R.fireApplied` を呼ぶ。
 
-    まだ置けないもの: `22`（16 本）・`23`（`Parameters` が `CrowdControl`、19 本）・
-    `25`（30 本）・`31`（19 本）。**`31` の `Parameters` も札の名前**で、
-    `Buff_Shield` / `Debuff_DamageOverTime_Chill` / `EN0011_isGroggyDummy` /
-    `EN0010_PhaseChange_Dummy` のように 18 と同じ形をしている（「別の体の名前＝
-    その体が死んだら」と書いてあったのは読み違い。2026-09-08 に数え直した）。
-    **18 と 31 のどちらが「付いたとき」でどちらが「消えたとき」かは、
-    束から決められなかった**——両方に出る札は `Debuff_DamageOverTime_Chill` 1 つだけで、
-    その 2 本（`Enemy_Damage_AddLogicEffectTemplate_Chill_PassiveSkill01` と
-    `844Challenge01BehemothPanPanPassive03`）を読んでも向きが決まらない。
-    18 の読みは記録に残っていたものをそのまま採り、31 は置かない。 */
+    **`22` は「その札が自分から消えたとき」・`31` は「その札が自分に付いたとき」**
+    （2026-09-08 に足した）。向きは束の中の**双子**で決まる——
+    `Ally_Dispell_StatChange_AttackPowerIncrease_TriggerCountShield_PassiveSkill01`（`Event 22`）と
+    `Ally_Buff_StatChange_AttackPowerIncrease_TriggerCountShield_PassiveSkill01`（`Event 31`）は
+    **`Event` と `ConditionExpression` 以外が 1 文字も違わない**（`Parameters` はどちらも
+    `Buff_Shield`、効果はどちらも `StatChange_AttackPowerIncrease`、
+    `LogicEffectGroupIds` の前置きまで同じ）。効果が同じなのだから、
+    名前の `Dispell` / `Buff` が指しているのは**引き金のほう**。
+    `18` も「付いたとき」で、名前つきの 4 本が
+    `Enemy_Damage_AddLogicEffectTemplate_<札>_PassiveSkill01` と揃っている。
+
+    置くのは `22` が 16 本中 `TargetSide: Self` の 15 本、`31` が 19 本中 15 本
+    （`EN0010` / `IAWorldraid_EN0010` の重なりを含む）。ホドの守衛塔 8 本
+    （`HODGuardTower_*Passive02` / `HODColourGuardTower_*Passive02`、
+    `Parameters: Dummy_HOD_TemporaryTargetChangeCheck`）がこれで動く。
+
+    まだ置けないもの: `23`（19 本。`Parameters` が `Buff` / `CrowdControl` の**種類**で、
+    名前つきの 3 本が `Ally_DIspel_DispelBuff` ／ `Enemy_Damage_..._TriggerAddCrowdControl` ／
+    `Enemy_StatChange_..._Triggerbuff` と**向きが割れている**）と、
+    `25`（30 本。`849Challenge03_Enemy_Boss_Passive02_Check_Shield_Dispel` は「消えたとき」に
+    読めるが、`CH0274HiddenPassive01`（`Parameters: CH0274_Ex01_Effect01`、
+    `TargetSide: Ally_Except_Self`）は「他の味方が持っているか」の見張りに読めて、
+    やはり向きが決まらない）。「先生に聞くこと」へ */
 function psTrig(doc) {
   var t = doc && doc.TriggerCondition;
   // 引き金の欄そのものが無い札は常時（雑魚の素の札にある）
@@ -254,11 +267,11 @@ function psTrig(doc) {
   if (ev === 1) { return ex ? { when: 'cond', expr: ex } : { when: 'always', expr: '' }; }
   if (ev === 301) { return { when: 'cond', expr: ex }; }
   if (ev === 14) { return { when: 'dead', expr: ex }; }
-  if (ev === 18) {
+  if (ev === 18 || ev === 31 || ev === 22) {
     var side18 = ((doc.TriggerSourceFindRule || {}).EssentialCandidate || {}).TargetSide;
     var tm18 = String(t.Parameters || '');
     if (side18 !== 'Self' || !tm18) { return null; }
-    return { when: 'applied', tmpl: tm18, expr: ex,
+    return { when: ev === 22 ? 'removed' : 'applied', tmpl: tm18, expr: ex,
              max: doc.MaxTriggerCount == null ? -1 : +doc.MaxTriggerCount };
   }
   if (ev === 105) {
@@ -2225,6 +2238,7 @@ export function run(o) {
     }
     mu.onDead = [];
     mu.onApplied = {};
+    mu.onGone = {};
     for (z = 0; z < slots.length; z++) {
       v = cr[slots[z][0]];
       v = Array.isArray(v) ? v : (v ? [v] : []);
@@ -2244,6 +2258,11 @@ export function run(o) {
           mu.onDead.push([g, slots[z][1]]);
         } else if (tr.when === 'applied') {
           (mu.onApplied[tr.tmpl] = mu.onApplied[tr.tmpl] || [])
+            .push({ gid: g, slot: slots[z][1], tr: tr, n: 0 });
+        } else if (tr.when === 'removed') {
+          // **付いているかは毎刻み見る**（消え方が 4 通りある——時間切れ・解除・
+          // 同じ Channel の押し出し・積み過ぎ）。`had` は「前の刻みで付いていたか」
+          (mu.onGone[tr.tmpl] = mu.onGone[tr.tmpl] || { had: false, ws: [] }).ws
             .push({ gid: g, slot: slots[z][1], tr: tr, n: 0 });
         } else if (tr.when === 'every' && tr.ms > 0) {
           (function (mu2, g2, sl2, ms) {
@@ -2333,23 +2352,42 @@ export function run(o) {
     var ws = u2.onApplied[tmpl];
     if (!ws || !ws.length) { return; }
     ap18 = 1;
-    try {
-      for (var z8 = 0; z8 < ws.length; z8++) {
-        var w8 = ws[z8];
-        // `MaxTriggerCount` は −1 と 0 が「何度でも」
-        if (w8.tr.max > 0 && w8.n >= w8.tr.max) { continue; }
-        if (w8.tr.expr) {
-          var v8 = condExpr(w8.tr.expr, R.ctx, u2);
-          if (v8 == null) {
-            R.miss['psExpr:' + w8.tr.expr] = (R.miss['psExpr:' + w8.tr.expr] || 0) + 1;
-            continue;
-          }
-          if (!v8) { continue; }
-        }
-        w8.n++;
-        cast(R, u2, w8.gid, w8.slot, 1, at);
+    try { fireWatch(u2, ws, at); } finally { ap18 = 0; }
+  }
+  /** `Event 22` の見張り。**その札が前の刻みまで付いていて、いま無くなっていたら撃つ。**
+      貼られる側の合図（`R.onApply`）と違って剥がれる側の合図は 4 か所に散っている
+      （`expire` / `dispel` / `applyMark` の押し出しと積み過ぎ）ので、
+      持っているかどうかを毎刻み見るほうが取りこぼさない */
+  function pollGone(u2, now) {
+    var g2 = u2 && u2.onGone, tm;
+    if (!g2) { return; }
+    for (tm in g2) {
+      if (!Object.prototype.hasOwnProperty.call(g2, tm)) { continue; }
+      var slot2 = g2[tm], has2 = false, z9;
+      for (z9 = 0; z9 < u2.eff.length; z9++) {
+        if (u2.eff[z9].tmpl === tm) { has2 = true; break; }
       }
-    } finally { ap18 = 0; }
+      if (slot2.had && !has2) { fireWatch(u2, slot2.ws, now); }
+      slot2.had = has2;
+    }
+  }
+  /** `Event 18` / `22` / `31` の見張りを 1 本撃つところ。`fireApplied` と共通 */
+  function fireWatch(u2, ws, at) {
+    for (var z8 = 0; z8 < ws.length; z8++) {
+      var w8 = ws[z8];
+      // `MaxTriggerCount` は −1 と 0 が「何度でも」
+      if (w8.tr.max > 0 && w8.n >= w8.tr.max) { continue; }
+      if (w8.tr.expr) {
+        var v8 = condExpr(w8.tr.expr, R.ctx, u2);
+        if (v8 == null) {
+          R.miss['psExpr:' + w8.tr.expr] = (R.miss['psExpr:' + w8.tr.expr] || 0) + 1;
+          continue;
+        }
+        if (!v8) { continue; }
+      }
+      w8.n++;
+      cast(R, u2, w8.gid, w8.slot, 1, at);
+    }
   }
   R.ctx.ggRate = function (u2) {
     if (!u2) { return 0; }
@@ -3080,6 +3118,8 @@ export function run(o) {
     R.q.drain(t3, 200000);
     var us = living(b), k;
     for (k = 0; k < us.length; k++) { expire(us[k], t3); }
+    // **札が剥がれた合図**（`Event 22`）。時間切れを落としたあとで見る
+    for (k = 0; k < us.length; k++) { pollGone(us[k], t3); }
     // **倒れた体は盤から降ろす。**ここを入れるまで味方は 6 人揃ったままだった
     for (k = 0; k < us.length; k++) {
       if (us[k].hp <= 0 && us[k].alive) {
