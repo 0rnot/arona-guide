@@ -5,8 +5,8 @@
 //
 // 木は 1 行が「引き金 → ふるまい」の組で、`AIPhase` ごとに束ねてある。
 // **どの体の木かは `CharacterExcelTable.ExternalBTId`**（シロクロは 7302700 / 7302701、
-// カイテンジャーは棒 7404701 と本体 7404700 で別々。2026-09-07 まで全部を 1 体に
-// 束ねていた）。
+// カイテンジャーは棒 605110703 と本体 605110701 で別々。2026-09-07 まで全部を 1 体に
+// 束ねていた）。**体が 2 つある面はその両方に木を回す**（2026-09-09。`run.js:startSubBoss`）。
 //
 //   ExternalBTTrigger        TriggerArgument     いつ
 //     UseNormalSkill           N                 通常攻撃 N 発目のあと
@@ -89,11 +89,11 @@ function pair(v) {
 /** **その体の部位**（`SubPartsCount` と木の `OnSpawned → SetMaxHPToParts`）。
     持たない体は `null`。2026-09-09。
 
-    木を回すのは面に 1 体だけ（`run.js:startBoss` の `bossU`）なのに、
     **部位を持つのはカイテンジャーでは本体のほう**で、画面が本体に選ぶのは
-    棒（`Kaitenranger_Boss_…`。`BossCharacterId` の 1 つ目）。
-    `behave` の `SetMaxHPToParts` だけに任せると本体の部位が 1 つも作られないので、
-    湧かせるところでもここから読む。 */
+    棒（`Kaitenranger_Boss_…`。`BossCharacterId` の 1 つ目）。木を体ごとに回すように
+    したのは 2026-09-09 04:1x で、それまで本体の `SetMaxHPToParts` は一度も走らなかった。
+    いまも湧いた瞬間に部位が要る（常時札の `GetActiveParts()` は木より先に見る）ので、
+    `behave` に任せきりにせず湧かせるところでもここから読む。 */
 export function partsOf(boss, cid) {
   var ent = boss.ent || [], bt = boss.bt || [], i, me = null;
   for (i = 0; i < ent.length; i++) { if (ent[i].Id === cid) { me = ent[i]; } }

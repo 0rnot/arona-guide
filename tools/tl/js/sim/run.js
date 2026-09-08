@@ -2281,6 +2281,17 @@ export function run(o) {
   }
 
   var bst = null;
+  // **木は本体 1 体ぶんではない**（2026-09-09）。`BossCharacterId` が 2 つある面
+  // （カイテンジャーの棒 `ExternalBTId 605110703` と本体 605110701、
+  // シロクロの 7302700 / 7302701、ワカモとホバークラフト）は**体ごとに別の木**を持っていて、
+  // `bst` だけだと画面が選んだ `cid` の側しか回らない。
+  // カイテンジャーで画面が本体に選ぶのは棒のほうなので、`KaitenFxMk0_…` の木は
+  // 一行も回っていなかった（段の移り・EX・`ConnectExSkillToParts` が全部落ちる）。
+  // **盤に出るボスぜんぶ**（`bossUnits`）に木を回す。`bst` は今までどおり `bossU` のぶんで、
+  // 段の表示と節の合図（`ph:N`）はそちらを見る
+  var bsts = [], bstBy = {};
+  /** その体の木。持っていなければ null */
+  function stOf(u2) { return (u2 && bstBy[u2.key]) || null; }
 
   // **引き金の式が読む 3 つ。**`ctxOf` は札と素の値しか知らないので、
   // 盤の側にしか無いもの（フェーズ・グロッキー）をここで足す
@@ -2337,8 +2348,9 @@ export function run(o) {
   };
   // **形態が変わった合図**（敵）。本体なら木の枠を引き直す
   R.onForm = function (u2, fi, at) {
-    if (u2 === bossU) {
-      if (bst && bst.setForm) { bst.setForm(fi, at); }
+    var st2 = stOf(u2);
+    if (st2) {
+      if (st2.setForm) { st2.setForm(fi, at); }
       castPassives(u2, at, fi);
     } else if (u2.side === 'enemy') {
       // **雑魚の形態**（2026-09-08）。ドロイド／ドローンは 20 秒で自爆形態（形態 1 の通常攻撃が
@@ -2350,7 +2362,12 @@ export function run(o) {
   // **札が貼られた合図をボスの木へ**（`ApplyLogicEffectTemplateId`）と、
   // **その札が付いたら撃つ常時札へ**（`TriggerCondition.Event 18`。`psTrig` の注記）
   R.onApply = function (tg2, tmpl, at, castId) {
-    if (bst && bst.onTemplate && tmpl) { bst.onTemplate(String(tmpl), at, castId); }
+    if (tmpl) {
+      var zb;
+      for (zb = 0; zb < bsts.length; zb++) {
+        if (bsts[zb].onTemplate) { bsts[zb].onTemplate(String(tmpl), at, castId); }
+      }
+    }
     if (tmpl) { fireApplied(tg2, String(tmpl), at); }
   };
   /** `Event 18` の見張り。**貼られた体の上の、その札の名前の見張りだけ撃つ。**
@@ -2441,7 +2458,7 @@ export function run(o) {
       // まるごと飛ぶ**。動画（QnKBiKMMUQE）では戦闘 94〜100 秒のあいだボスの HP が
       // 21,000,000 のままで、その間に 1 群目が出ている
       if (mu === bossU) { startBoss(at); }
-      else { setupMinion(mu, at, 0); }
+      else if (!startSubBoss(mu, at)) { setupMinion(mu, at, 0); }
       // 湧く前にゲージが満タンになっていたら、ここでグロッキーに入る
       if (mu.ggWait) { mu.ggWait = false; intoGroggy(mu, at); }
     }
@@ -2613,7 +2630,7 @@ export function run(o) {
     mu2._busyUntil = null; mu2._nsDue = {};
     castPassives(mu2, at);
     if (mu2 === bossU) { startBoss(at); }   // 同上（湧いた瞬間に木を引く）
-    else { setupMinion(mu2, at, 0); }
+    else if (!startSubBoss(mu2, at)) { setupMinion(mu2, at, 0); }
     return mu2;
   }
   /** 命令 `cmd` の湧き点をぜんぶ起こす。**点ごとの `Delay` を守る**（2026-09-07。
@@ -3076,7 +3093,8 @@ export function run(o) {
     u2.groggyUntil = at + gt;
     R.groggy.push([at / 1000, gt / 1000]);
     spawn('st:Groggy', at);
-    if (u2 === bossU && bst && bst.applyGroggy) { bst.applyGroggy(at); }
+    var stg = stOf(u2);
+    if (stg && stg.applyGroggy) { stg.applyGroggy(at); }
   }
   R.onGroggy = function (u2, at) {
     if ((u2.gg || 0) < 10000) { return; }
@@ -3098,20 +3116,44 @@ export function run(o) {
     if (u2.ggDmg >= need) { intoGroggy(u2, at); }
   };
 
-  /** 本体の木を回し始める。最初から居る本体は 0 秒、盤が途中で湧かせる本体は湧いた瞬間 */
-  function startBoss(at) {
-    if (bst || o.bossActs === false) { return; }
+  /** その体の木を回し始める。最初から居る本体は 0 秒、盤が途中で湧かせる本体は湧いた瞬間。
+      **回した木を返す**（回さなかったら null）。 */
+  function startTree(bu, at) {
+    if (!bu || bstBy[bu.key] || o.bossActs === false) { return null; }
     try {
-      var plan = bossPlan(boss, bossU.charId);
+      var plan = bossPlan(boss, bu.charId);
       var waits = phaseWaits(boss.board);
-      bst = driveBoss({
-        R: R, u: bossU, plan: plan, waits: waits, durMs: durMs, t0: at,
+      var st2 = driveBoss({
+        R: R, u: bu, plan: plan, waits: waits, durMs: durMs, t0: at,
         outOfRange: function (u9) { return outOfRange(u9, 'Normal'); },
         cast: function (cu, gid, slot, lv, at2) { cast(R, cu, gid, slot, lv, at2); },
       });
+      bstBy[bu.key] = st2;
+      bsts.push(st2);
+      return st2;
     } catch (e) {
       R.bossErr = String(e && e.message || e);
+      return null;
     }
+  }
+  function startBoss(at) {
+    if (bst) { return; }
+    bst = startTree(bossU, at);
+  }
+  /** **`bossU` 以外の、盤に出るボス。**自分の木（`ExternalBTId`）を持っているものだけ回す。
+      持たない体は今までどおり `setupMinion`（木が無ければ通常攻撃も出ないので、退化させない） */
+  function ownBt(bu) {
+    if (!bu || bu === bossU) { return false; }
+    var z8, my = null, hisBt = null;
+    for (z8 = 0; z8 < ent.length; z8++) {
+      if (ent[z8].Id === bu.charId) { my = ent[z8].ExternalBTId; }
+      if (ent[z8].Id === bossU.charId) { hisBt = ent[z8].ExternalBTId; }
+    }
+    return my != null && my !== hisBt;
+  }
+  function startSubBoss(bu, at) {
+    if (!ownBt(bu) || bossUnits.indexOf(bu) < 0) { return false; }
+    return !!startTree(bu, at);
   }
   if (!bossLate) { startBoss(0); }
   // **節の最初から居る敵**（ボス以外に前座が居る盤がある）。
@@ -3154,7 +3196,7 @@ export function run(o) {
     // グロッキーの 20 秒に味方の EX が湧きたての召喚物へ吸われて本体に入らなかった
     R.q.drain(t3, 200000);
     // **HP のしきい値はダメージが入った瞬間に効く**（`HPUnder → ChangePhase`）
-    if (bst && bst.check) { bst.check(t3); }
+    for (k = 0; k < bsts.length; k++) { if (bsts[k].check) { bsts[k].check(t3); } }
     // 条件つき常時（`Event: 301`）の入り切り。フェーズが動いたあとに見る
     pollCond(t3);
     // **射程に入るまで近づく**（味方も敵も。歩いている節は隊列ごと動くので待つ）
