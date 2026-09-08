@@ -2637,7 +2637,12 @@ export function run(o) {
           var bw = bc.wait || 0;
           if (bw > 0) { R.q.push(at + bw, function (now) { formationGo(tgt, bc.instant, now); }); }
           else { formationGo(tgt, bc.instant, at); }
-        })(mvs[z12].beacon, beaconOf(to2) || beaconOf(sec));
+        // **飛ぶ先は「今の節」の目印**（2026-09-08 夜）。`ForceMoveToFormationBeacon` に
+        // 節を指す欄は無く、台本はその節の事象として書いてある。次の節の目印を先に見ていたのは
+        // `SectionIndex` が 1 ずれていた頃の名残で、揃えたあとは行き過ぎになる——
+        // ケセドは z 125 に降りて `StartNextSection`（区画 z 125・厚み 5）を踏むはずが、
+        // 節 3 の目印 z 136.43 まで飛んで**節が始まらなかった**
+        })(mvs[z12].beacon, beaconOf(sec) || beaconOf(to2));
       }
       if (mvs[z12].bossTo) { bossGo(mvs[z12].bossTo, at); }
     }
@@ -2742,13 +2747,13 @@ export function run(o) {
         var ddx = x9 - ax, ddy = y9 - az;
         return ddx * ddx + ddy * ddy <= ar * ar;
       };
-      var al9 = living(b, 'ally'), z9;
-      var seen9 = false;
+      // **見るのは生きている味方の位置。**隊列の原点は、まだ誰も立っていないときだけ
+      var al9 = living(b, 'ally'), z9, seen9 = false;
       for (z9 = 0; z9 < al9.length; z9++) {
-        if (al9[z9].pos && inArea9(al9[z9].pos.x, al9[z9].pos.y)) { return true; }
-        if (al9[z9].pos) { seen9 = true; }
+        if (!al9[z9].pos) { continue; }
+        seen9 = true;
+        if (inArea9(al9[z9].pos.x, al9[z9].pos.y)) { return true; }
       }
-      // 味方の位置がまだ無いうちは隊列の原点で見る
       if (!seen9) { return inArea9(org.Position.x, org.Position.y); }
       // **奥行きだけなら中に居る**ときを数える。x が噛み合っていない盤があれば、ここに出る
       for (z9 = 0; z9 < al9.length; z9++) {
@@ -2846,6 +2851,12 @@ export function run(o) {
       waveLive = false; waveSpawned = false; waveAny = false;
       nextWave(t7);
     }
+    // ---- 節の途中の移動は**歩いている最中にも見る**（2026-09-08 夜）。
+    // 下の「歩く」は `return` で抜けるので、ここに置くまで**歩いている間は一度も見ていなかった。**
+    // ケセドの通路（節 2）は z 54.0 の帯に入った瞬間に `ForceMoveToFormationBeacon`
+    // （`IsInstantMove: true`）で z 125 へ飛ぶ台本で、飛べないと 82.85 を歩くことになる。
+    // 動画 `QnKBiKMMUQE` は暗転 89.5 秒 → 本体 94 秒、核は 128 秒だった
+    runMoves(t7);
     // ---- 歩く。**いちばん遅い子に合わせる**（隊列は崩れない）
     if (walkGoal != null) {
       var sp = 1e9, z8, vs8 = living(b, 'ally');
@@ -2870,8 +2881,6 @@ export function run(o) {
       R.walked = Math.round(org.Position.y * 10) / 10;
       return;
     }
-    // ---- 節の途中の移動（区画に入ったら飛ぶ、など）
-    runMoves(t7);
     // ---- 合図で消える体（`GroundCommandCharacterDie`）
     var dl = sc2.dies || [], z10, w10;
     for (z10 = 0; z10 < dl.length; z10++) {
