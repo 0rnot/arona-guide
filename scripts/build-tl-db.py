@@ -605,12 +605,23 @@ def main(argv):
         raw, gz = build_common(OUT)
         print(f"  common.json.gz  生 {raw:,} ／ gzip {gz:,} バイト")
 
-    if not only or "--boss" in only:
+    # **生徒の id だけを渡されたら、ボスは触らない**（2026-09-08）。
+    # `want` はそのまま `build_bosses` の絞り込みに渡るので、`build-tl-db.py 10111` は
+    # **面が 0 個の `boss/index.json` を書いて全部を壊す。**実際に踏んだ
+    # （700 面の索引が空になり、`simParty` が「面が引けない」で落ちた）
+    boss_want = {a for a in want if not a.isdigit()}
+    skip_boss = bool(want) and not boss_want
+    if (not only or "--boss" in only) and not skip_boss:
         print("ボスを束ねる …")
         bidx, braw, bgz = build_bosses(OUT, chars, st_by, le_npc_by, le_by, sk_by, want)
-        with open(OUT / "boss" / "index.json", "w", encoding="utf-8") as f:
-            f.write(json.dumps(bidx, ensure_ascii=False, separators=(",", ":")))
-        print(f"  ボス {len(bidx)} 面 ／ 生 {braw:,} ／ gzip {bgz:,} バイト")
+        idxp = OUT / "boss" / "index.json"
+        # **空の索引で既にあるものを上書きしない。**絞り込みを間違えたときの保険
+        if not bidx and idxp.exists():
+            print("  ボス 0 面。既にある索引は残す")
+        else:
+            with open(idxp, "w", encoding="utf-8") as f:
+                f.write(json.dumps(bidx, ensure_ascii=False, separators=(",", ":")))
+            print(f"  ボス {len(bidx)} 面 ／ 生 {braw:,} ／ gzip {bgz:,} バイト")
 
     if only and "--students" not in only:
         return
