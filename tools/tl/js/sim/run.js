@@ -226,9 +226,26 @@ export function ssTrig(doc) {
     `DamagedRatio −9000` を自分に掛けて、**素の 19000（0.1 倍）が 10000（1.0 倍）に戻る。**
     これを置くまでケセドは 240 秒ずっと 0.1 倍で、残り 96% で終わっていた。
 
-    まだ置けないもの: `18`（その札が付いたとき。`Parameters` が札の名前、41 群）・
-    `22`（7 群）・`23`（`Parameters` が `CrowdControl`、10 群）・`25`（7 群）・
-    `31`（`Parameters` が別の体の名前＝「その体が死んだら」、54 群）。 */
+    **`18` は「その札が自分に付いたとき」**（2026-09-08 に足した）。`Parameters` が
+    札の `LogicEffectTemplateId` で、`LevelSkill/` を数えると 112 本ある。中身は揃っていて、
+    **`TriggerSourceFindRule.EssentialCandidate.TargetSide` が `Self` 108 本・
+    `Ally` 2 本・`Ally_Except_Self` 2 本／`ConditionExpression` が付くのは 1 本だけ／
+    `MaxTriggerCount` は −1 が 96 本・1 が 14 本・4 が 1 本・0 が 1 本。**
+    置くのは `Self` の 108 本だけで、`Ally` 系 4 本は「誰に付いたか」を配る先が
+    別の体なので置かない（今までどおり `R.miss['psEv:18']` に数える）。
+    ホドの `HODGuardTower_*Passive01` / `HODTemporaryTowerExtraPassive01`〜`06` が
+    これで動く。`R.onApply` から `R.fireApplied` を呼ぶ。
+
+    まだ置けないもの: `22`（16 本）・`23`（`Parameters` が `CrowdControl`、19 本）・
+    `25`（30 本）・`31`（19 本）。**`31` の `Parameters` も札の名前**で、
+    `Buff_Shield` / `Debuff_DamageOverTime_Chill` / `EN0011_isGroggyDummy` /
+    `EN0010_PhaseChange_Dummy` のように 18 と同じ形をしている（「別の体の名前＝
+    その体が死んだら」と書いてあったのは読み違い。2026-09-08 に数え直した）。
+    **18 と 31 のどちらが「付いたとき」でどちらが「消えたとき」かは、
+    束から決められなかった**——両方に出る札は `Debuff_DamageOverTime_Chill` 1 つだけで、
+    その 2 本（`Enemy_Damage_AddLogicEffectTemplate_Chill_PassiveSkill01` と
+    `844Challenge01BehemothPanPanPassive03`）を読んでも向きが決まらない。
+    18 の読みは記録に残っていたものをそのまま採り、31 は置かない。 */
 function psTrig(doc) {
   var t = doc && doc.TriggerCondition;
   // 引き金の欄そのものが無い札は常時（雑魚の素の札にある）
@@ -237,6 +254,13 @@ function psTrig(doc) {
   if (ev === 1) { return ex ? { when: 'cond', expr: ex } : { when: 'always', expr: '' }; }
   if (ev === 301) { return { when: 'cond', expr: ex }; }
   if (ev === 14) { return { when: 'dead', expr: ex }; }
+  if (ev === 18) {
+    var side18 = ((doc.TriggerSourceFindRule || {}).EssentialCandidate || {}).TargetSide;
+    var tm18 = String(t.Parameters || '');
+    if (side18 !== 'Self' || !tm18) { return null; }
+    return { when: 'applied', tmpl: tm18, expr: ex,
+             max: doc.MaxTriggerCount == null ? -1 : +doc.MaxTriggerCount };
+  }
   if (ev === 105) {
     return { when: 'every', ms: (+t.Parameters || 0) / FPS * 1000, expr: ex };
   }
@@ -388,7 +412,19 @@ function fire(R, ev, caster, target, lvl, at, mc) {
   // `FormIndex` が新しい形態の番号で、`CharacterSkillListExcelTable` の
   // `FormIndex` の行に切り替わる。終わり方は `FormConversionEndCondition`——
   // **1 が時間**（`EndConditionArgument` ミリ秒。`-1` は戻らない）で 303 行中 218 行。
-  // 2（リロード）・3（装弾数）・5（EX の回数）はまだ置いていない（戻らない扱い）
+  //
+  // **2（リロード）・3（装弾数）・5（EX の回数）も数える**（2026-09-08。それまでは
+  // 「戻らない」扱いだった）。束ぜんぶで 61 行しか無く、持ち主は 7 人に決まっている:
+  //
+  //   2 リロード   Tsurugi_default（1 と 2）・CH0201（1）・CH0369（1）
+  //   3 装弾数     CH0092（100）
+  //   5 EX の回数  CH0187（3）・CH0285（1）・CH0356（1）
+  //
+  // 数え始めるのは札が貼られた瞬間で、`EndConditionArgument` に達したらその札を切る
+  // （`m.until = now` → `expire` → `syncForm`）。**3 は「消費した弾数」と読む**——
+  // CH0092 は `AmmoCount` 50・`AmmoCost` 5（1 弾倉 10 発）で、100 は 2 弾倉ぶん。
+  // 発数と読むと 10 弾倉（100 発）になって、変身が戦闘の終わりまで続く。
+  // `AddCurrentAmmo` で弾をもらう行はこの生徒には無い（束を数えた）
   if (r.kind === 'form') {
     if (target.side === 'ally' && R.syncForm) {
       var pp = R.partyOf(target);
@@ -406,6 +442,11 @@ function fire(R, ev, caster, target, lvl, at, mc) {
         R.syncForm(target, at, false);
         if (rf.dur != null) {
           R.q.push(at + rf.dur, function (now) { R.syncForm(target, now, false); });
+        }
+        // 回数で終わる形態（2 / 3 / 5）。貼った札を控えて、数え終わったら切る
+        if ((r.endKind === 2 || r.endKind === 3 || r.endKind === 5) &&
+            r.endArg != null && r.endArg > 0 && R.formEndWatch) {
+          R.formEndWatch(target, rf.gid, r.endKind, r.endArg, at);
         }
       }
     }
@@ -1838,7 +1879,14 @@ export function run(o) {
             }
           }
           au._fireSS(now, 'attack');
-          if ((shot + 1) % na.mag === 0) { au._fireSS(now, 'reload'); }
+          // 形態の終わり方が「装弾数」なら 1 発ぶんの `AmmoCost` を引く
+          if (R.formEndTick) {
+            R.formEndTick(au, 'ammo', now, (p.stats || {}).AmmoCost || 1);
+          }
+          if ((shot + 1) % na.mag === 0) {
+            au._fireSS(now, 'reload');
+            if (R.formEndTick) { R.formEndTick(au, 'reload', now, 1); }
+          }
         }
         shot++;
         var nx = now + na.per;
@@ -1941,6 +1989,42 @@ export function run(o) {
     }
     u.form = want;
     setupAlly(u, pp, now);
+  };
+
+  /** **回数で終わる形態を控える**（`FormConversionEndCondition` 2 / 3 / 5。2026-09-08）。
+      貼った札そのものを持っておいて、`formEndTick` が数え終わったら `until` を今にして切る。
+      札が別の道（解除・押し出し）で先に消えていたら、控えも捨てる */
+  R.formEndWatch = function (u, gid2, kind, need, at2) {
+    var z, m;
+    for (z = u.eff.length - 1; z >= 0; z--) {
+      m = u.eff[z];
+      if (m.kind === 'form' && m.gid === gid2) {
+        (u._formEnd || (u._formEnd = [])).push({ m: m, kind: kind, left: need, at: at2 });
+        return;
+      }
+    }
+  };
+
+  /** 数える。`what` は `'reload'`（リロード 1 回）・`'ammo'`（消費した弾数 `amt`）・
+      `'ex'`（EX を 1 回）。**弾数はリロードの回数とは別勘定**（3 は消費した弾で、
+      2 は弾倉を入れ替えた回数） */
+  R.formEndTick = function (u, what, now, amt) {
+    var fe = u._formEnd, z, e, cut = false;
+    if (!fe || !fe.length) { return; }
+    for (z = fe.length - 1; z >= 0; z--) {
+      e = fe[z];
+      if (u.eff.indexOf(e.m) < 0) { fe.splice(z, 1); continue; }
+      if (!((e.kind === 2 && what === 'reload') || (e.kind === 3 && what === 'ammo') ||
+            (e.kind === 5 && what === 'ex'))) { continue; }
+      // **変身させた当の一発は数えない。**札を貼ったのと同じ刻みは飛ばす
+      if (e.at != null && now <= e.at + 1e-6) { continue; }
+      e.left -= (amt == null ? 1 : amt);
+      if (e.left > 0) { continue; }
+      e.m.until = now;
+      fe.splice(z, 1);
+      cut = true;
+    }
+    if (cut) { expire(u, now); R.syncForm(u, now, false); }
   };
 
   for (i = 0; i < allies.length; i++) {
@@ -2052,6 +2136,9 @@ export function run(o) {
         if (!gid) { return; }
         cast(R, au, gid, 'Ex', (party[row.i].skillLv || {}).Ex || 1, now,
              { mc: row.mc, to: row.to });
+        // 形態の終わり方が「EX の回数」なら 1 回ぶん引く。**変身させた EX そのものは
+        // 数えない**（札はこの `cast` の中で貼られるので、控えるのはこの行より後）
+        if (R.formEndTick) { R.formEndTick(au, 'ex', now, 1); }
       };
       R.q.push(row.at * 1000, fireEx);
     })(o.tl[i]);
@@ -2123,6 +2210,7 @@ export function run(o) {
       if (condP[z].u === mu) { condP.splice(z, 1); }
     }
     mu.onDead = [];
+    mu.onApplied = {};
     for (z = 0; z < slots.length; z++) {
       v = cr[slots[z][0]];
       v = Array.isArray(v) ? v : (v ? [v] : []);
@@ -2140,6 +2228,9 @@ export function run(o) {
           condP.push({ u: mu, gid: g, slot: slots[z][1], tr: tr, on: false });
         } else if (tr.when === 'dead') {
           mu.onDead.push([g, slots[z][1]]);
+        } else if (tr.when === 'applied') {
+          (mu.onApplied[tr.tmpl] = mu.onApplied[tr.tmpl] || [])
+            .push({ gid: g, slot: slots[z][1], tr: tr, n: 0 });
         } else if (tr.when === 'every' && tr.ms > 0) {
           (function (mu2, g2, sl2, ms) {
             var step2 = function (now) {
@@ -2203,10 +2294,39 @@ export function run(o) {
       setupMinion(u2, at, fi);
     }
   };
-  // **札が貼られた合図をボスの木へ**（`ApplyLogicEffectTemplateId`）
+  // **札が貼られた合図をボスの木へ**（`ApplyLogicEffectTemplateId`）と、
+  // **その札が付いたら撃つ常時札へ**（`TriggerCondition.Event 18`。`psTrig` の注記）
   R.onApply = function (tg2, tmpl, at, castId) {
     if (bst && bst.onTemplate && tmpl) { bst.onTemplate(String(tmpl), at, castId); }
+    if (tmpl) { fireApplied(tg2, String(tmpl), at); }
   };
+  /** `Event 18` の見張り。**貼られた体の上の、その札の名前の見張りだけ撃つ。**
+      撃った札がまた札を貼るので、`_ap18` で入れ子を 1 段に止める
+      （止めないとホドの仮設タワーが自分の札で自分を呼び続ける） */
+  var ap18 = 0;
+  function fireApplied(u2, tmpl, at) {
+    if (!u2 || !u2.onApplied || ap18) { return; }
+    var ws = u2.onApplied[tmpl];
+    if (!ws || !ws.length) { return; }
+    ap18 = 1;
+    try {
+      for (var z8 = 0; z8 < ws.length; z8++) {
+        var w8 = ws[z8];
+        // `MaxTriggerCount` は −1 と 0 が「何度でも」
+        if (w8.tr.max > 0 && w8.n >= w8.tr.max) { continue; }
+        if (w8.tr.expr) {
+          var v8 = condExpr(w8.tr.expr, R.ctx, u2);
+          if (v8 == null) {
+            R.miss['psExpr:' + w8.tr.expr] = (R.miss['psExpr:' + w8.tr.expr] || 0) + 1;
+            continue;
+          }
+          if (!v8) { continue; }
+        }
+        w8.n++;
+        cast(R, u2, w8.gid, w8.slot, 1, at);
+      }
+    } finally { ap18 = 0; }
+  }
   R.ctx.ggRate = function (u2) {
     if (!u2) { return 0; }
     var need = (u2.base && u2.base.GroggyGauge) || 0;
