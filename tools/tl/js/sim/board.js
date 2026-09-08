@@ -1,3 +1,4 @@
+import { STAT } from './effect.js';
 // ------------------------------------------------------------ 盤（Stage/*.json）を読む
 //
 // **敵がいつ・どこに湧くかは盤の台本に書いてある。**`GroundExcelTable.StageFileName` が
@@ -32,6 +33,13 @@ function tagsOf(ev) {
     else if (t === 'CharactersDead' && c.ConditionID) {
       out.push('CharactersDead:' + c.ConditionID);
     }
+    // **区画は場所つき**（`Area:<z>:<奥行き>`。2026-09-08）。ケセドの節 2 は z 54 の区画で暗転して飛び、
+    // z 125 の区画に入って 1.55 秒で本体の節が始まる。場所を見ないと、54 に着いた刻に 125 の札まで立つ
+    else if (t === 'Area' && c.Position) {
+      var za = c.Position.z != null ? c.Position.z : c.Position.y;
+      var ha = (c.Rect && c.Rect.Height) || (c.Circle && c.Circle.Radius * 2) || 1;
+      out.push('Area:' + za + ':' + ha);
+    }
     else { out.push(t); }
   }
   return out;
@@ -64,6 +72,12 @@ export function boardPlan(doc) {
           // **点ごとの湧く遅れ**（`Delay` ミリ秒。2026-09-07）。ケセドの節 0 は 15 体が 0〜5 秒、
           // 節 0 の 2 波目は扉の 5 体が +5 秒・奥の 5 体が +10 秒に散っている。同時に出すと 1 扇で全滅する
           delay: p.Delay || 0,
+          // **扉から歩いて入る点**（`AppearAction: false`。ケセドの左の扉の 5 体）。TL の「扉が開いたら」はこれ
+          noAppear: sd.AppearAction === false,
+          // **`RandomAmountSum` は湧く確率ではない**（2026-09-08 に読み直した）。ケセドの節 1 の `2Wave_5` は
+          // 8 点とも `RandomAmountSum 5000` だが、動画の HUD の残り数（節の総数 41 ＝ 14 ＋ 27）は 8 体とも数えていて、
+          // 全部倒れてから奥の 8 体（+15 秒）が残る。並びが 1 つなら決まりで湧く
+          chance: 1,
           tile: [p.TileX, p.TileY],
           active: p.Active !== false,
         });
@@ -153,17 +167,24 @@ function eventsOf(evs) {
         for (m = 0; m < cm2[q2].Waves.length; m++) {
           wave.push({ cmd: String(cm2[q2].Waves[m].SpawnPointCommandId || ''),
                       delay: cm2[q2].Waves[m].WaitDelay
-                        || cm2[q2].Waves[m].WaveDelay || 0 });
+                        || cm2[q2].Waves[m].WaveDelay || 0,
+                      // **波が終わる残り数**（`EndCount`。ケセドは 0 ＝ 湧いた体が全部倒れたら）
+                      end: cm2[q2].Waves[m].EndCount || 0 });
         }
       } else if (t2.indexOf('StartSection') >= 0) {
         to = (cm2[q2].SectionID || 1) - 1;
       } else if (t2.indexOf('WaitSeconds') >= 0) {
         wsec += cm2[q2].Milliseconds || 0;
+      } else if (t2.indexOf('FadeOutIn') >= 0) {
+        // **暗転の間も時計は進む**（`DelayBeforeFadeOut` / `DelayBeforeFadeIn` は秒。ケセドの節 2 は 2.1 秒。
+        // 2026-09-07）。そのあとの `PlayTimeline` は `UseGameTime: false` で、動画でも時計が止まっているので数えない
+        wsec += Math.round(((cm2[q2].DelayBeforeFadeOut || 0) + (cm2[q2].DelayBeforeFadeIn || 0)) * 1000);
       } else if (t2.indexOf('ForceMoveToFormationBeacon') >= 0) {
         // **隊列を目印へ**（`IsInstantMove` なら飛ぶ、でなければ歩く）。
         // ビナーの段 1 は歩き（原点 (−18.2, −5.6) → 節 1 の目印 (1.06, −14.12)）、
         // 段 2 とケセドの節 2 は暗転して飛ぶ（2026-09-07）
-        beacon = { instant: !!cm2[q2].IsInstantMove };
+        // **飛ぶ前の待ち**（ここまでに積んだ `WaitSeconds` と暗転。ケセドの節 2 は 2.1 + 0.3 秒。2026-09-07）
+        beacon = { instant: !!cm2[q2].IsInstantMove, wait: wsec };
         if (cm2[q2].IsInstantMove) { instant = true; }
       } else if (t2.indexOf('ForceMoveToGroundPoint') >= 0) {
         // **本体を盤の点へ**（`PointCommandID` は湧き点の `CommandIdList` の名前。
@@ -474,16 +495,65 @@ function pointBoxDist(p, b2) {
   return Math.sqrt(ox * ox + oy * oy);
 }
 
-/** 距離で並べ替える。`sel.sort` が `Distance` のときだけ。 */
-export function sortByRule(caster, list, sel) {
-  if (!sel || sel.sort !== 'Distance' || !caster || !caster.pos) { return list; }
-  var arr = list.slice(), lo = sel.order !== 'Highest';
-  arr.sort(function (a, b2) {
-    if (!a.pos) { return 1; }
-    if (!b2.pos) { return -1; }
-    var da = len(sub(a.pos, caster.pos)) - (a.radius || 0) / U;
-    var db = len(sub(b2.pos, caster.pos)) - (b2.radius || 0) / U;
-    return lo ? da - db : db - da;
-  });
+/** **相手の並べ方。**`TargetSortRule` の `SortCriteria` / `OrderBy` / `Reindexing` /
+    `RandomTargetSelect` をそのまま写す（2026-09-08）。
+    Distance（距離。体の半径を引く）・HPRate（HP の割合）・MaxHP・AttackPower・
+    DefensePower・Stat（`SortStat` の番号の欄）・LogicEffectTemplateCount
+    （`SortParameter` の札を何枚持っているか）・DebuffCount（デバフの枚数）。
+    `OrderBy` の Random / CyclicRandom と `RandomTargetSelect` は種のある乱数で混ぜる
+    （種が無い素の 1 回は Lowest の並びのまま）。`Reindexing` は並べたあと先頭を
+    その数だけ後ろへずらす（2 番目に近い相手から取る技）。
+    ここが Distance だけだったので、水着セイアの Public（HPRate Lowest, Ally_Except_Self）が
+    HP 47% のセイアではなくいちばん近い満タンのミカを癒やしていた（QnKBiKMMUQE、2026-09-08）。
+    `ctx` は `{ rnd, stats }`。`stats(u)` は今の能力値（`run.js:statsNow`） */
+export function sortByRule(caster, list, sel, ctx) {
+  if (!sel || !list || list.length < 2) { return list; }
+  var crit = sel.sort, ord = sel.order, rnd = (ctx && ctx.rnd) || null;
+  var stats = (ctx && ctx.stats) || null, key = null, name;
+  if (crit === 'Distance' && caster && caster.pos) {
+    // **並べるのは体の中心どうしの距離。**縁（`BodyRadius`）は引かない（2026-09-08）。
+    // `BodyRadius` が効くのは射程の判定（`run.js:edgeDist`）で、そちらは
+    // 大きい体ほど遠くから当たる。**並べ方に持ち込むと、体の大きいボスが
+    // 手前の召喚物より「近い」ことになる**——ケセドは `BodyRadius` 350 で、
+    // y 143 のボスの縁が 6.5、y 141 のゴリアテ（80〜100）の縁が 7.0 になり、
+    // 生徒がゴリアテを放置してボスを撃ち続けていた。動画（QnKBiKMMUQE）では
+    // 戦闘 119.9〜134.0 秒のあいだボスの HP が 20,763,446 で動かない
+    key = function (v) { return v.pos ? len(sub(v.pos, caster.pos)) : Infinity; };
+  } else if (crit === 'HPRate') {
+    key = function (v) { return v.maxHp ? v.hp / v.maxHp : 0; };
+  } else if (crit === 'MaxHP' || crit === 'AttackPower' || crit === 'DefensePower' || crit === 'Stat') {
+    name = crit === 'Stat' ? (STAT[sel.stat] || null) : crit;
+    key = function (v) { var st = stats ? stats(v) : null; return (st && name && st[name]) || 0; };
+  } else if (crit === 'LogicEffectTemplateCount') {
+    key = function (v) {
+      var n = 0, z;
+      for (z = 0; z < (v.eff || []).length; z++) { if (v.eff[z].tmpl === sel.param) { n++; } }
+      return n;
+    };
+  } else if (crit === 'DebuffCount') {
+    key = function (v) {
+      var n = 0, z;
+      for (z = 0; z < (v.eff || []).length; z++) { if (v.eff[z].cat === 'Debuff') { n++; } }
+      return n;
+    };
+  }
+  var arr = list.slice(), z9, k9, t9;
+  var shuffle = (ord === 'Random' || ord === 'CyclicRandom' || sel.random) && rnd;
+  if (shuffle) {
+    for (z9 = arr.length - 1; z9 > 0; z9--) {
+      k9 = Math.floor(rnd() * (z9 + 1)); t9 = arr[z9]; arr[z9] = arr[k9]; arr[k9] = t9;
+    }
+    return arr;
+  }
+  if (key) {
+    var hi = ord === 'Highest';
+    var ks = arr.map(function (v, i9) { return { v: v, k: key(v), i: i9 }; });
+    ks.sort(function (a, b2) { return (hi ? b2.k - a.k : a.k - b2.k) || (a.i - b2.i); });
+    arr = ks.map(function (x) { return x.v; });
+  }
+  if (sel.reidx > 0) {
+    var off = sel.reidx % arr.length;
+    arr = arr.slice(off).concat(arr.slice(0, off));
+  }
   return arr;
 }

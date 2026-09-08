@@ -334,6 +334,12 @@ export function driveBoss(ctx) {
       if (k == null) { return false; }
       var fo = fp(), gid = fo.ex[k];
       if (!gid || gid === 'EmptySkill') { return false; }
+      // **グロッキー中は撃たない。**`checkStanding` の頭でも見ているが、
+      // **最後の 1 体が死んだ刻は「召喚が 0 になった」と「ゲージが満タンになった」が
+      // 同じ刻に立つ**ので、ここでも見ないと気絶した瞬間に次の群が出る。
+      // 動画（QnKBiKMMUQE）では明けるまで 1 体も湧かず、その 20 秒で本体を削っている
+      // ——湧いていると味方の EX が手前の召喚物に吸われて本体に入らない（2026-09-08）
+      if (inGroggy(now)) { return false; }
       // クールタイム（`EnemyStartCoolTime` / `EnemyCoolTime`）とゲージ（`UseAtg`）
       if (now < (st.coolUntil[k] || 0)) { return false; }
       var need = fo.atg[k] || 0;

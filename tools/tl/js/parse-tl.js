@@ -110,8 +110,20 @@ export function parseTL(txt) {
     // 固有武器の段（「固有★3Lv50」）とも取り違えないよう、直前の語を見る
     mm = rest.match(/(能力解放|潜在|限界突破|WB|固有|UE|[★☆]\s*\d)?\s*Lv\.?\s*(\d+)/i);
     if (mm && !mm[1] && +mm[2] <= 100) { b.lv = +mm[2]; }
-    // スキル。「MMMM」＝ 4 つとも上限。個別なら「EX5 NS10 PS10 SS10」
-    if (/MMMM/i.test(rest)) { b.ex = 5; b.sk = 10; b.plv = 10; b.sslv = 10; }
+    // スキル。**4 文字で EX/NS/PS/SS の順**（`M` は上限。EX は 5、ほかは 10）。
+    // 「MMMM」だけでなく「M777」「MM77」「MM1M」と 1 文字ずつ書くのが
+    // クラウさんの書き方（2026-09-08、ケセド QnKBiKMMUQE で気づいた。
+    // ここが `MMMM` だけだったので、**パッシブ 1 のリオもサブ 7 のセイアも上限**で走っていた）。
+    // 数字だけの 4 桁（「7777」）は年号などと紛れるので、`M` が 1 つ以上あるときだけ読む。
+    // 個別に「EX5 NS10 PS10 SS10」と書いてあればそちらが勝つ
+    mm = rest.match(/(?:^|[^A-Za-z0-9])([M1-9]{4})(?![A-Za-z0-9])/i);
+    if (mm && /M/i.test(mm[1])) {
+      var sc = mm[1].toUpperCase();
+      b.ex = sc.charAt(0) === 'M' ? 5 : Math.min(+sc.charAt(0), 5);
+      b.sk = sc.charAt(1) === 'M' ? 10 : +sc.charAt(1);
+      b.plv = sc.charAt(2) === 'M' ? 10 : +sc.charAt(2);
+      b.sslv = sc.charAt(3) === 'M' ? 10 : +sc.charAt(3);
+    }
     mm = rest.match(/EX\s*(\d)/i); if (mm) { b.ex = +mm[1]; }
     mm = rest.match(/(?:NS|ノーマル)\s*(\d+)/i); if (mm) { b.sk = +mm[1]; }
     mm = rest.match(/(?:PS|パッシブ)\s*(\d+)/i); if (mm) { b.plv = +mm[1]; }
@@ -148,6 +160,17 @@ export function parseTL(txt) {
       else {
         mm = rest.match(/装備\s*(\d+)/) || rest.match(/(?:^|[\s　])[Tt](\d+)(?![\/／\d])/);
         if (mm && +mm[1] <= 10) { b.eq = +mm[1]; }
+        else {
+          // **`T` を書かずに「10/10/10」とだけ書く TL がある**（2026-09-08、
+          // ケセド QnKBiKMMUQE の「MMMM 10/10/10」）。装備は 1〜10 段なので、
+          // 3 つとも 1〜10 の「a/b/c」は装備の段として読む。
+          // スキルは上の 4 文字組が持っていくので取り違えない
+          mm = rest.match(/(?:^|[\s　])(\d{1,2})\s*[\/／]\s*(\d{1,2})\s*[\/／]\s*(\d{1,2})(?![\d\/／])/);
+          if (mm && +mm[1] >= 1 && +mm[1] <= 10 && +mm[2] >= 1 && +mm[2] <= 10
+              && +mm[3] >= 1 && +mm[3] <= 10) {
+            b.eq = [+mm[1], +mm[2], +mm[3]];
+          }
+        }
       }
     }
     res.crew.push(b);

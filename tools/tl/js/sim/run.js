@@ -35,6 +35,7 @@ import { makeBoard, makeUnit, add, living, ctxOf, applyMark, expire, dispel, tic
   from './state.js';
 import { once as hitOnce, roll as hitRoll, capsOf } from './hit.js';
 import { bossPlan, phaseWaits, driveBoss } from './boss.js';
+import { levelScale } from './grow.js';
 import { boardPlan, spawnFor, originOf, slotPos, inArea, sortByRule,
          obstacleBoxes, coverRate, coverBox, coverPoints } from './board.js';
 
@@ -501,6 +502,15 @@ function fire(R, ev, caster, target, lvl, at, mc) {
     // `Amount` 22,727,300 が積まれ、ボスの `GroggyGauge` 1,000,000,000 で満タン
     // ＝ 44 体。1 万分率に直してから足す。`CasterCoefficientAmount` の側とは
     // 物差しが違うので、ここで揃えないと 22,727,300 が 2,272 回ぶんになる
+    // **グロッキーゲージは面に 1 本しか無い。**`GroggyGauge` を持っているのは
+    // ボスだけで（ケセド Torment は 1,000,000,000、雑魚と召喚物は 0）、
+    // `Debuff_AddGroggyGauge` を積む passive は雑魚 6 種ぜんぶが持っている。
+    // 貼られた先の目盛りで数えると、`AttackPower Highest` で選ばれた
+    // ゴリアテ（攻撃力 26,379）に落ちて 1 も溜まらない。**貼り先が誰であれ、
+    // 溜まるのは面のボスの 1 本**（2026-09-08）
+    if (!(target.base && target.base.GroggyGauge) && R.groggyHolder) {
+      target = R.groggyHolder(target.side) || target;
+    }
     var need0 = (target.base && target.base.GroggyGauge) || 0;
     var gv = (r.amt || 0) + (r.tamt || 0);
     if (r.flat && need0 > 0) { gv += r.flat / need0 * 10000; }
@@ -522,6 +532,22 @@ function fire(R, ev, caster, target, lvl, at, mc) {
   // ---- 固定ダメージ（`DeadlyAttackEffectDAO`）。**`Amount` をそのまま引く。**
   // 防御も装甲も地形も通らないし、盾も食わない。ペロロの中サイズが HP 半分で
   // 撒く 250,000、ケセドの 999,999、ゴズの 99,999,999 がこれ（2026-09-07）
+  // ---- 押し戻し（`KnockbackEffectDAO`）。**撃った体から離れる向きへ `MoveDistance`**（2026-09-08）。
+  // ケセドの召喚 EX 4 本はどれも `Chesed_Ex01_Effect01`（2 u・0.5 秒）を円の中の生徒に貼る。
+  // 動けない体（塔・本体）と盤に立たないスペシャルは動かない。歩きの途中なら止まり、遮蔽の席は捨てる。
+  // 向きの読み（1 ＝ 離れる）は DB に説明が無いので仮置き
+  if (r.kind === 'knock') {
+    if (target.pos && caster.pos && target.move !== false && !(target.side === 'ally' && target.squad === 'Support')) {
+      var kx = target.pos.x - caster.pos.x, ky = target.pos.y - caster.pos.y, kl = Math.sqrt(kx * kx + ky * ky) || 1;
+      var kd = (r.dist || 0) / 100;
+      target.pos = { x: target.pos.x + kx / kl * kd, y: target.pos.y + ky / kl * kd };
+      target.moving = false;
+      if (target.cover) { target.cover.used = null; target.cover = null; }
+      target.home = null;
+      if (R.probe) { R.probe.push(['knock', caster.key, target.key, kd, Math.round(at), ev.gid]); }
+    }
+    return 0;
+  }
   if (r.kind === 'deadly') {
     var dq = (r.amt || 0) * mul;
     if (dq > 0 && target.hp > 0) {
@@ -1002,8 +1028,30 @@ function gradeOf(st, topo, stats) {
 
     撃つ側も一緒に見ておく（束の中に撃つ側へ配る例は 1 つも無いので効かないが、
     出てきたときに黙って外れないように）。 */
-function untargeted(v, ev, u) {
+/** `ApplyEntityType` のビット。**1 = 戦う体（生徒・敵・ボス・召喚物）、2 = 遮蔽物、
+    4 = 車両（TSS。虎丸）、8 = スペシャル生徒。**
+
+    2 が遮蔽物だと決めた根拠（2026-09-08）: ペロロジラの中サイズが持つ
+    `Perorozilla01MiddleSizeEx01` の `Enemy, Position, 2` は半径 200 の輪で、
+    中身が `Attack_Damage`（`BonusRateFirst` 10,000,000 ＝ 攻撃力の 1000 倍、
+    `ApplyObstacleDamageRatio: true`、`CanProcessNotAliveTarget: true`）。
+    **踏んだ遮蔽物を消すための輪**で、召喚物に配るものではない。
+    4 が車両なのは `CH0156GearPublic01`（Ally, 4）が虎丸（`TacticEntityType: Vehicle`）
+    に「榴弾装填」を配るところから。
+
+    召喚物を 2 と読んで生徒の通常攻撃（`Enemy, 5`）から外していた時期があり、
+    ケセドの 4 群目（ゴリアテ入り）を誰も撃たずに 24 秒放置していた */
+function entBits(v) {
+  if (v.side === 'ally' && v.squad === 'Support') { return 8; }
+  if (v.squad === 'TSS' || v.kind === 'Vehicle') { return 4; }
+  return 1;
+}
+function untargeted(v, ev, u, now) {
   var i, j, m, types, ok;
+  // **湧きの演出中でも狙える**（2026-09-08 に読み直した）。動画（QnKBiKMMUQE 26.7 秒）で節 0 の奥の 5 体は
+  // 湧いて 1 秒あまりで扇に当たって 29.2 秒に全滅している（`AppearFrame` 65 コマ＝ 2.17 秒より短い）。
+  // 演出の間は動けない・撃てないだけ（`stepApproach` / `setupMinion`）。`now` は将来のために受けておく
+  if (now == null) { return false; }
   for (i = 0; i < v.eff.length; i++) {
     m = v.eff[i].raw;
     if (!m || m.kind !== 'status' || m.status !== 'Untargetable') { continue; }
@@ -1097,12 +1145,44 @@ export function run(o) {
     }
   }());
   for (i = 0; i < (boss.st || []).length; i++) { stx[boss.st[i].CharacterId] = boss.st[i]; }
+  /** **敵のレベルは盤（`GroundExcelTable`）が決める。**種類ごとに別の欄
+      （`LevelBoss` / `LevelElite` / `LevelChampion` / `LevelMinion` / `LevelNPC`）。
+      召喚物（`Summoned`）は表に欄が無いので雑魚と同じ扱い */
+  function lvOfKind(g, kind) {
+    g = g || {};
+    if (kind === 'Boss') { return g.LevelBoss || 90; }
+    if (kind === 'Elite') { return g.LevelElite || g.LevelMinion || 90; }
+    if (kind === 'Champion') { return g.LevelChampion || g.LevelMinion || 90; }
+    if (kind === 'NPC') { return g.LevelNPC || g.LevelMinion || 90; }
+    return g.LevelMinion || 90;
+  }
+  /** **敵も `*1` と `*100` の間をレベルで補間する**（2026-09-08）。生徒と同じ
+      `StatLevelInterpolationExcelTable` と同じ丸め（`grow.js:ip`）。
+      ここが 100 の欄そのままで、ケセド Torment（`LevelMinion: 90`、割合 8990）の
+      雑魚が HP 132,678／攻撃力 1,749 と 9% 強いまま走っていた。
+      本当は HP 120,618／攻撃力 1,590。**倒すのが遅れてグロッキーが 20 秒遅れていた** */
+  function atLv(cm, row, lv, upType) {
+    if (!row || !lv || lv >= 100) { return row; }
+    var sc = levelScale(cm, lv, upType || 'Standard');
+    var out = {}, kk;
+    for (kk in row) { out[kk] = row[kk]; }
+    var pairs = [['MaxHP', 'MaxHP1', 'MaxHP100'], ['AttackPower', 'AttackPower1', 'AttackPower100'],
+      ['DefensePower', 'DefensePower1', 'DefensePower100'], ['HealPower', 'HealPower1', 'HealPower100'],
+      ['DefensePenetration', 'DefensePenetration1', 'DefensePenetration100'],
+      ['DefensePenetrationResist', 'DefensePenetrationResist1', 'DefensePenetrationResist100']];
+    for (kk = 0; kk < pairs.length; kk++) {
+      var a1 = row[pairs[kk][1]], b1 = row[pairs[kk][2]];
+      if (a1 == null || b1 == null) { continue; }
+      out[pairs[kk][0]] = Math.ceil(Math.round(a1 + (b1 - a1) * sc));
+    }
+    return out;
+  }
   var bossU = null;
   for (i = 0; i < ent.length; i++) {
     var c = ent[i], s = stx[c.Id];
     if (!s) { continue; }
-    var lv = c.TacticEntityType === 'Boss'
-      ? (boss.ground.LevelBoss || 90) : (boss.ground.LevelMinion || 90);
+    var lv = lvOfKind(boss.ground, c.TacticEntityType);
+    s = atLv(common, s, lv, c.StatLevelUpType);
     var u = add(b, makeUnit({
       key: 'e' + c.Id, side: 'enemy', charId: c.Id, dev: c.DevName,
       kind: c.TacticEntityType, lv: lv, armor: c.ArmorType, bullet: c.BulletType,
@@ -1300,13 +1380,26 @@ export function run(o) {
   function rangeOf(u9) { var rg = statsNow(u9).Range; return (rg == null ? 0 : rg) / UNIT; }
   function inRange(u9, t9) { return edgeDist(u9, t9) <= rangeOf(u9) + 1e-9; }
   /** いちばん近い相手（縁まで）。スペシャルは盤に立たないので相手にならない */
-  function aimOf(u9) {
+  /** `seeAppearing` を渡すと湧きの演出中の体も相手に数える（歩く先を決めるとき。見えてはいるので
+      「視界に敵が居る → 射程まで寄る」は働く。撃つ相手にはならない） */
+  function len2(dx, dy) { return Math.sqrt(dx * dx + dy * dy); }
+  function aimOf(u9, seeAppearing) {
     var vs = living(b, u9.side === 'ally' ? 'enemy' : 'ally'), z9, best = null, bd9 = 0, d9;
     for (z9 = 0; z9 < vs.length; z9++) {
       var v9 = vs[z9];
       if (!v9.pos || v9 === u9) { continue; }
       if (v9.side === 'ally' && v9.squad === 'Support') { continue; }
-      d9 = edgeDist(u9, v9);
+      // **狙う先は「いちばん近い相手」で、種類で外さない**（2026-09-08）。
+      // `CharacterAIExcelTable` が持つのは `EngageType` / `Positioning` /
+      // `MinimumPositionGap` だけで、**相手の種類を絞る欄が無い**。
+      // 絞りは技の `EssentialCandidateRule.ApplyEntityType` の側にあり、
+      // そちらは「効果が乗る相手」を決める別の仕組み。
+      // 動画（QnKBiKMMUQE）でも、戦闘 120〜134 秒はボスの HP が 20,763,446 で
+      // 止まったまま生徒は撃ち続けている＝目の前の召喚物を撃っている
+      if (!seeAppearing && false && v9.appearUntil != null && b.t < v9.appearUntil) { continue; }   // 湧きの演出中も相手になる（2026-09-08）
+      // **狙う先は中心どうしの距離で決める**（`board.js:sortByRule` と同じ物差し）。
+      // 射程に届くかは `edgeDist` のまま——別の話（2026-09-08）
+      d9 = len2(v9.pos.x - u9.pos.x, v9.pos.y - u9.pos.y);
       if (!best || d9 < bd9) { best = v9; bd9 = d9; }
     }
     return best;
@@ -1336,7 +1429,7 @@ export function run(o) {
       if (u9.move === false || rangeOf(u9) <= 0) { continue; }
       if (u9.appearUntil != null && now < u9.appearUntil) { continue; }   // 湧きの演出中は立ったまま
       if (u9.side === 'ally' && (u9.squad === 'Support' || walkGoal != null)) { continue; }
-      var aim9 = aimOf(u9);
+      var aim9 = aimOf(u9, true);
       if (!aim9) { u9.moving = false; continue; }
       var gap = edgeDist(u9, aim9) - rangeOf(u9);
       if (gap <= 1e-9) {
@@ -1575,27 +1668,33 @@ export function run(o) {
         team = t2;
       }
       // **`ApplyEntityType` で絞る**（2026-09-07）。木の `EssentialCandidateRule.ApplyEntityType` は
-      // 体の種類のビット集合で、**1 = 盤に立つ体（ストライカー・敵）、8 = スペシャル生徒**。
+      // 体の種類のビット集合で、**1 = 盤に立つ体（ストライカー・敵・ボス）、2 = 召喚物、
+      // 4 = 車両（TSS。虎丸）、8 = スペシャル生徒**。
       // `LocalizeSkillExcelTable` の説明文と突き合わせて決めた:
       //   `CH0260ExtraPassive01`（Ally_Except_Self, 8）「自身とスペシャル生徒の攻撃力を…増加」
       //   `CH0076Public01`（Ally_Except_Self, 1）「ストライカーの味方の会心ダメージ率を…増加」
       //   `CH0055ExtraPassive01`（Ally, 9 = 1+8）「味方の治癒力を…増加」
-      //   敵を狙う技は 5 / 7（1 を含む）、敵の技が生徒を狙うのも 5 / 7
-      // 2 と 4 は遮蔽物・召喚物のたぐい（未確定。生徒は持たない）。
+      //   `CH0156GearPublic01`（Ally, 4）「虎丸に『榴弾装填』を付与」——虎丸は `TacticEntityType: Vehicle`
+      //   サブスキルの全体バフ（`AiriExtraPassive01` など Ally, 13 = 1+4+8）は 2 を含まない。
+      //   ItJustWorks の「召喚物はサブスキルのバフを受けない」と一致するので **2 = 召喚物**
+      //   敵を狙う技は 5（相手を選ぶ）／ 7（範囲。召喚物も巻き込む）、敵の技が生徒を狙うのも 5
+      // だから **通常攻撃と EX の相手選び（5）は召喚物を狙わず、範囲（7）だけが当たる**。
+      // ケセドの雑魚が死んで積む `Debuff_AddGroggyGauge`（Ally, 5, AttackPower Highest）も
+      // これで召喚物を飛び越えてボス（攻撃力 10）に届く（2026-09-08。QnKBiKMMUQE では
+      // 召喚物を含めるとゴリアテに落ちてグロッキーが一度も来なかった）。
       // ここが無くて、カンナ（水着）のサブスキル（スペシャル向け +30.61%）がネルに乗っていた
       var am = ev.sel ? ev.sel.apply : null;
       if (am != null && am > 0) {
         var t5 = [], z5;
         for (z5 = 0; z5 < team.length; z5++) {
-          var bits5 = (team[z5].side === 'ally' && team[z5].squad === 'Support') ? 8 : 1;
-          if (bits5 & am) { t5.push(team[z5]); }
+          if (entBits(team[z5]) & am) { t5.push(team[z5]); }
         }
         team = t5;
       }
       // **狙えない体を外す**（`Untargetable`）。外れて誰も居なくなったら撃たない
       var t3 = [], z3, n0 = team.length;
       for (z3 = 0; z3 < team.length; z3++) {
-        if (R.noUntargetable || !untargeted(team[z3], ev, u)) { t3.push(team[z3]); }
+        if (R.noUntargetable || !untargeted(team[z3], ev, u, b.t)) { t3.push(team[z3]); }
       }
       // **誰も狙えなかった最初の場面を覚える**（段階 0 の物差し用）。
       // 生きている敵の数・狙えない札の中身・その時刻
@@ -1639,7 +1738,7 @@ export function run(o) {
       }
       // **狙う先は距離で決まる**（`TargetSortRule` の `SortCriteria: Distance`）。
       // 座標が無い面では並びが変わらないので、今までどおり前から取る
-      var sorted = sortByRule(u, team, ev.sel);
+      var sorted = sortByRule(u, team, ev.sel, { rnd: R.rnd, stats: statsNow });
       if (!ev.area) {
         if (max != null && max > 0 && sorted.length > max) { sorted = sorted.slice(0, max); }
         return sorted;
@@ -2065,6 +2164,14 @@ export function run(o) {
   };
   R.ctx.cover = function (u2, v2) { return R.coverState(u2, v2); };
   // **いま盤に居る、ボス以外の敵の数。**木の `CheckSummonCharacterCountUnder` 用
+  /** **その側でグロッキーゲージを持っている体**（面に 1 体。ふつうはボス） */
+  R.groggyHolder = function (side) {
+    var hs = living(b, side === 'ally' ? 'ally' : 'enemy'), zg;
+    for (zg = 0; zg < hs.length; zg++) {
+      if (hs[zg].base && hs[zg].base.GroggyGauge) { return hs[zg]; }
+    }
+    return null;
+  };
   R.minionCount = function () {
     var vs = living(b, 'enemy'), c = 0, z3;
     for (z3 = 0; z3 < vs.length; z3++) { if (vs[z3] !== bossU) { c++; } }
@@ -2089,6 +2196,11 @@ export function run(o) {
     if (u2 === bossU) {
       if (bst && bst.setForm) { bst.setForm(fi, at); }
       castPassives(u2, at, fi);
+    } else if (u2.side === 'enemy') {
+      // **雑魚の形態**（2026-09-08）。ドロイド／ドローンは 20 秒で自爆形態（形態 1 の通常攻撃が
+      // 半径 2 u の爆発＋自分に 999,999）。常時札は貼ったまま（形態 1 の行は `PassiveSkillGroupId: []` だが、
+      // 死んだときのグロッキーゲージは形態 0 の常時札が持つ）。手だけ組み直す
+      setupMinion(u2, at, fi);
     }
   };
   // **札が貼られた合図をボスの木へ**（`ApplyLogicEffectTemplateId`）
@@ -2119,8 +2231,16 @@ export function run(o) {
         mu.pos = pts[z].pos || null;
         mu.eff = [];
         n++;
+        mu.appearUntil = at + appearMs(mu);
+        mu._busyUntil = null; mu._nsDue = {};
         castPassives(mu, at);
+        // **ボスの木は湧いた瞬間に引く**（2026-09-08）。湧きの演出（`AppearFrame` 20 ＝
+        // 0.67 秒）を待つと、そのあいだに生徒の弾が届いて `HPUnder 20,999,999 →
+        // ChangePhase 1` が先に立ち、**段 0 の召喚（`UseSelectExSkill 0` ＝ ドロイド 11 体）が
+        // まるごと飛ぶ**。動画（QnKBiKMMUQE）では戦闘 94〜100 秒のあいだボスの HP が
+        // 21,000,000 のままで、その間に 1 群目が出ている
         if (mu === bossU) { startBoss(at); }
+        else { setupMinion(mu, at, 0); }
         break;
       }
     }
@@ -2210,30 +2330,95 @@ export function run(o) {
   }
 
   /** その節の湧き点のうち、命令 id が `cmd` のものを起こす（`GroundCommandWave`）。 */
+  /** **召喚物・雑魚の手**（2026-09-08）。本体は木（`boss.js`）が回すが、`ExternalBTId -1` の体には木が無く、
+      `CharacterAIExcelTable`（SearchAndMove）と札の並び（`csl`）だけで動く。生徒と同じく
+      構え → 弾倉ぶん撃つ → リロード（`naInfo`）。射程の外なら歩いて（`stepApproach`）待つ。
+      `AutoUseRule Interval` の通常スキルは周期で撃つ（ドロイドの 600 コマ＝ 20 秒で自爆形態へ、
+      ゴリアテの 900 コマ＝ 30 秒で砲撃）。**射程は見ない**（技の的は自分。生徒の NS と同じ扱い）。
+      形態が変わったら（`R.onForm`）新しい形態の枠で組み直す。周期は湧いてから数え、形態をまたいで引き継ぐ */
+  function setupMinion(mu, at, fi) {
+    var cr = null, z;
+    for (z = 0; mu.csl && z < mu.csl.length; z++) { if ((mu.csl[z].FormIndex || 0) === (fi || 0)) { cr = mu.csl[z]; break; } }
+    if (!cr || !mu.ls) { return; }
+    mu._gen = (mu._gen || 0) + 1;
+    var gen = mu._gen;
+    var ngs = cr.NormalSkillGroupId, ng = null;
+    ngs = Array.isArray(ngs) ? ngs : (ngs ? [ngs] : []);
+    for (z = 0; z < ngs.length; z++) { if (ngs[z] && ngs[z] !== 'EmptySkill') { ng = String(ngs[z]); break; } }
+    var st0 = mu.base || {};
+    var na = ng && mu.ls[ng] ? naInfo(mu.ls[ng], st0.NormalAttackSpeed, st0.AmmoCount, st0.AmmoCost) : null;
+    if (na) {
+      var shot = 0;
+      var step = function (now) {
+        if (!mu.alive || mu._gen !== gen || now > durMs) { return; }
+        if (mu.appearUntil != null && now < mu.appearUntil) { R.q.push(mu.appearUntil, step); return; }
+        if (mu._busyUntil != null && mu._busyUntil > now + 1e-6) { shot = 0; R.q.push(mu._busyUntil + na.ent, step); return; }
+        if (outOfRange(mu, 'Normal')) { R.q.push(now + 100, step); return; }
+        cast(R, mu, ng, 'Normal', 1, now);
+        shot++;
+        var nx = now + na.per;
+        if (shot % na.mag === 0) { nx += na.rel; }
+        if (nx <= durMs) { R.q.push(nx, step); }
+      };
+      R.q.push(Math.max(at, mu.appearUntil || 0) + na.ent, step);
+    } else if (ng) {
+      R.miss['minionNa:' + ng] = (R.miss['minionNa:' + ng] || 0) + 1;
+    }
+    var pgs = cr.PublicSkillGroupId;
+    pgs = Array.isArray(pgs) ? pgs : (pgs ? [pgs] : []);
+    if (!mu._nsDue) { mu._nsDue = {}; }
+    for (z = 0; z < pgs.length; z++) {
+      (function (pg) {
+        if (!pg || pg === 'EmptySkill' || !mu.ls[pg]) { return; }
+        var auto = nsAuto(mu.ls[pg]);
+        if (!auto || auto.kind !== 'interval' || !(auto.ms > 0)) { return; }
+        if (mu._nsDue[pg] == null) { mu._nsDue[pg] = at + auto.ms; }
+        var tick = function (now) {
+          if (!mu.alive || mu._gen !== gen || now > durMs) { return; }
+          if (mu._busyUntil != null && mu._busyUntil > now + 1e-6) { R.q.push(mu._busyUntil, tick); return; }
+          cast(R, mu, pg, 'Public', 1, now);
+          mu._nsDue[pg] = now + auto.ms;
+          if (mu._nsDue[pg] <= durMs) { R.q.push(mu._nsDue[pg], tick); }
+        };
+        R.q.push(Math.max(at, mu._nsDue[pg]), tick);
+      })(pgs[z]);
+    }
+  }
   /** **湧いてから動き出すまで**（ms）。`CharacterExcelTable.AppearFrame` を 30 コマ/秒で読む
       （ケセドの召喚ドロイド 65 コマ＝ 2.17 秒、本体 20 コマ。2026-09-07）。
       動画（QnKBiKMMUQE の 98〜101 秒）では湧いた体が 2 秒ほど湧き位置に立ってから歩き出す。
       核はその間も体を狙える（HP バーは湧いた瞬間から出ている）。本体の木もこの刻から回す */
   function appearMs(u2) { return Math.round(((u2 && u2.appear) || 0) * 1000 / 30); }
+  /** 湧き点に `AppearAction: false` があれば演出なし（扉から歩いて入る組。すぐ狙える） */
+  function appearMsAt(u2, pt) { return (pt && pt.noAppear) ? 0 : appearMs(u2); }
   /** 湧き点 1 つぶんを起こす。**体は湧く刻に起こす**（`delay` のぶん遅れて） */
+  var chanceN = 0;
   function spawnAt(pt, at) {
+    // **湧くかどうかの振り**（`RandomAmountSum` 5000 ＝ 半分。`board.js:boardPlan` の `chance`）。
+    // 種があれば振る。種が無い素の 1 回は k 点に 1 点の割で出す（半分なら 1 点おき）
+    if (pt.chance != null && pt.chance < 1) {
+      if (R.rnd) { if (R.rnd() >= pt.chance) { return null; } }
+      else { var k6 = Math.max(1, Math.round(1 / pt.chance)); chanceN++; if (chanceN % k6 !== 1 % k6) { return null; } }
+    }
     var pool = byDev[pt.dev] || [], mu2 = null, w6;
     for (w6 = 0; w6 < pool.length; w6++) {
       if (!pool[w6].alive) { mu2 = pool[w6]; break; }
     }
     // 本体は増やさない（同じ命令が 2 度来ても 2 体目の本体は作らない）
     if (!mu2 && !(pool.length && pool[0] === bossU)) { mu2 = moreBody(pt.dev); }
-    if (!mu2) { return false; }
+    if (!mu2) { return null; }
     mu2.alive = true; mu2.hp = mu2.maxHp; mu2.eff = []; mu2.pos = pt.pos || null;
-    mu2.appearUntil = at + appearMs(mu2);
+    mu2.appearUntil = at + appearMsAt(mu2, pt);
+    mu2._busyUntil = null; mu2._nsDue = {};
     castPassives(mu2, at);
-    if (mu2 === bossU) { startBoss(mu2.appearUntil); }
-    return true;
+    if (mu2 === bossU) { startBoss(at); }   // 同上（湧いた瞬間に木を引く）
+    else { setupMinion(mu2, at, 0); }
+    return mu2;
   }
   /** 命令 `cmd` の湧き点をぜんぶ起こす。**点ごとの `Delay` を守る**（2026-09-07。
       同時に出していて、ケセドの節 0 の 15 体が 1 扇で消え、波が 4 秒で終わっていた。
       DB は 0〜10 秒に散らしている）。全部が湧いたら `done()`。合図の記録は最初の体の刻に 1 回 */
-  function spawnCmd(cmd, at, done) {
+  function spawnCmd(cmd, at, done, gen) {
     if (!bd || !bd.sections[sec]) { if (done) { done(at); } return 0; }
     var pts = bd.sections[sec].points, n = 0, z6, left, first = null;
     var list = [];
@@ -2250,8 +2435,13 @@ export function run(o) {
       (function (pt2) {
         var t6 = at + (pt2.delay || 0);
         R.q.push(t6, function (now) {
-          if (spawnAt(pt2, now)) { n++; }
-          if ((pt2.delay || 0) === first) { logEv(now, 'spawn', 'wave:' + sec); }
+          // **波が終わっていたら、遅れて湧くはずだった点は出ない**（2026-09-07。下の `waveGen`）
+          if (gen != null && gen !== waveGen) { left--; if (left === 0 && done) { done(now); } return; }
+          var mu6 = spawnAt(pt2, now);
+          if (mu6) { n++; if (gen != null) { waveAny = true; } }
+          // **合図は湧いた刻**（見えた瞬間から狙える。2026-09-08）。TL の「敵出現」はそこで撃つ。
+          // 点ごとに記す（同じ刻は `logEv` がまとめる）。遅れて出る組（扉の 5 体）は別の合図になる
+          if (mu6) { logEv(now, 'spawn', 'wave:' + sec + (pt2.noAppear ? ':door' : '')); }
           left--;
           if (left === 0 && done) { done(now); }
         });
@@ -2264,19 +2454,24 @@ export function run(o) {
       1 波目を片付けてから `WaveDelay` 置いて 2 波目が出る（ケセドの節 0〜2 は
       同じ湧き点に命令 1 と 2 が重なっていて、同時に出すと 2 倍湧く）。
       `EndWave` は最後の波まで片付いてから */
-  var waveQ = [], waveLive = false, waveSpawned = false;
+  // **波の終わり**（2026-09-08 に読み直した）。波は「点が全部湧いてから、盤の敵が `EndCount`（ケセドは 0）まで
+  // 減ったら」終わる。遅れて湧く点（節 0 の `SpawnGroup6` +10 秒、節 1 の `2Wave_6` +15 秒）も出る——
+  // 動画（QnKBiKMMUQE）の HUD の残り数は節 1 で 41 → 8 と減って、その 8 体が 71 秒に湧いて 78 秒に片付く
+  var waveQ = [], waveLive = false, waveSpawned = false, waveAny = false, waveEnd = 0, waveGen = 0;
   function fireWave(at) {
     var sc2 = bd.sections[sec] || {};
     waveQ = (sc2.wave || []).slice();
-    waveLive = false; waveSpawned = false;
+    waveLive = false; waveSpawned = false; waveAny = false;
     nextWave(at);
   }
   function nextWave(at) {
     if (!waveQ.length) { return; }
     var w7 = waveQ.shift(), t7 = at + (w7.delay || 0);
     if (t7 > R.durMs) { return; }
-    waveLive = true; waveSpawned = false;
-    R.q.push(t7, function (now) { spawnCmd(w7.cmd, now, function () { waveSpawned = true; }); });
+    waveLive = true; waveSpawned = false; waveAny = false; waveEnd = w7.end || 0;
+    waveGen++;
+    var gen7 = waveGen;
+    R.q.push(t7, function (now) { spawnCmd(w7.cmd, now, function () { waveSpawned = true; }, gen7); });
   }
 
   /** その節に入る。**立ち位置は持ち回る**（前の節の終わりに立っていた場所）。 */
@@ -2291,7 +2486,14 @@ export function run(o) {
       if (!ok12) { continue; }
       mvs[z12].done = 1;
       var to2 = (sc3.starts && sc3.starts[0]) ? sc3.starts[0].to : sec + 1;
-      if (mvs[z12].beacon) { formationGo(beaconOf(to2) || beaconOf(sec), mvs[z12].beacon.instant, at); }
+      if (mvs[z12].beacon) {
+        // **暗転と待ちのぶん遅れて飛ぶ**（動画 QnKBiKMMUQE: 暗転 89.5 秒 → 飛んだ先が映る 92.3 秒 → 本体 94 秒）
+        (function (bc, tgt) {
+          var bw = bc.wait || 0;
+          if (bw > 0) { R.q.push(at + bw, function (now) { formationGo(tgt, bc.instant, now); }); }
+          else { formationGo(tgt, bc.instant, at); }
+        })(mvs[z12].beacon, beaconOf(to2) || beaconOf(sec));
+      }
       if (mvs[z12].bossTo) { bossGo(mvs[z12].bossTo, at); }
     }
   }
@@ -2308,7 +2510,7 @@ export function run(o) {
     walkGoal = (sc2.walkTo != null && org) ? { x: org.Position.x, y: sc2.walkTo } : null;
     if (walkGoal) { logEv(at, 'move', 'walk'); }
     secWait = -1; secTo = -1; secVia = null; secPhase = null; sawFoe = false;
-    waveQ = []; waveLive = false; waveSpawned = false;
+    waveQ = []; waveLive = false; waveSpawned = false; waveAny = false; waveGen++;
     spawn('start', at);
     // **節を進めた事象に付いていた移動**（`ForceMoveToFormationBeacon` /
     // `ForceMoveToGroundPoint`。ビナーの段 1: 隊列は節 1 の目印 (1.06, −14.12) へ歩き、
@@ -2360,7 +2562,13 @@ export function run(o) {
       return !!bst && secPhase != null && bst.phase !== secPhase
         && String(bst.phase) === tag.slice(3);
     }
-    if (tag === 'Area') { return walkGoal == null; }
+    if (tag === 'Area' || tag.indexOf('Area:') === 0) {
+      if (walkGoal != null) { return false; }
+      if (tag === 'Area' || !org) { return true; }
+      // 隊列の原点がその区画（奥行きの半分＋少し）に居るか
+      var pa = tag.split(':'), za = parseFloat(pa[1]), ha = parseFloat(pa[2]) || 1;
+      return Math.abs(org.Position.y - za) <= ha / 2 + 0.6;
+    }
     return false;
   }
 
@@ -2444,8 +2652,8 @@ export function run(o) {
     if (secPhase == null && bst) { secPhase = bst.phase; }
     if (R.minionCount() > 0) { sawFoe = true; }
     // ---- 波を片付けたら次の波
-    if (waveLive && waveSpawned && R.minionCount() === 0) {
-      waveLive = false; waveSpawned = false;
+    if (waveLive && waveSpawned && R.minionCount() <= waveEnd) {
+      waveLive = false; waveSpawned = false; waveAny = false;
       nextWave(t7);
     }
     // ---- 歩く。**いちばん遅い子に合わせる**（隊列は崩れない）
@@ -2590,9 +2798,12 @@ export function run(o) {
     if (!mu) { return; }
     mu.alive = true; mu.hp = mu.maxHp; mu.eff = []; mu.pos = summonPos(by, sv) || (by && by.pos) || null;
     mu.appearUntil = at + appearMs(mu);
+    mu._busyUntil = null; mu._nsDue = {}; mu.form = 0;
+    mu.summoned = true;                      // `ApplyEntityType` の 2（召喚物）
     R.summoned++;
     logEv(at, 'spawn', 'summon');
     castPassives(mu, at);
+    setupMinion(mu, at, 0);
   };
   R.devFix = {};
 
@@ -2653,7 +2864,7 @@ export function run(o) {
   if (!bossLate && !bossU._psDone) { castPassives(bossU, 0); }
 
   // ---- 回す。**0.1 秒刻みで札の時間切れとコストを進める**
-  var step = o.step || 100, hp = [], t3, downAt = [];
+  var step = o.step || 100, hp = [], ahp = [], t3, downAt = [];
   for (t3 = 0; t3 <= durMs; t3 += step) {
     b.t = t3;
     R.q.drain(t3, 200000);
@@ -2674,6 +2885,11 @@ export function run(o) {
         if (us[k].side === 'ally') { downAt.push([us[k].key, t3 / 1000]); }
       }
     }
+    // **死ぬ瞬間の札を先に効かせてから木を引く**（2026-09-08）。`cast` は列に積むので、
+    // ここで一度流さないと、**最後の 1 体が死んだ刻にボスがまだグロッキーを知らない**。
+    // ケセドでは「召喚が 0 になった」を見て次の群を出してしまい、
+    // グロッキーの 20 秒に味方の EX が湧きたての召喚物へ吸われて本体に入らなかった
+    R.q.drain(t3, 200000);
     // **HP のしきい値はダメージが入った瞬間に効く**（`HPUnder → ChangePhase`）
     if (bst && bst.check) { bst.check(t3); }
     // 条件つき常時（`Event: 301`）の入り切り。フェーズが動いたあとに見る
@@ -2717,6 +2933,7 @@ export function run(o) {
     }
     tickCost(b, step);
     hp.push([t3 / 1000, bossHp()]);
+    if (t3 % 1000 === 0) { ahp.push([t3 / 1000].concat(allies.map(function (a9) { return Math.round(a9.hp); }))); }
     if (bossHp() <= 0) { break; }
     // **全滅したらそこで終わり**
     if (!living(b, 'ally').length) { break; }
@@ -2746,7 +2963,8 @@ export function run(o) {
     sectionEnd: sec,
     bossPos: bossU.pos ? [bossU.pos.x, bossU.pos.y] : null,
     moveLog: moveLog.slice(0, 80),
-    evLog: evLog,
+    evLog: evLog.slice().sort(function (e1, e2) { return e1[0] - e2[0]; }),
+    allyHpS: ahp,
     coverPts: cpts.map(function (c9) { return [c9.box.name, Math.round(c9.x * 10) / 10, Math.round(c9.y * 10) / 10, c9.box.dead ? 'x' : (c9.used || '-')]; }),
     cover: allies.map(function (a9) { return [a9.key, a9.cover ? [Math.round(a9.cover.x * 100) / 100, Math.round(a9.cover.y * 100) / 100, a9.cover.box.name] : null]; }),
     coverDmg: Math.round(R.coverDmg || 0), coverLog: coverLog, castLog: R.castLog,

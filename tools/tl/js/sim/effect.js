@@ -260,7 +260,9 @@ export function readOne(r) {
     o.max = r.MaxGaugeValue || 0;
     return o;
   }
-  if (t === 'Knockback') { o.kind = 'knock'; return o; }
+  // **押し戻し**（`KnockbackEffectDAO`）。`MoveDistance` は 1/100 単位、`MoveDuration` ms、
+  // `KnockbackDirection` 1 は「撃った体から離れる向き」と読む（ケセドの召喚 EX が円の中の生徒に 2 u。2026-09-08）
+  if (t === 'Knockback') { o.kind = 'knock'; o.dist = r.MoveDistance || 0; o.dir = r.KnockbackDirection; o.ms = r.MoveDuration || 0; return o; }
   if (t === 'ResetAutoUseRule') { o.kind = 'nsReset'; return o; }
   if (t === 'WriteEntityToBlackboard') { o.kind = 'bbWrite'; o.bb = r.BlackboardKey || null; return o; }
   // **グロッキーゲージ。**欄が 3 つある。`Amount` はそのまま、

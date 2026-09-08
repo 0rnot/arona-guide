@@ -98,6 +98,10 @@ export function selOf(ecr, sort) {
            apply: ecr.ApplyEntityType != null ? ecr.ApplyEntityType : null,
            sort: s ? (s.SortCriteria || null) : null,
            order: s ? (s.OrderBy || null) : null,
+           stat: s ? (s.SortStat || 0) : 0,                 // `SortCriteria: Stat` の番号
+           param: s ? (s.SortParameter || null) : null,     // `LogicEffectTemplateCount` の札の名
+           reidx: s ? (s.Reindexing || 0) : 0,              // 並べたあと先頭をずらす数
+           random: s ? !!s.RandomTargetSelect : false,
            dup: s ? !!s.AllowDuplicate : false };
 }
 
