@@ -2563,11 +2563,31 @@ export function run(o) {
         && String(bst.phase) === tag.slice(3);
     }
     if (tag === 'Area' || tag.indexOf('Area:') === 0) {
-      if (walkGoal != null) { return false; }
-      if (tag === 'Area' || !org) { return true; }
-      // 隊列の原点がその区画（奥行きの半分＋少し）に居るか
-      var pa = tag.split(':'), za = parseFloat(pa[1]), ha = parseFloat(pa[2]) || 1;
-      return Math.abs(org.Position.y - za) <= ha / 2 + 0.6;
+      if (tag === 'Area' || !org) { return walkGoal == null; }
+      // **区画に居るか。歩いている間も見る**（2026-09-08）。ここが「着いてから」だったので、
+      // ホドの節 1 は z 30.69 の区画まで歩く途中の z 22.63 を素通りしていて、
+      // その区画で撃つ `HODGroundEx01` が一度も出ず、本体が最後まで狙えなかった
+      // （討伐 95.6 秒 → 討伐せず・残り 96.6%）。DB は「区画の中に居るか」しか言っていない
+      var pa = tag.split(':');
+      var ax = parseFloat(pa[1]), az = parseFloat(pa[2]), shp = parseFloat(pa[3]);
+      var aw = parseFloat(pa[4]), ah = parseFloat(pa[5]);
+      var fdx = parseFloat(pa[6]), fdy = parseFloat(pa[7]), ar = parseFloat(pa[8]);
+      // **置いていない欄は数える**（`Target` は誰を見るか、`Trigger` 1 は `StayTime` 秒とどまったら）
+      if (parseFloat(pa[9])) { R.miss['area:Target:' + pa[9]] = (R.miss['area:Target:' + pa[9]] || 0) + 1; }
+      if (parseFloat(pa[10])) { R.miss['area:Trigger:' + pa[10]] = (R.miss['area:Trigger:' + pa[10]] || 0) + 1; }
+      // **見るのは奥行き（z）だけ。**幅は `Shape` の形から取る（円なら半径、四角なら奥行きの半分）。
+      // **x を見ない理由**（2026-09-08。確かめた事実として残す）: ホドの節 1 の区画は
+      // x −1.54 / −11.33、湧き点は x −21.11〜−15.09 なのに、隊列の原点は x 1.88 で
+      // **味方と敵の x が 20 以上離れている。**盤の x と味方の x が同じ枠に無い。
+      // z は噛み合っている（`walkTo` 30.69 ＝ 仮設タワーの湧き点 30.695、味方は 30.6 まで歩く）ので、
+      // **確かめられる軸だけで見る。**x の食い違いは `R.miss['area:x?']` に数える
+      var half9 = shp === 0 ? ah / 2 : ar;
+      var dz9 = Math.abs(org.Position.y - az);
+      var inZ9 = dz9 <= half9;
+      if (inZ9 && Math.abs(org.Position.x - ax) > (shp === 0 ? aw / 2 : ar)) {
+        R.miss['area:x?'] = (R.miss['area:x?'] || 0) + 1;
+      }
+      return inZ9;
     }
     return false;
   }

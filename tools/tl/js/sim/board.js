@@ -33,12 +33,19 @@ function tagsOf(ev) {
     else if (t === 'CharactersDead' && c.ConditionID) {
       out.push('CharactersDead:' + c.ConditionID);
     }
-    // **区画は場所つき**（`Area:<z>:<奥行き>`。2026-09-08）。ケセドの節 2 は z 54 の区画で暗転して飛び、
-    // z 125 の区画に入って 1.55 秒で本体の節が始まる。場所を見ないと、54 に着いた刻に 125 の札まで立つ
+    // **区画は形ごとそのまま持つ**（`Area:<x>:<z>:<形>:<幅>:<奥行き>:<向き x>:<向き y>:<半径>`。2026-09-08）。
+    // `Shape` は **0 = 四角（`Rect`）／ 1 = 円（`Circle`）**——束 700 面の 4,269 個を数えると
+    // `Shape 0` は 3,399 個すべてに幅も奥行きもあり、`Shape 1` の 870 個はすべて半径がある。
+    // 場所を見ないと、ケセドの節 2 で z 54 の区画に着いた刻に z 125 の札まで立つ。
+    // **`Target` / `Trigger` / `StayTime` は置いていない**（0 以外は `R.miss['area:*']` に数える）
     else if (t === 'Area' && c.Position) {
       var za = c.Position.z != null ? c.Position.z : c.Position.y;
-      var ha = (c.Rect && c.Rect.Height) || (c.Circle && c.Circle.Radius * 2) || 1;
-      out.push('Area:' + za + ':' + ha);
+      var rc = c.Rect || {}, dr = rc.Direction || {};
+      out.push('Area:' + c.Position.x + ':' + za + ':' + (c.Shape || 0)
+               + ':' + (rc.Width || 0) + ':' + (rc.Height || 0)
+               + ':' + (dr.x || 0) + ':' + (dr.y || 0)
+               + ':' + ((c.Circle && c.Circle.Radius) || 0)
+               + ':' + (c.Target || 0) + ':' + (c.Trigger || 0) + ':' + (c.StayTime || 0));
     }
     else { out.push(t); }
   }
