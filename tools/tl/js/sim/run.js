@@ -2880,6 +2880,23 @@ export function run(o) {
     return out;
   }
 
+  /** 湧き点の命令 id で**座標**を引く。`unitsByCmd` と違って**体を持たない点も見る。**
+      ヒエロニムスの `1phase_HieronymusSkill11` / `13` は `SpawnTemplateId` の無い点で、
+      盤の技（`GroundCommandUseSkill`）の `CommandID` が「撃つ位置」としてここを指す */
+  function pointPos(cmd) {
+    var s4, z4;
+    if (!cmd) { return null; }
+    for (s4 = 0; bd && s4 < bd.sections.length; s4++) {
+      var pts4 = bd.sections[s4].points || [];
+      for (z4 = 0; z4 < pts4.length; z4++) {
+        if ((pts4[z4].cmds || []).indexOf(cmd) >= 0 && pts4[z4].pos) {
+          return { x: +pts4[z4].pos.x || 0, y: +pts4[z4].pos.y || 0 };
+        }
+      }
+    }
+    return null;
+  }
+
   /** 盤が状態を付け外しする（`GroundCommandSetStatus`）。外すときは
       その状態の札を全部落とす（ホドの `Untargetable` は `IsDispellable` が無い札） */
   function setStatus(u2, status, add, at) {
@@ -2899,9 +2916,13 @@ export function run(o) {
   }
 
   /** 盤が撃つ技（`GroundCommandUseSkill`）。撃つのは盤に立たない地面の体で、
-      狙う先は命令 id で名指しされた体（`force`） */
+      狙う先は命令 id で名指しされた体（`force`）。
+
+      **`TargetCharacterCommandId` が空のときは名指しが無い**＝技の側の候補規則で決める。
+      そのとき `CommandID` は体ではなく**湧き点の位置**を指していて、`pos` がそれ。
+      `SpawnPositionType: InputPosition` の実体はその座標に置く（2026-09-09） */
   var groundU = null;
-  function castGround(gid, targets, at) {
+  function castGround(gid, targets, at, pos) {
     if (!boss.ls || !boss.ls[gid]) { R.miss['ground:' + gid] = (R.miss['ground:' + gid] || 0) + 1; return; }
     if (!groundU) {
       groundU = makeUnit({ key: 'ground', side: 'enemy', charId: 18001002, dev: 'Ground', kind: 'Ground',
@@ -2910,7 +2931,8 @@ export function run(o) {
     }
     R.q.push(at, function (now) {
       if (R.secLog) { R.secLog.push([Math.round(now / 100) / 10, 'ground', gid]); }
-      cast(R, groundU, gid, 'Ex', 1, now, { force: targets });
+      if (pos) { groundU.pos = { x: pos.x, y: pos.y }; groundU._inputPos = { x: pos.x, y: pos.y }; }
+      cast(R, groundU, gid, 'Ex', 1, now, targets ? { force: targets } : null);
     });
   }
 
@@ -2988,9 +3010,18 @@ export function run(o) {
       for (w12 = 0; w12 < gl2[z12].tags.length; w12++) { if (!tagOk(gl2[z12].tags[w12])) { ok12 = false; } }
       if (!ok12) { continue; }
       gl2[z12].done = 1;
-      var tg12 = unitsByCmd(gl2[z12].to || []);
-      if (tg12.length) { castGround(gl2[z12].gid, tg12, t7 + (gl2[z12].delay || 0)); }
-      else { R.miss['ground:的なし:' + gl2[z12].gid] = (R.miss['ground:的なし:' + gl2[z12].gid] || 0) + 1; }
+      var to12 = gl2[z12].to || [], at12 = t7 + (gl2[z12].delay || 0);
+      if (to12.length) {
+        var tg12 = unitsByCmd(to12);
+        if (tg12.length) { castGround(gl2[z12].gid, tg12, at12, pointPos(gl2[z12].cmd)); }
+        else { R.miss['ground:的なし:' + gl2[z12].gid] = (R.miss['ground:的なし:' + gl2[z12].gid] || 0) + 1; }
+      } else {
+        // 名指しが無い ＝ 技の候補規則で決める。**撃つ位置が盤から引けたときだけ撃つ**
+        // （引けないと `InputPosition` の実体を置く場所が無い）
+        var pp12 = pointPos(gl2[z12].cmd);
+        if (pp12) { castGround(gl2[z12].gid, null, at12, pp12); }
+        else { R.miss['ground:位置なし:' + gl2[z12].gid] = (R.miss['ground:位置なし:' + gl2[z12].gid] || 0) + 1; }
+      }
     }
     // ---- 次の節へ移る合図。節の側と `Global` の両方を見る
     if (secWait < 0) {
@@ -3046,16 +3077,20 @@ export function run(o) {
       `OffsetDirectionType` Invoker なら呼んだ体の向きで回す（前 = 向き、右 = (fy, −fx)。
       `board.js` の箱と同じ約束）。知らない種類は足元に置いて `R.miss` に数える */
   function summonPos(by, sv) {
-    if (!by || !by.pos) { return null; }
+    // **`InputPosition` は「撃つときに指した場所」。**盤の技はそれが `CommandID` の
+    // 湧き点で、`castGround` が `_inputPos` に入れてある（2026-09-09）
+    var ip = sv && sv.spos === 'InputPosition' ? (by && by._inputPos) : null;
+    var base = ip || (by && by.pos);
+    if (!base) { return null; }
     var o = (sv && sv.off) || { x: 0, y: 0 }, f = facingOf(by);
-    if (sv && sv.spos && sv.spos !== 'Invoker') {
+    if (sv && sv.spos && sv.spos !== 'Invoker' && !ip) {
       R.miss['spos:' + sv.spos] = (R.miss['spos:' + sv.spos] || 0) + 1;
     }
     if (sv && sv.odir && sv.odir !== 'Invoker') {
       R.miss['odir:' + sv.odir] = (R.miss['odir:' + sv.odir] || 0) + 1;
-      return { x: by.pos.x + o.x, y: by.pos.y + o.y };
+      return { x: base.x + o.x, y: base.y + o.y };
     }
-    return { x: by.pos.x + o.x * f.y + o.y * f.x, y: by.pos.y + o.x * (-f.x) + o.y * f.y };
+    return { x: base.x + o.x * f.y + o.y * f.x, y: base.y + o.x * (-f.x) + o.y * f.y };
   }
   R.summon = function (name, at, by, sv) {
     var dev = R.devFix[name];

@@ -484,13 +484,26 @@ export function summonsOf(doc) {
       if (ez && ez.name === mn) { skip = doc.MainEntityData; break; }
     }
   }
+  function push(e, f) {
+    var po = e.PositionOffset || {};
+    out.push({ f: f || 0, name: e.UniqueName, dur: e.Duration || 0,
+               off: { x: +po.x || 0, y: +po.y || 0 },
+               odir: e.OffsetDirectionType || 'Invoker', spos: e.SpawnPositionType || 'Invoker' });
+  }
   function walk(o, delay) {
     if (!o || typeof o !== 'object' || o === skip) { return; }
     if (Array.isArray(o)) {
       for (var q = 0; q < o.length; q++) { walk(o[q], delay); }
       return;
     }
-    var d2 = o.SpawnDelay != null ? o.SpawnDelay : delay;
+    // **`EntityTimeline` の 1 行は `Frame` に湧く**（`SpawnDelay` はその中の実体の側）
+    var d2 = o.SpawnDelay != null ? o.SpawnDelay
+           : (o.Frame != null && o.Entity ? o.Frame : delay);
+    // **`SummonGroups` の外で呼ぶ体**（2026-09-09。ここが無いと
+    // ヒエロニムスの壺（`MainEntityData` の `CharacterEntityDAO`）が一度も湧かない）
+    if (o.UniqueName && String(o.$type || '').indexOf('CharacterEntityDAO') >= 0) {
+      push(o, d2);
+    }
     var gs = o.SummonGroups;
     if (Array.isArray(gs)) {
       for (var i = 0; i < gs.length; i++) {
@@ -502,10 +515,7 @@ export function summonsOf(doc) {
             // `PositionOffset`（`OffsetDirectionType` Invoker ＝ 呼んだ体の向きで回す）。
             // ケセドの雑魚は本体の 1〜6 先（味方側）に並ぶので、本体より近い＝先に狙われる
             // （2026-09-07。本体の足元に重ねていて、味方が 0.1 倍の本体を殴り続けていた）
-            var po = e.PositionOffset || {};
-            out.push({ f: d2 || 0, name: e.UniqueName, dur: e.Duration || 0,
-                       off: { x: +po.x || 0, y: +po.y || 0 },
-                       odir: e.OffsetDirectionType || 'Invoker', spos: e.SpawnPositionType || 'Invoker' });
+            push(e, d2);
           }
         }
       }
