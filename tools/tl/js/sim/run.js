@@ -387,7 +387,19 @@ function fire(R, ev, caster, target, lvl, at, mc) {
   // `FormIndex` が新しい形態の番号で、`CharacterSkillListExcelTable` の
   // `FormIndex` の行に切り替わる。終わり方は `FormConversionEndCondition`——
   // **1 が時間**（`EndConditionArgument` ミリ秒。`-1` は戻らない）で 303 行中 218 行。
-  // 2（リロード）・3（装弾数）・5（EX の回数）はまだ置いていない（戻らない扱い）
+  //
+  // **2（リロード）・3（装弾数）・5（EX の回数）も数える**（2026-09-08。それまでは
+  // 「戻らない」扱いだった）。束ぜんぶで 61 行しか無く、持ち主は 7 人に決まっている:
+  //
+  //   2 リロード   Tsurugi_default（1 と 2）・CH0201（1）・CH0369（1）
+  //   3 装弾数     CH0092（100）
+  //   5 EX の回数  CH0187（3）・CH0285（1）・CH0356（1）
+  //
+  // 数え始めるのは札が貼られた瞬間で、`EndConditionArgument` に達したらその札を切る
+  // （`m.until = now` → `expire` → `syncForm`）。**3 は「消費した弾数」と読む**——
+  // CH0092 は `AmmoCount` 50・`AmmoCost` 5（1 弾倉 10 発）で、100 は 2 弾倉ぶん。
+  // 発数と読むと 10 弾倉（100 発）になって、変身が戦闘の終わりまで続く。
+  // `AddCurrentAmmo` で弾をもらう行はこの生徒には無い（束を数えた）
   if (r.kind === 'form') {
     if (target.side === 'ally' && R.syncForm) {
       var pp = R.partyOf(target);
@@ -405,6 +417,11 @@ function fire(R, ev, caster, target, lvl, at, mc) {
         R.syncForm(target, at, false);
         if (rf.dur != null) {
           R.q.push(at + rf.dur, function (now) { R.syncForm(target, now, false); });
+        }
+        // 回数で終わる形態（2 / 3 / 5）。貼った札を控えて、数え終わったら切る
+        if ((r.endKind === 2 || r.endKind === 3 || r.endKind === 5) &&
+            r.endArg != null && r.endArg > 0 && R.formEndWatch) {
+          R.formEndWatch(target, rf.gid, r.endKind, r.endArg, at);
         }
       }
     }
@@ -1739,7 +1756,14 @@ export function run(o) {
             }
           }
           au._fireSS(now, 'attack');
-          if ((shot + 1) % na.mag === 0) { au._fireSS(now, 'reload'); }
+          // 形態の終わり方が「装弾数」なら 1 発ぶんの `AmmoCost` を引く
+          if (R.formEndTick) {
+            R.formEndTick(au, 'ammo', now, (p.stats || {}).AmmoCost || 1);
+          }
+          if ((shot + 1) % na.mag === 0) {
+            au._fireSS(now, 'reload');
+            if (R.formEndTick) { R.formEndTick(au, 'reload', now, 1); }
+          }
         }
         shot++;
         var nx = now + na.per;
@@ -1842,6 +1866,42 @@ export function run(o) {
     }
     u.form = want;
     setupAlly(u, pp, now);
+  };
+
+  /** **回数で終わる形態を控える**（`FormConversionEndCondition` 2 / 3 / 5。2026-09-08）。
+      貼った札そのものを持っておいて、`formEndTick` が数え終わったら `until` を今にして切る。
+      札が別の道（解除・押し出し）で先に消えていたら、控えも捨てる */
+  R.formEndWatch = function (u, gid2, kind, need, at2) {
+    var z, m;
+    for (z = u.eff.length - 1; z >= 0; z--) {
+      m = u.eff[z];
+      if (m.kind === 'form' && m.gid === gid2) {
+        (u._formEnd || (u._formEnd = [])).push({ m: m, kind: kind, left: need, at: at2 });
+        return;
+      }
+    }
+  };
+
+  /** 数える。`what` は `'reload'`（リロード 1 回）・`'ammo'`（消費した弾数 `amt`）・
+      `'ex'`（EX を 1 回）。**弾数はリロードの回数とは別勘定**（3 は消費した弾で、
+      2 は弾倉を入れ替えた回数） */
+  R.formEndTick = function (u, what, now, amt) {
+    var fe = u._formEnd, z, e, cut = false;
+    if (!fe || !fe.length) { return; }
+    for (z = fe.length - 1; z >= 0; z--) {
+      e = fe[z];
+      if (u.eff.indexOf(e.m) < 0) { fe.splice(z, 1); continue; }
+      if (!((e.kind === 2 && what === 'reload') || (e.kind === 3 && what === 'ammo') ||
+            (e.kind === 5 && what === 'ex'))) { continue; }
+      // **変身させた当の一発は数えない。**札を貼ったのと同じ刻みは飛ばす
+      if (e.at != null && now <= e.at + 1e-6) { continue; }
+      e.left -= (amt == null ? 1 : amt);
+      if (e.left > 0) { continue; }
+      e.m.until = now;
+      fe.splice(z, 1);
+      cut = true;
+    }
+    if (cut) { expire(u, now); R.syncForm(u, now, false); }
   };
 
   for (i = 0; i < allies.length; i++) {
@@ -1953,6 +2013,9 @@ export function run(o) {
         if (!gid) { return; }
         cast(R, au, gid, 'Ex', (party[row.i].skillLv || {}).Ex || 1, now,
              { mc: row.mc, to: row.to });
+        // 形態の終わり方が「EX の回数」なら 1 回ぶん引く。**変身させた EX そのものは
+        // 数えない**（札はこの `cast` の中で貼られるので、控えるのはこの行より後）
+        if (R.formEndTick) { R.formEndTick(au, 'ex', now, 1); }
       };
       R.q.push(row.at * 1000, fireEx);
     })(o.tl[i]);
