@@ -225,9 +225,26 @@ export function ssTrig(doc) {
     `DamagedRatio −9000` を自分に掛けて、**素の 19000（0.1 倍）が 10000（1.0 倍）に戻る。**
     これを置くまでケセドは 240 秒ずっと 0.1 倍で、残り 96% で終わっていた。
 
-    まだ置けないもの: `18`（その札が付いたとき。`Parameters` が札の名前、41 群）・
-    `22`（7 群）・`23`（`Parameters` が `CrowdControl`、10 群）・`25`（7 群）・
-    `31`（`Parameters` が別の体の名前＝「その体が死んだら」、54 群）。 */
+    **`18` は「その札が自分に付いたとき」**（2026-09-08 に足した）。`Parameters` が
+    札の `LogicEffectTemplateId` で、`LevelSkill/` を数えると 112 本ある。中身は揃っていて、
+    **`TriggerSourceFindRule.EssentialCandidate.TargetSide` が `Self` 108 本・
+    `Ally` 2 本・`Ally_Except_Self` 2 本／`ConditionExpression` が付くのは 1 本だけ／
+    `MaxTriggerCount` は −1 が 96 本・1 が 14 本・4 が 1 本・0 が 1 本。**
+    置くのは `Self` の 108 本だけで、`Ally` 系 4 本は「誰に付いたか」を配る先が
+    別の体なので置かない（今までどおり `R.miss['psEv:18']` に数える）。
+    ホドの `HODGuardTower_*Passive01` / `HODTemporaryTowerExtraPassive01`〜`06` が
+    これで動く。`R.onApply` から `R.fireApplied` を呼ぶ。
+
+    まだ置けないもの: `22`（16 本）・`23`（`Parameters` が `CrowdControl`、19 本）・
+    `25`（30 本）・`31`（19 本）。**`31` の `Parameters` も札の名前**で、
+    `Buff_Shield` / `Debuff_DamageOverTime_Chill` / `EN0011_isGroggyDummy` /
+    `EN0010_PhaseChange_Dummy` のように 18 と同じ形をしている（「別の体の名前＝
+    その体が死んだら」と書いてあったのは読み違い。2026-09-08 に数え直した）。
+    **18 と 31 のどちらが「付いたとき」でどちらが「消えたとき」かは、
+    束から決められなかった**——両方に出る札は `Debuff_DamageOverTime_Chill` 1 つだけで、
+    その 2 本（`Enemy_Damage_AddLogicEffectTemplate_Chill_PassiveSkill01` と
+    `844Challenge01BehemothPanPanPassive03`）を読んでも向きが決まらない。
+    18 の読みは記録に残っていたものをそのまま採り、31 は置かない。 */
 function psTrig(doc) {
   var t = doc && doc.TriggerCondition;
   // 引き金の欄そのものが無い札は常時（雑魚の素の札にある）
@@ -236,6 +253,13 @@ function psTrig(doc) {
   if (ev === 1) { return ex ? { when: 'cond', expr: ex } : { when: 'always', expr: '' }; }
   if (ev === 301) { return { when: 'cond', expr: ex }; }
   if (ev === 14) { return { when: 'dead', expr: ex }; }
+  if (ev === 18) {
+    var side18 = ((doc.TriggerSourceFindRule || {}).EssentialCandidate || {}).TargetSide;
+    var tm18 = String(t.Parameters || '');
+    if (side18 !== 'Self' || !tm18) { return null; }
+    return { when: 'applied', tmpl: tm18, expr: ex,
+             max: doc.MaxTriggerCount == null ? -1 : +doc.MaxTriggerCount };
+  }
   if (ev === 105) {
     return { when: 'every', ms: (+t.Parameters || 0) / FPS * 1000, expr: ex };
   }
@@ -2087,6 +2111,7 @@ export function run(o) {
       if (condP[z].u === mu) { condP.splice(z, 1); }
     }
     mu.onDead = [];
+    mu.onApplied = {};
     for (z = 0; z < slots.length; z++) {
       v = cr[slots[z][0]];
       v = Array.isArray(v) ? v : (v ? [v] : []);
@@ -2104,6 +2129,9 @@ export function run(o) {
           condP.push({ u: mu, gid: g, slot: slots[z][1], tr: tr, on: false });
         } else if (tr.when === 'dead') {
           mu.onDead.push([g, slots[z][1]]);
+        } else if (tr.when === 'applied') {
+          (mu.onApplied[tr.tmpl] = mu.onApplied[tr.tmpl] || [])
+            .push({ gid: g, slot: slots[z][1], tr: tr, n: 0 });
         } else if (tr.when === 'every' && tr.ms > 0) {
           (function (mu2, g2, sl2, ms) {
             var step2 = function (now) {
@@ -2154,10 +2182,39 @@ export function run(o) {
       castPassives(u2, at, fi);
     }
   };
-  // **札が貼られた合図をボスの木へ**（`ApplyLogicEffectTemplateId`）
+  // **札が貼られた合図をボスの木へ**（`ApplyLogicEffectTemplateId`）と、
+  // **その札が付いたら撃つ常時札へ**（`TriggerCondition.Event 18`。`psTrig` の注記）
   R.onApply = function (tg2, tmpl, at, castId) {
     if (bst && bst.onTemplate && tmpl) { bst.onTemplate(String(tmpl), at, castId); }
+    if (tmpl) { fireApplied(tg2, String(tmpl), at); }
   };
+  /** `Event 18` の見張り。**貼られた体の上の、その札の名前の見張りだけ撃つ。**
+      撃った札がまた札を貼るので、`_ap18` で入れ子を 1 段に止める
+      （止めないとホドの仮設タワーが自分の札で自分を呼び続ける） */
+  var ap18 = 0;
+  function fireApplied(u2, tmpl, at) {
+    if (!u2 || !u2.onApplied || ap18) { return; }
+    var ws = u2.onApplied[tmpl];
+    if (!ws || !ws.length) { return; }
+    ap18 = 1;
+    try {
+      for (var z8 = 0; z8 < ws.length; z8++) {
+        var w8 = ws[z8];
+        // `MaxTriggerCount` は −1 と 0 が「何度でも」
+        if (w8.tr.max > 0 && w8.n >= w8.tr.max) { continue; }
+        if (w8.tr.expr) {
+          var v8 = condExpr(w8.tr.expr, R.ctx, u2);
+          if (v8 == null) {
+            R.miss['psExpr:' + w8.tr.expr] = (R.miss['psExpr:' + w8.tr.expr] || 0) + 1;
+            continue;
+          }
+          if (!v8) { continue; }
+        }
+        w8.n++;
+        cast(R, u2, w8.gid, w8.slot, 1, at);
+      }
+    } finally { ap18 = 0; }
+  }
   R.ctx.ggRate = function (u2) {
     if (!u2) { return 0; }
     var need = (u2.base && u2.base.GroggyGauge) || 0;
