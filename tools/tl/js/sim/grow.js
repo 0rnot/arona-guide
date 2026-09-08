@@ -139,6 +139,7 @@ var LEVELED = [
       wstar  固有武器の星（1〜5）。★ごとの追加ステータスがここで開く
       gear   愛用品の段（`true` は「持っている全部の段」＝ 最大。`0`/`false` で無し）
       bond   絆。`MaxFavorLevel[star-1]` で頭打ち
+      bondAlt 同じ人物の別バージョンの絆。`pack.alts` の順。頭打ちは 50 だけ
       pot    潜在 `{MaxHP, AttackPower, HealPower}` の段（0〜25）。**既定は 0**
 
     返すのは平べったい `{統計名: 数}`。`run.js` の `party[i].stats` はこの形。 */
@@ -244,6 +245,26 @@ export function grow(pack, common, o) {
     if ((fv[i].FavorLevel || 0) > bond) { continue; }
     for (k = 0; k < (fv[i].StatType || []).length; k++) {
       add(acc, fv[i].StatType[k], (fv[i].StatValue || [])[k] || 0);
+    }
+  }
+
+  // ---- **同じ人物の別バージョンの絆も足す**（2026-09-08）。
+  // SchaleDB `js/common.js` 8054 行が `FavorAlts[i-1]` の `getBondStats(alt, bond[i])` を
+  // そのまま `addBuff` している。**星による頭打ちは本人ぶんだけ**で、別バージョンには掛からない。
+  // TL の「絆40-バ19-通20」がこの 3 つ。**組分けだけは `DB/` にも `Excel/` にも無い**ので、
+  // `pack.alts` / `pack.favorAlt` は `students.json` の `FavorAlts` から積んである
+  // （`scripts/build-tl-db.py:favor_alts`）。書いていなければ 1 ＝ 加算 0
+  var alts = pack.alts || [], fa = pack.favorAlt || {}, ab = o.bondAlt || [];
+  for (var ai = 0; ai < alts.length; ai++) {
+    var abv = Math.min(ab[ai] == null ? 1 : ab[ai], 50);
+    if (abv <= 1) { continue; }
+    var far = fa[String(alts[ai])] || [];
+    if (!far.length) { gaps.push('favorAlt'); continue; }
+    for (i = 0; i < far.length; i++) {
+      if ((far[i].FavorLevel || 0) > abv) { continue; }
+      for (k = 0; k < (far[i].StatType || []).length; k++) {
+        add(acc, far[i].StatType[k], (far[i].StatValue || [])[k] || 0);
+      }
     }
   }
 

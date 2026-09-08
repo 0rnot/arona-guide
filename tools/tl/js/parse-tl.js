@@ -128,7 +128,18 @@ export function parseTL(txt) {
     mm = rest.match(/(?:NS|ノーマル)\s*(\d+)/i); if (mm) { b.sk = +mm[1]; }
     mm = rest.match(/(?:PS|パッシブ)\s*(\d+)/i); if (mm) { b.plv = +mm[1]; }
     mm = rest.match(/(?:SS|サブ)\s*(\d+)/i); if (mm) { b.sslv = +mm[1]; }
-    mm = rest.match(/(?:絆|Bond)\s*(\d+)/i); if (mm) { b.bond = +mm[1]; }
+    // **絆は 2 つ目から「同じ人物の別バージョン」が並ぶ**（2026-09-08）。
+    // 「絆40-バ19-通20」「絆16-通常20-臨戦15」「絆23-20-20」。
+    // 別バージョンの絆ぶんは本人のステータスに**足される**（`sim/grow.js` の注を見る）。
+    // 並びは `students.json` の `FavorAlts` の順に当てる。**札（「バ」「通常」）は読まない**ので、
+    // 書き手が入れ替えて書いていると 2 人ぶんが入れ替わる（差は攻撃で数十、合計は変わらない）
+    var DASH = '-\uff0d\u30fc\u2010\u2212\u2013';
+    mm = rest.match(new RegExp('(?:\u7d46|Bond)\\s*(\\d+)((?:\\s*[' + DASH + ']\\s*[^\\s\\d' + DASH +
+                               ']{0,4}\\s*\\d+)+)?', 'i'));
+    if (mm) {
+      b.bond = +mm[1];
+      if (mm[2]) { b.bondAlt = (mm[2].match(/\d+/g) || []).map(Number); }
+    }
     // 潜在能力。**クラウさんの概要欄は「WB」と書く**（「全WB25」「攻撃/治癒WB25」
     // 「HP/治癒WB25」）。「潜在25」「限界突破25」も同じものとして読む
     // **書いていないときは 25（上限）**。TL を出す人の生徒はまず開けきっていて、

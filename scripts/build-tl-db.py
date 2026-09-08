@@ -31,6 +31,7 @@
 無ければ ba-data から取る。
 """
 import gzip
+import io
 import json
 import os
 import pathlib
@@ -46,6 +47,7 @@ BADB = "https://raw.githubusercontent.com/electricgoat/ba-data/jp/DB/{}.json"
 BAEX = "https://raw.githubusercontent.com/electricgoat/ba-data/jp/Excel/{}.json"
 BABT = "https://raw.githubusercontent.com/electricgoat/ba-data/jp/Battle/{}.json"
 BAST = "https://raw.githubusercontent.com/electricgoat/ba-data/jp/Stage/{}.json"
+SDST = "https://schaledb.com/data/jp/students.json"
 
 # **画面の飾りだけの欄は落とす。**戦闘の中身に効くものは 1 つも落とさない
 # （落としてよいと言い切れるものだけをここに並べる。迷ったら残す）
@@ -58,6 +60,19 @@ SKILL_KEYS = ("ExSkillGroupId", "PublicSkillGroupId", "NormalSkillGroupId",
               "PassiveSkillGroupId", "ExtraPassiveSkillGroupId",
               "HiddenPassiveSkillGroupId", "WeaponPassiveSkillGroupId",
               "LeaderSkillGroupId")
+
+
+def gz9(raw):
+    """**時刻を埋めずに** gzip する。
+
+    `gzip.compress` は作った時刻をヘッダに入れるので、中身が 1 バイトも変わって
+    いなくてもファイルが毎回ちがうものになる。焼き直すたびに 593 個ぜんぶが
+    「変更あり」になって git に 2.5MB 積む（2026-09-08 に気づいた）。`mtime=0` で止める。
+    """
+    buf = io.BytesIO()
+    with gzip.GzipFile(fileobj=buf, mode="wb", compresslevel=9, mtime=0) as f:
+        f.write(raw)
+    return buf.getvalue()
 
 
 def _get(url):
@@ -80,6 +95,22 @@ def db(table):
             return d["DataList"] if isinstance(d, dict) and "DataList" in d else d
     d = _get(BADB.format(table))
     return d["DataList"] if isinstance(d, dict) and "DataList" in d else d
+
+
+def favor_alts():
+    """**同じ人物の別バージョンの id。**`{id: [alt id, ...]}`
+
+    絆のステータスぶんは、その生徒自身のぶんに加えて**別バージョンのぶんも足される**
+    （SchaleDB `js/common.js` 8054 行、`support.bond[i]` を `FavorAlts[i-1]` の
+    `getBondStats` に渡して `addBuff` している）。TL の「絆40-バ19-通20」は
+    その 3 つを並べた書き方。**この組分けだけは `DB/` にも `Excel/` にも無い**ので、
+    SchaleDB の `students.json` の `FavorAlts` を引く。
+    """
+    p = MIRROR / "sd" / "students.json"
+    d = _read_json(p) if p.exists() else _get(SDST)
+    rows = d.values() if isinstance(d, dict) else d
+    return {int(r["Id"]): [int(x) for x in (r.get("FavorAlts") or [])]
+            for r in rows if r.get("Id")}
 
 
 def ex(table):
@@ -314,7 +345,7 @@ def build_common(out_dir):
         "eqstat": [strip(r) for r in db("EquipmentStatExcelTable")],
     }
     raw = json.dumps(pack, ensure_ascii=False, separators=(",", ":")).encode()
-    gz = gzip.compress(raw, 9)
+    gz = gz9(raw)
     with open(out_dir / "common.json.gz", "wb") as f:
         f.write(gz)
     return len(raw), len(gz)
@@ -460,7 +491,7 @@ def build_bosses(out_dir, chars, st_by, le_npc_by, le_pc_by, sk_by, want):
                         # 束に入らず、波は何も湧かないまま本体だけを 0 秒から殴っていた
                         tids = [((sp.get("SpawnData") or {}).get("SpawnTemplateId") or "")]
                         for sl in (sp.get("SpawnList") or []):
-                            tids.append(((sl.get("SpawnData") or {}).get("SpawnTemplateId") or ""))
+                            tids.append((sl.get("SpawnData") or {}).get("SpawnTemplateId") or "")
                         for tid in tids:
                             if not tid:
                                 continue
@@ -514,7 +545,7 @@ def build_bosses(out_dir, chars, st_by, le_npc_by, le_pc_by, sk_by, want):
             "st": [strip(st_by[c["Id"]]) for c in ents.values() if c["Id"] in st_by],
         }
         raw = json.dumps(pack, ensure_ascii=False, separators=(",", ":")).encode()
-        gz = gzip.compress(raw, 9)
+        gz = gz9(raw)
         with open(out_dir / "boss" / f"{key}.json.gz", "wb") as f:
             f.write(gz)
         # **索引は「どの面か」を引ける形にする**（2026-09-06）。画面は
@@ -608,6 +639,7 @@ def main(argv):
     for r in db("FavorLevelRewardExcelTable"):
         fav_by.setdefault(str(r.get("CharacterId")), []).append(r)
     ai_by = {r.get("Id"): r for r in db("CharacterAIExcelTable")}
+    alt_by = favor_alts()
 
     dev = {str(c.get("Id")): c.get("DevName") for c in chars if c.get("Id")}
     csl_by = {}
@@ -651,9 +683,13 @@ def main(argv):
                           for r in (potst_by.get(p.get("PotentialStatGroupId")) or [])],
                 "gear": [strip(r) for r in (gear_by.get(sid) or [])],
                 "wp": [strip(r) for r in (wp_by.get(sid) or [])],
-                "favor": [strip(r) for r in (fav_by.get(sid) or [])]}
+                "favor": [strip(r) for r in (fav_by.get(sid) or [])],
+                # **別バージョンの絆。**本人のぶんに足される（`favor_alts` の注を見る）
+                "alts": alt_by.get(int(sid)) or [],
+                "favorAlt": {str(a): [strip(r) for r in (fav_by.get(str(a)) or [])]
+                             for a in (alt_by.get(int(sid)) or [])}}
         raw = json.dumps(pack, ensure_ascii=False, separators=(",", ":")).encode()
-        gz = gzip.compress(raw, 9)
+        gz = gz9(raw)
         with open(OUT / f"s{sid}.json.gz", "wb") as f:
             f.write(gz)
         index[sid] = {"g": len(ls), "e": len(le), "b": len(gz)}

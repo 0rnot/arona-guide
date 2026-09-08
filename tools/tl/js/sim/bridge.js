@@ -13,7 +13,7 @@
    ## 画面から受け取るもの
 
      st.parties[pi].slots[i]  1 枠の育ち（`core.js:mkSlot`）
-       id / lv / star / eq / wlv / wstar / gear / bond / pot /
+       id / lv / star / eq / wlv / wstar / gear / bond / bondAlt / pot /
        ex(EX の段) / sk(通常スキル) / plv(パッシブ) / sslv(サブ)
      st.parties[pi].tl        置いた EX。`{i, t, mc, f, to, hb}`。**時刻は解決済み**
      cid                      `__TLDBG.diff().cid`。**これで面が 1 つに決まる**
@@ -84,6 +84,8 @@ export function optOf(sl) {
     lv: sl.lv || 90, star: sl.star || 1, eq: eq,
     wlv: sl.wlv || 0, wstar: sl.wstar || 0,
     gear: sl.gear > 0 ? sl.gear : 0, bond: sl.bond || 1,
+    // **別バージョンの絆。**`pack.alts` の順に当てる
+    bondAlt: sl.bondAlt || [],
     // `pot` は画面では [HP, 攻撃, 治癒] の並び
     pot: { MaxHP: pt[0] || 0, AttackPower: pt[1] || 0, HealPower: pt[2] || 0 },
   };
