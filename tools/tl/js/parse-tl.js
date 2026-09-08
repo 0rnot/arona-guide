@@ -655,6 +655,14 @@ export function parseTL(txt) {
     // （2026-09-02、総力戦ホド）
     if (/[。]\s*$/.test(cut) ||
         (nrm(cut).length > 24 && /です|ます|ません|ください/.test(cut))) { continue; }
+    // **ボスの HP を書いた行は注記。**「ネル後ボスHP」は次の 2 行「15.3M↑上振れ」
+    // 「14.5M↓上振れ」の見出しで、ネルを撃つ行ではない（2026-09-08、ビナー
+    // `IrVUx0ywuyo`。ネル EX が 1 発ぶん余計に入って 2M ほど多く削っていた）。
+    // 注記（※・括弧）の中の「※敵HP10～11M以下」は行の本体ではないので当たらない
+    if (/(?:ボス|敵)HP/i.test(nrm(cut))) {
+      res.notes.push('ボスの HP を書いた行なので飛ばしました: ' + ln.trim());
+      continue;
+    }
     if (/を?(ON|OFF|オン|オフ)/i.test(nrm(noParen))) {
       res.notes.push('AUTO の切り替えは行として持てないので飛ばしました: ' + ln.trim());
       continue;
