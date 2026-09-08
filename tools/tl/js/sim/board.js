@@ -144,8 +144,24 @@ export function boardPlan(doc) {
                obstacles: sec.Obstacles || [] });
   }
   var gl = eventsOf(((doc && doc.Global) || {}).Events || []);
-  return { sections: out, formations: (doc && doc.Formations) || [],
-           globalStarts: gl.starts };
+  // **`Formations[].SectionIndex` は `SectionID`（1 から）で、`Sections[]` の並びは 0 から**
+  // （2026-09-08。**盤 700 面ぜんぶで確かめた**——`SectionID` は 1..N、`Formations` の
+  // `SectionIndex` は 0..N の 3 通りしか無い）。`SectionIndex 0` は戦闘が始まる前の置き場で、
+  // **並びの 0 番目の節の目印は `SectionIndex 1`。**
+  // 揃える前は、ホドの節 0（`SectionID 1`）で味方が `SectionIndex 0` の (0.04, 0.04) に
+  // 立ったままだった。砲台は z 11.4〜16.4、`SectionIndex 1` の目印は (2.87, 19.68)。
+  // 次の節も同じで、`SectionID 2` の目印 (0.82, 22.79) →(−28.53, 26.46) へ歩かないので、
+  // 節 3 の合図（円 中心 (−29.01, 26.83) 半径 5）がいつまでも立たなかった
+  var fm = (doc && doc.Formations) || [], fo = [], fz, fk;
+  for (fz = 0; fz < fm.length; fz++) {
+    var g = {};
+    for (fk in fm[fz]) {
+      if (Object.prototype.hasOwnProperty.call(fm[fz], fk)) { g[fk] = fm[fz][fk]; }
+    }
+    g.SectionIndex = (fm[fz].SectionIndex || 0) - 1;
+    fo.push(g);
+  }
+  return { sections: out, formations: fo, globalStarts: gl.starts };
 }
 
 /** 事象の並びから、進行に要るものを取り出す（2026-09-07）。

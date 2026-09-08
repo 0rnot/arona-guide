@@ -1430,6 +1430,12 @@ export function run(o) {
       var v9 = vs[z9];
       if (!v9.pos || v9 === u9) { continue; }
       if (v9.side === 'ally' && v9.squad === 'Support') { continue; }
+      // **狙えない体（`Untargetable`）は相手にしない**（2026-09-08）。ホドの守衛塔は
+      // `HODGuardTower_Railgun_Passive03_Effect03` でずっと狙えないのに、`aimOf` が
+      // 距離だけで選んでいたので、味方は塔の 1.3 まで歩いて**1 発も撃たずに張り付き**、
+      // 節の目印 (−28.53, 26.46) へ進まなかった（`射程外:Normal` 613 ／ `狙えず:Normal` 1701）。
+      // 狙える相手が 1 体も居なければ `null` が返る——そのとき味方は目印へ歩く
+      if (!R.noUntargetable && untargeted(v9, { slot: 'Normal' }, u9, b.t)) { continue; }
       // **狙う先は「いちばん近い相手」で、種類で外さない**（2026-09-08）。
       // `CharacterAIExcelTable` が持つのは `EngageType` / `Positioning` /
       // `MinimumPositionGap` だけで、**相手の種類を絞る欄が無い**。
@@ -2342,27 +2348,34 @@ export function run(o) {
     var pts = spawnFor(bd, sec, tag), n = 0, z;
     for (z = 0; z < pts.length; z++) {
       if (otherBoss[pts[z].dev]) { continue; }
-      var pool = byDev[pts[z].dev] || [], w;
+      var pool = byDev[pts[z].dev] || [], w, mu = null;
       for (w = 0; w < pool.length; w++) {
-        var mu = pool[w];
-        if (mu.alive) { continue; }
-        mu.alive = true;
-        mu.hp = mu.maxHp;
-        mu.pos = pts[z].pos || null;
-        mu.eff = [];
-        n++;
-        mu.appearUntil = at + appearMs(mu);
-        mu._busyUntil = null; mu._nsDue = {};
-        castPassives(mu, at);
-        // **ボスの木は湧いた瞬間に引く**（2026-09-08）。湧きの演出（`AppearFrame` 20 ＝
-        // 0.67 秒）を待つと、そのあいだに生徒の弾が届いて `HPUnder 20,999,999 →
-        // ChangePhase 1` が先に立ち、**段 0 の召喚（`UseSelectExSkill 0` ＝ ドロイド 11 体）が
-        // まるごと飛ぶ**。動画（QnKBiKMMUQE）では戦闘 94〜100 秒のあいだボスの HP が
-        // 21,000,000 のままで、その間に 1 群目が出ている
-        if (mu === bossU) { startBoss(at); }
-        else { setupMinion(mu, at, 0); }
-        break;
+        if (!pool[w].alive) { mu = pool[w]; break; }
       }
+      // **空きが無ければ体を増やす**（2026-09-08）。束の `ent` は **DevName 1 つに 1 行**
+      // しか無いので、そのままだと**盤に同じ敵が何本立っていても 1 体しか湧かない。**
+      // ホドの砲台は節 0 に 4 本・節 1 に 4 本・節 2 に 2 本あるのに 1 本ずつしか立たず、
+      // 節が 70 秒早く進んで本体に 100 秒早く触っていた（動画 `efTRM2tMTW4` は
+      // 116 秒まで本体が 18,000,000 のまま。核は 94 秒に討伐していた）。
+      // `R.summon` は 2026-09-07 から同じことをしている——**盤の湧きだけが漏れていた。**
+      // **ボスだけは増やさない。**盤に最初から居るボスは既に生きていて、増やすと 2 体になる
+      if (!mu && !(bossU && pool.indexOf(bossU) >= 0)) { mu = moreBody(pts[z].dev); }
+      if (!mu) { continue; }
+      mu.alive = true;
+      mu.hp = mu.maxHp;
+      mu.pos = pts[z].pos || null;
+      mu.eff = [];
+      n++;
+      mu.appearUntil = at + appearMs(mu);
+      mu._busyUntil = null; mu._nsDue = {};
+      castPassives(mu, at);
+      // **ボスの木は湧いた瞬間に引く**（2026-09-08）。湧きの演出（`AppearFrame` 20 ＝
+      // 0.67 秒）を待つと、そのあいだに生徒の弾が届いて `HPUnder 20,999,999 →
+      // ChangePhase 1` が先に立ち、**段 0 の召喚（`UseSelectExSkill 0` ＝ ドロイド 11 体）が
+      // まるごと飛ぶ**。動画（QnKBiKMMUQE）では戦闘 94〜100 秒のあいだボスの HP が
+      // 21,000,000 のままで、その間に 1 群目が出ている
+      if (mu === bossU) { startBoss(at); }
+      else { setupMinion(mu, at, 0); }
     }
     return n;
   }
@@ -2627,7 +2640,15 @@ export function run(o) {
     obs = bd ? obstacleBoxes(bd, sec, common) : [];
     cpts = bd ? coverPoints(bd, sec, common, obs) : [];
     var sc2 = bd.sections[sec] || {};
-    walkGoal = (sc2.walkTo != null && org) ? { x: org.Position.x, y: sc2.walkTo } : null;
+    // **進む先は隊列の目印（`Formations` の `Index` が最大のもの）。**x も z もそこにある
+    // （2026-09-08）。前は `GroundConditionArea` の z だけを見て `x` は今の位置のままにしていて、
+    // **味方は奥へは進むが横へは 1 歩も動かなかった。**ホドの節 1（`SectionID 2`）は
+    // 目印が (0.82, 22.79) →(−28.53, 26.46) と左へ 29 も歩く道で、x が動かないと
+    // 節 3 の合図（円 中心 (−29.01, 26.83) 半径 5）に永久に入らない。
+    // 目印が無い盤は今までどおり z だけ
+    var bcn2 = beaconOf(sec);
+    walkGoal = bcn2 ? { x: bcn2.x, y: bcn2.y }
+             : ((sc2.walkTo != null && org) ? { x: org.Position.x, y: sc2.walkTo } : null);
     if (walkGoal) { logEv(at, 'move', 'walk'); }
     secWait = -1; secTo = -1; secVia = null; secPhase = null; sawFoe = false;
     waveQ = []; waveLive = false; waveSpawned = false; waveAny = false; waveGen++;
@@ -2695,19 +2716,36 @@ export function run(o) {
       // **置いていない欄は数える**（`Target` は誰を見るか、`Trigger` 1 は `StayTime` 秒とどまったら）
       if (parseFloat(pa[9])) { R.miss['area:Target:' + pa[9]] = (R.miss['area:Target:' + pa[9]] || 0) + 1; }
       if (parseFloat(pa[10])) { R.miss['area:Trigger:' + pa[10]] = (R.miss['area:Trigger:' + pa[10]] || 0) + 1; }
-      // **見るのは奥行き（z）だけ。**幅は `Shape` の形から取る（円なら半径、四角なら奥行きの半分）。
-      // **x を見ない理由**（2026-09-08。確かめた事実として残す）: ホドの節 1 の区画は
-      // x −1.54 / −11.33、湧き点は x −21.11〜−15.09 なのに、隊列の原点は x 1.88 で
-      // **味方と敵の x が 20 以上離れている。**盤の x と味方の x が同じ枠に無い。
-      // z は噛み合っている（`walkTo` 30.69 ＝ 仮設タワーの湧き点 30.695、味方は 30.6 まで歩く）ので、
-      // **確かめられる軸だけで見る。**x の食い違いは `R.miss['area:x?']` に数える
+      // **x も z も見る**（2026-09-08 夜に直した）。前は奥行きだけで判じていて、
+      // **ホドの節 2 の区画（円、中心 x −29.01 / z 26.83）を、味方が x −0.7 に居るまま通していた。**
+      // そのぶん節が 70 秒早く進み、本体に 100 秒早く触って 93.8 秒で討伐していた
+      // （動画 `efTRM2tMTW4` は 116 秒まで本体が 18,000,000 のまま、討伐は 197.2 秒）。
+      // 節 2 の `Formations` は x 0.82 → −28.53 と歩いていて、**Index 9 の (−28.53, 26.46) は
+      // 区画の中心とほぼ同じ。**盤の x と味方の x は同じ枠にある。
+      // **見るのは生きている味方の位置**（`Target` 0 ＝ 味方）。隊列の原点は代わりにしかならない
       var half9 = shp === 0 ? ah / 2 : ar;
-      var dz9 = Math.abs(org.Position.y - az);
-      var inZ9 = dz9 <= half9;
-      if (inZ9 && Math.abs(org.Position.x - ax) > (shp === 0 ? aw / 2 : ar)) {
-        R.miss['area:x?'] = (R.miss['area:x?'] || 0) + 1;
+      var halfX9 = shp === 0 ? aw / 2 : ar;
+      var inArea9 = function (x9, y9) {
+        if (shp === 0) { return Math.abs(x9 - ax) <= halfX9 && Math.abs(y9 - az) <= half9; }
+        var ddx = x9 - ax, ddy = y9 - az;
+        return ddx * ddx + ddy * ddy <= ar * ar;
+      };
+      var al9 = living(b, 'ally'), z9;
+      var seen9 = false;
+      for (z9 = 0; z9 < al9.length; z9++) {
+        if (al9[z9].pos && inArea9(al9[z9].pos.x, al9[z9].pos.y)) { return true; }
+        if (al9[z9].pos) { seen9 = true; }
       }
-      return inZ9;
+      // 味方の位置がまだ無いうちは隊列の原点で見る
+      if (!seen9) { return inArea9(org.Position.x, org.Position.y); }
+      // **奥行きだけなら中に居る**ときを数える。x が噛み合っていない盤があれば、ここに出る
+      for (z9 = 0; z9 < al9.length; z9++) {
+        if (al9[z9].pos && Math.abs(al9[z9].pos.y - az) <= half9) {
+          R.miss['area:zのみ'] = (R.miss['area:zのみ'] || 0) + 1;
+          break;
+        }
+      }
+      return false;
     }
     return false;
   }
