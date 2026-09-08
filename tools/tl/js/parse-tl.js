@@ -357,12 +357,47 @@ export function parseTL(txt) {
       // 制約解除決戦 10 人＝ Main 6・Support 4）。`live()` で実際に生きている枠を数える
       var capM = 0, capS = 0, li;
       for (li = 0; li < SLOTS; li++) { if (live(li)) { if (li < MAIN_MAX) { capM++; } else { capS++; } } }
+      // **名前だけで書かれた子が枠に入らないなら、同じ名前の別バージョンに寄せる**
+      // （2026-09-08、ケセド `bduU6UliYdQ`）。あの TL は**本文が 6 人で書いてあるのに
+      // 育成の行が 5 人しか無く**、足りない 1 人を素の「ハレ」（Support）で足していた。
+      // Support の枠は キサキ・ナギサ で埋まっていて **「枠が足りません」で
+      // 5 行が丸ごと落ちていた**（残り 84.7% → 65.1%）。空いていたのは Main の枠で、
+      // そこへ入るのは「ハレ（キャンプ）」1 人だけ。
+      // **素の名前のまま入るなら触らない。**寄せるのは枠の種類が埋まっているときだけで、
+      // 行き先の候補が 1 人に決まらなければ今までどおり落とす。
+      var usedId = {}, uq;
+      for (uq = 0; uq < rw.length; uq++) {
+        if (_byid[res.crew[rw[uq]].id]) { usedId[res.crew[rw[uq]].id] = 1; }
+      }
+      var baseNm = function (n5) { return String(n5 || '').replace(/[（(].*$/, ''); };
+      var altFit = function (me, sq5) {
+        var b5 = baseNm(me.n), hit = null, n5 = 0, k5;
+        for (k5 in _byid) {
+          if (!has(_byid, k5)) { continue; }
+          var s5 = _byid[k5];
+          if (!s5 || s5.id === me.id || s5.sq !== sq5 || usedId[s5.id]) { continue; }
+          if (baseNm(s5.n) !== b5) { continue; }
+          n5++; hit = s5;
+        }
+        return n5 === 1 ? hit : null;
+      };
       var nM = 0, nS = 0, keepR = [], pass;
       for (pass = 0; pass < 2; pass++) {
         for (rq = 0; rq < rw.length; rq++) {
           if ((pass === 0) !== !!refK[rw[rq]]) { continue; }
           var s4 = _byid[res.crew[rw[rq]].id];
           if (!s4) { continue; }
+          if (s4.sq === 'Support' ? (nS >= capS && nM < capM) : (nM >= capM && nS < capS)) {
+            var a5 = altFit(s4, s4.sq === 'Support' ? 'Main' : 'Support');
+            if (a5) {
+              res.notes.push('「' + s4.n + '」は' +
+                             (s4.sq === 'Support' ? 'サポート' : 'ストライカー') +
+                             'の枠が埋まっているので「' + a5.n + '」として入れました');
+              delete usedId[s4.id]; usedId[a5.id] = 1;
+              res.crew[rw[rq]].id = a5.id; res.crew[rw[rq]].name = a5.n;
+              s4 = a5;
+            }
+          }
           if (s4.sq === 'Support') { if (nS < capS) { nS++; keepR.push(rw[rq]); } }
           else if (nM < capM) { nM++; keepR.push(rw[rq]); }
         }
