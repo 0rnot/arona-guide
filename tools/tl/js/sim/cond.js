@@ -38,7 +38,23 @@ var ROLE_NAME = { 1: 'DamageDealer', 2: 'Tanker', 3: 'Supporter', 4: 'Healer', 5
 
 function tOf(m) { return String((m && m.$type) || '').split(',')[0].split('.').pop(); }
 
-/** `CheckTarget` 0 自分 / 1 当てる相手 / 2 味方 */
+/* **`CheckTarget: 3` は「相手陣営みんな」**（2026-09-09。切り分けは 1＝組み合わせが違う。
+   束ねてはあったが `whoOf` が 3 を自分と読んでいた）。決め手は 2 つ:
+
+   1. `CH0079Ex01`（ま、間違えたあ！）は `CountEntityListCombinedModifierDAO` を
+      66 本持っていて、段が `0〜4` / `5〜9` / `10〜999`、`CheckTarget` は全部 3。
+      スキル文は **「円形範囲内の敵の数によって、範囲内の敵に対して、4人以下：155% ／
+      5人～9人：311% ／ 10人以上：519%」**（`LocalizeSkillExcelTable` 3880007318）。
+      撃つのは味方の生徒なので、3 は相手陣営＝敵。
+   2. 裏返しの例。`EN0013BlueCorePassive02`（敵）は
+      `CountListSquadTypeModifierDAO`（`SquadTypeList: [1]` / `[2]`）を `CheckTarget: 3` で
+      数える。数えられるのは**プレイヤー側の前衛・後衛の人数**で、やはり相手陣営。
+
+   束ぜんぶで `CheckTarget: 3` は 182 件（`CountEntityListCombinedModifierDAO` 168 ／
+   `CountListSquadTypeModifierDAO` 12 ／ `LogicEffectTemplateModifierDAO` 2）。 */
+
+/** `CheckTarget` 0 自分 / 1 当てる相手 / 2 味方みんな / 3 相手陣営みんな / 5 味方みんな。
+    **2・3・5 は 1 体に落ちない**ので、呼ぶ側が数えて使う */
 function whoOf(m, self, target) {
   var c = m.CheckTarget;
   if (c === 1) { return target; }
@@ -83,6 +99,18 @@ export function one(m, ctx, self, target) {
   var t = tOf(m), who = whoOf(m, self, target), n, ok;
 
   if (t === 'LogicEffectTemplateModifierDAO') {
+    // **`CheckTarget: 3` は相手陣営の誰か 1 人でも持っていれば真**（2026-09-09）。
+    // 束の 2 件はどちらもヒエロニムスの `InsanePassive08` で、
+    // `Debuff_Relic02`（＝ `Hieronymus_Insane_Relic_Public05_Effect02`。
+    // 回復効果量 −70%・持続 −1・`Dispellable FALSE`）を生徒が食らっているかを見る門。
+    // 立つと `Hieronymus_Ex03_Effect01`（`Buff_StatusAdd_Immortal_Relic` を 99 枚解除）と
+    // `Hieronymus_Ex04_Effect01`（`AddSource: TargetMaxHP` `AddRate: 100000`）が
+    // 自陣の壺（`Ally_Except_Self`・`Weapon 18`）に飛んで壺が死ぬ。
+    // **壺は自分の債務を果たすと消える**という作りで、ここが読めないと壺が永遠に残る
+    if (m.CheckTarget === 3) {
+      if (!ctx.foeCount) { return null; }
+      return inc(m, ctx.foeCount(self, m.TemplateId) > 0);
+    }
     n = (ctx.marks(who) || {})[m.TemplateId] || 0;
     return inc(m, n > 0);
   }
@@ -91,9 +119,14 @@ export function one(m, ctx, self, target) {
     // **`CheckTarget: 5` も味方みんな**（2026-09-07）。イブキ（水着）の NS
     // `CH0347Public01` が「お友達」の役職の札（`Dummy_CH0347_PlayFriend_Dealer`）を
     // 1 人ぶんか 2 人ぶんかで数える（2 人とも同じ役職なら効果 2 倍）。DB 全体で 26 か所
-    n = (m.CheckTarget === 2 || m.CheckTarget === 5)
-      ? ctx.sideCount(self, m.TemplateId)
-      : ((ctx.marks(who) || {})[m.TemplateId] || 0);
+    if (m.CheckTarget === 3) {
+      if (!ctx.foeCount) { return null; }
+      n = ctx.foeCount(self, m.TemplateId);
+    } else {
+      n = (m.CheckTarget === 2 || m.CheckTarget === 5)
+        ? ctx.sideCount(self, m.TemplateId)
+        : ((ctx.marks(who) || {})[m.TemplateId] || 0);
+    }
     return inc(m, within(n, m.CountMin, m.CountMax));
   }
   if (t === 'CountListTacticRoleModifierDAO') {

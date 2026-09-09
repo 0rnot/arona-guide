@@ -255,6 +255,20 @@ export function ctxOf(b) {
       }
       return n;
     },
+    // **`CheckTarget: 3` は「相手陣営みんな」**（2026-09-09）。数えるのは
+    // `sideCount` と同じで、その札を持っている**体の数**。撃つ側の側と違う側を見る
+    foeCount: function (u, tmpl) {
+      var n = 0, i, j;
+      if (!u) { return 0; }
+      for (i = 0; i < b.order.length; i++) {
+        var v = b.units[b.order[i]];
+        if (!v || !v.alive || v.side === u.side) { continue; }
+        for (j = 0; j < v.eff.length; j++) {
+          if (v.eff[j].tmpl === tmpl) { n++; break; }
+        }
+      }
+      return n;
+    },
     gids: function (u) { return cnt(u, 'gid'); },
     cats: function (u) { return cnt(u, 'cat'); },
     hpRate: function (u) {
