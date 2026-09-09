@@ -531,6 +531,27 @@ function fire(R, ev, caster, target, lvl, at, mc) {
     else if (r.cats && r.cats.length) {
       for (cz = 0; cz < r.cats.length; cz++) { nd += dispel(target, { cat: r.cats[cz] }); }
     } else { R.miss['dispel:区分なし'] = (R.miss['dispel:区分なし'] || 0) + 1; }
+    // **何を何枚剥がしたかを数える**（調べる道具用。`_dspprobe.py`）
+    if (R.dsp) {
+      var dk = (r.gid || '') + '>' + (target.key || '') + ':' +
+        (r.kind === 'dispel' ? (r.templates || []).join('|')
+          : r.kind === 'dispelGid' ? (r.gids || []).join('|') : (r.cats || []).join('|'));
+      R.dsp[dk] = (R.dsp[dk] || 0) + nd;
+    }
+    // **被ダメージの転移は札とは別の栓（`u.xfer`）に置いてある**ので、
+    // 札を剥がしただけでは閉じない（2026-09-09）。ペロロジラの `Ex09` は
+    // 「中サイズの転移を剥がす → 6 コマ後に中サイズだけを消す」の順で撃つのに、
+    // 栓が開いたままだと**その消滅ダメージ（`BonusRateFirst: 999999999`）が
+    // まるごと本体へ流れて**、本体が一緒に落ちていた（討伐 60.4 秒。動画は 131.37 秒）。
+    // 剥がしたあと転移の札が 1 枚も残っていなければ栓を閉じる
+    if (nd > 0 && target.xfer) {
+      var lx = false, zx;
+      for (zx = 0; zx < target.eff.length; zx++) {
+        var mx = target.eff[zx];
+        if (mx.raw && mx.raw.kind === 'transfer' && (mx.until == null || mx.until > at + 1e-6)) { lx = true; }
+      }
+      if (!lx) { target.xfer = null; }
+    }
     if (nd > 0 && target.side === 'ally' && R.syncForm) { R.syncForm(target, at, true); }
     return 0;
   }
@@ -1239,6 +1260,49 @@ export function run(o) {
   /** **敵のレベルは盤（`GroundExcelTable`）が決める。**種類ごとに別の欄
       （`LevelBoss` / `LevelElite` / `LevelChampion` / `LevelMinion` / `LevelNPC`）。
       召喚物（`Summoned`）は表に欄が無いので雑魚と同じ扱い */
+  /** **体の札（`CharacterExcelTable.Tags`）を番号に直す**（2026-09-09）。
+      DB の欄は `['o', 'EL']` のような 1〜2 文字で、**52 進の桁**。
+      並びは **大文字と小文字を交互に並べたもの**（`A a B b C c … Z z`）で、
+      1 文字目が上の桁。`A` 0 ／ `a` 1 ／ `B` 2 …… `Z` 50 ／ `z` 51。
+
+      **決め手は DB が番号と名前を並べて持っている湧き条件**——
+      `EntityTimeline[].SpawnCondition: "IncludeTag"` の行は
+      `SpawnConditionParameterForTag`（番号）と `SpawnConditionParameter`（名前）を
+      両方持っている。束ぜんぶで数えた原文:
+
+        515 Raid_Normal ／ 516 Raid_Hard ／ 517 Raid_VeryHard ／ 518 Raid_HardCore ／
+        519 Raid_Extreme ／ 520 Raid_Insane ／ 521 Raid_Torment ／ 696 Raid_Lunatic
+
+      同じ 8 段の札が `CharacterExcelTable.Tags` の側では
+      `ex` `eY` `ey` `eZ` `ez` `FA` `Fa` `gK` で、52 進で読むと
+      **8 つとも一致する**（`ex` = 9×52+47 = 515 …… `gK` = 13×52+20 = 696）。
+      64 進では 1 つも合わない。ほかに合うもの:
+
+        `cO` = 5×52+28 = 288 ＝ `ep.js` の `TAGBOSS`（ワカモ「BOSS への攻撃時に」）
+        `N` 26 大型 ／ `o` 29 中型 ／ `P` 30 超大型 ＝ `ep.js` の `TAGSZ`
+        `EL` = 8×52+22 = 438 ＝ ペロロジラの中サイズ。ボスの `Ex09` が
+        `TagConstraintsInt: [438]` でこの体だけを消す技
+
+      **`Tags` を束から読んでいなかったので、`TagConditionalModifierDAO` は
+      いつも「持っていない」と判じていた**（`cond.js:156`。`IncludeType: 1` は偽）。
+      「中型の敵に対して」（ネル（バニーガール）・ヒナタ・コハル（水着））、
+      「大型の敵に対して」（ハスミ（体操服））、「BOSS への攻撃時に」（ワカモ）が
+      1 度も乗らず、ペロロジラの `Ex09` も中サイズを消せていなかった */
+  var TAGAB = 'AaBbCcDdEeFfGgHhIiJjKkLlMmNnOoPpQqRrSsTtUuVvWwXxYyZz';
+  function tagsOf(list) {
+    var out = {}, ti, tj, tn, ts, tk;
+    for (ti = 0; ti < (list || []).length; ti++) {
+      ts = String(list[ti]); tn = 0;
+      for (tj = 0; tj < ts.length; tj++) {
+        tk = TAGAB.indexOf(ts.charAt(tj));
+        if (tk < 0) { tn = -1; break; }
+        tn = tn * 52 + tk;
+      }
+      // 知らない字が混じっていたらその札は捨てる（`R` はまだ無いので数えない）
+      if (tn >= 0) { out[tn] = true; }
+    }
+    return out;
+  }
   function lvOfKind(g, kind) {
     g = g || {};
     if (kind === 'Boss') { return g.LevelBoss || 90; }
@@ -1280,7 +1344,7 @@ export function run(o) {
       adapt: gradeOf(s, (boss.ground || {}).StageTopography),
       radius: c.BodyRadius, personality: c.PersonalityId, aiId: c.CharacterAIId,
       role: c.TacticRole, school: c.School, squad: c.SquadType, move: c.CanMove !== false,
-      appear: c.AppearFrame,
+      appear: c.AppearFrame, tags: tagsOf(c.Tags),
       hp: s.MaxHP100, maxHp: s.MaxHP100,
       base: s,
     }));
@@ -1436,6 +1500,7 @@ export function run(o) {
                      (boss.ground || {}).StageTopography, p.stats),
       radius: ch.BodyRadius, personality: ch.PersonalityId, aiId: ch.CharacterAIId,
       role: ch.TacticRole, school: ch.School, squad: ch.SquadType, move: ch.CanMove !== false,
+      tags: tagsOf(ch.Tags),
       hp: (p.stats && p.stats.MaxHP) || 1, maxHp: (p.stats && p.stats.MaxHP) || 1,
       base: p.stats || {}, skillLv: p.skillLv || {},
     }));
@@ -1608,7 +1673,7 @@ export function run(o) {
     god: !!o.god, castLog: {},
     b: b, ctx: ctxOf(b), eff: eff, q: queue(), evCache: {}, pgCache: {},
     castN: 0, scPick: {},
-    fireN: {}, missBy: {}, missT: {}, missWhy: {}, deaths: [], killLog: [], byAlly: {}, noBossDmg: !!o.noBossDmg, noUntargetable: !!o.noUntargetable, total: 0, heal: 0, groggy: [], ggLog: [], secLog: [], summoned: 0, smCache: {}, probe: o.probe ? [] : null, used: [], unknown: 0, unknownBy: {}, miss: {}, by: {},
+    fireN: {}, missBy: {}, missT: {}, missWhy: {}, deaths: [], killLog: [], byAlly: {}, noBossDmg: !!o.noBossDmg, noUntargetable: !!o.noUntargetable, total: 0, heal: 0, groggy: [], ggLog: [], secLog: [], summoned: 0, smCache: {}, probe: o.probe ? [] : null, used: [], unknown: 0, unknownBy: {}, miss: {}, by: {}, dsp: o.probe ? {} : null,
     durMs: durMs, mc: o.mc || 1, C: constOf(common),
     unitOf: function (k) { return b.units[k] || null; },
     lvTable: common.lvdiff || null, caps: capsOf(common.calcLimit),
@@ -3126,7 +3191,7 @@ export function run(o) {
       key: src.key + '#' + pool.length, side: 'enemy', charId: src.charId, dev: dev,
       kind: src.kind, lv: src.lv, armor: src.armor, bullet: src.bullet,
       adapt: src.adapt, radius: src.radius, personality: src.personality, move: src.move, appear: src.appear,
-      aiId: src.aiId, role: src.role, school: src.school, squad: src.squad,
+      aiId: src.aiId, role: src.role, school: src.school, squad: src.squad, tags: src.tags,
       hp: src.maxHp, maxHp: src.maxHp, base: src.base,
     }));
     u2.ls = src.ls;
@@ -3383,7 +3448,7 @@ export function run(o) {
     hp: hp, total: R.total, killAt: bossHp() <= 0 ? t3 / 1000 : null,
     maxHp: bossMax, bossKeys: bossUnits.map(function (v) { return [v.dev, v.maxHp]; }),
     used: R.used,
-    unknown: R.unknown, unknownBy: R.unknownBy, miss: R.miss, missBy: R.missBy, missT: R.missT, missWhy: R.missWhy, deaths: R.deaths, units: Object.keys(b.units).map(function (k9) { var u9 = b.units[k9]; return [k9, u9.dev || u9.charId || '', u9.side, u9.alive ? 1 : 0, Math.round(u9.maxHp || 0), Math.round(u9.hp || 0), Math.round((u9.base && u9.base.DefensePower) || 0), Math.round((u9.base && u9.base.AttackPower) || 0)]; }), by: R.by, fireN: R.fireN,
+    unknown: R.unknown, unknownBy: R.unknownBy, dsp: R.dsp, miss: R.miss, missBy: R.missBy, missT: R.missT, missWhy: R.missWhy, deaths: R.deaths, units: Object.keys(b.units).map(function (k9) { var u9 = b.units[k9]; return [k9, u9.dev || u9.charId || '', u9.side, u9.alive ? 1 : 0, Math.round(u9.maxHp || 0), Math.round(u9.hp || 0), Math.round((u9.base && u9.base.DefensePower) || 0), Math.round((u9.base && u9.base.AttackPower) || 0)]; }), by: R.by, fireN: R.fireN,
     snap: snap, snaps: snaps,
     heal: R.heal, groggy: R.groggy, ggLog: R.ggLog, summoned: R.summoned, nsAuto: R.nsAutoBy || {},
     aliveEnd: living(b, 'enemy').map(function (v) {
