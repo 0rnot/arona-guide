@@ -36,6 +36,10 @@
 
 var ROLE_NAME = { 1: 'DamageDealer', 2: 'Tanker', 3: 'Supporter', 4: 'Healer', 5: 'Vehicle' };
 
+/** `TacticEntityConditionalModifierDAO` の `Constraint.TacticEntity`。
+    **確かめた 2 つだけ置く**（根拠は下の `TacticEntityConditionalModifierDAO` の注記） */
+var TACTIC_ENTITY = { 1: 'Student', 16: 'Summoned' };
+
 function tOf(m) { return String((m && m.$type) || '').split(',')[0].split('.').pop(); }
 
 /* **`CheckTarget: 3` は「相手陣営みんな」**（2026-09-09。切り分けは 1＝組み合わせが違う。
@@ -224,6 +228,34 @@ export function one(m, ctx, self, target) {
   if (t === 'CharacterIdConditionalModifierDAO') {
     if (!ctx.charId) { return null; }
     return inc(m, (m.CharacterIdList || []).indexOf(ctx.charId(who)) >= 0);
+  }
+  /* **`TacticEntityConditionalModifierDAO` は「当てる相手の体の種類」**（2026-09-09。
+     切り分けは 3＝材料が足りない。束に入っているのに 1 件も読んでいなかった）。
+
+     `Constraint.TacticEntity` は番号で、**読めるのは 1 と 16 の 2 つだけ。**
+
+       1  Student   `CH0137ExtraPassive01`（s10050）が `CheckTarget: 0`（自分）・
+                    `IncludeType: 1` でこれを持っている。撃つのは生徒本人なので、
+                    1 でなければその常時パッシブは一度も立たない。
+                    ヒエロニムスの `HieronymusRelic03TormentPublic01` も同じ 1 で、
+                    飛び先は `TargetSide: Enemy`（＝壺から見た生徒の側）
+       16 Summoned  同じ枠の 2 つ目の実体が `TargetSide: Ally_Except_Self` で 16 を求める。
+                    raid1037 の `ent` は `Hieronymus_HolyRelic_Torment` /
+                    `Hieronymus_HolyRelic03_Torment` の 2 体とも
+                    **`TacticEntityType: Summoned`**（本体だけが `Boss`）
+
+     **2 / 8 / 32 は決まらないので `null` を返す**（`R.unknownBy` に数える）。
+     ホドの `HODEx04` は `All_Except_Self` の範囲で「8 以外に 300%」と「2 に 20000%」、
+     シロの `ShiroEx04` は `TargetSide: Enemy` で「32 以外に 600%」「32 に 300%」。
+     ホドの束の体は Boss / Elite（仮設タワー）/ Minion（守衛塔）/ Summoned で、
+     どれを 8 に当てても辻褄は合ってしまう。**当てずっぽうで置かない。** */
+  if (t === 'TacticEntityConditionalModifierDAO') {
+    var tc = m.Constraint || {};
+    var want = TACTIC_ENTITY[tc.TacticEntity];
+    if (!want || !ctx.kind) { return null; }
+    var k9 = ctx.kind(who);
+    if (k9 == null) { return null; }
+    return tc.IncludeType === 2 ? (k9 !== want) : (k9 === want);
   }
   if (t === 'CountEntityListCombinedModifierDAO') {
     if (!ctx.bodies) { return null; }

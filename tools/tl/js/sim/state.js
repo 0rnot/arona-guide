@@ -302,6 +302,9 @@ export function ctxOf(b) {
       return m;
     },
     side: function (u) { return u ? (u.side === 'ally' ? 'Player' : 'Enemy') : null; },
+    // **体の種類**（`TacticEntityType`）。敵は束の `ent` から、味方は `Student` の既定
+    // （`makeUnit` の `kind`）。`TacticEntityConditionalModifierDAO` が読む
+    kind: function (u) { return u ? (u.kind || null) : null; },
     charId: function (u) { return u ? u.charId : null; },
     // `CountEntityListCombinedModifierDAO`。**その条件が数えたい側の生きている数**
     bodies: function (m) {
