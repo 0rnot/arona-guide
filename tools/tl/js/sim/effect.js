@@ -168,9 +168,21 @@ export function readOne(r) {
     o.immediate = !!r.UseImmediateFormReleaseOnDispel;
     return o;
   }
+  // **剥がす札の名前は `LogicEffectTemplateToDispel`**（2026-09-09 に直した）。
+  // `TemplateIdList` という欄は 1 件も無く、`TemplateId` は**この解除の札そのものの名前**
+  // （`Buff_Dispel_LogicEffectTemplate` ほか）なので、それを剥がしにいっても何も落ちない。
+  // 束の `DispelLogicEffectTemplateEffectDAO` は 2,315 行あって、
+  // **`LogicEffectTemplateToDispel` と `DispelCount` は 2,315 行とも入っている**
+  // （`tools/tl/db/_dispel.py`）。**コンマ区切りで 2 つ書く行がある**——
+  // `EN0010_Heater_Passive03_Effect01` の
+  // `EN0010_Heater_AddOverload, EN0010_Heater_OverloadEffectDummy` ／
+  // `EN0013_Ex_Effect13` の 3 つ。`DispelCount` は 99 が大半で、1 / 3 / 9 / 10〜50 もある
   if (t === 'DispelLogicEffectTemplate') {
     o.kind = 'dispel';
-    o.templates = r.TemplateIdList || (r.TemplateId ? [r.TemplateId] : []);
+    o.templates = String(r.LogicEffectTemplateToDispel || '')
+      .split(',').map(function (s) { return s.trim(); })
+      .filter(function (s) { return !!s; });
+    o.max = r.DispelCount == null ? 0 : +r.DispelCount;
     return o;
   }
   if (t === 'DispelLogicEffectGroupId') {

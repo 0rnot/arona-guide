@@ -158,6 +158,24 @@ export function nsAuto(doc) {
   if (r.ConditionType === 'RemoveLogicEffectTemplateId' && r.ConditionArgument) {
     return { kind: 'onRemove', tmpl: String(r.ConditionArgument), rate: rate, max: max };
   }
+  // **`HpUnder` は「自分の HP がその割を下回ったら撃つ」**（2026-09-09）。
+  // `ConditionArgument` は 10000 が 100%——ホシノの `HoshinoPublic01` が 3000 で、
+  // 説明文が「自身のHPが30%以下になったとき」。束ぜんぶで 14 本あり、
+  // `ConditionCheckTarget` は **0（自分）が 12 本・5 が 2 本**
+  // （`CH0057Public01` / `CH0229Public01`）。**5 は誰を見るのかが束から決まらないので置かない。**
+  // ヒエロニムスの壺がこれで動く——`HieronymusRelic03TormentPublic01`（壺 03。raid1037）と
+  // `HieronymusRelicPublic05`（壺 01。raid1036）はどちらも `HpUnder 100`（＝ 1%）・
+  // `MaxTriggerCount 1` で、**不死のまま HP 1 で立っている壺が自分の通常スキルを撃つ。**
+  // その `Event 17`（枠 `Public`）の常時札 `HieronymusRelicPassive06` が
+  // `Hieronymus_Ex03_Effect01` ＝ `Buff_StatusAdd_Immortal_Relic` を 99 枚剥がす
+  // `DispelLogicEffectTemplate` で、ここでようやく壺が死ぬ。
+  // 置いたのは敵の体だけ（`setupMinion`）。味方側（`setupAlly`）は今までどおり
+  // `interval` と `onRemove` しか見ない
+  if (r.ConditionType === 'HpUnder') {
+    var hu = r.ConditionArgument == null ? 0 : +r.ConditionArgument;
+    if (!(hu > 0) || +(r.ConditionCheckTarget || 0) !== 0) { return null; }
+    return { kind: 'hpUnder', hp: hu / 10000, rate: rate, max: max };
+  }
   return null;
 }
 
@@ -276,6 +294,22 @@ function psTrig(doc) {
   }
   if (ev === 105) {
     return { when: 'every', ms: (+t.Parameters || 0) / FPS * 1000, expr: ex };
+  }
+  // **`17` は「その枠の技を撃ったとき」**（2026-09-09）。`Parameters` は枠の名前で、
+  // 束を数えると**そこに入るのは `Ex` と `Public` だけ**（生徒 `Ex` 23 本・`Public` 5 本、
+  // 総力戦の盤 22 本はぜんぶ `Public`）。他の値は 1 つも無い。
+  // ヒエロニムスの壺がこれで動く——壺 03（`7303926`）の `HieronymusRelicPassive06`
+  // （`Event 17` ／ `Parameters: Public`）が `Hieronymus_Ex03_Effect01`
+  // ＝ `Buff_StatusAdd_Immortal_Relic` を 99 枚剥がす `DispelLogicEffectTemplate` を撃つ。
+  // 壺の常時札 `HieronymusRelicPassive01`／`05` が `Duration -1` の `Immortal` を
+  // 自分に貼っているので、**これが無いあいだ壺は永久に死なず、
+  // 本体は `Hieronymus_Insane_Passive02_Effect01`（`Untargetable`・`Parameter: None`）で
+  // 240 秒ずっと狙えない**（3 本とも残り 97%）
+  if (ev === 17) {
+    var sl17 = String(t.Parameters || '').trim();
+    if (!sl17) { return null; }
+    return { when: 'used', slot: sl17, expr: ex,
+             max: doc.MaxTriggerCount == null ? -1 : +doc.MaxTriggerCount };
   }
   return null;
 }
@@ -491,7 +525,8 @@ function fire(R, ev, caster, target, lvl, at, mc) {
   // `Dispellable` が偽の札は残る（`state.js:dispel`）。形態の札が剥がれたら形態も戻す
   if (r.kind === 'dispel' || r.kind === 'dispelGid' || r.kind === 'dispelCat') {
     var nd = 0, cz;
-    if (r.kind === 'dispel') { nd = dispel(target, { tmpls: r.templates || [] }); }
+    // `DispelCount` は「何枚まで剥がすか」（`effect.js` の注記）
+    if (r.kind === 'dispel') { nd = dispel(target, { tmpls: r.templates || [], max: r.max || 0 }); }
     else if (r.kind === 'dispelGid') { nd = dispel(target, { gids: r.gids || [] }); }
     else if (r.cats && r.cats.length) {
       for (cz = 0; cz < r.cats.length; cz++) { nd += dispel(target, { cat: r.cats[cz] }); }
@@ -926,6 +961,8 @@ function cast(R, u, gid, slot, lvl, at, opt) {
   var doc = u.ls && u.ls[gid];
   if (!doc) { return; }
   if (R.castLog) { var ck9 = u.key + '/' + slot + ':' + gid; R.castLog[ck9] = (R.castLog[ck9] || 0) + 1; }
+  // `Event 17`（`psTrig` の注を見る）。**撃った枠の見張りを起こす**
+  if (R.fireUsed && u.onUsed) { R.fireUsed(u, slot, at); }
   var mc = opt && opt.mc != null ? opt.mc : null;
   var to = opt && opt.to != null ? opt.to : null;
   // **狙う先を外から決める**（盤が撃つ技。`TargetCharacterCommandId` で名指し）
@@ -2241,6 +2278,7 @@ export function run(o) {
     mu.onDead = [];
     mu.onApplied = {};
     mu.onGone = {};
+    mu.onUsed = {};
     for (z = 0; z < slots.length; z++) {
       v = cr[slots[z][0]];
       v = Array.isArray(v) ? v : (v ? [v] : []);
@@ -2258,6 +2296,9 @@ export function run(o) {
           condP.push({ u: mu, gid: g, slot: slots[z][1], tr: tr, on: false });
         } else if (tr.when === 'dead') {
           mu.onDead.push([g, slots[z][1]]);
+        } else if (tr.when === 'used') {
+          (mu.onUsed[tr.slot] = mu.onUsed[tr.slot] || [])
+            .push({ gid: g, slot: slots[z][1], tr: tr, n: 0 });
         } else if (tr.when === 'applied') {
           (mu.onApplied[tr.tmpl] = mu.onApplied[tr.tmpl] || [])
             .push({ gid: g, slot: slots[z][1], tr: tr, n: 0 });
@@ -2381,6 +2422,16 @@ export function run(o) {
     ap18 = 1;
     try { fireWatch(u2, ws, at); } finally { ap18 = 0; }
   }
+  /** `Event 17` の見張り。**その枠の技を撃った瞬間に撃つ。**入れ子は `fireApplied` と
+      同じ理由で 1 段に止める（撃った札がまた技を撃つと数えが止まらない） */
+  var us17 = 0;
+  R.fireUsed = function (u2, slot2, at) {
+    if (!u2 || !u2.onUsed || us17) { return; }
+    var ws = u2.onUsed[slot2];
+    if (!ws || !ws.length) { return; }
+    us17 = 1;
+    try { fireWatch(u2, ws, at); } finally { us17 = 0; }
+  };
   /** `Event 22` の見張り。**その札が前の刻みまで付いていて、いま無くなっていたら撃つ。**
       貼られる側の合図（`R.onApply`）と違って剥がれる側の合図は 4 か所に散っている
       （`expire` / `dispel` / `applyMark` の押し出しと積み過ぎ）ので、
@@ -2589,7 +2640,26 @@ export function run(o) {
       (function (pg) {
         if (!pg || pg === 'EmptySkill' || !mu.ls[pg]) { return; }
         var auto = nsAuto(mu.ls[pg]);
-        if (!auto || auto.kind !== 'interval' || !(auto.ms > 0)) { return; }
+        if (!auto) { return; }
+        // **`HpUnder`**（`nsAuto` の注記）。0.1 秒ごとに自分の残りを見て、
+        // 下回っていたら撃つ。ヒエロニムスの壺の `Immortal` はこれで剥がれる
+        if (auto.kind === 'hpUnder') {
+          var nHu = 0;
+          var pollHu = function (now) {
+            if (!mu.alive || mu._gen !== gen || now > durMs) { return; }
+            if (auto.max > 0 && nHu >= auto.max) { return; }
+            if (mu.appearUntil != null && now < mu.appearUntil) { R.q.push(mu.appearUntil, pollHu); return; }
+            if (mu._busyUntil != null && mu._busyUntil > now + 1e-6) { R.q.push(mu._busyUntil, pollHu); return; }
+            if (mu.maxHp > 0 && mu.hp / mu.maxHp <= auto.hp) {
+              cast(R, mu, pg, 'Public', 1, now);
+              nHu++;
+            }
+            if (now + 100 <= durMs) { R.q.push(now + 100, pollHu); }
+          };
+          R.q.push(Math.max(at, mu.appearUntil || 0), pollHu);
+          return;
+        }
+        if (auto.kind !== 'interval' || !(auto.ms > 0)) { return; }
         if (mu._nsDue[pg] == null) { mu._nsDue[pg] = at + auto.ms; }
         var tick = function (now) {
           if (!mu.alive || mu._gen !== gen || now > durMs) { return; }
