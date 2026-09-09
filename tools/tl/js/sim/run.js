@@ -2260,6 +2260,12 @@ export function run(o) {
       var au = allies[row.i];
       if (!au) { return; }
       var fireEx = function (now) {
+        // **倒れた子は EX を撃たない**（2026-09-10）。通常攻撃（`step`）と通常スキル
+        // （`tick` / `tickR`）はどちらも `if (au.alive)` で囲ってあるのに、TL が指す EX だけ
+        // 囲っていなかった。ケセド `QnKBiKMMUQE` のセイア（a3）は 81.1 秒に倒れたあと
+        // 106.4 秒と 149.1 秒に `CH0070Ex01` を撃っていた。戦闘不能の生徒の EX カードは
+        // 手札から消えるので、撃てるはずがない。**戻さず捨てる**——総力戦に蘇生は無い
+        if (!au.alive) { return; }
         // **NS の演出中のタップは、演出が明けてから出る**（旧い道 `ns.js` の `exStart`。2026-09-05 に動画で確認）
         if (au._busyKind === 'Public' && au._busyUntil != null && au._busyUntil > now + 1e-6) {
           R.q.push(au._busyUntil, fireEx);
