@@ -297,6 +297,8 @@ export function driveBoss(ctx) {
   var first = plan.phases[0] ? 0 : num(Object.keys(plan.phases)[0]) || 0;
   st.phase = first;
   var k0;
+  var f0now = (plan.forms && plan.forms[0]) || plan;
+  st.slotGid = (f0now.ex || []).slice();
   for (k0 = 0; k0 < plan.ex.length; k0++) {
     st.coolUntil[k0] = (plan.cool[k0] && plan.cool[k0].start) || 0;
   }
@@ -658,6 +660,21 @@ export function driveBoss(ctx) {
   /** 形態が変わった（`run.js` の `R.onForm`）。通常攻撃の無い形態から有る形態へなら拍を起こす */
   st.setForm = function (fi, now) {
     if (st.log) { st.log.push([now, 'form' + fi]); }
+    // **クールタイムの表は形態ごとに別**（2026-09-09）。`st.coolUntil` は
+    // 形態 0 の `EnemyStartCoolTime` で 1 度だけ入れていて、形態が変わっても
+    // そのままだった。ホドの枠 2 は形態 0 が `HODEx03_NotUse_Torment`
+    // （`EnemyStartCoolTime` 999999・`UseAtg` 300 ＝ 使わせない印）で、
+    // 形態 1 の `HODEx03_Torment`（`EnemyStartCoolTime` 0・`EnemyCoolTime` 90000）に
+    // 入れ替わっても 999,999 ミリ秒が残り、**仮設タワーが一度も湧かなかった。**
+    // 中身が入れ替わった枠だけ、新しい表の頭の待ちで数え直す
+    var fo2 = (plan.forms && plan.forms[fi]) || null, kf;
+    if (fo2) {
+      for (kf = 0; kf < (fo2.ex || []).length; kf++) {
+        if (fo2.ex[kf] === st.slotGid[kf]) { continue; }
+        st.slotGid[kf] = fo2.ex[kf];
+        st.coolUntil[kf] = now + ((fo2.cool[kf] && fo2.cool[kf].start) || 0);
+      }
+    }
     if (st.stopped && naNow()) {
       st.stopped = false;
       R.q.push(Math.max(now, st.busyUntil || 0), beat);
