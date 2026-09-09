@@ -122,10 +122,13 @@ export function nsInterval(doc) {
 
     `Interval`     `ConditionArgument` がコマ（750 = 25 秒）。**周期**
     `OnAttackIng`  通常攻撃 `TryCount` 発ごと（CH0194 は 21 発ごと）。**回数**
-    それ以外（`HpUnder` ほか）は盤の状態が要るので、まだ置けない。
-      274 人ぶんの内訳は `_nsauto.mjs` が数える。
+    `HpUnder`      自分の HP がその割を下回ったら撃つ。**残り**
+    `HpOver`       自分の HP がその割を上回っているあいだ撃つ。**残り**
+    それ以外（`AmmoCountUnder` ほか）は盤の状態が要るので、まだ置けない。
+      274 人ぶんの内訳は `_nsauto.mjs` が数える。束ぜんぶの数は `_nsauto2.py`。
 
-    返り値: `{kind: 'interval'|'shots', ms, shots, rate, max}` ／ 置けなければ null */
+    返り値: `{kind: 'interval'|'shots'|'onRemove'|'hpUnder'|'hpOver', ms, shots, tmpl, hp, rate, max}`
+    ／ 置けなければ null */
 export function nsAuto(doc) {
   var r = doc && doc.AutoUseRule;
   if (!r || !r.IsValid) { return null; }
@@ -175,6 +178,24 @@ export function nsAuto(doc) {
     var hu = r.ConditionArgument == null ? 0 : +r.ConditionArgument;
     if (!(hu > 0) || +(r.ConditionCheckTarget || 0) !== 0) { return null; }
     return { kind: 'hpUnder', hp: hu / 10000, rate: rate, max: max };
+  }
+  // **`HpOver` は「自分の HP がその割を上回っているあいだ撃つ」**（2026-09-09）。
+  // 束ぜんぶで 26 本あって、**中身は 5 通りしか無く、ぜんぶヒエロニムスの壺**
+  // （`_hpover.py` の原文。`HieronymusRelicPublic02` / `04`・
+  // `HieronymusInsaneRelicPublic01`・`HieronymusRelicLunaticPublic01` / `04`）。
+  // どれも `ConditionArgument 9900`（＝ 99%）・`ConditionCheckTarget 0`（自分）・
+  // `CoolTimeNotTrigger 0`・`TryCount 1`・`TriggerRate 10000`・**`MaxTriggerCount -1`。**
+  // 回数の上限が無いのに暴れないのは、枠の `Duration` が 300 コマ（＝ 10 秒）で、
+  // そのあいだ `_busyUntil` が次を止めるから（`cast` の注記）。
+  // 中身は本体へ `Hieronymus_Relic_Public01_Effect01`〜`05` を梯子で貼る技で、
+  // 2 段目からは `LogicEffectTemplateModifierDAO`（`Buff_Ratio_Relic01`〜`04`・
+  // `IncludeType 1`・`CheckTarget 1`）が門なので、**1 段ずつしか積めない。**
+  // つまり「壺が満身のあいだ本体の被ダメージ減を貼り続け、少しでも削れば止まる」作り。
+  // `HpUnder` と同じく置いたのは敵の体だけ（`setupMinion`）
+  if (r.ConditionType === 'HpOver') {
+    var ho = r.ConditionArgument == null ? 0 : +r.ConditionArgument;
+    if (!(ho > 0) || +(r.ConditionCheckTarget || 0) !== 0) { return null; }
+    return { kind: 'hpOver', hp: ho / 10000, rate: rate, max: max };
   }
   return null;
 }
@@ -2706,16 +2727,19 @@ export function run(o) {
         if (!pg || pg === 'EmptySkill' || !mu.ls[pg]) { return; }
         var auto = nsAuto(mu.ls[pg]);
         if (!auto) { return; }
-        // **`HpUnder`**（`nsAuto` の注記）。0.1 秒ごとに自分の残りを見て、
-        // 下回っていたら撃つ。ヒエロニムスの壺の `Immortal` はこれで剥がれる
-        if (auto.kind === 'hpUnder') {
+        // **`HpUnder` / `HpOver`**（`nsAuto` の注記）。0.1 秒ごとに自分の残りを見て、
+        // 下回って（上回って）いたら撃つ。ヒエロニムスの壺 03 の `Immortal` は
+        // `HpUnder` で剥がれ、壺 01 は `HpOver` で本体に被ダメージ減を貼り続ける
+        if (auto.kind === 'hpUnder' || auto.kind === 'hpOver') {
+          var over = auto.kind === 'hpOver';
           var nHu = 0;
           var pollHu = function (now) {
             if (!mu.alive || mu._gen !== gen || now > durMs) { return; }
             if (auto.max > 0 && nHu >= auto.max) { return; }
             if (mu.appearUntil != null && now < mu.appearUntil) { R.q.push(mu.appearUntil, pollHu); return; }
             if (mu._busyUntil != null && mu._busyUntil > now + 1e-6) { R.q.push(mu._busyUntil, pollHu); return; }
-            if (mu.maxHp > 0 && mu.hp / mu.maxHp <= auto.hp) {
+            var rate9 = mu.maxHp > 0 ? mu.hp / mu.maxHp : 0;
+            if (mu.maxHp > 0 && (over ? rate9 >= auto.hp : rate9 <= auto.hp)) {
               cast(R, mu, pg, 'Public', 1, now);
               nHu++;
             }
