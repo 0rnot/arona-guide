@@ -197,6 +197,23 @@ export function nsAuto(doc) {
     if (!(ho > 0) || +(r.ConditionCheckTarget || 0) !== 0) { return null; }
     return { kind: 'hpOver', hp: ho / 10000, rate: rate, max: max };
   }
+  // **`AmmoCountUnder` は「残弾が `ConditionArgument` 以下になったとき」**（2026-09-10）。
+  // 束ぜんぶで 6 本しか無く、`ConditionCheckTarget` は**どれも 0（自分）**。
+  // 説明文が一対一で決めている（`students.min.json` の原文）:
+  //   `HinaPublic01` / `HinaGearPublic01`（0） ヒナ         「弾薬数が0になった時、すぐにリロード」
+  //   `CH0258_AttackerPublic01`（0）           ホシノ（臨戦）「ファストローディング用の残弾数が0になった時」
+  //   `CH0334Public01`（0）                    アリス（臨戦）「弾薬数が0になった時」
+  //   `CH0174Public02`（0）                    オトギ       「指定射撃姿勢で弾薬数が0になった時」
+  //   `CH0141Public01`（3）                    フブキ       「弾薬が3以下になる毎に」
+  // **`<` ではなく `≤`。**フブキの弾は 15→12→9→6→3→0 としか動かないので、
+  // `< 3` だと「0 のとき」になって説明文と食い違う（旧い道 `ns.js:103〜117` と同じ読み）。
+  // オトギの `TryToUseSkillModifiers`（`FormIndexCheckModifierDAO` `FormIndex: 1`）が
+  // 「指定射撃姿勢で」そのもの。門は撃つ瞬間に `condAll` で見る（`setupAlly` の `ammo` の枝）
+  if (r.ConditionType === 'AmmoCountUnder' && r.ConditionArgument != null) {
+    var lo = +r.ConditionArgument;
+    if (!(lo >= 0) || +(r.ConditionCheckTarget || 0) !== 0) { return null; }
+    return { kind: 'ammo', ammo: lo, mods: r.TryToUseSkillModifiers || [], rate: rate, max: max };
+  }
   return null;
 }
 
@@ -2106,6 +2123,21 @@ export function run(o) {
             if (autos[pq].auto && autos[pq].auto.kind === 'shots' && au._shots % autos[pq].auto.shots === 0) {
               cast(R, au, autos[pq].pg, 'Public', lvOf('Public'), now, { to: p.nsto });
             }
+          }
+          // 通常スキル。**弾倉が減って `ConditionArgument` 以下になった瞬間**
+          // （`AmmoCountUnder`。`nsAuto` の注記）。残弾は
+          // `AmmoCount − 撃った発数 × AmmoCost` で、またぐ 1 発だけで撃つ（1 弾倉に 1 回）。
+          // 弾倉の数えは演出明けに 0 へ戻るので、残弾もそこから数え直しになる
+          var am9 = +((p.stats || {}).AmmoCount || 0), ac9 = +((p.stats || {}).AmmoCost || 0);
+          for (pq = 0; pq < autos.length; pq++) {
+            var au9 = autos[pq].auto;
+            if (!au9 || au9.kind !== 'ammo' || !(am9 > 0) || !(ac9 > 0)) { continue; }
+            if (!(am9 - shot * ac9 > au9.ammo && am9 - (shot + 1) * ac9 <= au9.ammo)) { continue; }
+            if (au9.max > 0 && (au._nsN[autos[pq].pg] || 0) >= au9.max) { continue; }
+            // オトギの「指定射撃姿勢で」。**判定できない門は撃たない**
+            if (au9.mods.length && condAll(au9.mods, R.ctx, au, au) !== true) { continue; }
+            cast(R, au, autos[pq].pg, 'Public', lvOf('Public'), now, { to: p.nsto });
+            au._nsN[autos[pq].pg] = (au._nsN[autos[pq].pg] || 0) + 1;
           }
           au._fireSS(now, 'attack');
           // 形態の終わり方が「装弾数」なら 1 発ぶんの `AmmoCost` を引く
