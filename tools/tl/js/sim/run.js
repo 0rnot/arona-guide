@@ -358,19 +358,37 @@ function psTrig(doc) {
     `AttackIngDuration` / `AttackEnterDuration` / `AttackBurstRoundOverDelay` /
     `AttackReloadDuration` が入っている（アルは 42 / 45 / 50 / 70）。
 
-    **周期は `AttackIngDuration` 1 本**（`js/na.js` と同じ扱い）。
-    `AttackStartDuration` と `AttackEndDuration` が 1 発ごとか弾倉ごとかは
-    データから決められないので入れない。入れると 1 発 1.4 秒が 2.4 秒になる。
+    **生徒の周期は `AttackIngDuration` 1 本**（`js/na.js` と同じ扱い）。
+    `AttackStartDuration` と `AttackEndDuration` は入れない。入れると 1 発 1.4 秒が
+    2.4 秒になり、動画で合わせた味方の与ダメージ（`IrVUx0ywuyo` 17,035,827 対
+    17,049,613）が崩れる。
+
+    **敵は違う。`foe` を渡すと「構え → 撃つ → 戻す」で 1 周**
+    （`AttackStartDuration ＋ AttackIngDuration ＋ AttackEndDuration`、**1 発ごと**）。
+    `boss.js:frames` と同じ決めで、**`build-tool-data.py:tl_frames` が動画 3 本で
+    確かめたもの**——ペロロジラは 33+60+27 = 120 コマ（4.0 秒）で、`AttackIngDuration`
+    だけだと 60 コマ（2.0 秒）。9 発目に `Ex09` を撃つので
+    `9 × 4.0 ＋ (150 + 494 + 150) / 30 = 62.467 秒`、動画のグロッキーゲージ 1 マス目は
+    `fr_pero_y4h8XEXXfgw` 62.2 秒 ／ `WPsUxtkDMQU` 62.4 秒 ／ `LfeYesN3MSs` 63.2 秒。
+    **弾倉ごとではない**——ペロロジラの `AmmoCount` は 8 なので、弾倉ごとに 1 回だと
+    1 発 2.25 秒で 46.7 秒になり 16 秒早い（2026-09-10）。
+
+    **雑魚がこれを持っていなかった。**ケセドの `ChesedDroid`（`AttackStartDuration` 22 ＋
+    `AttackIngDuration` 18 ＋ `AttackEndDuration` 20）は 0.60 秒ではなく 2.00 秒、
+    `ChesedDrone_Vulcan`（30+10+33）は 0.33 秒ではなく 2.43 秒 ＝ **7.3 倍速く撃っていた。**
+    味方が受けるダメージが 3 倍になり、`QnKBiKMMUQE` は 4 人とも倒れていた
+    （動画は 152.47 秒まで 6 人とも立っている）。
 
     弾倉は `AmmoCount ÷ AmmoCost`、撃ち切ったら
     `AttackBurstRoundOverDelay + AttackReloadDuration` 待つ。
     `spd` は `NormalAttackSpeed`（1 万分率）で、**フレーム数のほうを割る。** */
-export function naInfo(doc, spd, ammo, cost) {
+export function naInfo(doc, spd, ammo, cost, foe) {
   if (!doc || !doc.AnimationFrames) { return null; }
   var fr = {}, i, a = doc.AnimationFrames;
   for (i = 0; i < a.length; i++) { fr[a[i].Key] = a[i].Frame; }
   var ing = fr.AttackIngDuration;
   if (!(ing > 0)) { return null; }
+  if (foe) { ing += (fr.AttackStartDuration || 0) + (fr.AttackEndDuration || 0); }
   var sp = (spd || 10000) / 10000;
   return {
     per: ing / FPS * 1000 / sp,
@@ -2780,7 +2798,9 @@ export function run(o) {
     ngs = Array.isArray(ngs) ? ngs : (ngs ? [ngs] : []);
     for (z = 0; z < ngs.length; z++) { if (ngs[z] && ngs[z] !== 'EmptySkill') { ng = String(ngs[z]); break; } }
     var st0 = mu.base || {};
-    var na = ng && mu.ls[ng] ? naInfo(mu.ls[ng], st0.NormalAttackSpeed, st0.AmmoCount, st0.AmmoCost) : null;
+    // **雑魚は敵側の数え方**（`naInfo` の注記。第 5 引数）。1 発は「構え → 撃つ → 戻す」
+    var na = ng && mu.ls[ng]
+      ? naInfo(mu.ls[ng], st0.NormalAttackSpeed, st0.AmmoCount, st0.AmmoCost, 1) : null;
     if (na) {
       var shot = 0;
       var step = function (now) {
