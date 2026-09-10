@@ -1684,10 +1684,18 @@ export function run(o) {
     if (!a9) {
       if (!u9.pos || foeNoPos(u9)) { return false; }
       R.miss['的なし:' + slot] = (R.miss['的なし:' + slot] || 0) + 1;
+      if (R.missLog && R.missLog.length < 4000) {
+        R.missLog.push([Math.round(b.t), u9.key, slot, '的なし', '生きている敵', R.minionCount()]);
+      }
       return true;
     }
     if (inRange(u9, a9)) { return false; }
     R.miss['射程外:' + slot] = (R.miss['射程外:' + slot] || 0) + 1;
+    // **なぜ届かないか**（`probe` のときだけ）。狙った相手と、縁までの距離 − 射程
+    if (R.missLog && R.missLog.length < 4000) {
+      R.missLog.push([Math.round(b.t), u9.key, slot, '射程外', a9.key,
+                      +(edgeDist(u9, a9) - rangeOf(u9)).toFixed(2)]);
+    }
     return true;
   }
   /** 1 刻みぶん近づく。着いたら味方は射程内の遮蔽に隠れ直す */
@@ -1787,7 +1795,7 @@ export function run(o) {
     god: !!o.god, castLog: {},
     b: b, ctx: ctxOf(b), eff: eff, q: queue(), evCache: {}, pgCache: {},
     castN: 0, scPick: {},
-    fireN: {}, missBy: {}, missT: {}, missWhy: {}, deaths: [], killLog: [], byAlly: {}, noBossDmg: !!o.noBossDmg, noUntargetable: !!o.noUntargetable, total: 0, heal: 0, groggy: [], ggLog: [], secLog: [], summoned: 0, smCache: {}, probe: o.probe ? [] : null, areaLog: o.probe ? [] : null, used: [], unknown: 0, unknownBy: {}, miss: {}, by: {}, dsp: o.probe ? {} : null,
+    fireN: {}, missBy: {}, missT: {}, missWhy: {}, deaths: [], killLog: [], byAlly: {}, noBossDmg: !!o.noBossDmg, noUntargetable: !!o.noUntargetable, total: 0, heal: 0, groggy: [], ggLog: [], secLog: [], summoned: 0, smCache: {}, probe: o.probe ? [] : null, areaLog: o.probe ? [] : null, missLog: o.probe ? [] : null, used: [], unknown: 0, unknownBy: {}, miss: {}, by: {}, dsp: o.probe ? {} : null,
     durMs: durMs, mc: o.mc || 1, C: constOf(common),
     unitOf: function (k) { return b.units[k] || null; },
     /** **味方の出来事を味方みんなに知らせる**（2026-09-10）。
@@ -2133,6 +2141,10 @@ export function run(o) {
         if (au._busyUntil != null && au._busyUntil > now + 1e-6) {
           shot = 0;
           var re9 = au._busyUntil + na.ent;
+          if (R.missLog && R.missLog.length < 4000) {
+            R.missLog.push([Math.round(now), au.key, 'Normal', '演出中',
+                            String(au._busyKind), +(au._busyUntil / 1000).toFixed(2)]);
+          }
           if (re9 <= durMs) { R.q.push(re9, step); }
           return;
         }
@@ -3003,16 +3015,30 @@ export function run(o) {
   // **波の終わり**（2026-09-08 に読み直した）。波は「点が全部湧いてから、盤の敵が `EndCount`（ケセドは 0）まで
   // 減ったら」終わる。遅れて湧く点（節 0 の `SpawnGroup6` +10 秒、節 1 の `2Wave_6` +15 秒）も出る——
   // 動画（QnKBiKMMUQE）の HUD の残り数は節 1 で 41 → 8 と減って、その 8 体が 71 秒に湧いて 78 秒に片付く
+  // **`WaveDelay` は波と波の間で、1 波目の手前には置かない**（2026-09-11）。
+  // 束の `GroundCommandWave` は 140 個ぜんぶ `WaveDelay: 3000` の 1 通りしか無く、
+  // どちらの読みでも辻褄が合ってしまうので、動画のコマで決めた
+  // （`fr_ches_QnKBiKMMUQE`。右上の時計から戦闘秒）:
+  //   コマ 00011  戦闘 4.33 秒  隊列はまだ歩いている・`Wave` の帯なし・敵 0
+  //   コマ 00012  戦闘 5.87 秒  隊列は台の上・`Wave 1/2 40`・ドロイド 5 体
+  //   コマ 00013  戦闘 7.77 秒  同じ帯のまま 10 体以上
+  // **1 波目は隊列が区画に入った刻に湧いている**（歩き終わりは核の計算で 5.95 秒）。
+  // `at + 3000` を置いていたので核の 1 波目は 8.95 秒——3 秒まるごと遅く、
+  // 節 0 が片付くのが 動画 28.6 秒 対 核 52.0 秒になっていた。
+  // 2 波目以降は今までどおり `WaveDelay` を置く（動画も 1 波目が片付く 13.7 秒 →
+  // 15.7 秒はまだ `Wave 1/2 25` のままで、2 波目は 16.7 秒＝ +3.0 秒）
   var waveQ = [], waveLive = false, waveSpawned = false, waveAny = false, waveEnd = 0, waveGen = 0;
+  var waveFirst = false;
   function fireWave(at) {
     var sc2 = bd.sections[sec] || {};
     waveQ = (sc2.wave || []).slice();
-    waveLive = false; waveSpawned = false; waveAny = false;
+    waveLive = false; waveSpawned = false; waveAny = false; waveFirst = true;
     nextWave(at);
   }
   function nextWave(at) {
     if (!waveQ.length) { return; }
-    var w7 = waveQ.shift(), t7 = at + (w7.delay || 0);
+    var w7 = waveQ.shift(), t7 = at + (waveFirst ? 0 : (w7.delay || 0));
+    waveFirst = false;
     if (t7 > R.durMs) { return; }
     waveLive = true; waveSpawned = false; waveAny = false; waveEnd = w7.end || 0;
     waveGen++;
@@ -3656,7 +3682,7 @@ export function run(o) {
         return [e.gid, e.raw && e.raw.stat, e.raw && e.raw.amt];
       })];
     }),
-    probe: R.probe, areaLog: R.areaLog, events: R.q.size(),
+    probe: R.probe, areaLog: R.areaLog, missLog: R.missLog, events: R.q.size(),
     // **ボスが何をしたか。**動いていないときに黙って通らないための報せ
     bossGg: bossU.gg || 0, bossAtg: bossU.atg || 0,
     bossPhase: bst ? bst.phase : null, bossEx: bst ? bst.exCount : 0,
