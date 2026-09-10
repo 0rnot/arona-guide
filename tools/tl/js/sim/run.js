@@ -2532,6 +2532,22 @@ export function run(o) {
     return !!pp[k].alive;
   };
   R.ctx.partAlive = R.partAlive;
+  /** **欠員の数**（`CountSquadAbsenceModifierDAO`。2026-09-10）。
+      束にあるのは `CH0293Ex01`（ナギサ（水着））のただ 1 件で、
+      `AbsenceType: -1` ／ `AbsenceRangeMin: 0` ／ `AbsenceRangeMax: 0` ／
+      `IncludeType: 1` ／ `CheckTarget: 0`。**読みは技の説明文がそのまま決めている**
+      ——「`CostOverload`：**生徒が編成可能な最大数まで編成され、誰も退却していない場合**、
+      保有コストを最大5コストまで超過して消費可能」。
+      つまり **空いた枠（4 ＋ 2 に足りないぶん）＋ 倒れた子** を数えて 0 かどうか。 */
+  R.ctx.absent = function (u2) {
+    if (!u2 || u2.side !== 'ally') { return null; }
+    var st9 = 0, sp9 = 0, dn9 = 0, z9;
+    for (z9 = 0; z9 < allies.length; z9++) {
+      if (allies[z9].squad === 'Support') { sp9++; } else { st9++; }
+      if (!allies[z9].alive) { dn9++; }
+    }
+    return Math.max(0, 4 - st9) + Math.max(0, 2 - sp9) + dn9;
+  };
   // **いま盤に居る、ボス以外の敵の数。**木の `CheckSummonCharacterCountUnder` 用
   /** **その側でグロッキーゲージを持っている体**（面に 1 体。ふつうはボス） */
   R.groggyHolder = function (side) {

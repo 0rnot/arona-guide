@@ -257,6 +257,19 @@ export function one(m, ctx, self, target) {
     if (k9 == null) { return null; }
     return tc.IncludeType === 2 ? (k9 !== want) : (k9 === want);
   }
+  /** **欠員の数**（`CountSquadAbsenceModifierDAO`。2026-09-10。切り分けは 3＝材料が足りない）。
+      束ぜんぶで 1 件だけ——`CH0293Ex01`（ナギサ（水着））の 2 本目のアビリティ
+      （`CH0293_Ex01_Effect02` ＝ `CostOverloadEnableEffectDAO`）の門で、
+      `AbsenceType: -1` ／ `AbsenceRangeMin: 0` ／ `AbsenceRangeMax: 0` ／ `IncludeType: 1`。
+      読みは技の説明文が決めている——「生徒が編成可能な最大数まで編成され、
+      誰も退却していない場合」。**`AbsenceType` は -1（種類を問わない）しか無い**ので、
+      他の値が出たら読まない。数えるのは `run.js:R.ctx.absent` */
+  if (t === 'CountSquadAbsenceModifierDAO') {
+    if (!ctx.absent || m.AbsenceType !== -1) { return null; }
+    n = ctx.absent(who);
+    if (n == null) { return null; }
+    return inc(m, within(n, m.AbsenceRangeMin, m.AbsenceRangeMax));
+  }
   if (t === 'CountEntityListCombinedModifierDAO') {
     if (!ctx.bodies) { return null; }
     return inc(m, within(ctx.bodies(m), m.CountMin, m.CountMax));
