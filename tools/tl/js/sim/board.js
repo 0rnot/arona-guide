@@ -265,9 +265,12 @@ export function spawnFor(plan, si, tag) {
   return (s && s.byTag[tag]) || [];
 }
 
-/** 味方の並びの原点（その節の `Formations`）。**その節に入ったときの立ち位置**で、
-    `Index 0`。そこから `walkTo` まで歩く（`run.js` の節の進行）。
-    同じ節に `Index` が複数あるのは進む途中の目印で、終点は `walkTo` のほう。 */
+/** 味方の並びの原点（`Formations` の `SectionIndex === si` の行）。
+    **戦闘が始まる立ち位置は `si = -1`**（生の `SectionIndex 0` ＝ 戦闘前の置き場）で、
+    節 0 の目印はその次の行。`run.js` はそこから `beaconOf(0)` まで歩かせる。
+    同じ節に `Index` が複数あるのは進む途中の目印で、終点は `Index` が最大のもの。
+    **その行が無い盤**（生の `SectionIndex` が 1 から始まる盤。節 1 つで 141 面）は
+    下の逃げ道で先頭の行を返す ＝ 節 0 の目印に立って始まる。 */
 export function originOf(plan, si) {
   var f = (plan && plan.formations) || [], i;
   for (i = 0; i < f.length; i++) {

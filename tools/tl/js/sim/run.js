@@ -1505,7 +1505,16 @@ export function run(o) {
     var fr0 = common.form[i];
     if (fr0.GroupID === fgid || fr0.GroupId === fgid) { formRow = fr0; }
   }
-  var origin = originOf(bd, sec);
+  // **戦闘が始まる立ち位置は、節 0 の目印の 1 つ手前**（2026-09-10）。
+  // `Formations` の生の `SectionIndex 0` は戦闘前の置き場（`board.js` が −1 に寄せている）で、
+  // **節 0 の目印はその次の行。**ここを `originOf(bd, sec)` と書いていたので、味方は
+  // 節 0 の目印に**湧いた瞬間から立っていて**、そこまで歩くぶんが丸ごと落ちていた。
+  // ケセドは (0, 6.0) → (0, 17.91) の 11.9 単位 ＝ 6.0 秒で、節 0 の波は
+  // `GroundConditionArea`（z 17.9・厚み 4）に入ってから `WaveDelay 3000` で湧く。
+  // 束の盤 1,679 面のうち **1,431 面が生の 0 番を持ち**、節 1 つの盤 414 面でも
+  // 行が 2 つある（＝ 0 番は節の目印ではない）。0 番が無い盤（節 1 つで 141 面）は
+  // `originOf` の逃げ道で節 0 の目印に立つ——そちらは今までどおり
+  var origin = originOf(bd, sec - 1);
   // **味方の立ち位置は節をまたいで続く。**歩いた先を持ち回るための入れ物で、
   // `Formations` の行をそのまま持つと次の節で巻き戻る
   var org = origin
@@ -1778,7 +1787,7 @@ export function run(o) {
     god: !!o.god, castLog: {},
     b: b, ctx: ctxOf(b), eff: eff, q: queue(), evCache: {}, pgCache: {},
     castN: 0, scPick: {},
-    fireN: {}, missBy: {}, missT: {}, missWhy: {}, deaths: [], killLog: [], byAlly: {}, noBossDmg: !!o.noBossDmg, noUntargetable: !!o.noUntargetable, total: 0, heal: 0, groggy: [], ggLog: [], secLog: [], summoned: 0, smCache: {}, probe: o.probe ? [] : null, used: [], unknown: 0, unknownBy: {}, miss: {}, by: {}, dsp: o.probe ? {} : null,
+    fireN: {}, missBy: {}, missT: {}, missWhy: {}, deaths: [], killLog: [], byAlly: {}, noBossDmg: !!o.noBossDmg, noUntargetable: !!o.noUntargetable, total: 0, heal: 0, groggy: [], ggLog: [], secLog: [], summoned: 0, smCache: {}, probe: o.probe ? [] : null, areaLog: o.probe ? [] : null, used: [], unknown: 0, unknownBy: {}, miss: {}, by: {}, dsp: o.probe ? {} : null,
     durMs: durMs, mc: o.mc || 1, C: constOf(common),
     unitOf: function (k) { return b.units[k] || null; },
     /** **味方の出来事を味方みんなに知らせる**（2026-09-10）。
@@ -2041,6 +2050,19 @@ export function run(o) {
       var anchored = String((ev.area && ev.area.spawn) || '') === 'WorldPosition'
         && ev.area.wp;
       if (!anchored && hit.indexOf(aim) < 0) { hit = [aim].concat(hit); }
+      // **範囲がどこに落ちて、そのとき誰がどこに居たか**（調べる道具。`probe` のときだけ）。
+      // 円の中心は盤の絶対座標のことがあるので、当たり外れは立ち位置だけで決まる
+      // （シロクロ Torment の EX の格子。2026-09-10）
+      if (R.areaLog && R.areaLog.length < 400) {
+        var r10 = function (p10) {
+          return p10 ? [Math.round(p10.x * 100) / 100, Math.round(p10.y * 100) / 100] : null;
+        };
+        R.areaLog.push([Math.round(R.now), u.key, ev.gid || '', ev.area.kind,
+                        String(ev.area.spawn || ''), ev.area.r,
+                        anchored ? [ev.area.wp.x, ev.area.wp.y] : r10(aim.pos),
+                        hit.map(function (h10) { return h10.key; }),
+                        sorted.map(function (s10) { return [s10.key, r10(s10.pos)]; })]);
+      }
       if (max != null && max > 0 && hit.length > max) { hit = hit.slice(0, max); }
       return hit;
     },
@@ -3634,7 +3656,7 @@ export function run(o) {
         return [e.gid, e.raw && e.raw.stat, e.raw && e.raw.amt];
       })];
     }),
-    probe: R.probe, events: R.q.size(),
+    probe: R.probe, areaLog: R.areaLog, events: R.q.size(),
     // **ボスが何をしたか。**動いていないときに黙って通らないための報せ
     bossGg: bossU.gg || 0, bossAtg: bossU.atg || 0,
     bossPhase: bst ? bst.phase : null, bossEx: bst ? bst.exCount : 0,
