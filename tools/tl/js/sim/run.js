@@ -215,7 +215,23 @@ export function nsAuto(doc) {
     105（周期）／ 16（リロード）** の 5 通り。**残りは盤の出来事が要るので置かない。**
 
     **2 と 21 の違いはデータから決まらない。**どちらも「通常攻撃 1 発ごと」として扱う
-    （2 は 7 人、21 は 56 人）。決まったら分ける。 */
+    （2 は 7 人、21 は 56 人）。決まったら分ける。
+
+    **引き金が「誰の出来事」で立つかは `TriggerSourceFindRule` が持っている**
+    （2026-09-10）。`EssentialCandidate.TargetSide` で、ここまで見ずに
+    **全部「自分の出来事」として数えていた。**`CH*ExtraPassive` / `CH*HiddenPassive`
+    を数えた原文（`tl-work/_trigsrc.py`）で、ここで置ける `Event` に出てくる
+    `Self` 以外は 5 本だけ:
+
+      CH0141ExtraPassive01  Event 3 Ally_Except_Self  Parameters "Ex"      TryCount 0
+      CH0204ExtraPassive01  Event 3 Ally_Except_Self  Parameters "Ex"      TryCount 2
+      CH0242HiddenPassive01 Event 3 Ally_Except_Self  Parameters "Ex"      TryCount 1
+      CH0326HiddenPassive01 Event 3 Ally_Except_Self  Parameters "Public"  TryCount 1
+      CH9997ExtraPassive01  Event 30 Enemy            Parameters "CH9997_Ex01_Effect02"
+
+    説明文と一致する（`CH0204ExtraPassive01` は
+    「自身を除く味方のExスキルを2回使用時」）。`Enemy` は敵の枠を知らせる道が
+    無いので置かず、`R.miss['ssFrom:Enemy']` に数える。 */
 export function ssTrig(doc) {
   var t = doc && doc.TriggerCondition;
   if (!t) { return null; }
@@ -224,6 +240,9 @@ export function ssTrig(doc) {
             max: doc.MaxTriggerCount == null ? -1 : doc.MaxTriggerCount,
             tries: doc.TryCount == null ? 1 : (+doc.TryCount || 1),
             cool: doc.CoolTimeNotTrigger ? (+doc.CoolTimeNotTrigger / FPS * 1000) : 0,
+            // **誰の出来事で立つか**（2026-09-10）。`TriggerSourceFindRule` の
+            // `EssentialCandidate.TargetSide`。欄が無い札は `Self` と同じに扱う
+            from: (((doc.TriggerSourceFindRule || {}).EssentialCandidate || {}).TargetSide) || 'Self',
             when: null };
   if (ev === 1 || ev === 301) { o.when = 'always'; }
   else if (ev === 2 || ev === 21) { o.when = 'attack'; }
@@ -1061,8 +1080,11 @@ function cast(R, u, gid, slot, lvl, at, opt) {
   R.used.push({ t: at, who: u.key, slot: slot, gid: gid });
   // **スキルを使ったことを SS に知らせる**（Event 3 / 17）。
   // SS 自身とパッシブからは知らせない（際限なく回る）
+  // **撃った本人だけでなく味方みんなへ**（2026-09-10）。`Ally_Except_Self` の
+  // SS は他の子の枠を数える（`R.fireSSAll` が `src` で振り分ける）
   if (u._fireSS && slot !== 'ExtraPassive' && slot !== 'Passive' && slot !== 'HiddenPassive') {
-    u._fireSS(at, 'cast', slot);
+    if (R.fireSSAll && u.side === 'ally') { R.fireSSAll(u, at, 'cast', slot); }
+    else { u._fireSS(at, 'cast', slot); }
   }
 }
 
@@ -1589,11 +1611,38 @@ export function run(o) {
     }
     return best;
   }
+  /** **座標の無い面を見分ける。**生きている相手が居るのに 1 体も座標を持っていなければ、
+      `aimOf` は常に `null` を返す——その面では下の「狙える相手が居ない」の門を開けない */
+  function foeNoPos(u9) {
+    var vs9 = living(b, u9.side === 'ally' ? 'enemy' : 'ally'), z9, n9 = 0, p9 = 0;
+    for (z9 = 0; z9 < vs9.length; z9++) {
+      if (vs9[z9] === u9) { continue; }
+      n9++;
+      if (vs9[z9].pos) { p9++; }
+    }
+    return n9 > 0 && p9 === 0;
+  }
   /** 射程の外なら撃たずに待つ（`R.miss['射程外:<枠>']` に数える）。射程が無い体は今までどおり撃つ */
   function outOfRange(u9, slot) {
     if (rangeOf(u9) <= 0) { return false; }
     var a9 = aimOf(u9);
-    if (!a9 || inRange(u9, a9)) { return false; }
+    // **狙える相手が 1 体も居なければ撃たない**（2026-09-10）。ItJustWorks の
+    // 「行動の列」（上の注記）は **1. 視界に敵が居なければ前へ** で、撃つのは 4 番目。
+    // ここが `!a9 → false`（＝撃つ）だったので、盤に狙える体が 1 つも無い間も
+    // 通常攻撃を撃ち続けていた。`cast` は `R.pick` が空を返して
+    // `R.miss['狙えず:Normal']` に数えるだけだが、**呼び出した側は 1 発撃った扱いで進む**
+    // ——`au._shots` が増え（「N 発毎」のサブスキルが前借りされる）、弾倉と
+    // リロードの位相がずれ、`_fireSS(now, 'attack')`（`Event 2` / `21`）まで立つ。
+    // ケセド `QnKBiKMMUQE` の原文（`tl-work/_aimwhy.py`）で、空撃ちは
+    // a1 89 発（1.5〜99.0 秒）／ a2 59 発（0.9〜101.0 秒）／ a0 22 発 ／ a3 20 発。
+    // 相手が 1 体も生きていない間（区画の切り替わり・湧く前）も同じで、撃つ相手が居ない。
+    // 座標の無い面では門を開けない（`foeNoPos`）
+    if (!a9) {
+      if (!u9.pos || foeNoPos(u9)) { return false; }
+      R.miss['的なし:' + slot] = (R.miss['的なし:' + slot] || 0) + 1;
+      return true;
+    }
+    if (inRange(u9, a9)) { return false; }
     R.miss['射程外:' + slot] = (R.miss['射程外:' + slot] || 0) + 1;
     return true;
   }
@@ -1697,6 +1746,16 @@ export function run(o) {
     fireN: {}, missBy: {}, missT: {}, missWhy: {}, deaths: [], killLog: [], byAlly: {}, noBossDmg: !!o.noBossDmg, noUntargetable: !!o.noUntargetable, total: 0, heal: 0, groggy: [], ggLog: [], secLog: [], summoned: 0, smCache: {}, probe: o.probe ? [] : null, used: [], unknown: 0, unknownBy: {}, miss: {}, by: {}, dsp: o.probe ? {} : null,
     durMs: durMs, mc: o.mc || 1, C: constOf(common),
     unitOf: function (k) { return b.units[k] || null; },
+    /** **味方の出来事を味方みんなに知らせる**（2026-09-10）。
+        `TriggerSourceFindRule` が `Ally` / `Ally_Except_Self` の SS は
+        **他の子が撃ったとき**に立つので、撃った本人だけでは足りない。
+        誰の出来事かは `src` で渡し、受け取った側の `_fireSS` が振り分ける */
+    fireSSAll: function (src, at, kind, what) {
+      var z8;
+      for (z8 = 0; z8 < allies.length; z8++) {
+        if (allies[z8]._fireSS) { allies[z8]._fireSS(at, kind, what, src); }
+      }
+    },
     lvTable: common.lvdiff || null, caps: capsOf(common.calcLimit),
     baT: baTable(common), terrT: terrTable(common),
     topo: (boss.ground || {}).StageTopography || 'Outdoor',
@@ -2211,11 +2270,25 @@ export function run(o) {
         }
       }
       au._ssList = ssList;
-      au._fireSS = function (now, kind, what) {
-        var q9, e9, ss9;
+      au._fireSS = function (now, kind, what, src) {
+        var q9, e9, ss9, sr9 = src || au;
+        // **倒れた子のサブスキルは立たない**（2026-09-10）。`fireEx` と同じ話で、
+        // シロクロ `B7GPFRbI1vk` の a3（CH0242）は 71.5 秒に倒れたあとも
+        // 103.0 / 112.9 / 152.5 / 160.5 / 194.2 / 204.0 秒に
+        // `CH0242HiddenPassive01` を撃っていた
+        if (!au.alive) { return; }
         for (q9 = 0; q9 < ssList.length; q9++) {
           e9 = ssList[q9]; ss9 = e9.trig;
           if (!ss9 || ss9.when !== kind) { continue; }
+          // **誰の出来事で立つか**（2026-09-10。`TriggerSourceFindRule`）。
+          // `Self` は自分の出来事だけ、`Ally_Except_Self` は他の味方の出来事だけ、
+          // `Ally` は両方。`Enemy` は知らせる道が無いので置かない
+          if (ss9.from === 'Enemy') {
+            R.miss['ssFrom:Enemy'] = (R.miss['ssFrom:Enemy'] || 0) + 1;
+            continue;
+          }
+          if (ss9.from === 'Ally_Except_Self') { if (sr9 === au) { continue; } }
+          else if (ss9.from !== 'Ally') { if (sr9 !== au) { continue; } }
           if (kind === 'cast' && ss9.param && ss9.param.indexOf(what) < 0) { continue; }
           if (kind === 'apply' && String(ss9.param || '') !== String(what || '')) { continue; }
           e9.n++;
