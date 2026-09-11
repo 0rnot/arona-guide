@@ -1714,6 +1714,11 @@ export function run(o) {
       }
       if (u9.move === false || rangeOf(u9) <= 0) { continue; }
       if (u9.appearUntil != null && now < u9.appearUntil) { continue; }   // 湧きの演出中は立ったまま
+      // **EX・NS の演出中も立ったまま**（2026-09-11）。技の `Duration` のあいだ体を運ぶのは
+      // `RootMotionMoveData`（`RootMotionMoveDAO`）だけで、`LevelSkill/` 5,500 本のうち持つのは 260 本。
+      // `CH0209Ex01` は `Duration 115`・`RootMotionMoveData: None` ＝ 撃ち終わるまでその場。
+      // 見ていなかったので、水ハナコ（QnKBiKMMUQE の a2）が自分の EX の 12.7 秒に歩き出していた
+      if (u9._busyUntil != null && now < u9._busyUntil - 1e-6) { continue; }
       if (u9.side === 'ally' && (u9.squad === 'Support' || walkGoal != null)) { continue; }
       var aim9 = aimOf(u9, true);
       if (!aim9) { u9.moving = false; continue; }
