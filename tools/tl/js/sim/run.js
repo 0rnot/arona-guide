@@ -2056,13 +2056,41 @@ export function run(o) {
       // ここが `mc`（人が数えていた巻き込み数）の代わりになる
       var aim = sorted[0];
       if (!aim) { return []; }
-      var hit = inArea(ev.area, u, aim, sorted);
       // **盤の絶対座標に置いた範囲には「必ず当たる 1 人」が居ない。**
       // `EssentialCandidateRule.TargetingType` も `Target` ではなく `Position` で、
       // 狙った先ではなく置いた点が中心（シロクロ Torment の EX の格子）
       var anchored = String((ev.area && ev.area.spawn) || '') === 'WorldPosition'
         && ev.area.wp;
-      if (!anchored && hit.indexOf(aim) < 0) { hit = [aim].concat(hit); }
+      // **手で撃つ EX の入力は 1 回の発動のあいだ動かない**（2026-09-14。穴 11）。
+      // 束は `SpawnDirectionType: Input` で、`RotateEntityDirectionEveryFrame` が真の範囲は
+      // 28,000 個あまりに 1 つも無い。ここが無くて、水ハナコの扇 6 枚が 1 枚ごとに
+      // いちばん近い体へ向け直していた。入力の点は **形に入る敵がいちばん多い体**
+      // （同数なら `TargetSortRule` の並びで前）——TL は手で撃つので、オートの
+      // 「いちばん近い 1 体」ではない。`Invoker` ／ `…Position` に置く形は向き（点）を、
+      // 体に置く形は体を覚える。点を指した形には「必ず当たる 1 人」を足さない
+      var ptAim = false;
+      if (mine && ev.slot === 'Ex' && !anchored && String(ev.area.dir || '') === 'Input'
+          && aim.pos && u.pos) {
+        var pin = u._aimPin;
+        var byPt = /Invoker|Position/.test(String(ev.area.spawn || ''));
+        if (pin && pin.cast === R.curCast && (pin.pt || pin.aim.alive)) {
+          aim = pin.aim; ptAim = pin.pt;
+        } else {
+          var bi = 0, bn = -1, zi, ni;
+          for (zi = 0; zi < sorted.length; zi++) {
+            if (!sorted[zi].pos) { continue; }
+            ni = inArea(ev.area, u, sorted[zi], sorted).length;
+            if (ni > bn) { bn = ni; bi = zi; }
+          }
+          aim = sorted[bi];
+          if (byPt) { aim = { pos: { x: aim.pos.x, y: aim.pos.y } }; ptAim = true; }
+          u._aimPin = { cast: R.curCast, aim: aim, pt: ptAim };
+          R.miss['pin:' + u.key + '/Ex/' + (ev.gid || '') + (ptAim ? '/点' : '/体')] =
+            (R.miss['pin:' + u.key + '/Ex/' + (ev.gid || '') + (ptAim ? '/点' : '/体')] || 0) + 1;
+        }
+      }
+      var hit = inArea(ev.area, u, aim, sorted);
+      if (!anchored && !ptAim && hit.indexOf(aim) < 0) { hit = [aim].concat(hit); }
       // **範囲がどこに落ちて、そのとき誰がどこに居たか**（調べる道具。`probe` のときだけ）。
       // 円の中心は盤の絶対座標のことがあるので、当たり外れは立ち位置だけで決まる
       // （シロクロ Torment の EX の格子。2026-09-10）
