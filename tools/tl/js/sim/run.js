@@ -327,10 +327,18 @@ export function ssTrig(doc) {
     （`HODGuardTower_*Passive02` / `HODColourGuardTower_*Passive02`、
     `Parameters: Dummy_HOD_TemporaryTargetChangeCheck`）がこれで動く。
 
-    まだ置けないもの: `23`（19 本。`Parameters` が `Buff` / `CrowdControl` の**種類**で、
-    名前つきの 3 本が `Ally_DIspel_DispelBuff` ／ `Enemy_Damage_..._TriggerAddCrowdControl` ／
-    `Enemy_StatChange_..._Triggerbuff` と**向きが割れている**）と、
-    `25`（30 本。`849Challenge03_Enemy_Boss_Passive02_Check_Shield_Dispel` は「消えたとき」に
+    **`23` は「その区分（`Category`）の札が自分に付いたとき」**（2026-09-14 に足した）。
+    `Parameters` が札の名前ではなく区分の名前（`Buff` / `CrowdControl`）。向きは生徒の
+    説明文で決まる——`CH0114ExtraPassive01` ／ `CH0286ExtraPassive01` はどちらも
+    `Event 23`・`Parameters: CrowdControl`・`TargetSide: Self` で、`LocalizeSkillExcelTable` が
+    「自身がCC状態になった時、治癒力の97.5%分の回復」。束の数字は `LogicEffect` の
+    `Category` と同じ並び（3 Buff ／ 4 Debuff ／ 5 CrowdControl。CC の札 4 種はどれも 5）。
+    置くのは `Self` の 18 本のうち区分の名前を持つ 17 本。カイテンジャー Torment／Lunatic の
+    5 色 ×2（`Kaitenger_Torment_Passive01_Effect01` ＝ CC を受けたら 15 秒 `DamagedRatio −4000`）がこれで動く。
+    `Enemy_StatChange_DefensePower_Triggerbuff_PassiveSkill02`（`TargetSide: Enemy`）と
+    `TestPoliceValkyrieARPassive02`（`Parameters` が札の名前）は置かない。
+
+    まだ置けないもの: `25`（30 本。`849Challenge03_Enemy_Boss_Passive02_Check_Shield_Dispel` は「消えたとき」に
     読めるが、`CH0274HiddenPassive01`（`Parameters: CH0274_Ex01_Effect01`、
     `TargetSide: Ally_Except_Self`）は「他の味方が持っているか」の見張りに読めて、
     やはり向きが決まらない）。「先生に聞くこと」へ */
@@ -347,6 +355,13 @@ function psTrig(doc) {
     var tm18 = String(t.Parameters || '');
     if (side18 !== 'Self' || !tm18) { return null; }
     return { when: ev === 22 ? 'removed' : 'applied', tmpl: tm18, expr: ex,
+             max: doc.MaxTriggerCount == null ? -1 : +doc.MaxTriggerCount };
+  }
+  if (ev === 23) {
+    var side23 = ((doc.TriggerSourceFindRule || {}).EssentialCandidate || {}).TargetSide;
+    var cat23 = { Buff: 3, CrowdControl: 5 }[String(t.Parameters || '').trim()];
+    if (side23 !== 'Self' || !cat23) { return null; }
+    return { when: 'appliedCat', cat: cat23, expr: ex,
              max: doc.MaxTriggerCount == null ? -1 : +doc.MaxTriggerCount };
   }
   if (ev === 105) {
@@ -559,7 +574,7 @@ function fire(R, ev, caster, target, lvl, at, mc) {
         var rf = Object.assign({}, r, { slot: ev.slot,
           dur: (r.endKind === 1 && r.endArg != null && r.endArg > 0) ? r.endArg : null });
         applyMark(target, rf, caster.key, at, lvl);
-        if (R.onApply) { R.onApply(target, rf.tmpl, at, R.curCast); }
+        if (R.onApply) { R.onApply(target, rf.tmpl, at, R.curCast, rf.cat); }
         if (target._fireSS) { target._fireSS(at, 'apply', rf.gid); }
         R.syncForm(target, at, false);
         if (rf.dur != null) {
@@ -579,7 +594,7 @@ function fire(R, ev, caster, target, lvl, at, mc) {
       var rf2 = Object.assign({}, r, { slot: ev.slot,
         dur: (r.endKind === 1 && r.endArg != null && r.endArg > 0) ? r.endArg : null });
       applyMark(target, rf2, caster.key, at, lvl);
-      if (R.onApply) { R.onApply(target, rf2.tmpl, at, R.curCast); }
+      if (R.onApply) { R.onApply(target, rf2.tmpl, at, R.curCast, rf2.cat); }
       var fi2 = r.formIndex != null ? r.formIndex : 1;
       target.form = fi2;
       if (R.onForm) { R.onForm(target, fi2, at); }
@@ -710,7 +725,7 @@ function fire(R, ev, caster, target, lvl, at, mc) {
   // ---- 被ダメージの転移。**受けたぶんを別の体へ流す札**
   if (r.kind === 'transfer') {
     applyMark(target, r, caster.key, at, lvl);
-    if (R.onApply) { R.onApply(target, r.tmpl, at, R.curCast); }
+    if (R.onApply) { R.onApply(target, r.tmpl, at, R.curCast, r.cat); }
     target.xfer = { ratio: r.ratio == null ? 10000 : r.ratio, to: caster.key };
     return 0;
   }
@@ -933,7 +948,7 @@ function fire(R, ev, caster, target, lvl, at, mc) {
   applyMark(target, r9, caster.key, at, lvl);
   // **札の名前をボスの木へ**（`ApplyLogicEffectTemplateId`。ホドは仮設タワーが死んで
   // 自分に貼る `Dummy_HOD_TemporaryDeadChangePhase01` で段が進む。2026-09-07）
-  if (R.onApply) { R.onApply(target, r9.tmpl, at, R.curCast); }
+  if (R.onApply) { R.onApply(target, r9.tmpl, at, R.curCast, r9.cat); }
   // **札が貼られたら撃つサブスキル**（`TriggerCondition.Event 30`。`ssTrig` の注記）
   if (target._fireSS) { target._fireSS(at, 'apply', r9.gid); }
   // **札が切れたら撃つ通常スキルの見張り**（`setupAlly` の `_nsWatch`）。
@@ -2559,6 +2574,7 @@ export function run(o) {
     }
     mu.onDead = [];
     mu.onApplied = {};
+    mu.onAppliedCat = {};
     mu.onGone = {};
     mu.onUsed = {};
     for (z = 0; z < slots.length; z++) {
@@ -2583,6 +2599,9 @@ export function run(o) {
             .push({ gid: g, slot: slots[z][1], tr: tr, n: 0 });
         } else if (tr.when === 'applied') {
           (mu.onApplied[tr.tmpl] = mu.onApplied[tr.tmpl] || [])
+            .push({ gid: g, slot: slots[z][1], tr: tr, n: 0 });
+        } else if (tr.when === 'appliedCat') {
+          (mu.onAppliedCat[tr.cat] = mu.onAppliedCat[tr.cat] || [])
             .push({ gid: g, slot: slots[z][1], tr: tr, n: 0 });
         } else if (tr.when === 'removed') {
           // **付いているかは毎刻み見る**（消え方が 4 通りある——時間切れ・解除・
@@ -2700,7 +2719,7 @@ export function run(o) {
   };
   // **札が貼られた合図をボスの木へ**（`ApplyLogicEffectTemplateId`）と、
   // **その札が付いたら撃つ常時札へ**（`TriggerCondition.Event 18`。`psTrig` の注記）
-  R.onApply = function (tg2, tmpl, at, castId) {
+  R.onApply = function (tg2, tmpl, at, castId, cat) {
     if (tmpl) {
       var zb;
       for (zb = 0; zb < bsts.length; zb++) {
@@ -2708,6 +2727,7 @@ export function run(o) {
       }
     }
     if (tmpl) { fireApplied(tg2, String(tmpl), at); }
+    if (cat != null) { fireAppliedCat(tg2, +cat, at); }
   };
   /** `Event 18` の見張り。**貼られた体の上の、その札の名前の見張りだけ撃つ。**
       撃った札がまた札を貼るので、`_ap18` で入れ子を 1 段に止める
@@ -2716,6 +2736,14 @@ export function run(o) {
   function fireApplied(u2, tmpl, at) {
     if (!u2 || !u2.onApplied || ap18) { return; }
     var ws = u2.onApplied[tmpl];
+    if (!ws || !ws.length) { return; }
+    ap18 = 1;
+    try { fireWatch(u2, ws, at); } finally { ap18 = 0; }
+  }
+  /** `Event 23` の見張り。**その区分の札が付いたら撃つ。**入れ子は `fireApplied` と同じ栓で止める */
+  function fireAppliedCat(u2, cat, at) {
+    if (!u2 || !u2.onAppliedCat || ap18) { return; }
+    var ws = u2.onAppliedCat[cat];
     if (!ws || !ws.length) { return; }
     ap18 = 1;
     try { fireWatch(u2, ws, at); } finally { ap18 = 0; }
