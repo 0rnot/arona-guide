@@ -38,6 +38,8 @@ BA = "https://raw.githubusercontent.com/electricgoat/ba-data/jp/Excel/{}.json"
 # DB/ のほうが SchaleDB と 274 人ぜんぶ一致する。
 # **`ConstCommonExcelTable` だけ `DB/` に無い（404）ので、そこだけ `BA` を使う。**
 BADB = "https://raw.githubusercontent.com/electricgoat/ba-data/jp/DB/{}.json"
+# ba-data の期間表の時刻は日本時間で書かれている（`2026-09-30 11:00:00`）。
+JST = datetime.timezone(datetime.timedelta(hours=9))
 # **GitHub の SchaleDB/SchaleDB は 2024-08 で止まっている**（build 1723935982）。
 # 生徒が 194 人しか入っておらず、実際の 274 人と 80 人ずれる。
 # 本番サイトのほうは毎日更新されているので、そちらを見る（2026-08-30 に発見）。
@@ -2236,15 +2238,116 @@ def build_raid_calendar():
             b["ic"] = "boss_" + b["p"]
     print(f"  総力戦 {len(raid_rows)} 回、大決戦 {len(elim_rows)} 回、ボス {len(used)} 体、絵 {n} 枚を追加")
 
+    # ------------------------------------------------------------
+    #  これからの開催は ba-data から取る
+    # ------------------------------------------------------------
+    #
+    # **SchaleDB の `raids.min.json` には、終わった回しか入っていない。**
+    # そのためこのツールは長いあいだ「次の目安」を開催間隔から推測していて、
+    # 画面にも「ゲームのデータに次回の予定は入っていません」と書いていた。
+    # **それは誤りで、ゲームのデータには先の回まで入っている**
+    # （2026-09-24 に確かめた）。入っていないのは SchaleDB のほうだった。
+    #
+    # 表ごとに列の綴りが違う。**総力戦と大決戦は `SeasonStartData`（Data）、
+    # 制約解除決戦だけ `SeasonStartDate`（Date）。** 実物を見て決めること。
+    def jst_seconds(text):
+        """`2026-09-30 11:00:00`（日本時間）を epoch 秒へ。読めなければ 0。"""
+        if not text:
+            return 0
+        try:
+            naive = datetime.datetime.strptime(str(text).strip(), "%Y-%m-%d %H:%M:%S")
+        except ValueError:
+            return 0
+        return int(naive.replace(tzinfo=JST).timestamp())
+
+    def upcoming(table, start_field, end_field, group_fields):
+        rows = as_list(get_json(BADB.format(table)))
+        out = []
+        for r in rows:
+            o = jst_seconds(r.get(start_field))
+            c = jst_seconds(r.get(end_field))
+            if not o or not c:
+                continue
+            groups = []
+            for f in group_fields:
+                v = r.get(f)
+                if isinstance(v, list):
+                    groups += [x for x in v if x]
+                elif v:
+                    groups.append(v)
+            out.append({"o": o, "c": c, "g": groups})
+        out.sort(key=lambda x: x["o"])
+        return out
+
+    now = int(datetime.datetime.now(datetime.timezone.utc).timestamp())
+    def next_of(rows):
+        """まだ終わっていない回のうち、いちばん早いもの。"""
+        for r in rows:
+            if r["c"] >= now:
+                return r
+        return None
+
+    dev_to_boss = {b["dev"]: str(bid) for bid, b in bosses.items() if b.get("dev")}
+    # **制約解除決戦のボスは `Raid` の側に居ない。** 別の一覧なので名前だけ引く
+    # （ティファレト＝`EN0011`）。カレンダー本体は総力戦と大決戦の履歴なので、
+    # こちらは「次の回」の 1 行にしか使わない。
+    dev_to_mf = {m.get("DevName"): m.get("Name", "")
+                 for m in (raids.get("MultiFloorRaid") or []) if m.get("DevName")}
+    def with_boss(r):
+        """`EN0022` や `ShiroKuro_Street_LightArmor` からボスと地形を拾う。"""
+        if not r:
+            return None
+        out = {"o": r["o"], "c": r["c"]}
+        for g in r["g"]:
+            head = g.split("_")[0]
+            if head in dev_to_boss:
+                out["b"] = dev_to_boss[head]
+                break
+            if head in dev_to_mf:
+                out["n"] = dev_to_mf[head]
+                break
+        terr = {"Street", "Indoor", "Outdoor"}
+        for g in r["g"]:
+            for part in g.split("_"):
+                if part in terr:
+                    out["t"] = part
+                    break
+            if "t" in out:
+                break
+        return out
+
+    nxt = {
+        "raid": with_boss(next_of(upcoming(
+            "RaidSeasonManageExcelTable", "SeasonStartData", "SeasonEndData",
+            ["OpenRaidBossGroup"]))),
+        "elim": with_boss(next_of(upcoming(
+            "EliminateRaidSeasonManageExcelTable", "SeasonStartData", "SeasonEndData",
+            ["OpenRaidBossGroup01", "OpenRaidBossGroup02", "OpenRaidBossGroup03"]))),
+        "multi": with_boss(next_of(upcoming(
+            "MultiFloorRaidSeasonManageExcelTable", "SeasonStartDate", "SeasonEndDate",
+            ["OpenRaidBossGroupId"]))),
+    }
+    for k, v in nxt.items():
+        if v:
+            print(f"  次の {k}: {datetime.datetime.fromtimestamp(v['o'])} 〜 "
+                  f"{datetime.datetime.fromtimestamp(v['c'])} "
+                  f"boss={v.get('b') or v.get('n')} {v.get('t', '')}")
+        else:
+            print(f"  次の {k}: データに無い")
+
+    next_boss_ids = {v["b"] for v in nxt.values() if v and v.get("b")}
+
     keep = ("ArmorType", "BulletType", "RaidDifficulty")
     # **難易度は並び順そのものが意味を持つ。**大決戦の OpenDifficulty は
     # この並びの添字で、6 なら Torment まで挑める
     diffs = ["Normal", "Hard", "VeryHard", "HardCore", "Extreme", "Insane", "Torment", "Lunatic"]
     return write_js("tools/raid-calendar/data.js", "CAL", {
-        "bosses": {str(k): v for k, v in bosses.items() if k in used},
+        "bosses": {str(k): v for k, v in bosses.items()
+                   if k in used or str(k) in next_boss_ids},
         "raid": raid_rows, "elim": elim_rows, "diffs": diffs,
+        "next": nxt,
         "labels": {k: loc.get(k, {}) for k in keep},
-        "version": "SchaleDB jp（raids.min.json の RaidSeasons）",
+        "version": "SchaleDB jp（raids.min.json の RaidSeasons）＋ ba-data の *SeasonManage 表（これからの開催）",
     }, header="/* scripts/build-tool-data.py が吐く。**手で直さない。** */\n")
 
 

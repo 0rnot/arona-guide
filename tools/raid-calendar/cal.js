@@ -1,8 +1,11 @@
 /* 総力戦・大決戦の開催カレンダー。
 
-   ゲームのデータには**過去の開催しか入っていない。**次回の日付も、次のボスも無い。
-   なので、このページがやるのは「並べる」「数える」だけで、
-   次の目安は**間隔の中央値を足しただけ**だとページにも書いてある。 */
+   **履歴と、これからの予定は別のところから来ている。**
+   開催済みは SchaleDB の `raids.min.json`、これからの回は ba-data の期間表
+   （`C.next`。ビルドが入れている）。2026-09-24 まではここが無く、
+   「間隔の中央値を足しただけ」の見積もりを出していた——**それは
+   SchaleDB に先の回が来ていないだけで、ゲームのデータには入っていた。**
+   期間表が取れなかったときのために、見積もりは残してある。 */
 (function () {
   'use strict';
   var C = window.CAL;
@@ -80,6 +83,33 @@
   function bossOf(id) { return C.bosses[String(id)]; }
   function img(b) { return '../img/' + b.ic + '.webp'; }
 
+  /* ---------- これからの開催（ba-data の期間表） */
+  /* ボスは総力戦・大決戦なら `b`（`C.bosses` の鍵）、
+     制約解除決戦は `Raid` の側に居ないので名前だけ `n` で来る */
+  function nameOf(x) {
+    if (x.b && C.bosses[x.b]) return C.bosses[x.b].n;
+    return x.n || 'ボスは未定';
+  }
+  function terrainOf(x) { return x.t ? '・' + (TERRAIN[x.t] || x.t) : ''; }
+
+  function upcoming(NX) {
+    var KINDS = [['raid', '総力戦'], ['elim', '大決戦'], ['multi', '制約解除決戦']];
+    var now = Date.now() / 1000;
+    var html = KINDS.map(function (k) {
+      var x = NX[k[0]];
+      if (!x) return '';
+      // 開催中かこれからかで言い方を変える。**同じ「次の回」でも
+      // もう始まっているものを「次」と書くと読み違える**
+      var head = x.o <= now ? '開催中' : 'あと ' + Math.ceil((x.o - now) / 86400) + ' 日';
+      return '<span class="gap"><b>' + k[1] + '</b> ' + nameOf(x) + terrainOf(x) +
+        ' ' + ymd(x.o).slice(5) + ' 〜 ' + ymd(x.c).slice(5) +
+        ' <b>' + head + '</b></span>';
+    }).join('');
+    if (!html) return;
+    el('upcoming-list').innerHTML = html;
+    el('upcoming').hidden = false;
+  }
+
   /* ---------- 概況 */
   function summary() {
     var starts = C.raid.map(function (r) { return r.o; }).sort(function (a, b) { return a - b; });
@@ -93,11 +123,23 @@
     var hi = recent.length ? recent[recent.length - 1] : 35;
     var last = starts[starts.length - 1];
 
-    el('o-next').textContent = lo === med ? ymd(last + lo * 86400)
-      : ymd(last + lo * 86400).slice(5) + ' 〜 ' + ymd(last + med * 86400).slice(5);
-    el('o-next-sub').textContent = '前回の開始 ' + ymd(last) + ' に、直近 6 回の間隔の' +
-      '最短 ' + lo + ' 日と中央値 ' + med + ' 日を足しただけです' +
-      (hi > med ? '（いちばん空いたときは ' + hi + ' 日）' : '');
+    var NX = C.next || {};
+    if (NX.raid) {
+      el('o-next').textContent = ymd(NX.raid.o).slice(5) + ' 〜 ' + ymd(NX.raid.c).slice(5);
+      el('o-next-sub').textContent = nameOf(NX.raid) + terrainOf(NX.raid) +
+        '（' + ymd(NX.raid.o) + ' ' + hm(NX.raid.o) + ' 開始）';
+    } else {
+      // **期間表が取れなかったときだけここへ来る。**見積もりなので、
+      // 見出しにも「目安」と書き足して、予定表と読み違えられないようにする
+      el('o-next-k').firstChild.nodeValue = '次の総力戦の目安';
+      el('o-next-q').setAttribute('data-hint', '予定表ではありません。ゲームのデータの期間表が取れなかったので、これまでの開催間隔からの見積もりを出しています。ボスと地形は、これまでの並びからは決まりません。');
+      el('o-next').textContent = lo === med ? ymd(last + lo * 86400)
+        : ymd(last + lo * 86400).slice(5) + ' 〜 ' + ymd(last + med * 86400).slice(5);
+      el('o-next-sub').textContent = '前回の開始 ' + ymd(last) + ' に、直近 6 回の間隔の' +
+        '最短 ' + lo + ' 日と中央値 ' + med + ' 日を足しただけです' +
+        (hi > med ? '（いちばん空いたときは ' + hi + ' 日）' : '');
+    }
+    upcoming(NX);
     el('o-raid').textContent = C.raid.length;
     el('o-raid-sub').textContent = '回（' + ymd(starts[0]) + ' 〜）';
     el('o-elim').textContent = C.elim.length;
