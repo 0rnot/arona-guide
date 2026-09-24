@@ -282,11 +282,11 @@
       <p><b>設計図と万能設計図は同じ表に混ざっていますが、ステータスを持たないので外しています。</b></p>
       <p><b>愛用品は <code>Gear</code> です。</b><span id="src-gear">—</span> 人が持っています。
         <code>StatValue</code> には数字が 2 つ入っていますが、
-        <b>66 人ぶんを全部見たところ、どの子も 2 つとも同じ値でした</b>ので 1 つだけ出しています。持っていない生徒はここに出ません。</p>
+        <b><span id="src-gear3">—</span> 人ぶんを全部見たところ、どの子も 2 つとも同じ値でした</b>ので 1 つだけ出しています。持っていない生徒はここに出ません。</p>
       <p><b>T2 で何が変わるかも、ゲームのデータに入っています。</b>
-        <code>DB/CharacterGearExcelTable.json</code> の 132 行（66 人 × 2 段）です。
-        <b>T1 は 66 人とも <code>LearnSkillSlot: "None"</code> で <code>StatType</code> にステータスが 1 つ、
-        T2 は 66 人とも <code>StatType</code> が空で <code>LearnSkillSlot: "PublicSkill01"</code></b>
+        <code>DB/CharacterGearExcelTable.json</code> の <span id="src-gear2">—</span> 人 × 2 段です。
+        <b>T1 はどの子も <code>LearnSkillSlot: "None"</code> で <code>StatType</code> にステータスが 1 つ、
+        T2 もどの子も <code>StatType</code> が空で <code>LearnSkillSlot: "PublicSkill01"</code></b>
         ——つまり T2 はステータスを増やさず、ノーマルスキルを強化します。
         開放は <code>OpenFavorLevel</code> が T1 で <code>15</code>、T2 で <code>20</code>。これも 66 人とも同じです。
         <b>下の一覧に出しているのは T1 のぶん</b>で、上がる量は <code>MinStatValue</code> と
@@ -308,20 +308,20 @@
         <code>assets/index-*.js</code> の <code>mg()</code> と <code>g$()</code>。
         <code>Standard</code>・<code>LateBloom</code>・<code>Premature</code> の 3 つはどれも直線で、
         段が付くのは <code>TimeAttack</code> だけ。固有武器にその型の子はいません）。
-        <b>裏取り: 274 人ぶん 680 組で、この式が Lv1 と Lv100 の値をぴったり返すことを確かめました。</b>
+        <b>裏取り: <span id="src-n1">—</span> 人ぶんで、この式が Lv1 と Lv100 の値をぴったり返すことを確かめました。</b>
         以前このツールは「Lv1 → Lv100」と出していましたが、<b>Lv100 には届きません。</b></p>
       <p><b>固有武器の「地形適性 ＋1」は <code>AdaptationType</code> と
         <code>AdaptationValue</code> です。</b>これが乗るのは<b>固有3 から</b>で、
         SchaleDB 本体も <code>WeaponStarGrade &gt;= 3</code> のときだけ足しています。
-        伸び幅は生徒ごとに違い、＋1 が 247 人、＋2 が 27 人です。</p>
+        伸び幅は生徒ごとに違い、＋1 が <span id="src-av1">—</span> 人、＋2 が <span id="src-av2">—</span> 人です。</p>
       <p><b>固有2 と固有4 で増えるものも、同じ表に入っています。</b>
         固有2 の「パッシブスキル＋」は <code>LearnSkillSlot</code> の 2 番目が <code>Passive01</code>、
         固有4 のぶんは <code>StatType</code> / <code>StatValue</code> の 4 番目です
         （<b>止まっている <code>Excel/</code> 側は <code>None</code> のまま</b>で、
         2026-08-31 まで「データに入っていない」と書いていました）。
-        ストライカーは <code>Enhance〇〇Rate_Base</code> が <code>1000</code>＝<b>特効 ＋10%</b>で 187 人、
-        スペシャルは <code>MaxCostIncrease_Base</code> が <code>5000</code>＝<b>コスト上限 ＋0.5</b>で 87 人。
-        <b>274 人ぜんぶが <code>SquadType</code> と <code>BulletType</code> どおり</b>で、
+        ストライカーは <code>Enhance〇〇Rate_Base</code> が <code>1000</code>＝<b>特効 ＋10%</b>で <span id="src-main">—</span> 人、
+        スペシャルは <code>MaxCostIncrease_Base</code> が <code>5000</code>＝<b>コスト上限 ＋0.5</b>で <span id="src-sup">—</span> 人。
+        <b><span id="src-n2">—</span> 人ぜんぶが <code>SquadType</code> と <code>BulletType</code> どおり</b>で、
         <a href="https://bluearchive.wikiru.jp/?SandBox/%E7%A5%9E%E7%A7%98%E8%A7%A3%E6%94%BE%EF%BC%88%E9%99%90%E7%95%8C%E8%A7%A3%E6%94%BE%EF%BC%89" target="_blank" rel="noopener">ブルアカ攻略 Wiki</a>
         の「限界解放 星3→星4」の欄（<code>ST:〇〇特効加算+10%、SP:最大コスト0.5増加</code>）とも一致します。</p>
       <p>出典 — <a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a>（装備・愛用品・固有武器・日本の上限）、

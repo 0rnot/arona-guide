@@ -351,6 +351,21 @@
 
   el('ver').textContent = G.fetched;
   el('src-gear').textContent = G.gear.length;
+  // **人数は data.js から数える。**手で書くと、生徒が増えた日に古いまま残る
+  // （2026-09-24 に 274 / 247 / 187 / 87 / 132 行 のべた書きを見つけて直した）。
+  (function fillCounts() {
+    var av1 = 0, av2 = 0, cost = 0, eff = 0;
+    for (var i = 0; i < G.weapon.length; i++) {
+      var w = G.weapon[i];
+      if (w.av === 2) av2++; else if (w.av === 1) av1++;
+      if (w.f4 === 'MaxCostIncrease') cost++; else if (w.f4) eff++;
+    }
+    var set = function (id, v) { var e = document.getElementById(id); if (e) e.textContent = v; };
+    set('src-gear2', G.gear.length); set('src-gear3', G.gear.length);
+    set('src-n1', G.weapon.length); set('src-n2', G.weapon.length);
+    set('src-av1', av1); set('src-av2', av2);
+    set('src-main', eff); set('src-sup', cost);
+  })();
   fromHash();
   drawCats(); drawTiers(); drawGear(); drawWeapons(); drawTab();
 })();

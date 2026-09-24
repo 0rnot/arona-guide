@@ -305,7 +305,7 @@
             <code>基礎値 = round(Lv1 + (Lv100 − Lv1) × (Lv − 1) / 99)</code> で結んでいます。
             <b>★の倍率は掛けません。</b>SchaleDB も潜在能力ぶんは★を掛ける前の値から数えています</li>
         </ul>
-        <p><b>オーパーツと応用 WB の入手先は出していません。</b>ステージのドロップを 320 本ぜんぶ当たりましたが、
+        <p><b>オーパーツと応用 WB の入手先は出していません。</b>ステージのドロップをぜんぶ当たりましたが、
           「◯◯の欠片」も応用 WB も 1 本も落ちてきませんでした。<b>裏が取れないので書かない</b>ことにしています。
           手持ちの数は自分で入れる形にしました。</p>
         <p>出典 —
@@ -492,10 +492,15 @@
   /* **手持ちの欄は一度だけ組む。**入力のたびに `innerHTML` を書き換えると、
      打っている最中に入力欄そのものが作り直されて焦点も途中の文字も飛ぶ
      （2026-08-30 に実物で踏んだ）。以降は名前と「あと何個」だけ書き換える。 */
+  // **応用 WB は枠ごとに別のアイテム。**応用体育（2000）・応用射撃（2001）・
+  // 応用衛生（2002）で、互いに融通できない。3 つを 1 つの欄で足していたので、
+  // 片方が 0 でも「足りています」と出ていた（2026-09-24 に直した）。
   var HAVE = [
     { id: 'h-a0', ph: '持っている欠片の数' },
     { id: 'h-a1', ph: '持っている壊れたオーパーツの数' },
-    { id: 'h-bk', ph: '持っている応用 WB の数' }
+    { id: 'h-bk0', ph: '持っている' + P.books[KEYS[0]].n + ' の数' },
+    { id: 'h-bk1', ph: '持っている' + P.books[KEYS[1]].n + ' の数' },
+    { id: 'h-bk2', ph: '持っている' + P.books[KEYS[2]].n + ' の数' }
   ];
   (function buildHave() {
     el('have').innerHTML = HAVE.map(function (x) {
@@ -511,9 +516,9 @@
     var names = [
       student ? P.arts[student.a].a.n : 'オーパーツの欠片',
       student ? P.arts[student.a].b.n : '壊れたオーパーツ',
-      '応用 WB（3 種の合計）'
+      P.books[KEYS[0]].n, P.books[KEYS[1]].n, P.books[KEYS[2]].n
     ];
-    var needs = [t.a0, t.a1, t.bk[0] + t.bk[1] + t.bk[2]];
+    var needs = [t.a0, t.a1, t.bk[0], t.bk[1], t.bk[2]];
     HAVE.forEach(function (x, i) {
       var left = Math.max(0, needs[i] - haveOf(x.id));
       el(x.id + '-k').textContent = names[i];
@@ -567,7 +572,9 @@
     drawHave(t);
 
     var needAll = t.a0 + t.a1;
-    var haveAll = haveOf('h-a0') + haveOf('h-a1');
+    // **品目ごとに足りているぶんだけ数える。**単純に足すと、欠片だけ大量に
+    // 持っている人が 100% に見える（壊れたオーパーツが 0 でも）。
+    var haveAll = Math.min(haveOf('h-a0'), t.a0) + Math.min(haveOf('h-a1'), t.a1);
     var p = needAll ? Math.min(100, haveAll / needAll * 100) : 100;
     el('bar').style.width = p.toFixed(1) + '%';
     el('barnote').textContent = needAll

@@ -318,7 +318,8 @@
           <li>覚えるものも同じ表から読んでいます。<code>LearnSkillSlot</code> の 2 番目が <code>Passive01</code> なので
             <b>固有2 でパッシブスキル＋</b>、<code>StatType</code> の 3 番目が <code>〇〇BattleAdaptation_Base</code> なので
             <b>固有3 で地形適性</b>です。<b>上がり幅は生徒ごとに違います</b>——
-            ＋1 段が 247 人、＋2 段が 27 人で、<code>StatValue</code> をその子ぶん読んでいます</li>
+            ＋1 段が <span id="src-av1">—</span> 人、＋2 段が <span id="src-av2">—</span> 人で、
+            <code>StatValue</code> をその子ぶん読んでいます</li>
         </ul>
         <p><b>固有3→固有4 の神名文字 200 個も、いまはゲームのデータに入っています。</b>
           <code>DB/RecipeIngredientExcelTable.json</code> の <code>IngredientAmount</code> が
@@ -329,9 +330,9 @@
           200 個で補っていました。<b>データ側の値と、外から取っていた値は同じでした。</b></p>
         <p><b>固有4 で増えるものもデータに入っています</b>（<code>DB/CharacterWeaponExcelTable.json</code> の
           <code>StatType</code> / <code>StatValue</code> の 4 番目。<code>Excel/</code> 側は <code>None</code> のままです）。
-          ストライカーは <code>Enhance〇〇Rate_Base</code> が <code>1000</code>＝<b>自分の攻撃属性の特効 ＋10%</b>で 187 人、
-          スペシャルは <code>MaxCostIncrease_Base</code> が <code>5000</code>＝<b>コスト上限 ＋0.5</b>で 87 人。
-          <b>274 人ぜんぶが、その子の <code>SquadType</code> と <code>BulletType</code> どおりでした</b>
+          ストライカーは <code>Enhance〇〇Rate_Base</code> が <code>1000</code>＝<b>自分の攻撃属性の特効 ＋10%</b>で <span id="src-main">—</span> 人、
+          スペシャルは <code>MaxCostIncrease_Base</code> が <code>5000</code>＝<b>コスト上限 ＋0.5</b>で <span id="src-sup">—</span> 人。
+          <b><span id="src-n3">—</span> 人ぜんぶが、その子の <code>SquadType</code> と <code>BulletType</code> どおりでした</b>
           （1 人でも外れたらデータを作る側で止まります）。ブルアカ攻略 Wiki の「限界解放 星3→星4」の欄
           （<code>ST:〇〇特効加算+10%、SP:最大コスト0.5増加</code>）とも一致します。</p>
         <p><b>データに星上げのレシピが入っていない生徒は、この一覧に出しません。</b>
@@ -623,6 +624,19 @@
 
   el('src-n').textContent = E.stu.length;
   el('src-n2').textContent = E.stu.length;
+  // **人数は data.js から数える。**手で書くと、生徒が増えた日に古いまま残る
+  // （2026-09-24 に 247 / 187 / 87 のべた書きを見つけて直した）。
+  (function fillCounts() {
+    var av1 = 0, av2 = 0, main = 0, sup = 0;
+    for (var i = 0; i < E.stu.length; i++) {
+      var s = E.stu[i];
+      if (s.av === 2) av2++; else if (s.av === 1) av1++;
+      if (s.sq === 'Support') sup++; else main++;
+    }
+    var set = function (id, v) { var e = document.getElementById(id); if (e) e.textContent = v; };
+    set('src-av1', av1); set('src-av2', av2);
+    set('src-main', main); set('src-sup', sup); set('src-n3', E.stu.length);
+  })();
   el('ver').textContent = E.fetched;
   draw();
 })();

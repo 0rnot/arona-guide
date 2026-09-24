@@ -260,8 +260,8 @@
         <p><b>落ちる個数はゲームのデータをそのまま読んでいます。</b>周回してドロップを数えた値ではありません。</p>
         <ul>
           <li>ステージと報酬は <a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a> の
-            <code>data/jp/stages.min.json</code>。任務・指名手配・特別依頼・学園交流会の
-            <b>320 本</b>のうち、素材が落ちる <b><span id="src-stage">—</span> 本</b>を載せています</li>
+            <code>data/jp/stages.min.json</code>。任務・指名手配・特別依頼・学園交流会のうち、
+            素材が落ちる <b><span id="src-stage">—</span> 本</b>を載せています</li>
           <li>1 周あたりの期待個数は <code>個数 × Chance</code>。<code>AmountMin</code> /
             <code>AmountMax</code> があるときはその平均、<code>Chance</code> が無ければ 1.0 です。
             <b><code>Amount</code> と <code>AmountMin/Max</code> は掛け算です</b> ——
@@ -297,8 +297,8 @@
             これを下回ったらデータを作る側で止まります</li>
         </ul>
         <p><b>イベントステージは入っていません。</b><code>stages.min.json</code> には
-          任務・指名手配・特別依頼・学園交流会の 320 本しか無く、イベントの周回効率は出せません。
-          <b>強化珠もこの一覧には出ません</b> —— 320 本の報酬を全部当たって、
+          任務・指名手配・特別依頼・学園交流会のぶんしか無く、イベントの周回効率は出せません。
+          <b>強化珠もこの一覧には出ません</b> —— その報酬を全部当たって、
           <code>Equipment</code> の Id 1〜4（初級〜最上級強化珠）は 1 件も出てきませんでした。</p>
         <p><b>ドロップ 2 倍・3 倍は、1 周あたりの期待個数をそのまま倍にしています。</b>
           倍率が報酬のどの行に掛かるかまではデータに書かれていないので、そこは確かめられていません。</p>

@@ -184,7 +184,7 @@
 
   <div class="stats c3" style="margin-top:20px">
     <div class="stat hero">
-      <div class="k">次の総力戦の目安<button type="button" class="qm" data-hint="予定表ではありません。これまでの開催間隔を並べた見積もりで、ゲームのデータに次回の日付は入っていません。正しい日付は公式のお知らせで確認してください。ボスと地形は、これまでの並びからは決まりません。"></button></div>
+      <div class="k">次の総力戦の目安<button type="button" class="qm" data-hint="予定表ではありません。これまでの開催間隔を並べた見積もりで、このツールが読んでいる SchaleDB のデータに次回の日付は入っていません。正しい日付は公式のお知らせで確認してください。ボスと地形は、これまでの並びからは決まりません。"></button></div>
       <div class="v" id="o-next">—</div>
       <div class="sub" id="o-next-sub"></div>
     </div>
@@ -272,7 +272,7 @@
       <p><b>大決戦の「Torment に挑戦できる防御タイプ」は <code>OpenDifficulty</code> です。</b>防御タイプごとに、その回で開く難易度の番号が入っています。番号は
         Normal・Hard・VeryHard・Hardcore・Extreme・Insane・Torment・Lunatic の順で、
         <b>6 なら Torment まで</b>、5 なら Insane までです。</p>
-      <p><b>「次の目安」は、直近 6 回の間隔から<b>最短と中央値の 2 つ</b>を取って、最後の開始日にそれぞれ足した幅です。</b>ゲームのデータに次回の予定は入っていません。実際の告知は公式 X の「総力戦＆大決戦スケジュール」と「予告」で出ます。</p>
+      <p><b>「次の目安」は、直近 6 回の間隔から<b>最短と中央値の 2 つ</b>を取って、最後の開始日にそれぞれ足した幅です。</b><b>このツールが読んでいる SchaleDB のデータに、次回の予定は入っていません。</b><button type="button" class="qm" data-hint="ゲームのデータそのもの（ba-data の RaidSeasonManageExcelTable など）には先の回まで入っていますが、このツールが読んでいる SchaleDB の raids.min.json には開催済みのぶんしか来ていません。実際の日付は公式のお知らせが確実です。"></button>実際の告知は公式 X の「総力戦＆大決戦スケジュール」と「予告」で出ます。</p>
       <p>ボスの装甲と攻撃属性は <code>Raid</code> の <code>ArmorType</code> /
         <code>BulletType</code> / <code>BulletTypeInsane</code> です。
         Insane 以上では攻撃属性が変わるボスがいるので、両方を出しています。相性の詳細は<a href="../raid/">総力戦の相性チェッカー</a>にあります。</p>

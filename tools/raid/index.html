@@ -503,7 +503,7 @@
       <select id="f-sq" aria-label="区分"><option value="">区分：ぜんぶ</option></select>
       <select id="f-sc" aria-label="学校"><option value="">学校：ぜんぶ</option></select>
       <select id="f-st" aria-label="レア度"><option value="">★：ぜんぶ</option><option value="3">★3</option><option value="2">★2</option><option value="1">★1</option></select>
-      <label class="tag" style="cursor:pointer"><input type="checkbox" id="wep" checked style="margin-right:.4em;vertical-align:-1px">固有武器を持たせて見る</label>
+      <label class="tag" style="cursor:pointer"><input type="checkbox" id="wep" checked style="margin-right:.4em;vertical-align:-1px">固有武器 ★3 で見る<button type="button" class="qm" data-hint="地形適性が上がるのは固有武器を ★3（3 凸）にしたときです。上がり幅は 1 段の子が 248 人、2 段の子が 27 人います。"></button></label>
       <label class="tag" style="cursor:pointer"><input type="checkbox" id="only" style="margin-right:.4em;vertical-align:-1px">通る子だけ</label>
       <span style="font-size:.8rem;color:var(--fg-mute)" id="n"></span>
     </div>
@@ -573,7 +573,7 @@
       10000 が等倍なので、20000 なら ×2.0、5000 なら ×0.5 です。<b>ここは推測していません。</b></p>
     <p><b>ボスの地形・装甲・攻撃属性は <code>data/jp/raids.min.json</code> から。</b>
       <code>BulletTypeInsane</code> という別の攻撃属性が入っているので、Insane 以上ではそちらに切り替えています。大決戦の装甲の組み合わせは <code>RaidSeasons[].EliminateSeasons</code> の実績から拾っています。</p>
-    <p><b>生徒の地形適性は 0〜5 の数値です（ゲーム内の D / C / B / A / S / SS）。</b>固有武器の <code>AdaptationType</code> と <code>AdaptationValue</code> を足したものが、武器ありの値で、並び順にはこちらを使っています。</p>
+    <p><b>生徒の地形適性は 0〜5 の数値です（ゲーム内の D / C / B / A / S / SS）。</b>固有武器の <code>AdaptationType</code> と <code>AdaptationValue</code> を足したものが、武器ありの値で、並び順にはこちらを使っています。<b>上がるのは ★3（3 凸）からで、上がり幅は 1 段が 248 人、2 段が 27 人です</b>（<code>CharacterWeaponExcelTable</code> の <code>StatType[2]</code> を数えました）。</p>
     <p><b>順位は付けていません。</b>実際の火力はレベル・装備・スキル・編成で変わるもので、ここが出せるのは「属性が通るか」「その地形で当たるか」までです。</p>
     <p>出典 — <a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a>。取得は <span id="tls-ver">—</span>。</p>
   </details>
@@ -790,9 +790,14 @@
         ja('AdaptationType', t) + '</button>';
     }).join('');
 
-    if (diff > b.mx) diff = b.mx;
+    // **大決戦に Lunatic は無い。**段は Normal〜Torment の 7 つだけで、
+    // `EliminateRaidStageExcelTable` にも Lunatic の行が 1 つも無い。
+    // `b.mx` は総力戦の `MaxDifficulty` なので、そのまま使うと 8 つ目が出る
+    // （2026-09-24 に見つけた）。
+    var mx = (mode === 'elim') ? Math.min(b.mx, 6) : b.mx;
+    if (diff > mx) diff = mx;
     var ds = '';
-    for (var i = 0; i <= b.mx; i++) {
+    for (var i = 0; i <= mx; i++) {
       ds += '<button type="button" data-d="' + i + '" aria-pressed="' + (i === diff) + '">' +
         ja('RaidDifficulty', DIFF[i]) + '</button>';
     }
