@@ -260,7 +260,7 @@
         <p><b>落ちる個数はゲームのデータをそのまま読んでいます。</b>周回してドロップを数えた値ではありません。</p>
         <ul>
           <li>ステージと報酬は <a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a> の
-            <code>data/jp/stages.min.json</code>。任務・指名手配・特別依頼・学園交流会のうち、
+            <code>data/jp/stages.min.json</code>。任務・指名手配・拠点防衛・学園交流会のうち、
             素材が落ちる <b><span id="src-stage">—</span> 本</b>を載せています</li>
           <li>1 周あたりの期待個数は <code>個数 × Chance</code>。<code>AmountMin</code> /
             <code>AmountMax</code> があるときはその平均、<code>Chance</code> が無ければ 1.0 です。
@@ -286,18 +286,18 @@
           <li>入場料は <code>EntryCost</code>。<b>通貨 5 が AP、22 が指名手配券、23 が学園交流会チケット</b>で、
             出てくるのはこの 3 つだけです（4 つ目が出たらデータを作る側で止まります）。
             <b>学園交流会はチケットと AP の 2 本立て</b>なので、券あたりと AP を別々に出しています</li>
-          <li>名前の無いステージ（指名手配・特別依頼・学園交流会の 70 本）は
+          <li>名前の無いステージ（指名手配 30 本・拠点防衛 14 本・学園交流会 12 本の 56 本）は
             <code>data/jp/localization.min.json</code> の <code>StageTitle</code> に番号を差し込んで作っています。
             <code>"ChaserA": "ハイウェイ{0}"</code> のような形です。
-            <b><code>FindGift</code> は「贈り物」ではなくクレジット回収</b>で、これも同じところの
-            <code>StageType</code> が正本です</li>
+            <b><code>FindGift</code>（スランピア広場）は「贈り物」ではなくクレジット回収</b>で、
+            素材を落とさないのでこの表には 1 本も出てきません（<code>StageType</code> が正本）</li>
           <li>数えている素材は <b><span id="src-mat">—</span> 種</b>、
             （素材, ステージ）の組は <b><span id="src-pair">—</span> 件</b>。
             アイテムを落とすステージは <b><span id="src-istage">—</span> 本</b>で、
             これを下回ったらデータを作る側で止まります</li>
         </ul>
         <p><b>イベントステージは入っていません。</b><code>stages.min.json</code> には
-          任務・指名手配・特別依頼・学園交流会のぶんしか無く、イベントの周回効率は出せません。
+          任務・指名手配・拠点防衛・学園交流会のぶんしか無く、イベントの周回効率は出せません。
           <b>強化珠もこの一覧には出ません</b> —— その報酬を全部当たって、
           <code>Equipment</code> の Id 1〜4（初級〜最上級強化珠）は 1 件も出てきませんでした。</p>
         <p><b>ドロップ 2 倍・3 倍は、1 周あたりの期待個数をそのまま倍にしています。</b>
@@ -576,7 +576,7 @@
         '</div>';
     });
     el('tables').innerHTML = h ||
-      '<div class="panel"><p class="lead">この素材が落ちるステージは、任務・指名手配・特別依頼・学園交流会の中にはありません。</p></div>';
+      '<div class="panel"><p class="lead">この素材が落ちるステージは、任務・指名手配・拠点防衛・学園交流会の中にはありません。</p></div>';
   }
 
   function draw() {

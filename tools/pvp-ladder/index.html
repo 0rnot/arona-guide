@@ -236,7 +236,7 @@
       <details class="src">
         <summary>数字の出どころ</summary>
         <p><b>挑戦できる相手の範囲。</b><a href="https://bluearchive.wikiru.jp/?%E6%88%A6%E8%A1%93%E5%AF%BE%E6%8A%97%E6%88%A6" target="_blank" rel="noopener">ブルアカ攻略 Wiki「戦術対抗戦」</a>の記述をそのまま使っています。「自分の順位×0.7〜0.8(上段)、0.8〜0.9(中段)、0.9〜0.95(下段)となっており、同じ相手は同時には表示されない」「13位からは範囲が縮小されてしまうためか対戦相手の順位は固定化され、11位～13位は自分の順位から2～4、10～4位は自分の順位から1～3の範囲となる」「例えば11位から10位へは絶対に挑めない。」「※12位以降は対戦相手の順位が固定化されるため、4位から1位に挑戦が可能」。
-          このうち 13 位より下の倍率は、<a href="https://github.com/electricgoat/ba-data" target="_blank" rel="noopener">ba-data</a> の <code>Excel/ConstArenaExcelTable.json</code> にも <code>RelativeOpponentRankStart: [2000, 1000, 500]</code> ／ <code>RelativeOpponentRankEnd: [3000, 2000, 1000]</code>（自分の順位に対する 10000 分率。引き算すると ×0.7〜0.8 ／ ×0.8〜0.9 ／ ×0.9〜0.95 の 3 枠）として入っていて、Wiki の記述と一致します。<b>13 位以下の固定範囲（−2〜−4 と −1〜−3）はゲームデータに見つからず、Wiki の記述だけが根拠です。</b>2026-08-31 に <code>Excel/ConstArenaExcelTable.json</code> の全 44 フィールドと、<code>DB/</code> にある Arena 系 6 表（<code>ArenaSeasonExcelTable</code> / <code>ArenaLevelSectionExcelTable</code> / <code>ArenaMapExcelTable</code> / <code>ArenaNPCExcelTable</code> / <code>ArenaRewardExcelTable</code> / <code>ArenaSeasonCloseRewardExcelTable</code>）を見直しましたが、順位変動に関わる列はありませんでした。ほかの攻略サイト（game8・神ゲー攻略・ゲーム乱舞・Gamerch）にもこの固定範囲の記載は見つかっていません。</p>
+          このうち 13 位より下の倍率は、<a href="https://github.com/electricgoat/ba-data" target="_blank" rel="noopener">ba-data</a> の <code>Excel/ConstArenaExcelTable.json</code> にも <code>RelativeOpponentRankStart: [2000, 1000, 500]</code> ／ <code>RelativeOpponentRankEnd: [3000, 2000, 1000]</code>（自分の順位に対する 10000 分率。引き算すると ×0.7〜0.8 ／ ×0.8〜0.9 ／ ×0.9〜0.95 の 3 枠）として入っていて、Wiki の記述と一致します。<b>13 位以下の固定範囲（−2〜−4 と −1〜−3）はゲームデータに見つからず、Wiki の記述だけが根拠です。</b>2026-08-31 に <code>Excel/ConstArenaExcelTable.json</code> の全フィールド（2026-09-24 に数え直して 33 列）と、<code>DB/</code> にある Arena 系 6 表（<code>ArenaSeasonExcelTable</code> / <code>ArenaLevelSectionExcelTable</code> / <code>ArenaMapExcelTable</code> / <code>ArenaNPCExcelTable</code> / <code>ArenaRewardExcelTable</code> / <code>ArenaSeasonCloseRewardExcelTable</code>）を見直しましたが、順位変動に関わる列はありませんでした。ほかの攻略サイト（game8・神ゲー攻略・ゲーム乱舞・Gamerch）にもこの固定範囲の記載は見つかっていません。</p>
         <p><b>15001 位から 1 位までは 24 段・23 回。</b>
           15001 → 10500 → 7350 → 5145 → 3601 → 2520 → 1764 → 1234 → 863 → 604 → 422 → 295 →
           206 → 144 → 100 → 70 → 49 → 34 → 23 → 16 → 11 → 7 → 4 → 1。同じ Wiki にも「15001位から…最低23回対戦する必要がある」として同じ並びが載っています。
@@ -301,11 +301,12 @@
   // 1 段上の帯に入るだけで日別報酬は変わる（2026-08-30 の先生の指示）。
   (function buildGoals() {
     var h = '';
-    P.BORDERS.forEach(function (b) {
-      var upper = P.REWARD.filter(function (x) { return x[0] >= b; });
-      var top = upper.length ? upper[0][0] : b;
+    P.BORDERS.forEach(function (b, i) {
+      // **b はその帯に入るのに要る、いちばん下の順位。** 帯の上端は
+      // 1 つ前の帯の下端 + 1（1 位の帯だけ自分自身）
+      var top = i === 0 ? b : P.BORDERS[i - 1] + 1;
       var label = (b === top) ? (b.toLocaleString('ja-JP') + ' 位')
-                              : (b.toLocaleString('ja-JP') + ' 〜 ' + top.toLocaleString('ja-JP') + ' 位');
+                              : (top.toLocaleString('ja-JP') + ' 〜 ' + b.toLocaleString('ja-JP') + ' 位');
       // **報酬は選択肢に書かない。**枠に収まらず右端が矢印の下に隠れる
       // （2026-08-30 の先生の指摘）。下の一言に出す
       h += '<option value="' + b + '"' + (b === 1 ? ' selected' : '') + '>' + label + '</option>';

@@ -674,7 +674,13 @@
               '<div class="row"><span>いま入れた快適度</span><span>' + num(comfort) + '</span></div>',
               '<div class="row total"><span>あと</span><span>' + num(lack) + '</span></div>'];
     if (lack > 0) {
-      [500, 350, 120, 50].forEach(function (v) {
+      // **段はデータから取る。**[500, 350, 120, 50] と書いていた時期があり、
+      // 同じ画面の吹き出しの「6 段階」と食い違っていた（2026-09-24）。
+      // 実データは 20 / 50 / 120 / 180 / 350 / 500 の 6 段
+      var tiers = C.furn.map(function (f) { return f.c; })
+        .filter(function (v, i, a) { return a.indexOf(v) === i; })
+        .sort(function (x, y) { return y - x; });
+      tiers.forEach(function (v) {
         nl.push('<div class="row"><span>快適度 ' + v + ' の家具なら<span class="subnote">' +
           C.furn.filter(function (f) { return f.c === v; }).length + ' 個あります</span></span><span>' +
           Math.ceil(lack / v) + ' 個</span></div>');
