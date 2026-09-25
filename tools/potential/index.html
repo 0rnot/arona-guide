@@ -587,8 +587,8 @@
 
   function toHash() {
     return (student ? student.id : '') + '|' + cur.join(',') + '|' + goal.join(',') + '|' +
-      haveOf('h-a0') + '|' + haveOf('h-a1') + '|' + haveOf('h-bk') +
-      (art ? '|' + art : '');
+      HAVE.map(function (x) { return haveOf(x.id); }).join('|') +
+      (art ? '|a' + art : '');
   }
   window.shareUrl = function () { return '#' + toHash(); };
 
@@ -653,11 +653,19 @@
     };
     read(p[1], cur); read(p[2], goal);
     for (var k = 0; k < 3; k++) { if (goal[k] < cur[k]) goal[k] = cur[k]; }
-    if (p[6] && P.arts[p[6]]) art = p[6];
-    HAVE.forEach(function (x, i) {
-      var v = parseInt(p[3 + i], 10);
-      if (v > 0) el(x.id).value = v;
-    });
+    /* **手持ちは 5 欄**（欠片・壊れた・応用 WB 3 種）。2026-09-24 に WB を 3 欄に分けたとき
+       ここと toHash が `h-bk` 1 欄のままで、draw() が毎回落ちていた（2026-09-26 に発見）。
+       それより前の URL は `id|今|目標|欠片|壊れた|WB合計[|オーパーツ]` の形で、
+       WB 合計はどの欄に入れるか決められないので読まない。
+       オーパーツは数字の欄と見分けるため、今は先頭に `a` を付けて置く */
+    var last = p[p.length - 1] || '';
+    if (last.charAt(0) === 'a' && P.arts[last.slice(1)]) { art = last.slice(1); p.pop(); }
+    else if (p.length === 7 && P.arts[last]) { art = last; p.pop(); }
+    var n = p.length >= 3 + HAVE.length ? HAVE.length : 2;
+    for (var j = 0; j < n; j++) {
+      var v = parseInt(p[3 + j], 10);
+      if (v > 0) el(HAVE[j].id).value = v;
+    }
     if (art) {
       [].forEach.call(document.querySelectorAll('.artb'), function (x) {
         x.setAttribute('aria-pressed', String(x.dataset.a === art));
