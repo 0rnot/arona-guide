@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>星上げの計算機｜AronaBot</title>
-<meta name="description" content="生徒を選んで今の段と目標を入れると、要る神名文字とクレジットが出ます。★1 から ★5、そのあとの固有1〜固有4（限界解放）まで通しで数えます。">
+<meta name="description" content="生徒を選んで今の段と目標を入れると、要る神名文字と、足りないぶんを神名のカケラで買うと何個かかるかが出ます。★1 から ★5、そのあとの固有1〜固有4（限界解放）まで通しで数えます。">
 <meta name="theme-color" content="#c8892e">
 <link rel="icon" href="../../favicon.svg" type="image/svg+xml">
 <meta property="og:type" content="website">
@@ -12,14 +12,14 @@
 <meta property="og:locale" content="ja_JP">
 <meta property="og:url" content="https://arona-bot.com/tools/eleph/">
 <meta property="og:title" content="星上げの計算機">
-<meta property="og:description" content="生徒を選んで今の段と目標を入れると、要る神名文字とクレジットが出ます。★1 から ★5、そのあとの固有1〜固有4（限界解放）まで通しで数えます。">
+<meta property="og:description" content="生徒を選んで今の段と目標を入れると、要る神名文字と、足りないぶんを神名のカケラで買うと何個かかるかが出ます。★1 から ★5、そのあとの固有1〜固有4（限界解放）まで通しで数えます。">
 <meta property="og:image" content="https://arona-bot.com/images/og/eleph.jpg">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta property="og:image:alt" content="星上げの計算機 — AronaBot のツール">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="星上げの計算機">
-<meta name="twitter:description" content="生徒を選んで今の段と目標を入れると、要る神名文字とクレジットが出ます。★1 から ★5、そのあとの固有1〜固有4（限界解放）まで通しで数えます。">
+<meta name="twitter:description" content="生徒を選んで今の段と目標を入れると、要る神名文字と、足りないぶんを神名のカケラで買うと何個かかるかが出ます。★1 から ★5、そのあとの固有1〜固有4（限界解放）まで通しで数えます。">
 <meta name="twitter:image" content="https://arona-bot.com/images/og/eleph.jpg">
 <link rel="stylesheet" href="../../style.css?v=25">
 <link rel="stylesheet" href="../tool.css?v=17">
@@ -58,32 +58,50 @@
   /* **`.steps` という名前は使えない。**style.css が `.steps b { display: block }` を
      掛けていて、段の中の <b> が 1 語ずつ改行される（2026-08-30 に実際に折れた） */
   .stargrid { display: grid; gap: 8px; }
-  /* **2 段。**左に星、右上に要る量、右下に上がり幅。1 行に押し込むと
-     細い柱で「攻撃力／最大 HP／回復力」が 1 語ずつ折り返す */
-  /* **左の柱は 5.2em。**4.8em だと「★1→★2」が 2px 切れる（2026-08-31） */
-  .starstep { display: grid; grid-template-columns: 5.2em 1fr; gap: .3em .7em;
+  /* **2 段。**左に星、右上に要る量、右下にその段で解放されるもの 1 行。
+     （2026-09-26 に攻撃力／最大 HP／回復力の％は消した。先生の判断——
+     「このツールの目的はどれくらいのコストがかかるか」） */
+  /* **左の柱は 6.6em で折り返さない。**4.8em だと「★1→★2」が 2px 切れ（2026-08-31）、
+     5.2em だと「固有2→固有3」が「固有／2→固有3」と途中で折れていた（2026-09-26） */
+  .starstep { display: grid; grid-template-columns: 6.6em 1fr; gap: .3em .7em;
               padding: .55em .7em; border: 1px solid var(--line); border-radius: 11px;
               background: var(--card); font-size: .86rem; }
   .starstep .to { grid-row: 1 / 3; align-self: center; }
   .starstep.done { opacity: .42; }
   .starstep.use { border-color: color-mix(in srgb, var(--accent) 55%, var(--line));
                   background: color-mix(in srgb, var(--accent) 8%, var(--card)); }
-  .starstep .to { font-weight: 800; letter-spacing: .02em; }
+  .starstep .to { font-weight: 800; letter-spacing: .02em; white-space: nowrap; }
   .starstep .up { color: var(--fg-mute); font-size: .77rem; line-height: 1.55; }
   .starstep .up b { color: var(--fg); font-weight: 700; }
   .starstep .cost { text-align: right; font-variant-numeric: tabular-nums; font-weight: 700;
                     font-size: .84rem; }
   .starstep .cost small { font-weight: 400; color: var(--fg-mute); font-size: .74rem; margin-left: .5em; }
   @media (max-width: 400px) {
-    .starstep { grid-template-columns: 5.2em 1fr; }
+    .starstep { grid-template-columns: 6.6em 1fr; }
     .starstep .cost small { display: block; margin-left: 0; }
   }
 
-  /* 進み具合の帯 */
-  .bar { height: 12px; border-radius: 999px; background: var(--bg-sub);
-         border: 1px solid var(--line); overflow: hidden; margin: .5em 0 .3em; }
-  .bar > i { display: block; height: 100%; background: var(--accent); }
-  .barnote { font-size: .76rem; color: var(--fg-mute); }
+  /* 上限（900 個）を越えて買えないぶん。**赤ではなく差し色の文字で断るだけ** */
+  .ledger .row.over > span { color: var(--accent-tx); font-weight: 700; }
+
+  /* 早見表。**既定は閉じる**（2026-09-26 の先生の追加。wikiru の「初期★×目標★」の表）。
+     8 列あるので 390px では入らない。**横に送るのは表の箱だけ**で、ページは送らせない */
+  details.quick { margin: 0; }
+  details.quick > summary { cursor: pointer; list-style: none; font-weight: 800; font-size: 1rem;
+                            display: flex; align-items: center; gap: .4em; }
+  details.quick > summary::-webkit-details-marker { display: none; }
+  details.quick > summary::before { content: "▸"; color: var(--fg-mute); }
+  details.quick[open] > summary::before { content: "▾"; }
+  details.quick > summary .qsub { font-weight: 400; font-size: .78rem; color: var(--fg-mute); }
+  table.qt { font-size: .8rem; }
+  table.qt th, table.qt td { white-space: nowrap; text-align: right; font-variant-numeric: tabular-nums; }
+  table.qt td b { display: block; font-weight: 800; }
+  table.qt td small { display: block; color: var(--fg-mute); font-size: .74rem; }
+  table.qt td.nil { color: var(--fg-mute); text-align: center; }
+  /* 今選んでいる「今の段→目標」のマス */
+  table.qt td.here { background: color-mix(in srgb, var(--accent) 16%, var(--card)); }
+  table.qt th[scope="row"] { position: sticky; left: 0; z-index: 1; }
+  .qnote { font-size: .76rem; color: var(--fg-mute); margin: .7em 0 0; }
 </style>
 </head>
 <body>
@@ -183,7 +201,7 @@
   </div>
   <div class="thero-body">
     <h1>星上げの計算機</h1>
-    <p class="thero-lead">生徒を選んで今の段と目標を入れると、要る神名文字とクレジットが出ます。</p>
+    <p class="thero-lead">要る神名文字と、足りないぶんを神名のカケラで買うと何個かかるか。</p>
   </div>
 </header>
 
@@ -212,6 +230,12 @@
             <label for="i-have">持っている神名文字<span class="hint">その子ぶん</span></label>
             <input id="i-have" type="number" inputmode="numeric" min="0" step="10" value="0">
           </div>
+          <!-- **カケラの値段は、その子の文字を今までに何個買ったかで決まる**（2026-09-26）。
+               1〜20 個目は 1 個、21〜40 個目は 2 個、…と上がるので、続きから数える -->
+          <div class="field">
+            <label for="i-bought">この子の文字を今までに買った数<button type="button" class="qm" data-hint="カケラ（文字）ショップでその子の神名文字を選ぶと、買った数が出ます。値段は生徒ごとの累計で決まり、1〜20 個目は 1 個、21〜40 個目は 2 個……81 個目からは 5 個。1 人 900 個までです。"></button></label>
+            <input id="i-bought" type="number" inputmode="numeric" min="0" max="900" step="1" value="0">
+          </div>
         </div>
         <div class="starrow" style="margin-top:14px">
           <span class="lb">今の段</span>
@@ -226,13 +250,15 @@
 
       <div class="panel">
         <div class="panel-h"><h2>段ごとの中身</h2></div>
-        <p class="lead"><b>★5 になると固有武器が使えるようになり、その状態が固有1</b>です。<button type="button" class="qm" data-hint="そこから先は「限界解放」で、ステータスの％ではなく覚えるものが変わります。要る神名文字とクレジットは7段とも全員同じで、生徒ごとの差はありません。右の数字はその段までの累計です。"></button></p>
+        <p class="lead"><b>★5 になると固有武器が使えるようになり、その状態が固有1</b>です。<button type="button" class="qm" data-hint="そこから先は「限界解放」です。要る神名文字とクレジットは 7 段とも全員同じで、生徒ごとの差はありません。「累計」は ★1 からその段までの合計です。"></button></p>
         <div class="stargrid" id="starsteps"></div>
       </div>
     </div>
 
     <div class="tcol sticky">
-      <div class="stats c3">
+      <!-- **上に出すのは 4 つだけ**（2026-09-26 の先生の判断）: 要る文字／手持ちを引いた不足／
+           不足をカケラで買うと何個／クレジット。攻撃力の伸びと「1 週間の見込み」は消した -->
+      <div class="stats c4">
         <div class="stat hero">
           <!-- **生の item_icon_secretstone は使わない。**あれは「神名のカケラ」の絵
                （2026-08-30 の先生の指摘）。生徒共通の神名文字の絵は無いので、
@@ -243,39 +269,40 @@
           <div class="sub" id="o-eleph-sub">生徒を選んでください</div>
         </div>
         <div class="stat">
+          <div class="k">足りないぶん</div>
+          <div class="v" id="o-left">—</div>
+          <div class="sub" id="o-left-sub">—</div>
+        </div>
+        <div class="stat">
+          <div class="k"><img class="ico" src="../img/item_icon_secretstone.webp" alt="" width="18" height="18" loading="lazy"> カケラで買うと</div>
+          <div class="v" id="o-shard">—</div>
+          <div class="sub" id="o-shard-sub">—</div>
+        </div>
+        <div class="stat">
           <div class="k"><img class="ico" src="../img/currency_icon_gold.webp" alt="" width="18" height="18" loading="lazy"> クレジット</div>
           <div class="v" id="o-credit">—</div>
           <div class="sub">この段まで上げるぶん</div>
         </div>
-        <div class="stat">
-          <div class="k">攻撃力の伸び</div>
-          <div class="v" id="o-atk">—</div>
-          <div class="sub" id="o-atk-sub">今の段から数えて</div>
-        </div>
       </div>
 
       <div class="panel">
-        <div class="panel-h"><h2>手持ちで足りますか</h2></div>
-        <div class="bar"><i id="bar" style="width:0%"></i></div>
-        <p class="barnote" id="barnote">—</p>
-        <div class="ledger">
-          <div class="row"><span>要る神名文字</span><span id="l-need">—</span></div>
-          <div class="row minus"><span>持っているぶん</span><span id="l-have">—</span></div>
-          <div class="row"><span>1 週間に手に入る見込み<span class="subnote">募集の重複・カケラの交換ぶん</span></span>
-            <span><input id="i-week" type="number" inputmode="numeric" min="0" step="1" value="10" style="width:78px;text-align:right;padding:.3em .5em"></span></div>
-          <div class="row total"><span id="l-left-k">あと足りないぶん</span><span id="l-left">—</span></div>
-        </div>
+        <div class="panel-h"><h2>カケラの内訳</h2></div>
+        <div class="ledger" id="shard-ledger"></div>
       </div>
+    </div>
 
+    <div class="tfull">
       <div class="panel">
-        <div class="panel-h"><h2>段で変わるもの</h2></div>
-        <div class="tscroll">
-          <table class="dt">
-            <thead><tr><th>段</th><th>攻撃力</th><th>最大 HP</th><th>回復力</th><th>絆ランクの上限</th><th>固有武器の上限</th></tr></thead>
-            <tbody id="tb"></tbody>
-          </table>
-        </div>
-        <p class="lead" style="margin:12px 0 0">★5 まで上げると、攻撃力は ★1 の <b id="tot-atk">—</b>、最大 HP は <b id="tot-hp">—</b>、回復力は <b id="tot-heal">—</b>になります。<b>固有2 から先はこの％を動かしません。</b></p>
+        <details class="quick" id="quick">
+          <summary>早見表 <span class="qsub">今の段 × 目標の段</span></summary>
+          <div class="tscroll" id="quick-box">
+            <table class="dt qt">
+              <thead id="qh"></thead>
+              <tbody id="qb"></tbody>
+            </table>
+          </div>
+          <p class="qnote">上が神名文字（累計）、下はまだ 1 個も買っていない子をカケラで全部買った場合。<button type="button" class="qm" data-hint="値段はどの生徒でも同じなので、表も全員共通です。色の付いたマスが、いま選んでいる今の段→目標の段です。"></button></p>
+        </details>
       </div>
     </div>
 
@@ -293,16 +320,6 @@
             神名文字は <code>30 / 80 / 100 / 120</code> で合計 <b>330 個</b>、クレジットは
             <code>10,000 / 40,000 / 200,000 / 1,000,000</code> で合計 <b>1,250,000</b> です。
             <b>1 人でも違う値が出たら、データを作る側で止まるようにしてあります。</b></li>
-          <li>星で上がるステータスは同じ表の <code>StatBonusRateAttack</code> / <code>StatBonusRateHP</code> / <code>StatBonusRateHeal</code>。
-            10000 分率で、★2 から順に攻撃力 <code>1000 / 1200 / 1400 / 1700</code>、最大 HP <code>500 / 700 / 900 / 1400</code>、
-            回復力 <code>750 / 1000 / 1200 / 1500</code> です。<b>段ごとの足し算</b>なので、★5 では攻撃力が ＋53%、最大 HP が ＋35%、回復力が ＋44.5% になります</li>
-          <li><b>「足し算」だという根拠は SchaleDB 本体の計算そのものです。</b>あちらの JavaScript が生徒のステータスを出すとき、
-            <code>1 + (StatBonusRate.slice(0, StarGrade).reduce((a, b) =&gt; a + b, 0)) / 1e4</code> を基礎値に掛けています。
-            <code>slice(0, 星)</code> で ★1 から今の星までを切り出して <code>reduce</code> で足しているので、★5 なら
-            <code>0 + 1000 + 1200 + 1400 + 1700 = 5300</code>、係数は <code>1.53</code> です。
-            既定値として書かれている配列も <code>[0, 1e3, 1200, 1400, 1700]</code> / <code>[0, 500, 700, 900, 1400]</code> /
-            <code>[0, 750, 1e3, 1200, 1500]</code> で、上のゲームデータと一致します
-            （<a href="https://schaledb.com/" target="_blank" rel="noopener">schaledb.com</a> の <code>assets/index-*.js</code>。2026-08-30 に読みました）</li>
           <li>絆ランクの上限は同じ表の <code>MaxFavorLevel</code>。★1 から順に <code>10 / 10 / 20 / 30 / 100</code> で、★3 で 20、★4 で 30、★5 で 100 まで開きます。<b>★4 のぶんは 20 から 30 に上がりました</b>（<code>DB/</code> の 817 行のうち 810 行がこの並び。止まっている <code>Excel/</code> 側はまだ 20 です）</li>
         </ul>
 
@@ -339,12 +356,21 @@
           <code>IngredientId</code> が「神名のカケラ」（Id 23）を 999 個という仮置きの行になっている生徒と、
           レシピそのものが空の生徒がいます。実装が追いついていないだけなので、<b>ゲーム側では上げられます。</b>
           このツールは<b>読めた <span id="src-n2">—</span> 人ぶんだけ</b>を出しています。</p>
-        <p><b>神名文字の入手先は数字を持っていません。</b>募集での重複、総力戦や大決戦でもらえる「神名のカケラ」との交換、
-          ショップなど、経路が複数あって手持ちの状況で変わるためです。<b>1 週間ぶんの見込みは自分で入れる形</b>にしてあります。</p>
+        <p><b>カケラの値段もゲームのデータから読んでいます。</b></p>
+        <ul>
+          <li><code>DB/GoodsExcelTable.json</code> の、<code>ConsumeParcelId</code> が <code>[23]</code>（神名のカケラ）で
+            <code>ParcelId</code> がその子の神名文字の行。<code>ConsumeExtraStep</code> が <code id="src-step">—</code>、
+            <code>ConsumeExtraAmount</code> が <code id="src-amt">—</code> で、<b>その子の文字を今までに買った数</b>で
+            1〜20 個目は 1 個、21〜40 個目は 2 個……と上がり、並びの最後（81 個目から 5 個）がそのあとも続きます</li>
+          <li>1 人ぶんの上限は <code>DB/ShopExcelTable.json</code> の <code>CategoryType</code> <code>SecretStone</code> の
+            <code>PurchaseCountLimit</code>（<b id="src-lim">—</b> 個）。<b>値段と上限が 1 人でも違ったら、データを作る側で止まります</b></li>
+          <li>ブルアカ攻略 Wiki の早見表（★1→★5 が 330 文字・1,450 カケラ、★1→固有4 が 830 文字・3,950 カケラ、
+            ★3→★5 が 220 文字・900 カケラ、固有2→固有4 が 380 文字・1,700 カケラ）と一致します</li>
+        </ul>
         <p>出典 —
-          <a href="https://github.com/electricgoat/ba-data" target="_blank" rel="noopener">electricgoat/ba-data</a>（レシピと上がり幅）、
+          <a href="https://github.com/electricgoat/ba-data" target="_blank" rel="noopener">electricgoat/ba-data</a>（レシピ・覚えるもの・カケラの値段）、
           <a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a>（生徒と道具の名前、顔の絵、日本の上限）、
-          <a href="https://bluearchive.wikiru.jp/?SandBox/%E7%A5%9E%E7%A7%98%E8%A7%A3%E6%94%BE%EF%BC%88%E9%99%90%E7%95%8C%E8%A7%A3%E6%94%BE%EF%BC%89" target="_blank" rel="noopener">ブルアカ攻略 Wiki</a>（呼び名と各段の恩恵）、
+          <a href="https://bluearchive.wikiru.jp/?SandBox/%E7%A5%9E%E7%A7%98%E8%A7%A3%E6%94%BE%EF%BC%88%E9%99%90%E7%95%8C%E8%A7%A3%E6%94%BE%EF%BC%89" target="_blank" rel="noopener">ブルアカ攻略 Wiki</a>（呼び名と早見表の答え合わせ）、
           <a href="https://game8.jp/blue-archive/706922" target="_blank" rel="noopener">game8</a>（固有3→4 の神名文字。いまはデータ側にも入っていて、値が一致しています）。取得は <span id="ver">—</span>。</p>
       </details>
     </div>
@@ -355,7 +381,9 @@
 <script>window.TOUR = {"key": "eleph", "steps": [
   {"sel": "#stucard", "t": "まず生徒を選びます", "d": "名前を入れると、その子の神名文字の名前が出ます。要る個数はどの子でも同じです。"},
   {"sel": "#from-stars", "t": "今の段と目標を押します", "d": "上の列が今、下の列が目標です。★5 のあとは固有2・固有3・固有4 と続きます。"},
-  {"sel": "#o-eleph", "t": "要る量がここに出ます", "d": "神名文字とクレジット、それに攻撃力がどれだけ伸びるか。手持ちを入れると、あと何週間かも出ます。"},
+  {"sel": "#i-bought", "t": "買った数を入れると値段が合います", "d": "カケラの値段は、その子の文字を今までに買った数で上がっていきます。ショップの画面で見られます。"},
+  {"sel": ".stats", "t": "要る量がここに出ます", "d": "要る神名文字、手持ちを引いた不足、それをカケラで買うと何個か、クレジット。"},
+  {"sel": "#quick", "t": "早見表もあります", "d": "今の段 × 目標の段の一覧です。押すと開きます。"},
   {"sel": "#sharebar", "t": "結果はそのまま渡せます", "d": "開いている状態ごと URL になるので、リンクを送れば相手の画面にも同じ結果が出ます。"}
 ]};</script>
 <script src="../tour.js?v=2"></script>
@@ -388,6 +416,8 @@
   </div>
 </footer>
 
+<!-- **入力を覚える。data.js とツールの JS より前に読むこと**（前回のハッシュを先に URL へ戻す） -->
+<script src="../remember.js?v=1"></script>
 <script src="data.js"></script>
 <script>
 (function () {
@@ -406,7 +436,6 @@
   var from = 1, to = 5;
 
   function fmt(n) { return Math.round(n).toLocaleString('ja-JP'); }
-  function pct(v) { return (v / 100).toFixed(v % 100 ? 1 : 0).replace(/\.0$/, '') + '%'; }
 
   /** 段の呼び名。★5 だけは固有1 でもあるので両方書く。 */
   function lvName(n, brief) {
@@ -415,29 +444,55 @@
     return '固有' + (n - 4);
   }
 
-  /** **段 n → 段 n+1 の 1 手。**前半 4 手が神秘解放、後半 3 手が限界解放。
-      限界解放の側はステータスの伸びを持たない（覚えるものが違う）。 */
+  /** **段 n → 段 n+1 の 1 手。**前半 4 手が神秘解放、後半 3 手が限界解放。 */
   function stepAt(n) {
     if (n <= 4) {
       var s = E.steps[n - 1];
-      return { el: s.el, cr: s.cr, atk: s.atk, hp: s.hp, heal: s.heal, fav: s.fav,
-               kind: 'star', w: null };
+      return { el: s.el, cr: s.cr, fav: s.fav, kind: 'star', w: null, to: n + 1 };
     }
     var w = E.wsteps[n - 4];        // n=5 → wsteps[1]（固有1→固有2）
-    return { el: w.el, cr: w.cr, atk: 0, hp: 0, heal: 0, fav: 0, kind: 'weapon', w: w };
+    return { el: w.el, cr: w.cr, fav: 0, kind: 'weapon', w: w, to: n + 1 };
   }
 
   /** 段 a から段 b まで上げるぶんの合計。 */
   function sum(a, b) {
-    var t = { el: 0, cr: 0, atk: 0, hp: 0, heal: 0 };
+    var t = { el: 0, cr: 0 };
     for (var n = a; n < b; n++) {
       var s = stepAt(n);
-      t.el += s.el; t.cr += s.cr; t.atk += s.atk; t.hp += s.hp; t.heal += s.heal;
+      t.el += s.el; t.cr += s.cr;
     }
     return t;
   }
 
-  /** 限界解放で何が起きるか。**生徒によって変わるのはここだけ。** */
+  /* ---- 神名のカケラで買うときの値段（2026-09-26 に足した）
+     **値段はその子の文字を今までに買った数（累計）で決まる。**表は data.js の `buy`
+     （ba-data の GoodsExcelTable の ConsumeExtraStep / ConsumeExtraAmount）。
+     step[i] 個ごとに amt[i] 個で、並びを越えたら最後の値のまま。上限は `lim` 個 */
+  var B = E.buy;
+  /** k 個目（1 起点）の値段 */
+  function priceAt(k) {
+    var edge = 0;
+    for (var i = 0; i < B.step.length; i++) {
+      edge += B.step[i];
+      if (k <= edge) return B.amt[i];
+    }
+    return B.amt[B.amt.length - 1];
+  }
+  /** 累計 bought 個買った続きから n 個買う。**上限を越えるぶんは買えない**ので `over` に分ける。
+      `tiers` は値段ごとの内訳（内訳の帳面に出す） */
+  function shardCost(bought, n) {
+    var can = Math.max(0, Math.min(n, B.lim - bought));
+    var r = { total: 0, got: can, over: n - can, tiers: [] };
+    for (var k = bought + 1; k <= bought + can; k++) {
+      var pr = priceAt(k), last = r.tiers[r.tiers.length - 1];
+      if (last && last.pr === pr) { last.n++; last.b = k; }
+      else r.tiers.push({ pr: pr, n: 1, a: k, b: k });
+      r.total += pr;
+    }
+    return r;
+  }
+
+  /** その段で解放されるもの 1 行。**生徒によって変わるのは固有3・固有4 だけ。** */
   var TERR_JA = { Street: '市街地', Outdoor: '屋外', Indoor: '屋内' };
   var BULLET_JA = { Explosion: '爆発', Pierce: '貫通', Mystic: '神秘', Sonic: '振動' };
   function weaponGain(w, stu) {
@@ -455,6 +510,12 @@
     }
     var bt = stu.f4.replace('Enhance', '').replace('Rate', '');
     return (BULLET_JA[bt] || bt) + 'の特効が ＋' + (stu.f4v / 100) + '% されます';
+  }
+  /** ★の段。**％は出さない**（2026-09-26 に消した）。変わるのは絆の上限と、★5 の固有武器 */
+  function starGain(sp, prevFav) {
+    if (sp.to === 5) return '固有武器が使えるようになります／絆ランクの上限 ' + sp.fav;
+    if (sp.fav && sp.fav !== prevFav) return 'ステータスが上がります／絆ランクの上限 ' + sp.fav;
+    return 'ステータスが上がります';
   }
 
   (function buildList() {
@@ -481,6 +542,31 @@
     box.innerHTML = h;
   }
 
+  function num(id, max) {
+    var v = Math.max(0, Math.floor(+el(id).value || 0));
+    return max ? Math.min(max, v) : v;
+  }
+
+  /** 早見表。**値段が全員共通なので、表も全員共通。**段と値段が変わらない限り中身は同じで、
+      作るのは 1 回だけ。色だけ draw() のたびに付け直す */
+  (function buildQuick() {
+    var h = '<tr><th scope="col">今＼目標</th>';
+    for (var c = 2; c <= MAX; c++) h += '<th scope="col">' + lvName(c, true) + '</th>';
+    el('qh').innerHTML = h + '</tr>';
+    var rows = [];
+    for (var r = 1; r < MAX; r++) {
+      var tr = '<tr><th scope="row">' + lvName(r, true) + '</th>';
+      for (var c2 = 2; c2 <= MAX; c2++) {
+        if (c2 <= r) { tr += '<td class="nil">—</td>'; continue; }
+        var need = sum(r, c2).el, sc = shardCost(0, need);
+        tr += '<td data-f="' + r + '" data-t="' + c2 + '"><b>' + fmt(need) + '</b><small>' +
+              fmt(sc.total) + (sc.over ? '＋' : '') + '</small></td>';
+      }
+      rows.push(tr + '</tr>');
+    }
+    el('qb').innerHTML = rows.join('');
+  })();
+
   function draw() {
     var card = el('stucard');
     if (student) {
@@ -501,39 +587,51 @@
     stars(el('to-stars'), to, from, false);
 
     var t = sum(from, to);
-    var have = Math.max(0, +el('i-have').value || 0);
-    el('o-eleph').textContent = t.el ? fmt(t.el) + ' 個' : '0 個';
+    var have = num('i-have'), bought = num('i-bought', B.lim);
+    var left = Math.max(0, t.el - have);
+    el('o-eleph').textContent = fmt(t.el) + ' 個';
     el('o-eleph-sub').textContent = lvName(from, true) + ' から ' + lvName(to, true) + ' まで' +
       (student ? '' : '（誰でも同じ）');
+    el('o-left').textContent = left ? fmt(left) + ' 個' : '足りています';
+    el('o-left-sub').textContent = '手持ち ' + fmt(have) + ' 個を引いて';
     el('o-credit').textContent = fmt(t.cr);
-    el('o-atk').textContent = t.atk ? '＋' + pct(t.atk) : '±0%';
-    el('o-atk-sub').textContent = t.atk
-      ? '最大 HP は＋' + pct(t.hp) + '、回復力は＋' + pct(t.heal)
-      : '限界解放ではステータスの％は上がりません';
 
-    el('l-need').textContent = fmt(t.el) + ' 個';
-    el('l-have').textContent = fmt(Math.min(have, t.el)) + ' 個';
-    var left = Math.max(0, t.el - have);
-    el('l-left').textContent = left ? fmt(left) + ' 個' : '足りています';
-    var week = Math.max(0, +el('i-week').value || 0);
-    el('l-left-k').textContent = left && week ? 'この見込みだと' : 'あと足りないぶん';
-    if (left && week) el('l-left').textContent = fmt(left) + ' 個（あと ' + Math.ceil(left / week) + ' 週間）';
-
-    var p = t.el ? Math.min(100, have / t.el * 100) : 100;
-    el('bar').style.width = p.toFixed(1) + '%';
-    el('barnote').textContent = t.el
-      ? '手持ち ' + fmt(have) + ' 個で、要る ' + fmt(t.el) + ' 個の ' + p.toFixed(0) + '%'
-      : '同じ星なので何も要りません。';
+    // カケラ。**交換所に並んでいない子（`ns`）は買えない**（2026-09-26 時点で 0 人）
+    var sc = shardCost(bought, left), led = [];
+    if (student && student.ns) {
+      el('o-shard').textContent = '—';
+      el('o-shard-sub').textContent = 'この子はカケラでは買えません';
+      led.push('<div class="row"><span>この子の文字はショップに並んでいません</span><span>—</span></div>');
+    } else if (!left) {
+      el('o-shard').textContent = '0 個';
+      el('o-shard-sub').textContent = '買わなくて足ります';
+      led.push('<div class="row"><span>買うぶんはありません</span><span>0 個</span></div>');
+    } else {
+      el('o-shard').textContent = fmt(sc.total) + ' 個';
+      el('o-shard-sub').textContent = sc.over
+        ? '上限 ' + fmt(B.lim) + ' 個まで。あと ' + fmt(sc.over) + ' 個は買えません'
+        : (bought ? '累計 ' + fmt(bought) + ' 個買った続きから ' : '') + fmt(left) + ' 個ぶん';
+      sc.tiers.forEach(function (x) {
+        led.push('<div class="row"><span>' + fmt(x.a) + '〜' + fmt(x.b) + ' 個目<span class="subnote">1 個あたり ' +
+                 x.pr + ' カケラ × ' + fmt(x.n) + '</span></span><span>' + fmt(x.pr * x.n) + ' 個</span></div>');
+      });
+      if (sc.over) {
+        led.push('<div class="row over"><span>上限 ' + fmt(B.lim) + ' 個を越えるぶん<span class="subnote">カケラでは買えません</span></span>' +
+                 '<span>' + fmt(sc.over) + ' 文字</span></div>');
+      }
+      led.push('<div class="row total"><span>カケラの合計</span><span>' + fmt(sc.total) + ' 個</span></div>');
+    }
+    el('shard-ledger').innerHTML = led.join('');
 
     // 段ごとの中身。**7 手ぶん。**前半 4 手が神秘解放、後半 3 手が限界解放
-    var rowsH = [];
+    var rowsH = [], prevFav = E.fav1;
     for (var n = 1; n < MAX; n++) {
       var sp = stepAt(n), cum = sum(1, n + 1);
-      var cls = (n + 1 <= from) ? ' done' : (n + 1 <= to ? ' use' : '');
+      var cls = (n + 1 <= from) ? ' done' : (n + 1 <= to && n >= from ? ' use' : '');
       var up = sp.kind === 'star'
-        ? '攻撃力 <b>＋' + pct(sp.atk) + '</b>／最大 HP <b>＋' + pct(sp.hp) +
-          '</b>／回復力 <b>＋' + pct(sp.heal) + '</b>／絆の上限 <b>' + sp.fav + '</b>'
+        ? '<b>' + starGain(sp, prevFav) + '</b>'
         : '<b>' + weaponGain(sp.w, student) + '</b>／固有武器のレベル上限 <b>' + sp.w.lv + '</b>';
+      if (sp.fav) prevFav = sp.fav;
       rowsH.push('<div class="starstep' + cls + (sp.kind === 'weapon' ? ' ue' : '') + '">' +
         '<span class="to">' + lvName(n, true) + '→' + lvName(n + 1, true) + '</span>' +
         '<span class="cost">' +
@@ -545,30 +643,23 @@
     }
     el('starsteps').innerHTML = rowsH.join('');
 
-    // 段ごとの表
-    var a = 0, h = 0, hl = 0, fav = E.fav1;
-    var rows = ['<tr><td>★1</td><td>±0%</td><td>±0%</td><td>±0%</td><td>' + E.fav1 +
-                '</td><td class="wl">—</td></tr>'];
-    for (var m = 1; m < MAX; m++) {
-      var sp2 = stepAt(m);
-      a += sp2.atk; h += sp2.hp; hl += sp2.heal;
-      if (sp2.fav) fav = sp2.fav;
-      rows.push('<tr' + (sp2.kind === 'weapon' ? ' class="ue"' : '') + '><td>' + lvName(m + 1, true) +
-                '</td><td>＋' + pct(a) + '</td><td>＋' + pct(h) +
-                '</td><td>＋' + pct(hl) + '</td><td>' + fav + '</td>' +
-                '<td class="wl">' + (m >= 4 ? 'Lv' + E.wsteps[m - 4].lv : '—') + '</td></tr>');
+    // 早見表の「いま」のマス
+    var cells = el('qb').querySelectorAll('td[data-f]');
+    for (var q = 0; q < cells.length; q++) {
+      cells[q].classList.toggle('here', +cells[q].dataset.f === from && +cells[q].dataset.t === to);
     }
-    el('tb').innerHTML = rows.join('');
-    el('tot-atk').textContent = (1 + a / 10000).toFixed(2) + ' 倍';
-    el('tot-hp').textContent = (1 + h / 10000).toFixed(2) + ' 倍';
-    el('tot-heal').textContent = (1 + hl / 10000).toFixed(3).replace(/0$/, '') + ' 倍';
 
     location.replace('#' + toHash());
   }
 
+  /* **ハッシュは `生徒id|今|目標|手持ち||累計購入数`。**5 番目は空けておく。
+     2026-09-26 までは `生徒id|今|目標|手持ち|1 週間の見込み` で、その欄を消した。
+     **古い URL もそのまま開ける**よう、5 番目は読まずに捨て、累計購入数は 6 番目に置く
+     （5 番目に入れると、古い URL の「週 20」が「20 個買った」に化ける）。
+     student-cost からは `生徒id|今|目標` の 3 つで飛んでくる */
   function toHash() {
     return (student ? student.id : '') + '|' + from + '|' + to + '|' +
-      (+el('i-have').value || 0) + '|' + (+el('i-week').value || 0);
+      num('i-have') + '||' + num('i-bought', B.lim);
   }
   window.shareUrl = function () { return '#' + toHash(); };
 
@@ -597,7 +688,7 @@
 
   el('i-student').addEventListener('change', function () { pick(this.value.trim(), false); });
   el('i-student').addEventListener('input', function () { pick(this.value.trim(), true); });
-  ['i-have', 'i-week'].forEach(function (id) {
+  ['i-have', 'i-bought'].forEach(function (id) {
     el(id).addEventListener('input', draw);
   });
   el('from-stars').addEventListener('click', function (e) {
@@ -609,6 +700,13 @@
     var b = e.target.closest('.star'); if (!b || b.disabled) return;
     to = +b.dataset.v; draw();
   });
+  // 早見表のマスを押すと、その段に合わせる
+  el('qb').addEventListener('click', function (e) {
+    var c = e.target.closest('td[data-f]'); if (!c) return;
+    var f = +c.dataset.f;
+    if (student && f < student.s) return;       // その子にはありえない段
+    from = f; to = +c.dataset.t; draw();
+  });
 
   (function fromHash() {
     var h = decodeURIComponent(location.hash.replace(/^#/, ''));
@@ -617,13 +715,19 @@
     if (p[0] && byId[p[0]]) { student = byId[p[0]]; el('i-student').value = student.n; }
     if (+p[1] >= 1 && +p[1] <= MAX) from = +p[1];
     if (+p[2] >= 1 && +p[2] <= MAX) to = +p[2];
+    if (student && from < student.s) from = student.s;
     if (to < from) to = from;
     if (p[3] !== undefined) el('i-have').value = Math.max(0, +p[3] || 0);
-    if (p[4] !== undefined) el('i-week').value = Math.max(0, +p[4] || 0);
+    // p[4] は古い形の「1 週間の見込み」。**読まない**
+    if (p[5] !== undefined) el('i-bought').value = Math.min(B.lim, Math.max(0, Math.floor(+p[5] || 0)));
   })();
 
   el('src-n').textContent = E.stu.length;
   el('src-n2').textContent = E.stu.length;
+  el('src-step').textContent = '[' + B.step.join(', ') + ']';
+  el('src-amt').textContent = '[' + B.amt.join(', ') + ']';
+  el('src-lim').textContent = fmt(B.lim);
+  el('i-bought').max = B.lim;
   // **人数は data.js から数える。**手で書くと、生徒が増えた日に古いまま残る
   // （2026-09-24 に 247 / 187 / 87 のべた書きを見つけて直した）。
   (function fillCounts() {

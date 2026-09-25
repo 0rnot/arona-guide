@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>生徒 1 人の育成費用｜AronaBot</title>
-<meta name="description" content="生徒を選んで、今と目標を入れると、レベル・スキル・星・固有武器・愛用品にかかるクレジットと素材が出ます。レポートの枚数も種類ごとに。">
+<meta name="description" content="生徒を選んで、今と目標を入れると、レベル・スキル・星・固有武器・愛用品・装備にかかるクレジットと素材が出ます。手持ちのレポートで足りるかも。">
 <meta name="theme-color" content="#c8892e">
 <link rel="icon" href="../../favicon.svg" type="image/svg+xml">
 <meta property="og:type" content="website">
@@ -59,6 +59,14 @@
     .goal { grid-template-columns: 1fr 94px 14px 94px; gap: .3em; }
     .goal .nm { font-size: .84rem; }
   }
+  /* 装備の行は 1 マスに Tier と Lv を縦に 2 つ。**横に並べるとスマホで入らない** */
+  .goal .eqc { display: grid; gap: .25em; }
+  /* 深掘りツールへのリンク。**行ラベルの下に小さく。**主役は右の選択 */
+  .goal .nm .lk { display: flex; flex-wrap: wrap; gap: .1em .8em; margin-top: .2em; font-size: .72rem; }
+  .goal .nm .lk a { color: var(--accent-tx); text-decoration: none; }
+  .goal .nm .lk a::after { content: " →"; }
+  .goal .nm .lk a:hover { text-decoration: underline; }
+  .goal.off .lk { display: none; }
 
   /* 素材の一覧 */
   .mats { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
@@ -75,12 +83,23 @@
                               .mat { grid-template-columns: 36px 1fr; padding: 7px 8px; }
                               .mat img { width: 36px; height: 36px; } }
 
-  .repbox { display: grid; grid-template-columns: repeat(auto-fit, minmax(112px, 1fr)); gap: 10px; }
-  .rep { text-align: center; padding: 10px 6px; border: 1px solid var(--line);
-         border-radius: 11px; background: var(--bg-sub); }
-  .rep img { width: 40px; height: 40px; }
-  .rep .v { font-weight: 800; font-size: 1.1rem; font-variant-numeric: tabular-nums; margin-top: .1em; }
-  .rep .k { font-size: .7rem; color: var(--fg-mute); line-height: 1.4; }
+  /* 要る素材の見出し（神名文字・オーパーツ…）。**同じ系統は段の順に並ぶ** */
+  .mh { font-size: .86rem; font-weight: 800; margin: 18px 0 8px; display: flex; align-items: baseline; gap: .6em; }
+  .mh:first-child { margin-top: 0; }
+  .mh small { font-size: .74rem; font-weight: 500; color: var(--fg-mute); }
+
+  /* 手持ちのレポート 4 欄。**2026-09-26 まで「1 種類だけで埋めた枚数」の札だった** */
+  /* **1 列。**右の段は 2 列にすると 1200px でも名前が折れる（2026-09-26 に撮って見た） */
+  .repbox { display: grid; grid-template-columns: 1fr; gap: 8px; }
+  .rep { display: grid; grid-template-columns: 36px 1fr 76px; gap: .5em; align-items: center;
+         padding: 7px 8px; border: 1px solid var(--line); border-radius: 11px; background: var(--bg-sub); }
+  .rep img { width: 36px; height: 36px; }
+  .rep .k { font-size: .76rem; line-height: 1.35; min-width: 0; }
+  .rep .k small { display: block; color: var(--fg-mute); font-size: .7rem; }
+  .rep input { width: 100%; padding: .35em .45em; font-size: .92rem; text-align: right; }
+  .repsay { margin: 12px 0 0; font-size: .9rem; line-height: 1.7; }
+  .repsay.ok b { color: var(--accent-tx); }
+  .repsay.short b { color: var(--accent-tx); }
 </style>
 </head>
 <body>
@@ -177,7 +196,7 @@
   </div>
   <div class="thero-body">
     <h1>生徒 1 人の育成費用</h1>
-    <p class="thero-lead">レベル・スキル・星・固有武器・愛用品ぶんのクレジットと素材を、まとめて数えます。</p>
+    <p class="thero-lead">レベル・スキル・星・固有武器・愛用品・装備ぶんのクレジットと素材を、まとめて数えます。</p>
   </div>
 </header>
 
@@ -212,14 +231,14 @@
 
       <div class="panel">
         <div class="panel-h"><h2>どこまで育てますか</h2></div>
-        <p class="lead">左が今、右が目標です。上げないところは同じ数字のままにしてください。<button type="button" class="qm" data-hint="スキルの ◎ が付いた Lv は、そこで効果の伸びが大きくなるところです。"></button></p>
+        <p class="lead">左が今、右が目標です。上げないところは同じ数字のままにしてください。<button type="button" class="qm" data-hint="スキルの ◎ が付いた Lv は、そこで効果の伸びが大きくなるところです。装備は Tier が上がると Lv1 に戻るので、途中の Tier は上限 Lv まで上げる経験値を足しています（強化珠の計算機と同じ数え方）。T1 の装備そのものは数えていません。"></button></p>
         <div id="goals"></div>
         <p class="err" id="err" hidden></p>
       </div>
     </div>
 
     <div class="tcol">
-      <div class="stats c3">
+      <div class="stats c4">
         <div class="stat hero">
           <div class="k"><img class="ico" src="../img/currency_icon_gold.webp" alt="" width="18" height="18" loading="lazy"> クレジット</div>
           <div class="v" id="o-credit">—</div>
@@ -229,6 +248,11 @@
           <div class="k">必要な経験値</div>
           <div class="v" id="o-exp">—</div>
           <div class="sub" id="o-exp-sub"></div>
+        </div>
+        <div class="stat">
+          <div class="k">装備の経験値</div>
+          <div class="v" id="o-eqexp">—</div>
+          <div class="sub" id="o-eqexp-sub"></div>
         </div>
         <div class="stat">
           <div class="k">要る素材</div>
@@ -244,8 +268,9 @@
 
       <div class="panel">
         <div class="panel-h"><h2>レポート</h2></div>
-        <p class="lead">上の経験値を 1 種類だけで埋めたときの枚数です。</p>
+        <p class="lead">手持ちの枚数を入れると、上の経験値に足りるかが出ます。</p>
         <div class="repbox" id="reps"></div>
+        <p class="repsay" id="rep-say" role="status"></p>
       </div>
     </div>
 
@@ -253,7 +278,7 @@
       <div class="panel">
         <div class="panel-h"><h2>要る素材</h2></div>
         <p class="lead" id="mat-lead">生徒と目標を決めると、必要な個数がここに並びます。</p>
-        <div class="mats" id="mats"></div>
+        <div id="mats"></div>
       </div>
     </div>
 
@@ -281,10 +306,15 @@
         <p><b>レベル上げのクレジットは 1 経験値につき 7 で計算しています。この 7 は <code>Excel/ConstCommonExcelTable.json</code> の <code>CharacterLvUpCoefficient</code> です。</b><a href="https://bluearchive.wikiru.jp/?%E7%B5%8C%E9%A8%93%E5%80%A4%E8%A1%A8" target="_blank" rel="noopener">ブルアカ Wiki「経験値表」</a>の「育成にはレポートとクレジットが必要で、1EXPあたり7クレジットのコストが掛かる」という記載によります。
           Lv1 から Lv90 まででちょうど <b id="src-lvcost">—</b> になり、同ページの「約875万」と合います。</p>
         <p><b>愛用品を持っている生徒は <b id="src-gear">—</b> 人です。</b>持っていない生徒では、その行を選べません。固有武器も同じで、持っていない生徒では選べません。</p>
-        <p>絆ランクの贈り物と、装備の設計図はこのツールでは数えていません。<a href="../bond/">絆ランク計算機</a>と<a href="../equipment/">装備設計図の周回計算機</a>にあります。</p>
+        <p><b>装備は 3 部位とも、深掘り側の 2 本と同じ数え方です。</b>Tier 上げの設計図とクレジットは SchaleDB の装備の <code>Recipe</code> と <code>RecipeCost</code>（<a href="../equipment/">装備設計図の周回計算機</a>と同じ）。
+          レベル上げは <code>DB/EquipmentLevelExcelTable.json</code> の <code>TotalExp</code> を Tier ごとに Lv1 から数え、1 EXP につき
+          <code>EquipmentLvUpCoefficient</code>（4）クレジット（<a href="../equip-level/">装備の強化珠計算機</a>と同じ）。
+          <b>強化珠の経験値は、レポートの経験値とは別に出しています。</b>食べさせるものが違うからです。
+          <b>2026-09-26 まで装備は数えていませんでした。</b></p>
+        <p>絆ランクの贈り物はこのツールでは数えていません。<a href="../bond/">絆ランク計算機</a>にあります。</p>
         <p>出典 —
           <a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a>（生徒・素材の名前とアイコン）、
-          <a href="https://github.com/electricgoat/ba-data" target="_blank" rel="noopener">electricgoat/ba-data</a>（レシピ・経験値表）、<a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB config.json</a>（日本で開いている固有武器の段）、<a href="https://game8.jp/blue-archive/706922" target="_blank" rel="noopener">ゲームエイト</a>（★3→★4 の神名文字 200 個）。取得は <span id="ver">—</span>。</p>
+          <a href="https://github.com/electricgoat/ba-data" target="_blank" rel="noopener">electricgoat/ba-data</a>（レシピ・経験値表・装備の経験値表）、<a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB config.json</a>（日本で開いている固有武器の段）、<a href="https://game8.jp/blue-archive/706922" target="_blank" rel="noopener">ゲームエイト</a>（★3→★4 の神名文字 200 個）。取得は <span id="ver">—</span>。</p>
       </details>
     </div>
 
@@ -322,7 +352,9 @@
   </div>
 </footer>
 
-<script src="data.js"></script>
-<script src="cost.js"></script>
+<!-- **data.js より前。**ハッシュが空なら前回の入力を URL に戻してから、cost.js が読む -->
+<script src="../remember.js?v=1"></script>
+<script src="data.js?v=2"></script>
+<script src="cost.js?v=2"></script>
 </body>
 </html>

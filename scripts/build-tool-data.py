@@ -1291,8 +1291,13 @@ def build_student_cost():
         gr = [[credit[(4, i)], mats(m, a)] for i, (m, a) in
               enumerate(zip(gear.get("TierUpMaterial") or [], gear.get("TierUpMaterialAmount") or []))]
 
+        # 装備欄 3 つの部位。**並びはゲームの装備欄の順**（1 枠目・2 枠目・3 枠目）
+        eqs = [c for c in (s.get("Equipment") or []) if c in CAT_JA]
+        if len(eqs) != 3:
+            raise SystemExit(f"{s['Name']}（{cid}）の装備欄が 3 つでない: {s.get('Equipment')}")
+
         stu.append({"id": cid, "n": NAMES.get(s["Id"], s["Name"]), "r": s.get("StarGrade", 1),
-                    "ex": ex, "sk": sk, "tr": tr, "wp": wp, "gr": gr})
+                    "ex": ex, "sk": sk, "tr": tr, "wp": wp, "gr": gr, "eq": eqs})
     stu.sort(key=lambda x: x["n"])
 
     # 素材の名前とアイコン。
@@ -1343,11 +1348,100 @@ def build_student_cost():
     if not cpe:
         raise SystemExit("CharacterLvUpCoefficient が取れない")
 
+    eq = student_cost_equip(mat)
+
     return write_js("tools/student-cost/data.js", "COST", {
         "need": need, "rep": rep, "mat": mat, "stu": stu,
-        "creditPerExp": cpe,
-        "version": "SchaleDB jp（生徒・素材）／ electricgoat/ba-data jp（レシピ・経験値表）",
+        "creditPerExp": cpe, "eq": eq,
+        "version": "SchaleDB jp（生徒・素材・装備・設計図）／ electricgoat/ba-data jp（レシピ・経験値表）",
     }, header="/* scripts/build-tool-data.py が吐く。**手で直さない。** */\n")
+
+
+def student_cost_equip(mat):
+    """生徒 1 人の育成費用の「装備 3 部位」ぶん。**2026-09-26 に足した**（先生の判断 Q2-1）。
+
+    **数え方は既存の 2 本と同じにしてある。**別の数え方を作ると、深掘り側へ飛んだとき
+    数字が合わない。
+
+      Tier 上げ  装備設計図の周回計算機（`build_equipment`）と同じく、SchaleDB の
+                 `Recipe`（T(n) の装備を作る手順）と `RecipeCost`。
+      レベル上げ 装備の強化珠計算機（`build_equip_level`）と同じく、
+                 `EquipmentLevelExcelTable` の `TotalExp` を Tier ごとに Lv1 から数え、
+                 1 EXP につき `EquipmentLvUpCoefficient`（4）クレジット。
+
+    設計図は `mat` に `e<部位><Tier>` の鍵で足す（アイテムの Id と装備の Id は
+    別の番号の並びで、数字のままだとぶつかりうる）。
+    """
+    sd_eq = as_list(get_json(SD.format("equipment")))
+
+    def released(e):                    # [Jp, Global, Cn] の 0 番だけを見る（build_equipment と同じ）
+        r = e.get("IsReleased") or []
+        return bool(r[0]) if r else False
+
+    piece = {}
+    for e in sd_eq:
+        cat, tier = e.get("Category"), e.get("Tier")
+        icon = str(e.get("Icon", ""))
+        if cat in CAT_JA and tier and released(e) and icon.endswith("_piece") \
+                and not icon.endswith("_useall_piece"):
+            piece[e["Id"]] = (cat, tier)
+            key = f"e{cat}{tier}"
+            mat[key] = {"n": e.get("Name", "").replace("\n", ""), "i": icon, "s": 0,
+                        "k": "eqp", "t": tier, "r": e.get("Rarity") or "N", "c": cat}
+            fetch_icon(icon, f"https://schaledb.com/images/equipment/icon/{icon}.webp")
+
+    # rec[部位][Tier] = [クレジット, [[設計図の鍵, 枚数], …]]。T(n-1) → T(n) の 1 段
+    rec = {c: {} for c in CATS}
+    for e in sd_eq:
+        cat, tier = e.get("Category"), e.get("Tier")
+        if cat not in CAT_JA or not tier or not released(e) or str(e.get("Icon", "")).endswith("_piece"):
+            continue
+        pairs = [[f"e{cat}{piece[pid][1]}", cnt] for pid, cnt in (e.get("Recipe") or []) if pid in piece]
+        if pairs:
+            rec[cat][str(tier)] = [e.get("RecipeCost", 0) or 0, pairs]
+    # **番人は build_equipment と同じ表。**「シャーレ装備管理室」の 1 セットぶん
+    ref_set = {2: 40, 3: 45, 4: 50, 5: 55, 6: 65, 7: 65, 8: 60, 9: 50, 10: 60}
+    for cat in CATS:
+        if sorted(int(t) for t in rec[cat]) != list(range(2, 11)):
+            raise SystemExit(f"装備 {cat} のレシピが T2〜T10 でそろわない: {sorted(rec[cat])}")
+        tot = {}
+        for _, pairs in rec[cat].values():
+            for k, n in pairs:
+                t = int(k[len("e" + cat):])
+                tot[t] = tot.get(t, 0) + n
+        if tot != ref_set:
+            raise SystemExit(f"装備 {cat} の 1 セットぶんが参考元と食い違う: {tot}")
+
+    # レベル。`cum[T][L]` = その Tier で Lv1 から Lv L まで（build_equip_level と同じ読み方）
+    lv = sorted(as_list(get_json(BADB.format("EquipmentLevelExcelTable"))), key=lambda r: r["Level"])
+    # Tier ごとのレベル上限は SchaleDB の装備そのもの（設計図は StatType が空で 1 が出るので外す）
+    top = {}
+    for e in sd_eq:
+        if e.get("Category") == "Hat" and e.get("Tier") and e.get("StatType"):
+            top[e["Tier"]] = e.get("MaxLevel")
+    max_lv = [top.get(t) for t in range(1, 11)]
+    if max_lv != [10, 20, 30, 40, 45, 50, 55, 60, 65, 70]:
+        raise SystemExit(f"装備のレベル上限の並びが変わった: {max_lv}（build_equip_level も見直すこと）")
+    cum = {}
+    for ti in range(10):
+        c = [0] * (max_lv[ti] + 1)
+        for l in range(2, max_lv[ti] + 1):
+            c[l] = lv[l - 2]["TotalExp"][ti]
+        cum[str(ti + 1)] = c
+    all_tiers = sum(cum[str(t)][max_lv[t - 1]] for t in range(1, 11))
+    if all_tiers != 246680:
+        raise SystemExit(f"装備 T1→T10 の総経験値が参考元と食い違う: {all_tiers}（246680 のはず）")
+    const = as_list(get_json(BA.format("ConstCommonExcelTable")))
+    coef = next((r["EquipmentLvUpCoefficient"] for r in const if r.get("EquipmentLvUpCoefficient")), None)
+    if coef != 4:
+        raise SystemExit(f"EquipmentLvUpCoefficient が 4 でない: {coef}")
+
+    gems = sorted([e for e in sd_eq if e.get("Category") == "Exp"], key=lambda e: e["Id"])
+    if [g["LevelUpFeedExp"] for g in gems] != [90, 360, 1440, 5760]:
+        raise SystemExit("強化珠が (90, 360, 1440, 5760) にならない")
+
+    return {"catJa": CAT_JA, "maxLv": max_lv, "cum": cum, "coef": coef, "rec": rec,
+            "gems": [{"n": g["Name"], "i": g["Icon"], "e": g["LevelUpFeedExp"]} for g in gems]}
 
 
 # ------------------------------------------------------------ 宝探し（在庫管理）
@@ -2838,6 +2932,50 @@ def build_eleph():
     for r in stu:
         if r.get("ad"):
             adapt[(r["ad"], r["av"])] = adapt.get((r["ad"], r["av"]), 0) + 1
+
+    # ---- 神名のカケラで神名文字を買うときの値段（2026-09-26 に足した）
+    #
+    # 先生の言葉——「どれくらいのコストがかかるか。必要な神名文字の数と、交換するなら
+    # 神名のカケラが何個要るか」。**値段は買うほど上がる**ので、その段の表をゲームの
+    # データから取る。手で書かない。
+    #
+    # `DB/GoodsExcelTable` の、`ConsumeParcelId` が `[23]`（神名のカケラ）で
+    # `ParcelId` がその子の神名文字の行。`ConsumeParcelAmount` が 1 個目の値段、
+    # `ConsumeExtraStep` `[20,20,20,20,20]` と `ConsumeExtraAmount` `[1,2,3,4,5]` が
+    # 「**その子の累計購入数**で 1〜20 個目は 1、21〜40 個目は 2、…、81 個目から 5」。
+    # 上限は `DB/ShopExcelTable` の `CategoryType` `SecretStone` の `PurchaseCountLimit`（900）。
+    # ブルアカ攻略 Wiki の早見表（★1→★5 で 330 文字 1,450 カケラ、★1→固有4 で
+    # 830 文字 3,950 カケラ）と一致する。**全員同じでなければ止まる**
+    goods = as_list(get_json(BADB.format("GoodsExcelTable")))
+    shop = as_list(get_json(BADB.format("ShopExcelTable")))
+    buy_by_el = {}                          # 神名文字の Id → その交換グッズ
+    for g_ in goods:
+        if (g_.get("ConsumeParcelId") == [23] and g_.get("ParcelType") == ["Item"]
+                and g_.get("ConsumeExtraStep") and len(g_.get("ParcelId") or []) == 1):
+            buy_by_el[g_["ParcelId"][0]] = g_
+    lim_by_goods = {}
+    for s2 in shop:
+        if s2.get("CategoryType") == "SecretStone" and not s2.get("IsLegacy"):
+            for gid in s2.get("GoodsId") or []:
+                lim_by_goods[gid] = s2.get("PurchaseCountLimit")
+    bpats, no_shop = {}, []
+    for r in stu:
+        g_ = buy_by_el.get(r["e"])
+        if not g_ or g_["Id"] not in lim_by_goods or g_.get("ParcelAmount") != [1]:
+            no_shop.append(r["n"])
+            r["ns"] = 1                     # 交換所に並んでいない子（画面で断る）
+            continue
+        key = (g_["ConsumeParcelAmount"][0], tuple(g_["ConsumeExtraStep"]),
+               tuple(g_["ConsumeExtraAmount"]), lim_by_goods[g_["Id"]])
+        bpats[key] = bpats.get(key, 0) + 1
+    if len(bpats) != 1:
+        raise SystemExit(f"カケラの値段が生徒ごとに割れている: {sorted(bpats.items())[:4]}")
+    b_base, b_step, b_amt, b_lim = next(iter(bpats))
+    if len(b_step) != len(b_amt) or b_base != b_amt[0]:
+        raise SystemExit(f"カケラの値段の並びが想定と違う: {b_base} {b_step} {b_amt}")
+    if no_shop:
+        print(f"  カケラで買えない子 {len(no_shop)} 人: {no_shop[:6]}")
+
     n = 0
     for r in stu:
         if r.get("si"):
@@ -2847,12 +2985,16 @@ def build_eleph():
           f"クレジットは {[x['cr'] for x in steps]}")
     print(f"  限界解放は {[x['el'] for x in wsteps]} 文字 / {[x['cr'] for x in wsteps]} クレジット、"
           f"レベル上限 {list(wmax[:4])}、地形の伸び {sorted(adapt.items())}")
+    print(f"  カケラの値段は {b_step} 個ごとに {b_amt}、上限 {b_lim} 個（{sum(bpats.values())} 人）")
     return write_js("tools/eleph/data.js", "ELEPH", {
         "steps": steps,
         "wsteps": wsteps,
         "fav1": fav[0],
+        # 神名のカケラでの値段。step[i] 個ごとに amt[i] 個、並びを越えたら最後の値のまま
+        "buy": {"step": list(b_step), "amt": list(b_amt), "lim": b_lim},
         "stu": sorted(stu, key=lambda x: x["id"]),
-        "version": "electricgoat/ba-data jp（CharacterTranscendence・CharacterWeapon・Recipe・RecipeIngredient）／ SchaleDB jp（生徒と道具の名前）／ game8（固有3→4 の神名文字）",
+        "version": "electricgoat/ba-data jp（CharacterTranscendence・CharacterWeapon・Recipe・RecipeIngredient・Goods・Shop）／ SchaleDB jp（生徒と道具の名前）"
+                   + ("／ game8（固有3→4 の神名文字）" if used_fallback else ""),
     }, header="/* scripts/build-tool-data.py が吐く。**手で直さない。** */\n")
 
 

@@ -36,6 +36,50 @@
   ROWS.forEach(function (r) { state[r.k] = { f: r.min, t: r.min }; });
   state.lv = { f: 1, t: LVMAX };
 
+  /* ------------------------------------------------------------ 装備 3 部位
+
+     **2026-09-26 に足した**（先生の判断 Q2-1）。部位は生徒ごとに決まっていて
+     （`stu[].eq`、ゲームの装備欄の順）、1 行に「今の Tier/Lv → 目標の Tier/Lv」を持つ。
+
+     **数え方は深掘り側の 2 本と同じ。**別の数え方を作ると、リンクで飛んだ先と合わない。
+       Tier 上げ  装備設計図の周回計算機と同じレシピ（`eq.rec[部位][T]` が T-1 → T の 1 段）
+       レベル     装備の強化珠計算機の rowExp() をそのまま写した。**Tier が上がると
+                  Lv1 に戻る**ので、途中の Tier は上限まで上げきった経験値を足す */
+  var EQ = C.eq;
+  var EQMAX = EQ.maxLv.length;       // 10
+  function eqMaxLv(t) { return EQ.maxLv[t - 1]; }
+  function eqCum(t, l) { var a = EQ.cum[String(t)]; return a[Math.max(1, Math.min(l, eqMaxLv(t)))]; }
+  function eqExp(e) {
+    if (e.t1 < e.t0 || (e.t1 === e.t0 && e.l1 <= e.l0)) return 0;
+    if (e.t1 === e.t0) return eqCum(e.t0, e.l1) - eqCum(e.t0, e.l0);
+    var x = eqCum(e.t0, eqMaxLv(e.t0)) - eqCum(e.t0, e.l0);
+    for (var t = e.t0 + 1; t < e.t1; t++) x += eqCum(t, eqMaxLv(t));
+    return x + eqCum(e.t1, e.l1);
+  }
+  /** Tier を t0 → t1 に上げる設計図とクレジット。 */
+  function eqTier(cat, t0, t1) {
+    var out = { credit: 0, mats: {} };
+    for (var t = t0 + 1; t <= t1; t++) {
+      var r = (EQ.rec[cat] || {})[String(t)];
+      if (!r) continue;
+      out.credit += r[0];
+      r[1].forEach(function (m) { out.mats[m[0]] = (out.mats[m[0]] || 0) + m[1]; });
+    }
+    return out;
+  }
+  /** 範囲に収める。**目標は今より下げない**（同じ Tier なら Lv も） */
+  function eqNorm(e) {
+    var c = function (v, a, b) { v = Math.floor(+v || 0); return Math.min(Math.max(v, a), b); };
+    e.t0 = c(e.t0, 1, EQMAX); e.l0 = c(e.l0, 1, eqMaxLv(e.t0));
+    e.t1 = c(e.t1, e.t0, EQMAX); e.l1 = c(e.l1, e.t1 === e.t0 ? e.l0 : 1, eqMaxLv(e.t1));
+    return e;
+  }
+  function eqBlank() { return { t0: 1, l0: 1, t1: 1, l1: 1 }; }
+  var eqs = [eqBlank(), eqBlank(), eqBlank()];
+
+  /* 手持ちのレポート。**初級・中級・上級・最上級の順**（C.rep は経験値の小さい順） */
+  var own = [0, 0, 0, 0];
+
   /** その項目が今の生徒で使えるか。使えない行は畳んで選べなくする。 */
   function avail(r) {
     if (!r.slot) return true;
@@ -75,6 +119,24 @@
     return 'Lv' + v + (j && j.indexOf(v) >= 0 ? ' ◎' : '');
   }
 
+  /* 行から深掘りツールへ。**同じ生徒・同じ今/目標のまま飛ぶ**（Q1-1）。
+     ハッシュの形は相手の shareUrl() と fromHash() に合わせてある。
+       星上げ       ../eleph/#生徒id|今|目標        （段 1〜5 が★1〜★5）
+       固有武器     ../weapon/#生徒id|今★|目標★     （Lv は渡さない。相手の既定のまま）
+       装備の強化珠 ../equip-level/#T.Lv.T.Lv.1
+       装備の設計図 ../equipment/                    （ハッシュが在庫と目標セット数で、
+                    ここから渡すと向こうに覚えている在庫を 0 で上書きしてしまう） */
+  function link(href, text) {
+    return '<a href="' + href + '">' + text + '</a>';
+  }
+  function rowLinks(r) {
+    if (!student) return '';
+    var st = state[r.k];
+    if (r.star) return link('../eleph/#' + student.id + '|' + st.f + '|' + st.t, '星上げの計算機');
+    if (r.weapon) return link('../weapon/#' + student.id + '|' + st.f + '|' + st.t, '固有武器の計算機');
+    return '';
+  }
+
   function drawGoals() {
     var h = '';
     ROWS.forEach(function (r) {
@@ -101,9 +163,42 @@
             : (r.weapon ? 'この子には固有武器がありません'
             : r.gear ? 'この子には愛用品がありません' : 'この子には段がありません');
       }
+      var lk = ok ? rowLinks(r) : '';
       h += '<div class="goal' + (ok ? '' : ' off') + '">' +
-        '<span class="nm">' + r.nm + '<small>' + sub + '</small></span>' +
+        '<span class="nm">' + r.nm + '<small>' + sub + '</small>' +
+        (lk ? '<span class="lk">' + lk + '</span>' : '') + '</span>' +
         sel('f') + '<span class="ar">→</span>' + sel('t') + '</div>';
+    });
+
+    // 装備 3 部位。**1 マスに Tier と Lv を縦に 2 つ**（横に並べるとスマホで入らない）
+    eqs.forEach(function (e, i) {
+      var cat = student ? student.eq[i] : null;
+      eqNorm(e);
+      var dis = cat ? '' : ' disabled';
+      var opts = function (a, b, cur, pre) {
+        var o = '';
+        for (var v = a; v <= b; v++) o += '<option value="' + v + '"' + (v === cur ? ' selected' : '') + '>' + pre + v + '</option>';
+        return o;
+      };
+      var side = function (w) {
+        var t = w === 'f' ? e.t0 : e.t1, l = w === 'f' ? e.l0 : e.l1;
+        var ta = w === 'f' ? 1 : e.t0, la = (w === 't' && e.t1 === e.t0) ? e.l0 : 1;
+        return '<span class="eqc">' +
+          '<select data-e="' + i + '" data-w="' + (w === 'f' ? 't0' : 't1') + '" aria-label="' +
+            (w === 'f' ? '今' : '目標') + 'の Tier"' + dis + '>' + opts(ta, EQMAX, t, 'T') + '</select>' +
+          '<select data-e="' + i + '" data-w="' + (w === 'f' ? 'l0' : 'l1') + '" aria-label="' +
+            (w === 'f' ? '今' : '目標') + 'の Lv"' + dis + '>' + opts(la, eqMaxLv(t), l, 'Lv') + '</select></span>';
+      };
+      var lk = '';
+      if (cat) {
+        lk = link('../equip-level/#' + [e.t0, e.l0, e.t1, e.l1, 1].join('.'), '強化珠の計算機');
+        if (e.t1 > e.t0) lk += link('../equipment/', '設計図の周回');
+      }
+      h += '<div class="goal eq' + (cat ? '' : ' off') + '">' +
+        '<span class="nm">' + (cat ? EQ.catJa[cat] : '装備 ' + (i + 1)) +
+        '<small>' + (cat ? '装備 ' + (i + 1) + ' 枠目' : '先に生徒を選んでください') + '</small>' +
+        (lk ? '<span class="lk">' + lk + '</span>' : '') + '</span>' +
+        side('f') + '<span class="ar">→</span>' + side('t') + '</div>';
     });
     el('goals').innerHTML = h;
   }
@@ -128,6 +223,59 @@
     Object.keys(src).forEach(function (k) { dst[k] = (dst[k] || 0) + src[k]; });
   }
 
+  /* 要る素材の見出し。**データの `k`（build の mat_kind）でそのまま割れる区分だけ。**
+     秘伝ノートは技術ノートの最後の 1 冊なので同じ見出しに入れる。
+     愛用品の T1→T2 に使う贈り物などは「その他」 */
+  var MGROUP = [
+    { k: ['stone'], n: '神名文字' },
+    { k: ['oopart'], n: 'オーパーツ' },
+    { k: ['note', 'ult'], n: '技術ノート' },
+    { k: ['bd'], n: '戦術教育BD' },
+    { k: ['eqp'], n: '装備の設計図' },
+    { k: [], n: 'その他' }
+  ];
+  /** 並べる鍵 [系統の順, 系統名]。系統の順は、その系統でいちばん小さい Id */
+  function series(k) {
+    var m = C.mat[k] || {};
+    if (m.k === 'eqp') return [student ? student.eq.indexOf(m.c) : 0, m.c];
+    if (m.k === 'ult') return [1e9, 'ult'];       // 技術ノートの最後
+    var base = String(m.i || '').replace(/_\d+$/, '');
+    return [parseInt(k, 10) - (m.t || 0), base];
+  }
+
+  /* ---- レポートの手持ち。**欄は 1 度だけ組む。**打つたびに組み直すと焦点が飛ぶ */
+  var lastExp = 0;
+  (function buildRep() {
+    el('reps').innerHTML = C.rep.map(function (r, i) {
+      return '<label class="rep">' +
+        '<img src="../img/' + r.i + '.webp" alt="" width="36" height="36" loading="lazy">' +
+        '<span class="k">' + r.n + '<small>1 枚 ' + fmt(r.e) + '</small></span>' +
+        '<input id="own-' + i + '" type="number" inputmode="numeric" min="0" step="1" placeholder="0"' +
+        ' aria-label="' + r.n + 'の手持ち"></label>';
+    }).join('');
+    C.rep.forEach(function (r, i) {
+      el('own-' + i).addEventListener('input', function () {
+        own[i] = Math.max(0, Math.floor(+this.value || 0));
+        drawRep();
+      });
+    });
+  })();
+  function drawRep() {
+    var have = 0;
+    C.rep.forEach(function (r, i) { have += own[i] * r.e; });
+    var top = C.rep[C.rep.length - 1], say = el('rep-say');
+    say.classList.remove('ok', 'short');
+    if (lastExp <= 0) { say.textContent = 'レベルは上げないので、レポートは要りません。'; return; }
+    if (have >= lastExp) {
+      say.classList.add('ok');
+      say.innerHTML = '<b>足ります。</b>' + fmt(have - lastExp) + ' 経験値あまります。';
+    } else {
+      say.classList.add('short');
+      say.innerHTML = 'あと<b>' + top.n + ' ' + fmt(Math.ceil((lastExp - have) / top.e)) +
+        ' 枚ぶん</b>足りません（' + fmt(lastExp - have) + ' 経験値）。';
+    }
+  }
+
   function calc() {
     var mats = {}, lines = [], credit = 0;
 
@@ -148,6 +296,25 @@
       lines.push([r.nm + ' ' + opt(st.f, r) + ' → ' + opt(st.t, r), got.credit]);
     });
 
+    // 装備。**強化珠の経験値はレベルの経験値と混ぜない**（食べさせるものが違う）
+    var eqx = 0;
+    if (student) {
+      eqs.forEach(function (e, i) {
+        var cat = student.eq[i];
+        var x = eqExp(e), tu = eqTier(cat, e.t0, e.t1);
+        if (x <= 0 && tu.credit <= 0) return;
+        eqx += x;
+        merge(mats, tu.mats);
+        var lc = x * EQ.coef;
+        credit += lc + tu.credit;
+        var note = [];
+        if (tu.credit > 0) note.push('Tier ' + fmt(tu.credit));
+        if (lc > 0) note.push('強化 ' + fmt(lc));
+        lines.push([EQ.catJa[cat] + ' T' + e.t0 + ' Lv' + e.l0 + ' → T' + e.t1 + ' Lv' + e.l1 +
+                    '<span class="subnote">' + note.join('・') + '</span>', lc + tu.credit]);
+      });
+    }
+
     // ---- 表示
     el('o-credit').textContent = fmt(credit);
     el('o-credit-sub').textContent = credit > 0
@@ -158,6 +325,12 @@
     el('o-exp-sub').textContent = exp > 0
       ? '最上級レポート ' + fmt(Math.ceil(exp / 10000)) + ' 枚ぶん'
       : 'レベルは上げません';
+
+    var gTop = EQ.gems[EQ.gems.length - 1];
+    el('o-eqexp').textContent = fmt(eqx);
+    el('o-eqexp-sub').textContent = eqx > 0
+      ? gTop.n + ' ' + fmt(Math.ceil(eqx / gTop.e)) + ' 個ぶん'
+      : '装備のレベルは上げません';
 
     var ids = Object.keys(mats).filter(function (k) { return mats[k] > 0; });
     var total = 0;
@@ -173,26 +346,41 @@
         }).join('') +
         '<div class="row total"><span>合計</span><span>' + fmt(credit) + '</span></div>';
 
-    // レポート
-    el('reps').innerHTML = C.rep.map(function (r) {
-      return '<div class="rep">' +
-        '<img src="../img/' + r.i + '.webp" alt="" width="40" height="40" loading="lazy">' +
-        '<div class="v">' + (exp > 0 ? fmt(Math.ceil(exp / r.e)) : '—') + '</div>' +
-        '<div class="k">' + r.n + '<br>1 枚 ' + fmt(r.e) + '</div></div>';
-    }).join('');
+    // レポート。**手持ちと比べて 1 行**（Q2-2。1 種類だけで埋めた枚数の 4 枚札はやめた）
+    lastExp = exp;
+    drawRep();
 
-    // 素材。**多い順。**神名文字は種類が 1 つしか出てこないので先頭に固定する
-    ids.sort(function (a, b) {
-      var sa = (C.mat[a] || {}).s || 0, sb = (C.mat[b] || {}).s || 0;
-      if (sa !== sb) return sb - sa;
-      return mats[b] - mats[a];
+    /* 素材。**種類ごとの見出しで割り、同じ系統は段の順**（Q2-3。2026-09-26 まで
+       多い順に 1 列で並べていて、欠片と完全なが離れていた）。
+       系統はアイコンの名前から末尾の段を落としたもの（nebra_0〜_3 が 1 系統）。
+       設計図は部位が系統で、装備欄の順に並べる */
+    var groups = MGROUP.map(function (g) { return { g: g, ids: [] }; });
+    ids.forEach(function (k) {
+      var kind = (C.mat[k] || {}).k;
+      var gi = 0;
+      for (var i = 0; i < MGROUP.length; i++) {
+        if (MGROUP[i].k.indexOf(kind) >= 0) { gi = i; break; }
+        if (!MGROUP[i].k.length) gi = i;          // 最後の「その他」が受け皿
+      }
+      groups[gi].ids.push(k);
     });
-    el('mats').innerHTML = ids.map(function (k) {
-      var m = C.mat[k] || { n: '？', i: 'item_icon_expitem_0', s: 0 };
-      return '<div class="mat' + (m.s ? ' stone' : '') + '">' +
-        '<img src="../img/' + m.i + '.webp" alt="" width="44" height="44" loading="lazy">' +
-        '<span class="tx"><span class="nm">' + m.n + '</span>' +
-        '<span class="ct">' + fmt(mats[k]) + '</span></span></div>';
+    el('mats').innerHTML = groups.filter(function (x) { return x.ids.length; }).map(function (x) {
+      x.ids.sort(function (a, b) {
+        var ka = series(a), kb = series(b);
+        if (ka[0] !== kb[0]) return ka[0] - kb[0];
+        if (ka[1] !== kb[1]) return ka[1] < kb[1] ? -1 : 1;
+        return ((C.mat[a] || {}).t || 0) - ((C.mat[b] || {}).t || 0);
+      });
+      var n = 0;
+      x.ids.forEach(function (k) { n += mats[k]; });
+      return '<h3 class="mh">' + x.g.n + '<small>' + x.ids.length + ' 種・' + fmt(n) + ' 個</small></h3>' +
+        '<div class="mats">' + x.ids.map(function (k) {
+          var m = C.mat[k] || { n: '？', i: 'item_icon_expitem_0', s: 0 };
+          return '<div class="mat' + (m.s ? ' stone' : '') + '">' +
+            '<img src="../img/' + m.i + '.webp" alt="" width="44" height="44" loading="lazy">' +
+            '<span class="tx"><span class="nm">' + m.n + '</span>' +
+            '<span class="ct">' + fmt(mats[k]) + '</span></span></div>';
+        }).join('') + '</div>';
     }).join('');
     el('mat-lead').textContent = ids.length === 0
       ? '今と目標が同じなので、要る素材はありません。'
@@ -251,6 +439,14 @@
     var b = ev.target.closest('button'); if (!b) return;
     var fn = PRESET[b.dataset.p];
     ROWS.forEach(function (r) { if (avail(r)) state[r.k] = fn(r); });
+    /* 装備。**「ぜんぶ最大まで」だけ T1 Lv1 → 最上 Tier の上限 Lv。**
+       「キリのいい Lv まで」の根拠（Wiki のスキルの話）は装備に言っていないので、
+       星・固有武器・愛用品と同じく上げない */
+    if (student) {
+      eqs = eqs.map(function () {
+        return b.dataset.p === 'all' ? { t0: 1, l0: 1, t1: EQMAX, l1: eqMaxLv(EQMAX) } : eqBlank();
+      });
+    }
     [].forEach.call(el('preset').querySelectorAll('button'), function (x) {
       x.setAttribute('aria-pressed', String(x.dataset.p === b.dataset.p));
     });
@@ -260,6 +456,22 @@
 
   el('goals').addEventListener('change', function (ev) {
     var s = ev.target.closest('select'); if (!s) return;
+    if (s.dataset.e !== undefined) {
+      var e = eqs[+s.dataset.e], w = s.dataset.w, n = parseInt(s.value, 10);
+      e[w] = n;
+      // **目標の Tier を上げたら Lv もその上限へ。**T を上げて Lv1 のままだと数え損ねる
+      if (w === 't1') e.l1 = eqMaxLv(n);
+      // 今を目標より上げたら、目標も持ち上げる
+      if (w === 't0' || w === 'l0') {
+        if (e.t0 > e.t1 || (e.t0 === e.t1 && e.l0 > e.l1)) { e.t1 = e.t0; e.l1 = e.l0; }
+      }
+      [].forEach.call(el('preset').querySelectorAll('button'), function (x) {
+        x.setAttribute('aria-pressed', 'false');
+      });
+      drawGoals();
+      calc();
+      return;
+    }
     var st = state[s.dataset.k], v = parseInt(s.value, 10);
     st[s.dataset.w] = v;
     if (st.t < st.f) st[s.dataset.w === 'f' ? 't' : 'f'] = v;
@@ -297,10 +509,18 @@
 
   /* ---- 状態を URL に残す。**share.js が「結果を共有」のときに呼ぶ**
      （eleph などと同じ作法。これが無いと、共有バーの「開いている状態ごと
-     URL になります」が嘘になる）。形は `#生徒id|f.t|f.t|…`（ROWS の順） */
+     URL になります」が嘘になる）。形は
+
+       `#生徒id|f.t|f.t|…（ROWS の 8 行）|T.Lv.T.Lv|…（装備 3 行）|初.中.上.最（手持ちのレポート）`
+
+     **後ろに足しただけ**なので、2026-09-26 より前の `#生徒id|f.t|…` 8 行ぶんの
+     URL もそのまま開ける（装備は今＝目標、手持ちは 0 になる）。
+     `../remember.js` もこの形をそのまま覚える */
   window.shareUrl = function () {
     var p = [student ? student.id : 0];
     ROWS.forEach(function (r) { p.push(state[r.k].f + '.' + state[r.k].t); });
+    eqs.forEach(function (e) { p.push([e.t0, e.l0, e.t1, e.l1].join('.')); });
+    p.push(own.join('.'));
     return '#' + p.join('|');
   };
   (function fromHash() {
@@ -323,7 +543,17 @@
       if (+q[0] >= 1) state[r.k].f = Math.floor(+q[0]);
       if (+q[1] >= 1) state[r.k].t = Math.floor(+q[1]);
     });
-    // 範囲を超えたぶんは drawGoals() が lo()/hi() に収める
+    // 範囲を超えたぶんは drawGoals() が lo()/hi() に収める（装備は eqNorm()）
+    var at = 1 + ROWS.length;
+    eqs.forEach(function (e, i) {
+      var q = String(p[at + i] || '').split('.').map(Number);
+      if (q.length !== 4 || q.some(isNaN)) return;
+      eqs[i] = eqNorm({ t0: q[0], l0: q[1], t1: q[2], l1: q[3] });
+    });
+    String(p[at + 3] || '').split('.').forEach(function (v, i) {
+      v = Math.floor(+v || 0);
+      if (i < own.length && v > 0) { own[i] = v; el('own-' + i).value = v; }
+    });
   })();
 
   var lvTotal = 0;
