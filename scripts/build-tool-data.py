@@ -8721,6 +8721,51 @@ def build_tl():
     }, header="/* scripts/build-tool-data.py が吐く。**手で直さない。** */\n")
 
 
+# ------------------------------------------------------------ SchaleDB の遅れ
+
+# **SchaleDB はゲームの更新から遅れることがある。**2026-09-26 に見たとき、
+# 最後の build は 9/15 で、9/23 の v1.73 で募集が始まったアンナ（10151）と
+# エリナ（20062）が入っていなかった。生徒は SchaleDB から取っているので、
+# そのあいだ 9 つのツールに新しい生徒が出てこない。
+#
+# **埋めずに、遅れていることを一覧の上で知らせる**（2026-09-26 の先生の判断）。
+# ba-data から組み直すと式が二重になるので、出典は SchaleDB 1 本のまま。
+#
+# 数えるのは**募集がもう始まっている生徒だけ**（`ShopRecruitExcelTable` の
+# `SalePeriodFrom` が過去のもの）。ba-data には配信前の生徒も入っていて
+# （同じ日に 10152 がそうだった）、全員を出すとネタバレになる。
+# 募集を通らない配布の生徒は拾えないが、それは承知の上。
+def build_lag():
+    print("SchaleDB の遅れ")
+    sd_ids = {s["Id"] for s in as_list(get_json(SD.format("students")))}
+    build = get_json(SD_CFG).get("build") or 0
+    now = datetime.datetime.now(JST)
+    start = {}
+    for r in as_list(get_json(BADB.format("ShopRecruitExcelTable"))):
+        try:
+            t = datetime.datetime.strptime(r.get("SalePeriodFrom") or "", "%Y-%m-%d %H:%M:%S")
+        except ValueError:
+            continue
+        t = t.replace(tzinfo=JST)
+        if t > now:
+            continue
+        for cid in r.get("InfoCharacterId") or []:
+            if cid not in sd_ids and (cid not in start or t < start[cid]):
+                start[cid] = t
+    names = {r["CharacterId"]: r.get("PersonalNameJp") or r.get("FullNameJp") or ""
+             for r in as_list(get_json(BADB.format("LocalizeCharProfileExcelTable")))
+             if r.get("CharacterId") in start}
+    missing = [{"id": cid, "name": names.get(cid) or str(cid),
+                "from": start[cid].strftime("%Y-%m-%d")}
+               for cid in sorted(start, key=lambda c: (start[c], c))]
+    for m in missing:
+        print(f"  未反映: {m['id']} {m['name']}（募集 {m['from']} から）")
+    return write_js("tools/lag.js", "SD_LAG", {
+        "build": datetime.datetime.fromtimestamp(build, JST).strftime("%Y-%m-%d") if build else "",
+        "missing": missing,
+    }, header="/* scripts/build-tool-data.py が吐く。**手で直さない。** */\n")
+
+
 BUILDERS = {"bond": build_bond, "teacher-level": build_teacher_level,
             "equipment": build_equipment, "tier": build_tier, "raid": build_raid,
             "student-cost": build_student_cost, "treasure": build_treasure,
@@ -8740,6 +8785,7 @@ BUILDERS = {"bond": build_bond, "teacher-level": build_teacher_level,
             "cafe-layout": build_cafe_layout,
             "gacha": build_gacha,
             "tl": build_tl,
+            "lag": build_lag,
             "ui": build_ui}
 
 if __name__ == "__main__":

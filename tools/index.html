@@ -179,6 +179,33 @@
     <a href="https://github.com/0rnot/arona-guide/issues" target="_blank" rel="noopener">これまでに届いたもの</a>も見られます。<button type="button" class="qm" data-hint="GitHub のアカウントが無ければ、Discord の @0r.not へどうぞ。数字が合わない・表示が崩れる・使いにくい、どれでも構いません。"></button>
   </p>
 
+  <!-- SchaleDB の遅れ。**生徒は SchaleDB から取っている**ので、SchaleDB が
+       ゲームの更新に追いつくまで、募集の始まった生徒がツールに出てこない。
+       居ない理由をここで言う（2026-09-26 の先生の判断——各ツールではなく一覧だけ）。
+       中身は scripts/build-tool-data.py の build_lag が毎日作る。追いつけば消える -->
+  <p class="beta" id="sd-lag" hidden></p>
+  <script src="lag.js"></script>
+  <script>
+  (function () {
+    var d = window.SD_LAG, p = document.getElementById('sd-lag');
+    if (!d || !p || !d.missing || !d.missing.length) return;
+    var tag = document.createElement('span');
+    tag.className = 'tag'; tag.textContent = '未反映';
+    var b = document.createElement('b');
+    b.textContent = d.missing.map(function (m) { return m.name; }).join('・') +
+                    'は、まだツールに出てきません。';
+    var q = document.createElement('button');
+    q.type = 'button'; q.className = 'qm';
+    q.setAttribute('aria-label', 'くわしく');
+    q.setAttribute('data-hint',
+      '生徒のデータは SchaleDB から取っています。SchaleDB がまだ最新のゲームの更新を反映していません' +
+      (d.build ? '（最終更新 ' + d.build + '）' : '') +
+      '。反映された翌日に、自動で入ります。');
+    p.appendChild(tag); p.appendChild(b); p.appendChild(q);
+    p.hidden = false;
+  })();
+  </script>
+
   <div class="filters" id="filters" role="group" aria-label="種類でしぼりこむ">
     <span class="lb">種類</span>
     <button type="button" data-cat="" aria-pressed="true">すべて</button>
