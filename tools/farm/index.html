@@ -31,25 +31,64 @@
   .pick2 > div { min-width: 0; }
 
   /* 選んでいる素材。**選ぶ前は破線。** */
-  .matcard { display: grid; grid-template-columns: 62px 1fr; gap: 14px; align-items: center;
-             padding: 12px 14px; margin-bottom: 14px;
+  /* **詰めた版（2026-09-26 の UI 見直し）。**絵 62→48px、名前も一段小さく。
+     素材はいつも何か選ばれているので、ここは「今どれか」が読めれば足りる */
+  .matcard { display: grid; grid-template-columns: 48px 1fr; gap: 12px; align-items: center;
+             padding: 8px 12px; margin-bottom: 10px;
              border: 1px solid var(--line); border-radius: 14px; background: var(--bg-sub); }
   .matcard.none { border-style: dashed; }
-  .matcard .mi { width: 62px; height: 62px; border-radius: 11px; overflow: hidden;
+  .matcard .mi { width: 48px; height: 48px; border-radius: 10px; overflow: hidden;
                  background: var(--card); border: 1px solid var(--line); display: grid; place-items: center; }
   .matcard .mi img { width: 100%; height: 100%; object-fit: contain; display: block; }
-  .matcard .mn { font-size: 1.05rem; font-weight: 800; margin: 0 0 .3em; word-break: auto-phrase; }
-  .matcard .ms { font-size: .78rem; color: var(--fg-mute); margin: 0; line-height: 1.6; }
+  .matcard .mn { font-size: .98rem; font-weight: 800; margin: 0 0 .15em; line-height: 1.4; word-break: auto-phrase; }
+  .matcard .ms { font-size: .74rem; color: var(--fg-mute); margin: 0; line-height: 1.5; }
   .matcard .ms b { color: var(--fg); }
-  .famh { font-size: .82rem; font-weight: 700; margin: 0 0 .5em; }
+  .famh { font-size: .8rem; font-weight: 700; margin: 0 0 .3em; }
   /* 仲間は 4 つまで。**細い画面でも 2 列にする**（1 列だと 4 段で縦に 170px 取る） */
   #family { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  /* **段の名前（初級〜最上級）だけで分かる仲間は 4 つを 1 行に。**名前はカードに出ている
+     （技術ノート・戦術教育 BD・レポートなど。オーパーツは段ごとに名前が違うので 2 列のまま） */
+  #family.short { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  #family.short .matb { justify-content: center; gap: 4px; padding: .3em .2em; font-size: .8rem; font-weight: 700; }
+  #family.short .matb span { white-space: nowrap; }
+  #family.short .matb img { width: 20px; height: 20px; }
+
+  /* **一覧から選ぶところは畳める。**スマホでは閉じて始める（素材はいつも 1 つ選ばれているので、
+     開くのは別の素材に替えるときだけ）。検索欄は外に置き、打てば開く。広い画面では開いたまま */
+  #browse > summary { cursor: pointer; list-style: none; display: flex; align-items: center; gap: .4em;
+                      min-height: 40px; font-size: .86rem; font-weight: 700; color: var(--accent-tx); }
+  #browse > summary::-webkit-details-marker { display: none; }
+  #browse > summary::before { content: "▸"; color: var(--fg-mute); }
+  #browse[open] > summary::before { content: "▾"; }
+  #browse > summary small { font-weight: 400; color: var(--fg-mute); font-size: .76rem; }
+  @media (min-width: 900px) { #browse > summary { display: none; } }
+  #mgroups { margin: 4px 0 10px; }
+  .vh { position: absolute !important; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  @media (max-width: 899px) { .pick2 { gap: 10px; } }
+  /* 広い画面では左の段（カードと仲間）の高さに近づける。320px だと答えが 1 画面目から落ちていた */
+  @media (min-width: 900px) { #matbox { max-height: 232px; } }
+
+  /* 倍率はラベルと同じ行に */
+  .inl { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; margin-top: 12px; }
+  .inl .lb { font-size: .875rem; font-weight: 700; }
+  /* 答えの札。**いちばんの場所を横いっぱい、残りを 2 列**（スマホで 3 段・330px あった） */
+  .tcol .stats.c3 { grid-template-columns: 1fr 1fr; margin: 0; }
+  .tcol .stats.c3 > .stat.hero { grid-column: 1 / -1; }
+  .tcol .stats.c3 > .stat:nth-child(3):last-child { grid-column: auto; }
+  .tpane > .tcols { margin-top: 12px; }
+  /* 誰が使うの札は 2 枚だけ。**横に並べる** */
+  #sec-use .tcol .stats.c3 > .stat.hero { grid-column: auto; }
+  /* 段ごとの合計。**絵を左、数と名前を右に**（縦に積むと 1 枚 200px あった。2026-09-26 の UI 見直し） */
+  .tiers4 .t4 { display: grid; grid-template-columns: 40px minmax(0, 1fr); gap: 0 10px; align-items: center;
+                text-align: left; padding: 8px 10px; }
+  .tiers4 .t4 img { grid-row: 1 / 4; }
+  .tiers4 .t4 .rr { justify-self: start; margin-top: .15em; }
 
   /* 素材のボタン。**多いので囲いの中で縦に送る。** */
   .matbox { max-height: 320px; -webkit-overflow-scrolling: touch; overflow-y: auto; padding: 8px; border: 1px solid var(--line);
             border-radius: 12px; background: var(--card); }
   .mats { display: grid; grid-template-columns: repeat(auto-fill, minmax(158px, 1fr)); gap: 6px; }
-  .matb { display: flex; align-items: center; gap: 7px; padding: .42em .5em; text-align: left;
+  .matb { display: flex; align-items: center; gap: 7px; padding: .36em .5em; text-align: left; min-height: 40px;
           border: 1px solid var(--line); border-radius: 10px; background: var(--bg-sub);
           cursor: pointer; font: inherit; font-size: .76rem; color: var(--fg); line-height: 1.35; }
   .matb:hover { border-color: var(--accent); }
@@ -276,24 +315,28 @@
           <div class="mats" id="family"></div>
         </div>
         <div>
-          <div class="field">
-            <label for="i-find">さがす<span class="hint">名前の一部で絞れます。「ノート」「ゲヘナ」「レポート」など</span></label>
-            <input id="i-find" type="search" placeholder="ネブラ／技術ノート／最上級…" autocomplete="off">
+          <!-- **見出しは読み上げだけに。**入れ物の中の一言（placeholder）で足りる。1 行ぶん浮かせた -->
+          <div class="field findrow">
+            <label for="i-find" class="vh">ほかの素材をさがす（名前の一部で絞れます）</label>
+            <input id="i-find" type="search" placeholder="ほかの素材をさがす（ネブラ／ノート…）" autocomplete="off">
           </div>
-          <div class="seg" id="mgroups" role="group" aria-label="素材の種類" style="margin:12px 0 10px"></div>
-          <div class="matbox" id="matbox"><div class="mats" id="mats"></div></div>
-          <p class="barnote" id="matcount">—</p>
+          <details id="browse" open>
+            <summary>種類から選ぶ <small id="browse-n"></small></summary>
+            <div class="seg" id="mgroups" role="group" aria-label="素材の種類"></div>
+            <div class="matbox" id="matbox"><div class="mats" id="mats"></div></div>
+            <p class="barnote" id="matcount">—</p>
+          </details>
         </div>
       </div>
     </div>
 
     <!-- ================================================================ どこで掘る（元の素材の掘り場） -->
     <div class="tpane" id="sec-farm" data-p="farm" role="tabpanel" aria-labelledby="tb-sec-farm" tabindex="0">
-    <div class="tcols lean" style="margin-top:18px">
+    <div class="tcols lean">
 
       <div class="tcol">
         <div class="panel">
-          <div class="panel-h"><h2>どれだけ要りますか</h2></div>
+          <div class="panel-h"><h2>どれだけ要りますか</h2><button type="button" class="qm" data-hint="数字は 1 周あたりの期待個数です。確率つきの報酬は「個数×確率」で、箱は中身の確率で割って足しています。初回クリアと3つ星の報酬は数えていません(周回では出ないため)。"></button></div>
           <div class="fields c2 fgrid">
             <div class="field">
               <label for="i-need">目標の個数</label>
@@ -304,15 +347,14 @@
               <input id="i-have" type="number" inputmode="numeric" min="0" step="1" value="0">
             </div>
           </div>
-          <div class="field" style="margin-top:16px">
-            <span class="lb">ドロップ倍率<span class="hint">2 倍・3 倍キャンペーンのあいだはこちら</span></span>
+          <div class="inl">
+            <span class="lb">ドロップ倍率<button type="button" class="qm" data-hint="2 倍・3 倍キャンペーンのあいだはこちら。1 周あたりの期待個数をそのまま倍にします。"></button></span>
             <div class="seg" id="mult" role="group" aria-label="ドロップ倍率">
               <button type="button" data-m="1" aria-pressed="true">1 倍</button>
               <button type="button" data-m="2" aria-pressed="false">2 倍</button>
               <button type="button" data-m="3" aria-pressed="false">3 倍</button>
             </div>
           </div>
-          <p class="lead" style="margin:16px 0 0"><b>数字は 1 周あたりの期待個数です。</b><button type="button" class="qm" data-hint="確率つきの報酬は「個数×確率」で、箱は中身の確率で割って足しています。初回クリアと3つ星の報酬は数えていません(周回では出ないため)。"></button></p>
         </div>
       </div>
 
@@ -336,8 +378,7 @@
         </div>
 
         <div class="panel">
-          <div class="panel-h"><h2>入場料ごとの一番</h2></div>
-          <p class="lead"><b>AP と券は混ぜません。</b><button type="button" class="qm" data-hint="指名手配券と学園交流会チケットは1日にもらえる枚数が決まっていて、APと同じ物差しでは比べられないからです。"></button></p>
+          <div class="panel-h"><h2>入場料ごとの一番</h2><button type="button" class="qm" data-hint="AP と券は混ぜません。指名手配券と学園交流会チケットは1日にもらえる枚数が決まっていて、APと同じ物差しでは比べられないからです。"></button></div>
           <div class="ledger" id="tops"></div>
         </div>
       </div>
@@ -351,13 +392,12 @@
     <!-- ================================================================ 誰が使う（元の tools/oopart/）
          id は掘り場の区画と重ならないよう `u-` を付けた（use.js の el() が付けて引く） -->
     <div class="tpane" id="sec-use" data-p="use" role="tabpanel" aria-labelledby="tb-sec-use" tabindex="0">
-    <div class="tcols lean" style="margin-top:18px">
+    <div class="tcols lean">
 
       <div class="tcol">
         <!-- 範囲。**全員に同じ範囲を当てる**（2026-09-26 の先生の判断。1 人ずつは student-cost） -->
         <div class="panel">
-          <div class="panel-h"><h2>スキルをどこまで上げますか</h2></div>
-          <p class="lead">左が今、右が目標です。全員に同じ範囲を当てて数えます。<button type="button" class="qm" data-hint="ほかのスキルはノーマル・パッシブ・サブの 3 つで、どれも同じ表なので同じ範囲を 3 つぶん数えます。Lv9→Lv10 は秘伝ノート 1 冊だけで技術ノートは要らず、秘伝ノートは学校を問わないのでここには出していません。◎ は効果の伸びが大きくなる Lv です。"></button></p>
+          <div class="panel-h"><h2>スキルをどこまで上げますか</h2><button type="button" class="qm" data-hint="左が今、右が目標です。全員に同じ範囲を当てて数えます。ほかのスキルはノーマル・パッシブ・サブの 3 つで、どれも同じ表なので同じ範囲を 3 つぶん数えます。Lv9→Lv10 は秘伝ノート 1 冊だけで技術ノートは要らず、秘伝ノートは学校を問わないのでここには出していません。◎ は効果の伸びが大きくなる Lv です。"></button></div>
           <div id="u-range"></div>
         </div>
       </div>
@@ -377,8 +417,7 @@
         </div>
 
         <div class="panel">
-          <div class="panel-h"><h2 id="u-t4-h">段ごとの合計</h2></div>
-          <p class="lead">段は 4 つあります。下の段は上の材料にはならないので、足りない段だけ見てください。</p>
+          <div class="panel-h"><h2 id="u-t4-h">段ごとの合計</h2><button type="button" class="qm" data-hint="段は 4 つあります。下の段は上の材料にはならないので、足りない段だけ見てください。"></button></div>
           <div class="tiers4" id="u-t4"></div>
         </div>
       </div>
@@ -490,7 +529,7 @@
 <script>window.TOUR = {"key": "farm-2", "steps": [
   {"sel": "#sec-tabs", "t": "2 つの区画に分けています", "d": "どこで掘る: その素材が落ちる任務と指名手配。誰が使う: その素材を使う生徒と個数。入力はこの端末に残ります。"},
   {"sel": "#matcard", "t": "素材は 1 回選ぶだけです", "d": "オーパーツ・技術ノート・戦術教育BD・レポート・武器パーツ・神名文字。ここで選んだ素材を、2 つの区画で使います。"},
-  {"sel": "#matbox", "t": "種類ごとに並んでいます", "d": "上のタブで群を切り替えるか、さがす欄に打ち込んでください。押すとその場で結果が入れ替わります。"},
+  {"sel": "#matbox", "pre": ["#browse > summary"], "t": "種類ごとに並んでいます", "d": "上のタブで群を切り替えるか、さがす欄に打ち込んでください。押すとその場で結果が入れ替わります。スマホでは「種類から選ぶ」を開くと出ます。"},
   {"sel": "#o-best", "pre": ["#tb-sec-farm"], "t": "いちばん効率のいい場所が出ます", "d": "目標の個数と手持ちを入れると、あと何周・何 AP かかるかも出ます。"},
   {"sel": "#tops", "pre": ["#tb-sec-farm"], "t": "AP と券は混ぜません", "d": "指名手配券と学園交流会チケットは 1 日にもらえる枚数が決まっているので、AP と同じ物差しでは比べられません。"},
   {"sel": "#tables .panel:first-child", "pre": ["#tb-sec-farm"], "t": "下に全部のステージが並びます", "d": "入場料 1 あたりの多い順です。ドロップ 2 倍・3 倍のあいだは倍率を切り替えてください。"},
@@ -701,10 +740,19 @@
   function drawFamily() {
     var m = H.byKey[mat];
     var fam = H.list.filter(function (x) { return x.f === m.f; }).sort(function (a, b) { return a.q - b.q; });
+    /* **段の名前だけで見分けが付くなら、札は「初級」〜「最上級」だけにして 1 行に並べる。**
+       残りの部分（「技術ノート（アビドス）」など）が 4 つとも同じときだけ。名前の全体は title と読み上げに */
+    var TIER = /^(初級|中級|上級|最上級)(.+)$/, rest = null, short = fam.length > 1 && fam.every(function (x) {
+      var t = TIER.exec(x.n); if (!t) return false;
+      if (rest === null) rest = t[2];
+      return t[2] === rest;
+    });
+    el('family').classList.toggle('short', short);
     el('family').innerHTML = fam.map(function (x) {
       return '<button type="button" class="matb" data-k="' + x.k + '" aria-pressed="' +
-        (x.k === mat) + '"><img src="../img/' + x.i + '.webp" alt="" width="26" height="26" loading="lazy">' +
-        '<span>' + esc(x.n) + '</span></button>';
+        (x.k === mat) + '"' + (short ? ' title="' + esc(x.n) + '" aria-label="' + esc(x.n) + '"' : '') +
+        '><img src="../img/' + x.i + '.webp" alt="" width="26" height="26" loading="lazy">' +
+        '<span>' + esc(short ? TIER.exec(x.n)[1] : x.n) + '</span></button>';
     }).join('');
   }
 
@@ -736,7 +784,21 @@
     group = b.dataset.g; find = ''; el('i-find').value = '';
     drawPick();
   });
-  el('i-find').addEventListener('input', function () { find = this.value.trim(); drawPick(); });
+  el('i-find').addEventListener('input', function () {
+    find = this.value.trim();
+    if (find) el('browse').open = true;      // 打ったら一覧を開く（スマホでは畳んで始まる）
+    drawPick();
+  });
+  /* **一覧はスマホでは畳んで始める。**広い画面では右の段にいつも出す（summary も隠れている） */
+  (function () {
+    var wide = window.matchMedia ? matchMedia('(min-width: 900px)') : null;
+    el('browse').open = !wide || wide.matches;
+    if (wide) {
+      var on = function () { if (wide.matches) el('browse').open = true; };
+      if (wide.addEventListener) wide.addEventListener('change', on); else if (wide.addListener) wide.addListener(on);
+    }
+    el('browse-n').textContent = '全 ' + H.list.length + ' 種';
+  })();
 
   /* ---- ハッシュ。**素材と 2 区画を `&` でつなぐ。**`skip` の区画は入れない */
   function parts(skip) {
