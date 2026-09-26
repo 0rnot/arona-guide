@@ -232,6 +232,66 @@
                  border-left: 2px solid var(--accent); color: var(--fg); word-break: auto-phrase; }
   .tlx-h3 { font-size: .84rem; font-weight: 700; margin: 16px 0 0; }
   .tlx-h3:first-child { margin-top: 8px; }
+
+  /* ===== 詰めた版（2026-09-26 UI 見直し——「無駄な余白を無くして、入力しやすく、ひと目で」） ===== */
+  /* 枠の見出し（ストライカー／スペシャル）は小さな札に */
+  .ct-grp { font-size: .78rem; font-weight: 700; color: var(--fg-mute); margin: 10px 0 6px; }
+  /* 正負のどちらも入る欄。**± で符号を返す。**iOS の数字キーボードにマイナスが無いので */
+  .ct-pm { display: flex; gap: 4px; min-width: 0; }
+  .ct-pm input { flex: 1 1 auto; min-width: 0; }
+  .ct-pm button { flex: none; min-width: 40px; min-height: 40px; padding: 0; border-radius: 10px;
+                  font-size: 1rem; font-weight: 800; }
+  .numrow.ct-w { grid-template-columns: 1fr 150px; }
+  /* 書き出しは畳む。テキストの箱と画像の保存は、使うときだけ開く */
+  .ct-exp { margin-top: 12px; }
+  .ct-exp > summary { cursor: pointer; font-size: .86rem; font-weight: 700; }
+  .ct-exp[open] > summary { margin-bottom: 10px; }
+  /* **行の欄はどれも行の幅まで。**「相手」の欄（data-k="bt"）だけ上限が無く、
+     390px で 269px に伸びて右の枠の外まで出ていた（2026-09-26 に実測） */
+  .tlrow .when select { max-width: 100%; }
+  /* 数字 3 つは右の柱でも 1 行に（2 つ＋1 つだと右の柱だけ縦に伸びる） */
+  .tcol .stats.c3.ct-st { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .tcol .stats.c3.ct-st > .stat:nth-child(3):last-child { grid-column: auto; }
+  /* 並べ替えと消すボタンは押せる大きさに */
+  .tlrow .ops button { min-width: 36px; min-height: 36px; }
+  @media (max-width: 899px) {
+    /* **スマホでは柱をほどいて並べ直す。**編成 → 数字 3 つ → 撃つ順番 → 戦闘のはじまり → …
+       編成を決めた直後に答えが見え、EX を積むところまで 1 画面ぶん近くなる */
+    .ct-cols > .tcol { display: contents; }
+    .ct-cols > .tcol > * { min-width: 0; }
+    .ct-cols .ct-party { order: 1; }
+    .ct-cols .stats { order: 2; margin: 0; }
+    .ct-cols .ct-tl { order: 3; }
+    .ct-cols .ct-setup { order: 4; }
+    .ct-cols .ct-gim { order: 5; }
+    .ct-cols .ct-led { order: 6; }
+    .ct-cols .stats.c3, .tcol .stats.c3.ct-st { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+    .tcol .stats.c3.ct-st > .stat:nth-child(3):last-child { grid-column: auto; }
+    .ct-st .stat { padding: 8px 10px; min-width: 0; }
+    .ct-st .stat .k { font-size: .7rem; letter-spacing: 0; line-height: 1.4; word-break: auto-phrase; }
+    .ct-st .stat .v { font-size: 1.3rem; }
+    .ct-st .stat .sub { font-size: .68rem; line-height: 1.4; }
+  }
+  @media (max-width: 620px) {
+    /* **枠は顔を小さく横に。**正方形の顔が 1 枠 160px あり、6 枠で 900px を超えていた。
+       顔と名前を 1 行目に、EX の段や外すボタンはその下に幅いっぱいで */
+    .party, .party.sp { gap: 6px; }
+    .slot { grid-template-columns: 44px minmax(0, 1fr); gap: 5px 7px; padding: 7px; align-items: center; }
+    .slot .face { width: 44px; border-radius: 9px; }
+    .slot > .lv, .slot > .rmv { grid-column: 1 / -1; }
+    /* 空き枠は「空き」の箱を出さず、名前の欄を枠いっぱいに（点線の枠で空きと分かる） */
+    .slot.empty { grid-template-columns: minmax(0, 1fr); }
+    .slot.empty .face { display: none; }
+    .slot .nm { font-size: .78rem; }
+    .slot .nm small { font-size: .68rem; }
+    .slot .rmv { justify-self: stretch; min-height: 32px; }
+    .slot input[type="search"] { min-height: 40px; }
+    .rgrid { max-height: 212px; }
+    /* 6 人／10 人の帯は 2 つを横に並べ切る（前は 2 段に折れていた） */
+    .ct-party #mode { display: grid; grid-template-columns: 1fr 1fr; width: 100%; box-sizing: border-box; }
+    .ct-party #mode button { font-size: .76rem; padding: .5em .3em; white-space: nowrap; }
+    .numrow.ct-w { grid-template-columns: 1fr 140px; }
+  }
 </style>
 </head>
 <body>
@@ -337,32 +397,33 @@
 
   <!-- 「スキルの順番は運では決まりません」の囲みは外した（2026-09-26 grill-me Q12-3。
        中級の先生には前提の話）。中身は「撃つ順番」の見出しの i と「数字の出どころ」へ -->
-  <div class="tcols lean">
+  <div class="tcols lean ct-cols">
 
     <div class="tcol">
-      <div class="panel">
-        <div class="panel-h"><h2>編成</h2></div>
+      <div class="panel ct-party">
+        <div class="panel-h"><h2>編成<button type="button" class="qm" data-hint="EX を撃たない子もコスト回復力に入ります（同じ子は重ねて入れられません）。顔を押すか、枠の「名前で探す」に打って入れます。"></button></h2></div>
         <div class="btnrow">
           <div class="seg" id="mode" role="group" aria-label="コンテンツ">
             <button type="button" data-m="6" aria-pressed="true">総力戦・大決戦（6 人）</button>
             <button type="button" data-m="10" aria-pressed="false">制約解除決戦（10 人）</button>
           </div>
         </div>
-        <p class="lead" id="party-lead" style="margin-top:12px"><b>EX を撃たない子もコスト回復力に入ります</b>（重複不可）。</p>
-        <p class="lead" style="margin-top:.8em"><b>ストライカー</b></p>
+        <!-- 文は編成の ⓘ に移した。tl.js が毎回ここへ書くので、要素は残して隠す -->
+        <p class="lead" id="party-lead" hidden></p>
+        <p class="ct-grp">ストライカー</p>
         <div class="party" id="party-main"></div>
-        <p class="lead" style="margin-top:1em"><b>スペシャル</b></p>
+        <p class="ct-grp">スペシャル</p>
         <div class="party sp" id="party-sup"></div>
         <datalist id="dl-main"></datalist>
         <datalist id="dl-sup"></datalist>
-        <p class="lead" id="roster-lead" style="margin-top:14px"></p>
+        <p class="lead" id="roster-lead" style="margin:12px 0 6px"></p>
         <div class="rgrid" id="roster" role="group" aria-label="生徒を顔で選ぶ"></div>
-        <div class="btnrow" style="margin-top:14px">
+        <div class="btnrow" style="margin-top:10px">
           <button type="button" class="btn" id="clear-party">編成を空にする</button>
         </div>
       </div>
 
-      <div class="panel">
+      <div class="panel ct-setup">
         <div class="panel-h"><h2>戦闘のはじまり</h2></div>
         <div class="numrow">
           <span class="nm">開始時のコスト</span>
@@ -372,7 +433,8 @@
           <span class="nm">コストの上限<small id="o-capnote">素の 10。スペシャルの枠で「固有4」に印を付けると ＋0.5 ずつ増えます</small></span>
           <span class="val" id="o-capv">10.0</span>
         </div>
-        <div class="numrow">
+        <!-- 選択肢が長い（「選ばない（経過時間）」）ので、ラベルの下に幅いっぱいで -->
+        <div class="numrow wide">
           <span class="nm">ボスの戦闘時間<small id="o-durnote">選ぶと、書き出しの時刻が「残り時間」になります</small></span>
           <select id="i-dur"></select>
         </div>
@@ -382,21 +444,20 @@
                無く、3:00 という指示どおりの形を打てなかった（2026-08-31） -->
           <input id="i-goal" type="text" placeholder="3:00" autocomplete="off">
         </div>
-        <div class="numrow">
+        <div class="numrow ct-w">
           <span class="nm">ステージのコスト回復力（実数）<small>データに無いぶんを足し引き</small></span>
-          <input id="i-gb" type="number" step="10" value="0">
+          <span class="ct-pm"><input id="i-gb" type="number" step="10" value="0" aria-label="ステージのコスト回復力（実数）"><button type="button" class="btn ct-flip" data-for="i-gb" aria-label="実数の正負を入れ替える">±</button></span>
         </div>
-        <div class="numrow">
+        <div class="numrow ct-w">
           <span class="nm">ステージのコスト回復力（％）<small>全員にかかる % に足します</small></span>
-          <input id="i-gc" type="number" step="1" value="0">
+          <span class="ct-pm"><input id="i-gc" type="number" step="1" value="0" aria-label="ステージのコスト回復力（％）"><button type="button" class="btn ct-flip" data-for="i-gc" aria-label="％の正負を入れ替える">±</button></span>
         </div>
         <p class="tlx-note" id="start-note" hidden></p>
         <p class="err" id="err" hidden></p>
       </div>
 
-      <div class="panel">
-        <div class="panel-h"><h2>ステージのギミック</h2></div>
-        <p class="lead">途中から増えるコスト回復力を足します。<button type="button" class="qm" data-hint="ボスの怯みなどが対象です。増やした分は編成の合計にそのまま足し、％のバフは掛けません。プリセットは入れていません（有志ツールの数値の出どころを確かめられなかったため）。"></button></p>
+      <div class="panel ct-gim">
+        <div class="panel-h"><h2>ステージのギミック<button type="button" class="qm" data-hint="途中から増えるコスト回復力を足します。ボスの怯みなどが対象です。増やした分は編成の合計にそのまま足し、％のバフは掛けません。プリセットは入れていません（有志ツールの数値の出どころを確かめられなかったため）。"></button></h2></div>
         <div id="gims" class="tlx-gims"></div>
         <div class="tlx-gimadd">
           <label>発動<input id="i-gim-t" type="text" placeholder="1:30" autocomplete="off"></label>
@@ -408,9 +469,9 @@
     </div>
 
     <div class="tcol">
-      <div class="stats c3">
+      <div class="stats c3 ct-st">
         <div class="stat hero">
-          <div class="k">1 コスト貯まるまで</div>
+          <div class="k">1&nbsp;コスト貯まるまで</div>
           <div class="v" id="o-sec">—</div>
           <div class="sub" id="o-sec-sub"></div>
         </div>
@@ -426,13 +487,13 @@
         </div>
       </div>
 
-      <div class="panel">
+      <div class="panel ct-led">
         <div class="panel-h"><h2>コスト回復力の内訳</h2></div>
         <div class="ledger" id="ledger"></div>
       </div>
     </div>
 
-    <div class="tfull">
+    <div class="tfull ct-tl">
       <div class="panel">
         <div class="panel-h"><h2>撃つ順番<button type="button" class="qm" data-hint="順番は運では決まりません。山札は編成の人数ぶん、手札は 3 枚で、使ったカードは山札の一番下へ回ります。開始スキルは通常 5 人・制約解除決戦 9 人まで指定でき、残り 1 人は自動で決まるので、並びは全部決まります。撃つたびに EX が変わる子（ネル（制服）・ミカ（水着）など 12 人）は形態を自動で切り替え、行の「形態」で選び直せます。リオの複製は手札の並びに入れていて、行の欄で相手を選べます。ほかのカードを引く・山札の一番下へ回す動きは計算に入れていないので、行の「このスキルの但し書き」を見てください。見ているのはコストと手札だけで、敵の位置・ノックバック・遮蔽は見ていません。"></button></h2></div>
         <p class="lead">顔を押すと EX を後ろに足します。手札に無い子は赤く出ます。</p>
@@ -444,12 +505,16 @@
           <button type="button" class="btn" id="copy-url">URL をコピー</button>
           <button type="button" class="btn" id="copy-text">テキストをコピー</button>
         </div>
-        <div class="btnrow" style="margin-top:10px">
-          <button type="button" class="btn" id="png-white">画像で保存（白）</button>
-          <button type="button" class="btn" id="png-alpha">画像で保存（透過）</button>
-        </div>
-        <p class="lead" style="margin-top:14px">書き出し。動画の説明や記事にそのまま貼れます。<button type="button" class="qm" data-hint="1 行目の # に共有 URL が入っています。まるごと下の「取り込む」に貼り戻すと、撃たない子も含めて編成ごと戻ります。"></button></p>
-        <textarea class="out" id="out" readonly aria-label="書き出した TL"></textarea>
+        <!-- **書き出しの箱と画像の保存は畳む**（2026-09-26）。「テキストをコピー」は上に出したまま -->
+        <details class="tlx-imp ct-exp">
+          <summary>書き出しを見る・画像で保存</summary>
+          <p class="lead" style="margin:0 0 8px">動画の説明や記事にそのまま貼れます。<button type="button" class="qm" data-hint="1 行目の # に共有 URL が入っています。まるごと下の「取り込む」に貼り戻すと、撃たない子も含めて編成ごと戻ります。"></button></p>
+          <textarea class="out" id="out" readonly aria-label="書き出した TL"></textarea>
+          <div class="btnrow" style="margin-top:10px">
+            <button type="button" class="btn" id="png-white">画像で保存（白）</button>
+            <button type="button" class="btn" id="png-alpha">画像で保存（透過）</button>
+          </div>
+        </details>
         <details class="tlx-imp">
           <summary>よそで書かれた TL を取り込む</summary>
           <p class="lead" style="margin:.8em 0"><code>#</code> の行があればそれで、無ければ名前から編成を組み直します。<button type="button" class="qm" data-hint="書かれていない子は編成に入らないので回復力が変わります。その場合、貼った秒より早く撃てない行は「この秒に」で留めます。"></button></p>
@@ -667,6 +732,17 @@
     }, true);
   });
 })();
+</script>
+<script>
+/* ± — 正負を入れ替えて、打ち込んだときと同じ合図を送る（計算は tl.js のまま） */
+document.addEventListener('click', function (e) {
+  var b = e.target.closest && e.target.closest('.ct-flip'); if (!b) return;
+  var i = document.getElementById(b.getAttribute('data-for')); if (!i) return;
+  var v = parseFloat(i.value) || 0;
+  i.value = String(v === 0 ? 0 : -v);
+  i.dispatchEvent(new Event('input', { bubbles: true }));
+  i.dispatchEvent(new Event('change', { bubbles: true }));
+});
 </script>
 </body>
 </html>

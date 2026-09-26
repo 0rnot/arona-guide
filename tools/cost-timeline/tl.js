@@ -530,10 +530,11 @@
 
     var rows = '<div class="row"><span>素のコスト回復力<span class="subnote">' +
       D.base + ' × ' + p.ms.length + ' 人</span></span><span>' + fmt(D.base * p.ms.length) + '</span></div>';
-    if (p.gb) rows += '<div class="row"><span>ステージ<span class="subnote">手で入れた実数</span></span><span>＋' +
-      fmt(p.gb) + ' × ' + p.ms.length + ' 人</span></div>';
-    if (p.gc) rows += '<div class="row"><span>ステージ<span class="subnote">手で入れた係数</span></span><span>＋' +
-      n2(p.gc) + '%（全員）</span></div>';
+    // **引くときは「−」。**「＋-50」と出ていた（2026-09-26）
+    if (p.gb) rows += '<div class="row"><span>ステージ<span class="subnote">手で入れた実数</span></span><span>' +
+      (p.gb < 0 ? '−' + fmt(-p.gb) : '＋' + fmt(p.gb)) + ' × ' + p.ms.length + ' 人</span></div>';
+    if (p.gc) rows += '<div class="row"><span>ステージ<span class="subnote">手で入れた係数</span></span><span>' +
+      (p.gc < 0 ? '−' + n2(-p.gc) : '＋' + n2(p.gc)) + '%（全員）</span></div>';
     p.efs.forEach(function (x) {
       var val = x.e.k === 'b'
         ? '＋' + fmt(x.v) + (x.e.p === 'party' ? ' × ' + p.ms.length + ' 人' : '')
@@ -782,7 +783,7 @@
         '<span class="when"><select data-k="mode-at" data-j="' + i + '">' +
         '<option value="auto"' + (fixed ? '' : ' selected') + '>最短で</option>' +
         '<option value="fix"' + (fixed ? ' selected' : '') + '>この秒に</option></select>' +
-        (fixed ? '<input type="number" step="0.1" min="0" data-k="at" data-j="' + i + '" value="' + r.e.t + '"> 秒' : '') +
+        (fixed ? '<input type="number" inputmode="decimal" step="0.1" min="0" data-k="at" data-j="' + i + '" value="' + r.e.t + '"> 秒' : '') +
         (r.grant && r.grant.sd === 'ally' ? giveSel(r, i) : '') +
         (ovlMs(r.d) && partyFull() ? ovSel(r, i) : '') +
         (r.fl.length > 1 ? formSel(r, i) : '') +
