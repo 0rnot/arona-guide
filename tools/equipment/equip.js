@@ -1,4 +1,5 @@
-/* 装備設計図の周回計算機。
+/* 装備の計算機の「設計図を集める」の区画（元は装備設計図の周回計算機。2026-09-26 に
+   強化珠・効果の早見と 1 ページにまとめた。保存の鍵 `arona-equipment` はそのまま）。
 
    **参考元は「シャーレ装備管理室」**（もやしいため氏）。
    https://st-blue-archive.gitlab.io/equipment-controller/
@@ -480,17 +481,20 @@
     return 'eq=' + [inv, tg, mult, model === 'exponential' ? 'e' : 'l',
                     inertiaIdx, useHard ? 1 : 0].join('~');
   }
-  window.shareUrl = function () { return '#' + hash(); };
+  /* **共有の URL は index.html がまとめて組む。**ここは自分の区画を渡すだけ
+     （2026-09-26、強化珠・効果の早見と 1 ページにまとめたとき） */
+  window.EQSEG = window.EQSEG || {};
+  window.EQSEG.farm = hash;
   function syncHash() {
-    /* **`&pane=…` を消さない。**../panes.js の区画で、消すと在庫を打つたびに
-       開いているタブが URL から落ちる（2026-08-31 に実機で踏んだ） */
-    var keep = '';
-    var seg = location.hash.replace(/^#/, '').split('&');
-    for (var i = 0; i < seg.length; i++) {
-      if (seg[i].indexOf('pane=') === 0) keep = '&' + seg[i];
-    }
+    /* **`eq=` のほかは消さない。**`pane=`・`eqp=`（../panes.js の区画）を消すと、在庫を打つたびに
+       開いているタブが URL から落ちる（2026-08-31 に実機で踏んだ）。強化珠の `lv=`・
+       効果の早見の `g=` も同じ URL に同居している */
+    var keep = location.hash.replace(/^#/, '').split('&').filter(function (x) {
+      return x && x.indexOf('eq=') !== 0;
+    });
     try {
-      history.replaceState(null, '', location.pathname + location.search + '#' + hash() + keep);
+      history.replaceState(null, '', location.pathname + location.search + '#' +
+        [hash()].concat(keep).join('&'));
     } catch (e) { /* file:// では黙って諦める */ }
   }
   function fromHash() {
@@ -723,7 +727,7 @@
   /* **URL だけが変わったときも読み直す。**同じページで別の共有リンクを開くと、
      ブラウザは再読み込みせずにハッシュだけ差し替える（2026-08-30 に検査で踏んだ） */
   window.addEventListener('hashchange', function () {
-    /* **自分の区画だけ比べる。**URL には `&pane=…` も付くので、
+    /* **自分の区画だけ比べる。**URL には `&pane=…` や他の区画も付くので、
        丸ごと比べるとタブを変えただけで在庫を読み直してしまう */
     var seg = location.hash.replace(/^#/, '').split('&').filter(function (x) {
       return x.indexOf('eq=') === 0;

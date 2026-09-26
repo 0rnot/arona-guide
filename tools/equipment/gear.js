@@ -1,4 +1,5 @@
-/* 装備・愛用品・固有武器の効果早見。
+/* 装備の計算機の「効果の早見」の区画（元は tools/gear-stats/。2026-09-26 にまとめた）。
+   装備・愛用品・固有武器の効果早見。
 
    計算はほとんどしていない。**ゲームの表をそのまま読める形に並べるのが仕事。**
    1 つだけ足しているのが「1 段上げるとどれだけ伸びるか」で、
@@ -269,7 +270,7 @@
   var view = 'eq';
   function drawTab() {
     ['eq', 'gear', 'wp'].forEach(function (v) { el('pane-' + v).hidden = v !== view; });
-    [].forEach.call(el('tab').querySelectorAll('button'), function (b) {
+    [].forEach.call(el('gs-tab').querySelectorAll('button'), function (b) {
       b.setAttribute('aria-pressed', String(b.dataset.v === view));
     });
     syncHash();
@@ -285,14 +286,19 @@
       encodeURIComponent((el('q-gear').value || '').trim()),
       encodeURIComponent((el('q-wp').value || '').trim())].join('~');
   }
-  // 既定のまま。**このときはハッシュを書かず、URL を短いままにしておく**
+  // 既定のまま。**このときは区画を書かず、URL を短いままにしておく**
   var DEF_HASH = 'g=eq~Hat~~name~0~~';
-  window.shareUrl = function () { return '#' + hash(); };
+  window.EQSEG = window.EQSEG || {};
+  window.EQSEG.stats = function () { var h = hash(); return h === DEF_HASH ? '' : h; };
   function syncHash() {
+    // **`g=` のほかは消さない。**設計図の在庫（`eq=`）・強化珠（`lv=`）・区画（`pane=`）が同居している
     var h = hash();
+    var s = location.hash.replace(/^#/, '').split('&').filter(function (x) {
+      return x && x.indexOf('g=') !== 0;
+    });
+    if (h !== DEF_HASH) s.push(h);
     try {
-      history.replaceState(null, '', location.pathname + location.search +
-        (h === DEF_HASH ? '' : '#' + h));
+      history.replaceState(null, '', location.pathname + location.search + (s.length ? '#' + s.join('&') : ''));
     } catch (e) { /* file:// では黙って諦める */ }
   }
   function fromHash() {
@@ -317,7 +323,7 @@
     });
   }
 
-  el('tab').addEventListener('click', function (ev) {
+  el('gs-tab').addEventListener('click', function (ev) {
     var b = ev.target.closest('button'); if (!b) return;
     view = b.dataset.v; drawTab();
   });
@@ -349,7 +355,7 @@
     wexpand = true; drawWeapons();
   });
 
-  el('ver').textContent = G.fetched;
+  el('gs-ver').textContent = G.fetched;
   el('src-gear').textContent = G.gear.length;
   // **人数は data.js から数える。**手で書くと、生徒が増えた日に古いまま残る
   // （2026-09-24 に 274 / 247 / 187 / 87 / 132 行 のべた書きを見つけて直した）。

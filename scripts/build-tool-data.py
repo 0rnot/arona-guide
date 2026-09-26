@@ -2628,7 +2628,7 @@ def build_gear_stats():
     print(f"  部位 {len(cats)} × 段、愛用品 {len(gear)} 人、固有武器 {len(weap)} 人、絵 {n} 枚を追加")
 
     keep = ("Stat", "StatTooltip", "AdaptationType", "SquadType")
-    return write_js("tools/gear-stats/data.js", "GEAR", {
+    return write_js("tools/equipment/data-stats.js", "GEAR", {
         "eq": cats, "gear": gear, "weapon": weap,
         # 固有1〜固有N のレベル上限と、日本で開いている段の数
         "wlv": wmax[:wstar], "wstar": wstar,
@@ -4282,7 +4282,7 @@ def build_equip_level():
     print(f"  アイコン {n} 枚を追加、T1→T10 通しで {all_tiers:,} EXP／"
           f"ショップ {len(bl)} 個で 1 日 {day_exp:,} EXP")
 
-    return write_js("tools/equip-level/data.js", "EQLV", {
+    return write_js("tools/equipment/data-level.js", "EQLV", {
         "cats": CATS, "catJa": CAT_JA, "tiers": tiers, "maxLv": max_lv,
         "cum": {str(t): cum[t] for t in tiers},
         "gems": [{"id": g["Id"], "n": g["Name"], "i": g["Icon"], "e": g["LevelUpFeedExp"]}

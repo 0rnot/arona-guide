@@ -318,9 +318,9 @@
         <p><b>レベル上げのクレジットは 1 経験値につき 7 で計算しています。この 7 は <code>Excel/ConstCommonExcelTable.json</code> の <code>CharacterLvUpCoefficient</code> です。</b><a href="https://bluearchive.wikiru.jp/?%E7%B5%8C%E9%A8%93%E5%80%A4%E8%A1%A8" target="_blank" rel="noopener">ブルアカ Wiki「経験値表」</a>の「育成にはレポートとクレジットが必要で、1EXPあたり7クレジットのコストが掛かる」という記載によります。
           Lv1 から Lv90 まででちょうど <b id="src-lvcost">—</b> になり、同ページの「約875万」と合います。</p>
         <p><b>愛用品を持っている生徒は <b id="src-gear">—</b> 人です。</b>持っていない生徒では、その行を選べません。固有武器も同じで、持っていない生徒では選べません。</p>
-        <p><b>装備は 3 部位とも、深掘り側の 2 本と同じ数え方です。</b>Tier 上げの設計図とクレジットは SchaleDB の装備の <code>Recipe</code> と <code>RecipeCost</code>（<a href="../equipment/">装備設計図の周回計算機</a>と同じ）。
+        <p><b>装備は 3 部位とも、深掘り側の 2 本と同じ数え方です。</b>Tier 上げの設計図とクレジットは SchaleDB の装備の <code>Recipe</code> と <code>RecipeCost</code>（<a href="../equipment/#pane=farm">装備の計算機の「設計図を集める」</a>と同じ）。
           レベル上げは <code>DB/EquipmentLevelExcelTable.json</code> の <code>TotalExp</code> を Tier ごとに Lv1 から数え、1 EXP につき
-          <code>EquipmentLvUpCoefficient</code>（4）クレジット（<a href="../equip-level/">装備の強化珠計算機</a>と同じ）。
+          <code>EquipmentLvUpCoefficient</code>（4）クレジット（<a href="../equipment/#pane=level">装備の計算機の「強化珠」</a>と同じ）。
           <b>強化珠の経験値は、レポートの経験値とは別に出しています。</b>食べさせるものが違うからです。
           <b>2026-09-26 まで装備は数えていませんでした。</b></p>
         <p><b>固有武器の Lv は、2026-09-26 に廃止した固有武器の強化計算機から移しました。</b>経験値は
@@ -373,6 +373,6 @@
 <!-- **data.js より前。**ハッシュが空なら前回の入力を URL に戻してから、cost.js が読む -->
 <script src="../remember.js?v=1"></script>
 <script src="data.js?v=3"></script>
-<script src="cost.js?v=3"></script>
+<script src="cost.js?v=4"></script>
 </body>
 </html>

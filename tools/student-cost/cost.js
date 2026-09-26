@@ -151,9 +151,10 @@
      ハッシュの形は相手の shareUrl() と fromHash() に合わせてある。
        星上げ       ../eleph/#生徒id|今|目標        （段 1〜5 が★1〜★5）
        （固有武器の計算機は 2026-09-26 に廃止。Lv はこのページの「固有武器の Lv」行で数える）
-       装備の強化珠 ../equip-level/#T.Lv.T.Lv.1
-       装備の設計図 ../equipment/                    （ハッシュが在庫と目標セット数で、
-                    ここから渡すと向こうに覚えている在庫を 0 で上書きしてしまう） */
+       装備の強化珠 ../equipment/#pane=level&lv=T.Lv.T.Lv.1   （装備の計算機の「強化珠」の区画。
+                    2026-09-26 に equip-level をまとめた。元の #T.Lv.T.Lv.1 と同じ中身を lv= に入れる）
+       装備の設計図 ../equipment/#pane=farm           （在庫の eq= は渡さない。渡すと向こうに
+                    覚えている在庫を 0 で上書きしてしまう。pane=farm は区画を開くためだけ） */
   function link(href, text) {
     return '<a href="' + href + '">' + text + '</a>';
   }
@@ -244,8 +245,8 @@
       };
       var lk = '';
       if (cat) {
-        lk = link('../equip-level/#' + [e.t0, e.l0, e.t1, e.l1, 1].join('.'), '強化珠の計算機');
-        if (e.t1 > e.t0) lk += link('../equipment/', '設計図の周回');
+        lk = link('../equipment/#pane=level&lv=' + [e.t0, e.l0, e.t1, e.l1, 1].join('.'), '強化珠の計算機');
+        if (e.t1 > e.t0) lk += link('../equipment/#pane=farm', '設計図の周回');
       }
       h += '<div class="goal eq' + (cat ? '' : ' off') + '">' +
         '<span class="nm">' + (cat ? EQ.catJa[cat] : '装備 ' + (i + 1)) +

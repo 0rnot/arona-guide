@@ -15,11 +15,23 @@
    そちらが勝つ**（ハッシュが空のときしか戻さない）。
 
    見出しの下に「最初に戻す」を置く。押すと覚えたものを消して、素の状態で開き直す。
-   保存はブラウザの中だけ。どこにも送らない。 */
+   保存はブラウザの中だけ。どこにも送らない。
+
+   **1 ページに区画が何本もあるツール向けの口**（2026-09-26、装備の 3 本を
+   `tools/equipment/` の 1 本にまとめたときに足した。どれも無ければ今までどおり）:
+
+   - `<script src="../remember.js" data-keep="lv,g">` —— ハッシュ付きで開いたときも、
+     **URL に無い区画だけは前の続きを足す。**強化珠の区画へのリンクで開いても、
+     効果の早見で選んでいた部位が消えない
+   - `window.rememberUrl()` —— 覚えるハッシュ。無ければ `shareUrl()`（共有は今の区画だけ、
+     覚えるのは全区画、のように分けたいとき）
+   - `window.rememberReset()` —— 「最初に戻す」で残すハッシュを返す。`null` なら何もしない */
 (function () {
   'use strict';
 
   var KEY = 'arona-state-' + location.pathname;
+  var me = document.currentScript;
+  var KEEP = ((me && me.getAttribute('data-keep')) || '').split(',').filter(Boolean);
 
   function load() {
     try { return localStorage.getItem(KEY) || ''; } catch (e) { return ''; }
@@ -31,11 +43,26 @@
     if (saved && saved.charAt(0) === '#') {
       try { history.replaceState(null, '', location.pathname + location.search + saved); } catch (e) { /* file:// */ }
     }
+  } else if (KEEP.length) {
+    // **URL が勝つのは、URL に書いてある区画だけ。**書いていない区画は前の続きを足す
+    var cur = location.hash.replace(/^#/, '').split('&');
+    var has = {};
+    cur.forEach(function (x) { has[x.split('=')[0]] = true; });
+    var add = load().replace(/^#/, '').split('&').filter(function (x) {
+      var k = x.split('=')[0];
+      return x && KEEP.indexOf(k) >= 0 && !has[k];
+    });
+    if (add.length) {
+      try {
+        history.replaceState(null, '', location.pathname + location.search + '#' + cur.concat(add).join('&'));
+      } catch (e) { /* file:// */ }
+    }
   }
 
   // 2) 覚え直す。入力のたびに書くと重いので、落ち着いてから 1 回
   function current() {
     try {
+      if (typeof window.rememberUrl === 'function') return window.rememberUrl() || '';
       if (typeof window.shareUrl === 'function') return window.shareUrl() || '';
     } catch (e) { /* ツール側が転んでも覚えるのは諦めるだけ */ }
     return location.hash;
@@ -62,6 +89,18 @@
     b.style.marginLeft = '8px';
     b.addEventListener('click', function () {
       clearTimeout(timer);
+      if (typeof window.rememberReset === 'function') {
+        // **どこまで戻すかはページが決める。**返ってきたハッシュだけ覚え直して開き直す
+        var keep = window.rememberReset();
+        if (keep == null) return;
+        removeEventListener('pagehide', save);
+        try {
+          if (keep && keep.length > 1) localStorage.setItem(KEY, keep); else localStorage.removeItem(KEY);
+          history.replaceState(null, '', location.pathname + location.search + (keep.length > 1 ? keep : ''));
+        } catch (e) { /* file:// */ }
+        location.reload();
+        return;
+      }
       removeEventListener('pagehide', save);
       try { localStorage.removeItem(KEY); } catch (e) { /* 無ければそれでいい */ }
       location.replace(location.pathname + location.search);

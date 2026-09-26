@@ -136,7 +136,7 @@
     var s = T.steps[i], opened = false;
     target = s.sel ? document.querySelector(s.sel) : null;
     /* **段が「先に押しておくボタン」を持っていたら押す。**
-       切り替え式の面（`tools/gear-stats/` の装備／愛用品／固有武器）や
+       切り替え式の面（`tools/equipment/` の効果の早見の装備／愛用品／固有武器）や
        畳んである面（`tools/raid/` のおまけ）は、押さないと中身に箱が無い */
     /* **`pre` は 1 つでも並びでもよい。**「タブの面を開いてから、その中の
        `<details>` も開く」のように 2 手要ることがある（2026-08-30、
