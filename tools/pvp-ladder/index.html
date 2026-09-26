@@ -28,7 +28,7 @@
      日別報酬の表は 1 つにして既定で閉じた。数字は data.js（scripts/build-tool-data.py の build_pvp、
      ba-data の DB/）から取る。ハッシュの形はページ末尾の小物の script に書いた -->
 <link rel="stylesheet" href="../../style.css?v=25">
-<link rel="stylesheet" href="../tool.css?v=17">
+<link rel="stylesheet" href="../tool.css?v=18">
 <style>
   /* 階段。**1 行 1 戦。**上から順に読めるようにする */
   .ladder { display: flex; flex-direction: column; gap: 0; margin-top: 6px; }
@@ -148,20 +148,20 @@
     </picture>
   </div>
   <div class="thero-body">
+    <p class="tcrumb"><a href="../../">AronaBotの使い方</a><span class="sl">/</span><a href="../">ツール</a><span class="sl">/</span>戦術対抗戦</p>
     <h1>戦術対抗戦</h1>
     <p class="thero-lead">目標の順位まであと何勝か、コインが 1 日にどれだけ増減するかを出します。<button type="button" class="qm" data-hint="順位を上げる: 挑戦できる相手の順位の範囲（0.7〜0.95 倍、11 位以下は固定）をそのまま辿るので、手数も経路も正確です。コインの収支: 日別報酬と防衛勝利から入るぶん、AP ドリンク・ショップの更新・神名文字で出るぶん。日別報酬の順位帯は、順位を上げるで選んだ目標に合わせます。"></button></p>
   </div>
 </header>
 
 <div class="twrap">
-  <p class="tcrumb"><a href="../../">AronaBotの使い方</a><span class="sl">/</span><a href="../">ツール</a><span class="sl">/</span>戦術対抗戦</p>
 
   <!-- **2 つの区画。**2026-09-26 に pvp-ladder（順位経路）と pvp-coin（コインの収支）を
        1 本にまとめた（grill-me Q13-1）。切り替えは ../panes.js（`pane=`）。
        **順位を上げるの「目指すところ」が、コインの収支の日別報酬の順位帯の既定になる。**
        コインの側で帯を選び直したら、そちらが勝つ（「目標に合わせる」に戻せば、また追う）。
        JS が無ければタブは出ず、2 区画が縦に全部並ぶ -->
-  <div class="tpanes" data-panes="pvp-sec" style="margin-top:20px">
+  <div class="tpanes" data-panes="pvp-sec">
     <div class="ttabs" id="sec-tabs" role="tablist" aria-label="区画" hidden>
       <button type="button" role="tab" id="tb-sec-ladder" data-p="ladder"
               aria-controls="sec-ladder" aria-selected="true">順位を上げる</button>
@@ -306,7 +306,7 @@
 
       <div class="panel">
         <div class="panel-h"><h2>手持ちで何日もつか</h2></div>
-        <div class="fields c2">
+        <div class="fields c2 fgrid">
           <div class="field">
             <label for="i-have">今のコイン</label>
             <input id="i-have" type="number" inputmode="numeric" min="0" step="100" value="5000">

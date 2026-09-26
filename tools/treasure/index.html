@@ -22,7 +22,7 @@
 <meta name="twitter:description" content="開けた結果を入れると、残りのマスに何がある確率かが分かります。近似ではなく、置き方を全部数え上げた値です。">
 <meta name="twitter:image" content="https://arona-bot.com/images/og/treasure.jpg">
 <link rel="stylesheet" href="../../style.css?v=25">
-<link rel="stylesheet" href="../tool.css?v=17">
+<link rel="stylesheet" href="../tool.css?v=18">
 <style>
   /* **並びは「イベントと周 → 盤面 → 結果 → 備品の型」**（2026-09-26 の grill-me、Q15-1）。
      前はスマホで型の欄（イベント・周の選択を含む）を盤より先に出していたが、
@@ -269,17 +269,17 @@
     </picture>
   </div>
   <div class="thero-body wide">
+    <p class="tcrumb"><a href="../../">AronaBotの使い方</a><span class="sl">/</span><a href="../">ツール</a><span class="sl">/</span>宝探しの確率計算機</p>
     <h1>宝探しの確率計算機</h1>
     <p class="thero-lead">開けた結果を入れると、残りのマスに何がある確率かを出します。</p>
   </div>
 </header>
 
 <div class="twrap wide">
-  <p class="tcrumb"><a href="../../">AronaBotの使い方</a><span class="sl">/</span><a href="../">ツール</a><span class="sl">/</span>宝探しの確率計算機</p>
 
   <!-- **イベントと周だけは盤の上。**型の欄から出した（2026-09-26）。
        ここを選べば備品の型は自動で入るので、盤を触る前に要るのはこれだけ -->
-  <div class="panel" style="margin-top:20px">
+  <div class="panel">
     <div class="pickev">
       <div class="field">
         <label for="event">イベント</label>

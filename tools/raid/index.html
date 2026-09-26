@@ -22,7 +22,7 @@
 <meta name="twitter:description" content="ボスを選ぶと、ステータス・グロッキー条件・連れて行く生徒・スコア・開催日が出ます。">
 <meta name="twitter:image" content="https://arona-bot.com/images/og/raid.jpg">
 <link rel="stylesheet" href="../../style.css?v=25">
-<link rel="stylesheet" href="../tool.css?v=17">
+<link rel="stylesheet" href="../tool.css?v=18">
 <style>
   /* ===== ① ボスを絵から選ぶ。**ページの導入で、ここが全体の相手を決める。**
      2026-08-30 に、畳んであった相性チェッカーの中から先頭へ引き上げた
@@ -382,20 +382,20 @@
     </picture>
   </div>
   <div class="thero-body wide">
+    <p class="tcrumb"><a href="../../">AronaBotの使い方</a><span class="sl">/</span><a href="../">ツール</a><span class="sl">/</span>総力戦</p>
     <h1>総力戦</h1>
     <p class="thero-lead">ボスを選ぶと、ボス情報・スコア・開催がその相手で出ます。<button type="button" class="qm" data-hint="ボス情報: ステータス・スキル・パーツ、フェーズとグロッキー条件、攻撃が通る順の生徒。スコア: クリアタイムからスコア、目標スコアから要るタイム。開催: 総力戦・大決戦の全記録と、ゲームのデータにあるこれからの予定。ボスは 1 回選べば 3 つとも同じ相手です。"></button></p>
   </div>
 </header>
 
 <div class="twrap wide">
-  <p class="tcrumb"><a href="../../">AronaBotの使い方</a><span class="sl">/</span><a href="../">ツール</a><span class="sl">/</span>総力戦</p>
 
   <!-- **3 つの区画。**2026-09-26 に raid（ボス情報）・raid-score（スコア）・raid-calendar（開催）を
        1 本にまとめた（grill-me Q12-1）。切り替えは ../panes.js（`pane=`）。
        **ボスの選択は区画の外で 1 つだけ**——選んだ相手が 3 区画ぜんぶに効く。
        開催の区画では選択を隠す（地形も難易度も効かず、ボスは「ボス」の面の札で選べる）。
        JS が無ければタブは出ず、選択と 3 区画が縦に全部並ぶ -->
-  <div class="tpanes" data-panes="raid-sec" style="margin-top:20px">
+  <div class="tpanes" data-panes="raid-sec">
     <div class="ttabs" id="sec-tabs" role="tablist" aria-label="区画" hidden>
       <button type="button" role="tab" id="tb-sec-info" data-p="info"
               aria-controls="sec-info" aria-selected="true">ボス情報</button>

@@ -29,7 +29,7 @@
      家具とセットの一覧は区画の外に 1 つ（閉じた欄）。数字は data.js（build_cafe）と data-layout.js
      （build_cafe_layout）。ハッシュの形はページ末尾の小物の script に書いた -->
 <link rel="stylesheet" href="../../style.css?v=25">
-<link rel="stylesheet" href="../tool.css?v=17">
+<link rel="stylesheet" href="../tool.css?v=18">
 <style>
   /* ============================================================ 家具配置 */
   /* ------------------------------------------------------------ 盤
@@ -310,20 +310,20 @@
     </picture>
   </div>
   <div class="thero-body">
+    <p class="tcrumb"><a href="../../">AronaBotの使い方</a><span class="sl">/</span><a href="../">ツール</a><span class="sl">/</span>カフェ</p>
     <h1>カフェ</h1>
     <p class="thero-lead">快適度から 1 時間の収入を出し、家具を並べてその快適度を作ります。<button type="button" class="qm" data-hint="収入: 1 時間のクレジットと AP、倉庫が満杯になるまでの時間、ランクアップの費用。家具配置: 床と壁に家具を並べて、置けるかどうかと快適度の合計を確かめます。並べた快適度は、そのまま収入の計算に入ります。"></button></p>
   </div>
 </header>
 
 <div class="twrap">
-  <p class="tcrumb"><a href="../../">AronaBotの使い方</a><span class="sl">/</span><a href="../">ツール</a><span class="sl">/</span>カフェ</p>
 
   <!-- **2 つの区画。**2026-09-26 に cafe（収入）と cafe-layout（家具配置）を 1 本にまとめた
        （grill-me Q18-1）。切り替えは ../panes.js（`pane=`）。
        **カフェとランクは区画の外で 1 つだけ**——選んだ店とランクが両方の区画に効く（tools/raid/ のボス選択と同じ置き方）。
        **家具配置の合計快適度が、収入の快適度に入る。**収入の側で手で打ったらそちらが勝つ
        （「家具配置に合わせる」に戻せば、また追う）。JS が無ければタブは出ず、選択と 2 区画が縦に全部並ぶ -->
-  <div class="tpanes" data-panes="cafe-sec" style="margin-top:20px">
+  <div class="tpanes" data-panes="cafe-sec">
     <div class="ttabs" id="sec-tabs" role="tablist" aria-label="区画" hidden>
       <button type="button" role="tab" id="tb-sec-inc" data-p="inc"
               aria-controls="sec-inc" aria-selected="true">収入</button>

@@ -22,7 +22,7 @@
 <meta name="twitter:description" content="この子を仕上げるのに、クレジットがいくらで、素材が何個要るか。星上げと潜在解放も。">
 <meta name="twitter:image" content="https://arona-bot.com/images/og/student-cost.jpg">
 <link rel="stylesheet" href="../../style.css?v=25">
-<link rel="stylesheet" href="../tool.css?v=17">
+<link rel="stylesheet" href="../tool.css?v=18">
 <style>
   /* ================================================================ 区画の外（生徒）と総額
      **2026-09-26 に student-cost・eleph・potential の 3 本を 1 本にまとめた。**
@@ -340,19 +340,19 @@
     </picture>
   </div>
   <div class="thero-body">
+    <p class="tcrumb"><a href="../../">AronaBotの使い方</a><span class="sl">/</span><a href="../">ツール</a><span class="sl">/</span>生徒の育成計算機</p>
     <h1>生徒の育成計算機</h1>
     <p class="thero-lead">1 人を育てきるクレジットと素材。星上げの神名文字と、潜在解放のオーパーツも。<button type="button" class="qm" data-hint="総額: レベル・スキル・星・固有武器・愛用品・装備ぶんのクレジットと素材。星上げ: 要る神名文字と、足りないぶんを神名のカケラで買うと何個か。潜在解放: 要るオーパーツ・応用 WB・クレジットと、どれだけ強くなるか。生徒は 1 回選べば 3 つとも同じ子です。"></button></p>
   </div>
 </header>
 
 <div class="twrap">
-  <p class="tcrumb"><a href="../../">AronaBotの使い方</a><span class="sl">/</span><a href="../">ツール</a><span class="sl">/</span>生徒の育成計算機</p>
 
   <!-- **3 つの区画。**2026-09-26 に student-cost（総額）・eleph（星上げ）・potential（潜在）を 1 本にまとめた。
        切り替えは ../panes.js（`pane=`）。**生徒は区画の外で 1 回だけ選ぶ**——3 区画とも同じ子を使う
        （tools/cafe/ の店とランク、tools/raid/ のボス選択と同じ置き方）。
        JS が無ければタブは出ず、生徒の欄と 3 区画が縦に全部並ぶ -->
-  <div class="tpanes" data-panes="sc-sec" style="margin-top:20px">
+  <div class="tpanes" data-panes="sc-sec">
     <div class="ttabs" id="sec-tabs" role="tablist" aria-label="区画" hidden>
       <button type="button" role="tab" id="tb-sec-total" data-p="total"
               aria-controls="sec-total" aria-selected="true">総額</button>
@@ -459,7 +459,7 @@
           <div class="panel-h"><h2>どこまで上げますか</h2></div>
           <!-- **カケラの値段は、その子の文字を今までに何個買ったかで決まる**（2026-09-26）。
                1〜20 個目は 1 個、21〜40 個目は 2 個、…と上がるので、続きから数える -->
-          <div class="fields c2">
+          <div class="fields c2 fgrid">
             <div class="field">
               <label for="e-i-have">持っている神名文字<span class="hint">その子ぶん</span></label>
               <input id="e-i-have" type="number" inputmode="numeric" min="0" step="10" value="0">

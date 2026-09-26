@@ -22,7 +22,7 @@
 <meta name="twitter:description" content="拠点防衛と信用回収、今日はどちらを回るか。手持ちのレポートとクレジットが何人ぶんかを数えます。">
 <meta name="twitter:image" content="https://arona-bot.com/images/og/report-credit.jpg">
 <link rel="stylesheet" href="../../style.css?v=25">
-<link rel="stylesheet" href="../tool.css?v=17">
+<link rel="stylesheet" href="../tool.css?v=18">
 <style>
   /* 素材の行。**アイコンを左に置いて、名前と入力を並べる。** */
   .mat { display: grid; grid-template-columns: 46px 1fr 110px; gap: .8em; align-items: center;
@@ -133,15 +133,15 @@
     </picture>
   </div>
   <div class="thero-body">
+    <p class="tcrumb"><a href="../../">AronaBotの使い方</a><span class="sl">/</span><a href="../">ツール</a><span class="sl">/</span>特別依頼の行き先</p>
     <h1>特別依頼の行き先</h1>
     <p class="thero-lead">拠点防衛（レポート）と信用回収（クレジット）、今日はどちらを回るか。</p>
   </div>
 </header>
 
 <div class="twrap">
-  <p class="tcrumb"><a href="../../">AronaBotの使い方</a><span class="sl">/</span><a href="../">ツール</a><span class="sl">/</span>特別依頼の行き先</p>
 
-  <div class="tcols lean" style="margin-top:20px">
+  <div class="tcols lean">
 
     <!-- **入力は左にまとめる**（2026-09-26）。強化珠の欄を消して左がレポート 1 枚になったので、
          クレジットも左へ寄せて、右は判定と数だけにした。スマホでは レポート → クレジット → 判定 の順 -->
@@ -154,7 +154,7 @@
 
       <div class="panel">
         <div class="panel-h"><h2>持っているクレジット</h2></div>
-        <div class="fields c2">
+        <div class="fields c2 fgrid">
           <div class="field">
             <!-- **number 入力は桁区切りを出せない。**50000000 と 500000000 が見分けにくいので、
                  読んだ値を桁区切りで下に返す（中身は calc() が書く） -->

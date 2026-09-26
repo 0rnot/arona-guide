@@ -8,11 +8,24 @@
    置き場のきまり:
    - ページ固有の見た目だけ、そのページの <style> に書く
    - 2 ページ目で同じものを書きたくなったら、ここへ移す
+
+   **詰めた版（2026-09-26、先生の「無駄な余白を無くして、入力のしやすさを
+   向上して、必要な情報がひと目でわかるように」）。**390 幅で最初の板が
+   y=413〜492 だったのを 200 前後まで上げた。各ツールで使える部品:
+   - `.fields.fgrid` — 短い数字の入力が兄弟で並ぶとき、スマホでも 2〜3 列に
+     詰める（1 欄 8.5em 以上。入らなければ勝手に段が減る）。`.c2` / `.c3` と
+     併用してよく、あとから書いたこちらが勝つ
+   - `.field label` の中の `.hint` — ラベルと同じ行に小さく続く（改行しない）
+   - `.tcrumb` はヒーローの中（`.thero-body` の先頭）に置く。`.twrap` には置かない
    ============================================================ */
 
 /* ------------------------------------------------------------ 骨格 */
 
-.twrap { max-width: 1180px; margin: 0 auto; padding: 0 clamp(16px, 3vw, 32px) 96px; }
+.twrap { max-width: 1180px; margin: 0 auto; padding: 0 clamp(16px, 3vw, 32px) 40px; }
+/* **ヒーローの直後は、ヒーロー側の余白だけで足りる。**先頭の子の上マージンを落とす */
+.thero + .twrap { padding-top: clamp(8px, 1.2vw, 14px); }
+.thero + .twrap > :first-child,
+.thero + .twrap > .tpanes:first-of-type > .ttabs:first-child { margin-top: 0; }
 .twrap.narrow { max-width: 860px; }
 .twrap.wide   { max-width: 1320px; }
 /* **画面いっぱいに使う。**TL エディタのように、横軸が時間で、
@@ -27,7 +40,7 @@
    **結果は画面に貼り付けたまま**入力をいじれるようにする。
 
    畳む幅は 900px。それより狭いと 2 列にした瞬間どちらも窮屈になる。 */
-.tcols { display: grid; gap: clamp(18px, 2.2vw, 30px); align-items: start; }
+.tcols { display: grid; gap: clamp(12px, 1.6vw, 22px); align-items: start; }
 @media (min-width: 900px) {
   .tcols { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
   .tcols.lean { grid-template-columns: minmax(0, 5fr) minmax(0, 4fr); }
@@ -36,7 +49,7 @@
      スクロールしても右だけ動かないのが気持ち悪いと先生から指摘があった
      （2026-08-30）。左右とも普通に流す。 */
 }
-.tcol { min-width: 0; display: flex; flex-direction: column; gap: clamp(14px, 1.8vw, 22px); }
+.tcol { min-width: 0; display: flex; flex-direction: column; gap: clamp(12px, 1.4vw, 18px); }
 .tcol > .panel, .tcol > .stats, .tcol > .note-box { margin: 0; }
 
 /* 全幅で置きたいもの（表・グラフ） */
@@ -46,10 +59,6 @@
 .tfull { grid-column: 1 / -1; min-width: 0; order: 99; }
 
 .tcrumb { font-size: .82rem; color: var(--fg-mute); padding: 22px 0 0; }
-/* ヒーローのすぐ下に来るときは、ヒーロー側が余白を持っているので詰める */
-.thero + .twrap > .tcrumb { padding-top: 10px; }
-.thero + .twrap > .panel:first-of-type,
-.thero + .twrap > .filters:first-child { margin-top: 22px; }
 .tcrumb a { color: var(--fg-mute); text-decoration: none; }
 .tcrumb a:hover { color: var(--accent); text-decoration: underline; }
 .tcrumb .sl { opacity: .45; margin: 0 .5em; }
@@ -61,51 +70,84 @@
 
 .thero { position: relative; overflow: hidden; }
 
-.thero-media { position: relative; height: clamp(150px, 22vw, 260px); }
-.thero-media img { width: 100%; height: 100%; object-fit: cover; }
+/* **絵は帯ではなく、見出しの後ろに敷く。**以前は 150〜260px の帯を丸ごと
+   取っていて、390 幅では最初の入力まで 1 画面ぶん降りていた（2026-09-26）。
+   絵は消さない——右と上に残して、字の乗るところだけ地の色に寄せ切る。 */
+.thero-media { position: absolute; inset: 0; height: auto; }
+.thero-media img { width: 100%; height: 100%; object-fit: cover; object-position: center 38%; }
 
-/* 下端を地の色へ溶かす。**上端にも軽く落とす** —— 固定バーが画像に重なるので、
-   そのままだとバーの字が絵の明るいところで読めなくなる。 */
+/* **字の下は地の色に寄せ切る。**ツールの絵は本編と逆の時間帯を出しているので、
+   ライトのとき「暗い絵に暗い字」になる（2026-08-31）。左から右へ抜いて、
+   右端だけ絵が見えるようにする。下端は地へ溶かす */
 .thero-media::after {
   content: "";
   position: absolute; inset: 0;
   background:
-    linear-gradient(to bottom, color-mix(in srgb, var(--bg) 55%, transparent) 0%,
-                    transparent 28%, transparent 38%,
-                    /* **見出しが乗る帯は地の色に寄せ切る。**ツールの絵は本編と
-                       逆の時間帯を出しているので、ライトのとき「暗い絵に暗い字」
-                       になる。94% で溶かし切ってから字を置く（2026-08-31） */
-                    var(--bg) 94%);
+    linear-gradient(to bottom, transparent 55%, var(--bg) 100%),
+    linear-gradient(to right, var(--bg) 0%,
+                    color-mix(in srgb, var(--bg) 90%, transparent) 38%,
+                    color-mix(in srgb, var(--bg) 58%, transparent) 72%,
+                    color-mix(in srgb, var(--bg) 30%, transparent) 100%);
+}
+/* スマホは字が端まで届くので、全面を濃く敷く */
+@media (max-width: 700px) {
+  .thero-media::after {
+    background:
+      linear-gradient(to bottom, color-mix(in srgb, var(--bg) 70%, transparent) 0%,
+                      color-mix(in srgb, var(--bg) 88%, transparent) 55%, var(--bg) 100%);
+  }
 }
 
+/* **並び: パンくず＋ボタン（1 行）→ 見出し → 説明。**ボタンは tour.js /
+   remember.js が `.thero-body` の末尾に足すので、`order` で上の行へ上げる。
+   パンくずが残りの幅を取り、長ければそこで折り返す */
 .thero-body {
   max-width: 1180px;
   margin: 0 auto;
-  margin-top: clamp(-80px, -8vw, -36px);
-  padding: 0 clamp(16px, 3vw, 32px) 8px;
+  padding: clamp(8px, 1.2vw, 16px) clamp(16px, 3vw, 32px) clamp(10px, 1.4vw, 18px);
   position: relative;
+  display: flex; flex-wrap: wrap; align-items: center;
+  column-gap: 6px; row-gap: 2px;
 }
 .thero-body.wide   { max-width: 1320px; }
 .thero-body.narrow { max-width: 860px; }
 
+.thero-body > .tcrumb {
+  order: 0; flex: 1 1 0; min-width: 0;
+  margin: 0; padding: 0;
+  font-size: .78rem; line-height: 1.5;
+}
+.thero-body > .tour-open {
+  order: 1; flex: none;
+  /* remember.js が style で margin-left: 8px を入れてくる。間は gap に任せる */
+  margin: 0 !important;
+  font-size: .8rem; padding: .4em 1em; line-height: 1.4;
+  background: color-mix(in srgb, var(--card) 85%, transparent);
+  position: relative;
+}
+/* **見た目は小さく、押せる範囲は 40px 以上。**`.qm` と同じ手 */
+.thero-body > .tour-open::after { content: ""; position: absolute; inset: -6px -2px; }
+
 .thero h1 {
-  margin: 0 0 .4em;
-  font-size: clamp(1.8rem, 5.2vw, 2.9rem);
-  line-height: 1.24;
+  order: 2; flex: 0 0 100%;
+  margin: 2px 0 0;
+  font-size: clamp(1.32rem, 3.2vw, 2.05rem);
+  line-height: 1.3;
   font-weight: 800;
   letter-spacing: .01em;
   text-wrap: balance;
 }
 .thero-lead {
-  margin: 0;
-  max-width: 62ch;
+  order: 3; flex: 0 0 100%;
+  margin: 2px 0 0;
+  max-width: 72ch;
   /* **見出しより一段落とす。**本編の `.hero-sub` と `.panel > .lead` は
      どちらも `--fg-mute` で、ここだけ真っ白だった（2026-08-30 の先生の指摘
      ——「ツール一覧の　ブルアカで手が止まりがちな計算　表記の色が白に戻ってるな」）。
      強調だけ `--fg` に上げる。 */
   color: var(--fg-mute);
-  font-size: clamp(.98rem, 2.4vw, 1.12rem);
-  line-height: 1.85;
+  font-size: clamp(.875rem, 1.6vw, .98rem);
+  line-height: 1.6;
   /* **手で改行を入れない。** <br> を挟むと、幅が変わったときに
      文の途中で切れる（2026-08-30 の先生の指摘）。
      代わりに、日本語を文節で折り返してもらう。効かないブラウザでは
@@ -116,6 +158,16 @@
 /* **強調に色は付けない。**1 段落に 2 つも 3 つも色が付くと、
    どれが大事なのか分からなくなる（2026-08-30 の先生の指摘） */
 .thero-lead b { font-weight: 700; color: var(--fg); }
+
+/* **スマホのパンくずは「‹ ツール」だけ。**「AronaBotの使い方」は上のバーに、
+   ページ名はすぐ下の見出しにある。全部出すと 2 行になってボタンを押し出す。
+   ページ名は `<a>` に包まれていない文字なので、親の字を 0 にして消す */
+@media (max-width: 640px) {
+  .thero-body > .tcrumb { font-size: 0; }
+  .thero-body > .tcrumb a, .thero-body > .tcrumb .sl { font-size: .8rem; }
+  .thero-body > .tcrumb a:first-child, .thero-body > .tcrumb .sl { display: none; }
+  .thero-body > .tcrumb a + .sl + a::before { content: "‹ "; }
+}
 
 @media (prefers-reduced-motion: no-preference) {
   .thero h1, .thero-lead {
@@ -132,8 +184,8 @@
   background: var(--card);
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  padding: clamp(18px, 2vw, 24px) clamp(18px, 2.2vw, 26px);
-  margin: 26px 0;
+  padding: clamp(14px, 1.8vw, 22px) clamp(14px, 2vw, 24px);
+  margin: clamp(12px, 1.6vw, 20px) 0;
   box-shadow: var(--shadow);
 }
 .panel.flat { box-shadow: none; background: var(--bg-sub); }
@@ -142,15 +194,15 @@
   display: flex; align-items: baseline; gap: .7em; flex-wrap: wrap;
   margin: 0 0 .3em;
 }
-.panel-h h2 { font-size: 1rem; margin: 0; font-weight: 800; letter-spacing: .02em; }
-.panel > .lead { font-size: .87rem; color: var(--fg-mute); margin: 0 0 18px; line-height: 1.8;
+.panel-h h2 { font-size: 1rem; margin: 0; font-weight: 800; letter-spacing: .02em; line-height: 1.5; }
+.panel > .lead { font-size: .875rem; color: var(--fg-mute); margin: 0 0 12px; line-height: 1.7;
                  word-break: auto-phrase; text-wrap: pretty; }
 .panel > .lead b { color: var(--fg); }
 .panel > .lead:last-child { margin-bottom: 0; }
 
 /* ------------------------------------------------------------ 入力 */
 
-.fields { display: grid; gap: 18px; }
+.fields { display: grid; gap: 12px 14px; }
 .fields.c2 { grid-template-columns: 1fr; }
 .fields.c3 { grid-template-columns: 1fr; }
 @media (min-width: 560px) {
@@ -162,16 +214,28 @@
 .tcol .fields.c3 { grid-template-columns: 1fr 1fr; }
 @media (max-width: 520px) { .tcol .fields.c2, .tcol .fields.c3 { grid-template-columns: 1fr; } }
 
-.field label, .field > .lb { display: block; font-size: .84rem; font-weight: 700; margin-bottom: .45em; }
-.field .hint { display: block; font-weight: 400; color: var(--fg-mute); font-size: .78rem; margin-top: .15em; }
+.field label, .field > .lb { display: block; font-size: .875rem; font-weight: 700; margin-bottom: .3em; line-height: 1.5; }
+/* **補足はラベルと同じ行に続ける。**1 欄ごとに「ラベル / 補足 / 入力」の 3 段を
+   積んでいて、欄の高さの半分が文字だった（2026-09-26） */
+.field .hint { display: inline; font-weight: 400; color: var(--fg-mute); font-size: .76rem; margin: 0 0 0 .6em; }
+/* **短い数字が兄弟で並ぶなら、スマホでも横に詰める。**使い方は冒頭のコメント */
+.fields.fgrid, .tcol .fields.fgrid {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 8.5em), 1fr));
+}
+.fields.fgrid .field .hint { display: block; margin: 0; }
+/* ラベルが 2 行に折れた欄があっても、同じ段の入力欄の高さを揃える */
+.fields.fgrid > .field { display: flex; flex-direction: column; min-width: 0; }
+.fields.fgrid > .field > input, .fields.fgrid > .field > select { margin-top: auto; }
 
 input[type="number"], input[type="text"], input[type="search"], select, textarea {
   width: 100%;
   box-sizing: border-box;
   font: inherit;
   font-size: 1rem;
-  line-height: 1.5;
-  padding: .6em .75em;
+  line-height: 1.45;
+  /* **高さは 40px。**指で押せる下限。前は 45px あって、欄が縦に積まれるぶん伸びていた */
+  min-height: 40px;
+  padding: .36em .7em;
   border: 1px solid var(--line);
   border-radius: 10px;
   background: var(--bg);
@@ -203,15 +267,15 @@ select {
   /* **右の列は 132px。**118px だと `select` が矢印のぶん 2.4em を引かれて、
      「ランク 10」のような短い選択肢でも右端が隠れる（2026-08-30 の先生の指摘） */
   display: grid; grid-template-columns: 1fr 132px; gap: 14px; align-items: center;
-  padding: 11px 0; border-bottom: 1px solid var(--line);
+  padding: 7px 0; border-bottom: 1px solid var(--line);
 }
 .numrow:last-of-type { border-bottom: 0; }
 /* 選択肢が長くて右の列に入らない行。**ラベルの下に幅いっぱいで置く** */
 .numrow.wide { grid-template-columns: 1fr; gap: 8px; }
 .numrow.wide > select { width: 100%; }
-.numrow .nm { font-size: .9rem; line-height: 1.6; }
+.numrow .nm { font-size: .9rem; line-height: 1.5; }
 .numrow .nm small { display: block; color: var(--fg-mute); font-size: .76rem; margin-top: .1em; }
-.numrow input { text-align: right; padding: .45em .65em; font-size: .95rem; }
+.numrow input { text-align: right; padding: .3em .65em; font-size: .95rem; }
 .numrow .val { text-align: right; padding-right: .7em; color: var(--fg-mute);
                font-size: .95rem; font-variant-numeric: tabular-nums; }
 .numrow.sum {
@@ -262,7 +326,7 @@ select {
   display: flex; flex-wrap: wrap; gap: 4px;
   background: var(--bg-sub); border: 1px solid var(--line);
   /* **`.seg` と同じ理由で 24px。**折り返すと 999px は楕円の塊になる */
-  border-radius: 24px; padding: 4px; margin: 26px 0 0;
+  border-radius: 24px; padding: 4px; margin: 16px 0 0;
 }
 .ttabs button {
   font: inherit; font-size: .84rem; font-weight: 700;
@@ -277,7 +341,7 @@ select {
 
 .tpane { min-width: 0; }
 /* **面の先頭は帯にくっつけない。**板の 26px はそのままだと帯と離れすぎる */
-.tpane > .panel:first-child, .tpane > .stats:first-child { margin-top: 18px; }
+.tpane > .panel:first-child, .tpane > .stats:first-child { margin-top: 12px; }
 /* 中身が押せるものだけのときに備えて、面そのものにも焦点が置ける。
    `:focus-visible` にしているので、指やマウスで押したときには出ない */
 .tpane:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px;
@@ -286,7 +350,9 @@ select {
 /* 押しボタン */
 .btn {
   font: inherit; font-size: .9rem; font-weight: 700;
-  padding: .62em 1.5em; border-radius: 999px; cursor: pointer;
+  /* **行の高さは本文（1.9）を継がない。**継ぐと 45px の丸い塊になる。これで 40px */
+  line-height: 1.4;
+  padding: .6em 1.3em; border-radius: 999px; cursor: pointer;
   border: 1px solid var(--line); background: var(--bg-sub); color: var(--fg);
   transition: transform .14s ease, filter .14s ease, border-color .14s ease;
 }
@@ -332,7 +398,7 @@ input[type="range"]::-moz-range-thumb {
 
 /* ------------------------------------------------------------ 出力 */
 
-.stats { display: grid; gap: 14px; margin: 26px 0; }
+.stats { display: grid; gap: 10px; margin: clamp(12px, 1.6vw, 20px) 0; }
 @media (min-width: 560px) { .stats.c2 { grid-template-columns: 1fr 1fr; }
                             .stats.c3 { grid-template-columns: 1fr 1fr; }
                             .stats.c4 { grid-template-columns: 1fr 1fr; } }
@@ -345,16 +411,16 @@ input[type="range"]::-moz-range-thumb {
 .tcol .stats.c3 > .stat:nth-child(3):last-child { grid-column: 1 / -1; }
 @media (max-width: 480px) { .tcol .stats.c3, .tcol .stats.c4 { grid-template-columns: 1fr; } }
 .stat {
-  border: 1px solid var(--line); border-radius: 12px; padding: 17px 19px;
+  border: 1px solid var(--line); border-radius: 12px; padding: 12px 15px;
   background: var(--card);
 }
 .stat .k { font-size: .76rem; color: var(--fg-mute); letter-spacing: .04em; }
 .stat .v {
-  font-size: clamp(1.5rem, 4.6vw, 1.72rem); font-weight: 800; line-height: 1.25;
-  margin-top: .18em; font-variant-numeric: tabular-nums;
+  font-size: clamp(1.45rem, 4.6vw, 1.72rem); font-weight: 800; line-height: 1.25;
+  margin-top: .1em; font-variant-numeric: tabular-nums;
 }
 .stat .v small { font-size: .58em; font-weight: 500; color: var(--fg-mute); margin-left: .25em; }
-.stat .sub { font-size: .76rem; color: var(--fg-mute); margin-top: .3em; line-height: 1.65; }
+.stat .sub { font-size: .76rem; color: var(--fg-mute); margin-top: .2em; line-height: 1.55; }
 
 /* いちばん見せたい 1 個。**枠と数字だけ差し色にする。**
    面ごと塗ると、周りのカードが全部おまけに見える */
@@ -426,8 +492,8 @@ table.dt tbody tr:hover td { background: color-mix(in srgb, var(--accent) 7%, tr
 .note-box {
   background: var(--bg-sub); border: 1px solid var(--line);
   border-left: 3px solid var(--accent);
-  border-radius: 10px; padding: 14px 18px; margin: 22px 0;
-  font-size: .85rem; color: var(--fg-mute); line-height: 1.85;
+  border-radius: 10px; padding: 10px 14px; margin: 14px 0;
+  font-size: .875rem; color: var(--fg-mute); line-height: 1.75;
 }
 .note-box b { color: var(--fg); }
 .note-box, .note-box p { word-break: auto-phrase; }
@@ -435,7 +501,7 @@ table.dt tbody tr:hover td { background: color-mix(in srgb, var(--accent) 7%, tr
 .note-box p:last-child { margin-bottom: 0; }
 
 /* 出どころ */
-details.src { margin-top: 30px; border-top: 1px solid var(--line); padding-top: 18px; }
+details.src { margin-top: 18px; border-top: 1px solid var(--line); padding-top: 12px; }
 details.src summary {
   cursor: pointer; font-size: .85rem; color: var(--fg-mute); font-weight: 700;
   list-style: none;
@@ -580,16 +646,18 @@ table.dt th .ico, table.dt td .ico { width: 1.5em; height: 1.5em; vertical-align
 
    **出どころの手前、結果を見終わったところに置く。**先生の
    「結果の共有をツール毎に散りばめる」（2026-08-30）に対応したもの。 */
-.sharebar { margin: 18px 0 0; }
+.sharebar { margin: 14px 0 0; }
+/* **1 行に畳む。**以前は文 2 行＋大きいボタン 3 つで、スマホでは縦に 4 段
+   積まれていた（2026-09-26）。補足の 1 行はスマホでは出さない */
 .sharebar-in {
   display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
-  gap: 12px; padding: 14px 16px; border-radius: 14px;
+  gap: 8px 12px; padding: 8px 10px 8px 14px; border-radius: 12px;
   border: 1px solid var(--line); background: var(--bg-sub);
 }
-.sharebar-tx { margin: 0; font-size: .9rem; line-height: 1.6; }
-.sharebar-sub { display: block; color: var(--fg-mute); font-size: .8rem; font-weight: 500; }
-.sharebar-btns { display: flex; flex-wrap: wrap; gap: 8px; }
-.sharebar-btns .btn { white-space: nowrap; text-decoration: none; }
+.sharebar-tx { margin: 0; font-size: .875rem; line-height: 1.5; }
+.sharebar-sub { display: block; color: var(--fg-mute); font-size: .76rem; font-weight: 500; }
+.sharebar-btns { display: flex; flex-wrap: wrap; gap: 6px; }
+.sharebar-btns .btn { white-space: nowrap; text-decoration: none; font-size: .82rem; padding: .55em 1em; }
 .sharebar-btns .btn.tone {
   background: var(--accent); border-color: var(--accent);
   /* **`--on-accent` ではない。**その名前の変数は定義が無く、常に #fff に
@@ -597,9 +665,11 @@ table.dt th .ico, table.dt td .ico { width: 1.5em; height: 1.5em; vertical-align
   color: var(--accent-in); font-weight: 700;
 }
 @media (max-width: 560px) {
-  .sharebar-in { flex-direction: column; align-items: stretch; }
-  .sharebar-btns { justify-content: stretch; }
-  .sharebar-btns .btn { flex: 1 1 auto; text-align: center; }
+  .sharebar-in { flex-direction: column; align-items: stretch; padding: 8px; gap: 6px; }
+  .sharebar-tx { padding: 0 4px; }
+  .sharebar-sub { display: none; }
+  .sharebar-btns { flex-wrap: nowrap; }
+  .sharebar-btns .btn { flex: 1 1 0; min-width: 0; text-align: center; padding: .55em .4em; }
 }
 
 /* ---------- はじめての案内（tour.js が中身を入れる）
@@ -641,7 +711,7 @@ body.tour-on { overflow: hidden; }
      落ちてダークのアクセント #e2c061 の上で 1.76:1 だった（2026-08-31 に実測） */
   color: var(--accent-in); font-weight: 700;
 }
-.tour-open { margin-top: 14px; }
+.tour-open { margin-top: 10px; }
 @media (prefers-reduced-motion: reduce) { .tour-ring { transition: none; } }
 
 /* 贈り物の効き目の絵。**色が付いているので mask ではなく <img>。**
@@ -665,4 +735,9 @@ body.tour-on { overflow: hidden; }
    息継ぎのための間で、盤を画面いっぱいに使う道具では余白にしか見えない
    （2026-09-03 の 44。先生の「余計な余白が生まれちゃうのはいやだ」）。
    **トップページはそのまま**（このファイルは道具のページだけが読む） */
-footer { margin-top: clamp(20px, 3vw, 32px); }
+footer { margin-top: clamp(12px, 2vw, 24px); }
+/* **足元も詰める。**トップページの息継ぎ用の余白（上 32〜56px・下 40〜72px）は
+   道具のページでは要らない（2026-09-26） */
+footer .foot-inner { padding: clamp(16px, 2.4vw, 28px) clamp(16px, 3vw, 32px) clamp(20px, 3vw, 36px); }
+footer .foot-name { margin-bottom: .3em; }
+footer .foot-links { margin-bottom: .8em; font-size: .875rem; line-height: 1.8; }

@@ -30,7 +30,7 @@ TPL = '''<!DOCTYPE html>
 <meta property="og:image" content="https://arona-bot.com/images/hero-night.jpg">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="stylesheet" href="../../style.css?v=25">
-<link rel="stylesheet" href="../tool.css?v=17">
+<link rel="stylesheet" href="../tool.css?v=18">
 <style>
 {style}
 </style>
@@ -53,13 +53,13 @@ TPL = '''<!DOCTYPE html>
     </picture>
   </div>
   <div class="thero-body">
+    <p class="tcrumb"><a href="../../">AronaBotの使い方</a><span class="sl">/</span><a href="../">ツール</a><span class="sl">/</span>{title}</p>
     <h1>{title}</h1>
     <p class="thero-lead">{lead}</p>
   </div>
 </header>
 
 <div class="twrap">
-  <p class="tcrumb"><a href="../../">AronaBotの使い方</a><span class="sl">/</span><a href="../">ツール</a><span class="sl">/</span>{title}</p>
 
 {body}
 

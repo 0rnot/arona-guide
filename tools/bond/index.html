@@ -33,7 +33,7 @@
        gf=贈り物id|出す倍率|学校      贈り物から（元の贈り物の逆引きの形。学校は encodeURIComponent）
      元の bond の `#生徒id|…`（`=` の無い区画）は、下の小さな script が読み込み時に `st=` へ直す。 -->
 <link rel="stylesheet" href="../../style.css?v=25">
-<link rel="stylesheet" href="../tool.css?v=17">
+<link rel="stylesheet" href="../tool.css?v=18">
 <style>
   .gift { display: grid; grid-template-columns: 50px 1fr 66px 96px; gap: .7em; align-items: center;
           padding: .5em 0; border-bottom: 1px solid var(--line); }
@@ -285,13 +285,13 @@
     </picture>
   </div>
   <div class="thero-body">
+    <p class="tcrumb"><a href="../../">AronaBotの使い方</a><span class="sl">/</span><a href="../">ツール</a><span class="sl">/</span>絆と贈り物の計算機</p>
     <h1>絆と贈り物の計算機</h1>
     <p class="thero-lead">生徒からは効く贈り物と目標ランクまでの日数、贈り物からは効く生徒が分かります。</p>
   </div>
 </header>
 
 <div class="twrap">
-  <p class="tcrumb"><a href="../../">AronaBotの使い方</a><span class="sl">/</span><a href="../">ツール</a><span class="sl">/</span>絆と贈り物の計算機</p>
 
   <!-- **2 つの入口。**切り替えは ../panes.js（`pane=`）。入力は区画ごとに持ち、混ざらない。
        JS が無ければタブは出ず、2 区画が縦に全部並ぶ -->

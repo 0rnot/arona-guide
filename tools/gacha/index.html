@@ -22,7 +22,7 @@
 <meta name="twitter:description" content="今の石でピックアップを引ける確率は何 % か。呼び出しチャージ 100 / 200 カウントを織り込んで計算します。">
 <meta name="twitter:image" content="https://arona-bot.com/images/og/gacha.jpg">
 <link rel="stylesheet" href="../../style.css?v=25">
-<link rel="stylesheet" href="../tool.css?v=17">
+<link rel="stylesheet" href="../tool.css?v=18">
 <style>
   .chartbox { margin-top: 8px; }
   .chartbox svg { width: 100%; height: auto; display: block; overflow: visible; }
@@ -140,21 +140,21 @@
     </picture>
   </div>
   <div class="thero-body">
+    <p class="tcrumb"><a href="../../">AronaBotの使い方</a><span class="sl">/</span><a href="../">ツール</a><span class="sl">/</span>募集の天井計算機</p>
     <h1>募集の天井計算機</h1>
     <p class="thero-lead">ピックアップの生徒をお迎えできる確率と、そこまでに要る青輝石を出します。<button type="button" class="qm" data-hint="呼び出しチャージの 100 / 200 カウントを織り込むので、単純な「0.7% を N 回」より高く出ます。"></button></p>
   </div>
 </header>
 
 <div class="twrap">
-  <p class="tcrumb"><a href="../../">AronaBotの使い方</a><span class="sl">/</span><a href="../">ツール</a><span class="sl">/</span>募集の天井計算機</p>
 
-  <div class="tcols lean" style="margin-top:20px">
+  <div class="tcols lean">
 
     <div class="tcol">
       <div class="panel">
         <div class="panel-h"><h2>今の状況</h2></div>
         <p class="lead">呼び出しチャージは、募集を引いた回数だけ貯まります（単発 1、10 連で 10）。<button type="button" class="qm" data-hint="ピックアップをお迎えした時点で 0 に戻り、それ以外では募集をまたいでも消えません。"></button></p>
-        <div class="fields c3">
+        <div class="fields c3 fgrid">
           <div class="field" id="f-gem">
             <label for="i-gem"><img class="ico" src="../img/currency_icon_gem.webp" alt="" width="24" height="24" loading="lazy"> 持っている青輝石<span class="hint">1 連 120 個</span></label>
             <input id="i-gem" type="number" inputmode="numeric" min="0" step="1200" value="24000">
