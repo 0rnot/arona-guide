@@ -184,6 +184,44 @@
     .row .lb[data-len="l"] { font-size: .68rem; }
     .row .drop { padding: 6px; gap: 5px; }
   }
+
+  /* ---- 詰めた版（2026-09-26、UI 見直し） */
+  .panel-h .hsub { font-size: .8rem; color: var(--fg-mute); font-weight: 500; }
+  .panel-h .qm { align-self: center; }
+  .tlay { display: grid; gap: 0 clamp(12px, 1.6vw, 22px); align-items: start; }
+  .tlay > .panel { min-width: 0; margin: 0 0 clamp(12px, 1.6vw, 20px); }
+  @media (min-width: 900px) {
+    .tlay { grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+            grid-template-areas: "a b" "c b";
+            /* **手札が長くても、盤の下に隙間を作らない。**余りは 2 段目が引き受ける */
+            grid-template-rows: auto 1fr; }
+    .tl-a { grid-area: a; } .tl-b { grid-area: b; } .tl-c { grid-area: c; }
+    /* 隣に並べたぶん、手札は画面の高さまで使う */
+    .poolwrap { max-height: calc(100vh - 220px); }
+  }
+  .tbar { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .zlb { font-size: .8rem; font-weight: 700; color: var(--fg-mute); white-space: nowrap; }
+  .sbtns .btn { padding: .5em 1.05em; font-size: .84rem; }
+  .room { margin-top: 12px; padding-top: 12px; }
+  .room .btn { min-height: 38px; }
+  /* 絞り込みは、スマホでは押したときだけ出す。6 個の選択で 3 段取っていた */
+  .fbar .fmore { padding: .45em .9em; font-size: .82rem; white-space: nowrap; }
+  .fbar .fmore[aria-expanded="true"] { border-color: var(--accent); }
+  #f-cnt:not(:empty) { margin-left: .4em; padding: 0 .45em; border-radius: 999px;
+                       background: var(--accent); color: var(--accent-in); font-size: .74rem; }
+  .fsel { display: none; flex: 1 1 100%; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+  .fbar.open .fsel { display: grid; }
+  .fsel select { width: 100%; min-width: 0; padding: .4em 1.8em .4em .6em; font-size: .8rem;
+                 background-position: calc(100% - 14px) calc(50% + 1px), calc(100% - 9px) calc(50% + 1px); }
+  .fbar input[type="search"] { max-width: none; }
+  @media (min-width: 900px) {
+    .fbar .fmore { display: none; }
+    .fsel { display: grid; }
+  }
+  @media (max-width: 560px) {
+    .fsel { grid-template-columns: 1fr 1fr; }
+    .fbar select { flex: none; }
+  }
 </style>
 </head>
 <body>
@@ -286,17 +324,21 @@
 
 <div class="twrap wide">
 
-  <div class="panel">
-    <div class="panel-h"><h2>並べる</h2><span class="tag on" id="room-tag" hidden></span></div>
-    <p class="lead"><b>生徒を押してから、置きたい段を押します。</b><button type="button" class="qm" data-hint="置いた生徒も、押して掴めば別の段へ動かせます。パソコンならそのまま掴んで運べます。段の名前（S・A…）は押すと書き換えられます（8 文字まで）。"></button></p>
+  <!-- **盤と手札を隣に置く**（2026-09-26、UI 見直し）。前は盤の下に保存・URL・みんなで編集が
+       挟まっていて、生徒を掴んでから段まで 1 画面ぶん往復していた。広い画面は盤が左・手札が右、
+       スマホは盤 → 手札 → 保存と共有の順 -->
+  <div class="tlay">
+
+  <div class="panel tl-a">
+    <div class="panel-h"><h2>並べる</h2><span class="hsub">生徒を押してから、段を押す</span><button type="button" class="qm" data-hint="置いた生徒も、押して掴めば別の段へ動かせます。パソコンならそのまま掴んで運べます。段の名前（S・A…）は押すと書き換えられます（8 文字まで）。"></button><span class="tag on" id="room-tag" hidden></span></div>
     <div class="held-note" id="held-note" hidden>
       <span id="held-img"></span>
       <span><b id="held-name"></b> を持っています。置きたい段か、割り込みたい生徒を押してください。</span>
       <button type="button" class="btn" id="held-tohand" style="margin-left:auto;padding:.3em .8em;font-size:.8rem">手札に戻す</button>
       <button type="button" class="btn" id="held-cancel" style="padding:.3em .8em;font-size:.8rem">やめる</button>
     </div>
-    <div class="btnrow" style="margin-bottom:12px">
-      <label for="size-r" style="font-size:.8rem;font-weight:700;color:var(--fg-mute)">顔の大きさ</label>
+    <div class="tbar">
+      <label for="size-r" class="zlb">顔の大きさ</label>
       <div class="zoom" id="size">
         <span aria-hidden="true">小</span>
         <input type="range" id="size-r" min="40" max="100" step="2" value="62" aria-label="顔の大きさ">
@@ -304,9 +346,34 @@
       </div>
     </div>
     <div class="tiers" id="tiers"></div>
-    <div class="btnrow" style="margin-top:14px">
+    <div class="btnrow sbtns" style="margin-top:10px">
       <button type="button" class="btn" id="add-row">段を足す</button>
       <button type="button" class="btn" id="reset">ぜんぶ戻す</button>
+    </div>
+  </div>
+
+  <div class="panel tl-b">
+    <div class="panel-h"><h2>まだ置いていない生徒</h2><span class="hsub" id="pool-n"></span></div>
+    <div class="fbar" id="fbar">
+      <input type="search" id="q" placeholder="名前で探す" aria-label="名前で探す" autocomplete="off">
+      <button type="button" class="btn fmore" id="f-more" aria-expanded="false" aria-controls="fsel">絞り込み<span id="f-cnt"></span></button>
+      <div class="fsel" id="fsel">
+        <select id="f-sc" aria-label="学校"><option value="">学校：ぜんぶ</option></select>
+        <select id="f-ro" aria-label="役割"><option value="">役割：ぜんぶ</option></select>
+        <select id="f-bt" aria-label="攻撃属性"><option value="">攻撃：ぜんぶ</option></select>
+        <select id="f-at" aria-label="防御属性"><option value="">防御：ぜんぶ</option></select>
+        <select id="f-sq" aria-label="区分"><option value="">区分：ぜんぶ</option></select>
+        <select id="f-st" aria-label="レア度">
+          <option value="">★：ぜんぶ</option><option value="3">★3</option><option value="2">★2</option><option value="1">★1</option>
+        </select>
+      </div>
+    </div>
+    <div class="poolwrap"><div class="pool" id="pool"></div></div>
+  </div>
+
+  <div class="panel tl-c">
+    <div class="panel-h"><h2>保存と共有</h2><span class="hsub">並びはこのブラウザに残ります</span><button type="button" class="qm" data-hint="外へ送るのは「みんなで編集」を使ったときだけです。「この並びのURLをコピー」を押すと、並びが入ったURLができます。それを渡せば、相手の画面にも同じ表が出ます。「みんなで編集」の表は AronaBot のサーバーに置き、最後に直してから 14 日で消えます。入っている間、このブラウザに残した表には触らず、抜けるとそちらに戻ります。"></button></div>
+    <div class="btnrow sbtns">
       <button type="button" class="btn pri" id="save">画像として保存</button>
       <button type="button" class="btn" id="share">この並びの URL をコピー</button>
       <span class="tag" id="msg"></span>
@@ -345,25 +412,6 @@
     </div>
   </div>
 
-  <div class="panel">
-    <div class="panel-h"><h2>まだ置いていない生徒</h2></div>
-    <div class="fbar">
-      <input type="search" id="q" placeholder="名前で探す" aria-label="名前で探す" autocomplete="off">
-      <select id="f-sc" aria-label="学校"><option value="">学校：ぜんぶ</option></select>
-      <select id="f-ro" aria-label="役割"><option value="">役割：ぜんぶ</option></select>
-      <select id="f-bt" aria-label="攻撃属性"><option value="">攻撃：ぜんぶ</option></select>
-      <select id="f-at" aria-label="防御属性"><option value="">防御：ぜんぶ</option></select>
-      <select id="f-sq" aria-label="区分"><option value="">区分：ぜんぶ</option></select>
-      <select id="f-st" aria-label="レア度">
-        <option value="">★：ぜんぶ</option><option value="3">★3</option><option value="2">★2</option><option value="1">★1</option>
-      </select>
-      <span style="font-size:.8rem;color:var(--fg-mute)" id="pool-n"></span>
-    </div>
-    <div class="poolwrap"><div class="pool" id="pool"></div></div>
-  </div>
-
-  <div class="note-box">
-    <p><b>並びはこのブラウザに残ります</b>（外へ送るのは「みんなで編集」を使ったときだけ）。<button type="button" class="qm" data-hint="「この並びのURLをコピー」を押すと、並びが入ったURLができます。それを渡せば、相手の画面にも同じ表が出ます。「みんなで編集」の表は AronaBot のサーバーに置き、最後に直してから 14 日で消えます。入っている間、このブラウザに残した表には触らず、抜けるとそちらに戻ります。"></button></p>
   </div>
 
   <div class="sharebar" id="sharebar"></div>
@@ -381,7 +429,7 @@
   </details>
 </div>
 
-<script>window.TOUR = {"key": "tier", "steps": [{"sel": "#size", "t": "並べる大きさを決めます", "d": "バーでアイコンの大きさを変えられます。段の名前（S・A…）は押すと書き換えられ、段は盤の下の「段を足す」で増やせます。"}, {"sel": "#q", "t": "生徒を探して置きます", "d": "学校・役割・攻撃属性・防御属性で絞り込めます。生徒を押してから段を押すと置けます。"}, {"sel": "#room", "t": "みんなで同じ表を直せます", "d": "「合言葉を作る」で 3 桁の番号が出ます。相手がその番号で入ると、同じ表を一緒に直せます。"}, {"sel": "#sharebar", "t": "作った表はそのまま渡せます", "d": "並べた状態ごと URL になります。画像にしなくてもリンクで渡せます。"}]};</script>
+<script>window.TOUR = {"key": "tier", "steps": [{"sel": "#size", "t": "並べる大きさを決めます", "d": "バーでアイコンの大きさを変えられます。段の名前（S・A…）は押すと書き換えられ、段は盤の下の「段を足す」で増やせます。"}, {"sel": "#q", "t": "生徒を探して置きます", "d": "「絞り込み」で学校・役割・攻撃属性・防御属性を選べます。生徒を押してから段を押すと置けます。"}, {"sel": "#room", "t": "みんなで同じ表を直せます", "d": "「合言葉を作る」で 3 桁の番号が出ます。相手がその番号で入ると、同じ表を一緒に直せます。"}, {"sel": "#sharebar", "t": "作った表はそのまま渡せます", "d": "並べた状態ごと URL になります。画像にしなくてもリンクで渡せます。"}]};</script>
 <script src="../tour.js?v=2"></script>
 
 <script src="../share.js?v=3"></script>
@@ -834,6 +882,17 @@
   bindFilter('f-at', 'at', T.labels.ArmorType);
   bindFilter('f-sq', 'sq', T.labels.SquadType);
   bindFilter('f-st', 'st');
+  /* 絞り込みの開け閉め（スマホだけ。広い画面は常に出ている）。**かけている数を札に出す**——
+     閉じていても、絞っていることを忘れない */
+  el('f-more').addEventListener('click', function () {
+    var open = !el('fbar').classList.contains('open');
+    el('fbar').classList.toggle('open', open);
+    el('f-more').setAttribute('aria-expanded', String(open));
+  });
+  el('fsel').addEventListener('input', function () {
+    var n = ['sc', 'ro', 'bt', 'at', 'sq', 'st'].filter(function (k) { return filters[k]; }).length;
+    el('f-cnt').textContent = n ? String(n) : '';
+  });
 
   // ---- 共有
   function flash(t) {
