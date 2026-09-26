@@ -24,12 +24,15 @@
 <link rel="stylesheet" href="../../style.css?v=25">
 <link rel="stylesheet" href="../tool.css?v=17">
 <style>
-  /* **スマホでは 1 列になる。**そのとき盤面が先に来ると、備品の型を決める前に
-     盤を触ることになるので、狭いときだけ右の柱を先に出す（番号どおりの順番） */
-  @media (max-width: 899px) {
-    .tcols.wideleft > .tcol:first-child { order: 2; }
-    .tcols.wideleft > .tcol:last-child  { order: 1; }
+  /* **並びは「イベントと周 → 盤面 → 結果 → 備品の型」**（2026-09-26 の grill-me、Q15-1）。
+     前はスマホで型の欄（イベント・周の選択を含む）を盤より先に出していたが、
+     中級の先生は周を選んだらすぐ盤を触る。型の欄は周を選べば自動で入るので、
+     書き換えるとき用に盤の下へ回した。イベントと周の選択だけは盤の上に残す */
+  .pickev { display: grid; gap: 14px; }
+  @media (min-width: 900px) {
+    .pickev { grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); align-items: start; }
   }
+  .pickev .field { margin: 0; }
 
   .board {
     display: grid; grid-template-columns: repeat(9, 1fr); gap: 3px;
@@ -128,13 +131,13 @@
     padding: .7em 0; border-bottom: 1px solid var(--line);
   }
   .item:last-of-type { border-bottom: 0; }
-  /* **広い画面では横に 2 つ並べる。**1 列だと備品 3 つで 722px あって、
-     盤を見ながら「狙う」を切り替えるのにいちいちスクロールが要った */
-  @media (min-width: 1240px) {
-    #items { display: grid; grid-template-columns: 1fr 1fr; gap: 0 18px; }
+  /* **広い画面では横に並べる。**1 列だと備品 3 つで 722px あって、
+     盤を見ながら「狙う」を切り替えるのにいちいちスクロールが要った。
+     2026-09-26 に型の欄を盤の下の全幅へ移したので、2 列から 3 列にした
+     （備品は毎回 3 種類なので、ちょうど 1 行に収まる） */
+  @media (min-width: 900px) {
+    #items { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 22px; }
     .item { border-bottom: 0; padding: .5em 0 .7em; }
-    /* 2 列のときは行の下だけに線を引く（2 つずつ組にする） */
-    .item:nth-last-of-type(n+3) { border-bottom: 1px solid var(--line); }
   }
   .item .sw { width: 16px; height: 16px; border-radius: 5px; margin-top: .5em; }
   .item .nm { width: 100%; padding: .35em .55em; font-size: .88rem; }
@@ -274,6 +277,22 @@
 <div class="twrap wide">
   <p class="tcrumb"><a href="../../">AronaBotの使い方</a><span class="sl">/</span><a href="../">ツール</a><span class="sl">/</span>宝探しの確率計算機</p>
 
+  <!-- **イベントと周だけは盤の上。**型の欄から出した（2026-09-26）。
+       ここを選べば備品の型は自動で入るので、盤を触る前に要るのはこれだけ -->
+  <div class="panel" style="margin-top:20px">
+    <div class="pickev">
+      <div class="field">
+        <label for="event">イベント</label>
+        <select id="event"></select>
+        <p class="hintline" id="event-note"></p>
+      </div>
+      <div>
+        <p class="wklabel">この周の中身を入れる<small>押すと備品の型が入れ替わり、盤面も白紙に戻ります</small></p>
+        <div class="wkrow" id="weeks"></div>
+      </div>
+    </div>
+  </div>
+
   <div class="tcols wideleft" style="margin-top:20px">
 
     <div class="tcol">
@@ -297,7 +316,9 @@
         </div>
         <p class="err" id="err" hidden></p>
       </div>
+    </div>
 
+    <div class="tcol">
       <div class="stats c3">
         <div class="stat hero">
           <div class="k">次に開けるなら</div>
@@ -323,23 +344,12 @@
       </div>
     </div>
 
-    <div class="tcol">
+    <!-- 備品の型は盤の下の全幅（2026-09-26）。周を選べば入るので、書き換えるときだけ触る -->
+    <div class="tfull">
       <div class="panel">
         <div class="panel-h"><h2>備品の型</h2></div>
         <p class="lead">名前・よこ・たて・個数は書き換えられます。<b>「狙う」を外すと確率に数えません。</b><button type="button" class="qm" data-hint="狙うものを絞ると、マスの数字が「なにかある確率」から「狙っているものがある確率」に変わります。盤の置き方の数え上げは変わらないので、外した備品もちゃんと場所を取ったまま計算します。周を切り替えると「狙う」は全部に戻ります。"></button></p>
-        <div class="field" style="margin-bottom:14px">
-          <label for="event">イベント</label>
-          <select id="event"></select>
-          <p class="hintline" id="event-note"></p>
-        </div>
-        <p class="wklabel">この周の中身を入れる<small>押すと下の 3 つが入れ替わり、盤面も白紙に戻ります</small></p>
-        <div class="wkrow" id="weeks"></div>
-        <div style="margin-top:16px" id="items"></div>
-      </div>
-
-
-      <div class="note-box">
-        <p>入れた内容は外へ送らず、このページの中だけで計算します。<button type="button" class="qm" data-hint="入力に矛盾があると「あり得る置き方0通り」になり、確率は出せません。個数や印を見直してください。"></button></p>
+        <div id="items"></div>
       </div>
     </div>
 
@@ -385,7 +395,7 @@
   </div>
 </div>
 
-<script>window.TOUR = {"key": "treasure", "steps": [{"sel": "#board", "t": "盤面を写します", "d": "開けたマスの結果を、上の色を選んでから盤面に置いていきます。間違えたら「ひとつ戻す」で戻せます。"}, {"sel": "#picks", "t": "次に開けるマスが出ます", "d": "残りの置き方をぜんぶ数えて、当たりが入っている確率がいちばん高いマスを出しています。"}, {"sel": "#items", "t": "備品の型を確かめます", "d": "周ごとに入っている備品の形と数が変わります。今どの周かをここで合わせてください。「狙う」を外した備品は確率に数えません。"}]};</script>
+<script>window.TOUR = {"key": "treasure", "steps": [{"sel": "#weeks", "t": "イベントと周を選びます", "d": "今どの周かを押すと、その周の備品の形と数が入ります。"}, {"sel": "#board", "t": "盤面を写します", "d": "開けたマスの結果を、上の色を選んでから盤面に置いていきます。間違えたら「ひとつ戻す」で戻せます。"}, {"sel": "#picks", "t": "次に開けるマスが出ます", "d": "残りの置き方をぜんぶ数えて、当たりが入っている確率がいちばん高いマスを出しています。"}, {"sel": "#items", "t": "備品の型は書き換えられます", "d": "データが追いついていない回は、ここで名前・大きさ・個数を直せます。「狙う」を外した備品は確率に数えません。"}]};</script>
 <script src="../tour.js?v=2"></script>
 
 <script src="../share.js?v=3"></script>
@@ -416,6 +426,8 @@
   </div>
 </footer>
 
+<!-- **remember.js は data.js とツールの JS より先に**（2026-09-26）。あとだと、下の fromHash() が空のハッシュを読んで 1 周目で組み上がる -->
+<script src="../remember.js?v=2"></script>
 <script src="solver.js?v=2"></script>
 <script src="data.js"></script>
 <script>
@@ -764,6 +776,7 @@
 
     drawPal();
     drawLegend(allWant, wantName);
+    syncHash();
   }
 
   // ---- 操作
@@ -874,17 +887,44 @@
 
   /* ---- 状態を URL に残す。**共有帯の「開いている状態ごと URL になります」を
      嘘にしない。**イベントは並び順ではなく開始日で覚える（data.js は毎日
-     作り直されて、並びが変わりうる）。備品の欄を手で書き換えた分（week=-1）は
-     URL に入れられないので、そのときは素の URL に落とす */
-  window.shareUrl = function () {
+     作り直されて、並びが変わりうる）。
+
+     **備品の欄を手で書き換えた分も 5 つ目の欄に入れる**（2026-09-26。入力を覚える
+     ../remember.js もこの URL を覚えるので、入れないと再読み込みで周の既定に
+     戻り、付けた印だけが違う大きさの備品に残っていた）。前は「書き換えたら
+     week=-1 にして素の URL に落とす」とここに書いていたが、実際には week は
+     -1 にならず、書き換えは黙って捨てられていた。周の既定と同じなら 5 つ目は書かない */
+  function itemsEdited() {
+    var base = week >= 0 ? WEEKS()[week] : null;
+    if (!base || base.length !== items.length) return true;
+    return items.some(function (it, k) {
+      var m = base[k];
+      return it.n !== m.n || it.w !== m.w || it.h !== m.h || it.count !== m.c;
+    });
+  }
+  function hashNow() {
     if (ev < 0 || week < 0) return '';
     var ms = '';
     for (var i = 0; i < N; i++) ms += marks[i] === E ? 'e' : (marks[i] >= 0 ? marks[i] : 'u');
     var ws = items.map(function (it) { return it.want ? 1 : 0; }).join('');
     // open には空白が入る（"2026-08-26 11:00:00"）。**素で置くと %20 になって
     // 照合に落ちる**ので、書くときに包んで読むときに解く
-    return '#' + encodeURIComponent(EVENTS[ev].open) + '|' + week + '|' + ms + '|' + ws;
-  };
+    var h = '#' + encodeURIComponent(EVENTS[ev].open) + '|' + week + '|' + ms + '|' + ws;
+    // 名前は encodeURIComponent で包むので、区切りの「:」「,」「|」は中に出てこない
+    if (itemsEdited()) h += '|' + items.map(function (it) {
+      return [encodeURIComponent(it.n), it.w, it.h, it.count].join(':');
+    }).join(',');
+    return h;
+  }
+  window.shareUrl = hashNow;
+  /* **URL のハッシュも描くたびに書き直す。**書かないと、覚えた状態で開いたあと
+     触った分が URL に乗らず、次の再読み込みで古いハッシュが勝っていた
+     （remember.js はハッシュがあるときは戻さない）。`replaceState` なので履歴は増えない */
+  function syncHash() {
+    var h = hashNow();
+    if ((h || '') === location.hash) return;
+    try { history.replaceState(null, '', location.pathname + location.search + h); } catch (e) { /* file:// */ }
+  }
   function fromHash() {
     var p = location.hash.replace(/^#/, '').split('|');
     if (p.length < 3) return;
@@ -896,6 +936,20 @@
     var w = Math.floor(+p[1]);
     if (!(w >= 0 && w < WEEKS().length)) { loadFirst(); return; }
     loadWeek(w);
+    // 書き換えた型（5 つ目）。**印より先に入れる**——印の番号は備品の並びを指している
+    if (p[4]) {
+      var ed = p[4].split(',');
+      if (ed.length === items.length) ed.forEach(function (x, k) {
+        var f = x.split(':'); if (f.length !== 4) return;
+        var it = items[k], nm;
+        try { nm = decodeURIComponent(f[0]); } catch (e) { nm = it.n; }
+        it.n = nm.slice(0, 12);
+        it.w = Math.max(1, Math.min(T.MAX_W, parseInt(f[1], 10) || it.w));
+        it.h = Math.max(1, Math.min(H, parseInt(f[2], 10) || it.h));
+        var c = parseInt(f[3], 10);
+        it.count = c >= 0 ? Math.min(cmax(it.w, it.h), c) : it.count;
+      });
+    }
     if (p[2] && p[2].length === N) {
       for (var j = 0; j < N; j++) {
         var ch = p[2].charAt(j);
