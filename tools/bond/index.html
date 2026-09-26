@@ -75,6 +75,42 @@
     .stucard { grid-template-columns: 72px 1fr; gap: 12px; }
     .stuimg { width: 72px; height: 72px; }
   }
+
+  /* **結果の 2 枚は、スマホでも横に並べる。**tool.css の `.stats` は 480px 以下で
+     1 列に落ちるが、ここは数字 1 つずつなので 2 列で収まる。縦に積むと
+     結果のまとまりが 1 画面を越える（2026-09-26） */
+  .stats.res { grid-template-columns: 1fr 1fr; gap: 10px; margin: 0 0 6px; }
+  .stats.res .stat { padding: 13px 14px; min-width: 0; }
+  .stats.res .v { font-size: clamp(1.35rem, 5.6vw, 1.72rem); }
+  /* 1 本だけで埋めたときの目安。**主役（何日）より小さく、灰色で** */
+  .alt { font-size: .78rem; color: var(--fg-mute); margin: 10px 0 0; line-height: 1.7; }
+  .alt b { color: var(--fg); font-variant-numeric: tabular-nums; }
+  /* 星の絆上限の一言。err と同じ場所に、控えめに */
+  .capnote { font-size: .8rem; color: var(--fg-mute); margin: 12px 0 0; }
+  .capnote b { color: var(--accent-tx); }
+
+  /* ×2 以下の贈り物を畳む箱（2026-09-26、Q9-1） */
+  details.more { margin-top: 6px; border-top: 1px solid var(--line); }
+  details.more > summary { cursor: pointer; list-style: none; padding: .7em 0 .5em;
+                           font-size: .86rem; font-weight: 700; display: flex; gap: .4em; align-items: baseline; flex-wrap: wrap; }
+  details.more > summary::-webkit-details-marker { display: none; }
+  details.more > summary::before { content: "▸"; color: var(--fg-mute); }
+  details.more[open] > summary::before { content: "▾"; }
+  details.more > summary .qsub { font-weight: 400; font-size: .76rem; color: var(--fg-mute); }
+  details.more > summary .held { font-weight: 700; font-size: .72rem; color: var(--accent-tx); }
+
+  /* 参考の表。**既定は閉じる**（eleph の早見表・equip-level の参考の表と同じ見た目） */
+  details.ref { margin: 0; }
+  details.ref > summary { cursor: pointer; list-style: none; font-weight: 800; font-size: 1rem;
+                          display: flex; align-items: center; gap: .4em; }
+  details.ref > summary::-webkit-details-marker { display: none; }
+  details.ref > summary::before { content: "▸"; color: var(--fg-mute); }
+  details.ref[open] > summary::before { content: "▾"; }
+  details.ref .qnote { font-size: .8rem; color: var(--fg-mute); margin: 12px 0 0; }
+  /* **390px に収める。**見出しを短くして詰める。2026-09-26 まで「Lv1 からの累計」
+     「いちばん効く贈り物で」が折り返さず、右の列が切れていた */
+  table.bt th, table.bt td { padding-left: .5em; padding-right: .5em; }
+  table.bt th { white-space: normal; }
 </style>
 </head>
 <body>
@@ -177,7 +213,10 @@
 <div class="twrap">
   <p class="tcrumb"><a href="../../">AronaBotの使い方</a><span class="sl">/</span><a href="../">ツール</a><span class="sl">/</span>絆ランク計算機</p>
 
-  <div class="tcols lean" style="margin-top:20px">
+  <!-- **並びは「選ぶ → 結果 → 贈り物」。**2026-09-26 の先生の判断（Q9-1）——中級の先生が
+       知りたいのは「あと何日か」なので、結果を生徒のすぐ下に置く。
+       それまでは贈り物の一覧が先にあって、スマホでは結果まで 1 画面以上送っていた -->
+  <div class="tcols" style="margin-top:20px">
 
     <div class="tcol">
       <div class="panel">
@@ -213,12 +252,45 @@
             <button type="button" data-t="100">100</button>
           </div>
         </div>
+        <!-- 星の絆上限。目標が ★1 の上限を越えるときだけ出す（中身は JS が eleph のデータから組む） -->
+        <p class="capnote" id="cap" hidden></p>
         <p class="err" id="err" hidden></p>
       </div>
 
+      <div class="panel" id="result">
+        <div class="panel-h"><h2><img class="ico" src="../img/item_icon_favor_lv2_package.webp" alt="" width="24" height="24"> 目標まで</h2></div>
+        <div class="stats res">
+          <div class="stat hero">
+            <div class="k"><i class="gi gi-school-icon-schedule-favor"></i> 必要な絆経験値</div>
+            <div class="v" id="o-need">—</div>
+            <div class="sub" id="o-need-sub"></div>
+          </div>
+          <div class="stat hero">
+            <div class="k" id="o-days-k">残りを埋めるのに</div>
+            <div class="v" id="o-days">—</div>
+            <div class="sub" id="o-days-sub"></div>
+          </div>
+        </div>
+        <div class="ledger">
+          <div class="row minus"><span>手持ちの贈り物ぶん<span class="subnote">一覧に個数を入れると引きます</span></span><span id="l-have">—</span></div>
+          <div class="row"><span>残り</span><span id="l-rest">—</span></div>
+          <div class="row"><span>カフェタッチ<span class="subnote">1 日の回数<button type="button" class="qm" data-hint="1 回 15 の絆経験値です。同じ生徒は 3 時間に 1 回、12 時間で最大 4 回まで触れます。"></button></span></span>
+            <span><input id="i-touch" type="number" inputmode="numeric" min="0" max="40" step="1" value="12" style="width:78px;text-align:right;padding:.3em .5em"></span></div>
+          <div class="row"><span>スケジュール・その他<span class="subnote">1 日にもらえる絆経験値</span></span>
+            <span><input id="i-etc" type="number" inputmode="numeric" min="0" step="10" value="0" style="width:78px;text-align:right;padding:.3em .5em"></span></div>
+          <div class="row"><span>目標日<span class="subnote">空欄なら判定しません</span></span>
+            <span><input id="i-target" type="date" style="padding:.3em .5em"></span></div>
+          <div class="row total" id="row-target" hidden><span id="l-target-k">—</span><span id="l-target">—</span></div>
+        </div>
+        <!-- **1 本だけで埋めたときの目安は脇に。**結果の主役（何日）より目立たせない -->
+        <p class="alt" id="o-alt"></p>
+      </div>
+    </div>
+
+    <div class="tcol">
       <div class="panel">
         <div class="panel-h"><h2 id="gift-h">この子に効く贈り物</h2></div>
-        <p class="lead">持っている個数を入れると、下の内訳に反映されます。<button type="button" class="qm" data-hint="絆経験値は「基本の値 ×（一致したタグの数 ＋ 1）」で計算しています。"></button></p>
+        <p class="lead">持っている個数を入れると、「目標まで」から引きます。<button type="button" class="qm" data-hint="絆経験値は「基本の値 ×（一致したタグの数 ＋ 1）」で計算しています。×2 以下は「ほかの贈り物」に畳んであります。畳んだままでも、入れた個数は合計に入ります。"></button></p>
         <div class="btnrow" style="margin-bottom:14px">
           <div class="seg" id="filter" role="group" aria-label="表示する贈り物">
             <button type="button" data-f="good" aria-pressed="true">効くものだけ</button>
@@ -228,51 +300,19 @@
         </div>
         <div id="gifts"></div>
       </div>
-    </div>
-
-    <div class="tcol">
-      <div class="stats c3">
-        <div class="stat hero">
-          <div class="k"><i class="gi gi-school-icon-schedule-favor"></i> 必要な絆経験値</div>
-          <div class="v" id="o-need">—</div>
-          <div class="sub" id="o-need-sub"></div>
-        </div>
-        <div class="stat">
-          <div class="k">いちばん効く贈り物だけなら</div>
-          <div class="v" id="o-best">—</div>
-          <div class="sub" id="o-best-sub"></div>
-        </div>
-        <div class="stat">
-          <div class="k"><i class="gi gi-cafe-icon-interaction"></i> カフェタッチだけなら</div>
-          <div class="v" id="o-touch">—</div>
-          <div class="sub">1 回 15 の絆経験値</div>
-        </div>
-      </div>
 
       <div class="panel">
-        <div class="panel-h"><h2><img class="ico" src="../img/item_icon_favor_lv2_package.webp" alt="" width="24" height="24"> 手持ちで足りますか</h2></div>
-        <div class="ledger">
-          <div class="row"><span>必要な絆経験値</span><span id="l-need">—</span></div>
-          <div class="row minus"><span>手持ちの贈り物ぶん</span><span id="l-have">—</span></div>
-          <div class="row"><span>カフェタッチ<span class="subnote">1 日の回数を入れてください</span></span>
-            <span><input id="i-touch" type="number" inputmode="numeric" min="0" max="40" step="1" value="12" style="width:78px;text-align:right;padding:.3em .5em"></span></div>
-          <div class="row"><span>スケジュール・その他<span class="subnote">1 日にもらえる絆経験値</span></span>
-            <span><input id="i-etc" type="number" inputmode="numeric" min="0" step="10" value="0" style="width:78px;text-align:right;padding:.3em .5em"></span></div>
-          <div class="row total"><span id="l-days-k">残りをカフェタッチで埋めると</span><span id="l-days">—</span></div>
-          <div class="row"><span>目標日<span class="subnote">空欄なら判定しません</span></span>
-            <span><input id="i-target" type="date" style="padding:.3em .5em"></span></div>
-          <div class="row total" id="row-target" hidden><span id="l-target-k">—</span><span id="l-target">—</span></div>
-        </div>
-      </div>
-
-      <div class="panel">
-        <div class="panel-h"><h2>絆ランクごとの必要量</h2></div>
-        <div class="tscroll">
-          <table class="dt">
-            <thead><tr><th>絆ランク</th><th>次まで</th><th>Lv1 からの累計</th><th>いちばん効く贈り物で</th></tr></thead>
-            <tbody id="tb"></tbody>
-          </table>
-        </div>
+        <!-- 参考の表。**既定は閉じる**（2026-09-26、eleph・equip-level の早見表と同じ見た目） -->
+        <details class="ref" id="ref">
+          <summary>絆ランクごとの必要量</summary>
+          <p class="qnote" id="tb-note"></p>
+          <div class="tscroll">
+            <table class="dt bt">
+              <thead><tr><th>絆</th><th>次まで</th><th>累計</th><th id="tb-best">贈り物</th></tr></thead>
+              <tbody id="tb"></tbody>
+            </table>
+          </div>
+        </details>
       </div>
     </div>
 
@@ -306,7 +346,7 @@
   </div>
 </div>
 
-<script>window.TOUR = {"key": "bond", "steps": [{"sel": "#stucard", "t": "まず生徒を選びます", "d": "名前を入れると、好みに合わせて贈り物が並び替わります。"}, {"sel": "#gifts", "t": "効く贈り物から順に並びます", "d": "一致したタグの数で倍率が決まり、×4 が上限です。"}, {"sel": "#l-need", "t": "手持ちを入れると残りが出ます", "d": "個数と回数を入れると、目標までの日数が出ます。"}, {"sel": "#sharebar", "t": "結果はそのまま渡せます", "d": "リンクを送ると、相手の画面にも同じ結果が出ます。"}]};</script>
+<script>window.TOUR = {"key": "bond", "steps": [{"sel": "#stucard", "t": "まず生徒を選びます", "d": "名前を入れると、好みに合わせて贈り物が並び替わります。"}, {"sel": "#result", "t": "目標までの日数がすぐ下に出ます", "d": "1 日のタッチ回数を入れると、何日かかるかが出ます。"}, {"sel": "#gifts", "t": "手持ちの贈り物を入れます", "d": "効く贈り物から順に並びます。入れた個数は上の結果から引きます。"}, {"sel": "#sharebar", "t": "結果はそのまま渡せます", "d": "リンクを送ると、相手の画面にも同じ結果が出ます。"}]};</script>
 <script src="../tour.js?v=2"></script>
 
 <script src="../share.js?v=3"></script>
@@ -337,6 +377,10 @@
   </div>
 </footer>
 
+<!-- **入力を覚える。data.js とツールの JS より前に読むこと**（前回のハッシュを先に URL へ戻す） -->
+<script src="../remember.js?v=1"></script>
+<!-- 星ごとの絆上限は eleph のデータから借りる（gzip で 7KB。手書きしない。2026-09-26） -->
+<script src="../eleph/data.js"></script>
 <script src="data.js"></script>
 <script>
 (function () {
@@ -354,6 +398,24 @@
   // **既定は「効くものだけ」。** 贈り物は 50 種以上あって、ぜんぶ出すと
   // 左の柱が縦に伸びきってしまう。×1 のものは実質どれも同じなので畳む
   var filter = 'good';
+  /* **×3 以上だけを表に出し、×2 以下は「ほかの贈り物」に畳む**（2026-09-26 の先生の
+     判断、Q9-1）。「効くものだけ」でも ×2 が 12 種あって、スマホでは結果より
+     一覧のほうが長くなっていた。畳んだ箱の開け閉めは描き直しても保つ */
+  var SHOW_MULT = 3;
+  var moreOpen = false;
+  var lastGifts = null;                 // 前に描いた一覧（同じなら描き直さない）
+
+  /* 星ごとの絆ランクの上限。**eleph のデータ（`fav1` と `steps[].fav`）をそのまま使う。**
+     元は `DB/CharacterTranscendenceExcelTable` の `MaxFavorLevel`（★1 から順に
+     10 / 10 / 20 / 30 / 100。2026-09-26 時点）。手で書くと、上限が変わった日に
+     ここだけ古いまま残る。eleph のデータが読めなければ一言を出さないだけ */
+  var CAPS = (function () {
+    var E = window.ELEPH;
+    if (!E || !E.fav1 || !E.steps) return null;
+    var c = [{ star: 1, cap: E.fav1 }];
+    E.steps.forEach(function (s) { if (s.fav) c.push({ star: s.to, cap: s.fav }); });
+    return c;
+  })();
 
   // 絆ランク L から L+1 へ上がるのに要る量。need[L-1]
   /* 絆ランクの上限。**`FavorLevelExcelTable` の行数がそのまま上限**（いまは 100）。
@@ -436,30 +498,66 @@
     }).sort(function (a, b) { return b.exp - a.exp || a.g.id - b.g.id; });
   }
 
+  function giftRow(x) {
+    return '<div class="gift' + (x.mult >= 4 ? ' m4' : '') + '">' +
+      '<img src="../img/' + x.g.i + '.webp" alt="" width="50" height="50" loading="lazy">' +
+      '<span class="nm">' + x.g.n +
+        '<small>基本 ' + x.g.e +
+        '<span class="mtag' + (x.mult >= 3 ? ' on' : '') + '">' +
+          // **ゲームの中と同じ絵。**一致したタグの数で贈り物の箱が変わる
+          '<img class="gico" src="../img/ui_cafe_interaction_gift_0' + x.mult +
+          '.webp" alt="" width="18" height="18" loading="lazy">×' + x.mult +
+        '</span></small></span>' +
+      '<span class="ex">' + x.exp + '<small>絆経験値</small></span>' +
+      '<input type="number" inputmode="numeric" min="0" step="1" value="' + (have[x.g.id] || 0) + '" data-g="' + x.g.id + '" aria-label="' + x.g.n + 'の個数">' +
+      '</div>';
+  }
+
+  /** 畳んだ箱の中に入っている手持ちの個数。**畳んでいても合計には入る**ので、
+      見出しで「ここにも入っている」と分かるようにする */
+  function drawMoreHeld() {
+    var box = el('gifts-more'); if (!box) return;
+    var n = 0;
+    [].forEach.call(box.querySelectorAll('input[data-g]'), function (inp) { n += have[inp.dataset.g] || 0; });
+    var h = box.querySelector('.held');
+    h.textContent = n > 0 ? '手持ち ' + fmt(n) + ' 個' : '';
+  }
+
   function drawGifts(list) {
     el('gift-h').textContent = student.id ? (student.n + ' に効く贈り物') : '誰にでも効く贈り物';
-    var shown = filter === 'all' ? list : list.filter(function (x) { return x.mult >= 2; });
-    if (!shown.length) shown = list.slice(0, 6);
-    el('filter-n').textContent = shown.length + ' / ' + list.length + ' 種類';
-    el('gifts').innerHTML = shown.map(function (x) {
-      return '<div class="gift' + (x.mult >= 4 ? ' m4' : '') + '">' +
-        '<img src="../img/' + x.g.i + '.webp" alt="" width="50" height="50" loading="lazy">' +
-        '<span class="nm">' + x.g.n +
-          '<small>基本 ' + x.g.e +
-          '<span class="mtag' + (x.mult >= 3 ? ' on' : '') + '">' +
-            // **ゲームの中と同じ絵。**一致したタグの数で贈り物の箱が変わる
-            '<img class="gico" src="../img/ui_cafe_interaction_gift_0' + x.mult +
-            '.webp" alt="" width="18" height="18" loading="lazy">×' + x.mult +
-          '</span></small></span>' +
-        '<span class="ex">' + x.exp + '<small>絆経験値</small></span>' +
-        '<input type="number" inputmode="numeric" min="0" step="1" value="' + (have[x.g.id] || 0) + '" data-g="' + x.g.id + '" aria-label="' + x.g.n + 'の個数">' +
-        '</div>';
-    }).join('');
+    var main = list.filter(function (x) { return x.mult >= SHOW_MULT; });
+    if (!main.length) main = list.slice(0, 6);
+    /* 畳む側。「効くものだけ」では ×2 と、**×1 でも手持ちを入れたもの**
+       （「ぜんぶ」で入れてから戻したとき、行ごと消えると入れた数が見えなくなる）。
+       「ぜんぶ」では残り全部 */
+    var more = list.filter(function (x) {
+      if (main.indexOf(x) >= 0) return false;
+      return filter === 'all' || x.mult >= 2 || (have[x.g.id] || 0) > 0;
+    });
+    el('filter-n').textContent = (main.length + more.length) + ' / ' + list.length + ' 種類';
+    var by = {};
+    more.forEach(function (x) { by[x.mult] = (by[x.mult] || 0) + 1; });
+    var kinds = Object.keys(by).sort().reverse().map(function (m) { return '×' + m + ' が ' + by[m] + ' 種'; });
+    var html = main.map(giftRow).join('') + (more.length
+      ? '<details class="more" id="gifts-more"' + (moreOpen ? ' open' : '') + '>' +
+        '<summary>ほかの贈り物<span class="qsub">' + kinds.join('・') + '</span><span class="held"></span></summary>' +
+        more.map(giftRow).join('') + '</details>'
+      : '');
+    /* **中身が同じなら描き直さない。**欄から離れたときの `change` で描き直すと、
+       その離れた先の「ほかの贈り物」を押しても、押した見出しが消えて開かない
+       （2026-09-26、手で試して見つけた） */
+    if (html !== lastGifts) { el('gifts').innerHTML = html; lastGifts = html; }
+    drawMoreHeld();
   }
+  // 開け閉めを覚える。**`toggle` は泡立たない**ので捕獲で拾う
+  el('gifts').addEventListener('toggle', function (e) {
+    if (e.target.id === 'gifts-more') moreOpen = e.target.open;
+  }, true);
   el('gifts').addEventListener('input', function (e) {
     var t = e.target; if (!t.dataset.g) return;
     have[t.dataset.g] = Math.max(0, parseInt(t.value, 10) || 0);
     calc(true);
+    drawMoreHeld();
   });
 
   function calc(skipGifts) {
@@ -479,40 +577,58 @@
     var list = giftList();
     if (!skipGifts) drawGifts(list);
 
-    var e = el('err');
-    if (!(from >= 1 && from <= MAXR)) { e.textContent = '今の絆ランクは 1 〜 ' + MAXR + ' で入れてください。'; e.hidden = false; return; }
-    if (!(to >= 1 && to <= MAXR)) { e.textContent = '目標の絆ランクは 1 〜 ' + MAXR + ' で入れてください。'; e.hidden = false; return; }
-    if (to <= from) { e.textContent = '目標は今のランクより上にしてください。'; e.hidden = false; return; }
+    var e = el('err'), cap = el('cap');
+    if (!(from >= 1 && from <= MAXR)) { e.textContent = '今の絆ランクは 1 〜 ' + MAXR + ' で入れてください。'; e.hidden = false; cap.hidden = true; return; }
+    if (!(to >= 1 && to <= MAXR)) { e.textContent = '目標の絆ランクは 1 〜 ' + MAXR + ' で入れてください。'; e.hidden = false; cap.hidden = true; return; }
+    if (to <= from) { e.textContent = '目標は今のランクより上にしてください。'; e.hidden = false; cap.hidden = true; return; }
     e.hidden = true;
 
+    /* **星の絆上限を越える目標には一言。**★1 の上限（10）以下なら黙る。
+       要る★は「上限が目標以上になる最初の★」 */
+    var needStar = null;
+    if (CAPS && to > CAPS[0].cap) {
+      for (var ci = 0; ci < CAPS.length; ci++) if (CAPS[ci].cap >= to) { needStar = CAPS[ci].star; break; }
+    }
+    if (needStar) {
+      cap.innerHTML = '絆 ' + to + ' には <b>★' + needStar + '</b> が要ります。' +
+        '<button type="button" class="qm" data-hint="絆ランクの上限は星で決まります——' +
+        CAPS.map(function (c) { return '★' + c.star + ' は ' + c.cap; }).join('、') +
+        '。ゲームのデータ（CharacterTranscendenceExcelTable の MaxFavorLevel）の値です。"></button>';
+      cap.hidden = false;
+    } else {
+      cap.hidden = true;
+    }
+
     var need = cumAt(to) - cumAt(from);
-    el('o-need').innerHTML = fmt(need) + '<small></small>';
+    el('o-need').innerHTML = fmt(need);
     el('o-need-sub').textContent = '絆 ' + from + ' → ' + to;
 
     var best = list[0];
-    el('o-best').innerHTML = fmt(Math.ceil(need / best.exp)) + '<small>個</small>';
-    el('o-best-sub').textContent = best.g.n + '（1 個 ' + best.exp + '）';
-
-    el('o-touch').innerHTML = fmt(Math.ceil(need / TOUCH)) + '<small>回</small>';
+    el('o-alt').innerHTML = 'いちばん効く' + best.g.n + '（1 個 ' + best.exp + '）だけなら <b>' +
+      fmt(Math.ceil(need / best.exp)) + ' 個</b>、カフェタッチだけなら <b>' +
+      fmt(Math.ceil(need / TOUCH)) + ' 回</b>';
 
     var haveExp = 0;
-    list.forEach(function (x) { haveExp += (have[x.g.id] || 0) * x.exp; });
-    el('l-need').textContent = fmt(need);
+    list.forEach(function (x) { haveExp += (have[x.g.id] || 0) * x.exp; });   // **畳んだ行も数える**
     el('l-have').textContent = '− ' + fmt(haveExp);
 
     var rest = Math.max(0, need - haveExp);
+    el('l-rest').textContent = fmt(rest);
     var touches = Math.max(0, parseInt(el('i-touch').value, 10) || 0);
     var etc = Math.max(0, parseInt(el('i-etc').value, 10) || 0);
     var perDay = touches * TOUCH + etc;
     if (rest === 0) {
-      el('l-days-k').textContent = '手持ちだけで届きます';
-      el('l-days').textContent = '余り ' + fmt(haveExp - need);
+      el('o-days-k').textContent = '手持ちだけで';
+      el('o-days').textContent = '届きます';
+      el('o-days-sub').textContent = '余り ' + fmt(haveExp - need);
     } else if (perDay > 0) {
-      el('l-days-k').textContent = '残り ' + fmt(rest) + ' を 1 日 ' + fmt(perDay) + ' で埋めると';
-      el('l-days').textContent = Math.ceil(rest / perDay).toLocaleString('ja-JP') + ' 日';
+      el('o-days-k').textContent = '残りを埋めるのに';
+      el('o-days').innerHTML = Math.ceil(rest / perDay).toLocaleString('ja-JP') + '<small>日</small>';
+      el('o-days-sub').textContent = '1 日 ' + fmt(perDay) + ' ずつ';
     } else {
-      el('l-days-k').textContent = '残り';
-      el('l-days').textContent = fmt(rest);
+      el('o-days-k').textContent = '残りを埋めるのに';
+      el('o-days').textContent = '—';
+      el('o-days-sub').textContent = '1 日の回数を入れてください';
     }
 
     /* **目標日は「何日かかるか」の式をそのまま使う。**新しい計算式は作らない
@@ -527,7 +643,7 @@
       var targetMid = new Date(tval + 'T00:00:00');
       var daysUntil = Math.round((targetMid - todayMid) / 86400000);
       var daysNeeded = rest === 0 ? 0 : (perDay > 0 ? Math.ceil(rest / perDay) : null);
-      el('l-target-k').textContent = '目標日までに間に合うか';
+      el('l-target-k').textContent = '目標日に';
       if (daysNeeded === null) {
         el('l-target').textContent = '1 日の獲得量が 0 では届きません';
       } else {
@@ -538,12 +654,13 @@
       }
     }
 
+    el('tb-note').textContent = '「贈り物」は' + best.g.n + '（1 個 ' + best.exp + '）で埋めたときの個数です。';
     var rows = '', a = Math.max(1, from - 1), b = Math.min(MAXR, Math.max(to, from + 8));
     for (var L = a; L <= b && L - a < 14; L++) {
       rows += '<tr' + (L === from ? ' class="here"' : '') + '><td>絆 ' + L + '</td>' +
-        '<td>' + (L >= 100 ? '—' : fmt(needAt(L))) + '</td>' +
+        '<td>' + (L >= MAXR ? '—' : fmt(needAt(L))) + '</td>' +
         '<td>' + fmt(cumAt(L)) + '</td>' +
-        '<td>' + (L >= 100 ? '—' : Math.ceil(needAt(L) / best.exp) + ' 個') + '</td></tr>';
+        '<td>' + (L >= MAXR ? '—' : Math.ceil(needAt(L) / best.exp) + ' 個') + '</td></tr>';
     }
     el('tb').innerHTML = rows;
   }
@@ -563,9 +680,10 @@
     calc();                              // 押下表示は calc() が目標の値から引く
   });
   ['i-student', 'i-from', 'i-to', 'i-touch', 'i-etc', 'i-target'].forEach(function (id) {
-    var skip = id === 'i-touch' || id === 'i-etc' || id === 'i-target';
+    // **一覧の中身が変わるのは生徒だけ。**ほかの欄では描き直さない（上の lastGifts と同じ理由）
+    var skip = id !== 'i-student';
     el(id).addEventListener('input', function () { calc(skip); });
-    el(id).addEventListener('change', function () { calc(); });
+    el(id).addEventListener('change', function () { calc(skip); });
   });
   /* **確定（change）のときだけ前方一致で補完する。**入力中に補完すると
      打っている途中で別の生徒に飛ぶ（eleph と同じ作法）。
