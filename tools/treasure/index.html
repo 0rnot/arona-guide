@@ -175,6 +175,44 @@
                  padding: .15em 0; border-bottom: 1px solid var(--line); }
   .item .rw li:last-child { border-bottom: 0; }
   .item .rw li b { font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+  /* ---- 詰めた版（2026-09-26、UI 見直し）
+     **盤を 1 画面目に寄せる。**説明文は見出しの横の一言と丸の i へ。周のボタンは
+     スマホで数字だけの 7 列、パレットは 2 列にして段を減らした */
+  .panel-h .hsub { font-size: .8rem; color: var(--fg-mute); font-weight: 500; }
+  .panel-h .qm { align-self: center; }
+  .wklabel .qm { margin-left: .3em; }
+  /* **周は数字だけ。**見出しが「この周の…」なので「周目」を 13 回書かない。広い画面でも 1 段に収まる */
+  .wkrow button { min-height: 40px; min-width: 40px; }
+  .wkrow button .u { display: none; }
+  .viewrow { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-top: 12px; }
+  .viewrow .legend { margin-top: 0; }
+  .viewrow .seg button { min-height: 36px; }
+  #bdbtns { margin-top: 12px; }
+  #bdbtns .btn { padding: .5em 1em; }
+  .palrow { margin-bottom: 10px; }
+  .pal button { min-height: 40px; }
+  .item .aim { min-height: 40px; padding: 0 .2em; }
+  @media (max-width: 620px) {
+    .wkrow { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 5px; }
+    .wkrow button { padding: .3em 0; font-size: .82rem; white-space: nowrap; }
+    /* 「13以降」だけは 2 枠ぶん取る */
+    .wkrow button:last-child:nth-child(n+8) { grid-column: span 2; }
+    .pickev { gap: 10px; }
+    .palrow { gap: 4px 12px; }
+    .pal { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; width: 100%; }
+    .pal button { grid-template-columns: 16px minmax(0, 1fr) auto; gap: .45em; padding: .35em .55em; line-height: 1.35; }
+    .pal .sw { width: 16px; height: 16px; }
+    .pal .sz { display: block; }
+    #bdbtns { gap: 6px; }
+    #bdbtns .btn { font-size: .82rem; padding: .5em .8em; }
+    /* 答えは「次に開けるなら」を全幅、残り 2 枚を横に */
+    #stats { grid-template-columns: 1fr 1fr; }
+    #stats > .stat.hero { grid-column: 1 / -1; }
+    #stats > .stat:nth-child(3) { grid-column: auto; }
+    #stats .stat { padding: 10px 12px; }
+    #stats .stat:not(.hero) .v { font-size: 1.3rem; }
+  }
 </style>
 </head>
 <body>
@@ -287,7 +325,7 @@
         <p class="hintline" id="event-note"></p>
       </div>
       <div>
-        <p class="wklabel">この周の中身を入れる<small>押すと備品の型が入れ替わり、盤面も白紙に戻ります</small></p>
+        <p class="wklabel">この周の中身を入れる<button type="button" class="qm" data-hint="押すと備品の型が入れ替わり、盤面も白紙に戻ります。"></button></p>
         <div class="wkrow" id="weeks"></div>
       </div>
     </div>
@@ -297,19 +335,22 @@
 
     <div class="tcol">
       <div class="panel">
-        <div class="panel-h"><h2>盤面</h2></div>
-        <p class="lead"><b>なにが出たかを選んでから、そのマスを押します。</b>もう一度押すと消えます。<button type="button" class="qm" data-hint="備品の一部が見えただけで大丈夫です(端でも真ん中でも構いません)。マスの上に指を置くと、その備品が届きうる範囲が枠で出ます。"></button></p>
-        <div class="seg" id="view" role="group" aria-label="表示の切り替え" style="margin-bottom:14px">
-          <button type="button" data-v="any" aria-pressed="true" id="v-any">なにかある確率</button>
-          <button type="button" data-v="rev" aria-pressed="false">当たる備品の大きさ</button>
-        </div>
+        <div class="panel-h"><h2>盤面</h2><span class="hsub">出たものを選んで、マスを押す</span><button type="button" class="qm" data-hint="なにが出たかを選んでから、そのマスを押します。もう一度押すと消えます。備品の一部が見えただけで大丈夫です(端でも真ん中でも構いません)。マスの上に指を置くと、その備品が届きうる範囲が枠で出ます。"></button></div>
         <div class="palrow">
           <span class="pallb">なにが出た？</span>
           <div class="pal" id="pal"></div>
         </div>
         <div class="board" id="board"></div>
-        <div class="legend" id="legend"></div>
-        <div class="btnrow" style="margin-top:18px">
+        <!-- **表示の切り替えは盤の下。**数字の意味の一言（凡例）と同じ話なので並べる。
+             盤より上に置くと、押す前に 1 段ぶん指が遠くなる（2026-09-26） -->
+        <div class="viewrow">
+          <div class="seg" id="view" role="group" aria-label="表示の切り替え">
+            <button type="button" data-v="any" aria-pressed="true" id="v-any">なにかある確率</button>
+            <button type="button" data-v="rev" aria-pressed="false">当たる備品の大きさ</button>
+          </div>
+          <div class="legend" id="legend"></div>
+        </div>
+        <div class="btnrow" id="bdbtns">
           <button type="button" class="btn" id="undo">ひとつ戻す</button>
           <button type="button" class="btn" id="reset">盤面をまっさらに</button>
           <span class="tag" id="cnt-open">印 0 マス</span>
@@ -319,7 +360,7 @@
     </div>
 
     <div class="tcol">
-      <div class="stats c3">
+      <div class="stats c3" id="stats">
         <div class="stat hero">
           <div class="k">次に開けるなら</div>
           <div class="v" id="o-best">—</div>
@@ -338,8 +379,7 @@
       </div>
 
       <div class="panel">
-        <div class="panel-h"><h2>おすすめのマス</h2></div>
-        <p class="lead">上から順に、<b id="picks-k">当たる確率</b>が高いマスです。<button type="button" class="qm" data-hint="「当たる備品の大きさ」は、そこに何かあったときそれが何マスの備品かの期待値です。大きいものほど、見つけたときの手がかりが増えます。"></button></p>
+        <div class="panel-h"><h2>おすすめのマス</h2><span class="hsub"><span id="picks-k">当たる確率</span>が高い順</span><button type="button" class="qm" data-hint="「当たる備品の大きさ」は、そこに何かあったときそれが何マスの備品かの期待値です。大きいものほど、見つけたときの手がかりが増えます。"></button></div>
         <div class="picks" id="picks"></div>
       </div>
     </div>
@@ -347,8 +387,7 @@
     <!-- 備品の型は盤の下の全幅（2026-09-26）。周を選べば入るので、書き換えるときだけ触る -->
     <div class="tfull">
       <div class="panel">
-        <div class="panel-h"><h2>備品の型</h2></div>
-        <p class="lead">名前・よこ・たて・個数は書き換えられます。<b>「狙う」を外すと確率に数えません。</b><button type="button" class="qm" data-hint="狙うものを絞ると、マスの数字が「なにかある確率」から「狙っているものがある確率」に変わります。盤の置き方の数え上げは変わらないので、外した備品もちゃんと場所を取ったまま計算します。周を切り替えると「狙う」は全部に戻ります。"></button></p>
+        <div class="panel-h"><h2>備品の型</h2><span class="hsub">書き換えられます。「狙う」を外すと確率に数えません</span><button type="button" class="qm" data-hint="名前・よこ・たて・個数は書き換えられます。狙うものを絞ると、マスの数字が「なにかある確率」から「狙っているものがある確率」に変わります。盤の置き方の数え上げは変わらないので、外した備品もちゃんと場所を取ったまま計算します。周を切り替えると「狙う」は全部に戻ります。"></button></div>
         <div id="items"></div>
       </div>
     </div>
@@ -533,8 +572,9 @@
     // terry-u16 の日本語ロケールも「1周目」〜「13周目以降」。
     // 2026-08-30 まで "週目" と書いていた（先生が見つけてくれた）
     el('weeks').innerHTML = rs.map(function (_, i) {
-      var nm = (i + 1 >= loop) ? (i + 1) + '周目以降' : (i + 1) + '周目';
-      return '<button type="button" data-w="' + i + '" aria-pressed="' + (i === week) + '">' + nm + '</button>';
+      // **「周目」は画面では落として数字だけ**（見出しが「この周の…」なので読める）。読み上げには aria-label で全部渡す
+      var nm = (i + 1) + '<span class="u">周目</span>' + ((i + 1 >= loop) ? '以降' : '');
+      return '<button type="button" data-w="' + i + '" aria-pressed="' + (i === week) + '" aria-label="' + (i + 1) + '周目' + ((i + 1 >= loop) ? '以降' : '') + '">' + nm + '</button>';
     }).join('');
   }
 
