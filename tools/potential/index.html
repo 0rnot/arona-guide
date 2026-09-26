@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>潜在能力解放の計算機｜AronaBot</title>
-<meta name="description" content="生徒を選んで最大 HP・攻撃力・治癒力の目標段を入れると、要るオーパーツと応用 WB とクレジットが出ます。オーパーツからの逆引きも。">
+<meta name="description" content="生徒を選んで最大 HP・攻撃力・治癒力の目標段を入れると、要るオーパーツと応用 WB とクレジットが出ます。">
 <meta name="theme-color" content="#c8892e">
 <link rel="icon" href="../../favicon.svg" type="image/svg+xml">
 <meta property="og:type" content="website">
@@ -12,14 +12,14 @@
 <meta property="og:locale" content="ja_JP">
 <meta property="og:url" content="https://arona-bot.com/tools/potential/">
 <meta property="og:title" content="潜在能力解放の計算機">
-<meta property="og:description" content="生徒を選んで最大 HP・攻撃力・治癒力の目標段を入れると、要るオーパーツと応用 WB とクレジットが出ます。オーパーツからの逆引きも。">
+<meta property="og:description" content="生徒を選んで最大 HP・攻撃力・治癒力の目標段を入れると、要るオーパーツと応用 WB とクレジットが出ます。">
 <meta property="og:image" content="https://arona-bot.com/images/og/potential.jpg">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta property="og:image:alt" content="潜在能力解放の計算機 — AronaBot のツール">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="潜在能力解放の計算機">
-<meta name="twitter:description" content="生徒を選んで最大 HP・攻撃力・治癒力の目標段を入れると、要るオーパーツと応用 WB とクレジットが出ます。オーパーツからの逆引きも。">
+<meta name="twitter:description" content="生徒を選んで最大 HP・攻撃力・治癒力の目標段を入れると、要るオーパーツと応用 WB とクレジットが出ます。">
 <meta name="twitter:image" content="https://arona-bot.com/images/og/potential.jpg">
 <link rel="stylesheet" href="../../style.css?v=25">
 <link rel="stylesheet" href="../tool.css?v=17">
@@ -62,22 +62,41 @@
   .bar > i { display: block; height: 100%; background: var(--accent); }
   .barnote { font-size: .76rem; color: var(--fg-mute); margin: 0; }
 
-  /* オーパーツの逆引き */
-  .arts { display: grid; grid-template-columns: repeat(auto-fill, minmax(122px, 1fr)); gap: 8px; }
-  .artb { display: flex; align-items: center; gap: 7px; padding: .5em .6em; text-align: left;
-          border: 1px solid var(--line); border-radius: 11px; background: var(--card);
-          cursor: pointer; font: inherit; font-size: .78rem; color: var(--fg); line-height: 1.35; }
-  .artb:hover { border-color: var(--accent); }
-  .artb[aria-pressed="true"] { background: var(--accent); color: var(--accent-in); border-color: transparent; }
-  .artb img { width: 26px; height: 26px; border-radius: 5px; flex: none; }
-  .artb span { min-width: 0; word-break: auto-phrase; }
+  /* 要るものの札。**品目ごとに 1 行。**欠片と壊れたほう、応用 WB の 3 種は
+     互いに融通できない別のアイテムなので、足した数は出さない
+     （2026-09-26。「要るオーパーツ 885 個」と合計していて、何を何個集めるのか読めなかった） */
+  .items { margin-top: .35em; }
+  .items .it { display: flex; align-items: center; gap: 8px; padding: .3em 0; }
+  .items .it + .it { border-top: 1px solid var(--line); }
+  .items .it img { width: 30px; height: 30px; border-radius: 6px; flex: none; }
+  .items .it .n { flex: 1; min-width: 0; font-size: .82rem; line-height: 1.4; word-break: auto-phrase; }
+  .items .it .c { font-size: 1.3rem; font-weight: 800; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .items .it .c small { font-size: .6em; font-weight: 500; color: var(--fg-mute); margin-left: .2em; }
+  .stat.hero .items .it .c { color: var(--accent-tx); }
+  .items .it.zero .c { color: var(--fg-mute); font-weight: 600; }
+  .golink { display: inline-block; margin-top: .6em; font-size: .8rem; font-weight: 700; }
+
+  /* 伸び。**枠ごとに「1 段あたり」と「目標まで」の 2 つ。**
+     **揃えは既定の stretch のまま。**baseline にすると名前の欄だけ背が高くなり、
+     行の罫線が列ごとに段違いになった */
+  .grow { display: grid; grid-template-columns: 1fr auto auto; }
+  .grow > span { padding: 10px 0; border-bottom: 1px solid var(--line); text-align: right;
+                 font-variant-numeric: tabular-nums; font-weight: 700; white-space: nowrap; }
+  .grow > span:nth-child(3n+1) { text-align: left; white-space: normal; }
+  /* 列の間は padding で空ける。column-gap だと行の罫線が列ごとに途切れる */
+  .grow > span:not(:nth-child(3n+1)) { padding-left: 14px; }
+  .grow > span.h { padding-top: 0; padding-bottom: 4px; font-size: .74rem; font-weight: 400; color: var(--fg-mute); }
+  .grow > span:nth-last-child(-n+3) { border-bottom: 0; }
+  .grow .subnote { display: block; font-weight: 400; font-size: .76rem; color: var(--fg-mute); }
+  .grow .mute { font-weight: 400; color: var(--fg-mute); }
+
+  /* 段ごとの表。**幅 390 でも箱の中に収める。**5 列で「欠片 ／ 壊れた」の累計を
+     横に並べていたらクレジットの列が切れていた（2026-09-26）。累計はオーパーツの
+     欄の 2 行目へ畳み、単位は見出しへ出して 4 列にした */
+  table.dt.steps th, table.dt.steps td { padding: .5em .45em; }
+  table.dt.steps td small { display: block; font-size: .74rem; color: var(--fg-mute); font-weight: 400; }
+  @media (max-width: 480px) { table.dt.steps { font-size: .8rem; } }
   .nowrap { white-space: nowrap; }
-  .faces { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
-  .face { width: 62px; text-align: center; font-size: .7rem; line-height: 1.3; color: var(--fg-mute); }
-  .face img { width: 62px; height: 62px; border-radius: 10px; display: block;
-              border: 1px solid var(--line); background: var(--bg-sub); }
-  .face b { display: block; font-weight: 600; color: var(--fg); margin-top: .25em;
-            word-break: auto-phrase; }
 </style>
 </head>
 <body>
@@ -217,38 +236,38 @@
         </div>
       </div>
 
-      <div class="panel">
-        <div class="panel-h"><h2>どれだけ強くなりますか</h2></div>
-        <p class="lead">生徒が <b>Lv<span id="lead-lv">90</span></b> のときの伸びです。
-          <button type="button" class="qm" data-hint="★の倍率が掛かる前の基礎値から数えています（SchaleDBと同じ数え方）。"></button></p>
-        <div class="ledger" id="growth"></div>
-      </div>
-    </div>
-
-    <div class="tcol">
+      <!-- **要るものは「どこまで開きますか」のすぐ下。**先に伸びを置いていたら、
+           スマホで答えが画面 2 枚ぶん下に沈んでいた（2026-09-26 の先生の判断 Q4-1） -->
       <div class="stats c3">
         <div class="stat hero">
           <div class="k">要るオーパーツ</div>
-          <div class="v" id="o-art">—</div>
-          <div class="sub" id="o-art-sub">生徒を選ぶと名前が出ます</div>
+          <div class="items" id="o-art"></div>
+          <a class="golink" id="to-oopart" href="../oopart/">オーパーツから生徒を引く →</a>
+        </div>
+        <div class="stat">
+          <div class="k">応用 WB</div>
+          <div class="items" id="o-book"></div>
         </div>
         <div class="stat">
           <div class="k"><img class="ico" src="../img/currency_icon_gold.webp" alt="" width="18" height="18" loading="lazy"> クレジット</div>
           <div class="v" id="o-credit">—</div>
-          <div class="sub">3 つの枠を合わせたぶん</div>
-        </div>
-        <div class="stat">
-          <div class="k">応用 WB</div>
-          <div class="v" id="o-book">—</div>
-          <div class="sub" id="o-book-sub">枠ごとに種類が違います</div>
         </div>
       </div>
+    </div>
 
+    <div class="tcol">
       <div class="panel">
         <div class="panel-h"><h2>手持ちで足りますか</h2></div>
         <div class="bar"><i id="bar" style="width:0%"></i></div>
         <p class="barnote" id="barnote">—</p>
         <div class="ledger" id="have"></div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-h"><h2>どれだけ強くなりますか</h2></div>
+        <p class="lead">生徒が <b>Lv<span id="lead-lv">90</span></b> のときの伸びです。
+          <button type="button" class="qm" id="growth-qm" data-hint="★の倍率が掛かる前の基礎値から数えています（SchaleDBと同じ数え方）。"></button></p>
+        <div class="grow" id="growth"></div>
       </div>
     </div>
 
@@ -256,21 +275,16 @@
       <div class="panel">
         <div class="panel-h"><h2>段ごとの中身</h2></div>
         <p class="lead"><b>要る量は全員同じです。</b>1〜15 段目は<b>欠片</b>、16〜25 段目は<b>壊れたほう</b>を使います。
-          <button type="button" class="qm" data-hint="同じ中身が続く区間はまとめてあります。いちばん右は0段からの累計です。"></button></p>
+          <button type="button" class="qm" data-hint="同じ中身が続く区間はまとめてあります。数はどれも1段あたりで、オーパーツの下の小さい数は0段からの累計です。"></button></p>
         <div class="tscroll">
-          <table class="dt">
-            <thead><tr><th>段</th><th>1 段あたり</th><th>WB</th><th>クレジット</th><th>ここまでの累計</th></tr></thead>
+          <table class="dt steps">
+            <thead><tr><th>段</th><th>オーパーツ</th><th>WB</th><th>クレジット</th></tr></thead>
             <tbody id="tb"></tbody>
           </table>
         </div>
       </div>
-
-      <div class="panel">
-        <div class="panel-h"><h2>オーパーツから引く</h2></div>
-        <p class="lead">持て余しているオーパーツを押すと、<b>その欠片を使う生徒</b>が並びます。<span id="artcount">—</span> 種類あります。</p>
-        <div class="arts" id="artpick"></div>
-        <div class="faces" id="artfaces"></div>
-      </div>
+      <!-- 「オーパーツから引く」欄は 2026-09-26 に消した（Q1-2）。同じことを
+           oopart ツールが深くやっているので、要るオーパーツの札からそちらへ飛ぶ -->
 
       <div class="sharebar" id="sharebar"></div>
 
@@ -321,7 +335,7 @@
   {"sel": "#stucard", "t": "まず生徒を選びます", "d": "その子に要るオーパーツの名前が出ます。要る個数とクレジットは誰でも同じです。"},
   {"sel": "#potsteps", "t": "枠ごとに今と目標を入れます", "d": "最大 HP・攻撃力・治癒力の 3 つが別々に上がります。使わない枠には印が付きます。"},
   {"sel": "#o-art", "t": "要る量がここに出ます", "d": "オーパーツは欠片と壊れたほうで別々に数えます。手持ちを入れると、あと何個足りないかも出ます。"},
-  {"sel": "#artpick", "t": "オーパーツから引けます", "d": "持て余しているオーパーツを押すと、それを使う生徒が顔で並びます。"},
+  {"sel": "#to-oopart", "t": "同じオーパーツを使う生徒", "d": "押すと、このオーパーツを選んだ状態で逆引きのツールが開きます。"},
   {"sel": "#sharebar", "t": "結果はそのまま渡せます", "d": "開いている状態ごと URL になるので、リンクを送れば相手の画面にも同じ結果が出ます。"}
 ]};</script>
 <script src="../tour.js?v=2"></script>
@@ -354,6 +368,9 @@
   </div>
 </footer>
 
+<!-- **data.js より前。**ハッシュが空なら前回の入力を URL に戻してから、下の本体が読む。
+     本体は draw() のたびに location.replace で書き直すが、そのときにはもう戻ったあと -->
+<script src="../remember.js?v=1"></script>
 <script src="data.js"></script>
 <script>
 (function () {
@@ -366,9 +383,11 @@
 
   var student = null;
   var cur = [0, 0, 0], goal = [P.max, P.max, 0];
-  var art = null;
 
   function fmt(n) { return Math.round(n).toLocaleString('ja-JP'); }
+  /** 1 段あたりの伸びは端数が出る（攻撃力 1,590 なら 3.18）。**丸めて 3 と書くと
+      25 段で 75 に見えて、目標までの 80 と食い違う**ので小数 1 桁まで出す */
+  function fmt1(n) { return n.toLocaleString('ja-JP', { maximumFractionDigits: 1 }); }
   function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;'); }
 
   /** **P.steps[i] は「i 段目 → i+1 段目」。**a から b へは i = a … b-1 を足す。 */
@@ -404,7 +423,6 @@
     }).join('');
     el('lead-max').textContent = P.max;
     el('lead-lv').textContent = P.openLv;
-    el('artcount').textContent = Object.keys(P.arts).length;
     el('src-n').textContent = fmt(P.checked);
     el('src-s').textContent = P.stu.length;
     el('src-un').textContent = P.stu.filter(function (s) { return s.un[2]; }).length;
@@ -413,14 +431,17 @@
     // 段ごとの表。**中身は生徒に依らない**ので一度だけ組む。
     // **同じ中身が続く区間はまとめる。**25 行そのまま並べるとスマホで画面 3 枚ぶんになり、
     // しかも 5 段ずつ全く同じ値が続くので読むところが無い（2026-08-30 に実物を見て畳んだ）
+    // **累計はその行で使う品目のぶんだけ。**欠片は 15 段で使い切り、壊れたほうは
+    // 16 段目からなので、もう片方は 0 か使い切った数にしかならない
     var c0 = 0, c1 = 0, rows = [], run = null;
     var flush = function () {
       if (!run) return;
-      rows.push('<tr><td class="nowrap">' + run.a + ' → ' + run.b + ' 段</td>' +
-        '<td class="nowrap">' + (run.s.g === 0 ? '欠片' : '壊れたほう') + ' ' + run.s.an + ' 個</td>' +
-        '<td class="nowrap">' + run.s.bk + ' 冊</td>' +
-        '<td class="nowrap">' + fmt(run.s.cr) + '</td>' +
-        '<td class="nowrap">欠片 ' + run.c0 + ' ／ 壊れた ' + run.c1 + '</td></tr>');
+      var g0 = run.s.g === 0;
+      rows.push('<tr><td>' + run.a + '→' + run.b + '</td>' +
+        '<td>' + (g0 ? '欠片' : '壊れた') + ' ' + run.s.an + ' 個' +
+        '<small>累計 ' + fmt(g0 ? run.c0 : run.c1) + '</small></td>' +
+        '<td>' + run.s.bk + ' 冊</td>' +
+        '<td>' + fmt(run.s.cr) + '</td></tr>');
       run = null;
     };
     P.steps.forEach(function (s, i) {
@@ -431,15 +452,6 @@
     });
     flush();
     el('tb').innerHTML = rows.join('');
-
-    // オーパーツの逆引きボタン
-    el('artpick').innerHTML = Object.keys(P.arts).sort(function (a, b) { return a - b; })
-      .map(function (id) {
-        var a = P.arts[id];
-        return '<button type="button" class="artb" data-a="' + id + '" aria-pressed="false">' +
-          '<img src="../img/' + a.a.i + '.webp" alt="" width="26" height="26" loading="lazy">' +
-          '<span>' + esc(a.c) + '</span></button>';
-      }).join('');
   })();
 
   /* **入れ物は組み直さない。値だけ合わせる。**
@@ -472,21 +484,27 @@
     }
   }
 
+  /* **伸びは枠ごとに「1 段あたり」と「目標まで（今より）」の 2 つ。**
+     「目標の段で合計いくつ」だけだと、1 段開けるとどれだけ違うのかが読めなかった
+     （2026-09-26 の先生の判断 Q4-1）。基礎値は丸の i へ畳んだ */
   function drawGrowth() {
-    var h = '';
+    var h = '<span class="h"></span><span class="h">1 段あたり</span><span class="h">目標まで（今より）</span>';
     for (var k = 0; k < 3; k++) {
-      var v = '<small style="color:var(--fg-mute);font-weight:400">生徒を選ぶと実数が出ます</small>';
+      var per = '<span class="mute">—</span>', up = per;
       if (student) {
-        var now = bonusAt(student.b[k], P.openLv, cur[k]);
-        var to = bonusAt(student.b[k], P.openLv, goal[k]);
-        v = '＋' + fmt(to) + '<span class="subnote">今より ＋' + fmt(to - now) +
-            '（基礎値 ' + fmt(base(student.b[k], P.openLv)) + '）</span>';
+        per = '＋' + fmt1(base(student.b[k], P.openLv) * P.rate / 10000);
+        up = '＋' + fmt(bonusAt(student.b[k], P.openLv, goal[k]) - bonusAt(student.b[k], P.openLv, cur[k]));
       }
-      h += '<div class="row"><span>' + P.statJa[KEYS[k]] + '<span class="subnote">' +
-        goal[k] + ' 段で ＋' + (goal[k] * P.rate / 100).toFixed(1).replace(/\.0$/, '') + '%</span></span>' +
-        '<span>' + v + '</span></div>';
+      h += '<span>' + P.statJa[KEYS[k]] + '<span class="subnote">' + cur[k] + '→' + goal[k] + ' 段（＋' +
+        ((goal[k] - cur[k]) * P.rate / 100).toFixed(1).replace(/\.0$/, '') + '%）</span></span>' +
+        '<span>' + per + '</span><span>' + up + '</span>';
     }
     el('growth').innerHTML = h;
+    el('growth-qm').setAttribute('data-hint', student
+      ? 'Lv' + P.openLv + 'の基礎値は ' + KEYS.map(function (k, i) {
+          return P.statJa[k] + ' ' + fmt(base(student.b[i], P.openLv));
+        }).join('／') + '。★の倍率が掛かる前の値から数えています（SchaleDBと同じ数え方）。'
+      : '★の倍率が掛かる前の基礎値から数えています（SchaleDBと同じ数え方）。生徒を選ぶと実数が出ます。');
   }
 
   /* **手持ちの欄は一度だけ組む。**入力のたびに `innerHTML` を書き換えると、
@@ -527,17 +545,6 @@
     });
   }
 
-  function drawFaces() {
-    if (!art) { el('artfaces').innerHTML = ''; return; }
-    var list = P.stu.filter(function (s) { return s.a === +art; });
-    el('artfaces').innerHTML = '<p class="barnote" style="width:100%;margin:0 0 4px">' +
-      esc(P.arts[art].a.n) + ' を使う生徒 <b>' + list.length + ' 人</b></p>' +
-      list.map(function (s) {
-        return '<span class="face"><img src="../img/student_' + s.id + '.webp" alt="" width="62" height="62" loading="lazy"><b>' +
-          esc(s.n) + '</b></span>';
-      }).join('');
-  }
-
   function draw() {
     var card = el('stucard');
     if (student) {
@@ -555,17 +562,19 @@
     }
 
     var t = total();
-    el('o-art').innerHTML = fmt(t.a0 + t.a1) + ' <small>個</small>';
-    el('o-art-sub').innerHTML = student
-      ? esc(P.arts[student.a].a.n) + ' <b>' + fmt(t.a0) + '</b> ／ ' +
-        esc(P.arts[student.a].b.n) + ' <b>' + fmt(t.a1) + '</b>'
-      : '欠片 <b>' + fmt(t.a0) + '</b> ／ 壊れたほう <b>' + fmt(t.a1) + '</b>（生徒を選ぶと名前が出ます）';
+    var A = student ? P.arts[student.a] : null;
+    el('o-art').innerHTML =
+      item(A && A.a.i, A ? A.a.n : 'オーパーツの欠片', t.a0, '個') +
+      item(A && A.b.i, A ? A.b.n : '壊れたオーパーツ', t.a1, '個');
+    el('o-book').innerHTML = KEYS.map(function (k, i) {
+      return item(P.books[k].i, P.books[k].n, t.bk[i], '冊');
+    }).join('');
     el('o-credit').textContent = fmt(t.cr);
-    var bk = t.bk[0] + t.bk[1] + t.bk[2];
-    el('o-book').innerHTML = fmt(bk) + ' <small>冊</small>';
-    el('o-book-sub').innerHTML = KEYS.map(function (k, i) {
-      return esc(P.books[k].n) + ' ' + fmt(t.bk[i]);
-    }).join('／');
+    /* **oopart へは欠片の系統ごと渡す。**あちらのハッシュは `種類|系統|並び` で、
+       系統はアイコン名の末尾の段（_0〜_3）を落としたもの（oopart.js の family()）。
+       並びは省くと既定の「必要数順」になる */
+    el('to-oopart').href = '../oopart/' + (A ? '#oopart|' + A.a.i.replace(/_\d+$/, '') : '');
+    el('to-oopart').textContent = A ? A.c + 'を使う生徒を見る →' : 'オーパーツから生徒を引く →';
 
     drawRows();
     drawGrowth();
@@ -574,21 +583,30 @@
     var needAll = t.a0 + t.a1;
     // **品目ごとに足りているぶんだけ数える。**単純に足すと、欠片だけ大量に
     // 持っている人が 100% に見える（壊れたオーパーツが 0 でも）。
-    var haveAll = Math.min(haveOf('h-a0'), t.a0) + Math.min(haveOf('h-a1'), t.a1);
-    var p = needAll ? Math.min(100, haveAll / needAll * 100) : 100;
+    // **文には品目ごとの数を出す。**「要る 885 個」と合計を書くと、別のアイテムを
+    // 足した数になって何を集めればいいか読めない（2026-09-26）
+    var h0 = Math.min(haveOf('h-a0'), t.a0), h1 = Math.min(haveOf('h-a1'), t.a1);
+    var p = needAll ? Math.min(100, (h0 + h1) / needAll * 100) : 100;
     el('bar').style.width = p.toFixed(1) + '%';
     el('barnote').textContent = needAll
-      ? 'オーパーツは手持ち ' + fmt(haveAll) + ' 個で、要る ' + fmt(needAll) + ' 個の ' + p.toFixed(0) + '%'
+      ? 'オーパーツは ' + p.toFixed(0) + '% 揃っています（欠片 ' + fmt(h0) + '／' + fmt(t.a0) +
+        '、壊れた ' + fmt(h1) + '／' + fmt(t.a1) + '）'
       : '今の段と目標が同じなので、何も要りません。';
 
-    drawFaces();
     location.replace('#' + toHash());
+  }
+
+  /** 要るものの 1 行。アイコンが無い（生徒を選ぶ前の）ときは名前だけ */
+  function item(icon, name, n, unit) {
+    return '<div class="it' + (n ? '' : ' zero') + '">' +
+      (icon ? '<img src="../img/' + icon + '.webp" alt="" width="30" height="30" loading="lazy">' : '') +
+      '<span class="n">' + esc(name) + '</span>' +
+      '<span class="c">' + fmt(n) + '<small>' + unit + '</small></span></div>';
   }
 
   function toHash() {
     return (student ? student.id : '') + '|' + cur.join(',') + '|' + goal.join(',') + '|' +
-      HAVE.map(function (x) { return haveOf(x.id); }).join('|') +
-      (art ? '|a' + art : '');
+      HAVE.map(function (x) { return haveOf(x.id); }).join('|');
   }
   window.shareUrl = function () { return '#' + toHash(); };
 
@@ -629,15 +647,6 @@
      空の答えで止まってしまう（2026-08-31 に実物で確認）。既定と同じ
      「HP と攻撃力を最大まで」に戻す */
   el('b-reset').addEventListener('click', function () { cur = [0, 0, 0]; goal = [P.max, P.max, 0]; draw(); });
-  el('artpick').addEventListener('click', function (e) {
-    var b = e.target.closest('.artb'); if (!b) return;
-    art = (art === b.dataset.a) ? null : b.dataset.a;
-    [].forEach.call(this.querySelectorAll('.artb'), function (x) {
-      x.setAttribute('aria-pressed', String(x.dataset.a === art));
-    });
-    drawFaces();
-    location.replace('#' + toHash());
-  });
 
   (function fromHash() {
     var h = decodeURIComponent(location.hash.replace(/^#/, ''));
@@ -657,19 +666,17 @@
        ここと toHash が `h-bk` 1 欄のままで、draw() が毎回落ちていた（2026-09-26 に発見）。
        それより前の URL は `id|今|目標|欠片|壊れた|WB合計[|オーパーツ]` の形で、
        WB 合計はどの欄に入れるか決められないので読まない。
-       オーパーツは数字の欄と見分けるため、今は先頭に `a` を付けて置く */
+       オーパーツは数字の欄と見分けるため、先頭に `a` を付けて置いていた */
+    /* **オーパーツの欄は読み捨てる。**「オーパーツから引く」欄を消して oopart へ
+       飛ぶ形にしたので（2026-09-26）、画面に効く先が無い。書き出しもやめたが、
+       古い共有 URL の数字の欄がずれないよう、末尾にあれば外してから読む */
     var last = p[p.length - 1] || '';
-    if (last.charAt(0) === 'a' && P.arts[last.slice(1)]) { art = last.slice(1); p.pop(); }
-    else if (p.length === 7 && P.arts[last]) { art = last; p.pop(); }
+    if (last.charAt(0) === 'a' && P.arts[last.slice(1)]) p.pop();
+    else if (p.length === 7 && P.arts[last]) p.pop();
     var n = p.length >= 3 + HAVE.length ? HAVE.length : 2;
     for (var j = 0; j < n; j++) {
       var v = parseInt(p[3 + j], 10);
       if (v > 0) el(HAVE[j].id).value = v;
-    }
-    if (art) {
-      [].forEach.call(document.querySelectorAll('.artb'), function (x) {
-        x.setAttribute('aria-pressed', String(x.dataset.a === art));
-      });
     }
   })();
 
