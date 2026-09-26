@@ -28,29 +28,67 @@
      **2026-09-26 に student-cost・eleph・potential の 3 本を 1 本にまとめた。**
      見た目は 3 本のものをそのまま持ってきて、id が重なるところだけ星上げに `e-`、潜在に `p-` を付けた */
   /* 選んだ生徒 */
-  .stucard {
-    display: grid; grid-template-columns: 96px 1fr; gap: 16px; align-items: center;
-    padding: 14px; margin-bottom: 16px;
-    border: 1px solid var(--line); border-radius: 14px; background: var(--bg-sub);
-  }
-  .stucard.none { border-style: dashed; }
+  /* **顔の横に名前の欄を置く**（2026-09-26 の UI 見直し）。前は 96px の顔と名前のカードの下に
+     欄があって、390 幅で最初の入力が y=464 だった。名前は欄に出ているので、
+     カードの名前（#stu-name）は読み上げだけに残した */
+  .stucard { display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 12px; align-items: start; }
+  @media (min-width: 900px) { .stucard { grid-template-columns: 76px minmax(0, 1fr); } }
   .stuimg {
-    width: 96px; height: 96px; border-radius: 12px; overflow: hidden;
-    background: var(--card); border: 1px solid var(--line);
+    width: 100%; aspect-ratio: 1; border-radius: 12px; overflow: hidden;
+    background: var(--bg-sub); border: 1px solid var(--line);
     display: grid; place-items: center;
   }
+  .stucard.none .stuimg { border-style: dashed; }
   .stuimg img { width: 100%; height: 100%; object-fit: cover; display: block; }
-  .stuimg .ph { font-size: .72rem; color: var(--fg-mute); font-weight: 700; letter-spacing: .08em; }
-  .stuname { font-size: 1.15rem; font-weight: 800; margin: 0 0 .3em; }
-  .stucard.none .stuname { color: var(--fg-mute); font-size: .95rem; }
-  .stunote { font-size: .78rem; color: var(--fg-mute); margin: .35em 0 0; line-height: 1.6; }
+  /* 選ぶ前の顔。**文字（none）ではなく人の形** */
+  .stuimg .ph { display: grid; place-items: center; width: 100%; height: 100%; color: var(--fg-mute); opacity: .55; }
+  .stuimg .ph svg { width: 58%; height: 58%; }
+  .stulb { display: flex; align-items: center; gap: .2em; font-size: 1rem; font-weight: 800; margin: 0 0 .35em; line-height: 1.5; }
+  .vh { position: absolute !important; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .stunote { font-size: .76rem; color: var(--fg-mute); margin: .4em 0 0; line-height: 1.55; }
+  #p-stu .err { margin-top: 8px; }
+  @media (min-width: 900px) { #i-student { max-width: 30em; } }
+
+  /* よくある目標。**3 つを 1 段に等分**（390 幅で 2 段に折れて、3 つ目だけ下に落ちていた） */
+  #preset { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); width: 100%; box-sizing: border-box; }
+  #preset button { padding: .5em .3em; font-size: .8rem; white-space: nowrap; min-height: 36px; }
+
+  /* 答えの札。**スマホでも 2 列**（1 列だと総額で 5 段・星上げで 4 段積まれていた） */
+  .tcol .stats.c4 { grid-template-columns: 1fr 1fr; }
+  #sec-star .tcol .stats.c4 > .stat.hero { grid-column: auto; }
+  @media (max-width: 480px) {
+    .tcol .stats .stat { padding: 10px 12px; }
+    .tcol .stats .stat:not(.hero) .v { font-size: 1.25rem; }
+  }
+  /* 星上げは、スマホでは答えを「どこまで上げますか」のすぐ下へ。段ごとの中身はその下 */
+  @media (max-width: 899px) {
+    #sec-star .tcols > .tcol { display: contents; }
+    #sec-star .tcol:first-child > .panel:first-child { order: -3; }
+    #sec-star .tcol > .stats { order: -2; margin: 0; }
+  }
+
+  /* **答えが画面の下にあるあいだ、下に小さく出す帯**（スマホだけ。2026-09-26 の UI 見直し）。
+     総額は目標の行が 14 本あって、答えまで画面 2 枚ぶん降りる。押すと答えまで送る */
+  .scbar { position: fixed; left: 12px; right: 12px; bottom: 12px; z-index: 40;
+           display: flex; align-items: center; gap: 10px; padding: 8px 14px; min-height: 44px;
+           border: 1px solid var(--accent); border-radius: 14px; box-sizing: border-box;
+           background: color-mix(in srgb, var(--card) 94%, transparent); box-shadow: var(--shadow);
+           -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+           font: inherit; color: var(--fg); text-align: left; cursor: pointer; }
+  .scbar .it { display: flex; flex-direction: column; min-width: 0; line-height: 1.25; }
+  .scbar .it small { font-size: .68rem; color: var(--fg-mute); }
+  .scbar .it b { font-size: 1rem; font-weight: 800; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .scbar .it:first-child b { color: var(--accent-tx); }
+  .scbar .go { margin-left: auto; font-size: .78rem; font-weight: 700; color: var(--accent-tx); white-space: nowrap; }
+  @media (min-width: 900px) { .scbar { display: none !important; } }
+  body.tour-on .scbar { display: none !important; }
 
   /* 今 → 目標 の行。**左が項目、右に 2 つの選択** */
   .goal { display: grid; grid-template-columns: 1fr 104px 18px 104px; gap: .5em;
-          align-items: center; padding: .5em 0; border-bottom: 1px solid var(--line); }
+          align-items: center; padding: .42em 0; border-bottom: 1px solid var(--line); }
   .goal:last-of-type { border-bottom: 0; }
   .goal .nm { font-size: .9rem; }
-  .goal .nm small { display: block; color: var(--fg-mute); font-size: .74rem; margin-top: .1em; }
+  .goal .nm small { display: block; color: var(--fg-mute); font-size: .72rem; line-height: 1.45; margin-top: .1em; }
   .goal .ar { text-align: center; color: var(--fg-mute); font-size: .9rem; }
   .goal input { width: 100%; padding: .4em .5em; font-size: .92rem; text-align: right; }
   /* **矢印のぶんを空けておく。**padding のショートハンドで書くと
@@ -133,6 +171,15 @@
   .star.ue { width: auto; min-width: 3.4em; padding: 0 .5em; font-size: .78rem; font-weight: 700; }
   .star.on { background: var(--accent); border-color: transparent; color: var(--accent-in); }
   .star.from { background: color-mix(in srgb, var(--accent) 26%, var(--card)); color: var(--fg); }
+  /* **細い画面では 8 個を 1 段に等分し、見出しは上へ。**見出しを横に置くと 2 段に折れて、
+     「固有4」だけが次の行に落ちていた（2026-09-26 の UI 見直し）。高さは 40px のまま */
+  @media (max-width: 560px) {
+    .starrow { display: block; }
+    .starrow .lb { display: block; width: auto; margin: 0 0 4px; }
+    .starrow > div { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 4px; }
+    .star, .star.ue { width: auto; min-width: 0; height: 40px; padding: 0; }
+    .star.ue { font-size: .7rem; letter-spacing: -.02em; }
+  }
   .star:disabled { opacity: .35; cursor: default; }
 
   /* 星ごとの段。**今より下は薄く、目標までは色を付ける。** */
@@ -197,6 +244,9 @@
   .pothead { display: grid; grid-template-columns: 1fr 78px 78px; gap: 10px;
              font-size: .74rem; color: var(--fg-mute); padding-bottom: 4px; }
   .pothead span:not(:first-child) { text-align: center; }
+  /* 3 つのボタンを 1 段に等分 */
+  #p-btns { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 12px; }
+  #p-btns .btn { padding-left: .3em; padding-right: .3em; white-space: nowrap; font-size: .82rem; justify-content: center; }
   /* 使わない枠の印 */
   .potrow.off .nm { color: var(--fg-mute); }
   .badge { display: inline-block; font-size: .68rem; font-weight: 700; padding: .1em .5em;
@@ -364,35 +414,29 @@
 
     <!-- ===== 生徒。**ページ全体で 1 つ。**元は 3 本とも同じ欄を持っていた ===== -->
     <div class="panel" id="p-stu">
-      <div class="panel-h"><h2>だれを育てますか</h2></div>
       <div class="stucard none" id="stucard">
-        <div class="stuimg" id="stu-img"><span class="ph">none</span></div>
+        <div class="stuimg" id="stu-img"><span class="ph"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 12a4.5 4.5 0 1 0 0-9 4.5 4.5 0 0 0 0 9zm0 2c-4.4 0-8 2.3-8 5.2V21h16v-1.8c0-2.9-3.6-5.2-8-5.2z" fill="currentColor"/></svg></span></div>
         <div>
-          <p class="stuname" id="stu-name">まだ誰も選んでいません</p>
+          <h2 class="stulb"><label for="i-student">だれを育てますか</label><button type="button" class="qm" data-hint="生徒は 1 回選べば、総額・星上げ・潜在解放の 3 つの区画で同じ子を使います。名前の一部を打つと候補が出ます。"></button></h2>
+          <input id="i-student" type="search" list="students" placeholder="生徒の名前で探す" autocomplete="off">
+          <datalist id="students"></datalist>
+          <p class="stuname vh" id="stu-name" aria-live="polite">まだ誰も選んでいません</p>
           <p class="stunote" id="stu-note">選ぶまではレベルのぶんだけ数えています。</p>
         </div>
-      </div>
-      <div class="field">
-        <label for="i-student">生徒<span class="hint">3 つの区画で同じ子を使います</span></label>
-        <input id="i-student" type="search" list="students" placeholder="名前で探す" autocomplete="off">
-        <datalist id="students"></datalist>
       </div>
       <p class="err" id="err" hidden></p>
     </div>
 
     <!-- ================================================================ 総額 -->
     <div class="tpane" id="sec-total" data-p="total" role="tabpanel" aria-labelledby="tb-sec-total" tabindex="0">
-    <div class="tcols lean" style="margin-top:18px">
+    <div class="tcols lean" style="margin-top:12px">
       <div class="tcol">
         <div class="panel">
-          <div class="panel-h"><h2>どこまで育てますか</h2></div>
-          <p class="lead">左が今、右が目標です。上げないところは同じ数字のままにしてください。<button type="button" class="qm" data-hint="スキルの ◎ が付いた Lv は、そこで効果の伸びが大きくなるところです。装備は Tier が上がると Lv1 に戻るので、途中の Tier は上限 Lv まで上げる経験値を足しています（強化珠の計算機と同じ数え方）。T1 の装備そのものは数えていません。"></button></p>
-          <div class="btnrow" style="margin:0 0 8px">
-            <div class="seg" id="preset" role="group" aria-label="よくある目標">
-            <button type="button" data-p="all" aria-pressed="false">ぜんぶ最大まで</button>
-            <button type="button" data-p="mid" aria-pressed="false">キリのいい Lv まで</button>
+          <div class="panel-h"><h2>どこまで育てますか</h2><button type="button" class="qm" data-hint="左が今、右が目標です。上げないところは同じ数字のままにしてください。スキルの ◎ が付いた Lv は、そこで効果の伸びが大きくなるところです。装備は Tier が上がると Lv1 に戻るので、途中の Tier は上限 Lv まで上げる経験値を足しています（強化珠の計算機と同じ数え方）。T1 の装備そのものは数えていません。"></button></div>
+          <div class="seg" id="preset" role="group" aria-label="よくある目標" style="margin:4px 0 6px">
+            <button type="button" data-p="all" aria-pressed="false" aria-label="ぜんぶ最大まで">ぜんぶ最大</button>
+            <button type="button" data-p="mid" aria-pressed="false" aria-label="キリのいい Lv まで">キリのいい Lv</button>
             <button type="button" data-p="none" aria-pressed="false">今のまま</button>
-          </div>
           </div>
           <div id="goals"></div>
         </div>
@@ -453,7 +497,7 @@
     <!-- ================================================================ 星上げ（元の tools/eleph/）
          id はほかの区画と重ならないよう `e-` を付けた（star.js の el() が付けて引く） -->
     <div class="tpane" id="sec-star" data-p="star" role="tabpanel" aria-labelledby="tb-sec-star" tabindex="0">
-    <div class="tcols lean" style="margin-top:18px">
+    <div class="tcols lean" style="margin-top:12px">
       <div class="tcol">
         <div class="panel">
           <div class="panel-h"><h2>どこまで上げますか</h2></div>
@@ -465,11 +509,11 @@
               <input id="e-i-have" type="number" inputmode="numeric" min="0" step="10" value="0">
             </div>
             <div class="field">
-              <label for="e-i-bought">この子の文字を今までに買った数<button type="button" class="qm" data-hint="カケラ（文字）ショップでその子の神名文字を選ぶと、買った数が出ます。値段は生徒ごとの累計で決まり、1〜20 個目は 1 個、21〜40 個目は 2 個……81 個目からは 5 個。1 人 900 個までです。"></button></label>
+              <label for="e-i-bought">今までに買った数<button type="button" class="qm" data-hint="この子の神名文字を、カケラで今までに買った数です。カケラ（文字）ショップでその子の神名文字を選ぶと、買った数が出ます。値段は生徒ごとの累計で決まり、1〜20 個目は 1 個、21〜40 個目は 2 個……81 個目からは 5 個。1 人 900 個までです。"></button></label>
               <input id="e-i-bought" type="number" inputmode="numeric" min="0" max="900" step="1" value="0">
             </div>
           </div>
-          <div class="starrow" style="margin-top:14px">
+          <div class="starrow" style="margin-top:12px">
             <span class="lb">今の段</span>
             <div id="e-from-stars"></div>
           </div>
@@ -480,8 +524,7 @@
         </div>
 
         <div class="panel">
-          <div class="panel-h"><h2>段ごとの中身</h2></div>
-          <p class="lead"><b>★5 になると固有武器が使えるようになり、その状態が固有1</b>です。<button type="button" class="qm" data-hint="そこから先は「限界解放」です。要る神名文字とクレジットは 7 段とも全員同じで、生徒ごとの差はありません。「累計」は ★1 からその段までの合計です。"></button></p>
+          <div class="panel-h"><h2>段ごとの中身</h2><button type="button" class="qm" data-hint="★5 になると固有武器が使えるようになり、その状態が固有1です。そこから先は「限界解放」です。要る神名文字とクレジットは 7 段とも全員同じで、生徒ごとの差はありません。「累計」は ★1 からその段までの合計です。"></button></div>
           <div class="stargrid" id="e-starsteps"></div>
         </div>
       </div>
@@ -542,15 +585,14 @@
     <!-- ================================================================ 潜在（元の tools/potential/）
          id はほかの区画と重ならないよう `p-` を付けた（pot.js の el() が付けて引く） -->
     <div class="tpane" id="sec-pot" data-p="pot" role="tabpanel" aria-labelledby="tb-sec-pot" tabindex="0">
-    <div class="tcols lean" style="margin-top:18px">
+    <div class="tcols lean" style="margin-top:12px">
       <div class="tcol">
         <div class="panel">
-          <div class="panel-h"><h2>どこまで開きますか</h2></div>
-          <p class="lead">枠は 3 つ、それぞれ <b>0 段から <span id="p-lead-max">25</span> 段</b>まで上がります。
-            <button type="button" class="qm" data-hint="1段で基礎値の0.2%です（25段で+5%）。"></button></p>
+          <!-- 「枠は 3 つ、それぞれ 0 段から 25 段」の一言は見出しの横へ小さく（2026-09-26 の UI 見直し） -->
+          <div class="panel-h"><h2>どこまで開きますか</h2><span class="subnote" style="font-size:.76rem;color:var(--fg-mute)">0〜<span id="p-lead-max">25</span> 段</span><button type="button" class="qm" data-hint="枠は 3 つで、それぞれ 0 段から最大段まで上がります。1段で基礎値の0.2%です（25段で+5%）。"></button></div>
           <div class="pothead"><span></span><span>今</span><span>目標</span></div>
           <div id="p-potsteps"></div>
-          <div class="btnrow" style="margin-top:14px">
+          <div id="p-btns">
             <button type="button" class="btn" id="p-b-max">ぜんぶ最大まで</button>
             <button type="button" class="btn" id="p-b-atk">攻撃力だけ最大</button>
             <button type="button" class="btn" id="p-b-reset">戻す</button>
@@ -612,6 +654,8 @@
   <!-- 共有の帯は 1 つ。**配るのは生徒と開いている区画だけ**（下の shareUrl）。
        「数字の出どころ」は区画ごとに 3 つあり、開いている区画のものだけ出す（JS が無ければ全部） -->
   <div class="sharebar" id="sharebar" style="margin-top:26px"></div>
+  <!-- 答えが画面の下にあるあいだだけ出す帯（スマホ）。中身と出し入れは下の（2） -->
+  <button type="button" class="scbar" id="scbar" hidden aria-label="答えまで送る"></button>
 
       <details class="src" data-sec="total">
         <summary>数字の出どころ</summary>
@@ -913,7 +957,7 @@
       el('stu-name').textContent = student.n;
     } else {
       c.classList.add('none');
-      el('stu-img').innerHTML = '<span class="ph">none</span>';
+      el('stu-img').innerHTML = '<span class="ph"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 12a4.5 4.5 0 1 0 0-9 4.5 4.5 0 0 0 0 9zm0 2c-4.4 0-8 2.3-8 5.2V21h16v-1.8c0-2.9-3.6-5.2-8-5.2z" fill="currentColor"/></svg></span>';
       el('stu-name').textContent = 'まだ誰も選んでいません';
     }
     el('stu-note').innerHTML = (H.secs[now()] || H.secs.total).note();
@@ -1047,10 +1091,41 @@
     }
   }).observe(document.body, { attributes: true, attributeFilter: ['class'] });
 
+  /* ---- 答えの帯（スマホ）。**答えの札が画面より下にあるあいだだけ出す。**
+     押すと札まで送る。数字は札に出ている文字をそのまま写す（計算はしない）。
+     潜在解放は札が入力のすぐ下にあるので出さない */
+  var BAR = {
+    total: { at: 'o-credit', items: [['クレジット', 'o-credit'], ['経験値', 'o-exp']] },
+    star: { at: 'e-o-eleph', items: [['要る神名文字', 'e-o-eleph'], ['カケラで買うと', 'e-o-shard']] }
+  };
+  var scbar = el('scbar'), barTick = 0;
+  function barDraw() {
+    barTick = 0;
+    var b = BAR[now()], src = b && el(b.at), stat = src && src.closest('.stats');
+    var r = stat && stat.getBoundingClientRect();
+    var show = !!(r && r.height && window.innerWidth < 900 && r.top > window.innerHeight - 8);
+    if (show) {
+      scbar.innerHTML = b.items.map(function (x) {
+        return '<span class="it"><small>' + x[0] + '</small><b>' +
+          ((el(x[1]) || {}).textContent || '—').replace(/\s+/g, ' ').trim() + '</b></span>';
+      }).join('') + '<span class="go">答えへ ↓</span>';
+    }
+    scbar.hidden = !show;
+  }
+  function barSoon() { if (!barTick) barTick = requestAnimationFrame(barDraw); }
+  ['scroll', 'resize'].forEach(function (t) { addEventListener(t, barSoon, { passive: true }); });
+  ['input', 'change', 'click'].forEach(function (t) { document.addEventListener(t, function () { setTimeout(barSoon, 0); }); });
+  if (box) box.addEventListener('panechange', barSoon);
+  scbar.addEventListener('click', function () {
+    var b = BAR[now()], src = b && el(b.at), stat = src && src.closest('.stats');
+    if (stat) stat.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  });
+
   H.ready = true;
   H.secs.total.refresh();                // 潜在の区画が組み上がってから、総額の潜在の行を描き直す
   card();
   sync();
+  barSoon();
 })();
 </script>
 </body>
