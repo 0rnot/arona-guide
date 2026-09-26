@@ -288,6 +288,73 @@
     font-variant-numeric: tabular-nums;
   }
   .gap b { font-weight: 800; }
+
+  /* ===== 詰めた版（2026-09-26 UI 見直し——「無駄な余白を無くして、必要な情報がひと目で」） ===== */
+  /* **経過・残りの一言は style.css の `.note`（金の縦線の箱）と名前がぶつかっていた。**
+     1 凸目の下に 60px の空き箱が出ていたので、ここで素の文字に戻す */
+  .timein .note { margin: 0; padding: 0; background: none; border: 0; border-radius: 0;
+                  font-size: .74rem; line-height: 1.5; color: var(--fg-mute); }
+  .timein .note b { color: var(--fg); }
+  /* 数字 3 つの帯。**スマホでも 1 行に並べる**（縦に積むと 1 枚 95px × 3） */
+  @media (max-width: 899px) {
+    .st3.stats.c3, .tcol .st3.stats.c3 { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+    .st3 > .stat:nth-child(3):last-child, .tcol .st3.stats.c3 > .stat:nth-child(3):last-child { grid-column: auto; }
+    .st3 .stat { padding: 8px 10px; min-width: 0; }
+    .st3 .stat .k { font-size: .7rem; letter-spacing: 0; line-height: 1.4; }
+    .st3 .stat .v { font-size: 1.22rem; overflow-wrap: anywhere; }
+    .st3 .stat .sub { font-size: .68rem; line-height: 1.4; }
+    /* 開催の「次の回」は日付が長いので 1 段ぶん使う。残り 2 つを下に並べる */
+    #sec-cal .st3.stats.c3 { grid-template-columns: 1fr 1fr; }
+    #sec-cal .st3 > .stat.hero { grid-column: 1 / -1; }
+    /* スコアは柱をほどいて 時間 → 数字 3 つ → 内訳 → 目標 → 早見 の順にする。
+       入れた時間の答えが、入力のすぐ下に来る */
+    #rs-body > .tcol { display: contents; }
+    /* 柱をほどくと板が格子の直の子になり、目盛りの min-width 360px で横に溢れる */
+    #rs-body > .tcol > * { min-width: 0; }
+    #rs-body .rs-time { order: 1; }
+    #rs-body .stats { order: 2; margin: 0; }
+    #rs-body .rs-led { order: 3; }
+    #rs-body .rs-goal { order: 4; }
+    #rs-body .rs-tbl { order: 5; }
+  }
+  /* 広い画面: 絵は 1 行 7 体まで、地形と難易度は 1 行に並べる（2 段ぶん浮く） */
+  @media (min-width: 900px) {
+    .bosses { grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); gap: 8px; }
+    .pick-row { display: inline-flex; vertical-align: middle; margin: 12px 22px 0 0; }
+  }
+  @media (max-width: 560px) {
+    /* **ボスの絵は 3 列。**2 列だと 16 体で 840px あって、入力の前に 1 画面ぶん絵が続いた。
+       地形と装甲の小さな字は、選んだあと下の数字と地形の帯に出るので、ここでは畳む */
+    .bosses, #pick .bosses { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+    .boss .cap { padding: .3em .45em; font-size: .72rem; line-height: 1.3; }
+    .boss .cap small { display: none; }
+    .boss[aria-pressed="true"] .cap::before { content: '✓'; margin-right: .15em; }
+    /* 畳んだとき: 選んだ 1 体と「ほかのボス」のボタンを横に並べる */
+    .bwrap.fold { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 6px; align-items: stretch; }
+    #pick .bwrap.fold .bosses { grid-template-columns: minmax(0, 1fr); }
+    /* 1 体だけのときは幅があるので、地形と装甲の小さな字も戻す */
+    .bwrap.fold .boss .cap { font-size: .8rem; }
+    .bwrap.fold .boss .cap small { display: block; }
+    .bwrap.fold .boss:not([aria-pressed="true"]) { display: none; }
+    .bwrap .boss-more { width: 100%; font-size: .82rem; padding: .5em .8em; border-radius: 12px; }
+    .bwrap:not(.fold) .boss-more { margin-top: 6px; }
+    /* 地形・難易度・階層・装甲の行。見出しを左、帯を右の 1 行に */
+    .pick-row { display: grid; grid-template-columns: 3.4em minmax(0, 1fr); gap: 8px; margin-top: 10px; }
+    .pick-row { align-items: start; }
+    .pick-row > .lb { line-height: 1.3; padding-top: .7em; }
+    .pick-row .seg { gap: 2px; padding: 3px; }
+    .pick-row .seg button { padding: .42em .72em; font-size: .8rem; }
+    /* 大きな絵は選んだ札と同じものなので、スマホでは出さない */
+    .now { display: block; }
+    .now > img { display: none; }
+    /* 全ボスの札は 2 列。名前の横に絵、札と回数は下に幅いっぱいで */
+    .cbosses { grid-template-columns: 1fr 1fr; gap: 6px; }
+    .bcard { grid-template-columns: 34px minmax(0, 1fr); gap: 0 .5em; padding: 7px 8px; align-items: center; }
+    .bcard img { width: 34px; height: 34px; border-radius: 8px; }
+    .bcard .bi { display: contents; }
+    .bcard .nm { white-space: normal; font-size: .82rem; }
+    .bcard .tags, .bcard .sub { grid-column: 1 / -1; }
+  }
 </style>
 </head>
 <body>
@@ -408,14 +475,18 @@
   <!-- ===== ① 相手を選ぶ。**ページ全体のボス選択。**
        ここで選んだものが、ボス情報・スコア・開催の絞り込みのぜんぶに効く ===== -->
   <div class="panel" id="pick">
-    <div class="panel-h"><h2>まず、相手を選びます</h2></div>
-    <p class="lead">絵を押すと相手が切り替わり、<b>3 つの区画ぜんぶに反映されます。</b></p>
-    <div class="seg" id="mode" role="group" aria-label="種類" style="margin-bottom:14px">
+    <div class="panel-h"><h2>相手を選ぶ<button type="button" class="qm" data-hint="絵を押すと相手が切り替わり、ボス情報・スコア・開催の 3 つの区画ぜんぶに反映されます。"></button></h2></div>
+    <div class="seg" id="mode" role="group" aria-label="種類" style="margin-bottom:10px">
       <button type="button" data-m="raid" aria-pressed="true">総力戦</button>
       <button type="button" data-m="elim" aria-pressed="false">大決戦</button>
       <button type="button" data-m="multi" aria-pressed="false">制約解除決戦</button>
     </div>
-    <div class="bosses" id="bosses" role="group" aria-label="ボス"></div>
+    <!-- **スマホでは選んだ 1 体だけ出して、ほかは「ほかのボス」で開く**（2026-09-26 UI 見直し）。
+         16 体の絵が入力の前に 1 画面ぶん続いていた。開いて選ぶと、また畳む。動かすのはページ末尾の小物 -->
+    <div class="bwrap" id="bwrap">
+      <div class="bosses" id="bosses" role="group" aria-label="ボス"></div>
+      <button type="button" class="btn boss-more" id="boss-more" aria-controls="bosses" hidden></button>
+    </div>
     <div class="pick-row" id="terrain-row">
       <span class="lb">地形</span><div class="seg" id="terrain" role="group" aria-label="地形"></div>
     </div>
@@ -455,7 +526,7 @@
       <div class="now">
         <img id="now-img" src="" alt="" width="520" height="160">
         <div>
-          <div class="stats c3" style="margin:0 0 16px">
+          <div class="stats c3 st3" style="margin:0 0 14px">
             <div class="stat hero"><div class="k"><i class="gi gi-type-defense"></i> ボスの装甲</div><div class="v" id="o-at">—</div><div class="sub" id="o-at-sub">&nbsp;</div></div>
             <div class="stat"><div class="k"><i class="gi gi-type-attack"></i> ボスの攻撃属性</div><div class="v" id="o-bt">—</div><div class="sub" id="o-bt-sub">&nbsp;</div></div>
             <div class="stat"><div class="k"><i class="gi" id="o-tr-ico"></i> 地形</div><div class="v" id="o-tr">—</div><div class="sub">適性が高い子ほど当たる</div></div>
@@ -524,14 +595,13 @@
 
     <!-- ================================================ スコア（元 tools/raid-score/） -->
     <div class="tpane" id="sec-score" data-p="score" role="tabpanel" aria-labelledby="tb-sec-score" tabindex="0">
-      <p class="lead" id="rs-lead" style="margin:18px 0 0">&nbsp;</p>
+      <p class="lead" id="rs-lead" style="margin:12px 0 0">&nbsp;</p>
       <p class="note-box" id="rs-none" style="margin-top:14px" hidden></p>
-  <div class="tcols lean" id="rs-body" style="margin-top:14px">
+  <div class="tcols lean" id="rs-body" style="margin-top:12px">
 
     <div class="tcol">
-      <div class="panel">
-        <div class="panel-h"><h2>クリアタイム</h2></div>
-        <p class="lead" style="margin:0 0 12px"><b>時間ぶんは、部隊をまたいだ合計の戦闘時間で決まります。</b><button type="button" class="qm" data-hint="2 凸なら 1 回目にかかった時間も足されます。倒せなかった回はふつう時間切れなので、制限時間そのものを入れてあります。"></button></p>
+      <div class="panel rs-time">
+        <div class="panel-h"><h2>クリアタイム<button type="button" class="qm" data-hint="時間ぶんは、部隊をまたいだ合計の戦闘時間で決まります。2 凸なら 1 回目にかかった時間も足されます。倒せなかった回はふつう時間切れなので、制限時間そのものを入れてあります。"></button></h2></div>
         <div class="btnrow" style="margin-bottom:12px">
           <div class="seg" id="tmode" role="group" aria-label="最後の凸の入れ方">
             <button type="button" data-t="clear" aria-pressed="true">経過で入れる</button>
@@ -551,9 +621,8 @@
         <p class="err" id="rs-err" hidden></p>
       </div>
 
-      <div class="panel">
-        <div class="panel-h"><h2>目標スコアから逆に引く</h2></div>
-        <p class="lead" style="margin:0 0 12px">狙いたいスコアを入れると、<b>要るタイム</b>が出ます。</p>
+      <div class="panel rs-goal">
+        <div class="panel-h"><h2>目標スコアから逆に引く<button type="button" class="qm" data-hint="狙いたいスコアを入れると、要るタイムが出ます。"></button></h2></div>
         <div class="numrow wide">
           <div class="nm">目標のスコア<small id="goal-note">&nbsp;</small></div>
           <input id="i-goal" type="number" inputmode="numeric" min="0" step="1000" value="0">
@@ -563,7 +632,7 @@
     </div>
 
     <div class="tcol">
-      <div class="stats c3">
+      <div class="stats c3 st3">
         <div class="stat hero">
           <div class="k">このタイムのスコア</div>
           <div class="v" id="o-score">—</div>
@@ -581,13 +650,13 @@
         </div>
       </div>
 
-      <div class="panel">
+      <div class="panel rs-led">
         <div class="panel-h"><h2>内訳</h2></div>
         <div class="ledger" id="ledger"></div>
         <div class="gauge" id="gauge"></div>
       </div>
 
-      <div class="panel">
+      <div class="panel rs-tbl">
         <div class="panel-h"><h2>タイムごとの早見</h2></div>
         <p class="lead" id="rs-tb-lead" style="margin:0 0 12px">&nbsp;</p>
         <div class="tscroll">
@@ -604,7 +673,7 @@
 
     <!-- ================================================ 開催（元 tools/raid-calendar/） -->
     <div class="tpane" id="sec-cal" data-p="cal" role="tabpanel" aria-labelledby="tb-sec-cal" tabindex="0">
-  <div class="stats c3" style="margin-top:20px">
+  <div class="stats c3 st3" style="margin-top:12px">
     <div class="stat hero">
       <div class="k" id="o-next-k">次の総力戦<button type="button" class="qm" id="o-next-q" data-hint="ゲームのデータ（ba-data の RaidSeasonManageExcelTable）に入っている、これからの開催です。運営の都合でずれることはあります。"></button></div>
       <div class="v" id="o-next">—</div>
@@ -624,17 +693,16 @@
 
   <!-- **これからの開催。**見積もりではなく、ゲームのデータに入っている予定そのもの。
        取れなかった種類は cal.js が行ごと消す -->
-  <div id="upcoming" hidden style="margin-top:16px">
+  <div id="upcoming" hidden style="margin-top:12px">
     <div class="panel">
-      <div class="panel-h"><h2>これからの開催</h2></div>
-      <p class="lead">見積もりではありません。ゲームのデータの期間表に入っている予定です。</p>
+      <div class="panel-h"><h2>これからの開催<button type="button" class="qm" data-hint="見積もりではありません。ゲームのデータの期間表に入っている予定です。"></button></h2></div>
       <div class="gaps" id="upcoming-list"></div>
     </div>
   </div>
 
   <!-- **ここから下はタブで畳む。**既定は「ボス」——ボスを押すと cal.js が
        「開催の記録」の面へ移してから絞り込む。区画の中の面なので、鍵は `cp=` -->
-  <div class="tpanes" data-panes="raid-calendar" data-key="cp" style="margin-top:20px">
+  <div class="tpanes" data-panes="raid-calendar" data-key="cp" style="margin-top:12px">
     <div class="ttabs" role="tablist" aria-label="下に出すもの" hidden>
       <button type="button" role="tab" id="tb-rc-boss" data-p="boss"
               aria-controls="pn-boss" aria-selected="true">ボス</button>
@@ -771,7 +839,7 @@
   </details>
 </div>
 
-<script>window.TOUR = {"key": "raid-3", "steps": [{"sel": "#sec-tabs", "t": "総力戦は 3 つに分けています", "d": "ボス情報・スコア・開催。ボスは上で 1 回選べば、3 つともその相手になります。入力は区画ごとにこの端末に残ります。"}, {"sel": "#bosses", "pre": ["#tb-sec-info"], "t": "まず相手を絵から選びます", "d": "総力戦・大決戦・制約解除決戦のボスが並びます。地形と難易度もここで選びます。"}, {"sel": "#atk", "pre": ["#tb-sec-info", "#tb-r-now"], "t": "こちらの攻撃がどれだけ通るか", "d": "選んだ相手の装甲と地形から、攻撃属性ごとの倍率が出ます。下には、その難易度のボス本体のステータスが並びます。"}, {"sel": "#skl", "pre": ["#tb-sec-info", "#tb-r-sk"], "t": "ボスのスキル", "d": "ゲーム内のボス情報に出るのと同じ文です。上で選んだ難易度のものだけを出しています。"}, {"sel": "#parts", "pre": ["#tb-sec-info", "#tb-r-pt"], "t": "パーツとグロッキー", "d": "ボス本体と一緒に場に出る敵と、その HP です。下にフェーズの切り替わる HP と、グロッキーゲージの溜まり方が付きます。"}, {"sel": "#list", "pre": ["#tb-sec-info", "#raid-extra > summary"], "t": "連れて行く生徒", "d": "選んだ相手に攻撃が通る順で生徒が並びます。ふだんは畳んであります。"}, {"sel": "#times", "pre": ["#tb-sec-score"], "t": "スコア: クリアタイムを入れます", "d": "ボスと難易度は上の選択のものです。部隊をまたいだ合計の時間で、凸は足せます。"}, {"sel": "#o-score", "pre": ["#tb-sec-score"], "t": "スコアが出ます", "d": "内訳と、いちばん高いときとの差も出ます。目標スコアを入れると、要るタイムを逆に引けます。"}, {"sel": "#cal-bosses", "pre": ["#tb-sec-cal", "#tb-rc-boss"], "t": "開催: 全ボスの回数と前回", "d": "押すと、そのボスの開催だけに絞ります。ボス情報とスコアの相手もそのボスになります。"}, {"sel": "#cal-list", "pre": ["#tb-sec-cal", "#tb-rc-rec"], "t": "開催の記録", "d": "いつ・どの地形で・どの難易度まで開いたかを新しい順に出します。上の「これからの開催」はゲームのデータにある予定です。"}, {"sel": "#sharebar", "t": "選んだ相手と開いている区画ごと URL になります", "d": "リンクを送ると、相手の画面にも同じ結果が出ます。案内を閉じると、開く前の区画に戻ります。"}]};</script>
+<script>window.TOUR = {"key": "raid-3", "steps": [{"sel": "#sec-tabs", "t": "総力戦は 3 つに分けています", "d": "ボス情報・スコア・開催。ボスは上で 1 回選べば、3 つともその相手になります。入力は区画ごとにこの端末に残ります。"}, {"sel": "#pick", "pre": ["#tb-sec-info"], "t": "まず相手を絵から選びます", "d": "総力戦・大決戦・制約解除決戦のボスが並びます。地形と難易度もここで選びます。"}, {"sel": "#atk", "pre": ["#tb-sec-info", "#tb-r-now"], "t": "こちらの攻撃がどれだけ通るか", "d": "選んだ相手の装甲と地形から、攻撃属性ごとの倍率が出ます。下には、その難易度のボス本体のステータスが並びます。"}, {"sel": "#skl", "pre": ["#tb-sec-info", "#tb-r-sk"], "t": "ボスのスキル", "d": "ゲーム内のボス情報に出るのと同じ文です。上で選んだ難易度のものだけを出しています。"}, {"sel": "#parts", "pre": ["#tb-sec-info", "#tb-r-pt"], "t": "パーツとグロッキー", "d": "ボス本体と一緒に場に出る敵と、その HP です。下にフェーズの切り替わる HP と、グロッキーゲージの溜まり方が付きます。"}, {"sel": "#list", "pre": ["#tb-sec-info", "#raid-extra > summary"], "t": "連れて行く生徒", "d": "選んだ相手に攻撃が通る順で生徒が並びます。ふだんは畳んであります。"}, {"sel": "#times", "pre": ["#tb-sec-score"], "t": "スコア: クリアタイムを入れます", "d": "ボスと難易度は上の選択のものです。部隊をまたいだ合計の時間で、凸は足せます。"}, {"sel": "#o-score", "pre": ["#tb-sec-score"], "t": "スコアが出ます", "d": "内訳と、いちばん高いときとの差も出ます。目標スコアを入れると、要るタイムを逆に引けます。"}, {"sel": "#cal-bosses", "pre": ["#tb-sec-cal", "#tb-rc-boss"], "t": "開催: 全ボスの回数と前回", "d": "押すと、そのボスの開催だけに絞ります。ボス情報とスコアの相手もそのボスになります。"}, {"sel": "#cal-list", "pre": ["#tb-sec-cal", "#tb-rc-rec"], "t": "開催の記録", "d": "いつ・どの地形で・どの難易度まで開いたかを新しい順に出します。上の「これからの開催」はゲームのデータにある予定です。"}, {"sel": "#sharebar", "t": "選んだ相手と開いている区画ごと URL になります", "d": "リンクを送ると、相手の画面にも同じ結果が出ます。案内を閉じると、開く前の区画に戻ります。"}]};</script>
 <script>
 /* **古い URL を直す（その 1。../remember.js と ../panes.js より前に）。**
    - 元のボス情報は、相性・スキル・パーツの面を `pane=sk` のように持っていた。いまの `pane=` は
@@ -1481,6 +1549,35 @@
   if (n) n.textContent = R.students.length;
   var ver = document.getElementById('info-ver');
   if (ver) ver.textContent = R.fetched;
+})();
+</script>
+<script>
+/* ---- スマホのボス選び。**選んだ 1 体だけを残して畳む。**
+   開いて 1 体押すと、また畳む。広い画面では何もしない（ボタンも出さない） */
+(function () {
+  'use strict';
+  var wrap = document.getElementById('bwrap'), grid = document.getElementById('bosses'),
+      more = document.getElementById('boss-more');
+  if (!wrap || !grid || !more || !window.matchMedia) return;
+  var mq = window.matchMedia('(max-width: 560px)');
+  var open = false;
+  function draw() {
+    var small = mq.matches;
+    var n = grid.querySelectorAll('.boss').length;
+    var has = !!grid.querySelector('.boss[aria-pressed="true"]');
+    var fold = small && !open && has && n > 1;
+    wrap.classList.toggle('fold', fold);
+    more.hidden = !small || n <= 1;
+    more.textContent = fold ? 'ほかのボスから選ぶ（' + (n - 1) + '）' : 'ボスの一覧を畳む';
+    more.setAttribute('aria-expanded', String(!fold));
+  }
+  more.addEventListener('click', function () { open = !open; draw(); });
+  grid.addEventListener('click', function (e) {
+    if (e.target.closest('.boss')) { open = false; setTimeout(draw, 0); }
+  });
+  new MutationObserver(draw).observe(grid, { childList: true });
+  if (mq.addEventListener) mq.addEventListener('change', draw); else if (mq.addListener) mq.addListener(draw);
+  draw();
 })();
 </script>
 </body>
