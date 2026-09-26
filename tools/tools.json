@@ -83,11 +83,11 @@
     },
     {
       "slug": "raid",
-      "name": "ボス情報",
+      "name": "総力戦",
       "cat": [
         "総力戦"
       ],
-      "desc": "ボスを絵から選ぶと、ステータス・スキル・パーツ・グロッキー条件が出ます。",
+      "desc": "ボスのステータス・グロッキー条件・連れて行く生徒、タイムからのスコア、開催の記録と予定。",
       "img": "item_icon_raidcoin",
       "group": "戦う"
     },
@@ -99,16 +99,6 @@
       ],
       "desc": "この編成なら、その EX は何秒目に撃てるのか。",
       "img": "skill_regencost",
-      "group": "戦う"
-    },
-    {
-      "slug": "raid-calendar",
-      "name": "総力戦の開催カレンダー",
-      "cat": [
-        "総力戦"
-      ],
-      "desc": "総力戦 93 回と大決戦 38 回の全記録。次はいつごろか。",
-      "img": "bossicon_binah",
       "group": "戦う"
     },
     {
@@ -140,16 +130,6 @@
       "desc": "生徒を並べて自分の Tier 表を作る。画像でも URL でも渡せます。",
       "img": "ui_common_icon_formation_star_r1",
       "group": "集める・つくる"
-    },
-    {
-      "slug": "raid-score",
-      "name": "総力戦のスコア計算機",
-      "cat": [
-        "総力戦"
-      ],
-      "desc": "クリアタイムからスコアを出す。目標スコアからの逆算も。",
-      "img": "ui_common_icon_time",
-      "group": "戦う"
     },
     {
       "slug": "eleph",

@@ -3,23 +3,23 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>ボス情報｜AronaBot</title>
-<meta name="description" content="総力戦・大決戦・制約解除決戦のボスを絵から選ぶと、ステータス・スキル・パーツ・グロッキー条件・有効な攻撃属性がまとめて出ます。連れて行く生徒と TL の保管庫もおまけに付いています。">
+<title>総力戦｜AronaBot</title>
+<meta name="description" content="総力戦・大決戦・制約解除決戦のボスを絵から選ぶと、ステータス・スキル・フェーズとグロッキー条件・攻撃が通る生徒が出ます。同じボスで、クリアタイムからのスコアと、過去とこれからの開催日も見られます。">
 <meta name="theme-color" content="#c8892e">
 <link rel="icon" href="../../favicon.svg" type="image/svg+xml">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="AronaBot">
 <meta property="og:locale" content="ja_JP">
 <meta property="og:url" content="https://arona-bot.com/tools/raid/">
-<meta property="og:title" content="ボス情報">
-<meta property="og:description" content="ボスを絵から選ぶと、ステータス・スキル・パーツ・グロッキー条件が出ます。">
+<meta property="og:title" content="総力戦">
+<meta property="og:description" content="ボスを選ぶと、ステータス・グロッキー条件・連れて行く生徒・スコア・開催日が出ます。">
 <meta property="og:image" content="https://arona-bot.com/images/og/raid.jpg">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="ボス情報 — AronaBot のツール">
+<meta property="og:image:alt" content="総力戦 — AronaBot のツール">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="ボス情報">
-<meta name="twitter:description" content="ボスを絵から選ぶと、ステータス・スキル・パーツ・グロッキー条件が出ます。">
+<meta name="twitter:title" content="総力戦">
+<meta name="twitter:description" content="ボスを選ぶと、ステータス・グロッキー条件・連れて行く生徒・スコア・開催日が出ます。">
 <meta name="twitter:image" content="https://arona-bot.com/images/og/raid.jpg">
 <link rel="stylesheet" href="../../style.css?v=25">
 <link rel="stylesheet" href="../tool.css?v=17">
@@ -170,113 +170,6 @@
   .now img { display: block; width: 100%; border-radius: 12px; }
   @media (max-width: 560px) { .now { grid-template-columns: 1fr; } }
 
-  /* ===== ③ TL の保管庫と検索。**このかたまりごと移せる。**
-     `tools/raid/tl-search.js` が作る画面の見た目で、
-     クラスはすべて `.tls-` で始めてある。土台（`.panel` / `.field` /
-     `.btn` / `.seg` / `.stat` / `.note-box`）は `tools/tool.css` のもの ===== */
-  .tls-paste { width: 100%; box-sizing: border-box; min-height: 72px; resize: vertical;
-               font: inherit; font-size: .82rem; line-height: 1.55; padding: .6em .7em;
-               border: 1px solid var(--line); border-radius: 10px;
-               background: var(--card); color: var(--fg); overflow-wrap: anywhere; }
-  .tls-paste:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
-
-  /* 板の見出しの右にいまの本数 */
-  .tls-count { margin-left: auto; font-size: .8rem; font-weight: 800; color: var(--fg-mute);
-               font-variant-numeric: tabular-nums; }
-  /* **持っていないものを持っているように見せない。**この断り書きは畳まない */
-  .note-box.tls-honest { margin: 14px 0 16px; }
-
-  /* 「上で選んだ相手で絞る」 */
-  .tls-scope { display: inline-flex; align-items: center; gap: .55em; cursor: pointer;
-               font-size: .84rem; font-weight: 700; padding: .5em .95em; border-radius: 999px;
-               border: 1px solid var(--line); background: var(--bg-sub); color: var(--fg-mute); }
-  .tls-scope:has(input:checked) { border-color: var(--accent); color: var(--fg);
-                                  background: color-mix(in srgb, var(--accent) 12%, var(--card)); }
-  .tls-scope input { margin: 0; }
-  .tls-more-f { margin-top: 16px; }
-
-  /* 保存先の相手 */
-  .tls-tgt { display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
-             margin: 0 0 14px; padding: 10px 12px; border: 1px solid var(--line);
-             border-radius: 12px; background: var(--bg-sub); }
-  .tls-tgt img { width: 104px; height: 32px; object-fit: cover; border-radius: 7px;
-                 background: var(--card); flex: 0 0 auto; }
-  .tls-tgt .tls-tgt-t { min-width: 0; font-size: .88rem; line-height: 1.4; }
-  .tls-tgt .tls-tgt-t small { display: block; font-size: .74rem; color: var(--fg-mute); }
-  .tls-tgt .tls-tgt-h { margin-left: auto; font-size: .74rem; color: var(--fg-mute); }
-  .tls-tgt .ph { margin: 0; font-size: .81rem; color: var(--fg-mute); }
-
-  .tls-prev { margin-top: 12px; padding: 12px; border-radius: 12px;
-              border: 1px solid var(--line); background: var(--bg-sub); }
-  .tls-prev.bad { border-style: dashed; }
-  .tls-prev .ph { margin: 0; font-size: .81rem; color: var(--fg-mute); line-height: 1.7; }
-  .tls-prev .hd { display: flex; flex-wrap: wrap; gap: .2em .6em; align-items: baseline;
-                  margin: 0 0 .55em; }
-  .tls-prev .hd b { font-size: .92rem; }
-  .tls-prev .hd span { color: var(--fg-mute); font-size: .75rem;
-                       font-variant-numeric: tabular-nums; }
-
-  /* 顔の並び。**贈り物の逆引きと同じ大きさに揃えてある** */
-  .tls-faces { display: grid; grid-template-columns: repeat(auto-fill, minmax(52px, 1fr)); gap: 6px; }
-  .tls-face { text-align: center; min-width: 0; }
-  .tls-face img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 9px;
-                  border: 1px solid var(--line); background: var(--bg-sub); display: block; }
-  .tls-face span { display: block; font-size: .62rem; line-height: 1.3; margin-top: .2em;
-                   color: var(--fg-mute); overflow: hidden; text-overflow: ellipsis;
-                   white-space: nowrap; }
-  /* スペシャルの枠だけ縁を変える。**並びは編成の枠順そのまま** */
-  .tls-face.sup img { border-color: color-mix(in srgb, var(--accent) 55%, var(--line)); }
-
-  /* 保管庫の 1 本 */
-  .tls-tl { padding: 13px; margin-bottom: 12px; border: 1px solid var(--line);
-            border-radius: 13px; background: var(--card); }
-  .tls-tl:last-child { margin-bottom: 0; }
-  .tls-tl.edit { border-color: var(--accent);
-                 background: color-mix(in srgb, var(--accent) 9%, var(--card)); }
-  .tls-tl-h { display: flex; flex-wrap: wrap; gap: .5em .7em; align-items: center;
-              margin-bottom: .5em; }
-  .tls-tl-bi { width: 104px; height: 32px; object-fit: cover; border-radius: 7px;
-               background: var(--bg-sub); flex: 0 0 auto; }
-  .tls-tl-t { flex: 1 1 150px; min-width: 0; font-size: .95rem; font-weight: 800;
-              line-height: 1.35; overflow-wrap: anywhere; }
-  .tls-tl-t small { display: block; font-size: .72rem; font-weight: 500; color: var(--fg-mute); }
-  /* **狭い画面では行が折り返す。**そのとき左に取り残されないよう右端へ寄せる */
-  .tls-tl-time { margin-left: auto; font-size: .95rem; font-weight: 800; white-space: nowrap;
-                 font-variant-numeric: tabular-nums; color: var(--accent-tx); }
-  .tls-tl-tags { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: .55em; }
-  .tls-tl-tags .tg { font-size: .69rem; font-weight: 700; line-height: 1.75; padding: 0 .55em;
-                     border-radius: 999px; border: 1px solid var(--line);
-                     background: var(--bg-sub); color: var(--fg-mute); white-space: nowrap; }
-  .tls-tl-tags .tg.hot { border-color: transparent; background: var(--accent);
-                         color: var(--accent-in); }
-  .tls-tl-m { margin: .6em 0 0; font-size: .8rem; line-height: 1.7; color: var(--fg-mute);
-              white-space: pre-wrap; overflow-wrap: anywhere; }
-  .tls-tl .btnrow { margin-top: .75em; gap: 7px; }
-  .tls-tl .btnrow .btn { font-size: .78rem; padding: .4em .85em; }
-
-  .tls-empty { font-size: .82rem; color: var(--fg-mute); line-height: 1.8; margin: 0; }
-  .tls-empty b { color: var(--fg); }
-
-  /* よそのサイトへ。**畳んである補助。**外に出ることが見て分かるように矢印を付ける */
-  .tls-more { border: 1px solid var(--line); border-radius: 14px;
-              background: var(--bg-sub); margin: 26px 0; }
-  .tls-more > summary { cursor: pointer; padding: 14px 16px; font-weight: 800;
-                        font-size: 1rem; list-style: none; }
-  .tls-more > summary::-webkit-details-marker { display: none; }
-  .tls-more > summary::before { content: '▸'; margin-right: .5em; color: var(--fg-mute); }
-  .tls-more[open] > summary::before { content: '▾'; }
-  .tls-more > summary small { display: block; font-weight: 400; font-size: .78rem;
-                              color: var(--fg-mute); margin-top: .3em; }
-  .tls-more-b { padding: 0 16px 16px; }
-  .tls-exts { display: grid; grid-template-columns: repeat(auto-fill, minmax(226px, 1fr)); gap: 9px; }
-  .tls-ext { display: block; padding: 11px 13px; border: 1px solid var(--line);
-             border-radius: 12px; background: var(--card); text-decoration: none;
-             color: inherit; min-width: 0; }
-  .tls-ext:hover { border-color: var(--accent); }
-  .tls-ext b { display: block; font-size: .87rem; line-height: 1.4; }
-  .tls-ext b::after { content: ' ↗'; font-weight: 400; color: var(--fg-mute); }
-  .tls-ext small { display: block; margin-top: .28em; font-size: .73rem; color: var(--fg-mute);
-                   line-height: 1.6; overflow-wrap: anywhere; }
 
   /* おまけの相性チェッカー。**閉じてある状態が既定。**
      ボスの選択はページ先頭に移したので、ここに残るのは結果だけ */
@@ -290,6 +183,111 @@
   .subtool > summary small { display: block; font-weight: 400; font-size: .78rem;
                              color: var(--fg-mute); margin-top: .3em; }
   .subtool > .subbody { padding: 0 12px 12px; }
+
+  /* 開催の区画ではボスの選択を隠す（地形も難易度も効かない。ボスは「全ボス」の札で選べる）。
+     スコアの区画では地形と装甲の行を隠す（スコアに効かない） */
+  #pick[data-sec="score"] #terrain-row,
+  #pick[data-sec="score"] #armor-row,
+  #pick[data-sec="score"] #armor-note { display: none; }
+
+  /* ===== スコアの区画（元 tools/raid-score/） ===== */
+  /* 時間の入力。**凸ごとに 1 行。** */
+  .timein { display: grid; grid-template-columns: 4.2em auto 4.6em auto 4.6em 1fr auto; gap: .45em;
+            align-items: center; margin-bottom: .5em; }
+  .timein input { width: 100%; text-align: right; font-variant-numeric: tabular-nums;
+                  padding: .35em .5em; }
+  .timein span { color: var(--fg-mute); font-size: .82rem; }
+  .timein .lb { font-size: .8rem; font-weight: 700; color: var(--fg); }
+  .timein .note { font-size: .74rem; }
+  .timein.last .lb { color: var(--accent-tx); }
+  /* **凸を外すボタン。**行の右端に置く。1 凸のときは出さない
+     （2026-08-31 の先生の指示——「+で無制限に追加できるようにしたほうがいい」） */
+  .timein .del { border: 0; background: transparent; color: var(--fg-mute); cursor: pointer;
+                 font: inherit; font-size: 1rem; line-height: 1; padding: .2em .35em;
+                 border-radius: 7px; }
+  .timein .del:hover { background: var(--bg-sub); color: var(--fg); }
+  .timein .del:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .addrow { display: flex; flex-wrap: wrap; align-items: center; gap: .5em .8em; margin-top: .2em; }
+  .addrow .btn { flex: none; white-space: nowrap; }
+  .addrow #turn-n { font-size: .8rem; color: var(--fg-mute); }
+  @media (max-width: 460px) {
+    /* **狭い画面では 2 段に折る。**説明を下の段に落とすと外すボタンが押し出されて
+       次の行の左端に落ちるので、説明と外すボタンを同じ段に明示的に置く */
+    .timein { grid-template-columns: 3.6em auto 1fr auto 1fr auto; }
+    .timein .note { grid-column: 1 / 6; grid-row: 2; }
+    .timein .del, .timein .delslot { grid-column: 6; grid-row: 2; justify-self: end; }
+  }
+  .totline { font-size: .86rem; font-weight: 700; margin: .6em 0 0; }
+  .totline small { display: block; font-weight: 400; color: var(--fg-mute); font-size: .78rem;
+                   margin-top: .15em; }
+
+  /* 目盛り */
+  .gauge { margin-top: 18px; overflow-x: auto; }
+  .gauge svg { display: block; width: 100%; height: auto; min-width: 360px; }
+  .gauge .track { fill: var(--bg-sub); }
+  .gauge .fill { fill: var(--accent); }
+  .gauge .tick { stroke: var(--line); stroke-width: 1; }
+  .gauge text { fill: var(--fg-mute); font-size: 11px; font-variant-numeric: tabular-nums; }
+  .gauge text.now { fill: var(--fg); font-weight: 700; }
+
+  .dt td.hi { color: var(--accent-tx); font-weight: 700; }
+
+  /* ===== 開催の区画（元 tools/raid-calendar/）。**クラスはボス情報とぶつからない名前に**
+     （ボスの札は `.cbosses`、開催中の回は `.live`。`.bosses` と `.now` はボス情報が使っている） ===== */
+  /* **札は広めに取る。**168px だと絵の 52px を引いて文字が 86px しか残らず、
+     「Insane 以上は貫通」が 1 語ずつ折り返して読めなかった（2026-08-30 の先生の指摘） */
+  .cbosses { display: grid; grid-template-columns: repeat(auto-fill, minmax(236px, 1fr)); gap: 10px; }
+  .bcard {
+    display: grid; grid-template-columns: 48px 1fr; gap: .65em; align-items: center;
+    padding: 9px 11px; border: 1px solid var(--line); border-radius: 12px;
+    background: var(--bg-sub); text-align: left; font: inherit; color: inherit; cursor: pointer;
+  }
+  .bcard[aria-pressed="true"] {
+    border-color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, var(--bg-sub));
+  }
+  .bcard img { width: 48px; height: 48px; border-radius: 10px; background: var(--card); }
+  .bcard .bi { min-width: 0; }
+  .bcard .nm { display: block; font-weight: 700; font-size: .9rem; line-height: 1.25;
+               white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  /* 装甲と有効属性は札にする。**地の文に混ぜると折り返しの犠牲になる** */
+  .bcard .tags { display: flex; flex-wrap: wrap; gap: 4px; margin: .28em 0 .26em; }
+  .bcard .tg { font-size: .68rem; font-weight: 700; line-height: 1.5; padding: 0 .5em;
+               border-radius: 999px; border: 1px solid var(--line); background: var(--card);
+               color: var(--fg-mute); white-space: nowrap; }
+  .bcard .tg.hot { border-color: transparent; background: var(--accent); color: var(--accent-in); }
+  .bcard .sub { display: block; font-weight: 500; font-size: .71rem; color: var(--fg-mute);
+                line-height: 1.5; font-variant-numeric: tabular-nums; }
+
+  /* 開催の記録 */
+  .season {
+    display: grid; grid-template-columns: 44px 84px 1fr auto; gap: .7em;
+    align-items: center; padding: 10px 0; border-bottom: 1px solid var(--line);
+  }
+  .season:last-child { border-bottom: 0; }
+  .season img { width: 44px; height: 44px; border-radius: 9px; background: var(--card); }
+  .season .dt { font-size: .8rem; font-variant-numeric: tabular-nums; line-height: 1.45; }
+  .season .dt small { display: block; color: var(--fg-mute); font-size: .72rem; }
+  .season .tx { min-width: 0; font-size: .88rem; }
+  .season .tx b { display: block; }
+  .season .tx small { color: var(--fg-mute); font-size: .74rem; line-height: 1.5; }
+  .season .rd { text-align: right; white-space: nowrap; line-height: 1.25; }
+  .season .rd b { display: block; font-size: 1.05rem; font-variant-numeric: tabular-nums; }
+  .season .rd small { display: block; font-size: .7rem; color: var(--fg-mute); }
+  .season.live { background: color-mix(in srgb, var(--accent) 10%, transparent); }
+  @media (max-width: 520px) {
+    .season { grid-template-columns: 38px 1fr auto; row-gap: .2em; }
+    .season .dt { grid-column: 2 / -1; order: 3; }
+    .season img { grid-row: span 2; }
+  }
+
+  /* 間隔の帯 */
+  .gaps { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+  .gap {
+    padding: .3em .6em; border-radius: 999px; font-size: .76rem;
+    border: 1px solid var(--line); background: var(--bg-sub);
+    font-variant-numeric: tabular-nums;
+  }
+  .gap b { font-weight: 800; }
 </style>
 </head>
 <body>
@@ -384,27 +382,41 @@
     </picture>
   </div>
   <div class="thero-body wide">
-    <h1>ボス情報</h1>
-    <p class="thero-lead">相手を絵から選ぶと、ステータス・スキル・パーツが出ます。<button type="button" class="qm" data-hint="総力戦・大決戦・制約解除決戦のボスの中身を、SchaleDB のデータからそのまま出しています。スキルの文はゲーム内と同じもので、難易度ごとに違います。連れて行く生徒の並びと TL の保管庫は、いちばん下におまけとして付けてあります。"></button></p>
+    <h1>総力戦</h1>
+    <p class="thero-lead">ボスを選ぶと、ボス情報・スコア・開催がその相手で出ます。<button type="button" class="qm" data-hint="ボス情報: ステータス・スキル・パーツ、フェーズとグロッキー条件、攻撃が通る順の生徒。スコア: クリアタイムからスコア、目標スコアから要るタイム。開催: 総力戦・大決戦の全記録と、ゲームのデータにあるこれからの予定。ボスは 1 回選べば 3 つとも同じ相手です。"></button></p>
   </div>
 </header>
 
 <div class="twrap wide">
-  <p class="tcrumb"><a href="../../">AronaBotの使い方</a><span class="sl">/</span><a href="../">ツール</a><span class="sl">/</span>ボス情報</p>
+  <p class="tcrumb"><a href="../../">AronaBotの使い方</a><span class="sl">/</span><a href="../">ツール</a><span class="sl">/</span>総力戦</p>
+
+  <!-- **3 つの区画。**2026-09-26 に raid（ボス情報）・raid-score（スコア）・raid-calendar（開催）を
+       1 本にまとめた（grill-me Q12-1）。切り替えは ../panes.js（`pane=`）。
+       **ボスの選択は区画の外で 1 つだけ**——選んだ相手が 3 区画ぜんぶに効く。
+       開催の区画では選択を隠す（地形も難易度も効かず、ボスは「ボス」の面の札で選べる）。
+       JS が無ければタブは出ず、選択と 3 区画が縦に全部並ぶ -->
+  <div class="tpanes" data-panes="raid-sec" style="margin-top:20px">
+    <div class="ttabs" id="sec-tabs" role="tablist" aria-label="区画" hidden>
+      <button type="button" role="tab" id="tb-sec-info" data-p="info"
+              aria-controls="sec-info" aria-selected="true">ボス情報</button>
+      <button type="button" role="tab" id="tb-sec-score" data-p="score"
+              aria-controls="sec-score" aria-selected="false">スコア</button>
+      <button type="button" role="tab" id="tb-sec-cal" data-p="cal"
+              aria-controls="sec-cal" aria-selected="false">開催</button>
+    </div>
 
   <!-- ===== ① 相手を選ぶ。**ページ全体のボス選択。**
-       ここで選んだものが、下の TL 保管庫の絞り込み・保存先・相性チェッカーの
-       ぜんぶに効く（2026-08-30 の作り直し） ===== -->
-  <div class="panel" id="pick" style="margin-top:20px">
+       ここで選んだものが、ボス情報・スコア・開催の絞り込みのぜんぶに効く ===== -->
+  <div class="panel" id="pick">
     <div class="panel-h"><h2>まず、相手を選びます</h2></div>
-    <p class="lead">絵を押すと相手が切り替わり、<b>下のぜんぶに反映されます。</b></p>
+    <p class="lead">絵を押すと相手が切り替わり、<b>3 つの区画ぜんぶに反映されます。</b></p>
     <div class="seg" id="mode" role="group" aria-label="種類" style="margin-bottom:14px">
       <button type="button" data-m="raid" aria-pressed="true">総力戦</button>
       <button type="button" data-m="elim" aria-pressed="false">大決戦</button>
       <button type="button" data-m="multi" aria-pressed="false">制約解除決戦</button>
     </div>
     <div class="bosses" id="bosses" role="group" aria-label="ボス"></div>
-    <div class="pick-row">
+    <div class="pick-row" id="terrain-row">
       <span class="lb">地形</span><div class="seg" id="terrain" role="group" aria-label="地形"></div>
     </div>
     <div class="pick-row" id="diff-row">
@@ -419,24 +431,21 @@
     <p class="lead" id="armor-note" style="margin:12px 0 0" hidden></p>
   </div>
 
-  <!-- ===== ①' 選んだ相手の相性と、② TL の保管庫。**タブで切り替える。**
+    <!-- ================================================ ボス情報 -->
+    <div class="tpane" id="sec-info" data-p="info" role="tabpanel" aria-labelledby="tb-sec-info" tabindex="0">
+
+  <!-- ===== 選んだ相手の相性・スキル・パーツ。**タブで切り替える。**
        2026-08-30 の先生の指示——「相手を選んだらこの位置に相性チェッカーと
        同じ表記がされていい、下のおまけは不要」。おまけに残すのは
-       「連れて行く生徒」だけ（「連れて行く生徒だけおまけとして」）。
-
-       **相性と TL 保管庫をタブで畳む。**2 枚で 4,106px、頁ぜんぶで 6,766px
-       ＝ 8.7 画面ぶんあった（2026-08-30 にスマホ 390×780 で実測）。
-       **ボスの選択はタブの外**——どちらの面もここで選んだ相手で中身が変わる。
-       既定は「いまの相手」。保管庫は自分で貯めるまで空なので、
-       はじめて来た人にいきなり空の面を見せないため ===== -->
-  <div class="tpanes" data-panes="raid">
+       「連れて行く生徒」だけ。区画の中の面なので、鍵は `rp=`（外側が `pane=`） ===== -->
+  <div class="tpanes" data-panes="raid" data-key="rp">
     <div class="ttabs" role="tablist" aria-label="下に出すもの" hidden>
       <button type="button" role="tab" id="tb-r-now" data-p="now"
               aria-controls="pn-now" aria-selected="true">相性とステータス</button>
       <button type="button" role="tab" id="tb-r-sk" data-p="sk"
               aria-controls="pn-sk" aria-selected="false">スキル</button>
       <button type="button" role="tab" id="tb-r-pt" data-p="pt"
-              aria-controls="pn-pt" aria-selected="false">パーツと湧き</button>
+              aria-controls="pn-pt" aria-selected="false">パーツとグロッキー</button>
     </div>
 
     <div class="tpane" id="pn-now" data-p="now" role="tabpanel"
@@ -477,7 +486,7 @@
     <div class="tpane" id="pn-pt" data-p="pt" role="tabpanel"
          aria-labelledby="tb-r-pt" tabindex="0">
       <div class="panel">
-        <div class="panel-h"><h2>パーツと湧き<button type="button" class="qm" data-hint="ボス本体と一緒に場に出る敵です。難易度ごとに別のデータになっていて、HP もそれぞれ違います。名前に「フェーズ1」などが入っているものは、そのフェーズの間だけ出ます。"></button></h2></div>
+        <div class="panel-h"><h2>パーツと湧き<button type="button" class="qm" data-hint="ボス本体と一緒に場に出る敵です。難易度ごとに別のデータになっていて、HP もそれぞれ違います。名前に「フェーズ1」などが入っているものは、そのフェーズの間だけ出ます。下にフェーズの切り替わる HP と、グロッキーゲージの溜まり方を出します。"></button></h2></div>
         <p class="lead" id="pt-note" style="margin:0 0 12px"></p>
         <div class="parts" id="parts"></div>
         <div class="gimmick" id="gimmick"></div>
@@ -485,12 +494,11 @@
     </div>
   </div>
 
-  <!-- ===== ④ おまけ。**相手は上で選んだものを使う**。
-       畳んであるので、タブには入れない。
-       2026-08-31 の先生の指示——「TL検索、TL登録はおまけに内包しよう」 ===== -->
+  <!-- ===== おまけ。**相手は上で選んだものを使う**。畳んであるので、タブには入れない。
+       TL の保管庫は 2026-09-26 に外した（先生の判断） ===== -->
   <details class="subtool" id="raid-extra">
     <summary>おまけ — 連れて行く生徒
-      <small>上で選んだ相手に、攻撃が通る順で 274 人を並べます。固有武器で上がる地形適性も込みです。</small>
+      <small>上で選んだ相手に、攻撃が通る順で <span id="stu-n">274</span> 人を並べます。固有武器で上がる地形適性も込みです。</small>
     </summary>
     <div class="subbody">
 
@@ -510,23 +518,182 @@
     <div class="gwrap"><div class="grid" id="list"></div></div>
   </div>
 
-
     </div>
   </details>
-
-  <details class="subtool" id="raid-tls">
-    <summary>おまけ — TL の保管庫
-      <small>自分で貼った TL をこの端末に貯めて、ボス・難易度・使った生徒で引き直せます。他の人の TL は入っていません。</small>
-    </summary>
-    <div class="subbody">
-      <!-- ===== TL の保管庫と検索。tl-search.js が組み立てる ===== -->
-      <div id="tlsearch-root"></div>
     </div>
-  </details>
 
+    <!-- ================================================ スコア（元 tools/raid-score/） -->
+    <div class="tpane" id="sec-score" data-p="score" role="tabpanel" aria-labelledby="tb-sec-score" tabindex="0">
+      <p class="lead" id="rs-lead" style="margin:18px 0 0">&nbsp;</p>
+      <p class="note-box" id="rs-none" style="margin-top:14px" hidden></p>
+  <div class="tcols lean" id="rs-body" style="margin-top:14px">
+
+    <div class="tcol">
+      <div class="panel">
+        <div class="panel-h"><h2>クリアタイム</h2></div>
+        <p class="lead" style="margin:0 0 12px"><b>時間ぶんは、部隊をまたいだ合計の戦闘時間で決まります。</b><button type="button" class="qm" data-hint="2 凸なら 1 回目にかかった時間も足されます。倒せなかった回はふつう時間切れなので、制限時間そのものを入れてあります。"></button></p>
+        <div class="btnrow" style="margin-bottom:12px">
+          <div class="seg" id="tmode" role="group" aria-label="最後の凸の入れ方">
+            <button type="button" data-t="clear" aria-pressed="true">経過で入れる</button>
+            <button type="button" data-t="left" aria-pressed="false">残りで入れる</button>
+          </div>
+        </div>
+        <div id="times"></div>
+        <div class="addrow">
+          <button type="button" class="btn sm" id="add-turn">＋ 凸を足す</button>
+          <span id="turn-n"></span>
+        </div>
+        <p class="totline" id="t-total">&nbsp;</p>
+        <div class="numrow wide" style="margin-top:14px">
+          <div class="nm">削れた HP<small>倒しきれなかったときだけ触ってください</small></div>
+          <select id="i-hp" aria-label="削れた HP の割合"></select>
+        </div>
+        <p class="err" id="rs-err" hidden></p>
+      </div>
+
+      <div class="panel">
+        <div class="panel-h"><h2>目標スコアから逆に引く</h2></div>
+        <p class="lead" style="margin:0 0 12px">狙いたいスコアを入れると、<b>要るタイム</b>が出ます。</p>
+        <div class="numrow wide">
+          <div class="nm">目標のスコア<small id="goal-note">&nbsp;</small></div>
+          <input id="i-goal" type="number" inputmode="numeric" min="0" step="1000" value="0">
+        </div>
+        <p class="lead" id="goal-out" style="margin-top:12px">目標を入れると、要るタイムが出ます。</p>
+      </div>
+    </div>
+
+    <div class="tcol">
+      <div class="stats c3">
+        <div class="stat hero">
+          <div class="k">このタイムのスコア</div>
+          <div class="v" id="o-score">—</div>
+          <div class="sub" id="o-score-sub">&nbsp;</div>
+        </div>
+        <div class="stat">
+          <div class="k">いちばん低いスコア</div>
+          <div class="v" id="o-lo">—</div>
+          <div class="sub">合計 60 分ぶん戦って倒したとき</div>
+        </div>
+        <div class="stat">
+          <div class="k">いちばん高いスコア</div>
+          <div class="v" id="o-hi">—</div>
+          <div class="sub">0 秒で倒したときの理屈の上限</div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-h"><h2>内訳</h2></div>
+        <div class="ledger" id="ledger"></div>
+        <div class="gauge" id="gauge"></div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-h"><h2>タイムごとの早見</h2></div>
+        <p class="lead" id="rs-tb-lead" style="margin:0 0 12px">&nbsp;</p>
+        <div class="tscroll">
+          <table class="dt">
+            <thead><tr><th>クリアタイム</th><th>スコア</th><th>いちばん高いときとの差</th></tr></thead>
+            <tbody id="rs-tb"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </div>
+    </div>
+
+    <!-- ================================================ 開催（元 tools/raid-calendar/） -->
+    <div class="tpane" id="sec-cal" data-p="cal" role="tabpanel" aria-labelledby="tb-sec-cal" tabindex="0">
+  <div class="stats c3" style="margin-top:20px">
+    <div class="stat hero">
+      <div class="k" id="o-next-k">次の総力戦<button type="button" class="qm" id="o-next-q" data-hint="ゲームのデータ（ba-data の RaidSeasonManageExcelTable）に入っている、これからの開催です。運営の都合でずれることはあります。"></button></div>
+      <div class="v" id="o-next">—</div>
+      <div class="sub" id="o-next-sub"></div>
+    </div>
+    <div class="stat">
+      <div class="k">総力戦</div>
+      <div class="v" id="o-raid">—</div>
+      <div class="sub" id="o-raid-sub"></div>
+    </div>
+    <div class="stat">
+      <div class="k">大決戦</div>
+      <div class="v" id="o-elim">—</div>
+      <div class="sub" id="o-elim-sub"></div>
+    </div>
+  </div>
+
+  <!-- **これからの開催。**見積もりではなく、ゲームのデータに入っている予定そのもの。
+       取れなかった種類は cal.js が行ごと消す -->
+  <div id="upcoming" hidden style="margin-top:16px">
+    <div class="panel">
+      <div class="panel-h"><h2>これからの開催</h2></div>
+      <p class="lead">見積もりではありません。ゲームのデータの期間表に入っている予定です。</p>
+      <div class="gaps" id="upcoming-list"></div>
+    </div>
+  </div>
+
+  <!-- **ここから下はタブで畳む。**既定は「ボス」——ボスを押すと cal.js が
+       「開催の記録」の面へ移してから絞り込む。区画の中の面なので、鍵は `cp=` -->
+  <div class="tpanes" data-panes="raid-calendar" data-key="cp" style="margin-top:20px">
+    <div class="ttabs" role="tablist" aria-label="下に出すもの" hidden>
+      <button type="button" role="tab" id="tb-rc-boss" data-p="boss"
+              aria-controls="pn-boss" aria-selected="true">ボス</button>
+      <button type="button" role="tab" id="tb-rc-rec" data-p="rec"
+              aria-controls="pn-rec" aria-selected="false">開催の記録</button>
+      <button type="button" role="tab" id="tb-rc-gap" data-p="gap"
+              aria-controls="pn-gap" aria-selected="false">開催の間隔</button>
+    </div>
+
+    <div class="tpane" id="pn-boss" data-p="boss" role="tabpanel"
+         aria-labelledby="tb-rc-boss" tabindex="0">
+      <div class="panel">
+        <div class="panel-h"><h2>全ボス</h2></div>
+        <p class="lead" id="boss-lead">押すと<b>「開催の記録」</b>で、そのボスの回だけ絞られます。<button type="button" class="qm" data-hint="押したボスは、ボス情報とスコアの相手にもなります。色の付いた札は、Insane 以上でそのボスに有効な攻撃属性です。絞っているボスをもう一度押すと全ボスに戻ります。"></button></p>
+        <div class="cbosses" id="cal-bosses"></div>
+      </div>
+    </div>
+
+    <div class="tpane" id="pn-rec" data-p="rec" role="tabpanel"
+         aria-labelledby="tb-rc-rec" tabindex="0">
+      <div class="panel">
+        <div class="panel-h"><h2>開催の記録</h2></div>
+        <div class="btnrow">
+          <div class="seg" id="cal-kind" role="group" aria-label="どちらを見るか">
+            <button type="button" data-k="all" aria-pressed="true">両方</button>
+            <button type="button" data-k="raid" aria-pressed="false">総力戦</button>
+            <button type="button" data-k="elim" aria-pressed="false">大決戦</button>
+          </div>
+          <div class="seg" id="cal-terrain" role="group" aria-label="地形">
+            <button type="button" data-t="" aria-pressed="true">全部</button>
+            <button type="button" data-t="Street" aria-pressed="false"><span class="gi gi-terrain-street" aria-hidden="true"></span>市街地</button>
+            <button type="button" data-t="Outdoor" aria-pressed="false"><span class="gi gi-terrain-outdoor" aria-hidden="true"></span>屋外</button>
+            <button type="button" data-t="Indoor" aria-pressed="false"><span class="gi gi-terrain-indoor" aria-hidden="true"></span>屋内</button>
+          </div>
+        </div>
+        <p class="lead" id="cal-lead" style="margin-top:12px">—</p>
+        <div id="cal-list"></div>
+        <div class="btnrow" style="margin-top:12px">
+          <button type="button" class="btn" id="cal-more">もっと見る</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="tpane" id="pn-gap" data-p="gap" role="tabpanel"
+         aria-labelledby="tb-rc-gap" tabindex="0">
+      <div class="panel">
+        <div class="panel-h"><h2>開催の間隔</h2></div>
+        <p class="lead" id="gap-lead">—</p>
+        <div class="gaps" id="gaps"></div>
+      </div>
+    </div>
+  </div>
+    </div>
+  </div>
+
+  <!-- 共有の帯は 1 つ。**配るのは選んだ相手と、開いている区画だけ**（下の shareUrl）。
+       「数字の出どころ」は区画ごとにあり、開いている区画のものだけを出す -->
   <div class="sharebar" id="sharebar"></div>
-
-      <details class="src">
+  <details class="src" data-sec="info">
     <summary>数字の出どころ</summary>
 
     <p><b>■ ボスの中身について</b></p>
@@ -543,31 +710,6 @@
 
     <p><b>グロッキーゲージの溜まり方は <code>localization.min.json</code> の <code>GroggyCondition</code> です。</b>キーがボスの <code>DevName</code> とそのまま一致します。<b>ここに載っていないボスは、その欄を出していません。</b>ダメージの蓄積で溜まるふつうの方式だと思われますが、データに書いていないことをこちらで書き足すのはやめました。</p>
 
-    <p><b>■ TL の保管庫と検索について</b></p>
-<p><b>このページに、他人が作った TL は 1 本も入っていません。</b>このサイトは GitHub Pages の静的配信で、サーバーもデータベースもありません。<b>投稿を受け取る仕組みが作れない</b>ので、代わりに「自分の TL を自分の端末に貯める帳面」と「よそへ条件ごと飛ばすリンク」の 2 つにしてあります。<b>中身の分からない TL を作って並べることはしません。</b></p>
-
-        <p><b>保存先は <code>localStorage</code> の <code>arona-tl-vault</code> ひとつです。</b>入っているのは、あなたが貼ったコスト計算機のハッシュと、あなたが選んだボス・難易度・地形・タイム・メモだけ。<b>どこにも送信していません。</b>ブラウザごと・端末ごとに別で、閲覧データを消すと一緒に消えます。書き出した JSON がそのまま中身です。</p>
-
-        <p><b>編成の絵と人数は、貼られたハッシュをその場で読んだ結果です。</b>形は <a href="../cost-timeline/">TL のコスト計算機</a>の <code>tl.js</code> にある <code>toHash()</code> / <code>fromHash()</code> と同じで、<code>モード｜編成｜撃つ順番｜開始・上限・ステージ補正</code> の 4 つを <code>|</code> で区切ったものです。編成は枠の順に <code>,</code> 区切り、空き枠は <code>_</code>、1 枠が <code>生徒 ID . EX レベル . 通常スキルレベル</code> から始まります。<b>枠はストライカー 6 ＋ スペシャル 4 の固定長で、通常編成は 4＋2、制約解除決戦は 6＋4 までが生きています。</b>ここでもその通りに数えているので、モードを 6 に戻したときに消える枠は人数に入りません。</p>
-
-        <p><b>「いまコスト計算機で開いている TL を取り込む」は、あちらが同じブラウザに置いている <code>arona-cost-timeline</code> を読んで組み直しています。</b>組んだハッシュは、保存する前に必ずこちらの読み取りに通しています。読めなければ保存させません。</p>
-
-        <p><b>保存するときのボス・種類・地形・難易度は、ページ先頭のボス選択から取っています。</b>取り込み欄に同じ選択肢を並べても迷うだけなので、2026-08-30 に一本化しました。<b>URL のハッシュ（<code>#tls=ボス~難易度~地形~生徒~語句</code>）の形は変えていません。</b>他のページから <code>#tls=b4~~Indoor~~</code> のような形で飛んできたときは、そのボスと地形が選ばれた状態で開きます。</p>
-
-        <p><b>ボス・生徒・難易度の名前は <code>data.js</code>（このツール自身）（<code>window.RAID</code>）から読んでいます。</b>総力戦・大決戦のボス 14 体は <code>bosses</code>、制約解除決戦の 6 体は <code>multi</code>、生徒 <span id="tls-src-stu">—</span> 人は <code>students</code> です。<b>大決戦にも出るボスかどうかは、開催の記録（<code>elim</code>）に載っているかで決めています。</b>難易度の並び（Normal・Hard・VeryHard・Hardcore・Extreme・Insane・Torment・Lunatic）は <code>labels.RaidDifficulty</code> のままで、制約解除決戦の <span id="tls-src-md">—</span> という区切りは <code>multi</code> の <code>secs</code> にある階層の区間そのものです。<b>このツールは戦闘の計算を一切していません。</b>ここに数字を作る場所はありません。</p>
-
-        <p><b>ボスの絵は <code>tools/img/boss_&lt;パス名&gt;.webp</code>（520×160）です。</b>パス名は <code>data.js</code> の <code>p</code> で、総力戦の 14 体と制約解除決戦の 6 枠、あわせて 20 枚がそろっています。<b>取れなかったときは名前だけのカードにして、そのボスを一覧から落とさない作りです。</b></p>
-
-        <p><b>よそのサイトへのリンクは、検索の URL を組み立てているだけです。</b>
-          <a href="https://kina-ko-m-ochi.net/tlsearch/" target="_blank" rel="noopener noreferrer">TLサーチ（きなこもち）</a>の検索フォームは <code>GET</code> で、<code>boss_id</code> / <code>battle_field_id</code> / <code>armor_id</code> / <code>difficulty</code> という項目を持っています。<b>ボスと地形と装甲の番号は、先方のフォームの <code>&lt;option value&gt;</code> をそのまま写したものです</b>（2026-08-30 に実物で確認。<code>battle_field_id</code> は 市街地 1・屋外 2・屋内 3）。<b>先方が番号を振り直せば、このリンクは外れます。</b>難易度は先方が「階層の区間」で持っているため、制約解除決戦のときだけ渡しています。</p>
-
-        <p>飛び先 —
-          <a href="https://kina-ko-m-ochi.net/tlsearch/" target="_blank" rel="noopener noreferrer">TLサーチ（きなこもち）</a>、
-          <a href="https://bluearchive.tools/tl/search" target="_blank" rel="noopener noreferrer">BlueArchive Tools の TL 検索</a>、
-          <a href="https://www.youtube.com/" target="_blank" rel="noopener noreferrer">YouTube</a>、
-          <a href="https://x.com/" target="_blank" rel="noopener noreferrer">X</a>。
-          <b>いずれも当サイトとは関係のない外部サイトです。</b>中身の正しさや掲載の可否は、それぞれの運営者に帰属します。</p>
-
     <p><b>■ 相性と、連れて行く生徒について</b></p>
     <p><b>属性の倍率は <a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a> の <code>data/config.json</code> にある <code>TypeEffectiveness</code> そのままです。</b>
       10000 が等倍なので、20000 なら ×2.0、5000 なら ×0.5 です。<b>ここは推測していません。</b></p>
@@ -575,12 +717,90 @@
       <code>BulletTypeInsane</code> という別の攻撃属性が入っているので、Insane 以上ではそちらに切り替えています。大決戦の装甲の組み合わせは <code>RaidSeasons[].EliminateSeasons</code> の実績から拾っています。</p>
     <p><b>生徒の地形適性は 0〜5 の数値です（ゲーム内の D / C / B / A / S / SS）。</b>固有武器の <code>AdaptationType</code> と <code>AdaptationValue</code> を足したものが、武器ありの値で、並び順にはこちらを使っています。<b>上がるのは ★3（3 凸）からで、上がり幅は 1 段が 248 人、2 段が 27 人です</b>（<code>CharacterWeaponExcelTable</code> の <code>StatType[2]</code> を数えました）。</p>
     <p><b>順位は付けていません。</b>実際の火力はレベル・装備・スキル・編成で変わるもので、ここが出せるのは「属性が通るか」「その地形で当たるか」までです。</p>
-    <p>出典 — <a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a>。取得は <span id="tls-ver">—</span>。</p>
+    <p>出典 — <a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a>。取得は <span id="info-ver">—</span>。</p>
+  </details>
+
+  <details class="src" data-sec="score">
+        <summary>数字の出どころ</summary>
+        <p><b>スコアの式は、ゲームのデータの列そのものです。</b><a href="https://github.com/electricgoat/ba-data" target="_blank" rel="noopener">ba-data</a> の <code>DB/RaidStageExcelTable.json</code>（総力戦 168 行）と <code>DB/EliminateRaidStageExcelTable.json</code>（大決戦 532 行）に、ボスと難易度ごとに 4 つの数が入っています。</p>
+        <ul>
+          <li><code>DefaultClearScore</code> — <b>倒したときに必ずもらえるぶん</b></li>
+          <li><code>HPPercentScore</code> — <b>HP をぜんぶ削ったときのぶん</b>。削りきれなければその割合ぶん</li>
+          <li><code>PerSecondMinusScore</code> — <b>1 秒ごとに減るぶん</b>（ただし<b>この値の 1/10</b>。下に書きました）</li>
+          <li><code>MaximumScore</code> — <b>時間ぶんの満額</b>（0 秒で倒したときにもらえる量）</li>
+        </ul>
+        <p><b>スコア ＝ 倒したぶん ＋ HP ぶん ＋（時間ぶんの満額 − 経過秒 × 1 秒あたり）。</b>時間ぶんは 0 より下には行きません。</p>
+        <p><b>式が合っていることは、700 行ぜんぶで確かめました。</b>同じ表に <code>MinimumAcquisitionScore</code> と <code>MaximumAcquisitionScore</code> が入っていて、<code>最低 ＝ DefaultClearScore ＋ HPPercentScore</code>、<code>最高 ＝ 最低 ＋ MaximumScore</code> が <b>700 行すべてで 1 の狂いもなく一致</b>しました。合わない行が出たらデータを作り直すときに止まります。</p>
+        <p><b><code>PerSecondMinusScore</code> は、そのままでは「1 秒あたり」になりません。1/10 が正しい値です。</b>
+          この列を割ると <code>MaximumScore ÷ PerSecondMinusScore</code> が 700 行すべてで <b>360</b> になりますが、
+          これを 360 秒と読むと<b>3 分ボスを 2 凸しただけで時間ぶんが 0</b> になり、誰が撃っても同じ点になってしまいます。実際は違います。</p>
+        <p><b>正しくは 1/10 で、時間ぶんが尽きるのは合計 3,600 秒（60 分）です。</b>
+          <a href="https://kina-ko-m-ochi.net/score/" target="_blank" rel="noopener">きなこもち「総力戦・大決戦スコア計算機」</a>が
+          <code>timeScore = (3600 − clearSeconds) × multiplier</code> という式を使っていて、その <code>multiplier</code> は難易度ごとに
+          <code>120 / 240 / 480 / 960 / 1440 / 1920 / 2400 / 2880</code>。<b>こちらの <code>PerSecondMinusScore</code> のちょうど 1/10 で、8 段すべて一致します。</b>
+          あちらの <code>baseScores</code> も <code>DefaultClearScore ＋ HPPercentScore</code> と一致しました——3 分ボスの Torment が
+          <b>31,076,000</b>、4 分ボスが <b>31,708,000</b>、4 分 30 秒ボスが <b>32,502,000</b>。<b>別々に出した数が全部揃ったので、読み違いではありません。</b></p>
+        <p><b>裏付けがもう 1 つあります。</b><a href="https://w.atwiki.jp/aniwotawiki/pages/52198.html" target="_blank" rel="noopener">アニヲタ Wiki「総力戦（ブルーアーカイブ）」</a>のヒエロニムスの回に
+          「Torment クリア者の上位 10% からチナトロボーダーとなる 20000 位までのスコア差は<b>わずかに約 4,000</b>」とあります。
+          1 秒 2,400 点なら <b>約 1.7 秒</b>ぶんの差で、2 万人が並ぶ幅として無理がありません。
+          1 秒 24,000 点だと <b>0.17 秒</b>になってしまい、さすがにあり得ません。</p>
+        <p><b>だから「2 凸」以上が意味を持ちます。</b>時間ぶんは<b>部隊をまたいだ合計の戦闘時間</b>で減るので、
+          倒しきれずに時間切れになった回のぶんも足されます。このツールは凸ごとに時間を入れる形にして、倒しきれなかった回は制限時間そのものを初期値にしています。
+          最後の 1 回だけは「経過」でも「残り」でも入れられます（<b>残り ＝ 制限時間 − 経過</b>）。</p>
+        <p><b>地形と装甲はスコアに関係しません。</b>大決戦の行は「ボス_地形_装甲」という名前で 532 行ありますが、<b>同じボス・同じ難易度なら中身が 1 種類しかありませんでした。</b>総力戦にも <code>Binah_Street</code> のような地形つきの行がありますが、そちらも値は同じです。なので 194 行に畳んで持っています。</p>
+        <p><b>ボスの日本語名は <a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a> から引いています。</b>ゲームのデータ側は <code>Binah</code> のような開発名しか持っていません。<b>表によって大文字小文字が揃っていない</b>（<code>ShiroKuro</code> と <code>Shirokuro</code>）ので小文字にして引き、大決戦だけ別名になっている 2 つ（<code>Kaitenger</code> ＝ KAITEN FX Mk.0、<code>HoverCraft</code> ＝ ホバークラフト）は対応表を持っています。</p>
+        <p><b>倒しきれなかったときは、クリアぶんと時間ぶんが入りません。</b>HP を削った割合ぶんだけになります。この扱いはデータに明記されていないので、<code>MinimumAcquisitionScore</code> が「クリアしたときの最低」であることからの読み取りです。</p>
+        <p>出典 — <a href="https://github.com/electricgoat/ba-data" target="_blank" rel="noopener">electricgoat/ba-data</a>（スコアの列）、<a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a>（ボスの名前と絵）、<a href="https://kina-ko-m-ochi.net/score/" target="_blank" rel="noopener">きなこもち「総力戦・大決戦スコア計算機」</a>（1 秒あたりの減点と 3,600 秒）、<a href="https://w.atwiki.jp/aniwotawiki/pages/52198.html" target="_blank" rel="noopener">アニヲタ Wiki</a>（順位差の実例）。取得は <span id="rs-ver">—</span>。</p>
+  </details>
+
+  <details class="src" data-sec="cal">
+      <summary>数字の出どころ</summary>
+      <p><b>開催の日付・ボス・地形は、ゲームのデータそのままです。</b>
+        <code>raids.min.json</code> の <code>RaidSeasons</code> にある
+        <code>Seasons</code>（総力戦）と <code>EliminateSeasons</code>（大決戦）を、
+        <code>Start</code> / <code>End</code>（どちらも UNIX 秒）で並べています。<b>時刻はすべて日本時間で出しています。</b>見ている端末の時計に合わせると、海外から見たときに日付がずれるためです。</p>
+      <p><b><code>RaidSeasons</code> はサーバーごとに 3 本入っていて、先頭が日本です。</b>先頭の最後のシーズンが日本の開催日と合うことを確かめて使っています。</p>
+      <p><b>大決戦の「Torment に挑戦できる防御タイプ」は <code>OpenDifficulty</code> です。</b>防御タイプごとに、その回で開く難易度の番号が入っています。番号は
+        Normal・Hard・VeryHard・Hardcore・Extreme・Insane・Torment・Lunatic の順で、
+        <b>6 なら Torment まで</b>、5 なら Insane までです。</p>
+      <p><b>「これからの開催」は見積もりではありません。</b>ゲームのデータの期間表から、そのまま出しています。<button type="button" class="qm" data-hint="総力戦は RaidSeasonManageExcelTable、大決戦は EliminateRaidSeasonManageExcelTable、制約解除決戦は MultiFloorRaidSeasonManageExcelTable です。列の綴りが違い、前の 2 つは SeasonStartData / SeasonEndData、制約解除決戦だけ SeasonStartDate / SeasonEndDate です。"></button><b>開催済みのぶんは SchaleDB の <code>raids.min.json</code>、これからのぶんは ba-data の期間表</b>という二本立てです。運営の都合でずれることはあるので、最終的な告知は公式 X の「総力戦＆大決戦スケジュール」と「予告」で出ます。期間表が取れなかったときだけ、直近 6 回の間隔から出した見積もりに戻ります。</p>
+      <p>ボスの装甲と攻撃属性は <code>Raid</code> の <code>ArmorType</code> /
+        <code>BulletType</code> / <code>BulletTypeInsane</code> です。
+        Insane 以上では攻撃属性が変わるボスがいるので、両方を出しています。相性の詳細は「ボス情報」の区画にあります。</p>
+      <p>出典 — <a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a>。取得は <span id="cal-ver">—</span>。</p>
   </details>
 </div>
 
-<script>window.TOUR = {"key": "raid", "steps": [{"sel": "#bosses", "t": "まず相手を絵から選びます", "d": "総力戦・大決戦・制約解除決戦のボスが並びます。押すと、下のステータス・スキル・パーツがぜんぶその相手のものに切り替わります。地形と難易度もここで選びます。"}, {"sel": "#atk", "pre": "#tb-r-now", "t": "こちらの攻撃がどれだけ通るか", "d": "選んだ相手の装甲と地形から、攻撃属性ごとの倍率が出ます。下には、その難易度のボス本体のステータスが並びます。"}, {"sel": "#skl", "pre": "#tb-r-sk", "t": "ボスのスキル", "d": "ゲーム内のボス情報に出るのと同じ文です。難易度が上がると数値も文も変わるので、上で選んだ難易度のものだけを出しています。"}, {"sel": "#parts", "pre": "#tb-r-pt", "t": "パーツと湧き", "d": "ボス本体と一緒に場に出る敵です。それぞれの HP も出ます。下にはフェーズの切り替わる HP と、グロッキーゲージの溜まり方が付きます。"}, {"sel": "#tlsearch-root", "pre": "#raid-tls > summary", "t": "TL の保管庫はおまけに入れました", "d": "自分で貼った TL をこの端末に貯めて、ボス・難易度・使った生徒で引き直せます。他の人の TL はこのサイトには入っていないので、外部サイトの検索 URL を組み立てて渡します。"}, {"sel": "#sharebar", "t": "選んだ相手はそのまま渡せます", "d": "URL には選んだボスと絞り込みの条件だけが入ります。保管庫の中身は端末の外に出ません。"}]};</script>
-<script src="../panes.js?v=1"></script>
+<script>window.TOUR = {"key": "raid-3", "steps": [{"sel": "#sec-tabs", "t": "総力戦は 3 つに分けています", "d": "ボス情報・スコア・開催。ボスは上で 1 回選べば、3 つともその相手になります。入力は区画ごとにこの端末に残ります。"}, {"sel": "#bosses", "pre": ["#tb-sec-info"], "t": "まず相手を絵から選びます", "d": "総力戦・大決戦・制約解除決戦のボスが並びます。地形と難易度もここで選びます。"}, {"sel": "#atk", "pre": ["#tb-sec-info", "#tb-r-now"], "t": "こちらの攻撃がどれだけ通るか", "d": "選んだ相手の装甲と地形から、攻撃属性ごとの倍率が出ます。下には、その難易度のボス本体のステータスが並びます。"}, {"sel": "#skl", "pre": ["#tb-sec-info", "#tb-r-sk"], "t": "ボスのスキル", "d": "ゲーム内のボス情報に出るのと同じ文です。上で選んだ難易度のものだけを出しています。"}, {"sel": "#parts", "pre": ["#tb-sec-info", "#tb-r-pt"], "t": "パーツとグロッキー", "d": "ボス本体と一緒に場に出る敵と、その HP です。下にフェーズの切り替わる HP と、グロッキーゲージの溜まり方が付きます。"}, {"sel": "#list", "pre": ["#tb-sec-info", "#raid-extra > summary"], "t": "連れて行く生徒", "d": "選んだ相手に攻撃が通る順で生徒が並びます。ふだんは畳んであります。"}, {"sel": "#times", "pre": ["#tb-sec-score"], "t": "スコア: クリアタイムを入れます", "d": "ボスと難易度は上の選択のものです。部隊をまたいだ合計の時間で、凸は足せます。"}, {"sel": "#o-score", "pre": ["#tb-sec-score"], "t": "スコアが出ます", "d": "内訳と、いちばん高いときとの差も出ます。目標スコアを入れると、要るタイムを逆に引けます。"}, {"sel": "#cal-bosses", "pre": ["#tb-sec-cal", "#tb-rc-boss"], "t": "開催: 全ボスの回数と前回", "d": "押すと、そのボスの開催だけに絞ります。ボス情報とスコアの相手もそのボスになります。"}, {"sel": "#cal-list", "pre": ["#tb-sec-cal", "#tb-rc-rec"], "t": "開催の記録", "d": "いつ・どの地形で・どの難易度まで開いたかを新しい順に出します。上の「これからの開催」はゲームのデータにある予定です。"}, {"sel": "#sharebar", "t": "選んだ相手と開いている区画ごと URL になります", "d": "リンクを送ると、相手の画面にも同じ結果が出ます。案内を閉じると、開く前の区画に戻ります。"}]};</script>
+<script>
+/* **古い URL を直す（その 1。../remember.js と ../panes.js より前に）。**
+   - 元のボス情報は、相性・スキル・パーツの面を `pane=sk` のように持っていた。いまの `pane=` は
+     3 つの区画のもので、面は `rp=` に移した
+   - 元の TL の保管庫（2026-09-26 に外した）の `#tls=ボス~難易度~地形~生徒~語句` は、
+     よそから相手を指して飛んでくる入口だった。ボスと地形と難易度だけ先頭の選択（`rb=`）へ移す */
+(function () {
+  var s = location.hash.replace(/^#/, '').split('&').filter(Boolean), hit = false;
+  var hasRb = s.some(function (x) { return x.indexOf('rb=') === 0; });
+  s = s.map(function (x) {
+    var m = /^pane=(now|sk|pt)$/.exec(x);
+    if (m) { hit = true; return 'rp=' + m[1]; }
+    if (x.indexOf('tls=') === 0) {
+      hit = true;
+      var p = x.slice(4).split('~');
+      if (hasRb || !/^[bm]\d+$/.test(p[0] || '')) return '';
+      return 'rb=' + [p[0].charAt(0) === 'm' ? 'multi' : 'raid', p[0], p[2] || '', p[1] || ''].join('~');
+    }
+    return x;
+  }).filter(Boolean);
+  if (hit) {
+    try { history.replaceState(null, '', location.pathname + location.search + (s.length ? '#' + s.join('&') : '')); } catch (e) { /* file:// */ }
+  }
+})();
+</script>
+<!-- **入力を覚える。../panes.js と各区画の JS より前に読むこと**（前回のハッシュを先に URL へ戻す）。
+     `data-keep`: ある区画のリンクで開いても、書いていない区画は前の続きのまま -->
+<script src="../remember.js?v=2" data-keep="rb,rs,rc,rp,cp"></script>
+<script src="../panes.js?v=2"></script>
 <script src="../tour.js?v=2"></script>
 
 <script src="../share.js?v=3"></script>
@@ -596,7 +816,7 @@
       <span class="sep">/</span>
       <a href="https://x.com/pe6cak" target="_blank" rel="noopener">制作者の X（@pe6cak）</a>
       <span class="sep">/</span>
-      <a href="https://github.com/0rnot/arona-guide/issues/new?template=tool-feedback.yml&title=%5B%E3%83%9C%E3%82%B9%E6%83%85%E5%A0%B1%5D%20&tool=%E3%83%9C%E3%82%B9%E6%83%85%E5%A0%B1" target="_blank" rel="noopener">このツールへの要望・不具合</a>
+      <a href="https://github.com/0rnot/arona-guide/issues/new?template=tool-feedback.yml&title=%5B%E7%B7%8F%E5%8A%9B%E6%88%A6%5D%20&tool=%E7%B7%8F%E5%8A%9B%E6%88%A6" target="_blank" rel="noopener">このツールへの要望・不具合</a>
       <span class="sep">/</span>
       <span>Discord なら <b>@0r.not</b> まで</span>
     </p>
@@ -611,8 +831,54 @@
   </div>
 </footer>
 
-<script src="data.js?v=1"></script>
-<script src="tl-search.js?v=2"></script>
+<script src="data.js?v=2"></script>
+<!-- スコアの区画のデータ（元 tools/raid-score/data.js。scripts/build-tool-data.py の build_raid_score） -->
+<script src="data-score.js?v=2"></script>
+<!-- 開催の区画のデータ（元 tools/raid-calendar/data.js。build_raid_calendar） -->
+<script src="data-cal.js?v=2"></script>
+<script>
+/* **古い URL を直す（その 2。データを読んだあと、各区画の JS より前に）。**
+   元のスコア計算機は `rs=種類~開発名~難易度~…`、元の開催カレンダーは `rc=種類~地形~ボスの番号` で
+   相手を持っていた。いまの相手は先頭の選択（`rb=種類~b番号~地形~難易度~装甲`）だけが持つので、
+   そちらへ移して、区画には空（`rs=~~~…`）か `*`（先頭のボスで絞る）を残す。
+   **URL に書いてある相手が、前に覚えた相手（../remember.js が足した `rb=`）より勝つ。** */
+(function () {
+  var DIFF = ['Normal', 'Hard', 'VeryHard', 'HardCore', 'Extreme', 'Insane', 'Torment', 'Lunatic'];
+  var s = location.hash.replace(/^#/, '').split('&').filter(Boolean), hit = false;
+  function get(k) { for (var i = 0; i < s.length; i++) if (s[i].indexOf(k + '=') === 0) return s[i].slice(k.length + 1); return null; }
+  function put(k, v) {
+    s = s.filter(function (x) { return x.indexOf(k + '=') !== 0; });
+    s.push(k + '=' + v); hit = true;
+  }
+  function rb(kind, id, d) {
+    var p = (get('rb') || '').split('~');
+    put('rb', [kind, 'b' + id, p[1] === 'b' + id ? (p[2] || '') : '', d != null ? d : (p[3] || ''), kind === 'elim' ? (p[4] || '') : ''].join('~'));
+  }
+  var rc = get('rc');
+  if (rc != null) {
+    var c = rc.split('~');
+    if (/^\d+$/.test(c[2] || '') && window.CAL && window.CAL.bosses[c[2]]) {
+      rb(c[0] === 'elim' ? 'elim' : 'raid', +c[2], null);
+      put('rc', [c[0] || 'all', c[1] || '', '*'].join('~'));
+    }
+  }
+  var rs = get('rs');
+  if (rs != null) {
+    var p = rs.split('~');
+    if ((p[0] === 'raid' || p[0] === 'elim') && p[1] && window.RSCORE) {
+      var row = window.RSCORE.rows.filter(function (r) { return r.k === p[0] && r.b === p[1]; })[0];
+      if (row) {
+        var d = DIFF.filter(function (x) { return x.toLowerCase() === String(p[2] || '').toLowerCase(); })[0] || '';
+        rb(p[0], row.id, d);
+      }
+      put('rs', ['', '', ''].concat(p.slice(3)).join('~'));
+    }
+  }
+  if (hit) {
+    try { history.replaceState(null, '', location.pathname + location.search + '#' + s.join('&')); } catch (e) { /* file:// */ }
+  }
+})();
+</script>
 
 <script>
 /* ============================================================
@@ -620,17 +886,22 @@
 
    2026-08-30 に、畳んであった相性チェッカーの中から先頭へ引き上げた
    （先生の指示——「ボスは画像から選びたい」「相手を選ぶ UI を最初に持ってきていい」）。
-   ここが決めた相手が、下の 3 つにそのまま流れる。
+   ここが決めた相手が、3 つの区画にそのまま流れる（2026-09-26 に raid・raid-score・
+   raid-calendar を「総力戦」1 本にまとめてから）。
 
-     1. TL の保管庫の絞り込み（`tl-search.js`）
-     2. TL を保存するときのボス・種類・地形・難易度
-     3. 相性チェッカーの計算
+     1. ボス情報（このスクリプトの中の相性・スキル・パーツ・連れて行く生徒）
+     2. スコア（`score.js`。種類・ボス・難易度から `RSCORE` の行を引く）
+     3. 開催（`cal.js`。ボスで記録を絞る）
 
    外へは `window.RAID_PICKER` で出す。
 
-     get()  → { kind, b, tr, d }     kind は raid / elim / multi、b は 'b4' / 'm1000000'
-     set(o) → 黙って選び直す（`on` の受け手には通知しない）
-     on(fn) → 人が選び直したときだけ fn(get()) を呼ぶ
+     get()     → { kind, b, tr, d }  kind は raid / elim / multi、b は 'b4' / 'm1000000'
+     set(o)    → 黙って選び直す（`on` の受け手には通知しない）
+     choose(o) → 選び直して、`on` の受け手にも知らせる（開催の区画の札から）
+     on(fn)    → 選び直されたときだけ fn(get()) を呼ぶ
+
+   URL の区画は `rb=種類~ボス~地形~難易度~装甲`（装甲は大決戦のときだけ）。
+   既定のまま（総力戦・先頭のボス・その先頭の地形・Normal）なら書かない。
    ============================================================ */
 (function () {
   'use strict';
@@ -668,8 +939,7 @@
   function mSec() { var b = mBoss(); return (b.secs || [])[sec] || (b.secs || [])[0] || { bt: 'Normal' }; }
 
   /** いま選んでいる相手。**外へ出す形。**
-      ボスの合言葉は総力戦・大決戦が `b<Id>`、制約解除決戦が `m<Id>`
-      （`tl-search.js` の `BOSS` の作り方に合わせてある）。 */
+      ボスの合言葉は総力戦・大決戦が `b<Id>`、制約解除決戦が `m<Id>`。 */
   function state() {
     return { kind: mode,
              b: (mode === 'multi' ? 'm' + multiId : 'b' + bossId),
@@ -680,8 +950,7 @@
     var st = state();
     for (var i = 0; i < subs.length; i++) { try { subs[i](st); } catch (e) { /* 受け手が転んでも進む */ } }
   }
-  /** 外から選び直す。**通知しない。**ハッシュから戻すときと、
-      保管庫の「直す」で相手を合わせるときに呼ばれる */
+  /** 外から選び直す。**通知しない。**ハッシュから戻すときに呼ばれる */
   function apply(o) {
     if (!o) return;
     if (o.b && String(o.b).charAt(0) === 'm') {
@@ -706,13 +975,37 @@
         if (n >= 0) diff = Math.min(n, b.mx);
       }
     }
+    if (o.a && ARMORS.indexOf(o.a) >= 0) armor = o.a;
     draw();
   }
   window.RAID_PICKER = {
     get: state,
     set: apply,
+    choose: function (o) { apply(o); notify(); },
     on: function (fn) { if (typeof fn === 'function') subs.push(fn); }
   };
+
+  /* ---------- URL の区画 `rb=` ---------------------------------------
+     **自分の区画だけ書き換える。**ほかの区画（`rs=`・`rc=`・`pane=`…）は順番ごと残す */
+  function seg() {
+    var st = state();
+    return 'rb=' + [st.kind, st.b, st.tr, st.d, mode === 'elim' ? (armor || ARMORS[0]) : ''].join('~');
+  }
+  var DEF_SEG = seg();
+  function mySeg() { var s = seg(); return s === DEF_SEG ? '' : s; }
+  function syncHash() {
+    var mine = mySeg();
+    var parts = location.hash.replace(/^#/, '').split('&').filter(function (x) {
+      return x && x.indexOf('rb=') !== 0;
+    });
+    if (mine) parts.push(mine);
+    var h = parts.join('&');
+    try {
+      history.replaceState(null, '', location.pathname + location.search + (h ? '#' + h : ''));
+    } catch (e) { /* file:// では黙って諦める */ }
+  }
+  window.RAIDSEG = window.RAIDSEG || {};
+  window.RAIDSEG.pick = mySeg;
   /** 旧い呼び名。**外したくないので残してある**（返すのはボスと地形だけ） */
   window.RAID_PICK = function () { var s = state(); return { b: s.b, tr: s.tr }; };
 
@@ -1028,6 +1321,7 @@
   function draw() {
     drawMode(); drawBosses(); drawPickers(); drawNow();
     drawSkills(); drawParts(); drawList();
+    syncHash();
   }
   /** 人が選び直したとき。**描いてから外へ知らせる。** */
   function pick() { draw(); notify(); }
@@ -1062,7 +1356,7 @@
   });
   el('armor').addEventListener('click', function (ev) {
     var b = ev.target.closest('button'); if (!b) return;
-    armor = b.dataset.a; draw();   // 装甲は相性チェッカーの中だけの話。外へは知らせない
+    armor = b.dataset.a; draw();   // 装甲はボス情報の中だけの話（スコアにも開催にも効かない）。外へは知らせない
   });
   el('wep').addEventListener('change', function () { withWeapon = el('wep').checked; drawList(); });
   el('only').addEventListener('change', function () { onlyGood = el('only').checked; drawList(); });
@@ -1084,35 +1378,108 @@
   bindFilter('f-sc', 'sc', L.School);
   bindFilter('f-st', 'st');
 
-  draw();
+  // URL に相手が入っていたら、それを戻してから最初の描画をする（`apply` が描く）
+  var got = location.hash.replace(/^#/, '').split('&').filter(function (x) {
+    return x.indexOf('rb=') === 0;
+  })[0];
+  if (got) {
+    var p = got.slice(3).split('~');
+    apply({ kind: p[0], b: p[1], tr: p[2], d: p[3], a: p[4] });
+  } else {
+    draw();
+  }
 })();
 </script>
 
+<script src="score.js"></script>
+<script src="cal.js"></script>
 <script>
-/* TL の保管庫と検索を組み立てて、上のボス選択とつなぐ。 */
 (function () {
   'use strict';
-  var root = document.getElementById('tlsearch-root');
-  if (!root || !window.TLSEARCH_MOUNT) return;
-  var api = window.TLSEARCH_MOUNT(root);
-  if (api) {
-    // **ボス選択が「相手」を持つ。**ハッシュに相手が入っていれば、
-    // ここでボス選択側へ戻す（`bindPicker` の中でやっている）
-    api.bindPicker(window.RAID_PICKER);
-    // **`tls=` 付きで返す。**ボス選択も同じハッシュに区画を持つので、
-    // `&` で割ったうえで自分の区画だけを差し替える作りになっている
-    window.shareUrl = function () { return '#' + api.hash(); };
+  /* 3 つの区画をつなぐ。**各区画の JS は自分の区画（`rs=`・`rc=`）しか触らない。**
+     ここが持つのは、区画をまたぐものだけ——共有の URL、覚えるハッシュ、「最初に戻す」、
+     「数字の出どころ」とボスの選択の出し分け、使い方（tools/bond/ と同じ作り） */
+  var tabs = document.getElementById('sec-tabs');
+  var box = document.querySelector('[data-panes="raid-sec"]');
+  var pick = document.getElementById('pick');
+  if (!tabs || !box) return;
+  function now() {
+    var b = tabs.querySelector('[aria-selected="true"]');
+    return (b && b.getAttribute('data-p')) || 'info';
   }
+  function seg(k) { var f = (window.RAIDSEG || {})[k]; return f ? f() : ''; }
+  /** 区画の中の面（`rp=`・`cp=`）。既定の面なら空 */
+  function inner(key, def) {
+    var b = document.querySelector('[data-key="' + key + '"] > .ttabs [aria-selected="true"]');
+    var v = b && b.getAttribute('data-p');
+    return v && v !== def ? key + '=' + v : '';
+  }
+
+  /* ---- 「数字の出どころ」は開いている区画のものだけ。ボスの選択は開催の区画では隠す */
+  function fit(id) {
+    [].forEach.call(document.querySelectorAll('details.src[data-sec]'), function (d) {
+      d.hidden = d.getAttribute('data-sec') !== id;
+    });
+    if (pick) { pick.hidden = id === 'cal'; pick.setAttribute('data-sec', id); }
+  }
+  box.addEventListener('panechange', function (e) { if (e.target === box) fit(e.detail.id); });
+  fit(now());
+
+  /* ---- 共有するのは**選んだ相手と今の区画だけ**。区画と面の名前（`pane=`・`rp=`・`cp=`）は
+     ../panes.js が足す。スコアのタイムを開催のリンクに混ぜて渡すと、受け取った人の入力を上書きしてしまう */
+  window.shareUrl = function () {
+    var s = [seg('pick'), now() === 'info' ? '' : seg(now())].filter(Boolean);
+    return s.length ? '#' + s.join('&') : '';
+  };
+
+  /* ---- 覚えるのは**全区画**（../remember.js）。**URL からではなく各区画の今の状態から組む。**
+     `pane=` は既定の区画でも書く——空だと前に覚えた区画が次も開いてしまう */
+  var OWN = { info: ['pick', 'rp'], score: ['score'], cal: ['cal', 'cp'] };
+  function all(skip) {
+    var drop = OWN[skip] || [];
+    var s = [];
+    [['pick', function () { return seg('pick'); }],
+     ['rp', function () { return inner('rp', 'now'); }],
+     ['score', function () { return seg('score'); }],
+     ['cal', function () { return seg('cal'); }],
+     ['cp', function () { return inner('cp', 'boss'); }]].forEach(function (x) {
+      if (drop.indexOf(x[0]) >= 0) return;
+      var v = x[1]();
+      if (v) s.push(v);
+    });
+    s.push('pane=' + now());
+    return '#' + s.join('&');
+  }
+  window.rememberUrl = function () { return all(''); };
+  // ---- 「最初に戻す」は**今の区画だけ**。ボス情報の区画ではボスの選択も戻す（ほかの区画の入力は残す）
+  window.rememberReset = function () { return all(now()); };
+
+  function toTabs() {
+    var bar = document.querySelector('.topbar');
+    var off = (bar ? bar.getBoundingClientRect().height : 0) + 14;
+    window.scrollTo({ top: Math.max(0, tabs.getBoundingClientRect().top + window.pageYOffset - off),
+                      behavior: 'smooth' });
+  }
+
+  /* ---- 使い方（../tour.js）は 3 区画を順に開いて回る。**閉じたら開く前の区画に戻す。**
+     tour.js には手を入れず、body の `tour-on` の付け外しを見張る（1 段目は区画の帯で、
+     区画を切り替えないので、付いた時点で読めば開く前の状態が取れる） */
+  var before = null;
+  new MutationObserver(function () {
+    var on = document.body.classList.contains('tour-on');
+    if (on && !before) {
+      before = now();
+    } else if (!on && before) {
+      var b = document.getElementById('tb-sec-' + before); before = null;
+      if (b) { b.click(); toTabs(); }
+    }
+  }).observe(document.body, { attributes: true, attributeFilter: ['class'] });
 
   var R = window.RAID;
   if (!R) return;
-  var stu = document.getElementById('tls-src-stu');
-  if (stu) stu.textContent = R.students.length;
-  var md = document.getElementById('tls-src-md');
-  if (md && R.multi && R.multi[0]) {
-    md.textContent = R.multi[0].secs.map(function (x) { return x.lo + '-' + x.hi; }).join('・');
-  }
-  var ver = document.getElementById('tls-ver');
+  var n = document.getElementById('stu-n');
+  if (n) n.textContent = R.students.length;
+  var ver = document.getElementById('info-ver');
   if (ver) ver.textContent = R.fetched;
 })();
 </script>

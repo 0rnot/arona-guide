@@ -1,4 +1,12 @@
-/* 総力戦・大決戦の開催カレンダー。
+/* 総力戦の「開催」の区画。**元は tools/raid-calendar/ の 1 本だった**（2026-09-26 に
+   「総力戦」1 本へまとめた。grill-me Q12-1）。
+
+   **ボスの絞り込みは、ページ先頭の選択（`window.RAID_PICKER`）のボスで効く。**
+   ここが持つのは「絞るか・全ボスか」だけ。先頭でボスを選び直すと絞り込みが立ち、
+   「ボス」の面の札を押すと先頭の選択ごとそのボスに切り替わる。
+   絞っている札をもう一度押すか「全ボスに戻す」で、全ボスに戻る（元の 1 本と同じ動き）。
+   制約解除決戦の枠はこの記録に載っていないので、そのときは全ボスのまま。
+
 
    **履歴と、これからの予定は別のところから来ている。**
    開催済みは SchaleDB の `raids.min.json`、これからの回は ba-data の期間表
@@ -39,19 +47,34 @@
     .concat(C.elim.map(function (r) { return { k: 'elim', r: r }; }))
     .sort(function (a, b) { return b.r.o - a.r.o; });
 
-  var kind = 'all', terrain = '', boss = null, shown = 20;
+  var P = window.RAID_PICKER;
+  var kind = 'all', terrain = '', filt = false, shown = 20;
+  /** 先頭で選んでいるボスの番号。**記録に居ないボス（制約解除決戦の枠）なら null** */
+  function picked() {
+    if (!P) return null;
+    var st = P.get();
+    if (st.kind === 'multi') return null;
+    var id = +String(st.b).slice(1);
+    return C.bosses[String(id)] ? id : null;
+  }
+  /** 絞り込みに使うボス。**絞っていないときは null** */
+  function bossNow() { return filt ? picked() : null; }
   var now = Math.floor(Date.now() / 1000);
 
   /* ---------- URL ----------
      **開いている絞り込みを URL に残す。**下の共有の帯が「開いている状態ごと
      URL になります」と言うので、それを本当にする（2026-08-31。それまで
      このツールは状態が URL に入らなかった）。
-     区画は `rc=種類~地形~ボス` の 1 つだけ。**`pane=` は `../panes.js` の
-     持ちものなので触らない**——自分の区画だけ入れ替えて、ほかは順番ごと残す
-     （`tools/raid/tl-search.js` の `tls=` と同じ流儀）。 */
-  function hash() { return 'rc=' + [kind, terrain, boss == null ? '' : boss].join('~'); }
+     区画は `rc=種類~地形~絞り` の 1 つだけ。**`pane=` と `cp=` は `../panes.js` の
+     持ちものなので触らない**——自分の区画だけ入れ替えて、ほかは順番ごと残す。
+     **絞りは `*`（先頭で選んだボスで絞る）か空。**元の 1 本はここにボスの番号を
+     入れていた。その形（`rc=all~~4`）は index.html の「古い URL を直す」が
+     先頭の選択（`rb=`）と `*` に直してから、ここに渡す。 */
+  function seg() {
+    return (kind !== 'all' || terrain || filt) ? 'rc=' + [kind, terrain, filt ? '*' : ''].join('~') : '';
+  }
   function syncHash() {
-    var mine = (kind !== 'all' || terrain || boss != null) ? hash() : '';
+    var mine = seg();
     var parts = location.hash.replace(/^#/, '').split('&').filter(function (x) {
       return x && x.indexOf('rc=') !== 0;
     });
@@ -69,13 +92,12 @@
     var p = seg.slice(3).split('~');
     if (p[0] === 'all' || p[0] === 'raid' || p[0] === 'elim') kind = p[0];
     if (p[1] === '' || TERRAIN[p[1]]) terrain = p[1] || '';
-    var b = parseInt(p[2], 10);
-    if (C.bosses[String(b)]) boss = b;
+    filt = p[2] === '*';
     // 押しボタンの見た目を合わせる（種類と地形は描き直しが無い）
-    [].forEach.call(el('kind').querySelectorAll('button'), function (x) {
+    [].forEach.call(el('cal-kind').querySelectorAll('button'), function (x) {
       x.setAttribute('aria-pressed', String(x.dataset.k === kind));
     });
-    [].forEach.call(el('terrain').querySelectorAll('button'), function (x) {
+    [].forEach.call(el('cal-terrain').querySelectorAll('button'), function (x) {
       x.setAttribute('aria-pressed', String(x.dataset.t === terrain));
     });
   }
@@ -176,7 +198,8 @@
       if (x.r.o > s.last) s.last = x.r.o;
     });
     ids.sort(function (a, b) { return stat[b].last - stat[a].last; });
-    el('bosses').innerHTML = ids.map(function (id) {
+    var boss = bossNow();
+    el('cal-bosses').innerHTML = ids.map(function (id) {
       var b = bossOf(id), s = stat[id];
       var tr = Object.keys(s.t).sort(function (a, c) { return s.t[c] - s.t[a]; })
         .map(function (t) { return (TERRAIN[t] || t) + ' ' + s.t[t]; }).join('・');
@@ -192,6 +215,7 @@
 
   /* ---------- 開催の記録 */
   function filtered() {
+    var boss = bossNow();
     return all.filter(function (x) {
       if (kind !== 'all' && x.k !== kind) return false;
       if (terrain && x.r.t !== terrain) return false;
@@ -201,12 +225,17 @@
   }
 
   function drawList() {
-    var rows = filtered();
-    el('list-lead').textContent = rows.length + ' 回あります。' +
-      (boss != null ? bossOf(boss).n + 'だけを出しています。' : '新しい順です。');
-    el('more').hidden = rows.length <= shown;
-    el('more').textContent = 'もっと見る（残り ' + Math.max(0, rows.length - shown) + ' 回）';
-    el('list').innerHTML = rows.slice(0, shown).map(function (x) {
+    var rows = filtered(), boss = bossNow();
+    /* **絞っているときは、その場で全ボスに戻せるようにする。**札は別の面（「ボス」）に
+       あるので、記録の面だけを見ている人には戻り道が無かった */
+    el('cal-lead').innerHTML = rows.length + ' 回あります。' +
+      (boss != null ? esc(bossOf(boss).n) + 'だけを出しています。' +
+        '<button type="button" class="btn sm" id="cal-all" style="margin-left:.6em">全ボスに戻す</button>'
+        : '新しい順です。' + (picked() != null ? '<button type="button" class="btn sm" id="cal-one" style="margin-left:.6em">' +
+          esc(bossOf(picked()).n) + 'だけにする</button>' : ''));
+    el('cal-more').hidden = rows.length <= shown;
+    el('cal-more').textContent = 'もっと見る（残り ' + Math.max(0, rows.length - shown) + ' 回）';
+    el('cal-list').innerHTML = rows.slice(0, shown).map(function (x) {
       var b = bossOf(x.r.b);
       var live = x.r.o <= now && now < x.r.c;
       var od = '';
@@ -218,7 +247,8 @@
           return (AR[k] || k) + ' ' + (C.diffs[x.r.od[k]] || x.r.od[k]);
         }).join('／');
       }
-      return '<div class="season' + (live ? ' now' : '') + '">' +
+      // 開催中の印は `.live`。**`.now` はボス情報の区画の「いまの相手」が使っている**
+      return '<div class="season' + (live ? ' live' : '') + '">' +
         '<img src="' + img(b) + '" alt="" width="44" height="44" loading="lazy">' +
         '<span class="dt">' + ymd(x.r.o) + '（' + dow(x.r.o) + '）' + hm(x.r.o) +
         '<small>〜 ' + ymd(x.r.c) + ' ' + hm(x.r.c) + '</small></span>' +
@@ -241,42 +271,67 @@
     /* **記録は別の面にいる。**先に開いておかないと、送った先が隠れたままになる
        （2026-08-30、ボス・記録・間隔をタブに割ったときから）。
        `showPane` は `../panes.js` が置いていく。無くても動くようにしておく。 */
-    if (window.showPane) window.showPane(el('list'));
-    var box = el('list').closest('.panel') || el('list');
+    if (window.showPane) window.showPane(el('cal-list'));
+    var box = el('cal-list').closest('.panel') || el('cal-list');
     var bar = document.querySelector('.topbar');
     var off = (bar ? bar.getBoundingClientRect().height : 0) + 14;
     var y = box.getBoundingClientRect().top + window.pageYOffset - off;
     window.scrollTo({ top: Math.max(0, y), behavior: 'smooth' });
   }
 
-  el('bosses').addEventListener('click', function (ev) {
+  /* **札を押したら、先頭の選択ごとそのボスに切り替える。**ボス情報とスコアも同じ相手になる。
+     絞っている札をもう一度押したら全ボスに戻す（元の 1 本と同じ） */
+  el('cal-bosses').addEventListener('click', function (ev) {
     var b = ev.target.closest('button'); if (!b) return;
     var id = +b.dataset.b;
-    boss = (boss === id) ? null : id;
+    if (bossNow() === id) { filt = false; }
+    else {
+      filt = true;
+      if (P && picked() !== id) {
+        var st = P.get();
+        P.choose({ kind: st.kind === 'elim' ? 'elim' : 'raid', b: 'b' + id });
+      }
+    }
     shown = 20; draw();
     scrollToList();
   });
-  el('kind').addEventListener('click', function (ev) {
+  el('cal-lead').addEventListener('click', function (ev) {
+    var b = ev.target.closest('button'); if (!b) return;
+    filt = b.id === 'cal-one'; shown = 20; draw();
+  });
+  if (P) {
+    var last = picked();
+    /* **先頭でボスを選び直したら絞る。**地形や難易度を変えただけでは触らない */
+    P.on(function () {
+      var id = picked();
+      if (id !== last && id != null) { filt = true; shown = 20; }
+      last = id;
+      draw();
+    });
+  }
+  el('cal-kind').addEventListener('click', function (ev) {
     var b = ev.target.closest('button'); if (!b) return;
     kind = b.dataset.k; shown = 20;
-    [].forEach.call(el('kind').querySelectorAll('button'), function (x) {
+    [].forEach.call(el('cal-kind').querySelectorAll('button'), function (x) {
       x.setAttribute('aria-pressed', String(x.dataset.k === kind));
     });
     drawList(); syncHash();
   });
-  el('terrain').addEventListener('click', function (ev) {
+  el('cal-terrain').addEventListener('click', function (ev) {
     var b = ev.target.closest('button'); if (!b) return;
     terrain = b.dataset.t; shown = 20;
-    [].forEach.call(el('terrain').querySelectorAll('button'), function (x) {
+    [].forEach.call(el('cal-terrain').querySelectorAll('button'), function (x) {
       x.setAttribute('aria-pressed', String(x.dataset.t === terrain));
     });
     drawList(); syncHash();
   });
-  el('more').addEventListener('click', function () { shown += 30; drawList(); });
+  el('cal-more').addEventListener('click', function () { shown += 30; drawList(); });
 
-  window.shareUrl = function () { return '#' + hash(); };
+  /** 区画の中身（`rc=`）。共有・覚える・最初に戻すは index.html がまとめて組む */
+  window.RAIDSEG = window.RAIDSEG || {};
+  window.RAIDSEG.cal = seg;
 
-  el('ver').textContent = C.fetched;
+  el('cal-ver').textContent = C.fetched;
   // URL に絞り込みが入っていたら、それを戻してから最初の描画をする
   fromHash();
   summary();

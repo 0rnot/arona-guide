@@ -2496,7 +2496,7 @@ def build_raid_calendar():
     # **難易度は並び順そのものが意味を持つ。**大決戦の OpenDifficulty は
     # この並びの添字で、6 なら Torment まで挑める
     diffs = ["Normal", "Hard", "VeryHard", "HardCore", "Extreme", "Insane", "Torment", "Lunatic"]
-    return write_js("tools/raid-calendar/data.js", "CAL", {
+    return write_js("tools/raid/data-cal.js", "CAL", {
         "bosses": {str(k): v for k, v in bosses.items()
                    if k in used or str(k) in next_boss_ids},
         "raid": raid_rows, "elim": elim_rows, "diffs": diffs,
@@ -2670,11 +2670,16 @@ def build_raid_score():
     # 小文字にして引く
     lname = {k.lower(): v for k, v in name.items()}
     licon = {k.lower(): v for k, v in icons.items()}
+    # **ボスの番号（`Raid[].Id`）。**2026-09-26 に「総力戦」1 本（tools/raid/）へ
+    # まとめたとき、ボス情報の選択（`b4` のような番号）をそのままスコアでも使うために持たせた
+    lid = {(r.get("DevName") or "").lower(): r.get("Id") for r in raids.get("Raid") or []
+           if r.get("DevName")}
     # **同じボスが表ごとに別の開発名で出てくる。**大決戦の表だけこの 2 つがずれる
     # （2026-08-30 に 648 行を数えて見つけた）
     for alias, real in (("kaitenger", "kaitenfxmk0"), ("hovercraft", "raidhovercraft")):
         lname.setdefault(alias, lname.get(real, alias))
         licon.setdefault(alias, licon.get(real, ""))
+        lid.setdefault(alias, lid.get(real))
     # 大決戦の `RaidBossGroup` は「ボス_地形_装甲」の 3 つ組
     TR_JA = {"street": "市街地", "outdoor": "屋外", "indoor": "屋内"}
     AR_JA = {"lightarmor": "軽装備", "heavyarmor": "重装甲", "unarmed": "特殊装甲",
@@ -2771,8 +2776,12 @@ def build_raid_score():
     rows_out = []
     for (kind, base, diff), x in packed.items():
         r = x["r"]
-        rows_out.append({"k": kind, "b": base, "n": r["n"], "ic": r["ic"], "d": diff,
-                         "cl": r["cl"], "hp": r["hp"], "ps": r["ps"], "mx": r["mx"], "du": r["du"]})
+        rows_out.append({"k": kind, "b": base, "id": lid.get(base.lower()), "n": r["n"], "ic": r["ic"],
+                         "d": diff, "cl": r["cl"], "hp": r["hp"], "ps": r["ps"], "mx": r["mx"],
+                         "du": r["du"]})
+    noid = sorted({r["b"] for r in rows_out if r["id"] is None})
+    if noid:
+        raise SystemExit(f"ボスの番号が引けない: {noid}")
     print(f"  {len(all_rows)} 行を {len(rows_out)} 行に畳んだ")
 
     n = 0
@@ -2797,7 +2806,7 @@ def build_raid_score():
     print(f"  {len(all_rows)} 行（総力戦 {len(rows(stages, 'raid'))} ／ 大決戦 {len(rows(elim, 'elim'))}）、"
           f"時間ぶんが尽きるのは {span} 秒、絵 {n} 枚を追加")
 
-    return write_js("tools/raid-score/data.js", "RSCORE", {
+    return write_js("tools/raid/data-score.js", "RSCORE", {
         "rows": rows_out, "span": span,
         # **地形と装甲はスコアに効かない**ので持たない。総力戦にも大決戦にも
         # 「ボス_地形_装甲」の行があるが、同じボス・同じ難易度なら中身は 1 種類だった
