@@ -24,21 +24,24 @@
 <link rel="stylesheet" href="../../style.css?v=25">
 <link rel="stylesheet" href="../tool.css?v=18">
 <style>
-  /* 素材の行。**アイコンを左に置いて、名前と入力を並べる。** */
-  .mat { display: grid; grid-template-columns: 46px 1fr 110px; gap: .8em; align-items: center;
-         padding: .55em 0; border-bottom: 1px solid var(--line); }
-  .mat:last-of-type { border-bottom: 0; }
-  .mat img { width: 46px; height: 46px; border-radius: 7px; background: var(--bg-sub); }
-  .mat .nm { font-size: .88rem; line-height: 1.4; }
-  .mat .nm small { display: block; color: var(--fg-mute); font-size: .74rem; }
-  .mat input { text-align: right; padding: .42em .6em; font-size: .95rem; }
+  /* 素材の欄。**2×2 に詰める**（2026-09-26 の UI 見直し）。1 行ずつだと 4 段で 256px あった。
+     左に絵、右に名前と入力を縦に */
+  .reps { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .mat { display: grid; grid-template-columns: 34px minmax(0, 1fr); gap: 2px .5em; align-items: center;
+         padding: 6px 8px; border: 1px solid var(--line); border-radius: 11px; background: var(--bg-sub); }
+  .mat img { width: 34px; height: 34px; border-radius: 7px; grid-row: 1 / 3; align-self: center; }
+  .mat .nm { font-size: .78rem; line-height: 1.35; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .mat input { text-align: right; padding: .3em .55em; font-size: .95rem; }
+  /* 判定の下の 2 枚は**スマホでも横に並べる**（数字 1 つずつなので入る） */
+  .tcol .stats.c2 { grid-template-columns: 1fr 1fr; }
+  #p-have .fields { margin-top: 12px; }
   .verdict {
-    border-radius: 12px; padding: 18px 20px; margin: 0;
+    border-radius: 12px; padding: 14px 16px; margin: 0;
     background: linear-gradient(160deg, color-mix(in srgb, var(--accent) 12%, var(--card)) 0%, var(--card) 70%);
     border: 1px solid var(--accent);
   }
-  .verdict .hd { font-size: 1.05rem; font-weight: 800; margin: 0 0 .4em; color: var(--accent-tx); }
-  .verdict p { margin: 0; font-size: .88rem; line-height: 1.85; }
+  .verdict .hd { font-size: 1.1rem; font-weight: 800; margin: 0 0 .25em; color: var(--accent-tx); }
+  .verdict p { margin: 0; font-size: .88rem; line-height: 1.7; }
 </style>
 </head>
 <body>
@@ -146,29 +149,27 @@
     <!-- **入力は左にまとめる**（2026-09-26）。強化珠の欄を消して左がレポート 1 枚になったので、
          クレジットも左へ寄せて、右は判定と数だけにした。スマホでは レポート → クレジット → 判定 の順 -->
     <div class="tcol">
-      <div class="panel">
-        <div class="panel-h"><h2>持っているレポート</h2></div>
-        <div id="reports"></div>
-        <div class="numrow sum"><div>経験値にすると</div><div class="v" id="o-repexp">—</div></div>
-      </div>
-
-      <div class="panel">
-        <div class="panel-h"><h2>持っているクレジット</h2></div>
+      <!-- **レポートとクレジットを 1 枚の板に**（2026-09-26 の UI 見直し）。前は 2 枚に分かれていて、
+           スマホで判定が y=800 まで沈んでいた -->
+      <div class="panel" id="p-have">
+        <div class="panel-h"><h2>手持ち</h2><button type="button" class="qm" id="q-rep" data-hint=""></button></div>
+        <div class="reps" id="reports"></div>
+        <div class="numrow sum"><div>レポートの経験値</div><div class="v" id="o-repexp">—</div></div>
         <div class="fields c2 fgrid">
           <div class="field">
             <!-- **number 入力は桁区切りを出せない。**50000000 と 500000000 が見分けにくいので、
-                 読んだ値を桁区切りで下に返す（中身は calc() が書く） -->
+                 読んだ値を桁区切りで返す（中身は calc() が書く） -->
             <label for="i-credit">クレジット<span class="hint" id="h-credit">—</span></label>
             <input id="i-credit" type="number" inputmode="numeric" min="0" step="1000000" value="50000000">
           </div>
           <div class="field">
             <!-- 既定値は data.js（build_report_credit）。**HTML に数字を書かない**——手書きの
-                 51,721,955 は装備の Tier 上げが抜けていた（2026-09-26） -->
-            <label for="i-per">1 人を仕上げるクレジット<span class="hint" id="h-per">—</span></label>
+                 51,721,955 は装備の Tier 上げが抜けていた（2026-09-26）。
+                 「レベル・スキル 4 種・装備 3 部位を最大まで」の一言は丸の i へ畳んだ -->
+            <label for="i-per">1 人を仕上げる額<button type="button" class="qm" id="q-per" data-hint=""></button><span class="hint" id="h-per">—</span></label>
             <input id="i-per" type="number" inputmode="numeric" min="1000000" step="1000000">
           </div>
         </div>
-        <p class="lead" style="margin:14px 0 0">レベル・スキル 4 種・装備 3 部位を最大まで。<button type="button" class="qm" id="q-per" data-hint=""></button></p>
       </div>
     </div>
 
@@ -279,16 +280,20 @@
   el('reports').innerHTML = D.rep.map(function (m, i) {
     return '<div class="mat">' +
       '<img src="../img/' + m.i + '.webp" alt="" width="46" height="46" loading="lazy">' +
-      '<span class="nm">' + m.n + '<small>1 枚 ' + fmt(m.e) + '</small></span>' +
+      '<span class="nm">' + m.n + '</span>' +
       '<input id="i-r' + (i + 1) + '" type="number" inputmode="numeric" min="0" step="1" value="' + DEF[i] + '" aria-label="' + m.n + 'の枚数">' +
       '</div>';
   }).join('');
   el('i-per').value = PER;
+  // 1 枚の経験値。**欄の横には置かず丸の i へ**（2×2 に詰めたら名前と並ばなくなった）
+  el('q-rep').setAttribute('data-hint', 'レポート 1 枚の経験値は ' + D.rep.map(function (m) {
+    return m.n + ' ' + fmt(m.e);
+  }).join('・') + '。生徒 1 人を Lv1→Lv90 にする経験値は ' + fmt(STUDENT_EXP) + ' です。');
 
   // 1 人ぶんの中身。**画面には出さず丸の i と「数字の出どころ」へ**
   var P = D.parts, eq = P.eqTier + P.eqLv;
   el('q-per').setAttribute('data-hint',
-    '既定 ' + fmt(PER) + ' ＝ レベル ' + fmt(P.lv) + '・EX スキル ' + fmt(P.ex) +
+    '1 人ぶんのクレジット。レベル・スキル 4 種・装備 3 部位を最大まで上げる額です。既定 ' + fmt(PER) + ' ＝ レベル ' + fmt(P.lv) + '・EX スキル ' + fmt(P.ex) +
     '・ほかの 3 スキル ' + fmt(P.sk) + '・装備 3 部位 ' + fmt(eq) +
     '。星上げ・固有武器・愛用品は入れていません。どの生徒でも同じ額です（' + D.n +
     ' 人で確かめています）。自分の育て方に合わせて書き換えられます。');
