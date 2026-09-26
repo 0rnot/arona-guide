@@ -202,16 +202,6 @@
       "group": "育てる"
     },
     {
-      "slug": "weapon",
-      "name": "固有武器の強化計算機",
-      "cat": [
-        "装備"
-      ],
-      "desc": "固有武器を目標まで上げるのに要る経験値・神名文字・クレジット。",
-      "img": "equipment_icon_weaponexpgrowthz_3",
-      "group": "装備"
-    },
-    {
       "slug": "farm",
       "name": "素材の掘り場",
       "cat": [

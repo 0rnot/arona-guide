@@ -28,7 +28,7 @@
     { k: 'sk2', nm: 'パッシブスキル', sub: 'ノーマルと同じ表',               min: 1, slot: 'sk' },
     { k: 'sk3', nm: 'サブスキル',     sub: 'ノーマルと同じ表',               min: 1, slot: 'sk' },
     { k: 'tr',  nm: '星（神秘開放）',  sub: 'その子の初期★から★5 まで',      min: 1, slot: 'tr', star: true },
-    { k: 'wp',  nm: '固有武器',       sub: '★3 で手に入り、★—',             min: 1, slot: 'wp', weapon: true },
+    { k: 'wp',  nm: '固有武器',       sub: '生徒の★5 で手に入り、★—',       min: 1, slot: 'wp', weapon: true },
     { k: 'gr',  nm: '愛用品',         sub: 'T1 で手に入り、T—',              min: 1, slot: 'gr', gear: true }
   ];
 
@@ -77,6 +77,34 @@
   function eqBlank() { return { t0: 1, l0: 1, t1: 1, l1: 1 }; }
   var eqs = [eqBlank(), eqBlank(), eqBlank()];
 
+  /* ------------------------------------------------------------ 固有武器の Lv
+
+     **2026-09-26 に固有武器の強化計算機（tools/weapon/）から移した**（先生の判断 Q5-1。
+     weapon は廃止）。数え方は weapon と同じ:
+       経験値   WX.cum[L] が Lv1 から Lv L まで。a → b は cum[b] - cum[a]
+       上限     武器の★で決まる（WX.maxLv[★-1]。★1 Lv30 … ★4 Lv60）。日本の上限 WX.jpLv で頭を押さえる
+       クレジット  **数えない。**weapon も出していなかった（WeaponLvUpCoefficient はあるが
+                実機で突き合わせていない）
+     ★は上の「固有武器」行（state.wp）がそのまま使う。**Lv は ROWS に入れない。**
+     入れるとハッシュの並びがずれて、古い URL が開けなくなる */
+  var WX = C.wx;
+  function wcap(s) { return Math.min(WX.maxLv[Math.max(1, s) - 1] || WX.jpLv, WX.jpLv); }
+  function wexp(a, b) { return Math.max(0, (WX.cum[b] || 0) - (WX.cum[a] || 0)); }
+  var wl = { f: 1, t: 1 };
+  /** 範囲に収める。今は今の★の上限まで、目標は目標の★の上限までで、今より下げない */
+  function wlNorm() {
+    var c = function (v, a, b) { v = Math.floor(+v || 1); return Math.min(Math.max(v, a), b); };
+    wl.f = c(wl.f, 1, wcap(state.wp.f));
+    wl.t = c(wl.t, wl.f, wcap(state.wp.t));
+  }
+  /** その生徒の武器で 1.5 倍になる系統（撃針はどの武器種でも入る） */
+  function wHot() {
+    return (student && student.wt && WX.bonus[student.wt]) || [];
+  }
+  function wHotText() {
+    return wHot().map(function (k) { return WX.ja[k]; }).join('と') + 'が 1.5 倍';
+  }
+
   /* 手持ちのレポート。**初級・中級・上級・最上級の順**（C.rep は経験値の小さい順） */
   var own = [0, 0, 0, 0];
 
@@ -122,7 +150,7 @@
   /* 行から深掘りツールへ。**同じ生徒・同じ今/目標のまま飛ぶ**（Q1-1）。
      ハッシュの形は相手の shareUrl() と fromHash() に合わせてある。
        星上げ       ../eleph/#生徒id|今|目標        （段 1〜5 が★1〜★5）
-       固有武器     ../weapon/#生徒id|今★|目標★     （Lv は渡さない。相手の既定のまま）
+       （固有武器の計算機は 2026-09-26 に廃止。Lv はこのページの「固有武器の Lv」行で数える）
        装備の強化珠 ../equip-level/#T.Lv.T.Lv.1
        装備の設計図 ../equipment/                    （ハッシュが在庫と目標セット数で、
                     ここから渡すと向こうに覚えている在庫を 0 で上書きしてしまう） */
@@ -133,8 +161,32 @@
     if (!student) return '';
     var st = state[r.k];
     if (r.star) return link('../eleph/#' + student.id + '|' + st.f + '|' + st.t, '星上げの計算機');
-    if (r.weapon) return link('../weapon/#' + student.id + '|' + st.f + '|' + st.t, '固有武器の計算機');
     return '';
+  }
+
+  /** 固有武器の Lv の行。**★の行のすぐ下。**上限は★の行で決まる */
+  function wlRow(ok) {
+    wlNorm();
+    var dis = ok ? '' : ' disabled';
+    var sel = function (w, a, b) {
+      var s = '<select data-wl="' + w + '" aria-label="固有武器の' + (w === 'f' ? '今' : '目標') + 'の Lv"' + dis + '>';
+      for (var v = a; v <= b; v++) s += '<option value="' + v + '"' + (wl[w] === v ? ' selected' : '') + '>Lv' + v + '</option>';
+      return s + '</select>';
+    };
+    var sub = ok ? '★' + state.wp.t + ' なら Lv' + wcap(state.wp.t) + ' まで'
+                 : (student ? 'この子には固有武器がありません' : '先に生徒を選んでください');
+    var hot = '';
+    if (ok && wHot().length) {
+      hot = '<span class="hot">' + wHot().map(function (k) {
+          return '<img src="../img/' + WX.top[k].i + '.webp" alt="" width="18" height="18" loading="lazy">';
+        }).join('') + wHotText() +
+        '<button type="button" class="qm" data-hint="武器パーツは 4 系統（' + WX.order.map(function (k) { return WX.ja[k]; }).join('・') +
+        '）あり、武器種に合う系統だけ経験値が 1.5 倍になります。' + student.n + 'の武器種は ' + student.wt + '。' +
+        WX.ja.Z + 'はどの武器種でも 1.5 倍です。1 個の経験値は 4 系統とも 10／50／200／1,000（1.5 倍の前）。"></button></span>';
+    }
+    return '<div class="goal wl' + (ok ? '' : ' off') + '">' +
+      '<span class="nm">固有武器の Lv<small>' + sub + '</small>' + hot + '</span>' +
+      sel('f', 1, wcap(state.wp.f)) + '<span class="ar">→</span>' + sel('t', wl.f, wcap(state.wp.t)) + '</div>';
   }
 
   function drawGoals() {
@@ -156,7 +208,7 @@
          指摘）。段の数から出せば、データが増えた日に勝手に追いつく */
       var sub = r.sub;
       if (r.weapon || r.gear) {
-        sub = (r.weapon ? '★3 で手に入り、★' : 'T1 で手に入り、T') + b + ' まで上がる';
+        sub = (r.weapon ? '生徒の★5 で手に入り、★' : 'T1 で手に入り、T') + b + ' まで上がる';
       }
       if (!ok) {
         sub = !student ? '先に生徒を選んでください'
@@ -168,6 +220,7 @@
         '<span class="nm">' + r.nm + '<small>' + sub + '</small>' +
         (lk ? '<span class="lk">' + lk + '</span>' : '') + '</span>' +
         sel('f') + '<span class="ar">→</span>' + sel('t') + '</div>';
+      if (r.weapon) h += wlRow(ok);
     });
 
     // 装備 3 部位。**1 マスに Tier と Lv を縦に 2 つ**（横に並べるとスマホで入らない）
@@ -315,6 +368,10 @@
       });
     }
 
+    // 固有武器の Lv。**経験値は別に出す**（食べさせるのは武器パーツ）。クレジットは数えない
+    var wx = 0;
+    if (avail(ROWS.filter(function (r) { return r.weapon; })[0])) { wlNorm(); wx = wexp(wl.f, wl.t); }
+
     // ---- 表示
     el('o-credit').textContent = fmt(credit);
     el('o-credit-sub').textContent = credit > 0
@@ -331,6 +388,12 @@
     el('o-eqexp-sub').textContent = eqx > 0
       ? gTop.n + ' ' + fmt(Math.ceil(eqx / gTop.e)) + ' 個ぶん'
       : '装備のレベルは上げません';
+
+    var wTop = WX.top.Z;              // 撃針はどの武器種でも 1.5 倍
+    el('o-wpexp').textContent = fmt(wx);
+    el('o-wpexp-sub').textContent = wx > 0
+      ? 'Lv' + wl.f + ' → Lv' + wl.t + '。' + wTop.n + '（1.5 倍）' + fmt(Math.ceil(wx / (wTop.e * 1.5))) + ' 個ぶん'
+      : '固有武器のレベルは上げません';
 
     var ids = Object.keys(mats).filter(function (k) { return mats[k] > 0; });
     var total = 0;
@@ -439,6 +502,9 @@
     var b = ev.target.closest('button'); if (!b) return;
     var fn = PRESET[b.dataset.p];
     ROWS.forEach(function (r) { if (avail(r)) state[r.k] = fn(r); });
+    /* 固有武器の Lv。**★と同じ扱い**: 「ぜんぶ最大まで」だけ Lv1 → 目標の★の上限、
+       ほかは★と同じく上げない（Lv1 のまま） */
+    wl = b.dataset.p === 'all' ? { f: 1, t: wcap(state.wp.t) } : { f: 1, t: 1 };
     /* 装備。**「ぜんぶ最大まで」だけ T1 Lv1 → 最上 Tier の上限 Lv。**
        「キリのいい Lv まで」の根拠（Wiki のスキルの話）は装備に言っていないので、
        星・固有武器・愛用品と同じく上げない */
@@ -472,9 +538,17 @@
       calc();
       return;
     }
-    var st = state[s.dataset.k], v = parseInt(s.value, 10);
-    st[s.dataset.w] = v;
-    if (st.t < st.f) st[s.dataset.w === 'f' ? 't' : 'f'] = v;
+    if (s.dataset.wl !== undefined) {
+      wl[s.dataset.wl] = parseInt(s.value, 10);
+      if (wl.t < wl.f) wl.t = wl.f;
+    } else {
+      var st = state[s.dataset.k], v = parseInt(s.value, 10);
+      st[s.dataset.w] = v;
+      if (st.t < st.f) st[s.dataset.w === 'f' ? 't' : 'f'] = v;
+      // **固有武器の目標★を変えたら、目標 Lv もその上限へ**（weapon と同じ作法）。
+      // ★を上げて Lv が 30 のままだと、何のために★を上げたのか分からなくなる
+      if (s.dataset.k === 'wp' && s.dataset.w === 't') wl.t = wcap(v);
+    }
     // **手で変えたらプリセットの押下表示を消す。**もうその組み合わせではない
     [].forEach.call(el('preset').querySelectorAll('button'), function (x) {
       x.setAttribute('aria-pressed', 'false');
@@ -511,16 +585,19 @@
      （eleph などと同じ作法。これが無いと、共有バーの「開いている状態ごと
      URL になります」が嘘になる）。形は
 
-       `#生徒id|f.t|f.t|…（ROWS の 8 行）|T.Lv.T.Lv|…（装備 3 行）|初.中.上.最（手持ちのレポート）`
+       `#生徒id|f.t|f.t|…（ROWS の 8 行）|T.Lv.T.Lv|…（装備 3 行）|初.中.上.最（手持ちのレポート）|今Lv.目標Lv（固有武器）`
 
      **後ろに足しただけ**なので、2026-09-26 より前の `#生徒id|f.t|…` 8 行ぶんの
-     URL もそのまま開ける（装備は今＝目標、手持ちは 0 になる）。
+     URL も、固有武器の Lv を足す前の 13 区切りの URL もそのまま開ける
+     （装備は今＝目標、手持ちは 0、固有武器は Lv1 のままになる）。
+     廃止した tools/weapon/ の転送ページもこの形を組んで渡してくる。
      `../remember.js` もこの形をそのまま覚える */
   window.shareUrl = function () {
     var p = [student ? student.id : 0];
     ROWS.forEach(function (r) { p.push(state[r.k].f + '.' + state[r.k].t); });
     eqs.forEach(function (e) { p.push([e.t0, e.l0, e.t1, e.l1].join('.')); });
     p.push(own.join('.'));
+    p.push(wl.f + '.' + wl.t);
     return '#' + p.join('|');
   };
   (function fromHash() {
@@ -554,6 +631,8 @@
       v = Math.floor(+v || 0);
       if (i < own.length && v > 0) { own[i] = v; el('own-' + i).value = v; }
     });
+    var q = String(p[at + 4] || '').split('.').map(Number);
+    if (q.length === 2 && q[0] >= 1 && q[1] >= 1) wl = { f: q[0], t: q[1] };   // 範囲は wlNorm() が収める
   })();
 
   var lvTotal = 0;

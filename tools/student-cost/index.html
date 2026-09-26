@@ -67,6 +67,13 @@
   .goal .nm .lk a::after { content: " →"; }
   .goal .nm .lk a:hover { text-decoration: underline; }
   .goal.off .lk { display: none; }
+  /* 固有武器の Lv の行。**1.5 倍になるパーツ 2 系統を 1 行で**（長い説明は丸の i） */
+  .goal .nm .hot { display: flex; flex-wrap: wrap; align-items: center; gap: .2em; margin-top: .2em;
+                   font-size: .72rem; color: var(--accent-tx); }
+  .goal .nm .hot img { width: 18px; height: 18px; }
+
+  /* 札が 5 枚。**クレジットだけ横いっぱい**、残り 4 枚を 2×2 に */
+  .tcol .stats.c4 > .stat.hero { grid-column: 1 / -1; }
 
   /* 素材の一覧 */
   .mats { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
@@ -255,6 +262,11 @@
           <div class="sub" id="o-eqexp-sub"></div>
         </div>
         <div class="stat">
+          <div class="k">固有武器の経験値</div>
+          <div class="v" id="o-wpexp">—</div>
+          <div class="sub" id="o-wpexp-sub"></div>
+        </div>
+        <div class="stat">
           <div class="k">要る素材</div>
           <div class="v" id="o-mat">—</div>
           <div class="sub" id="o-mat-sub"></div>
@@ -299,7 +311,7 @@
           <a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a> の <code>config.json</code> の
           <code>Regions[Jp].WeaponMaxLevel</code>（60 ＝★4）から取っています。<b>★3→★4 の神名文字だけ、レシピの値が「1 個」の仮置きのままです</b>——
           クレジットは <code>2000000</code> と実数が入っているので、個数だけ
-          <a href="https://game8.jp/blue-archive/706922" target="_blank" rel="noopener">ゲームエイト</a>の<b>200 個</b>で補っています（<a href="../weapon/">固有武器の強化計算機</a>・<a href="../eleph/">星上げの計算機</a>と同じ値）。
+          <a href="https://game8.jp/blue-archive/706922" target="_blank" rel="noopener">ゲームエイト</a>の<b>200 個</b>で補っています（<a href="../eleph/">星上げの計算機</a>と同じ値）。
           <b>2026-08-31 まで★3 で止めていました。</b><button type="button" class="qm" data-hint="★1→★2 が 120 個・100万クレジット、★2→★3 が 180 個・150万、★3→★4 が 200 個・200万です。累計は 500 個・450万。"></button></p>
         <p><b>レベルの必要経験値は <code>DB/CharacterLevelExcelTable.json</code> そのままです。</b>
           Lv1 から Lv90 までの合計は <b id="src-total">—</b>。レポートの経験値は<b>初級 50 ／ 中級 500 ／ 上級 2,000 ／ 最上級 10,000</b> で、これもデータの値です。</p>
@@ -311,17 +323,23 @@
           <code>EquipmentLvUpCoefficient</code>（4）クレジット（<a href="../equip-level/">装備の強化珠計算機</a>と同じ）。
           <b>強化珠の経験値は、レポートの経験値とは別に出しています。</b>食べさせるものが違うからです。
           <b>2026-09-26 まで装備は数えていませんでした。</b></p>
+        <p><b>固有武器の Lv は、2026-09-26 に廃止した固有武器の強化計算機から移しました。</b>経験値は
+          <code>DB/CharacterWeaponLevelExcelTable.json</code> の <code>TotalExp</code>。この列は「次のレベルまで」の累計で、行
+          <code>Level: 49</code> の <code>26280</code> が Lv1 → Lv50 のぶんです（<a href="https://game8.jp/blue-archive/687342" target="_blank" rel="noopener">ゲームエイト「経験値テーブル一覧」</a>の 26,280 と一致）。
+          ★ごとの Lv 上限は <code>DB/CharacterWeaponExcelTable.json</code> の <code>MaxLevel</code>（<code>30 / 40 / 50 / 60 / 70</code>）を日本の上限で押さえたもの。
+          1.5 倍になる系統は <code>DB/CharacterWeaponExpBonusExcelTable.json</code>（武器種 11 種、値は <code>15000</code> か <code>10000</code>）、武器パーツの経験値は SchaleDB の <code>equipment</code> の <code>LevelUpFeedExp</code> です。
+          <b>レベル上げのクレジットは数えていません。</b><code>WeaponLvUpCoefficient</code> という値はありますが、実機で突き合わせていないためです。</p>
         <p>絆ランクの贈り物はこのツールでは数えていません。<a href="../bond/">絆ランク計算機</a>にあります。</p>
         <p>出典 —
           <a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a>（生徒・素材の名前とアイコン）、
-          <a href="https://github.com/electricgoat/ba-data" target="_blank" rel="noopener">electricgoat/ba-data</a>（レシピ・経験値表・装備の経験値表）、<a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB config.json</a>（日本で開いている固有武器の段）、<a href="https://game8.jp/blue-archive/706922" target="_blank" rel="noopener">ゲームエイト</a>（★3→★4 の神名文字 200 個）。取得は <span id="ver">—</span>。</p>
+          <a href="https://github.com/electricgoat/ba-data" target="_blank" rel="noopener">electricgoat/ba-data</a>（レシピ・経験値表・装備と固有武器の経験値表・パーツの倍率）、<a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB config.json</a>（日本で開いている固有武器の段）、<a href="https://game8.jp/blue-archive/706922" target="_blank" rel="noopener">ゲームエイト</a>（★3→★4 の神名文字 200 個）。取得は <span id="ver">—</span>。</p>
       </details>
     </div>
 
   </div>
 </div>
 
-<script>window.TOUR = {"key": "student-cost", "steps": [{"sel": "#i-student", "t": "生徒を選びます", "d": "名前を入れると、その子を育てきるのに要るクレジット・経験値・素材が出ます。"}, {"sel": "#goals", "t": "どこまで育てるかを決めます", "d": "レベル・スキル・装備・愛用品を別々に決められます。要らないところは外してください。"}, {"sel": "#mats", "t": "要る素材が並びます", "d": "オーパーツ・技術ノート・戦術教育 BD が段ごとに出ます。持て余している素材から逆に引きたいときは「オーパーツ逆引き」へ。"}]};</script>
+<script>window.TOUR = {"key": "student-cost", "steps": [{"sel": "#i-student", "t": "生徒を選びます", "d": "名前を入れると、その子を育てきるのに要るクレジット・経験値・素材が出ます。"}, {"sel": "#goals", "t": "どこまで育てるかを決めます", "d": "レベル・スキル・固有武器・装備・愛用品を別々に決められます。要らないところは外してください。"}, {"sel": "#mats", "t": "要る素材が並びます", "d": "オーパーツ・技術ノート・戦術教育 BD が段ごとに出ます。持て余している素材から逆に引きたいときは「オーパーツ逆引き」へ。"}]};</script>
 <script src="../tour.js?v=2"></script>
 
 <script src="../share.js?v=3"></script>
@@ -354,7 +372,7 @@
 
 <!-- **data.js より前。**ハッシュが空なら前回の入力を URL に戻してから、cost.js が読む -->
 <script src="../remember.js?v=1"></script>
-<script src="data.js?v=2"></script>
-<script src="cost.js?v=2"></script>
+<script src="data.js?v=3"></script>
+<script src="cost.js?v=3"></script>
 </body>
 </html>
