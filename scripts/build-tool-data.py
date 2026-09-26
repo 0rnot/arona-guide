@@ -3056,7 +3056,8 @@ def build_eleph():
     print(f"  限界解放は {[x['el'] for x in wsteps]} 文字 / {[x['cr'] for x in wsteps]} クレジット、"
           f"レベル上限 {list(wmax[:4])}、地形の伸び {sorted(adapt.items())}")
     print(f"  カケラの値段は {b_step} 個ごとに {b_amt}、上限 {b_lim} 個（{sum(bpats.values())} 人）")
-    return write_js("tools/eleph/data.js", "ELEPH", {
+    # **2026-09-26 に student-cost と 1 本にまとめた**（生徒の育成計算機の「星上げ」の区画）
+    return write_js("tools/student-cost/data-eleph.js", "ELEPH", {
         "steps": steps,
         "wsteps": wsteps,
         "fav1": fav[0],
@@ -3395,7 +3396,8 @@ def build_potential():
                             f"https://schaledb.com/images/student/collection/{s_['id']}.webp")
     print(f"  絵 {n} 枚を追加")
 
-    return write_js("tools/potential/data.js", "POT", {
+    # **2026-09-26 に student-cost と 1 本にまとめた**（生徒の育成計算機の「潜在」の区画）
+    return write_js("tools/student-cost/data-pot.js", "POT", {
         # **添字は「今の段」。**steps[0] が 0 → 1
         "steps": [{"cr": m["CostAmount"], "g": m["ArtifactGrade"],
                    "an": m["ArtifactAmount"], "bk": m["BookAmount"]} for m in mats],

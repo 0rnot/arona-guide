@@ -23,11 +23,11 @@
     },
     {
       "slug": "student-cost",
-      "name": "生徒 1 人の育成費用",
+      "name": "生徒の育成計算機",
       "cat": [
         "育成"
       ],
-      "desc": "1 人を今から目標まで育てるのに要るクレジットと素材。",
+      "desc": "1 人を育てきるクレジットと素材。星上げの神名文字と、潜在解放のオーパーツも。",
       "img": "currency_icon_gold",
       "group": "育てる"
     },
@@ -122,16 +122,6 @@
       "group": "集める・つくる"
     },
     {
-      "slug": "eleph",
-      "name": "星上げの計算機",
-      "cat": [
-        "育成"
-      ],
-      "desc": "今の星から目標まで、要る神名文字とクレジット。伸び幅も一緒に。",
-      "img": "ui_common_icon_formation_star_r3",
-      "group": "育てる"
-    },
-    {
       "slug": "matchup",
       "name": "属性と地形の早見",
       "cat": [
@@ -140,16 +130,6 @@
       "desc": "相手の装甲と地形から、有効な属性と生徒を引きます。",
       "img": "ui_type_attack",
       "group": "戦う"
-    },
-    {
-      "slug": "potential",
-      "name": "潜在能力解放の計算機",
-      "cat": [
-        "育成"
-      ],
-      "desc": "潜在能力を目標まで上げるのに要るオーパーツとクレジット。",
-      "img": "item_icon_workbook_potentialattack",
-      "group": "育てる"
     },
     {
       "slug": "farm",

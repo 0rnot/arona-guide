@@ -3,27 +3,30 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>生徒 1 人の育成費用｜AronaBot</title>
-<meta name="description" content="生徒を選んで、今と目標を入れると、レベル・スキル・星・固有武器・愛用品・装備にかかるクレジットと素材が出ます。手持ちのレポートで足りるかも。">
+<title>生徒の育成計算機｜AronaBot</title>
+<meta name="description" content="生徒を 1 人選ぶと、レベル・スキル・星・固有武器・愛用品・装備を育てきるクレジットと素材、星上げの神名文字とカケラ、潜在解放のオーパーツと応用 WB が出ます。">
 <meta name="theme-color" content="#c8892e">
 <link rel="icon" href="../../favicon.svg" type="image/svg+xml">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="AronaBot">
 <meta property="og:locale" content="ja_JP">
 <meta property="og:url" content="https://arona-bot.com/tools/student-cost/">
-<meta property="og:title" content="生徒 1 人の育成費用">
-<meta property="og:description" content="この子を仕上げるのに、クレジットがいくらで、素材が何個要るか。">
+<meta property="og:title" content="生徒の育成計算機">
+<meta property="og:description" content="この子を仕上げるのに、クレジットがいくらで、素材が何個要るか。星上げと潜在解放も。">
 <meta property="og:image" content="https://arona-bot.com/images/og/student-cost.jpg">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="生徒 1 人の育成費用 — AronaBot のツール">
+<meta property="og:image:alt" content="生徒の育成計算機 — AronaBot のツール">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="生徒 1 人の育成費用">
-<meta name="twitter:description" content="この子を仕上げるのに、クレジットがいくらで、素材が何個要るか。">
+<meta name="twitter:title" content="生徒の育成計算機">
+<meta name="twitter:description" content="この子を仕上げるのに、クレジットがいくらで、素材が何個要るか。星上げと潜在解放も。">
 <meta name="twitter:image" content="https://arona-bot.com/images/og/student-cost.jpg">
 <link rel="stylesheet" href="../../style.css?v=25">
 <link rel="stylesheet" href="../tool.css?v=17">
 <style>
+  /* ================================================================ 区画の外（生徒）と総額
+     **2026-09-26 に student-cost・eleph・potential の 3 本を 1 本にまとめた。**
+     見た目は 3 本のものをそのまま持ってきて、id が重なるところだけ星上げに `e-`、潜在に `p-` を付けた */
   /* 選んだ生徒 */
   .stucard {
     display: grid; grid-template-columns: 96px 1fr; gap: 16px; align-items: center;
@@ -107,6 +110,141 @@
   .repsay { margin: 12px 0 0; font-size: .9rem; line-height: 1.7; }
   .repsay.ok b { color: var(--accent-tx); }
   .repsay.short b { color: var(--accent-tx); }
+
+  .stunote b { color: var(--fg); }
+  /* 潜在解放を総額に足す行。**選択 2 つの代わりにチェック 1 つ** */
+  .goal.inc { grid-template-columns: 1fr auto; }
+  .incbox { display: flex; align-items: center; gap: .35em; font-size: .86rem; white-space: nowrap; }
+  .incbox input { width: auto; }
+
+  /* ================================================================ 星上げ（元の tools/eleph/） */
+  /* 星の並び。**押した数がそのまま目標。** */
+  .starrow { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .starrow .lb { font-size: .78rem; color: var(--fg-mute); width: 5.4em; flex: none; }
+  /* **ボタンは横に並べる。**素の div のままだと縦に積み上がる。
+     **折り返しも要る**——段は 8 個あって、390px では画面から 19px はみ出していた
+     （2026-08-31 に先生のスマホの写真で発覚。外側の `.starrow` は折り返す設定だが、
+     ボタンを包むこの div が 1 本の行のままだった） */
+  .starrow > div { display: flex; flex-wrap: wrap; gap: 6px; }
+  .star { width: 34px; height: 34px; border-radius: 9px; border: 1px solid var(--line);
+          background: var(--card); color: var(--fg-mute); cursor: pointer; font-size: 1rem;
+          line-height: 1; display: grid; place-items: center; padding: 0; }
+  /* **固有の 3 つは文字が入るので横に広い。**★と同じ 34px だと「固有2」が入らない */
+  .star.ue { width: auto; min-width: 3.4em; padding: 0 .5em; font-size: .78rem; font-weight: 700; }
+  .star.on { background: var(--accent); border-color: transparent; color: var(--accent-in); }
+  .star.from { background: color-mix(in srgb, var(--accent) 26%, var(--card)); color: var(--fg); }
+  .star:disabled { opacity: .35; cursor: default; }
+
+  /* 星ごとの段。**今より下は薄く、目標までは色を付ける。** */
+  /* **`.steps` という名前は使えない。**style.css が `.steps b { display: block }` を
+     掛けていて、段の中の <b> が 1 語ずつ改行される（2026-08-30 に実際に折れた） */
+  .stargrid { display: grid; gap: 8px; }
+  /* **2 段。**左に星、右上に要る量、右下にその段で解放されるもの 1 行。
+     （2026-09-26 に攻撃力／最大 HP／回復力の％は消した。先生の判断——
+     「このツールの目的はどれくらいのコストがかかるか」） */
+  /* **左の柱は 6.6em で折り返さない。**4.8em だと「★1→★2」が 2px 切れ（2026-08-31）、
+     5.2em だと「固有2→固有3」が「固有／2→固有3」と途中で折れていた（2026-09-26） */
+  .starstep { display: grid; grid-template-columns: 6.6em 1fr; gap: .3em .7em;
+              padding: .55em .7em; border: 1px solid var(--line); border-radius: 11px;
+              background: var(--card); font-size: .86rem; }
+  .starstep .to { grid-row: 1 / 3; align-self: center; }
+  .starstep.done { opacity: .42; }
+  .starstep.use { border-color: color-mix(in srgb, var(--accent) 55%, var(--line));
+                  background: color-mix(in srgb, var(--accent) 8%, var(--card)); }
+  .starstep .to { font-weight: 800; letter-spacing: .02em; white-space: nowrap; }
+  .starstep .up { color: var(--fg-mute); font-size: .77rem; line-height: 1.55; }
+  .starstep .up b { color: var(--fg); font-weight: 700; }
+  .starstep .cost { text-align: right; font-variant-numeric: tabular-nums; font-weight: 700;
+                    font-size: .84rem; }
+  .starstep .cost small { font-weight: 400; color: var(--fg-mute); font-size: .74rem; margin-left: .5em; }
+  @media (max-width: 400px) {
+    .starstep { grid-template-columns: 6.6em 1fr; }
+    .starstep .cost small { display: block; margin-left: 0; }
+  }
+
+  /* 上限（900 個）を越えて買えないぶん。**赤ではなく差し色の文字で断るだけ** */
+  .ledger .row.over > span { color: var(--accent-tx); font-weight: 700; }
+
+  /* 早見表。**既定は閉じる**（2026-09-26 の先生の追加。wikiru の「初期★×目標★」の表）。
+     8 列あるので 390px では入らない。**横に送るのは表の箱だけ**で、ページは送らせない */
+  details.quick { margin: 0; }
+  details.quick > summary { cursor: pointer; list-style: none; font-weight: 800; font-size: 1rem;
+                            display: flex; align-items: center; gap: .4em; }
+  details.quick > summary::-webkit-details-marker { display: none; }
+  details.quick > summary::before { content: "▸"; color: var(--fg-mute); }
+  details.quick[open] > summary::before { content: "▾"; }
+  details.quick > summary .qsub { font-weight: 400; font-size: .78rem; color: var(--fg-mute); }
+  table.qt { font-size: .8rem; }
+  table.qt th, table.qt td { white-space: nowrap; text-align: right; font-variant-numeric: tabular-nums; }
+  table.qt td b { display: block; font-weight: 800; }
+  table.qt td small { display: block; color: var(--fg-mute); font-size: .74rem; }
+  table.qt td.nil { color: var(--fg-mute); text-align: center; }
+  /* 今選んでいる「今の段→目標」のマス */
+  table.qt td.here { background: color-mix(in srgb, var(--accent) 16%, var(--card)); }
+  table.qt th[scope="row"] { position: sticky; left: 0; z-index: 1; }
+  .qnote { font-size: .76rem; color: var(--fg-mute); margin: .7em 0 0; }
+
+  /* ================================================================ 潜在（元の tools/potential/） */
+  /* 枠ごとの段。**左に名前、右に「今」と「目標」。** */
+  .potrow { display: grid; grid-template-columns: 1fr 78px 78px; gap: 10px; align-items: center;
+            padding: 11px 0; border-bottom: 1px solid var(--line); }
+  .potrow:last-of-type { border-bottom: 0; }
+  .potrow .nm { font-size: .92rem; font-weight: 700; line-height: 1.5; min-width: 0; }
+  .potrow .nm small { display: block; font-weight: 400; color: var(--fg-mute);
+                      font-size: .74rem; margin-top: .15em; }
+  .potrow select { padding: .42em .5em; font-size: .92rem; padding-right: 1.9em;
+                   background-position: calc(100% - 13px) calc(50% + 1px), calc(100% - 8px) calc(50% + 1px); }
+  .pothead { display: grid; grid-template-columns: 1fr 78px 78px; gap: 10px;
+             font-size: .74rem; color: var(--fg-mute); padding-bottom: 4px; }
+  .pothead span:not(:first-child) { text-align: center; }
+  /* 使わない枠の印 */
+  .potrow.off .nm { color: var(--fg-mute); }
+  .badge { display: inline-block; font-size: .68rem; font-weight: 700; padding: .1em .5em;
+           border-radius: 999px; border: 1px solid var(--line); color: var(--fg-mute);
+           margin-left: .4em; vertical-align: .1em; }
+
+  /* 進み具合の帯 */
+  .bar { height: 12px; border-radius: 999px; background: var(--bg-sub);
+         border: 1px solid var(--line); overflow: hidden; margin: .5em 0 .3em; }
+  .bar > i { display: block; height: 100%; background: var(--accent); }
+  .barnote { font-size: .76rem; color: var(--fg-mute); margin: 0; }
+
+  /* 要るものの札。**品目ごとに 1 行。**欠片と壊れたほう、応用 WB の 3 種は
+     互いに融通できない別のアイテムなので、足した数は出さない
+     （2026-09-26。「要るオーパーツ 885 個」と合計していて、何を何個集めるのか読めなかった） */
+  .items { margin-top: .35em; }
+  .items .it { display: flex; align-items: center; gap: 8px; padding: .3em 0; }
+  .items .it + .it { border-top: 1px solid var(--line); }
+  .items .it img { width: 30px; height: 30px; border-radius: 6px; flex: none; }
+  .items .it .n { flex: 1; min-width: 0; font-size: .82rem; line-height: 1.4; word-break: auto-phrase; }
+  .items .it .c { font-size: 1.3rem; font-weight: 800; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .items .it .c small { font-size: .6em; font-weight: 500; color: var(--fg-mute); margin-left: .2em; }
+  .stat.hero .items .it .c { color: var(--accent-tx); }
+  .items .it.zero .c { color: var(--fg-mute); font-weight: 600; }
+  .golink { display: inline-block; margin-top: .6em; font-size: .8rem; font-weight: 700; }
+
+  /* 伸び。**枠ごとに「1 段あたり」と「目標まで」の 2 つ。**
+     **揃えは既定の stretch のまま。**baseline にすると名前の欄だけ背が高くなり、
+     行の罫線が列ごとに段違いになった */
+  .grow { display: grid; grid-template-columns: 1fr auto auto; }
+  .grow > span { padding: 10px 0; border-bottom: 1px solid var(--line); text-align: right;
+                 font-variant-numeric: tabular-nums; font-weight: 700; white-space: nowrap; }
+  .grow > span:nth-child(3n+1) { text-align: left; white-space: normal; }
+  /* 列の間は padding で空ける。column-gap だと行の罫線が列ごとに途切れる */
+  .grow > span:not(:nth-child(3n+1)) { padding-left: 14px; }
+  .grow > span.h { padding-top: 0; padding-bottom: 4px; font-size: .74rem; font-weight: 400; color: var(--fg-mute); }
+  .grow > span:nth-last-child(-n+3) { border-bottom: 0; }
+  .grow .subnote { display: block; font-weight: 400; font-size: .76rem; color: var(--fg-mute); }
+  .grow .mute { font-weight: 400; color: var(--fg-mute); }
+
+  /* 段ごとの表。**幅 390 でも箱の中に収める。**5 列で「欠片 ／ 壊れた」の累計を
+     横に並べていたらクレジットの列が切れていた（2026-09-26）。累計はオーパーツの
+     欄の 2 行目へ畳み、単位は見出しへ出して 4 列にした */
+  table.dt.steps th, table.dt.steps td { padding: .5em .45em; }
+  table.dt.steps td small { display: block; font-size: .74rem; color: var(--fg-mute); font-weight: 400; }
+  @media (max-width: 480px) { table.dt.steps { font-size: .8rem; } }
+  .nowrap { white-space: nowrap; }
+
 </style>
 </head>
 <body>
@@ -202,102 +340,280 @@
     </picture>
   </div>
   <div class="thero-body">
-    <h1>生徒 1 人の育成費用</h1>
-    <p class="thero-lead">レベル・スキル・星・固有武器・愛用品・装備ぶんのクレジットと素材を、まとめて数えます。</p>
+    <h1>生徒の育成計算機</h1>
+    <p class="thero-lead">1 人を育てきるクレジットと素材。星上げの神名文字と、潜在解放のオーパーツも。<button type="button" class="qm" data-hint="総額: レベル・スキル・星・固有武器・愛用品・装備ぶんのクレジットと素材。星上げ: 要る神名文字と、足りないぶんを神名のカケラで買うと何個か。潜在解放: 要るオーパーツ・応用 WB・クレジットと、どれだけ強くなるか。生徒は 1 回選べば 3 つとも同じ子です。"></button></p>
   </div>
 </header>
 
 <div class="twrap">
-  <p class="tcrumb"><a href="../../">AronaBotの使い方</a><span class="sl">/</span><a href="../">ツール</a><span class="sl">/</span>生徒 1 人の育成費用</p>
+  <p class="tcrumb"><a href="../../">AronaBotの使い方</a><span class="sl">/</span><a href="../">ツール</a><span class="sl">/</span>生徒の育成計算機</p>
 
-  <div class="tcols lean" style="margin-top:20px">
+  <!-- **3 つの区画。**2026-09-26 に student-cost（総額）・eleph（星上げ）・potential（潜在）を 1 本にまとめた。
+       切り替えは ../panes.js（`pane=`）。**生徒は区画の外で 1 回だけ選ぶ**——3 区画とも同じ子を使う
+       （tools/cafe/ の店とランク、tools/raid/ のボス選択と同じ置き方）。
+       JS が無ければタブは出ず、生徒の欄と 3 区画が縦に全部並ぶ -->
+  <div class="tpanes" data-panes="sc-sec" style="margin-top:20px">
+    <div class="ttabs" id="sec-tabs" role="tablist" aria-label="区画" hidden>
+      <button type="button" role="tab" id="tb-sec-total" data-p="total"
+              aria-controls="sec-total" aria-selected="true">総額</button>
+      <button type="button" role="tab" id="tb-sec-star" data-p="star"
+              aria-controls="sec-star" aria-selected="false">星上げ</button>
+      <button type="button" role="tab" id="tb-sec-pot" data-p="pot"
+              aria-controls="sec-pot" aria-selected="false">潜在解放</button>
+    </div>
 
-    <div class="tcol">
-      <div class="panel">
-        <div class="panel-h"><h2>だれを育てますか</h2></div>
-        <div class="stucard none" id="stucard">
-          <div class="stuimg" id="stu-img"><span class="ph">none</span></div>
-          <div>
-            <p class="stuname" id="stu-name">まだ誰も選んでいません</p>
-            <p class="stunote" id="stu-note">選ぶまではレベルのぶんだけ数えています。</p>
-          </div>
+    <!-- ===== 生徒。**ページ全体で 1 つ。**元は 3 本とも同じ欄を持っていた ===== -->
+    <div class="panel" id="p-stu">
+      <div class="panel-h"><h2>だれを育てますか</h2></div>
+      <div class="stucard none" id="stucard">
+        <div class="stuimg" id="stu-img"><span class="ph">none</span></div>
+        <div>
+          <p class="stuname" id="stu-name">まだ誰も選んでいません</p>
+          <p class="stunote" id="stu-note">選ぶまではレベルのぶんだけ数えています。</p>
         </div>
-        <div class="field">
-          <label for="i-student">生徒</label>
-          <input id="i-student" type="search" list="students" placeholder="名前で探す" autocomplete="off">
-          <datalist id="students"></datalist>
-        </div>
-        <div class="btnrow" style="margin-top:14px">
-          <div class="seg" id="preset" role="group" aria-label="よくある目標">
+      </div>
+      <div class="field">
+        <label for="i-student">生徒<span class="hint">3 つの区画で同じ子を使います</span></label>
+        <input id="i-student" type="search" list="students" placeholder="名前で探す" autocomplete="off">
+        <datalist id="students"></datalist>
+      </div>
+      <p class="err" id="err" hidden></p>
+    </div>
+
+    <!-- ================================================================ 総額 -->
+    <div class="tpane" id="sec-total" data-p="total" role="tabpanel" aria-labelledby="tb-sec-total" tabindex="0">
+    <div class="tcols lean" style="margin-top:18px">
+      <div class="tcol">
+        <div class="panel">
+          <div class="panel-h"><h2>どこまで育てますか</h2></div>
+          <p class="lead">左が今、右が目標です。上げないところは同じ数字のままにしてください。<button type="button" class="qm" data-hint="スキルの ◎ が付いた Lv は、そこで効果の伸びが大きくなるところです。装備は Tier が上がると Lv1 に戻るので、途中の Tier は上限 Lv まで上げる経験値を足しています（強化珠の計算機と同じ数え方）。T1 の装備そのものは数えていません。"></button></p>
+          <div class="btnrow" style="margin:0 0 8px">
+            <div class="seg" id="preset" role="group" aria-label="よくある目標">
             <button type="button" data-p="all" aria-pressed="false">ぜんぶ最大まで</button>
             <button type="button" data-p="mid" aria-pressed="false">キリのいい Lv まで</button>
             <button type="button" data-p="none" aria-pressed="false">今のまま</button>
           </div>
+          </div>
+          <div id="goals"></div>
         </div>
       </div>
 
-      <div class="panel">
-        <div class="panel-h"><h2>どこまで育てますか</h2></div>
-        <p class="lead">左が今、右が目標です。上げないところは同じ数字のままにしてください。<button type="button" class="qm" data-hint="スキルの ◎ が付いた Lv は、そこで効果の伸びが大きくなるところです。装備は Tier が上がると Lv1 に戻るので、途中の Tier は上限 Lv まで上げる経験値を足しています（強化珠の計算機と同じ数え方）。T1 の装備そのものは数えていません。"></button></p>
-        <div id="goals"></div>
-        <p class="err" id="err" hidden></p>
+      <div class="tcol">
+        <div class="stats c4">
+          <div class="stat hero">
+            <div class="k"><img class="ico" src="../img/currency_icon_gold.webp" alt="" width="18" height="18" loading="lazy"> クレジット</div>
+            <div class="v" id="o-credit">—</div>
+            <div class="sub" id="o-credit-sub"></div>
+          </div>
+          <div class="stat">
+            <div class="k">必要な経験値</div>
+            <div class="v" id="o-exp">—</div>
+            <div class="sub" id="o-exp-sub"></div>
+          </div>
+          <div class="stat">
+            <div class="k">装備の経験値</div>
+            <div class="v" id="o-eqexp">—</div>
+            <div class="sub" id="o-eqexp-sub"></div>
+          </div>
+          <div class="stat">
+            <div class="k">固有武器の経験値</div>
+            <div class="v" id="o-wpexp">—</div>
+            <div class="sub" id="o-wpexp-sub"></div>
+          </div>
+          <div class="stat">
+            <div class="k">要る素材</div>
+            <div class="v" id="o-mat">—</div>
+            <div class="sub" id="o-mat-sub"></div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-h"><h2>クレジットの内訳</h2></div>
+          <div class="ledger" id="ledger"></div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-h"><h2>レポート</h2></div>
+          <p class="lead">手持ちの枚数を入れると、上の経験値に足りるかが出ます。</p>
+          <div class="repbox" id="reps"></div>
+          <p class="repsay" id="rep-say" role="status"></p>
+        </div>
+      </div>
+
+      <div class="tfull">
+        <div class="panel">
+          <div class="panel-h"><h2>要る素材</h2></div>
+          <p class="lead" id="mat-lead">生徒と目標を決めると、必要な個数がここに並びます。</p>
+          <div id="mats"></div>
+        </div>
       </div>
     </div>
-
-    <div class="tcol">
-      <div class="stats c4">
-        <div class="stat hero">
-          <div class="k"><img class="ico" src="../img/currency_icon_gold.webp" alt="" width="18" height="18" loading="lazy"> クレジット</div>
-          <div class="v" id="o-credit">—</div>
-          <div class="sub" id="o-credit-sub"></div>
-        </div>
-        <div class="stat">
-          <div class="k">必要な経験値</div>
-          <div class="v" id="o-exp">—</div>
-          <div class="sub" id="o-exp-sub"></div>
-        </div>
-        <div class="stat">
-          <div class="k">装備の経験値</div>
-          <div class="v" id="o-eqexp">—</div>
-          <div class="sub" id="o-eqexp-sub"></div>
-        </div>
-        <div class="stat">
-          <div class="k">固有武器の経験値</div>
-          <div class="v" id="o-wpexp">—</div>
-          <div class="sub" id="o-wpexp-sub"></div>
-        </div>
-        <div class="stat">
-          <div class="k">要る素材</div>
-          <div class="v" id="o-mat">—</div>
-          <div class="sub" id="o-mat-sub"></div>
-        </div>
-      </div>
-
-      <div class="panel">
-        <div class="panel-h"><h2>クレジットの内訳</h2></div>
-        <div class="ledger" id="ledger"></div>
-      </div>
-
-      <div class="panel">
-        <div class="panel-h"><h2>レポート</h2></div>
-        <p class="lead">手持ちの枚数を入れると、上の経験値に足りるかが出ます。</p>
-        <div class="repbox" id="reps"></div>
-        <p class="repsay" id="rep-say" role="status"></p>
-      </div>
     </div>
 
-    <div class="tfull">
-      <div class="panel">
-        <div class="panel-h"><h2>要る素材</h2></div>
-        <p class="lead" id="mat-lead">生徒と目標を決めると、必要な個数がここに並びます。</p>
-        <div id="mats"></div>
+    <!-- ================================================================ 星上げ（元の tools/eleph/）
+         id はほかの区画と重ならないよう `e-` を付けた（star.js の el() が付けて引く） -->
+    <div class="tpane" id="sec-star" data-p="star" role="tabpanel" aria-labelledby="tb-sec-star" tabindex="0">
+    <div class="tcols lean" style="margin-top:18px">
+      <div class="tcol">
+        <div class="panel">
+          <div class="panel-h"><h2>どこまで上げますか</h2></div>
+          <!-- **カケラの値段は、その子の文字を今までに何個買ったかで決まる**（2026-09-26）。
+               1〜20 個目は 1 個、21〜40 個目は 2 個、…と上がるので、続きから数える -->
+          <div class="fields c2">
+            <div class="field">
+              <label for="e-i-have">持っている神名文字<span class="hint">その子ぶん</span></label>
+              <input id="e-i-have" type="number" inputmode="numeric" min="0" step="10" value="0">
+            </div>
+            <div class="field">
+              <label for="e-i-bought">この子の文字を今までに買った数<button type="button" class="qm" data-hint="カケラ（文字）ショップでその子の神名文字を選ぶと、買った数が出ます。値段は生徒ごとの累計で決まり、1〜20 個目は 1 個、21〜40 個目は 2 個……81 個目からは 5 個。1 人 900 個までです。"></button></label>
+              <input id="e-i-bought" type="number" inputmode="numeric" min="0" max="900" step="1" value="0">
+            </div>
+          </div>
+          <div class="starrow" style="margin-top:14px">
+            <span class="lb">今の段</span>
+            <div id="e-from-stars"></div>
+          </div>
+          <div class="starrow" style="margin-top:10px">
+            <span class="lb">目標の段</span>
+            <div id="e-to-stars"></div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-h"><h2>段ごとの中身</h2></div>
+          <p class="lead"><b>★5 になると固有武器が使えるようになり、その状態が固有1</b>です。<button type="button" class="qm" data-hint="そこから先は「限界解放」です。要る神名文字とクレジットは 7 段とも全員同じで、生徒ごとの差はありません。「累計」は ★1 からその段までの合計です。"></button></p>
+          <div class="stargrid" id="e-starsteps"></div>
+        </div>
+      </div>
+
+      <div class="tcol sticky">
+        <!-- **上に出すのは 4 つだけ**（2026-09-26 の先生の判断）: 要る文字／手持ちを引いた不足／
+             不足をカケラで買うと何個／クレジット。攻撃力の伸びと「1 週間の見込み」は消した -->
+        <div class="stats c4">
+          <div class="stat hero">
+            <!-- **生の item_icon_secretstone は使わない。**あれは「神名のカケラ」の絵
+                 （2026-08-30 の先生の指摘）。生徒共通の神名文字の絵は無いので、
+                 ここはゲームの製造 UI の神名文字グリフ（CraftNode_SecretStone）。
+                 生徒を選ぶと、その子の神名文字の絵が下の札と段ごとの中身に出る -->
+            <div class="k"><i class="gi gi-craftnode-secretstone"></i> 要る神名文字</div>
+            <div class="v" id="e-o-eleph">—</div>
+            <div class="sub" id="e-o-eleph-sub">生徒を選んでください</div>
+          </div>
+          <div class="stat">
+            <div class="k">足りないぶん</div>
+            <div class="v" id="e-o-left">—</div>
+            <div class="sub" id="e-o-left-sub">—</div>
+          </div>
+          <div class="stat">
+            <div class="k"><img class="ico" src="../img/item_icon_secretstone.webp" alt="" width="18" height="18" loading="lazy"> カケラで買うと</div>
+            <div class="v" id="e-o-shard">—</div>
+            <div class="sub" id="e-o-shard-sub">—</div>
+          </div>
+          <div class="stat">
+            <div class="k"><img class="ico" src="../img/currency_icon_gold.webp" alt="" width="18" height="18" loading="lazy"> クレジット</div>
+            <div class="v" id="e-o-credit">—</div>
+            <div class="sub">この段まで上げるぶん</div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-h"><h2>カケラの内訳</h2></div>
+          <div class="ledger" id="e-shard-ledger"></div>
+        </div>
+      </div>
+
+      <div class="tfull">
+        <div class="panel">
+          <details class="quick" id="e-quick">
+            <summary>早見表 <span class="qsub">今の段 × 目標の段</span></summary>
+            <div class="tscroll" id="e-quick-box">
+              <table class="dt qt">
+                <thead id="e-qh"></thead>
+                <tbody id="e-qb"></tbody>
+              </table>
+            </div>
+            <p class="qnote">上が神名文字（累計）、下はまだ 1 個も買っていない子をカケラで全部買った場合。<button type="button" class="qm" data-hint="値段はどの生徒でも同じなので、表も全員共通です。色の付いたマスが、いま選んでいる今の段→目標の段です。"></button></p>
+          </details>
+        </div>
       </div>
     </div>
+    </div>
 
-    <div class="tfull">
-      <div class="sharebar" id="sharebar"></div>
+    <!-- ================================================================ 潜在（元の tools/potential/）
+         id はほかの区画と重ならないよう `p-` を付けた（pot.js の el() が付けて引く） -->
+    <div class="tpane" id="sec-pot" data-p="pot" role="tabpanel" aria-labelledby="tb-sec-pot" tabindex="0">
+    <div class="tcols lean" style="margin-top:18px">
+      <div class="tcol">
+        <div class="panel">
+          <div class="panel-h"><h2>どこまで開きますか</h2></div>
+          <p class="lead">枠は 3 つ、それぞれ <b>0 段から <span id="p-lead-max">25</span> 段</b>まで上がります。
+            <button type="button" class="qm" data-hint="1段で基礎値の0.2%です（25段で+5%）。"></button></p>
+          <div class="pothead"><span></span><span>今</span><span>目標</span></div>
+          <div id="p-potsteps"></div>
+          <div class="btnrow" style="margin-top:14px">
+            <button type="button" class="btn" id="p-b-max">ぜんぶ最大まで</button>
+            <button type="button" class="btn" id="p-b-atk">攻撃力だけ最大</button>
+            <button type="button" class="btn" id="p-b-reset">戻す</button>
+          </div>
+        </div>
 
-      <details class="src">
+        <!-- **要るものは「どこまで開きますか」のすぐ下。**先に伸びを置いていたら、
+             スマホで答えが画面 2 枚ぶん下に沈んでいた（2026-09-26 の先生の判断 Q4-1） -->
+        <div class="stats c3">
+          <div class="stat hero">
+            <div class="k">要るオーパーツ</div>
+            <div class="items" id="p-o-art"></div>
+            <a class="golink" id="p-to-oopart" href="../oopart/">オーパーツから生徒を引く →</a>
+          </div>
+          <div class="stat">
+            <div class="k">応用 WB</div>
+            <div class="items" id="p-o-book"></div>
+          </div>
+          <div class="stat">
+            <div class="k"><img class="ico" src="../img/currency_icon_gold.webp" alt="" width="18" height="18" loading="lazy"> クレジット</div>
+            <div class="v" id="p-o-credit">—</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="tcol">
+        <div class="panel">
+          <div class="panel-h"><h2>手持ちで足りますか</h2></div>
+          <div class="bar"><i id="p-bar" style="width:0%"></i></div>
+          <p class="barnote" id="p-barnote">—</p>
+          <div class="ledger" id="p-have"></div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-h"><h2>どれだけ強くなりますか</h2></div>
+          <p class="lead">生徒が <b>Lv<span id="p-lead-lv">90</span></b> のときの伸びです。
+            <button type="button" class="qm" id="p-growth-qm" data-hint="★の倍率が掛かる前の基礎値から数えています（SchaleDBと同じ数え方）。"></button></p>
+          <div class="grow" id="p-growth"></div>
+        </div>
+      </div>
+
+      <div class="tfull">
+        <div class="panel">
+          <div class="panel-h"><h2>段ごとの中身</h2></div>
+          <p class="lead"><b>要る量は全員同じです。</b>1〜15 段目は<b>欠片</b>、16〜25 段目は<b>壊れたほう</b>を使います。
+            <button type="button" class="qm" data-hint="同じ中身が続く区間はまとめてあります。数はどれも1段あたりで、オーパーツの下の小さい数は0段からの累計です。"></button></p>
+          <div class="tscroll">
+            <table class="dt steps">
+              <thead><tr><th>段</th><th>オーパーツ</th><th>WB</th><th>クレジット</th></tr></thead>
+              <tbody id="p-tb"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+    </div>
+  </div>
+
+  <!-- 共有の帯は 1 つ。**配るのは生徒と開いている区画だけ**（下の shareUrl）。
+       「数字の出どころ」は区画ごとに 3 つあり、開いている区画のものだけ出す（JS が無ければ全部） -->
+  <div class="sharebar" id="sharebar" style="margin-top:26px"></div>
+
+      <details class="src" data-sec="total">
         <summary>数字の出どころ</summary>
         <p><b>素材とクレジットは、ゲームのレシピをそのまま読んでいます。</b>レシピの Id は <code>生徒 Id × 1000 ＋ 枠 × 100 ＋ 段</code>で並んでいて、枠 0 が星上げ、枠 1 が EX スキル、枠 2 がそれ以外のスキル、枠 3 が固有武器、枠 4 が愛用品です。中身は <code>DB/RecipeIngredientExcelTable.json</code> の
           <code>CostAmount</code>（クレジット）と <code>IngredientId</code> / <code>IngredientAmount</code>（素材）です。</p>
@@ -311,7 +627,7 @@
           <a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a> の <code>config.json</code> の
           <code>Regions[Jp].WeaponMaxLevel</code>（60 ＝★4）から取っています。<b>★3→★4 の神名文字だけ、レシピの値が「1 個」の仮置きのままです</b>——
           クレジットは <code>2000000</code> と実数が入っているので、個数だけ
-          <a href="https://game8.jp/blue-archive/706922" target="_blank" rel="noopener">ゲームエイト</a>の<b>200 個</b>で補っています（<a href="../eleph/">星上げの計算機</a>と同じ値）。
+          <a href="https://game8.jp/blue-archive/706922" target="_blank" rel="noopener">ゲームエイト</a>の<b>200 個</b>で補っています（<a href="#pane=star" data-go="star">星上げの区画</a>と同じ値）。
           <b>2026-08-31 まで★3 で止めていました。</b><button type="button" class="qm" data-hint="★1→★2 が 120 個・100万クレジット、★2→★3 が 180 個・150万、★3→★4 が 200 個・200万です。累計は 500 個・450万。"></button></p>
         <p><b>レベルの必要経験値は <code>DB/CharacterLevelExcelTable.json</code> そのままです。</b>
           Lv1 から Lv90 までの合計は <b id="src-total">—</b>。レポートの経験値は<b>初級 50 ／ 中級 500 ／ 上級 2,000 ／ 最上級 10,000</b> で、これもデータの値です。</p>
@@ -334,12 +650,172 @@
           <a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a>（生徒・素材の名前とアイコン）、
           <a href="https://github.com/electricgoat/ba-data" target="_blank" rel="noopener">electricgoat/ba-data</a>（レシピ・経験値表・装備と固有武器の経験値表・パーツの倍率）、<a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB config.json</a>（日本で開いている固有武器の段）、<a href="https://game8.jp/blue-archive/706922" target="_blank" rel="noopener">ゲームエイト</a>（★3→★4 の神名文字 200 個）。取得は <span id="ver">—</span>。</p>
       </details>
-    </div>
 
-  </div>
+      <details class="src" data-sec="star">
+        <summary>数字の出どころ</summary>
+        <p><b>要る神名文字とクレジットは、ゲームのレシピをそのまま読んでいます。</b>推測はありません。</p>
+        <ul>
+          <li><code>DB/CharacterTranscendenceExcelTable.json</code> — 生徒ごとに <code>RecipeId</code> が 4 つ（★1→2、2→3、3→4、4→5）並んでいます</li>
+          <li>その Id を <code>DB/RecipeExcelTable.json</code> → <code>DB/RecipeIngredientExcelTable.json</code> と辿ると、
+            <code>CostAmount</code>（クレジット）と <code>IngredientId</code>（その子の神名文字）と <code>IngredientAmount</code>（個数）が出ます</li>
+          <li><b><span id="e-src-n">—</span> 人ぶんを 1 人ずつ数えて、4 段とも全員同じ値であることを確かめています。</b>
+            神名文字は <code>30 / 80 / 100 / 120</code> で合計 <b>330 個</b>、クレジットは
+            <code>10,000 / 40,000 / 200,000 / 1,000,000</code> で合計 <b>1,250,000</b> です。
+            <b>1 人でも違う値が出たら、データを作る側で止まるようにしてあります。</b></li>
+          <li>絆ランクの上限は同じ表の <code>MaxFavorLevel</code>。★1 から順に <code>10 / 10 / 20 / 30 / 100</code> で、★3 で 20、★4 で 30、★5 で 100 まで開きます。<b>★4 のぶんは 20 から 30 に上がりました</b>（<code>DB/</code> の 817 行のうち 810 行がこの並び。止まっている <code>Excel/</code> 側はまだ 20 です）</li>
+        </ul>
+
+        <p><b>★5 のあとは「限界解放」です。</b>★の上げ方を<b>神秘解放</b>、固有武器の上げ方を<b>限界解放</b>と呼び分けます
+          （<a href="https://bluearchive.wikiru.jp/?SandBox/%E7%A5%9E%E7%A7%98%E8%A7%A3%E6%94%BE%EF%BC%88%E9%99%90%E7%95%8C%E8%A7%A3%E6%94%BE%EF%BC%89" target="_blank" rel="noopener">ブルアカ攻略 Wiki の「神秘解放/限界解放」</a>）。
+          <b>★5 になると固有武器が使えるようになり、その状態が固有1</b>です。そこから固有2・固有3・固有4 と続きます。</p>
+        <ul>
+          <li><code>DB/CharacterWeaponExcelTable.json</code> の <code>RecipeId</code> が段の並びです。
+            ★のときと同じように <code>RecipeExcelTable</code> → <code>RecipeIngredientExcelTable</code> と辿ります。
+            神名文字は <code>120 / 180 / 200</code>、クレジットは <code>1,000,000 / 1,500,000 / 2,000,000</code> です</li>
+          <li>固有武器のレベル上限は同じ表の <code>MaxLevel</code>。<code>30 / 40 / 50 / 60 / 70</code> で、
+            <b>固有1 で Lv30、固有4 で Lv60</b> です（<code>70</code> の段＝固有5 は日本ではまだ出ていません）</li>
+          <li>覚えるものも同じ表から読んでいます。<code>LearnSkillSlot</code> の 2 番目が <code>Passive01</code> なので
+            <b>固有2 でパッシブスキル＋</b>、<code>StatType</code> の 3 番目が <code>〇〇BattleAdaptation_Base</code> なので
+            <b>固有3 で地形適性</b>です。<b>上がり幅は生徒ごとに違います</b>——
+            ＋1 段が <span id="e-src-av1">—</span> 人、＋2 段が <span id="e-src-av2">—</span> 人で、
+            <code>StatValue</code> をその子ぶん読んでいます</li>
+        </ul>
+        <p><b>固有3→固有4 の神名文字 200 個も、いまはゲームのデータに入っています。</b>
+          <code>DB/RecipeIngredientExcelTable.json</code> の <code>IngredientAmount</code> が
+          <code>200</code>、<code>CostAmount</code> が <code>2,000,000</code> です。
+          <b>止まっている <code>Excel/</code> 側では <code>1</code> の仮置きのままで、</b>
+          2026-08-31 まではここだけ
+          <a href="https://game8.jp/blue-archive/706922" target="_blank" rel="noopener">game8 の「固有武器★4の解放必要素材」</a>の
+          200 個で補っていました。<b>データ側の値と、外から取っていた値は同じでした。</b></p>
+        <p><b>固有4 で増えるものもデータに入っています</b>（<code>DB/CharacterWeaponExcelTable.json</code> の
+          <code>StatType</code> / <code>StatValue</code> の 4 番目。<code>Excel/</code> 側は <code>None</code> のままです）。
+          ストライカーは <code>Enhance〇〇Rate_Base</code> が <code>1000</code>＝<b>自分の攻撃属性の特効 ＋10%</b>で <span id="e-src-main">—</span> 人、
+          スペシャルは <code>MaxCostIncrease_Base</code> が <code>5000</code>＝<b>コスト上限 ＋0.5</b>で <span id="e-src-sup">—</span> 人。
+          <b><span id="e-src-n3">—</span> 人ぜんぶが、その子の <code>SquadType</code> と <code>BulletType</code> どおりでした</b>
+          （1 人でも外れたらデータを作る側で止まります）。ブルアカ攻略 Wiki の「限界解放 星3→星4」の欄
+          （<code>ST:〇〇特効加算+10%、SP:最大コスト0.5増加</code>）とも一致します。</p>
+        <p><b>データに星上げのレシピが入っていない生徒は、この一覧に出しません。</b>
+          <code>IngredientId</code> が「神名のカケラ」（Id 23）を 999 個という仮置きの行になっている生徒と、
+          レシピそのものが空の生徒がいます。実装が追いついていないだけなので、<b>ゲーム側では上げられます。</b>
+          このツールは<b>読めた <span id="e-src-n2">—</span> 人ぶんだけ</b>を出しています。</p>
+        <p><b>カケラの値段もゲームのデータから読んでいます。</b></p>
+        <ul>
+          <li><code>DB/GoodsExcelTable.json</code> の、<code>ConsumeParcelId</code> が <code>[23]</code>（神名のカケラ）で
+            <code>ParcelId</code> がその子の神名文字の行。<code>ConsumeExtraStep</code> が <code id="e-src-step">—</code>、
+            <code>ConsumeExtraAmount</code> が <code id="e-src-amt">—</code> で、<b>その子の文字を今までに買った数</b>で
+            1〜20 個目は 1 個、21〜40 個目は 2 個……と上がり、並びの最後（81 個目から 5 個）がそのあとも続きます</li>
+          <li>1 人ぶんの上限は <code>DB/ShopExcelTable.json</code> の <code>CategoryType</code> <code>SecretStone</code> の
+            <code>PurchaseCountLimit</code>（<b id="e-src-lim">—</b> 個）。<b>値段と上限が 1 人でも違ったら、データを作る側で止まります</b></li>
+          <li>ブルアカ攻略 Wiki の早見表（★1→★5 が 330 文字・1,450 カケラ、★1→固有4 が 830 文字・3,950 カケラ、
+            ★3→★5 が 220 文字・900 カケラ、固有2→固有4 が 380 文字・1,700 カケラ）と一致します</li>
+        </ul>
+        <p>出典 —
+          <a href="https://github.com/electricgoat/ba-data" target="_blank" rel="noopener">electricgoat/ba-data</a>（レシピ・覚えるもの・カケラの値段）、
+          <a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a>（生徒と道具の名前、顔の絵、日本の上限）、
+          <a href="https://bluearchive.wikiru.jp/?SandBox/%E7%A5%9E%E7%A7%98%E8%A7%A3%E6%94%BE%EF%BC%88%E9%99%90%E7%95%8C%E8%A7%A3%E6%94%BE%EF%BC%89" target="_blank" rel="noopener">ブルアカ攻略 Wiki</a>（呼び名と早見表の答え合わせ）、
+          <a href="https://game8.jp/blue-archive/706922" target="_blank" rel="noopener">game8</a>（固有3→4 の神名文字。いまはデータ側にも入っていて、値が一致しています）。取得は <span id="e-ver">—</span>。</p>
+      </details>
+
+      <details class="src" data-sec="pot">
+        <summary>数字の出どころ</summary>
+        <p><b>要る量はゲームのレシピをそのまま読んでいます。</b>推測した数字はありません。</p>
+        <ul>
+          <li>段ごとの中身は SchaleDB の <code>config.json</code> の <code>PotentialMaterial</code>（25 要素）。
+            <b>この配列の <code>[i]</code> は「i 段目に到達するぶん」ではなく「i 段目から i+1 段目へ上げるぶん」です。</b>
+            到達段で引くと 5・10・15・20 段目の境目が全部 1 段ずれます</li>
+          <li>裏取りとして、<code>DB/CharacterPotentialStatExcelTable.json</code> の <code>RecipeId</code> を
+            <code>DB/RecipeExcelTable.json</code> → <code>DB/RecipeIngredientExcelTable.json</code> と辿り、
+            <b><span id="p-src-n">—</span> 手順すべてを 1 つずつ突き合わせています。</b>
+            クレジット・オーパーツの個数・WB の冊数が 1 か所でも食い違ったら、データを作る側で止まります</li>
+          <li>どのオーパーツを使うかは <code>DB/CharacterPotentialExcelTable.json</code> の
+            <code>PotentialStatGroupId</code> を 100 で割った値。
+            <b>SchaleDB 側の <code>PotentialMaterial</code> と <span id="p-src-s">—</span> 人全員で一致</b>しました</li>
+          <li>枠は <code>PotentialStatGroupId</code> の下 2 桁で決まります。<code>10</code> が最大 HP、
+            <code>20</code> が攻撃力、<code>30</code> が治癒力。WB もそれぞれ 応用体育 / 応用射撃 / 応用衛生 に固定です</li>
+          <li>「この枠は使わない」の印は同じ表の <code>IsUnnecessaryStat</code>。ゲームのデータが持っている印で、
+            こちらで判断したものではありません（治癒力に立っている生徒が <span id="p-src-un">—</span> 人います）</li>
+          <li>段の上限 25 と、開放に <b>Lv90</b> が要ることは <code>Excel/ConstCommonExcelTable.json</code> の
+            <code>PotentialBonusStatMaxLevelMaxHP</code> ほかと <code>PotentialOpenConditionCharacterLevel</code></li>
+          <li>伸び幅は <code>StatBonusRate</code>。<b>1 段あたり 20 で、10000 分率</b>なので 0.2%、25 段で 5% です。
+            <b>25 段ぶん全部を数えて、段 × 20 になっていることを確かめています。</b>
+            <b>掛け方は SchaleDB 本体の計算に合わせました</b> ——
+            あちらの JavaScript が <code>Math.round(基礎値(Lv) × 段数 × 0.002)</code> としていて、
+            <code>0.002</code> は <code>20 / 10000</code> と同じです
+            （<a href="https://schaledb.com/" target="_blank" rel="noopener">schaledb.com</a> の
+            <code>assets/StudentListModal-*.js</code>。2026-08-30 に読みました）</li>
+          <li>基礎値の出し方も同じところから。<code>Lv1</code> と <code>Lv100</code> の 2 点を
+            <code>基礎値 = round(Lv1 + (Lv100 − Lv1) × (Lv − 1) / 99)</code> で結んでいます。
+            <b>★の倍率は掛けません。</b>SchaleDB も潜在能力ぶんは★を掛ける前の値から数えています</li>
+        </ul>
+        <p><b>オーパーツと応用 WB の入手先は出していません。</b>ステージのドロップをぜんぶ当たりましたが、
+          「◯◯の欠片」も応用 WB も 1 本も落ちてきませんでした。<b>裏が取れないので書かない</b>ことにしています。
+          手持ちの数は自分で入れる形にしました。</p>
+        <p>出典 —
+          <a href="https://github.com/electricgoat/ba-data" target="_blank" rel="noopener">electricgoat/ba-data</a>（レシピ・枠・上限）、
+          <a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a>（段ごとの中身、生徒と道具の名前、顔の絵、伸びの掛け方）。取得は <span id="p-ver">—</span>。</p>
+      </details>
 </div>
 
-<script>window.TOUR = {"key": "student-cost", "steps": [{"sel": "#i-student", "t": "生徒を選びます", "d": "名前を入れると、その子を育てきるのに要るクレジット・経験値・素材が出ます。"}, {"sel": "#goals", "t": "どこまで育てるかを決めます", "d": "レベル・スキル・固有武器・装備・愛用品を別々に決められます。要らないところは外してください。"}, {"sel": "#mats", "t": "要る素材が並びます", "d": "オーパーツ・技術ノート・戦術教育 BD が段ごとに出ます。持て余している素材から逆に引きたいときは「オーパーツ逆引き」へ。"}]};</script>
+<script>window.TOUR = {"key": "student-cost-2", "steps": [
+  {"sel": "#sec-tabs", "t": "3 つの区画に分けています", "d": "総額: 1 人を育てきるクレジットと素材。星上げ: 神名文字とカケラ。潜在解放: オーパーツと応用 WB。入力はこの端末に残ります。"},
+  {"sel": "#i-student", "t": "生徒は 1 回選ぶだけです", "d": "ここで選んだ子を、3 つの区画すべてで使います。"},
+  {"sel": "#goals", "pre": ["#tb-sec-total"], "t": "どこまで育てるかを決めます", "d": "レベル・スキル・星・固有武器・装備・愛用品を別々に決められます。潜在解放のぶんも足せます。"},
+  {"sel": "#mats", "pre": ["#tb-sec-total"], "t": "要る素材が並びます", "d": "オーパーツ・技術ノート・戦術教育 BD が段ごとに出ます。持て余している素材から逆に引きたいときは「オーパーツ逆引き」へ。"},
+  {"sel": "#e-from-stars", "pre": ["#tb-sec-star"], "t": "星上げ: 今の段と目標を押します", "d": "上の列が今、下の列が目標です。★5 のあとは固有2・固有3・固有4 と続きます。"},
+  {"sel": "#e-i-bought", "pre": ["#tb-sec-star"], "t": "買った数を入れると値段が合います", "d": "カケラの値段は、その子の文字を今までに買った数で上がっていきます。ショップの画面で見られます。"},
+  {"sel": "#p-potsteps", "pre": ["#tb-sec-pot"], "t": "潜在解放: 枠ごとに今と目標を入れます", "d": "最大 HP・攻撃力・治癒力の 3 つが別々に上がります。使わない枠には印が付きます。"},
+  {"sel": "#p-o-art", "pre": ["#tb-sec-pot"], "t": "要る量がここに出ます", "d": "オーパーツは欠片と壊れたほうで別々に数えます。手持ちを入れると、あと何個足りないかも出ます。"},
+  {"sel": "#sharebar", "t": "開いている区画ごと URL になります", "d": "リンクを送ると、相手の画面にも同じ結果が出ます。案内を閉じると、開く前の区画に戻ります。"}
+]};</script>
+<!-- **古い形を読み替える。../remember.js と ../panes.js より前に。**
+     1. URL が元の student-cost の `#生徒id|f.t|…`（`=` の無い 14 区切りまで）なら、`s=生徒id&t=残り` にする。
+        共有された古い URL と、廃止した tools/weapon/ の転送ページがこの形で来る
+     2. このページの覚え（`arona-state-/tools/student-cost/`）がまだ無いか古い形なら、元の 3 本の覚えを
+        読んで新しい形で書き直す。元の eleph と potential の覚え（`arona-state-/tools/eleph/` と
+        `arona-state-/tools/potential/`）は**読むだけで消さない**。生徒は student-cost の覚えを優先する -->
+<script>
+(function () {
+  var dec = function (v) { try { return decodeURIComponent(v); } catch (e) { return v; } };
+  /** 元の 3 本の `生徒id|残り` を `{ s, rest }` に。生徒が無ければ s は '' */
+  var split = function (h) {
+    var p = dec(String(h || '').replace(/^#/, '')).split('|');
+    var id = parseInt(p[0], 10);
+    return { s: id > 0 ? String(id) : '', rest: p.slice(1).join('|'), n: p.length };
+  };
+  var old = function (h) { h = String(h || '').replace(/^#/, ''); return h && h.indexOf('=') < 0 && dec(h).indexOf('|') >= 0; };
+
+  // 1) URL
+  if (old(location.hash)) {
+    var o = split(location.hash), seg = [];
+    if (o.s) seg.push('s=' + o.s);
+    seg.push('t=' + o.rest);
+    try { history.replaceState(null, '', location.pathname + location.search + '#' + seg.join('&')); } catch (e) { /* file:// */ }
+  }
+
+  // 2) 覚え。**新しい形（`=` を含む）で 1 度書いたら、もう読み替えない**
+  try {
+    var KEY = 'arona-state-' + location.pathname;
+    var mine = localStorage.getItem(KEY) || '';
+    if (mine.indexOf('=') >= 0) return;
+    var base = location.pathname.replace(/student-cost\/(index\.html)?$/, '');
+    var el = localStorage.getItem('arona-state-' + base + 'eleph/') || '';
+    var po = localStorage.getItem('arona-state-' + base + 'potential/') || '';
+    var s = '', out = [];
+    var t = old(mine) ? split(mine) : null, e = old(el) ? split(el) : null, p = old(po) ? split(po) : null;
+    if (!t && !e && !p) return;
+    s = (t && t.s) || (e && e.s) || (p && p.s) || '';
+    if (s) out.push('s=' + s);
+    if (t) out.push('t=' + t.rest);
+    if (e) out.push('e=' + e.rest);
+    if (p) out.push('p=' + p.rest);
+    localStorage.setItem(KEY, '#' + out.join('&'));
+  } catch (e) { /* 保存できないブラウザでは読み替えないだけ */ }
+})();
+</script>
+<!-- **入力を覚える。../panes.js と各区画の JS より前に読むこと**（前回のハッシュを先に URL へ戻す）。
+     `data-keep`: 区画へのリンク（転送ページなど）で開いても、URL に書いていない生徒・区画は前の続きのまま -->
+<script src="../remember.js?v=2" data-keep="s,t,e,p"></script>
+<script src="../panes.js?v=2"></script>
 <script src="../tour.js?v=2"></script>
 
 <script src="../share.js?v=3"></script>
@@ -355,7 +831,7 @@
       <span class="sep">/</span>
       <a href="https://x.com/pe6cak" target="_blank" rel="noopener">制作者の X（@pe6cak）</a>
       <span class="sep">/</span>
-      <a href="https://github.com/0rnot/arona-guide/issues/new?template=tool-feedback.yml&title=%5B%E7%94%9F%E5%BE%92%201%20%E4%BA%BA%E3%81%AE%E8%82%B2%E6%88%90%E8%B2%BB%E7%94%A8%5D%20&tool=%E7%94%9F%E5%BE%92%201%20%E4%BA%BA%E3%81%AE%E8%82%B2%E6%88%90%E8%B2%BB%E7%94%A8" target="_blank" rel="noopener">このツールへの要望・不具合</a>
+      <a href="https://github.com/0rnot/arona-guide/issues/new?template=tool-feedback.yml&title=%5B%E7%94%9F%E5%BE%92%E3%81%AE%E8%82%B2%E6%88%90%E8%A8%88%E7%AE%97%E6%A9%9F%5D%20&tool=%E7%94%9F%E5%BE%92%E3%81%AE%E8%82%B2%E6%88%90%E8%A8%88%E7%AE%97%E6%A9%9F" target="_blank" rel="noopener">このツールへの要望・不具合</a>
       <span class="sep">/</span>
       <span>Discord なら <b>@0r.not</b> まで</span>
     </p>
@@ -369,10 +845,213 @@
     </p>
   </div>
 </footer>
-
-<!-- **data.js より前。**ハッシュが空なら前回の入力を URL に戻してから、cost.js が読む -->
-<script src="../remember.js?v=1"></script>
+<!-- 数字は data.js（scripts/build-tool-data.py の build_student_cost）・data-eleph.js（build_eleph）・
+     data-pot.js（build_potential） -->
 <script src="data.js?v=3"></script>
-<script src="cost.js?v=4"></script>
+<script src="data-eleph.js?v=1"></script>
+<script src="data-pot.js?v=1"></script>
+<script>
+/* 区画をまたぐもの（1）。**各区画の JS より前に。**ハッシュを区画に割って、区画へ渡す口を作る。
+     s=生徒id     区画の外。3 区画とも同じ子
+     t=…          総額（cost.js）。元の student-cost の `生徒id|…` から生徒 id を外したもの
+     e=…          星上げ（star.js）。元の eleph の `生徒id|今|目標|手持ち||累計購入数` から同じく
+     p=…          潜在（pot.js）。元の potential の `生徒id|今|目標|欠片|壊れた|WB×3` から同じく
+     pane=star|pot  開いている区画（総額は既定なので書かない）  ../panes.js
+   **各区画は自分の区画しか持たない。**URL に書き戻すのは下の（2）がまとめてやる */
+(function () {
+  'use strict';
+  var seg = { s: '', t: '', e: '', p: '' };
+  location.hash.replace(/^#/, '').split('&').forEach(function (x) {
+    var i = x.indexOf('=');
+    if (i < 0) return;
+    var k = x.slice(0, i), v = x.slice(i + 1);
+    if (!Object.prototype.hasOwnProperty.call(seg, k)) return;
+    try { v = decodeURIComponent(v); } catch (e) { /* そのまま使う */ }
+    seg[k] = v;
+  });
+  var H = window.SCHUB = {
+    seg: seg,
+    sid: parseInt(seg.s, 10) || 0,
+    secs: {},
+    ready: false,
+    add: function (name, api) { H.secs[name] = api; },
+    /** 区画の入力が変わった。**組み上がるまでは何もしない**（読み込み中の draw() から来る） */
+    changed: function (name) { if (H.ready && H.sync) H.sync(name); }
+  };
+})();
+</script>
+<script src="cost.js?v=5"></script>
+<script src="star.js?v=1"></script>
+<script src="pot.js?v=1"></script>
+<script>
+(function () {
+  'use strict';
+  /* 区画をまたぐもの（2）。生徒の欄とカード、URL、共有、覚えるハッシュ、「最初に戻す」、
+     区画をまたぐリンク、「数字の出どころ」の出し分け、使い方（tools/cafe/ と同じ作り） */
+  var H = window.SCHUB, C = window.COST;
+  var tabs = document.getElementById('sec-tabs');
+  var box = document.querySelector('[data-panes="sc-sec"]');
+  var el = function (id) { return document.getElementById(id); };
+  var SEC = { total: 't', star: 'e', pot: 'p' };
+  var byId = {};
+  C.stu.forEach(function (s) { byId[s.id] = s; });
+  var student = byId[H.sid] || null;
+
+  function now() {
+    var b = tabs && tabs.querySelector('[aria-selected="true"]');
+    return (b && b.getAttribute('data-p')) || 'total';
+  }
+
+  /* ---- カード。**顔と名前は共通、一言は開いている区画のもの**
+     （総額は初期★と固有武器・愛用品の有無、星上げは神名文字の名前、潜在はオーパーツの名前） */
+  function card() {
+    var c = el('stucard');
+    if (student) {
+      c.classList.remove('none');
+      el('stu-img').innerHTML = '<img src="../img/student_' + student.id + '.webp" alt="' +
+        student.n + '" width="96" height="96">';
+      el('stu-name').textContent = student.n;
+    } else {
+      c.classList.add('none');
+      el('stu-img').innerHTML = '<span class="ph">none</span>';
+      el('stu-name').textContent = 'まだ誰も選んでいません';
+    }
+    el('stu-note').innerHTML = (H.secs[now()] || H.secs.total).note();
+  }
+
+  /* ---- 生徒の欄。**3 区画へ同じ Id を配る** */
+  el('students').innerHTML = C.stu.map(function (s) {
+    return '<option value="' + s.n.replace(/"/g, '&quot;') + '"></option>';
+  }).join('');
+  if (student) el('i-student').value = student.n;
+  function pick(s) {
+    if (s === student) return;
+    student = s;
+    var id = s ? s.id : 0;
+    H.secs.total.pick(id); H.secs.star.pick(id); H.secs.pot.pick(id);
+    H.secs.total.refresh();              // 潜在の行の一言（「HP 0→25・攻撃 0→25」）も生徒で変わる
+    card();
+    sync();
+  }
+  function exact(name) {
+    for (var i = 0; i < C.stu.length; i++) if (C.stu[i].n === name) return C.stu[i];
+    return null;
+  }
+  /* 打っている途中は**ぴったり合ったときだけ**切り替える（途中で別の生徒に飛ばない）。
+     空にしたら「選んでいない」に戻す */
+  el('i-student').addEventListener('input', function () {
+    var name = this.value.trim();
+    if (!name) { pick(null); return; }
+    var hit = exact(name);
+    if (hit) { el('err').hidden = true; pick(hit); }
+  });
+  /* **確定（change）のときだけ前方一致で補完する。**それでも見つからなければ、黙らずにエラーを出す */
+  el('i-student').addEventListener('change', function () {
+    var name = this.value.trim(), err = el('err');
+    err.hidden = true;
+    if (!name) { pick(null); return; }
+    var hit = exact(name);
+    if (!hit) {
+      var low = name.toLowerCase();
+      for (var j = 0; j < C.stu.length; j++) {
+        if (C.stu[j].n.toLowerCase().indexOf(low) === 0) { hit = C.stu[j]; break; }
+      }
+      if (hit) this.value = hit.n;
+      else { err.textContent = '「' + name + '」という生徒が見つかりません。名前を選び直してください。'; err.hidden = false; return; }
+    }
+    pick(hit);
+  });
+
+  /* ---- ハッシュ。**生徒と 3 区画を `&` でつなぐ。**`skip` の区画は入れない */
+  function parts(skip) {
+    var s = [];
+    if (student) s.push('s=' + student.id);
+    ['total', 'star', 'pot'].forEach(function (k) {
+      if (k !== skip) s.push(SEC[k] + '=' + H.secs[k].seg());
+    });
+    return s;
+  }
+  /** URL バーも今の入力に合わせる。**再読み込みで古い URL が勝って入力が戻らないように**
+      （元の eleph と potential は location.replace で同じことをしていた） */
+  function sync(name) {
+    if (name === 'pot') H.secs.total.refresh();   // 潜在を総額に足しているなら数え直す
+    var s = parts('');
+    if (now() !== 'total') s.push('pane=' + now());
+    try { history.replaceState(null, '', location.pathname + location.search + '#' + s.join('&')); } catch (e) { /* file:// */ }
+  }
+  H.sync = sync;
+
+  /* ---- 共有するのは**生徒と開いている区画だけ**。区画の名前（`pane=`）は ../panes.js が足す。
+     総額で潜在を足しているときは、潜在の区画（`p=`）も載せる——無いと相手の総額が合わない */
+  window.shareUrl = function () {
+    var n = now(), s = [];
+    if (student) s.push('s=' + student.id);
+    s.push(SEC[n] + '=' + H.secs[n].seg());
+    if (n === 'total' && H.secs.total.inc()) s.push('p=' + H.secs.pot.seg());
+    return '#' + s.join('&');
+  };
+  /* ---- 覚えるのは全部（../remember.js）。`pane=` は既定の区画でも書く——空だと、
+     転送ページから `pane=star` で来たあと総額に戻しても、次も星上げが開いてしまう */
+  window.rememberUrl = function () { return '#' + parts('').concat('pane=' + now()).join('&'); };
+  /* ---- 「最初に戻す」は**今の区画だけ**。生徒とほかの 2 区画は残す */
+  window.rememberReset = function () { return '#' + parts(now()).concat('pane=' + now()).join('&'); };
+
+  function toTabs() {
+    var bar = document.querySelector('.topbar');
+    var off = (bar ? bar.getBoundingClientRect().height : 0) + 14;
+    window.scrollTo({ top: Math.max(0, tabs.getBoundingClientRect().top + window.pageYOffset - off),
+                      behavior: 'smooth' });
+  }
+
+  /* ---- 区画をまたぐリンク。`data-go` はタブを押したのと同じ。
+     総額の「星」の行の `data-star="今.目標"` は、星上げの区画をその段に合わせてから開く
+     （2026-09-26 まで ../eleph/#生徒id|今|目標 へ飛んでいたもの） */
+  document.addEventListener('click', function (e) {
+    var a = e.target.closest ? e.target.closest('[data-go],[data-star]') : null;
+    if (!a) return;
+    var go = a.hasAttribute('data-star') ? 'star' : a.getAttribute('data-go');
+    var b = el('tb-sec-' + go);
+    if (!b) return;
+    e.preventDefault();
+    if (a.hasAttribute('data-star')) {
+      var q = a.getAttribute('data-star').split('.');
+      H.secs.star.set(+q[0], +q[1]);
+    }
+    b.click(); toTabs();
+  });
+
+  /* ---- 区画が変わったら: カードの一言、「数字の出どころ」、URL */
+  function fit(id) {
+    [].forEach.call(document.querySelectorAll('details.src[data-sec]'), function (d) {
+      d.hidden = d.getAttribute('data-sec') !== id;
+    });
+  }
+  if (box) {
+    box.addEventListener('panechange', function (e) {
+      if (e.target !== box) return;
+      fit(e.detail.id); card(); sync();
+    });
+  }
+  fit(now());
+
+  /* ---- 使い方（../tour.js）は 3 区画を順に開いて回る。**閉じたら開く前の区画に戻す**
+     （tools/cafe/ と同じ。tour.js には手を入れず、body の `tour-on` を見張る） */
+  var before = null;
+  new MutationObserver(function () {
+    var on = document.body.classList.contains('tour-on');
+    if (on && !before) {
+      before = now();
+    } else if (!on && before) {
+      var b = el('tb-sec-' + before); before = null;
+      if (b) { b.click(); toTabs(); }
+    }
+  }).observe(document.body, { attributes: true, attributeFilter: ['class'] });
+
+  H.ready = true;
+  H.secs.total.refresh();                // 潜在の区画が組み上がってから、総額の潜在の行を描き直す
+  card();
+  sync();
+})();
+</script>
 </body>
 </html>

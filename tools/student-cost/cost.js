@@ -1,4 +1,9 @@
-/* 生徒 1 人の育成費用。data.js（window.COST）を読んで、今 → 目標の差ぶんを足し合わせる。
+/* 生徒の育成計算機の「総額」の区画（元の「生徒 1 人の育成費用」）。data.js（window.COST）を読んで、
+   今 → 目標の差ぶんを足し合わせる。
+
+   **2026-09-26 に星上げ（eleph）・潜在解放（potential）と 1 本にまとめた。**生徒は区画の外の
+   欄で 1 回だけ選び、index.html の `window.SCHUB` がこの区画へ `pick()` で渡す。
+   カード（顔と名前）も SCHUB が描く。この区画は自分の入力と結果だけを持つ。
 
    段の数え方は全部これ。**「今」の段は済んでいて、「目標」の段はまだ。**
    たとえば EX を 1 → 3 にするなら、レシピの段 0（Lv1→2）と段 1（Lv2→3）を足す。
@@ -6,6 +11,7 @@
 (function () {
   'use strict';
   var C = window.COST;
+  var HUB = window.SCHUB;
   var el = function (id) { return document.getElementById(id); };
   var NONE = null;                 // 生徒を選ぶ前
   var student = NONE;
@@ -108,6 +114,11 @@
   /* 手持ちのレポート。**初級・中級・上級・最上級の順**（C.rep は経験値の小さい順） */
   var own = [0, 0, 0, 0];
 
+  /* 潜在解放も足すか。**既定は足さない**（まとめる前の数字と変えないため）。
+     足すのは「潜在」の区画の今 → 目標のぶんで、pot.js の `SCHUB.secs.pot.total()` から読む。
+     星上げ（神名文字）はもともと「星」と「固有武器」の行で数えているので、足す口は作らない */
+  var incPot = false;
+
   /** その項目が今の生徒で使えるか。使えない行は畳んで選べなくする。 */
   function avail(r) {
     if (!r.slot) return true;
@@ -149,7 +160,8 @@
 
   /* 行から深掘りツールへ。**同じ生徒・同じ今/目標のまま飛ぶ**（Q1-1）。
      ハッシュの形は相手の shareUrl() と fromHash() に合わせてある。
-       星上げ       ../eleph/#生徒id|今|目標        （段 1〜5 が★1〜★5）
+       星上げ       同じページの「星上げ」の区画（`data-star="今.目標"`。段 1〜5 が★1〜★5）。
+                    2026-09-26 まで ../eleph/#生徒id|今|目標 へ飛んでいた。押したときの動きは index.html
        （固有武器の計算機は 2026-09-26 に廃止。Lv はこのページの「固有武器の Lv」行で数える）
        装備の強化珠 ../equipment/#pane=level&lv=T.Lv.T.Lv.1   （装備の計算機の「強化珠」の区画。
                     2026-09-26 に equip-level をまとめた。元の #T.Lv.T.Lv.1 と同じ中身を lv= に入れる）
@@ -161,7 +173,7 @@
   function rowLinks(r) {
     if (!student) return '';
     var st = state[r.k];
-    if (r.star) return link('../eleph/#' + student.id + '|' + st.f + '|' + st.t, '星上げの計算機');
+    if (r.star) return '<a href="#pane=star" data-star="' + st.f + '.' + st.t + '">星上げの区画</a>';
     return '';
   }
 
@@ -254,6 +266,15 @@
         (lk ? '<span class="lk">' + lk + '</span>' : '') + '</span>' +
         side('f') + '<span class="ar">→</span>' + side('t') + '</div>';
     });
+
+    /* 潜在解放。**「潜在」の区画の今 → 目標をそのまま足す**（ここでは段を選ばない）。
+       生徒を選ぶまでは押せない（オーパーツが生徒で決まる） */
+    var P = potRange();
+    h += '<div class="goal inc' + (student ? '' : ' off') + '">' +
+      '<span class="nm">潜在解放<small>' + (student ? (P ? P : '「潜在」の区画で段を決めます') : '先に生徒を選んでください') + '</small>' +
+      '<span class="lk"><a href="#pane=pot" data-go="pot">潜在の区画</a></span></span>' +
+      '<label class="incbox"><input type="checkbox" id="i-incpot"' + (incPot ? ' checked' : '') + (student ? '' : ' disabled') + '> 総額に足す' +
+      '<button type="button" class="qm" data-hint="「潜在」の区画で選んだ今 → 目標のオーパーツ・応用 WB・クレジットを、この区画の合計に足します。星上げの神名文字は、上の「星」と「固有武器」の行で数えています。"></button></label></div>';
     el('goals').innerHTML = h;
   }
 
@@ -273,6 +294,14 @@
     return out;
   }
 
+  /** 「潜在」の区画の段（表示用）。区画がまだ無ければ null */
+  function potRange() {
+    var pt = HUB.secs.pot;
+    if (!pt || !student) return null;
+    var t = pt.total();
+    return t.label;
+  }
+
   function merge(dst, src) {
     Object.keys(src).forEach(function (k) { dst[k] = (dst[k] || 0) + src[k]; });
   }
@@ -286,6 +315,7 @@
     { k: ['note', 'ult'], n: '技術ノート' },
     { k: ['bd'], n: '戦術教育BD' },
     { k: ['eqp'], n: '装備の設計図' },
+    { k: ['wb'], n: '応用WB' },
     { k: [], n: 'その他' }
   ];
   /** 並べる鍵 [系統の順, 系統名]。系統の順は、その系統でいちばん小さい Id */
@@ -373,6 +403,23 @@
     var wx = 0;
     if (avail(ROWS.filter(function (r) { return r.weapon; })[0])) { wlNorm(); wx = wexp(wl.f, wl.t); }
 
+    /* 潜在解放（足すと決めたときだけ）。オーパーツは data.js の素材の Id と同じ番号
+       （欠片が student.a、壊れたほうが +1）。応用 WB は data.js に無いので、pot.js が
+       `C.mat` に足した行（Id 2000〜2002、k: 'wb'）で並べる */
+    var pt = HUB.secs.pot;
+    if (incPot && student && pt) {
+      var pv = pt.total();
+      if (pv.cr > 0 || pv.a0 || pv.a1) {
+        credit += pv.cr;
+        var pm = {};
+        if (pv.a0) pm[pv.art] = pv.a0;
+        if (pv.a1) pm[pv.art + 1] = pv.a1;
+        pv.bk.forEach(function (n, i) { if (n) pm[pv.bkId[i]] = n; });
+        merge(mats, pm);
+        lines.push(['潜在解放<span class="subnote">' + pv.label + '</span>', pv.cr]);
+      }
+    }
+
     // ---- 表示
     el('o-credit').textContent = fmt(credit);
     el('o-credit-sub').textContent = credit > 0
@@ -454,34 +501,27 @@
 
   /* ------------------------------------------------------------ 入力 */
 
-  function pickStudent(name) {
-    var found = null;
-    for (var i = 0; i < C.stu.length; i++) {
-      if (C.stu[i].n === name) { found = C.stu[i]; break; }
-    }
+  var byId = {};
+  C.stu.forEach(function (s) { byId[s.id] = s; });
+
+  /** 生徒を選ぶ。**名前の欄は区画の外（index.html の SCHUB）**で、ここには Id で来る */
+  function pickStudent(id) {
+    var found = byId[id] || NONE;
     if (found === student) return;
     student = found;
-    var card = el('stucard');
-    if (student) {
-      card.classList.remove('none');
-      el('stu-img').innerHTML = '<img src="../img/student_' + student.id + '.webp" alt="' +
-        student.n + '" width="96" height="96">';
-      el('stu-name').textContent = student.n;
-      var has = [];
-      if ((student.wp || []).length) has.push('固有武器あり');
-      if ((student.gr || []).length) has.push('愛用品あり');
-      el('stu-note').textContent = '初期★' + student.r +
-        (has.length ? '。' + has.join('・') : '。固有武器も愛用品もありません') + '。';
-      // 星の下限は生徒で変わる。**選び直したら今の値も持ち上げる**
-      if (state.tr.f < student.r) state.tr = { f: student.r, t: student.r };
-    } else {
-      card.classList.add('none');
-      el('stu-img').innerHTML = '<span class="ph">none</span>';
-      el('stu-name').textContent = 'まだ誰も選んでいません';
-      el('stu-note').textContent = '選ぶまではレベルのぶんだけ数えています。';
-    }
+    // 星の下限は生徒で変わる。**選び直したら今の値も持ち上げる**
+    if (student && state.tr.f < student.r) state.tr = { f: student.r, t: student.r };
     drawGoals();
     calc();
+  }
+  /** カードの一言（この区画を開いているとき） */
+  function note() {
+    if (!student) return '選ぶまではレベルのぶんだけ数えています。';
+    var has = [];
+    if ((student.wp || []).length) has.push('固有武器あり');
+    if ((student.gr || []).length) has.push('愛用品あり');
+    return '初期★' + student.r +
+      (has.length ? '。' + has.join('・') : '。固有武器も愛用品もありません') + '。';
   }
 
   var PRESET = {
@@ -519,6 +559,15 @@
     });
     drawGoals();
     calc();
+    HUB.changed('total');
+  });
+
+  el('goals').addEventListener('click', function (ev) {
+    // 潜在の欄のチェック。**change ではなくここで拾う**と select の change と混ざらない
+    var c = ev.target.closest('#i-incpot'); if (!c) return;
+    incPot = c.checked;
+    calc();
+    HUB.changed('total');
   });
 
   el('goals').addEventListener('change', function (ev) {
@@ -537,6 +586,7 @@
       });
       drawGoals();
       calc();
+      HUB.changed('total');
       return;
     }
     if (s.dataset.wl !== undefined) {
@@ -556,66 +606,40 @@
     });
     drawGoals();
     calc();
+    HUB.changed('total');
   });
 
-  el('i-student').addEventListener('input', function () { pickStudent(this.value.trim()); });
-  /* **確定（change）のときだけ前方一致で補完する。**入力中に補完すると
-     打っている途中で別の生徒に飛ぶ（eleph と同じ作法）。
-     それでも見つからなければ、黙らずにエラーを出す */
-  el('i-student').addEventListener('change', function () {
-    var name = this.value.trim(), err = el('err');
-    err.hidden = true;
-    var exact = false;
-    for (var i = 0; i < C.stu.length; i++) if (C.stu[i].n === name) { exact = true; break; }
-    if (name && !exact) {
-      var low = name.toLowerCase(), hit = null;
-      for (var j = 0; j < C.stu.length; j++) {
-        if (C.stu[j].n.toLowerCase().indexOf(low) === 0) { hit = C.stu[j]; break; }
-      }
-      if (hit) { this.value = name = hit.n; }
-      else { err.textContent = '「' + name + '」という生徒が見つかりません。名前を選び直してください。'; err.hidden = false; }
-    }
-    pickStudent(name);
-  });
+  /* ---- 状態を URL に残す。**区画の中身は `t=` の 1 区画**で、生徒は区画の外の `s=`。
+     `t=` の中身は、まとめる前の student-cost のハッシュから先頭の生徒 id を外したもの:
 
-  el('students').innerHTML = C.stu.map(function (s) {
-    return '<option value="' + s.n + '"></option>';
-  }).join('');
-
-  /* ---- 状態を URL に残す。**share.js が「結果を共有」のときに呼ぶ**
-     （eleph などと同じ作法。これが無いと、共有バーの「開いている状態ごと
-     URL になります」が嘘になる）。形は
-
-       `#生徒id|f.t|f.t|…（ROWS の 8 行）|T.Lv.T.Lv|…（装備 3 行）|初.中.上.最（手持ちのレポート）|今Lv.目標Lv（固有武器）`
+       `f.t|f.t|…（ROWS の 8 行）|T.Lv.T.Lv|…（装備 3 行）|初.中.上.最（手持ちのレポート）|今Lv.目標Lv（固有武器）|1（潜在も足す）`
 
      **後ろに足しただけ**なので、2026-09-26 より前の `#生徒id|f.t|…` 8 行ぶんの
-     URL も、固有武器の Lv を足す前の 13 区切りの URL もそのまま開ける
-     （装備は今＝目標、手持ちは 0、固有武器は Lv1 のままになる）。
-     廃止した tools/weapon/ の転送ページもこの形を組んで渡してくる。
-     `../remember.js` もこの形をそのまま覚える */
-  window.shareUrl = function () {
-    var p = [student ? student.id : 0];
+     URL も、固有武器の Lv を足す前の 13 区切りの URL も、潜在を足す前の 14 区切りも
+     そのまま開ける（装備は今＝目標、手持ちは 0、固有武器は Lv1、潜在は足さない）。
+     古い `#生徒id|…` は index.html の頭の script が `s=` と `t=` に組み替えてから、ここへ来る。
+     廃止した tools/weapon/ の転送ページもこの古い形を組んで渡してくる */
+  function seg() {
+    var p = [];
     ROWS.forEach(function (r) { p.push(state[r.k].f + '.' + state[r.k].t); });
     eqs.forEach(function (e) { p.push([e.t0, e.l0, e.t1, e.l1].join('.')); });
     p.push(own.join('.'));
     p.push(wl.f + '.' + wl.t);
-    return '#' + p.join('|');
-  };
+    if (incPot) p.push('1');
+    return p.join('|');
+  }
   (function fromHash() {
-    var h = location.hash.replace(/^#/, '');
-    if (!h) return;
-    var p = h.split('|');
-    if (p.length < 1 + ROWS.length) return;
-    var sid = parseInt(p[0], 10);
-    if (sid > 0) {
-      for (var i = 0; i < C.stu.length; i++) {
-        if (C.stu[i].id === sid) {
-          el('i-student').value = C.stu[i].n;
-          pickStudent(C.stu[i].n);
-          break;
-        }
-      }
+    // 生徒は区画の外（`s=`）。`t=` が無くても、生徒だけは選んでおく
+    var sid = HUB.sid;
+    if (sid > 0 && byId[sid]) {
+      el('i-student').value = byId[sid].n;
+      pickStudent(sid);
     }
+    var h = HUB.seg.t;
+    if (!h) return;
+    // **古い形のまま読む。**先頭に生徒 id の欄を戻して、添字をまとめる前と揃える
+    var p = [String(sid || 0)].concat(h.split('|'));
+    if (p.length < 1 + ROWS.length) return;
     ROWS.forEach(function (r, i) {
       var q = String(p[i + 1]).split('.');
       if (+q[0] >= 1) state[r.k].f = Math.floor(+q[0]);
@@ -634,6 +658,7 @@
     });
     var q = String(p[at + 4] || '').split('.').map(Number);
     if (q.length === 2 && q[0] >= 1 && q[1] >= 1) wl = { f: q[0], t: q[1] };   // 範囲は wlNorm() が収める
+    incPot = p[at + 5] === '1';
   })();
 
   var lvTotal = 0;
@@ -642,6 +667,19 @@
   el('src-lvcost').textContent = fmt(lvTotal * C.creditPerExp);
   el('src-gear').textContent = C.stu.filter(function (s) { return (s.gr || []).length; }).length;
   el('ver').textContent = C.fetched;
+
+  /* ---- 区画の外（index.html の SCHUB）へ渡す口 */
+  HUB.add('total', {
+    pick: pickStudent,
+    note: note,
+    seg: seg,
+    /** 潜在解放を足しているか（共有 URL に `p=` も載せるかどうか） */
+    inc: function () { return incPot && !!student; },
+    /** 潜在の区画が変わったとき。**足しているときだけ**数え直す（欄の一言は常に直す） */
+    refresh: function () { drawGoals(); calc(); },
+    /** 生徒が選べなかったことにする（名前の欄を空にしたとき） */
+    none: function () { pickStudent(0); }
+  });
 
   drawGoals();
   calc();
