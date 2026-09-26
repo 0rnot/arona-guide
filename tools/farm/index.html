@@ -3,30 +3,36 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>素材の掘り場｜AronaBot</title>
-<meta name="description" content="足りない素材を選ぶと、それが出る任務と指名手配が期待値の高い順に並びます。AP 10 あたり何個か、指名手配券 1 枚あたり何個かを分けて出すので、今日どこを回るかがすぐ決まります。">
+<title>素材の逆引き｜AronaBot</title>
+<meta name="description" content="素材を 1 つ選ぶと、それが落ちる任務と指名手配が期待値の高い順に、それを使う生徒が要る数の多い順に並びます。オーパーツ・技術ノート・戦術教育 BD から神名文字まで。">
 <meta name="theme-color" content="#c8892e">
 <link rel="icon" href="../../favicon.svg" type="image/svg+xml">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="AronaBot">
 <meta property="og:locale" content="ja_JP">
 <meta property="og:url" content="https://arona-bot.com/tools/farm/">
-<meta property="og:title" content="素材の掘り場">
-<meta property="og:description" content="足りない素材を選ぶと、それが出る任務と指名手配が期待値の高い順に並びます。AP 10 あたり何個か、指名手配券 1 枚あたり何個かを分けて出すので、今日どこを回るかがすぐ決まります。">
+<meta property="og:title" content="素材の逆引き">
+<meta property="og:description" content="この素材はどこで掘れて、誰が使うのか。素材から周回先と生徒を引きます。">
 <meta property="og:image" content="https://arona-bot.com/images/og/farm.jpg">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="素材の掘り場 — AronaBot のツール">
+<meta property="og:image:alt" content="素材の逆引き — AronaBot のツール">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="素材の掘り場">
-<meta name="twitter:description" content="足りない素材を選ぶと、それが出る任務と指名手配が期待値の高い順に並びます。AP 10 あたり何個か、指名手配券 1 枚あたり何個かを分けて出すので、今日どこを回るかがすぐ決まります。">
+<meta name="twitter:title" content="素材の逆引き">
+<meta name="twitter:description" content="この素材はどこで掘れて、誰が使うのか。素材から周回先と生徒を引きます。">
 <meta name="twitter:image" content="https://arona-bot.com/images/og/farm.jpg">
 <link rel="stylesheet" href="../../style.css?v=25">
 <link rel="stylesheet" href="../tool.css?v=17">
 <style>
+  /* ===== 素材を選ぶところ（区画の外。2 区画で同じ素材を使う） ===== */
+  /* 広い画面では左にカードと仲間、右に札の一覧 */
+  .pick2 { display: grid; gap: 16px; align-items: start; }
+  @media (min-width: 900px) { .pick2 { grid-template-columns: minmax(0, 4fr) minmax(0, 5fr); gap: 22px; } }
+  .pick2 > div { min-width: 0; }
+
   /* 選んでいる素材。**選ぶ前は破線。** */
   .matcard { display: grid; grid-template-columns: 62px 1fr; gap: 14px; align-items: center;
-             padding: 12px 14px; margin-bottom: 16px;
+             padding: 12px 14px; margin-bottom: 14px;
              border: 1px solid var(--line); border-radius: 14px; background: var(--bg-sub); }
   .matcard.none { border-style: dashed; }
   .matcard .mi { width: 62px; height: 62px; border-radius: 11px; overflow: hidden;
@@ -35,6 +41,9 @@
   .matcard .mn { font-size: 1.05rem; font-weight: 800; margin: 0 0 .3em; word-break: auto-phrase; }
   .matcard .ms { font-size: .78rem; color: var(--fg-mute); margin: 0; line-height: 1.6; }
   .matcard .ms b { color: var(--fg); }
+  .famh { font-size: .82rem; font-weight: 700; margin: 0 0 .5em; }
+  /* 仲間は 4 つまで。**細い画面でも 2 列にする**（1 列だと 4 段で縦に 170px 取る） */
+  #family { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 
   /* 素材のボタン。**多いので囲いの中で縦に送る。** */
   .matbox { max-height: 320px; -webkit-overflow-scrolling: touch; overflow-y: auto; padding: 8px; border: 1px solid var(--line);
@@ -50,6 +59,7 @@
   .matnone { font-size: .82rem; color: var(--fg-mute); padding: 10px 4px; margin: 0; }
   .barnote { font-size: .76rem; color: var(--fg-mute); margin: .7em 0 0; }
 
+  /* ===== どこで掘る（元の素材の掘り場） ===== */
   /* 一番の場所を入場料ごとに */
   .topline b { display: block; font-size: .95rem; }
 
@@ -66,6 +76,70 @@
   @media (max-width: 560px) {
     table.dt.farm { font-size: .78rem; }
     table.dt.farm th, table.dt.farm td { padding: .45em .35em; }
+  }
+
+  /* ===== 誰が使う（元の tools/oopart/） ===== */
+  /* 生徒の行 */
+  .srow {
+    display: grid; grid-template-columns: 46px 1fr auto; gap: .7em; align-items: center;
+    padding: .5em 0; border-bottom: 1px solid var(--line);
+  }
+  .srow:last-of-type { border-bottom: 0; }
+  .srow img { width: 46px; height: 46px; border-radius: 9px; background: var(--bg-sub); }
+  .srow .nm { font-size: .9rem; font-weight: 700; }
+  .srow .br { display: flex; flex-wrap: wrap; gap: .3em .8em; margin-top: .15em;
+              font-size: .74rem; color: var(--fg-mute); }
+  .srow .tot { font-weight: 800; font-size: 1.05rem; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .srow .tot small { font-weight: 400; color: var(--fg-mute); font-size: .72rem; }
+
+  /* 範囲の行。**student-cost の「どこまで育てますか」と同じ形**（左が今、右が目標） */
+  .goal { display: grid; grid-template-columns: 1fr 104px 18px 104px; gap: .5em;
+          align-items: center; padding: .45em 0; border-bottom: 1px solid var(--line); }
+  .goal:last-of-type { border-bottom: 0; }
+  .goal .nm { font-size: .9rem; font-weight: 700; }
+  .goal .ar { text-align: center; color: var(--fg-mute); font-size: .9rem; }
+  /* **矢印のぶんを空けておく。**padding のショートハンドは tool.css の padding-right を上書きする */
+  .goal select { width: 100%; padding: .4em 2.2em .4em .5em; font-size: .92rem; text-align: right; }
+  /* **スマホでも 106px。**student-cost の 94px だと「Lv10 ◎」の ◎ が矢印の下で切れた（2026-09-26）。
+     左の見出しは「ほかのスキル」までなので、そのぶん詰めても入る */
+  @media (max-width: 480px) {
+    .goal { grid-template-columns: 1fr 106px 14px 106px; gap: .3em; }
+    .goal .nm { font-size: .84rem; }
+  }
+
+  .tiers4 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .t4 { text-align: center; padding: 10px 6px; border: 2px solid var(--rar, var(--line));
+        border-radius: 11px; background: var(--bg-sub); }
+  /* **区画の外で選んでいる段。**4 段まとめて数えるので、どれを選んだかだけ印を付ける */
+  .t4.on { box-shadow: 0 0 0 3px var(--accent); }
+  .t4 img { width: 40px; height: 40px; border-radius: 8px;
+            background: var(--rar, var(--bg-sub)); }
+  .t4 .v { font-weight: 800; font-size: 1.1rem; font-variant-numeric: tabular-nums; }
+  /* **ここだけ `word-break: auto-phrase` を外す。**「初級技術ノート（アビドス）」が
+     1 行のまま 4px はみ出していた（2026-08-31）。auto-phrase は文節で折る指定で、
+     折れる場所が見つからないと `overflow-wrap: anywhere` があっても折らない。
+     ここは 155px の細い札なので、素直に文字の間で折らせる */
+  .t4 .k { font-size: .7rem; color: var(--fg-mute); line-height: 1.4;
+           word-break: normal; overflow-wrap: anywhere; }
+  /* レアリティの札。**枠と絵の下地に同じ色を敷く。**段が上がるほど濃くなるので、
+     数字を読まなくても「これは完全な方」と分かる（2026-08-30 の先生の要望） */
+  .t4 .rr { display: inline-block; margin-top: .3em; padding: .05em .5em;
+            border-radius: 999px; font-size: .62rem; font-weight: 800; letter-spacing: .04em;
+            background: var(--rar, var(--line)); color: #1b1d21; }
+
+  /* **色は SchaleDB の `--col-bg-item-*` をそのまま借りた。**明るい方が
+     `:root`、暗い方が `.theme-dark` に入っている値。ゲームの枠の色に合わせてある */
+  .rar-N   { --rar: rgb(189, 197, 208); }
+  .rar-R   { --rar: rgb(144, 186, 236); }
+  .rar-SR  { --rar: rgb(214, 173, 129); }
+  .rar-SSR { --rar: rgb(168, 138, 236); }
+  @media (prefers-color-scheme: dark) {
+    .rar-N   { --rar: rgb(140, 147, 158); }
+    .rar-R   { --rar: rgb(101, 141, 191); }
+    .rar-SR  { --rar: rgb(168, 125, 81); }
+    /* **SSR だけ明るくする。**この札の字は #1b1d21 固定で、
+       rgb(122, 91, 190) の上では 3.27 しかなかった。4.86 になる（2026-08-31） */
+    .rar-SSR { --rar: rgb(150, 122, 214); }
   }
 </style>
 </head>
@@ -165,97 +239,170 @@
     </picture>
   </div>
   <div class="thero-body">
-    <h1>素材の掘り場</h1>
-    <p class="thero-lead">足りない素材を選ぶと、それが出る任務と指名手配が期待値の高い順に並びます。</p>
+    <h1>素材の逆引き</h1>
+    <p class="thero-lead">素材を選ぶと、それが落ちる任務と指名手配、それを使う生徒が並びます。<button type="button" class="qm" data-hint="どこで掘る: その素材が落ちるステージを、AP 10 あたり・券 1 枚あたりの期待個数の多い順に。誰が使う: オーパーツ・技術ノート・戦術教育 BD を、どの生徒が何個使うか。素材は 1 回選べば 2 つとも同じものです。"></button></p>
   </div>
 </header>
 
 <div class="twrap">
-  <p class="tcrumb"><a href="../../">AronaBotの使い方</a><span class="sl">/</span><a href="../">ツール</a><span class="sl">/</span>素材の掘り場</p>
+  <p class="tcrumb"><a href="../../">AronaBotの使い方</a><span class="sl">/</span><a href="../">ツール</a><span class="sl">/</span>素材の逆引き</p>
 
-  <div class="tcols lean" style="margin-top:20px">
+  <!-- **2 つの区画。**2026-09-26 に素材の掘り場（どこで掘る）と tools/oopart/（誰が使う）を 1 本にまとめた。
+       切り替えは ../panes.js（`pane=`）。**素材は区画の外で 1 回だけ選ぶ**——2 区画とも同じ素材を使う
+       （tools/student-cost/ の生徒の欄と同じ置き方）。
+       JS が無ければタブは出ず、素材の欄と 2 区画が縦に全部並ぶ -->
+  <div class="tpanes" data-panes="mt-sec" style="margin-top:20px">
+    <div class="ttabs" id="sec-tabs" role="tablist" aria-label="区画" hidden>
+      <button type="button" role="tab" id="tb-sec-farm" data-p="farm"
+              aria-controls="sec-farm" aria-selected="true">どこで掘る</button>
+      <button type="button" role="tab" id="tb-sec-use" data-p="use"
+              aria-controls="sec-use" aria-selected="false">誰が使う</button>
+    </div>
 
-    <div class="tcol">
-      <div class="panel">
-        <div class="panel-h"><h2>どの素材を掘りますか</h2></div>
-        <div class="matcard" id="matcard">
-          <div class="mi" id="m-img"></div>
-          <div>
-            <p class="mn" id="m-name">—</p>
-            <p class="ms" id="m-note">—</p>
+    <!-- ===== 素材。**ページ全体で 1 つ。**元は 2 本とも別々の選び方を持っていた
+         （掘り場は 1 段ずつ、oopart は系統ごと）。1 段ずつ選び、「誰が使う」はその系統で数える ===== -->
+    <div class="panel" id="p-mat">
+      <div class="panel-h"><h2>どの素材について調べますか</h2></div>
+      <div class="pick2">
+        <div>
+          <div class="matcard" id="matcard">
+            <div class="mi" id="m-img"></div>
+            <div>
+              <p class="mn" id="m-name">—</p>
+              <p class="ms" id="m-note">—</p>
+            </div>
           </div>
+          <p class="famh">同じ仲間に切り替える<button type="button" class="qm" data-hint="初級から最上級まで、同じ絵柄のものを並べています。段が違うと出る場所も変わります。「誰が使う」は 4 段まとめて数えます。"></button></p>
+          <div class="mats" id="family"></div>
         </div>
-        <div class="field">
-          <label for="i-find">さがす<span class="hint">名前の一部で絞れます。「ノート」「ゲヘナ」「レポート」など</span></label>
-          <input id="i-find" type="search" placeholder="ネブラ／技術ノート／最上級…" autocomplete="off">
-        </div>
-        <div class="seg" id="mgroups" role="group" aria-label="素材の種類" style="margin:12px 0 10px"></div>
-        <div class="matbox" id="matbox"><div class="mats" id="mats"></div></div>
-        <p class="barnote" id="matcount">—</p>
-      </div>
-
-      <div class="panel">
-        <div class="panel-h"><h2>どれだけ要りますか</h2></div>
-        <div class="fields c2">
+        <div>
           <div class="field">
-            <label for="i-need">目標の個数</label>
-            <input id="i-need" type="number" inputmode="numeric" min="0" step="1" value="30">
+            <label for="i-find">さがす<span class="hint">名前の一部で絞れます。「ノート」「ゲヘナ」「レポート」など</span></label>
+            <input id="i-find" type="search" placeholder="ネブラ／技術ノート／最上級…" autocomplete="off">
           </div>
-          <div class="field">
-            <label for="i-have">手持ちの個数</label>
-            <input id="i-have" type="number" inputmode="numeric" min="0" step="1" value="0">
-          </div>
+          <div class="seg" id="mgroups" role="group" aria-label="素材の種類" style="margin:12px 0 10px"></div>
+          <div class="matbox" id="matbox"><div class="mats" id="mats"></div></div>
+          <p class="barnote" id="matcount">—</p>
         </div>
-        <div class="field" style="margin-top:16px">
-          <span class="lb">ドロップ倍率<span class="hint">2 倍・3 倍キャンペーンのあいだはこちら</span></span>
-          <div class="seg" id="mult" role="group" aria-label="ドロップ倍率">
-            <button type="button" data-m="1" aria-pressed="true">1 倍</button>
-            <button type="button" data-m="2" aria-pressed="false">2 倍</button>
-            <button type="button" data-m="3" aria-pressed="false">3 倍</button>
-          </div>
-        </div>
-        <p class="lead" style="margin:16px 0 0"><b>数字は 1 周あたりの期待個数です。</b><button type="button" class="qm" data-hint="確率つきの報酬は「個数×確率」で、箱は中身の確率で割って足しています。初回クリアと3つ星の報酬は数えていません(周回では出ないため)。"></button></p>
       </div>
     </div>
 
-    <div class="tcol">
-      <div class="stats c3">
-        <div class="stat hero">
-          <div class="k">いちばん効率のいい場所</div>
-          <div class="v" id="o-best">—</div>
-          <div class="sub" id="o-best-sub">素材を選ぶと出ます</div>
-        </div>
-        <div class="stat">
-          <div class="k">あと何周</div>
-          <div class="v" id="o-runs">—</div>
-          <div class="sub" id="o-runs-sub">目標まで足りないぶん</div>
-        </div>
-        <div class="stat">
-          <div class="k">そこまでの元手</div>
-          <div class="v" id="o-cost">—</div>
-          <div class="sub" id="o-cost-sub">入場料の合計</div>
+    <!-- ================================================================ どこで掘る（元の素材の掘り場） -->
+    <div class="tpane" id="sec-farm" data-p="farm" role="tabpanel" aria-labelledby="tb-sec-farm" tabindex="0">
+    <div class="tcols lean" style="margin-top:18px">
+
+      <div class="tcol">
+        <div class="panel">
+          <div class="panel-h"><h2>どれだけ要りますか</h2></div>
+          <div class="fields c2">
+            <div class="field">
+              <label for="i-need">目標の個数</label>
+              <input id="i-need" type="number" inputmode="numeric" min="0" step="1" value="30">
+            </div>
+            <div class="field">
+              <label for="i-have">手持ちの個数</label>
+              <input id="i-have" type="number" inputmode="numeric" min="0" step="1" value="0">
+            </div>
+          </div>
+          <div class="field" style="margin-top:16px">
+            <span class="lb">ドロップ倍率<span class="hint">2 倍・3 倍キャンペーンのあいだはこちら</span></span>
+            <div class="seg" id="mult" role="group" aria-label="ドロップ倍率">
+              <button type="button" data-m="1" aria-pressed="true">1 倍</button>
+              <button type="button" data-m="2" aria-pressed="false">2 倍</button>
+              <button type="button" data-m="3" aria-pressed="false">3 倍</button>
+            </div>
+          </div>
+          <p class="lead" style="margin:16px 0 0"><b>数字は 1 周あたりの期待個数です。</b><button type="button" class="qm" data-hint="確率つきの報酬は「個数×確率」で、箱は中身の確率で割って足しています。初回クリアと3つ星の報酬は数えていません(周回では出ないため)。"></button></p>
         </div>
       </div>
 
-      <div class="panel">
-        <div class="panel-h"><h2>入場料ごとの一番</h2></div>
-        <p class="lead"><b>AP と券は混ぜません。</b><button type="button" class="qm" data-hint="指名手配券と学園交流会チケットは1日にもらえる枚数が決まっていて、APと同じ物差しでは比べられないからです。"></button></p>
-        <div class="ledger" id="tops"></div>
+      <div class="tcol">
+        <div class="stats c3">
+          <div class="stat hero">
+            <div class="k">いちばん効率のいい場所</div>
+            <div class="v" id="o-best">—</div>
+            <div class="sub" id="o-best-sub">素材を選ぶと出ます</div>
+          </div>
+          <div class="stat">
+            <div class="k">あと何周</div>
+            <div class="v" id="o-runs">—</div>
+            <div class="sub" id="o-runs-sub">目標まで足りないぶん</div>
+          </div>
+          <div class="stat">
+            <div class="k">そこまでの元手</div>
+            <div class="v" id="o-cost">—</div>
+            <div class="sub" id="o-cost-sub">入場料の合計</div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-h"><h2>入場料ごとの一番</h2></div>
+          <p class="lead"><b>AP と券は混ぜません。</b><button type="button" class="qm" data-hint="指名手配券と学園交流会チケットは1日にもらえる枚数が決まっていて、APと同じ物差しでは比べられないからです。"></button></p>
+          <div class="ledger" id="tops"></div>
+        </div>
       </div>
 
-      <div class="panel">
-        <div class="panel-h"><h2>同じ仲間に切り替える</h2></div>
-        <p class="lead">初級から最上級まで、同じ絵柄のものを並べています。<b>段が違うと出る場所も変わります。</b></p>
-        <div class="mats" id="family"></div>
+      <div class="tfull">
+        <div id="tables"></div>
       </div>
     </div>
+    </div>
 
-    <div class="tfull">
-      <div id="tables"></div>
+    <!-- ================================================================ 誰が使う（元の tools/oopart/）
+         id は掘り場の区画と重ならないよう `u-` を付けた（use.js の el() が付けて引く） -->
+    <div class="tpane" id="sec-use" data-p="use" role="tabpanel" aria-labelledby="tb-sec-use" tabindex="0">
+    <div class="tcols lean" style="margin-top:18px">
 
-      <div class="sharebar" id="sharebar"></div>
+      <div class="tcol">
+        <!-- 範囲。**全員に同じ範囲を当てる**（2026-09-26 の先生の判断。1 人ずつは student-cost） -->
+        <div class="panel">
+          <div class="panel-h"><h2>スキルをどこまで上げますか</h2></div>
+          <p class="lead">左が今、右が目標です。全員に同じ範囲を当てて数えます。<button type="button" class="qm" data-hint="ほかのスキルはノーマル・パッシブ・サブの 3 つで、どれも同じ表なので同じ範囲を 3 つぶん数えます。Lv9→Lv10 は秘伝ノート 1 冊だけで技術ノートは要らず、秘伝ノートは学校を問わないのでここには出していません。◎ は効果の伸びが大きくなる Lv です。"></button></p>
+          <div id="u-range"></div>
+        </div>
+      </div>
 
-      <details class="src">
+      <div class="tcol">
+        <div class="stats c3">
+          <div class="stat hero">
+            <div class="k">使う生徒</div>
+            <div class="v" id="u-o-n">—</div>
+            <div class="sub" id="u-o-n-sub"></div>
+          </div>
+          <div class="stat">
+            <div class="k">全員ぶんの合計</div>
+            <div class="v" id="u-o-sum">—</div>
+            <div class="sub" id="u-o-sum-sub">スキルを最大まで上げたとき</div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-h"><h2 id="u-t4-h">段ごとの合計</h2></div>
+          <p class="lead">段は 4 つあります。下の段は上の材料にはならないので、足りない段だけ見てください。</p>
+          <div class="tiers4" id="u-t4"></div>
+        </div>
+      </div>
+
+      <div class="tfull">
+        <div class="panel">
+          <div class="panel-h"><h2 id="u-list-h">この素材を使う生徒</h2></div>
+          <p class="lead" id="u-list-lead">上で素材を選ぶと、それを使う生徒がここに並びます。</p>
+          <div class="btnrow" style="margin-bottom:10px">
+            <div class="seg" id="u-sort" role="group" aria-label="並び順">
+              <button type="button" data-s="amount" aria-pressed="true">多く要る順</button>
+              <button type="button" data-s="name">名前順</button>
+            </div>
+          </div>
+          <div id="u-list"></div>
+        </div>
+      </div>
+    </div>
+    </div>
+  </div>
+
+  <div class="sharebar" id="sharebar" style="margin-top:20px"></div>
+
+      <details class="src" data-sec="farm">
         <summary>数字の出どころ</summary>
         <p><b>落ちる個数はゲームのデータをそのまま読んでいます。</b>周回してドロップを数えた値ではありません。</p>
         <ul>
@@ -318,12 +465,82 @@
           期待個数の出し方も、あちらの <code>assets/ItemView-*.js</code> に合わせています。
           取得は <span id="ver">—</span>。</p>
       </details>
-    </div>
 
-  </div>
+      <details class="src" data-sec="use">
+        <summary>数字の出どころ</summary>
+        <p><b>枠の色はレアリティです。</b>欠片が <b>N</b>、壊れたが <b>R</b>、摩耗したが <b>SR</b>、完全なが <b>SSR</b> で、
+          これは <a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a> の
+          <code>data/jp/items.min.json</code> の <code>Rarity</code> をそのまま読んでいます。
+          色そのものも SchaleDB の <code>--col-bg-item-n</code> / <code>-r</code> / <code>-sr</code> / <code>-ssr</code> と同じ値です
+          （明るい配色のとき <code>rgb(189,197,208)</code> / <code>rgb(144,186,236)</code> /
+          <code>rgb(214,173,129)</code> / <code>rgb(168,138,236)</code>、暗い配色のとき
+          <code>rgb(140,147,158)</code> / <code>rgb(101,141,191)</code> / <code>rgb(168,125,81)</code> /
+          <code>rgb(122,91,190)</code>）。</p>
+        <p><b>個数は上で選んだ範囲のものです。</b>既定は最大まで——
+          EX スキルを Lv1 → Lv5、ノーマル・パッシブ・サブをそれぞれ Lv1 → Lv10 にしたときに使う数を足しています。
+          <b>EX 以外の 3 つは同じ表を使う</b>ので、1 つぶんの 3 倍です。1 人ずつ範囲を変えたいときは<a href="../student-cost/">生徒の育成計算機</a>で出せます。</p>
+        <p><b>素材そのものは <a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a> の <code>data/jp/students.min.json</code> の
+          <code>SkillExMaterial</code> / <code>SkillMaterial</code> です。</b>種類の分け方はアイコンの名前で決めています——
+          <code>item_icon_material_exskill_*</code> が戦術教育 BD、<code>item_icon_skillbook_*</code> が技術ノート、それ以外の <code>item_icon_material_*</code> がオーパーツです（<code>Category</code> はどれも <code>Material</code> で区別が付きません）。</p>
+        <p><b>Lv9 → Lv10 の秘伝ノートは、ここには出していません。</b>誰でも 1 冊で同じで、素材から生徒を絞る役に立たないためです。</p>
+        <p>出典 — <a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a>（生徒・素材と必要数）、<a href="https://github.com/electricgoat/ba-data" target="_blank" rel="noopener">electricgoat/ba-data</a>（レシピ）。取得は <span id="u-ver">—</span>。</p>
+      </details>
 </div>
 
-<script>window.TOUR = {"key": "farm", "steps": [{"sel": "#matcard", "t": "まず素材を選びます", "d": "オーパーツ・技術ノート・戦術教育BD・レポート・武器パーツ・神名文字。名前の一部でも探せます。"}, {"sel": "#matbox", "t": "種類ごとに並んでいます", "d": "上のタブで群を切り替えるか、さがす欄に打ち込んでください。押すとその場で結果が入れ替わります。"}, {"sel": "#o-best", "t": "いちばん効率のいい場所が出ます", "d": "目標の個数と手持ちを入れると、あと何周・何 AP かかるかも出ます。"}, {"sel": "#tops", "t": "AP と券は混ぜません", "d": "指名手配券と学園交流会チケットは 1 日にもらえる枚数が決まっているので、AP と同じ物差しでは比べられません。"}, {"sel": "#tables .panel:first-child", "t": "下に全部のステージが並びます", "d": "入場料 1 あたりの多い順です。ドロップ 2 倍・3 倍のあいだは倍率を切り替えてください。"}, {"sel": "#sharebar", "t": "結果はそのまま渡せます", "d": "選んでいる素材と個数ごと URL になるので、リンクを送れば相手の画面にも同じ結果が出ます。"}]};</script>
+<script>window.TOUR = {"key": "farm-2", "steps": [
+  {"sel": "#sec-tabs", "t": "2 つの区画に分けています", "d": "どこで掘る: その素材が落ちる任務と指名手配。誰が使う: その素材を使う生徒と個数。入力はこの端末に残ります。"},
+  {"sel": "#matcard", "t": "素材は 1 回選ぶだけです", "d": "オーパーツ・技術ノート・戦術教育BD・レポート・武器パーツ・神名文字。ここで選んだ素材を、2 つの区画で使います。"},
+  {"sel": "#matbox", "t": "種類ごとに並んでいます", "d": "上のタブで群を切り替えるか、さがす欄に打ち込んでください。押すとその場で結果が入れ替わります。"},
+  {"sel": "#o-best", "pre": ["#tb-sec-farm"], "t": "いちばん効率のいい場所が出ます", "d": "目標の個数と手持ちを入れると、あと何周・何 AP かかるかも出ます。"},
+  {"sel": "#tops", "pre": ["#tb-sec-farm"], "t": "AP と券は混ぜません", "d": "指名手配券と学園交流会チケットは 1 日にもらえる枚数が決まっているので、AP と同じ物差しでは比べられません。"},
+  {"sel": "#tables .panel:first-child", "pre": ["#tb-sec-farm"], "t": "下に全部のステージが並びます", "d": "入場料 1 あたりの多い順です。ドロップ 2 倍・3 倍のあいだは倍率を切り替えてください。"},
+  {"sel": "#u-range", "pre": ["#tb-sec-use"], "t": "誰が使う: どこまで上げるかを選びます", "d": "EX とほかのスキルの今と目標です。全員に同じ範囲を当てて、下の個数を数え直します。"},
+  {"sel": "#u-list", "pre": ["#tb-sec-use"], "t": "使う生徒が多い順に並びます", "d": "選んだ範囲で要る数です。段ごとの内訳も出しています。範囲の中で使わない生徒は出てきません。"},
+  {"sel": "#sharebar", "t": "開いている区画ごと URL になります", "d": "選んでいる素材と入力ごと URL になるので、リンクを送れば相手の画面にも同じ結果が出ます。案内を閉じると、開く前の区画に戻ります。"}
+]};</script>
+<!-- **古い形を読み替える。../remember.js と ../panes.js より前に。**
+     1. URL が元の素材の掘り場の `#素材|目標|手持ち|倍率`（`=` の無い形）なら、`m=素材&f=残り` にする。
+        共有された古い URL がこの形で来る
+     2. このページの覚え（`arona-state-/tools/farm/`。元の掘り場と同じキー）がまだ無いか古い形なら、
+        元の 2 本の覚えを読んで新しい形で書き直す。元の oopart の覚え（`arona-state-/tools/oopart/`、
+        `#種類|系統|並び|範囲`）は**読むだけで消さない**。素材は掘り場の覚えを優先する -->
+<script>
+(function () {
+  var dec = function (v) { try { return decodeURIComponent(v); } catch (e) { return v; } };
+  var old = function (h) { h = String(h || '').replace(/^#/, ''); return h && h.indexOf('=') < 0; };
+
+  // 1) URL
+  if (old(location.hash)) {
+    var p = dec(location.hash.replace(/^#/, '')).split('|'), seg = [];
+    if (p[0]) seg.push('m=' + p[0]);
+    if (p.length > 1) seg.push('f=' + p.slice(1).join('|'));
+    try { history.replaceState(null, '', location.pathname + location.search + (seg.length ? '#' + seg.join('&') : '')); } catch (e) { /* file:// */ }
+  }
+
+  // 2) 覚え。**新しい形（`=` を含む）で 1 度書いたら、もう読み替えない**
+  try {
+    var KEY = 'arona-state-' + location.pathname;
+    var mine = localStorage.getItem(KEY) || '';
+    if (mine.indexOf('=') >= 0) return;
+    var base = location.pathname.replace(/farm\/(index\.html)?$/, '');
+    var oo = localStorage.getItem('arona-state-' + base + 'oopart/') || '';
+    var fa = old(mine) ? dec(mine.replace(/^#/, '')).split('|') : null;
+    var op = old(oo) ? dec(oo.replace(/^#/, '')).split('|') : null;
+    if (!fa && !op) return;
+    var out = [];
+    // 素材。oopart の覚えは系統（`item_icon_material_nebra`）か種類だけなので、向こうの MATHUB が 1 段に直す
+    var m = (fa && fa[0]) || (op && (op[1] || op[0])) || '';
+    if (m) out.push('m=' + m);
+    if (fa && fa.length > 1) out.push('f=' + fa.slice(1).join('|'));
+    if (op && op.length > 2) out.push('u=' + op.slice(2).join('|'));
+    if (out.length) localStorage.setItem(KEY, '#' + out.join('&'));
+  } catch (e) { /* 保存できないブラウザでは読み替えないだけ */ }
+})();
+</script>
+<!-- **入力を覚える。../panes.js と各区画の JS より前に読むこと**（前回のハッシュを先に URL へ戻す）。
+     `data-keep`: 区画へのリンク（転送ページなど）で開いても、URL に書いていない素材・区画は前の続きのまま -->
+<script src="../remember.js?v=2" data-keep="m,f,u"></script>
+<script src="../panes.js?v=2"></script>
 <script src="../tour.js?v=2"></script>
 
 <script src="../share.js?v=3"></script>
@@ -339,7 +556,7 @@
       <span class="sep">/</span>
       <a href="https://x.com/pe6cak" target="_blank" rel="noopener">制作者の X（@pe6cak）</a>
       <span class="sep">/</span>
-      <a href="https://github.com/0rnot/arona-guide/issues/new?template=tool-feedback.yml&title=%5B%E7%B4%A0%E6%9D%90%E3%81%AE%E6%8E%98%E3%82%8A%E5%A0%B4%5D%20&tool=%E7%B4%A0%E6%9D%90%E3%81%AE%E6%8E%98%E3%82%8A%E5%A0%B4" target="_blank" rel="noopener">このツールへの要望・不具合</a>
+      <a href="https://github.com/0rnot/arona-guide/issues/new?template=tool-feedback.yml&title=%5B%E7%B4%A0%E6%9D%90%E3%81%AE%E9%80%86%E5%BC%95%E3%81%8D%5D%20&tool=%E7%B4%A0%E6%9D%90%E3%81%AE%E9%80%86%E5%BC%95%E3%81%8D" target="_blank" rel="noopener">このツールへの要望・不具合</a>
       <span class="sep">/</span>
       <span>Discord なら <b>@0r.not</b> まで</span>
     </p>
@@ -354,77 +571,106 @@
   </div>
 </footer>
 
-<!-- **remember.js は data.js とツールの JS より先に。**あとだと、ツールが空のハッシュで組み上がる -->
-<script src="../remember.js?v=1"></script>
+<!-- 数字は data.js（scripts/build-tool-data.py の build_farm）と、
+     ../student-cost/data.js（build_student_cost。「誰が使う」が借りている） -->
 <script src="data.js"></script>
+<script src="../student-cost/data.js?v=3"></script>
+<script>
+/* 区画をまたぐもの（1）。**各区画の JS より前に。**ハッシュを区画に割り、選べる素材の一覧を作る。
+     m=素材      区画の外。2 区画とも同じ素材（`I` + アイテム id。FARM と同じ呼び方）
+                 **系統（`item_icon_material_nebra`）・アイコン名・種類（oopart|note|bd）も受ける。**
+                 元の oopart の転送ページと潜在解放のリンクがこの形で来る。（2）で 1 段に直す
+     f=…         どこで掘る（dig.js）。元の掘り場の `素材|目標|手持ち|倍率` から素材を外したもの
+     u=…         誰が使う（use.js）。元の oopart の `種類|系統|並び|範囲` から種類と系統を外したもの
+     pane=use    開いている区画（どこで掘るは既定なので書かない）  ../panes.js */
+(function () {
+  'use strict';
+  var seg = { m: '', f: '', u: '' };
+  location.hash.replace(/^#/, '').split('&').forEach(function (x) {
+    var i = x.indexOf('=');
+    if (i < 0) return;
+    var k = x.slice(0, i), v = x.slice(i + 1);
+    if (!Object.prototype.hasOwnProperty.call(seg, k)) return;
+    try { v = decodeURIComponent(v); } catch (e) { /* そのまま使う */ }
+    seg[k] = v;
+  });
+  var F = window.FARM, C = window.COST;
+  var H = window.MATHUB = {
+    seg: seg,
+    secs: {},
+    ready: false,
+    list: [],
+    byKey: {},
+    add: function (name, api) { H.secs[name] = api; },
+    /** 区画の入力が変わった。**組み上がるまでは何もしない** */
+    changed: function (name) { if (H.ready && H.sync) H.sync(name); }
+  };
+
+  /* **選べる素材 = 掘り場の素材 + ステージから落ちないスキル素材。**
+     掘り場の一覧はステージから落ちる 247 種だけで、合成でしか作れない最上級のオーパーツ
+     （完全なトーテムポール など 10 種）が無い。それだと「誰が使う」でその系統を開けないので、
+     生徒の育成計算機のデータから足す。並びは同じ仲間のすぐ後ろ */
+  var GJ = { oopart: 'オーパーツ', note: '技術ノート', bd: '戦術教育BD' };
+  var fam = function (i) { return String(i).replace(/_\d+$/, ''); };
+  F.mats.forEach(function (m) { H.list.push(m); H.byKey[m.k] = m; });
+  Object.keys(C.mat).forEach(function (id) {
+    var c = C.mat[id], k = 'I' + id;
+    if (!GJ[c.k] || H.byKey[k]) return;
+    var m = { k: k, n: c.n, i: c.i, g: GJ[c.k], q: c.t + 1 };
+    var at = -1;
+    H.list.forEach(function (x, j) { if (fam(x.i) === fam(c.i)) at = j; });
+    if (at < 0) H.list.push(m); else H.list.splice(at + 1, 0, m);
+    H.byKey[k] = m;
+  });
+  H.list.forEach(function (m) { m.f = fam(m.i); });
+})();
+</script>
+<script src="dig.js?v=1"></script>
+<script src="use.js?v=1"></script>
 <script>
 (function () {
   'use strict';
-  var F = window.FARM;
+  /* 区画をまたぐもの（2）。素材の欄（群のタブ・検索・札・同じ仲間・カード）、URL、共有、覚えるハッシュ、
+     「最初に戻す」、「数字の出どころ」の出し分け、使い方（tools/student-cost/ と同じ作り） */
+  var H = window.MATHUB, F = window.FARM;
+  var tabs = document.getElementById('sec-tabs');
+  var box = document.querySelector('[data-panes="mt-sec"]');
   var el = function (id) { return document.getElementById(id); };
   function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;'); }
-  function fmt(n) { return Math.round(n).toLocaleString('ja-JP'); }
-  /** **小さい数を 0 と書かない。**1 周 0.0043 個のような段が普通にある。 */
-  function per(v) {
-    if (!v) return '0';
-    if (v >= 100) return fmt(v);
-    if (v >= 1) return (+v.toFixed(2)).toString();
-    if (v >= 0.01) return (+v.toFixed(3)).toString();
-    return (+v.toFixed(5)).toString();
+  var SEC = { farm: 'f', use: 'u' };
+
+  function now() {
+    var b = tabs && tabs.querySelector('[aria-selected="true"]');
+    return (b && b.getAttribute('data-p')) || 'farm';
   }
 
-  var byKey = {};
-  F.mats.forEach(function (m) { byKey[m.k] = m; });
-  // **同じ絵柄のものを仲間にする。**`item_icon_material_nebra_0` の末尾の段を落とす
-  var family = {};
-  F.mats.forEach(function (m) {
-    m.f = String(m.i).replace(/_\d+$/, '');
-    (family[m.f] = family[m.f] || []).push(m);
-  });
-
-  // 入場料の 3 種。**AP・指名手配券・学園交流会チケットは別の物差し。**
-  var UNITS = [
-    { id: 0, t: 'AP で回るところ', u: 'AP', nm: 'AP', k: 'AP 10 あたり', n: 10 },
-    { id: 22, t: '指名手配券で回るところ', u: '枚', nm: '指名手配券', k: '券 1 枚あたり', n: 1 },
-    { id: 23, t: '学園交流会チケットで回るところ', u: '枚', nm: '交流会チケット', k: 'チケット 1 枚あたり', n: 1 }
-  ];
-  function unitOf(s) { return s.tk || 0; }
-  function costOf(s) { return s.tk ? s.tn : s.ap; }
-
-  var mat = byKey[F['def']] ? F['def'] : F.mats[0].k;
-  var group = byKey[mat].g, find = '', mult = 1, showAll = {};
-
-  function stageLabel(s) {
-    // 任務は「Hard 12-3」が通り名。指名手配などは作った題名をそのまま
-    if (s.c === 'Campaign') return (s.h ? 'Hard ' : 'Normal ') + s.a + '-' + s.s;
-    return s.n;
-  }
-  function stageSub(s) {
-    if (s.c === 'Campaign') return s.n;
-    return s.tj;
+  /* ---- `m=` を 1 段の素材に直す。**系統で来たときは、ステージから落ちるいちばん上の段。**
+     「誰が使う」は 4 段まとめて数えるのでどの段でも数字は同じで、「どこで掘る」に
+     何か出る段を選んでおく（落ちる段が無ければ最上級） */
+  function resolve(v) {
+    if (!v) return '';
+    if (H.byKey[v]) return v;
+    var i;
+    for (i = 0; i < H.list.length; i++) if (H.list[i].i === v) return H.list[i].k;
+    var f = (v === 'oopart' || v === 'note' || v === 'bd') ? H.secs.use.first(v) : v;
+    var ts = H.secs.use.tiers(f).filter(function (k) { return k && H.byKey[k]; });
+    if (!ts.length) {
+      ts = H.list.filter(function (m) { return m.f === f; })
+        .sort(function (a, b) { return a.q - b.q; }).map(function (m) { return m.k; });
+    }
+    if (!ts.length) return '';
+    for (i = ts.length - 1; i >= 0; i--) if (H.secs.farm.drops(ts[i])) return ts[i];
+    return ts[ts.length - 1];
   }
 
-  /** いま選んでいる素材の落ちる場所。**倍率を掛けたあとの 1 周あたり。** */
-  function rows() {
-    return (F.drops[mat] || []).map(function (p) {
-      var s = F.stages[p[0]];
-      var v = p[1] * mult;
-      return { s: s, v: v, c: costOf(s), r: v / (costOf(s) || 1) };
-    }).sort(function (a, b) { return b.r - a.r || b.v - a.v; });
-  }
-  function left() {
-    var need = Math.max(0, +el('i-need').value || 0);
-    var have = Math.max(0, +el('i-have').value || 0);
-    return Math.max(0, need - have);
-  }
+  var mat = resolve(H.seg.m) || (H.byKey[F['def']] ? F['def'] : F.mats[0].k);
+  var group = H.byKey[mat].g, find = '';
 
   /* ---- 素材を選ぶところ。**入れ物は組み直すが、入力欄は中に入れない。**
      打ちながら絞り込むので、ここを作り直しても焦点は検索欄に残る */
-  (function fillGroups() {
-    el('mgroups').innerHTML = F.groups.map(function (g) {
-      return '<button type="button" data-g="' + esc(g) + '" aria-pressed="false">' + esc(g) + '</button>';
-    }).join('');
-  })();
+  el('mgroups').innerHTML = F.groups.map(function (g) {
+    return '<button type="button" data-g="' + esc(g) + '" aria-pressed="false">' + esc(g) + '</button>';
+  }).join('');
 
   function drawPick() {
     var low = find.toLowerCase();
@@ -433,7 +679,7 @@
     [].forEach.call(el('mgroups').querySelectorAll('button'), function (b) {
       b.setAttribute('aria-pressed', String(!low && b.dataset.g === group));
     });
-    var list = F.mats.filter(function (m) {
+    var list = H.list.filter(function (m) {
       if (low) return m.n.toLowerCase().indexOf(low) >= 0;
       return m.g === group;
     });
@@ -443,17 +689,18 @@
             (m.k === mat) + '"><img src="../img/' + m.i + '.webp" alt="" width="26" height="26" loading="lazy">' +
             '<span>' + esc(m.n) + '</span></button>';
         }).join('')
-      : '<p class="matnone">その名前の素材は、どのステージからも出ていません。</p>';
+      : '<p class="matnone">その名前の素材は見つかりません。</p>';
     // **枠の中が送れることを書いておく。**囲いの高さで切っているので、
     // 何も言わないと下に続きがあることに気づけない（2026-08-30、390px で見て足した）
     var more = list.length > 8 ? '枠の中を縦に送ると続きが出ます。' : '';
     el('matcount').textContent = (low
       ? '「' + find + '」に当てはまる素材 ' + list.length + ' 種。'
-      : group + ' は ' + list.length + ' 種。全部で ' + F.mats.length + ' 種あります。') + more;
+      : group + ' は ' + list.length + ' 種。全部で ' + H.list.length + ' 種あります。') + more;
   }
 
   function drawFamily() {
-    var m = byKey[mat], fam = (family[m.f] || []).slice().sort(function (a, b) { return a.q - b.q; });
+    var m = H.byKey[mat];
+    var fam = H.list.filter(function (x) { return x.f === m.f; }).sort(function (a, b) { return a.q - b.q; });
     el('family').innerHTML = fam.map(function (x) {
       return '<button type="button" class="matb" data-k="' + x.k + '" aria-pressed="' +
         (x.k === mat) + '"><img src="../img/' + x.i + '.webp" alt="" width="26" height="26" loading="lazy">' +
@@ -461,153 +708,21 @@
     }).join('');
   }
 
-  function drawCard(rs) {
-    var m = byKey[mat];
+  /* ---- カード。**絵と名前は共通、一言は開いている区画のもの**
+     （どこで掘るは落ちるステージの本数、誰が使うは使う生徒の人数） */
+  function card() {
+    var m = H.byKey[mat];
     el('matcard').classList.remove('none');
     el('m-img').innerHTML = '<img src="../img/' + m.i + '.webp" alt="" width="62" height="62">';
     el('m-name').textContent = m.n;
-    var kinds = {};
-    rs.forEach(function (r) { kinds[unitOf(r.s)] = (kinds[unitOf(r.s)] || 0) + 1; });
-    var parts = UNITS.filter(function (u) { return kinds[u.id]; }).map(function (u) {
-      return u.nm + ' ' + kinds[u.id] + ' 本';
-    });
-    el('m-note').innerHTML = '<b>' + esc(m.g) + '</b>／落ちるのは <b>' + rs.length +
-      ' 本</b>のステージ' + (parts.length ? '（' + parts.join('・') + '）' : '') + '。';
+    el('m-note').innerHTML = (H.secs[now()] || H.secs.farm).note();
   }
-
-  /** 同じ効率のステージを全部拾う。**神名文字は同率が普通。**
-      ツバキの神名文字は Hard 15-2 と Hard 23-2 のどちらも 1 周 0.4 個で、
-      片方だけ「いちばん効率のいい場所」に出すと、もう片方が無いように見える
-      （2026-08-30 の先生の指摘——「神名が落ちるハードが数か所あるキャラもいる」）。 */
-  function tied(rs, uid) {
-    var list = rs.filter(function (r) { return unitOf(r.s) === uid; });
-    if (!list.length) return [];
-    var top = list[0].r;
-    return list.filter(function (r) { return Math.abs(r.r - top) < 1e-9; });
-  }
-
-  function drawTops(rs) {
-    var h = '';
-    UNITS.forEach(function (u) {
-      var ts = tied(rs, u.id), best = ts[0];
-      var where = ts.map(function (r) { return stageLabel(r.s) + '｜' + stageSub(r.s); }).join('　／　');
-      h += '<div class="row"><span class="topline">' + esc(u.k) +
-        '<span class="subnote">' + (best ? esc(where) : 'ここでは出ません') + '</span></span>' +
-        '<span>' + (best ? '<b>' + per(best.r * u.n) + '</b> 個' : '—') + '</span></div>';
-    });
-    el('tops').innerHTML = h;
-  }
-
-  /** 見出しに出す 1 本。**AP と券は混ぜない。**
-      `costOf` は券のステージだと常に 1 なので、全部まとめて効率順に並べると
-      指名手配・交流会のステージが必ず上に来て、AP で回りたい人にいちばん要る
-      答えが隠れる。下の「入場料ごとの一番」と同じ物差しで、AP → 指名手配券 →
-      交流会チケットの順に、あるものを選ぶ（2026-08-31） */
-  function headline(rs) {
-    for (var i = 0; i < UNITS.length; i++) {
-      var t = tied(rs, UNITS[i].id);
-      if (t.length) return t[0];
-    }
-    return rs[0];
-  }
-
-  function drawStats(rs) {
-    var need = left();
-    if (!rs.length) {
-      el('o-best').textContent = '—';
-      el('o-best-sub').textContent = 'この素材が落ちるステージはありません。';
-      el('o-runs').textContent = '—'; el('o-cost').textContent = '—';
-      el('o-runs-sub').textContent = ''; el('o-cost-sub').textContent = '';
-      return;
-    }
-    var b = headline(rs), u = UNITS.filter(function (x) { return x.id === unitOf(b.s); })[0];
-    /* **同じ効率が並ぶことがある。**神名文字はたいてい 2 本以上のハードに
-       同じ確率で入っていて、1 本だけ出すと他が無いように見える */
-    var ts = tied(rs, unitOf(b.s));
-    el('o-best').textContent = ts.length > 1
-      ? stageLabel(b.s) + ' ほか ' + (ts.length - 1) + ' 本'
-      : stageLabel(b.s);
-    el('o-best-sub').innerHTML = (ts.length > 1
-        ? esc(ts.map(function (r) { return stageLabel(r.s); }).join('・')) + '（同率）'
-        : esc(stageSub(b.s))) +
-      '｜' + esc(u.k) + ' <b>' + per(b.r * u.n) + '</b> 個';
-    if (!need) {
-      el('o-runs').innerHTML = '0 <small>周</small>';
-      el('o-runs-sub').textContent = '手持ちで足りています。';
-      el('o-cost').innerHTML = '0';
-      el('o-cost-sub').textContent = '';
-      return;
-    }
-    var runs = b.v > 0 ? Math.ceil(need / b.v) : 0;
-    el('o-runs').innerHTML = fmt(runs) + ' <small>周</small>';
-    el('o-runs-sub').innerHTML = 'あと <b>' + fmt(need) + '</b> 個ぶん（1 周 ' + per(b.v) + ' 個）';
-    el('o-cost').innerHTML = fmt(runs * b.c) + ' <small>' + (u.id ? u.u : 'AP') + '</small>';
-    el('o-cost-sub').textContent = u.id === 22 ? '指名手配券のぶん'
-      : u.id === 23 ? '交流会チケットのぶん（AP は別に ' + fmt(runs * b.s.ap) + ' 要ります）' : 'AP のぶん';
-  }
-
-  var LIMIT = 10;
-  function drawTables(rs) {
-    var need = left(), h = '';
-    UNITS.forEach(function (u) {
-      var list = rs.filter(function (r) { return unitOf(r.s) === u.id; });
-      if (!list.length) return;
-      var all = showAll[u.id], view = all ? list : list.slice(0, LIMIT);
-      /* **入場料が全部 1 のときは列を 3 つに畳む。**指名手配は 1 周につき券 1 枚
-         なので「1 周」「券 1 枚あたり」「要る券」の 3 列が同じ数字になる。
-         そのまま 5 列で出すと、細い画面でいちばん見たい列が右へ押し出される
-         （2026-08-30、390px で実物を見て畳んだ） */
-      var flat = list.every(function (r) { return r.c === 1; });
-      h += '<div class="panel"><div class="panel-h"><h2>' + esc(u.t) + '</h2></div>' +
-        '<p class="lead">' + list.length + ' 本あります。<b>' + esc(u.k) +
-        'の多い順</b>に並べました。' +
-        (flat ? '1 周につき' + u.nm + ' 1 枚なので、<b>周回数がそのまま必要な枚数</b>です。' : '') +
-        (u.id === 23 ? '学園交流会はチケットのほかに AP も要ります（表の右に出しています）。' : '') +
-        '</p><div class="tscroll"><table class="dt farm"><thead><tr>' +
-        '<th>ステージ</th>' +
-        (flat ? '' : '<th class="num">1 周</th>') +
-        '<th class="num">' + esc(u.k) + '</th>' +
-        '<th class="num">あと何周</th>' +
-        (flat ? '' : '<th class="num">' + (u.id === 23 ? '券／AP' : u.id ? '要る券' : '要る AP') + '</th>') +
-        '</tr></thead><tbody>' +
-        view.map(function (r) {
-          var runs = need && r.v > 0 ? Math.ceil(need / r.v) : 0;
-          return '<tr' + (need ? '' : ' class="done"') + '><td class="stg"><b>' + esc(stageLabel(r.s)) +
-            '</b><small>' + esc(stageSub(r.s)) + '</small></td>' +
-            (flat ? '' : '<td class="num">' + per(r.v) + '</td>') +
-            '<td class="per num">' + per(r.r * u.n) + '</td>' +
-            '<td class="num">' + (need ? fmt(runs) + ' 周' : '—') + '</td>' +
-            (flat ? '' : '<td class="num">' + (need
-              ? (u.id === 23 ? fmt(runs * r.c) + ' ／ ' + fmt(runs * r.s.ap) : fmt(runs * r.c))
-              : '—') + '</td>') + '</tr>';
-        }).join('') +
-        '</tbody></table></div>' +
-        (list.length > LIMIT
-          ? '<div class="btnrow" style="margin-top:12px"><button type="button" class="btn" data-all="' +
-            u.id + '">' + (all ? '上位 ' + LIMIT + ' 本だけ' : '残り ' + (list.length - LIMIT) + ' 本も見る') + '</button></div>'
-          : '') +
-        '</div>';
-    });
-    el('tables').innerHTML = h ||
-      '<div class="panel"><p class="lead">この素材が落ちるステージは、任務・指名手配・拠点防衛・学園交流会の中にはありません。</p></div>';
-  }
-
-  function draw() {
-    var rs = rows();
-    drawPick(); drawFamily(); drawCard(rs); drawTops(rs); drawStats(rs); drawTables(rs);
-    location.replace('#' + toHash());
-  }
-
-  function toHash() {
-    return mat + '|' + Math.max(0, +el('i-need').value || 0) + '|' +
-      Math.max(0, +el('i-have').value || 0) + '|' + mult;
-  }
-  window.shareUrl = function () { return '#' + toHash(); };
 
   function pickMat(k) {
-    if (!byKey[k]) return;
-    mat = k; group = byKey[k].g;
-    draw();
+    if (!H.byKey[k]) return;
+    mat = k; group = H.byKey[k].g;
+    H.secs.farm.pick(k); H.secs.use.pick(k);
+    drawPick(); drawFamily(); card(); sync();
   }
 
   el('mats').addEventListener('click', function (e) {
@@ -622,50 +737,74 @@
     drawPick();
   });
   el('i-find').addEventListener('input', function () { find = this.value.trim(); drawPick(); });
-  el('mult').addEventListener('click', function (e) {
-    var b = e.target.closest('button'); if (!b) return;
-    mult = +b.dataset.m;
-    [].forEach.call(this.querySelectorAll('button'), function (x) {
-      x.setAttribute('aria-pressed', String(+x.dataset.m === mult));
-    });
-    draw();
-  });
-  el('tables').addEventListener('click', function (e) {
-    var b = e.target.closest('[data-all]'); if (!b) return;
-    showAll[b.dataset.all] = !showAll[b.dataset.all];
-    drawTables(rows());
-  });
-  ['i-need', 'i-have'].forEach(function (id) {
-    el(id).addEventListener('input', function () {
-      // **表の入れ物だけ描き直す。**入力欄は作り直さないので焦点は残る
-      var rs = rows();
-      drawStats(rs); drawTables(rs);
-      location.replace('#' + toHash());
-    });
-  });
 
-  (function fromHash() {
-    var h = decodeURIComponent(location.hash.replace(/^#/, ''));
-    if (!h) return;
-    var p = h.split('|');
-    if (p[0] && byKey[p[0]]) { mat = p[0]; group = byKey[mat].g; }
-    if (p[1] !== undefined && +p[1] >= 0) el('i-need').value = Math.floor(+p[1]) || 0;
-    if (p[2] !== undefined && +p[2] >= 0) el('i-have').value = Math.floor(+p[2]) || 0;
-    if (+p[3] >= 1 && +p[3] <= 3) {
-      mult = Math.floor(+p[3]);
-      [].forEach.call(el('mult').querySelectorAll('button'), function (x) {
-        x.setAttribute('aria-pressed', String(+x.dataset.m === mult));
-      });
+  /* ---- ハッシュ。**素材と 2 区画を `&` でつなぐ。**`skip` の区画は入れない */
+  function parts(skip) {
+    var s = ['m=' + mat];
+    ['farm', 'use'].forEach(function (k) {
+      if (k !== skip) s.push(SEC[k] + '=' + H.secs[k].seg());
+    });
+    return s;
+  }
+  /** URL バーも今の入力に合わせる。**再読み込みで古い URL が勝って入力が戻らないように**
+      （元の掘り場は location.replace で同じことをしていた） */
+  function sync() {
+    card();                                // 「誰が使う」の一言は範囲で人数が変わる
+    var s = parts('');
+    if (now() !== 'farm') s.push('pane=' + now());
+    try { history.replaceState(null, '', location.pathname + location.search + '#' + s.join('&')); } catch (e) { /* file:// */ }
+  }
+  H.sync = sync;
+
+  /* ---- 共有するのは**素材と開いている区画だけ**。区画の名前（`pane=`）は ../panes.js が足す */
+  window.shareUrl = function () {
+    var n = now();
+    return '#' + ['m=' + mat, SEC[n] + '=' + H.secs[n].seg()].join('&');
+  };
+  /* ---- 覚えるのは全部（../remember.js）。`pane=` は既定の区画でも書く——空だと、
+     転送ページから `pane=use` で来たあと掘る方に戻しても、次も「誰が使う」が開いてしまう */
+  window.rememberUrl = function () { return '#' + parts('').concat('pane=' + now()).join('&'); };
+  /* ---- 「最初に戻す」は**今の区画だけ**。素材とほかの区画は残す */
+  window.rememberReset = function () { return '#' + parts(now()).concat('pane=' + now()).join('&'); };
+
+  function toTabs() {
+    var bar = document.querySelector('.topbar');
+    var off = (bar ? bar.getBoundingClientRect().height : 0) + 14;
+    window.scrollTo({ top: Math.max(0, tabs.getBoundingClientRect().top + window.pageYOffset - off),
+                      behavior: 'smooth' });
+  }
+
+  /* ---- 区画が変わったら: カードの一言、「数字の出どころ」、URL */
+  function fit(id) {
+    [].forEach.call(document.querySelectorAll('details.src[data-sec]'), function (d) {
+      d.hidden = d.getAttribute('data-sec') !== id;
+    });
+  }
+  if (box) {
+    box.addEventListener('panechange', function (e) {
+      if (e.target !== box) return;
+      fit(e.detail.id); sync();
+    });
+  }
+  fit(now());
+
+  /* ---- 使い方（../tour.js）は 2 区画を順に開いて回る。**閉じたら開く前の区画に戻す**
+     （tools/student-cost/ と同じ。tour.js には手を入れず、body の `tour-on` を見張る） */
+  var before = null;
+  new MutationObserver(function () {
+    var on = document.body.classList.contains('tour-on');
+    if (on && !before) {
+      before = now();
+    } else if (!on && before) {
+      var b = el('tb-sec-' + before); before = null;
+      if (b) { b.click(); toTabs(); }
     }
-  })();
+  }).observe(document.body, { attributes: true, attributeFilter: ['class'] });
 
-  el('src-mat').textContent = F.mats.length;
-  el('src-stage').textContent = F.stages.length;
-  el('src-pair').textContent = Object.keys(F.drops).reduce(function (a, k) { return a + F.drops[k].length; }, 0);
-  el('src-istage').textContent = F.itemStages;
-  el('ver').textContent = F.fetched;
-
-  draw();
+  H.secs.farm.pick(mat); H.secs.use.pick(mat);
+  drawPick(); drawFamily();
+  H.ready = true;
+  sync();
 })();
 </script>
 </body>

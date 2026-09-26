@@ -195,10 +195,10 @@
       return item(P.books[k].i, P.books[k].n, t.bk[i], '冊');
     }).join('');
     el('o-credit').textContent = fmt(t.cr);
-    /* **oopart へは欠片の系統ごと渡す。**あちらのハッシュは `種類|系統|並び` で、
-       系統はアイコン名の末尾の段（_0〜_3）を落としたもの（oopart.js の family()）。
-       並びは省くと既定の「必要数順」になる */
-    el('to-oopart').href = '../oopart/' + (A ? '#oopart|' + A.a.i.replace(/_\d+$/, '') : '');
+    /* **素材の逆引きの「誰が使う」へ、欠片そのものを渡す。**あちらの `m=` はアイコン名でも受けて
+       1 段の素材に直す（tools/farm/ の MATHUB の resolve()）。2026-09-26 まで ../oopart/ へ
+       `#oopart|系統` で飛んでいたもの（oopart は farm の区画にまとめた） */
+    el('to-oopart').href = '../farm/#' + (A ? 'm=' + A.a.i + '&' : '') + 'pane=use';
     el('to-oopart').textContent = A ? A.c + 'を使う生徒を見る →' : 'オーパーツから生徒を引く →';
 
     drawRows();

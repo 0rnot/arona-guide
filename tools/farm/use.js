@@ -1,15 +1,25 @@
-/* オーパーツ逆引き。**データは「生徒 1 人の育成費用」と同じ data.js を借りている。**
-   同じ 230KB をもう一本置く意味がないので、../student-cost/data.js をそのまま読む。
+/* 素材の逆引きの「誰が使う」の区画（元の tools/oopart/。2026-09-26 に素材の掘り場とまとめた）。
+   **データは「生徒の育成計算機」と同じ ../student-cost/data.js を借りている。**
+   同じ 230KB をもう一本置く意味がないので、そちらをそのまま読む。
+
+   **素材は区画の外の欄で選び、index.html の `window.MATHUB` が `pick()` で渡してくる。**
+   渡ってくるのは 1 段ぶんの素材（例 I101 壊れたネブラディスク）で、ここはその「系統」
+   （同じ絵柄の 4 段）で数える。元の「種類」と「素材の札」は区画の外の欄に移した。
+   要素の id は、掘り場の区画と重ならないよう `u-` を付けた。
 
    出す個数は**全員共通の範囲 1 つ**で数える——「EX 今→目標」と「ほかのスキル 今→目標」。
    既定は最大まで（EX Lv1→Lv5、ノーマル・パッシブ・サブ Lv1→Lv10）で、2026-09-26 まで
    固定だった「スキルを最大まで上げたとき」と同じ数字になる。**EX 以外の 3 つは同じ表**
    なので、同じ範囲を 3 倍する（2026-09-26 の先生の判断 Q1 oopart。1 人ずつの範囲は
-   student-cost の役目なので作らない）。 */
+   student-cost の役目なので作らない）。
+
+   **数え方はまとめる前と 1 行も変えていない。**変えたのは、素材の受け取り方と、
+   ハッシュの読み書き（`u=` の 1 区画。中身は元の `種類|系統|並び|範囲` から種類と系統を外したもの）だけ */
 (function () {
   'use strict';
   var C = window.COST;
-  var el = function (id) { return document.getElementById(id); };
+  var HUB = window.MATHUB;
+  var el = function (id) { return document.getElementById('u-' + id); };
   function fmt(n) { return Math.round(n).toLocaleString('ja-JP'); }
 
   var KIND_JA = { oopart: 'オーパーツ', note: '技術ノート', bd: '戦術教育 BD' };
@@ -116,28 +126,31 @@
       row('s', 'ほかのスキル', SKMAX, R.sf, R.st);
   }
 
-  var kind = 'oopart', pick = null, sort = 'amount';
+  /* **選んでいる素材（1 段ぶん）と、その系統。**系統が無い素材（神名文字・レポートなど）は
+     pick が null になり、「スキルには使わない」とだけ出す */
+  var mid = null, pick = null, sort = 'amount';
 
-  function famList() {
+  function famList(kind) {
     return Object.keys(fams)
       .filter(function (f) { return fams[f].k === kind; })
       .sort(function (a, b) { return fams[a].n.localeCompare(fams[b].n, 'ja'); });
   }
 
-  function drawMats() {
-    var list = famList();
-    if (list.indexOf(pick) < 0) pick = list[0] || null;
-    el('mats').innerHTML = list.map(function (f) {
-      var top = C.mat[fams[f].tiers[3]] || C.mat[fams[f].tiers[0]];
-      return '<button type="button" class="mbtn" data-f="' + f + '" aria-pressed="' + (f === pick) + '">' +
-        '<img src="../img/' + top.i + '.webp" alt="" width="38" height="38" loading="lazy">' +
-        '<span class="nm">' + fams[f].n +
-        '<span class="sub">' + KIND_JA[fams[f].k] + '</span></span></button>';
-    }).join('');
+  /** スキルに使わない素材のとき。数字の欄は「—」に戻す */
+  function drawNone() {
+    ['o-n', 'o-sum'].forEach(function (k) { el(k).textContent = '—'; });
+    el('o-n-sub').textContent = '';
+    el('o-sum-sub').textContent = rangeText(true);
+    el('t4-h').textContent = '段ごとの合計';
+    el('t4').innerHTML = '';
+    el('list-h').textContent = 'この素材を使う生徒';
+    el('list-lead').textContent = 'この素材はスキルのレベル上げには使いません。' +
+      '誰が使うかを出せるのは、オーパーツ・技術ノート・戦術教育 BD です。';
+    el('list').innerHTML = '';
   }
 
   function draw() {
-    if (!pick) return;
+    if (!pick) { drawNone(); return; }
     var fam = fams[pick];
 
     // その系統をひとつでも使う生徒
@@ -163,10 +176,11 @@
     el('o-sum-sub').textContent = rangeText(true);
     el('t4-h').textContent = fam.n + 'の段ごとの合計';
 
+    // **選んでいる段に印を付ける。**区画の外で選んだのは 1 段ぶんなので、どれかが分かるように
     el('t4').innerHTML = fam.tiers.map(function (id, t) {
       if (!id) return '';
       var m = C.mat[id], rr = 'rar-' + (m.r || 'N');
-      return '<div class="t4 ' + rr + '">' +
+      return '<div class="t4 ' + rr + (id === mid ? ' on' : '') + '">' +
         '<img src="../img/' + m.i + '.webp" alt="" width="40" height="40" loading="lazy">' +
         '<div class="v">' + fmt(grand[t]) + '</div>' +
         '<div class="k">' + m.n + '</div>' +
@@ -196,65 +210,66 @@
     }).join('');
   }
 
-  el('kind').addEventListener('click', function (ev) {
-    var b = ev.target.closest('button'); if (!b) return;
-    kind = b.dataset.k; pick = null;
-    [].forEach.call(el('kind').querySelectorAll('button'), function (x) {
-      x.setAttribute('aria-pressed', String(x.dataset.k === kind));
-    });
-    drawMats(); draw();
-  });
-
-  el('mats').addEventListener('click', function (ev) {
-    var b = ev.target.closest('button'); if (!b) return;
-    pick = b.dataset.f;
-    drawMats(); draw();
-  });
-
   el('range').addEventListener('change', function (ev) {
     var k = ev.target.dataset && ev.target.dataset.r; if (!k) return;
     R[k] = parseInt(ev.target.value, 10);
     norm(); drawRange(); draw();
+    HUB.changed('use');
   });
 
   el('sort').addEventListener('click', function (ev) {
     var b = ev.target.closest('button'); if (!b) return;
     sort = b.dataset.s;
+    drawSort();
+    draw();
+    HUB.changed('use');
+  });
+  function drawSort() {
     [].forEach.call(el('sort').querySelectorAll('button'), function (x) {
       x.setAttribute('aria-pressed', String(x.dataset.s === sort));
     });
-    draw();
-  });
+  }
 
-  /* ---- 状態を URL に残す。**share.js が「結果を共有」のときに呼ぶ**
-     （eleph などと同じ作法。これが無いと、共有バーの「開いている状態ごと
-     URL になります」が嘘になる）。
-     **4 つ目が範囲**（`EX今.EX目標.ほか今.ほか目標`、2026-09-26 に足した）。
-     potential からは `#oopart|<系統>` の 2 つだけで飛んでくるので、欠けたところは既定のまま */
-  window.shareUrl = function () {
-    return '#' + [kind, pick || '', sort, [R.ef, R.et, R.sf, R.st].join('.')].join('|');
-  };
+  /* ---- 区画のハッシュ `u=並び|EX今.EX目標.ほか今.ほか目標`。**素材は区画の外の `m=`。**
+     元の oopart は `種類|系統|並び|範囲` で、転送ページが後ろの 2 つだけをここへ渡す。
+     欠けたところは既定のまま */
+  function seg() { return [sort, [R.ef, R.et, R.sf, R.st].join('.')].join('|'); }
   (function fromHash() {
-    var h = decodeURIComponent(location.hash.replace(/^#/, ''));
+    var h = HUB.seg.u;
     if (!h) return;
     var p = h.split('|');
-    if (p[0] === 'oopart' || p[0] === 'note' || p[0] === 'bd') kind = p[0];
-    if (p[1] && fams[p[1]] && fams[p[1]].k === kind) pick = p[1];
-    if (p[2] === 'amount' || p[2] === 'name') sort = p[2];
-    var r = (p[3] || '').split('.').map(function (x) { return parseInt(x, 10); });
+    if (p[0] === 'amount' || p[0] === 'name') sort = p[0];
+    var r = (p[1] || '').split('.').map(function (x) { return parseInt(x, 10); });
     if (r.length === 4 && r.every(function (x) { return x > 0; })) {
       R.ef = r[0]; R.et = r[1]; R.sf = r[2]; R.st = r[3]; norm();
     }
-    [].forEach.call(el('kind').querySelectorAll('button'), function (x) {
-      x.setAttribute('aria-pressed', String(x.dataset.k === kind));
-    });
-    [].forEach.call(el('sort').querySelectorAll('button'), function (x) {
-      x.setAttribute('aria-pressed', String(x.dataset.s === sort));
-    });
   })();
+
+  HUB.add('use', {
+    /** 区画の外で選ばれた素材（`I` + アイテム id）。系統に入っていなければ pick は null */
+    pick: function (key) {
+      var id = String(key || '').replace(/^I/, '');
+      var m = C.mat[id];
+      mid = m ? id : null;
+      pick = (m && fams[family(m)]) ? family(m) : null;
+      draw();
+    },
+    seg: seg,
+    /** 元の oopart の `#note` のように種類だけ来たとき、その種類で名前順の先頭の系統 */
+    first: function (kind) { return famList(kind)[0] || ''; },
+    /** 系統の 4 段（`I` + id）。段が無ければ空 */
+    tiers: function (f) {
+      return fams[f] ? fams[f].tiers.map(function (id) { return id ? 'I' + id : ''; }) : [];
+    },
+    /** カードの一言。使う生徒の人数 */
+    note: function () {
+      if (!pick) return 'スキルのレベル上げには使いません。';
+      return '<b>' + KIND_JA[fams[pick].k] + '</b>／' + fams[pick].n + 'の仲間を使う生徒は <b>' +
+        el('o-n').textContent + ' 人</b>（' + rangeText(true) + '）。';
+    }
+  });
 
   el('ver').textContent = C.fetched;
   drawRange();
-  drawMats();
-  draw();
+  drawSort();
 })();
