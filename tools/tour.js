@@ -62,20 +62,28 @@
     ring.style.transition = snap ? 'none' : '';
     var r = target.getBoundingClientRect();
     var pad = 8;
+    /* **枠は画面の中で切る。**目印が画面より高いと（`tools/matchup/` の生徒の一覧は
+       3162px、`tools/raid/` の記録の一覧も数千 px）、枠の上下が画面の外に出て
+       どこを指しているのか分からなくなる（2026-09-27）。見えている部分だけを囲む */
+    var t = Math.max(r.top - pad, 4), b = Math.min(r.bottom + pad, innerHeight - 4);
+    if (b < t) b = t;
     ring.style.display = '';
-    ring.style.top = (r.top - pad) + 'px';
+    ring.style.top = t + 'px';
     ring.style.left = (r.left - pad) + 'px';
     ring.style.width = (r.width + pad * 2) + 'px';
-    ring.style.height = (r.height + pad * 2) + 'px';
+    ring.style.height = (b - t) + 'px';
 
     // **札は枠の下に。**下に入らないときだけ上へ回す。
     // 高さは `getBoundingClientRect` で測る——`offsetHeight` は組み上がる前に
     // 0 を返すことがあって、そのとき札が画面の下にはみ出す（2026-08-30）
     var cr = card.getBoundingClientRect();
     var ch = cr.height || 190, cw = cr.width || 320;
-    var below = r.bottom + 14;
-    var top = (below + ch + 12 <= innerHeight) ? below : (r.top - ch - 14);
-    // **どう転んでも画面の中に収める。**枠が画面いっぱいのときは上に重ねる
+    var below = b + 14;
+    var above = t - ch - 14;
+    var top = (below + ch + 12 <= innerHeight) ? below : above;
+    // **どう転んでも画面の中に収める。**上にも下にも入らないとき（枠が画面いっぱい）は
+    // **画面の下に重ねる。**上に重ねると、頭に合わせて送った目印の見出しを隠す（2026-09-27）
+    if (top === above && above < 12) top = innerHeight - ch - 12;
     top = Math.min(Math.max(12, top), Math.max(12, innerHeight - ch - 12));
     card.style.top = top + 'px';
     card.style.left = Math.min(Math.max(12, r.left), Math.max(12, innerWidth - cw - 12)) + 'px';
@@ -127,7 +135,16 @@
     var on = document.body.classList.contains('tour-on');
     if (on) document.body.classList.remove('tour-on');
     he.style.scrollBehavior = 'auto';
-    target.scrollIntoView({ block: 'center' });
+    /* **画面に収まらない目印は、真ん中ではなく頭に合わせる。**`block: 'center'` だと
+       目印の真ん中が画面の真ん中に来て、見出しも頭も画面の上に消える（2026-09-27、
+       `tools/matchup/` の #groups 3162px で段の説明と中身が噛み合わなかった）。
+       上のバー（sticky）の下に頭を置き、札は画面の下に重ねる */
+    var r = target.getBoundingClientRect();
+    var bar = document.querySelector('.topbar');
+    var top = bar ? Math.max(0, bar.getBoundingClientRect().bottom) : 0;
+    var ch = card.getBoundingClientRect().height || 190;
+    if (r.height > innerHeight - top - ch - 40) window.scrollBy(0, r.top - top - 16);
+    else target.scrollIntoView({ block: 'center' });
     he.style.scrollBehavior = keep;
     if (on) document.body.classList.add('tour-on');
   }
