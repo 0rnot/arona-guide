@@ -64,21 +64,12 @@
     return { steps: steps, reached: r, ok: r <= goal };
   }
 
-  /** 順位ごとの日別報酬。**帯の下限（その順位以上なら）で引く。** */
-  var REWARD = [
-    // [この順位まで, 青輝石, 戦術対抗戦コイン]
-    [1,     45, 125],
-    [2,     40, 120],
-    [10,    35, 110],
-    [100,   30, 100],
-    [200,   25,  90],
-    [500,   20,  80],
-    [1000,  18,  70],
-    [2000,  16,  60],
-    [4000,  14,  50],
-    [8000,  12,  40],
-    [15000, 10,  30]
-  ];
+  /** 順位ごとの日別報酬 `[この順位まで, 青輝石, 戦術対抗戦コイン]`。**帯の下限（その順位以上なら）で引く。**
+      **数字は data.js（scripts/build-tool-data.py の build_pvp）が ba-data の
+      `DB/ArenaRewardExcelTable.json`（`Daily` の 11 行）から取る。**2026-09-26 まで
+      ここに手書きしていた。このファイルより先に data.js を読むこと */
+  var D = window.PVP_DATA;
+  var REWARD = D.reward;
 
   function rewardAt(rank) {
     for (var i = 0; i < REWARD.length; i++) if (rank <= REWARD[i][0]) return { gem: REWARD[i][1], coin: REWARD[i][2] };
@@ -104,8 +95,9 @@
     path: path,
     REWARD: REWARD,
     rewardAt: rewardAt,
-    TICKET_FREE: 5,        // 1 日に配られる挑戦チケット
-    TICKET_BUY_GEM: 60,    // 青輝石 60 個で
-    TICKET_BUY_N: 5        // 5 枚
+    DATA: D,
+    TICKET_FREE: Math.floor(D.ticket.free / D.ticket.cost),   // 1 日に配られるぶんで戦える回数（5 枚・1 戦 1 枚）
+    TICKET_BUY_GEM: D.ticket.buyGem,                          // 青輝石 60 個で
+    TICKET_BUY_N: Math.floor(D.ticket.buyN / D.ticket.cost)   // 5 枚＝5 戦
   };
 })();

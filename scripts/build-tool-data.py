@@ -8756,6 +8756,95 @@ def build_lag():
     }, header="/* scripts/build-tool-data.py が吐く。**手で直さない。** */\n")
 
 
+def build_pvp():
+    """戦術対抗戦（tools/pvp-ladder/。順位を上げる／コインの収支）の数字。
+
+    **2026-09-26 まで ladder.js とページに手書きだった。**日別報酬の 11 行、防衛勝利、
+    ショップの AP ドリンク・更新・神名文字、挑戦チケット。どれも ba-data にあるので
+    ここで取る（grill-me Q13-1。9/23 の更新 v1.73.459696 で突き合わせて全部一致していた）。
+    `ConstArenaExcelTable` だけ `DB/` に無い（404）ので `Excel/` 側（`BA`）を読む。
+    """
+    print("戦術対抗戦")
+    rew = as_list(get_json(BADB.format("ArenaRewardExcelTable")))
+    goods = {g["Id"]: g for g in as_list(get_json(BADB.format("GoodsExcelTable")))}
+    items = {r["Id"]: r for r in as_list(get_json(BADB.format("ItemExcelTable")))}
+    const = as_list(get_json(BA.format("ConstArenaExcelTable")))[0]
+    COIN = 8        # Item 8 = 戦術対抗戦コイン（Item_Icon_ArenaCoin）
+    GEM = 3         # Currency 3 = 青輝石
+
+    def amount(r, typ, pid):
+        for t, i, a in zip(r.get("RewardParcelType") or [], r.get("RewardParcelUniqueId") or [],
+                           r.get("RewardParcelAmount") or []):
+            if t == typ and i == pid:
+                return a
+        return 0
+
+    # 日別報酬。**帯の下端（RankEnd）で引く**——ladder.js の BORDERS も同じ数字を使う
+    daily = sorted((r for r in rew if r["ArenaRewardType"] == "Daily"), key=lambda r: r["RankEnd"])
+    reward = [[r["RankEnd"], amount(r, "Currency", GEM), amount(r, "Item", COIN)] for r in daily]
+    if not reward or reward[0][0] != 1:
+        raise SystemExit("ArenaRewardExcelTable の Daily が 1 位から始まっていない")
+    for a, b in zip(daily, daily[1:]):
+        if b["RankStart"] != a["RankEnd"] + 1:
+            raise SystemExit(f"Daily の帯が途切れている: {a['RankEnd']} → {b['RankStart']}")
+    defense = [amount(r, "Item", COIN) for r in rew if r["ArenaRewardType"] == "DefenseVictory"]
+
+    # 最高記録の報酬（シーズンごと／通算 1 回）。**届いた順位より下の帯を全部足す**
+    def record(typ, best):
+        return sum(amount(r, "Currency", GEM) for r in rew
+                   if r["ArenaRewardType"] == typ and r["RankEnd"] >= best)
+    rec = {str(best): [record("SeasonRecord", best), record("OverallRecord", best)]
+           for best in (1, 11)}
+
+    # ショップ。並ぶ品は `ShopRefreshExcelTable`（CategoryType Arena）、値段と中身は Goods
+    info = next(r for r in as_list(get_json(BADB.format("ShopInfoExcelTable")))
+                if r.get("CategoryType") == "Arena")
+    refresh_goods = goods[(info.get("GoodsId") or [0])[0]]
+    slots = [r for r in as_list(get_json(BADB.format("ShopRefreshExcelTable")))
+             if r.get("CategoryType") == "Arena" and not r.get("IsLegacy")]
+
+    def paid_in_coin(g):
+        return (g.get("ConsumeParcelType") or [""])[0] == "Item" and (g.get("ConsumeParcelId") or [0])[0] == COIN
+
+    drinks, eleph = [], []
+    for s in sorted(slots, key=lambda r: r["GoodsId"]):
+        g = goods.get(s["GoodsId"])
+        if not g or not paid_in_coin(g) or (g.get("ParcelType") or [""])[0] != "Item":
+            continue
+        it = items.get(g["ParcelId"][0]) or {}
+        icon = it.get("Icon") or ""
+        cost, n = g["ConsumeParcelAmount"][0], g["ParcelAmount"][0]
+        if it.get("UsingResultParcelType") == "Currency" and it.get("UsingResultId") == 5:   # AP
+            drinks.append({"cost": cost, "ap": it.get("UsingResultAmount", 0) * n})
+        elif "SecretStone" in icon:
+            eleph.append({"cost": cost, "n": n})
+    if len(drinks) != 2 or not eleph or len({(e["cost"], e["n"]) for e in eleph}) != 1:
+        raise SystemExit(f"戦術対抗戦のショップの形が変わった: ドリンク {drinks} / 神名文字 {eleph}")
+
+    # 挑戦チケット。1 日の配布は Currency、買い足しは Goods 40（青輝石 → チケット）
+    ticket = next(r for r in as_list(get_json(BADB.format("CurrencyExcelTable")))
+                  if r.get("CurrencyType") == "ArenaTicket")
+    buy = goods[40]
+    if buy.get("ParcelId") != [ticket["ID"]]:
+        raise SystemExit(f"GoodsExcelTable の Id 40 がチケットの買い足しではなくなった: {buy.get('ParcelId')}")
+
+    out = {
+        "reward": reward,
+        "defense": {"coin": defense[0] if defense else 0, "max": const.get("DefenseVictoryRewardMaxCount", 0)},
+        "reset": const.get("DailyRewardResetTime", ""),
+        "record": rec,
+        "shop": {"refreshCost": refresh_goods["ConsumeParcelAmount"][0],
+                 "refreshMax": info.get("RefreshAbleCount", 0),
+                 "drinks": drinks,
+                 "eleph": {"cost": eleph[0]["cost"], "n": eleph[0]["n"], "slots": len(eleph)}},
+        "ticket": {"free": ticket.get("DailyRefillAmount", 0), "cost": const.get("TicketCost", 1),
+                   "buyGem": buy["ConsumeParcelAmount"][0], "buyN": buy["ParcelAmount"][0]},
+    }
+    print(f"  日別報酬 {len(reward)} 帯 / ドリンク {drinks} / 神名文字 {len(eleph)} 枠 / 記録 {rec}")
+    return write_js("tools/pvp-ladder/data.js", "PVP_DATA", out,
+                    header="/* scripts/build-tool-data.py が吐く。**手で直さない。** */\n")
+
+
 BUILDERS = {"bond": build_bond, "teacher-level": build_teacher_level,
             "equipment": build_equipment, "tier": build_tier, "raid": build_raid,
             "student-cost": build_student_cost, "report-credit": build_report_credit,
@@ -8775,6 +8864,7 @@ BUILDERS = {"bond": build_bond, "teacher-level": build_teacher_level,
             "gacha": build_gacha,
             "tl": build_tl,
             "lag": build_lag,
+            "pvp-ladder": build_pvp,
             "ui": build_ui}
 
 if __name__ == "__main__":
