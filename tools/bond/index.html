@@ -191,6 +191,55 @@
                 font: inherit; color: inherit; cursor: pointer; }
   button.face:hover img { border-color: var(--accent); }
   button.face:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 9px; }
+  /* ============================== UI 見直し（2026-09-26、先生「無駄な余白を無くして、
+     入力のしやすさを向上して、必要な情報がひと目でわかるように」） */
+  /* **選ぶ前の空の札は出さない。**検索欄の補足に同じことを書いた */
+  .stucard { padding: 10px; margin: 10px 0 0; gap: 12px; grid-template-columns: 64px 1fr; }
+  .stucard.none { display: none; }
+  .stuimg { width: 64px; height: 64px; }
+  .stuname { font-size: 1.05rem; margin: 0 0 .2em; }
+  /* 名前・倍率の札・丸の i を 1 本の流れに */
+  .stucard > div { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; min-width: 0; }
+  .stucard .stuname { margin: 0 .2em 0 0; }
+  .stucard .stunote { margin: 0; }
+  .stucard .stutags { display: contents; }
+  @media (max-width: 460px) {
+    .stucard { grid-template-columns: 56px 1fr; gap: 10px; }
+    .stuimg { width: 56px; height: 56px; }
+  }
+  .ranks { margin-top: 12px; }
+  /* ランクの幅（1 〜 100）はラベルと同じ行に */
+  .fields.fgrid.ranks .field .hint { display: inline; margin: 0 0 0 .45em; }
+  .qlb { font-size: .8rem; font-weight: 700; color: var(--fg-mute); }
+  /* 目標の早押し。**押せる高さは 40px** */
+  #quick button { padding: .55em 1.15em; }
+  /* 結果の帳面。補足はラベルの右に続ける（前は行ごとに 2 段） */
+  #result .ledger .row { padding: 7px 0; align-items: center; }
+  #result .ledger .row .subnote { display: inline; margin-left: .45em; font-size: .74rem; }
+  #result .stats.res { margin-bottom: 2px; }
+  /* **目標日の欄を他の欄とそろえる。**tool.css の入力の見た目は date を含まず、
+     ダークでも白い素の欄が出ていた（2026-09-26 に 390 のダークで発見） */
+  #i-target { font: inherit; font-size: .95rem; min-height: 40px; box-sizing: border-box;
+              border: 1px solid var(--line); border-radius: 10px; background: var(--bg); color: var(--fg); }
+  #i-target:focus-visible { outline: none; border-color: var(--accent);
+                            box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent); }
+  @media (prefers-color-scheme: dark) { #i-target { color-scheme: dark; } }
+  /* 贈り物の札を詰める */
+  .gcard { padding: .4em .55em; }
+  .pick { padding: 10px; margin-bottom: 10px; grid-template-columns: 56px 1fr; gap: 12px; }
+  .pick img, .pick .ph { width: 56px; height: 56px; }
+  /* **本編の `.note`（左に色の線と余白）を継がない。**札の中の 1 行なので線は要らない */
+  .pick .note { border: 0; padding: 0; background: none; max-width: none; }
+  /* ×4 / ×3 / ×2 は、スマホでも 1 段に（前は縦に 3 枚、300px） */
+  @media (max-width: 559px) {
+    .tcol .stats.c3.strip { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin: 0 0 10px; }
+    .stats.strip > .stat { grid-column: auto !important; padding: 7px 9px 6px; min-width: 0; }
+    .stats.strip .k { font-size: .7rem; letter-spacing: 0; }
+    .stats.strip .v { font-size: 1.2rem; margin-top: 0; }
+    .stats.strip .sub { font-size: .62rem; line-height: 1.4; margin-top: 0;
+                        white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .stats.strip .lg { display: none; }
+  }
 </style>
 </head>
 <body>
@@ -307,11 +356,18 @@
   <!-- **並びは「選ぶ → 結果 → 贈り物」。**2026-09-26 の先生の判断（Q9-1）——中級の先生が
        知りたいのは「あと何日か」なので、結果を生徒のすぐ下に置く。
        それまでは贈り物の一覧が先にあって、スマホでは結果まで 1 画面以上送っていた -->
-  <div class="tcols" style="margin-top:20px">
+  <div class="tcols" style="margin-top:12px">
 
     <div class="tcol">
       <div class="panel">
         <div class="panel-h"><h2>だれの絆を上げますか</h2></div>
+        <!-- **並びは「探す → 選んだ子 → 今と目標」**（2026-09-26 UI 見直し）。前は「まだ誰も選んでいません」の
+             空の札が検索欄より上にあり、ランク 2 つも縦に積んでいた。空の札は選ぶまで隠す -->
+        <div class="field" id="f-stu">
+          <label for="i-student">生徒<span class="hint">名前を入れると好みで並べ替えます</span></label>
+          <input id="i-student" type="search" list="students" placeholder="名前で探す" autocomplete="off">
+          <datalist id="students"></datalist>
+        </div>
         <div class="stucard none" id="stucard">
           <div class="stuimg" id="stu-img"><span class="ph">none</span></div>
           <div>
@@ -320,12 +376,7 @@
             <p class="stunote" id="stu-note">名前を入れると、好みに合わせて並べ替えます。</p>
           </div>
         </div>
-        <div class="fields c3">
-          <div class="field">
-            <label for="i-student">生徒</label>
-            <input id="i-student" type="search" list="students" placeholder="名前で探す" autocomplete="off">
-            <datalist id="students"></datalist>
-          </div>
+        <div class="fields fgrid ranks">
           <div class="field" id="f-from">
             <label for="i-from">今の絆ランク<span class="hint" id="h-from">1 〜 —</span></label>
             <input id="i-from" type="number" inputmode="numeric" min="1" max="100" step="1" value="1">
@@ -335,7 +386,8 @@
             <input id="i-to" type="number" inputmode="numeric" min="2" max="100" step="1" value="20">
           </div>
         </div>
-        <div class="btnrow" style="margin-top:14px">
+        <div class="btnrow" style="margin-top:10px">
+          <span class="qlb">目標</span>
           <div class="seg" id="quick" role="group" aria-label="よく使う目標">
             <button type="button" data-t="10">10</button>
             <button type="button" data-t="20" aria-pressed="true">20</button>
@@ -363,13 +415,13 @@
           </div>
         </div>
         <div class="ledger">
-          <div class="row minus"><span>手持ちの贈り物ぶん<span class="subnote">一覧に個数を入れると引きます</span></span><span id="l-have">—</span></div>
+          <div class="row minus"><span>手持ちの贈り物ぶん<button type="button" class="qm" data-hint="下の「効く贈り物」の一覧に個数を入れると、ここで引きます。"></button></span><span id="l-have">—</span></div>
           <div class="row"><span>残り</span><span id="l-rest">—</span></div>
-          <div class="row"><span>カフェタッチ<span class="subnote">1 日の回数<button type="button" class="qm" data-hint="1 回 15 の絆経験値です。同じ生徒は 3 時間に 1 回、12 時間で最大 4 回まで触れます。"></button></span></span>
+          <div class="row"><span>カフェタッチ<span class="subnote">1 日の回数</span><button type="button" class="qm" data-hint="1 回 15 の絆経験値です。同じ生徒は 3 時間に 1 回、12 時間で最大 4 回まで触れます。"></button></span>
             <span><input id="i-touch" type="number" inputmode="numeric" min="0" max="40" step="1" value="12" style="width:78px;text-align:right;padding:.3em .5em"></span></div>
-          <div class="row"><span>スケジュール・その他<span class="subnote">1 日にもらえる絆経験値</span></span>
+          <div class="row"><span>スケジュール・その他<span class="subnote">1 日ぶん</span><button type="button" class="qm" data-hint="スケジュールなど、カフェタッチ以外で 1 日にもらえる絆経験値です。"></button></span>
             <span><input id="i-etc" type="number" inputmode="numeric" min="0" step="10" value="0" style="width:78px;text-align:right;padding:.3em .5em"></span></div>
-          <div class="row"><span>目標日<span class="subnote">空欄なら判定しません</span></span>
+          <div class="row"><span>目標日<button type="button" class="qm" data-hint="空欄なら判定しません。入れると、その日までに届くかを出します。"></button></span>
             <span><input id="i-target" type="date" style="padding:.3em .5em"></span></div>
           <div class="row total" id="row-target" hidden><span id="l-target-k">—</span><span id="l-target">—</span></div>
         </div>
@@ -381,13 +433,13 @@
     <div class="tcol">
       <div class="panel">
         <div class="panel-h"><h2 id="gift-h">この子に効く贈り物</h2></div>
-        <p class="lead">持っている個数を入れると、「目標まで」から引きます。<button type="button" class="qm" data-hint="絆経験値は「基本の値 ×（一致したタグの数 ＋ 1）」で計算しています。×2 以下は「ほかの贈り物」に畳んであります。畳んだままでも、入れた個数は合計に入ります。"></button></p>
-        <div class="btnrow" style="margin-bottom:14px">
+        <!-- 説明の段は丸の i へ（2026-09-26 UI 見直し）。見出しは JS が書き換えるので、i は下の帯に置く -->
+        <div class="btnrow" style="margin-bottom:10px">
           <div class="seg" id="filter" role="group" aria-label="表示する贈り物">
             <button type="button" data-f="good" aria-pressed="true">効くものだけ</button>
             <button type="button" data-f="all">ぜんぶ</button>
           </div>
-          <span id="filter-n" style="font-size:.78rem;color:var(--fg-mute)"></span>
+          <span id="filter-n" style="font-size:.78rem;color:var(--fg-mute)"></span><button type="button" class="qm" data-hint="持っている個数を入れると、「目標まで」から引きます。絆経験値は「基本の値 ×（一致したタグの数 ＋ 1）」で計算しています。×2 以下は「ほかの贈り物」に畳んであります。畳んだままでも、入れた個数は合計に入ります。"></button>
         </div>
         <div id="gifts"></div>
       </div>
@@ -410,13 +462,12 @@
     </div>
 
     <div class="tpane" id="sec-gift" data-p="gift" role="tabpanel" aria-labelledby="tb-sec-gift" tabindex="0">
-  <div class="tcols lean" style="margin-top:20px">
+  <div class="tcols lean" style="margin-top:12px">
 
     <div class="tcol">
       <div class="panel">
-        <div class="panel-h"><h2>どの贈り物ですか</h2></div>
-        <p class="lead">数字は ×4 で効く人数です。押すと効く生徒が顔で並びます。</p>
-        <div class="fields c2">
+        <div class="panel-h"><h2>どの贈り物ですか<button type="button" class="qm" data-hint="札の数字は ×4 で効く人数です。押すと効く生徒が顔で並びます。"></button></h2></div>
+        <div class="fields fgrid">
           <div class="field">
             <label for="i-q">名前で絞る</label>
             <input id="i-q" type="search" placeholder="花束、ぬいぐるみ…" autocomplete="off">
@@ -430,7 +481,7 @@
             </select>
           </div>
         </div>
-        <div class="glist" id="glist" role="group" aria-label="贈り物" style="margin-top:14px"></div>
+        <div class="glist" id="glist" role="group" aria-label="贈り物" style="margin-top:12px"></div>
       </div>
     </div>
 
@@ -443,9 +494,9 @@
         </div>
       </div>
 
-      <div class="stats c3">
+      <div class="stats c3 strip">
         <div class="stat hero">
-          <div class="k"><img class="ico" src="../img/ui_cafe_interaction_gift_04.webp" alt="" width="18" height="18" loading="lazy"> ×4 になる生徒</div>
+          <div class="k"><img class="ico" src="../img/ui_cafe_interaction_gift_04.webp" alt="" width="18" height="18" loading="lazy"> ×4<span class="lg"> になる生徒</span></div>
           <div class="v" id="o-m4">—</div>
           <div class="sub" id="o-m4-sub">絆経験値がいちばん伸びます</div>
         </div>
@@ -463,7 +514,7 @@
 
       <div class="panel">
         <div class="panel-h"><h2>効く生徒</h2></div>
-        <div class="fields c2">
+        <div class="fields fgrid">
           <div class="field">
             <label for="i-school">学校で絞る</label>
             <select id="i-school"><option value="">ぜんぶ</option></select>
@@ -478,7 +529,7 @@
             </select>
           </div>
         </div>
-        <div id="groups" style="margin-top:14px"><p class="empty">まだ贈り物を選んでいません。</p></div>
+        <div id="groups" style="margin-top:12px"><p class="empty">まだ贈り物を選んでいません。</p></div>
       </div>
     </div>
   </div>
@@ -535,7 +586,7 @@
 
 </div>
 
-<script>window.TOUR = {"key": "bond-2", "steps": [{"sel": "#sec-tabs", "t": "入口は 2 つです", "d": "生徒から: その子に効く贈り物と、目標ランクまでの日数。贈り物から: その贈り物が効く生徒。入力は入口ごとにこの端末に残ります。"}, {"sel": "#stucard", "pre": ["#tb-sec-stu"], "t": "まず生徒を選びます", "d": "名前を入れると、好みに合わせて贈り物が並び替わります。"}, {"sel": "#result", "pre": ["#tb-sec-stu"], "t": "目標までの日数がすぐ下に出ます", "d": "1 日のタッチ回数を入れると、何日かかるかが出ます。"}, {"sel": "#gifts", "pre": ["#tb-sec-stu"], "t": "手持ちの贈り物を入れます", "d": "効く贈り物から順に並びます。入れた個数は上の結果から引きます。"}, {"sel": "#glist", "pre": ["#tb-sec-gift"], "t": "贈り物から: 贈り物を押します", "d": "×4 で効く人数が多い順です。名前やレア度で絞れます。"}, {"sel": "#o-m4", "pre": ["#tb-sec-gift"], "t": "効く人数がここに出ます", "d": "×4・×3・×2 の人数です。"}, {"sel": "#groups", "pre": ["#tb-sec-gift"], "t": "顔で並びます", "d": "学校で絞れます。顔を押すと「生徒から」がその生徒で開きます。"}, {"sel": "#sharebar", "t": "開いている入口ごと URL になります", "d": "リンクを送ると、相手の画面にも同じ結果が出ます。案内を閉じると、開く前の入口に戻ります。"}]};</script>
+<script>window.TOUR = {"key": "bond-2", "steps": [{"sel": "#sec-tabs", "t": "入口は 2 つです", "d": "生徒から: その子に効く贈り物と、目標ランクまでの日数。贈り物から: その贈り物が効く生徒。入力は入口ごとにこの端末に残ります。"}, {"sel": "#f-stu", "pre": ["#tb-sec-stu"], "t": "まず生徒を選びます", "d": "名前を入れると、好みに合わせて贈り物が並び替わります。"}, {"sel": "#result", "pre": ["#tb-sec-stu"], "t": "目標までの日数がすぐ下に出ます", "d": "1 日のタッチ回数を入れると、何日かかるかが出ます。"}, {"sel": "#gifts", "pre": ["#tb-sec-stu"], "t": "手持ちの贈り物を入れます", "d": "効く贈り物から順に並びます。入れた個数は上の結果から引きます。"}, {"sel": "#glist", "pre": ["#tb-sec-gift"], "t": "贈り物から: 贈り物を押します", "d": "×4 で効く人数が多い順です。名前やレア度で絞れます。"}, {"sel": "#o-m4", "pre": ["#tb-sec-gift"], "t": "効く人数がここに出ます", "d": "×4・×3・×2 の人数です。"}, {"sel": "#groups", "pre": ["#tb-sec-gift"], "t": "顔で並びます", "d": "学校で絞れます。顔を押すと「生徒から」がその生徒で開きます。"}, {"sel": "#sharebar", "t": "開いている入口ごと URL になります", "d": "リンクを送ると、相手の画面にも同じ結果が出ます。案内を閉じると、開く前の入口に戻ります。"}]};</script>
 <script>
 /* **元の絆ランク計算機のハッシュ `#生徒id|今|目標|…` は、いまは「生徒から」の区画 `st=`。**
    区画を `&` でつなぐようにしたので、`=` の無い区画を `st=` に読み替える。
@@ -703,8 +754,9 @@
     if (by[3]) chips.push('<span class="tag">×3 が ' + by[3] + ' 種類</span>');
     if (by[2]) chips.push('<span class="tag">×2 が ' + by[2] + ' 種類</span>');
     el('stu-tags').innerHTML = chips.join('');
-    el('stu-note').innerHTML = 'タグの一致数で倍率が決まります（上限 ×4）。' +
-      '<button type="button" class="qm" data-hint="好みのタグ ' + (student.t || []).length + ' 個ととくに好きなタグ ' +
+    /* **説明は丸の i だけ**（2026-09-26 UI 見直し。札を 1〜2 行に収める） */
+    el('stu-note').innerHTML =
+      '<button type="button" class="qm" data-hint="タグの一致数で倍率が決まります（上限 ×4）。好みのタグ ' + (student.t || []).length + ' 個ととくに好きなタグ ' +
       (student.u || []).length + ' 個に、誰にでも効く ' + GEN.length + ' 個を足して数えます。一致は 3 つまでです。"></button>';
   }
 
