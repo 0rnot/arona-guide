@@ -29,7 +29,7 @@
      家具とセットの一覧は区画の外に 1 つ（閉じた欄）。数字は data.js（build_cafe）と data-layout.js
      （build_cafe_layout）。ハッシュの形はページ末尾の小物の script に書いた -->
 <link rel="stylesheet" href="../../style.css?v=25">
-<link rel="stylesheet" href="../tool.css?v=18">
+<link rel="stylesheet" href="../tool.css?v=19">
 <style>
   /* ============================================================ 家具配置 */
   /* ------------------------------------------------------------ 盤
@@ -214,7 +214,6 @@
   /* ============================== UI 見直し（2026-09-26、先生「無駄な余白を無くして、
      入力のしやすさを向上して、必要な情報がひと目でわかるように」）
      390 幅で収入の答え（1 時間のクレジット）が y=1938、家具配置の合計快適度が y=2399 だった */
-  .vh { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
   /* 店・ランク・上限を 1 行に */
   .cafebar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
   .cafebar .rk { flex: 1 1 8.5em; max-width: 14em; min-width: 0; }
@@ -240,19 +239,17 @@
   @media (max-width: 899px) {
     /* **答えを入力のすぐ下へ。**2 段組みが 1 列に畳まれると、右の柱（答え）が
        左の柱の全部の下に回る。柱をほどいて並び順だけ付け直す */
-    #sec-inc > .tcols > .tcol, #sec-layout > .tcols > .tcol { display: contents; }
-    /* 柱が持っていた min-width: 0 を子に移す。無いと表の幅で頁ごと横に伸びる */
-    #sec-inc > .tcols > .tcol > *, #sec-layout > .tcols > .tcol > * { min-width: 0; }
+    /* 柱をほどくのは tool.css の `.tcols.unwrap`（子の min-width: 0 も）。ここでは順番だけ */
     #p-in { order: 1; } #inc-sum { order: 2; } #p-up { order: 3; } #p-cost { order: 4; } #p-comfort { order: 5; }
     #lay-sum { order: 1; } #lay-inc { order: 2; margin: -4px 0 0; } #p-board { order: 3; } #p-pick { order: 4; }
     #p-room { order: 5; } #p-sets { order: 6; }
     .tcols > .stats.strip { margin: 0; }
   }
-  /* 4 つの数字はスマホでも 2×2（前は縦に 4 枚） */
-  @media (max-width: 559px) {
-    .tcol .stats.c4.strip { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
-    .stats.strip > .stat { padding: 8px 10px 7px; min-width: 0; }
-    .stats.strip .k { font-size: .7rem; letter-spacing: 0; }
+  /* 4 つの数字はスマホでも 2×2（前は縦に 4 枚）。並びは tool.css の `.duo`、
+     詰め方は `.strip`（ここは一言が 2 行になるぶん、字と余白を少しだけ変える） */
+  @media (max-width: 899px) {
+    .stats.strip { gap: 6px; }
+    .stats.strip > .stat { padding: 8px 10px 7px; }
     .stats.strip .v { font-size: 1.25rem; margin-top: 0; }
     .stats.strip .sub { font-size: .66rem; line-height: 1.45; margin-top: 0; }
   }
@@ -392,7 +389,7 @@
 
     <!-- ================================================ 収入（元の cafe） -->
     <div class="tpane" id="sec-inc" data-p="inc" role="tabpanel" aria-labelledby="tb-sec-inc" tabindex="0">
-  <div class="tcols lean" style="margin-top:12px">
+  <div class="tcols lean unwrap" style="margin-top:12px">
 
     <div class="tcol">
       <div class="panel" id="p-in">
@@ -428,7 +425,7 @@
     </div>
 
     <div class="tcol">
-      <div class="stats c4 strip" id="inc-sum">
+      <div class="stats c4 duo strip" id="inc-sum">
         <div class="stat hero">
           <div class="k"><img class="ico" src="../img/currency_icon_gold.webp" alt="" width="18" height="18" loading="lazy"> 1 時間のクレジット</div>
           <div class="v" id="o-ch">—</div>
@@ -484,7 +481,7 @@
 
     <!-- ================================================ 家具配置（元の cafe-layout） -->
     <div class="tpane" id="sec-layout" data-p="layout" role="tabpanel" aria-labelledby="tb-sec-layout" tabindex="0">
-  <div class="tcols lean" style="margin-top:12px">
+  <div class="tcols lean unwrap" style="margin-top:12px">
 
     <div class="tcol">
       <div class="panel" id="p-board">
@@ -560,7 +557,7 @@
     </div>
 
     <div class="tcol">
-      <div class="stats c4 strip" id="lay-sum">
+      <div class="stats c4 duo strip" id="lay-sum">
         <div class="stat hero">
           <div class="k"><img class="ico" src="../img/ui_cafe_icon_comfort.webp" alt="" width="18" height="18" loading="lazy"> 合計快適度</div>
           <div class="v" id="o-total">—</div>

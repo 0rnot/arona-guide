@@ -22,7 +22,7 @@
 <meta name="twitter:description" content="ボスを選ぶと、ステータス・グロッキー条件・連れて行く生徒・スコア・開催日が出ます。">
 <meta name="twitter:image" content="https://arona-bot.com/images/og/raid.jpg">
 <link rel="stylesheet" href="../../style.css?v=25">
-<link rel="stylesheet" href="../tool.css?v=18">
+<link rel="stylesheet" href="../tool.css?v=19">
 <style>
   /* ===== ① ボスを絵から選ぶ。**ページの導入で、ここが全体の相手を決める。**
      2026-08-30 に、畳んであった相性チェッカーの中から先頭へ引き上げた
@@ -290,27 +290,20 @@
   .gap b { font-weight: 800; }
 
   /* ===== 詰めた版（2026-09-26 UI 見直し——「無駄な余白を無くして、必要な情報がひと目で」） ===== */
-  /* **経過・残りの一言は style.css の `.note`（金の縦線の箱）と名前がぶつかっていた。**
-     1 凸目の下に 60px の空き箱が出ていたので、ここで素の文字に戻す */
-  .timein .note { margin: 0; padding: 0; background: none; border: 0; border-radius: 0;
-                  font-size: .74rem; line-height: 1.5; color: var(--fg-mute); }
+  /* 経過・残りの一言。style.css の `.note`（金の縦線の箱）を消すのは tool.css の `.twrap .note` */
+  .timein .note { font-size: .74rem; line-height: 1.5; color: var(--fg-mute); }
   .timein .note b { color: var(--fg); }
-  /* 数字 3 つの帯。**スマホでも 1 行に並べる**（縦に積むと 1 枚 95px × 3） */
+  /* 数字 3 つの帯。**スマホでも 1 行に並べる**（縦に積むと 1 枚 95px × 3）。
+     並べるのと詰めるのは tool.css の `.row3.strip`。数字が長いので一回り小さく */
   @media (max-width: 899px) {
-    .st3.stats.c3, .tcol .st3.stats.c3 { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
-    .st3 > .stat:nth-child(3):last-child, .tcol .st3.stats.c3 > .stat:nth-child(3):last-child { grid-column: auto; }
-    .st3 .stat { padding: 8px 10px; min-width: 0; }
-    .st3 .stat .k { font-size: .7rem; letter-spacing: 0; line-height: 1.4; }
-    .st3 .stat .v { font-size: 1.22rem; overflow-wrap: anywhere; }
-    .st3 .stat .sub { font-size: .68rem; line-height: 1.4; }
+    .stats.strip .v { font-size: 1.22rem; overflow-wrap: anywhere; }
     /* 開催の「次の回」は日付が長いので 1 段ぶん使う。残り 2 つを下に並べる */
-    #sec-cal .st3.stats.c3 { grid-template-columns: 1fr 1fr; }
-    #sec-cal .st3 > .stat.hero { grid-column: 1 / -1; }
+    #sec-cal .stats.row3 { grid-template-columns: 1fr 1fr; }
+    #sec-cal .stats.row3 > .stat.hero { grid-column: 1 / -1; }
     /* スコアは柱をほどいて 時間 → 数字 3 つ → 内訳 → 目標 → 早見 の順にする。
        入れた時間の答えが、入力のすぐ下に来る */
-    #rs-body > .tcol { display: contents; }
-    /* 柱をほどくと板が格子の直の子になり、目盛りの min-width 360px で横に溢れる */
-    #rs-body > .tcol > * { min-width: 0; }
+    /* 柱をほどくのは tool.css の `.tcols.unwrap`（子の min-width: 0 も。無いと目盛りの
+       min-width 360px で横に溢れる）。ここでは順番だけ */
     #rs-body .rs-time { order: 1; }
     #rs-body .stats { order: 2; margin: 0; }
     #rs-body .rs-led { order: 3; }
@@ -526,7 +519,7 @@
       <div class="now">
         <img id="now-img" src="" alt="" width="520" height="160">
         <div>
-          <div class="stats c3 st3" style="margin:0 0 14px">
+          <div class="stats c3 row3 strip" style="margin:0 0 14px">
             <div class="stat hero"><div class="k"><i class="gi gi-type-defense"></i> ボスの装甲</div><div class="v" id="o-at">—</div><div class="sub" id="o-at-sub">&nbsp;</div></div>
             <div class="stat"><div class="k"><i class="gi gi-type-attack"></i> ボスの攻撃属性</div><div class="v" id="o-bt">—</div><div class="sub" id="o-bt-sub">&nbsp;</div></div>
             <div class="stat"><div class="k"><i class="gi" id="o-tr-ico"></i> 地形</div><div class="v" id="o-tr">—</div><div class="sub">適性が高い子ほど当たる</div></div>
@@ -597,7 +590,7 @@
     <div class="tpane" id="sec-score" data-p="score" role="tabpanel" aria-labelledby="tb-sec-score" tabindex="0">
       <p class="lead" id="rs-lead" style="margin:12px 0 0">&nbsp;</p>
       <p class="note-box" id="rs-none" style="margin-top:14px" hidden></p>
-  <div class="tcols lean" id="rs-body" style="margin-top:12px">
+  <div class="tcols lean unwrap" id="rs-body" style="margin-top:12px">
 
     <div class="tcol">
       <div class="panel rs-time">
@@ -632,7 +625,7 @@
     </div>
 
     <div class="tcol">
-      <div class="stats c3 st3">
+      <div class="stats c3 row3 strip">
         <div class="stat hero">
           <div class="k">このタイムのスコア</div>
           <div class="v" id="o-score">—</div>
@@ -673,7 +666,7 @@
 
     <!-- ================================================ 開催（元 tools/raid-calendar/） -->
     <div class="tpane" id="sec-cal" data-p="cal" role="tabpanel" aria-labelledby="tb-sec-cal" tabindex="0">
-  <div class="stats c3 st3" style="margin-top:12px">
+  <div class="stats c3 row3 strip" style="margin-top:12px">
     <div class="stat hero">
       <div class="k" id="o-next-k">次の総力戦<button type="button" class="qm" id="o-next-q" data-hint="ゲームのデータ（ba-data の RaidSeasonManageExcelTable）に入っている、これからの開催です。運営の都合でずれることはあります。"></button></div>
       <div class="v" id="o-next">—</div>

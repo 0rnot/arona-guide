@@ -22,7 +22,7 @@
 <meta name="twitter:description" content="この編成なら、その EX は何秒目に撃てるのか。">
 <meta name="twitter:image" content="https://arona-bot.com/images/og/cost-timeline.jpg">
 <link rel="stylesheet" href="../../style.css?v=25">
-<link rel="stylesheet" href="../tool.css?v=18">
+<link rel="stylesheet" href="../tool.css?v=19">
 <style>
   /* 編成の 6 枠 */
   .party { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
@@ -249,7 +249,8 @@
   /* **行の欄はどれも行の幅まで。**「相手」の欄（data-k="bt"）だけ上限が無く、
      390px で 269px に伸びて右の枠の外まで出ていた（2026-09-26 に実測） */
   .tlrow .when select { max-width: 100%; }
-  /* 数字 3 つは右の柱でも 1 行に（2 つ＋1 つだと右の柱だけ縦に伸びる） */
+  /* 数字 3 つは右の柱でも 1 行に（2 つ＋1 つだと右の柱だけ縦に伸びる）。
+     畳む幅での 1 行と詰め方は tool.css の `.row3.strip` */
   .tcol .stats.c3.ct-st { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .tcol .stats.c3.ct-st > .stat:nth-child(3):last-child { grid-column: auto; }
   /* 並べ替えと消すボタンは押せる大きさに */
@@ -257,20 +258,14 @@
   @media (max-width: 899px) {
     /* **スマホでは柱をほどいて並べ直す。**編成 → 数字 3 つ → 撃つ順番 → 戦闘のはじまり → …
        編成を決めた直後に答えが見え、EX を積むところまで 1 画面ぶん近くなる */
-    .ct-cols > .tcol { display: contents; }
-    .ct-cols > .tcol > * { min-width: 0; }
+    /* 柱をほどくのは tool.css の `.tcols.unwrap`。ここでは順番だけ */
     .ct-cols .ct-party { order: 1; }
     .ct-cols .stats { order: 2; margin: 0; }
     .ct-cols .ct-tl { order: 3; }
     .ct-cols .ct-setup { order: 4; }
     .ct-cols .ct-gim { order: 5; }
     .ct-cols .ct-led { order: 6; }
-    .ct-cols .stats.c3, .tcol .stats.c3.ct-st { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
-    .tcol .stats.c3.ct-st > .stat:nth-child(3):last-child { grid-column: auto; }
-    .ct-st .stat { padding: 8px 10px; min-width: 0; }
-    .ct-st .stat .k { font-size: .7rem; letter-spacing: 0; line-height: 1.4; word-break: auto-phrase; }
-    .ct-st .stat .v { font-size: 1.3rem; }
-    .ct-st .stat .sub { font-size: .68rem; line-height: 1.4; }
+    .ct-st .stat .k { word-break: auto-phrase; }
   }
   @media (max-width: 620px) {
     /* **枠は顔を小さく横に。**正方形の顔が 1 枠 160px あり、6 枠で 900px を超えていた。
@@ -397,7 +392,7 @@
 
   <!-- 「スキルの順番は運では決まりません」の囲みは外した（2026-09-26 grill-me Q12-3。
        中級の先生には前提の話）。中身は「撃つ順番」の見出しの i と「数字の出どころ」へ -->
-  <div class="tcols lean ct-cols">
+  <div class="tcols lean ct-cols unwrap">
 
     <div class="tcol">
       <div class="panel ct-party">
@@ -469,7 +464,7 @@
     </div>
 
     <div class="tcol">
-      <div class="stats c3 ct-st">
+      <div class="stats c3 ct-st row3 strip">
         <div class="stat hero">
           <div class="k">1&nbsp;コスト貯まるまで</div>
           <div class="v" id="o-sec">—</div>

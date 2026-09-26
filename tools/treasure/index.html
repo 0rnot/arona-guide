@@ -22,7 +22,7 @@
 <meta name="twitter:description" content="開けた結果を入れると、残りのマスに何がある確率かが分かります。近似ではなく、置き方を全部数え上げた値です。">
 <meta name="twitter:image" content="https://arona-bot.com/images/og/treasure.jpg">
 <link rel="stylesheet" href="../../style.css?v=25">
-<link rel="stylesheet" href="../tool.css?v=18">
+<link rel="stylesheet" href="../tool.css?v=19">
 <style>
   /* **並びは「イベントと周 → 盤面 → 結果 → 備品の型」**（2026-09-26 の grill-me、Q15-1）。
      前はスマホで型の欄（イベント・周の選択を含む）を盤より先に出していたが、
@@ -179,7 +179,6 @@
   /* ---- 詰めた版（2026-09-26、UI 見直し）
      **盤を 1 画面目に寄せる。**説明文は見出しの横の一言と丸の i へ。周のボタンは
      スマホで数字だけの 7 列、パレットは 2 列にして段を減らした */
-  .panel-h .hsub { font-size: .8rem; color: var(--fg-mute); font-weight: 500; }
   .panel-h .qm { align-self: center; }
   .wklabel .qm { margin-left: .3em; }
   /* **周は数字だけ。**見出しが「この周の…」なので「周目」を 13 回書かない。広い画面でも 1 段に収まる */
@@ -187,7 +186,6 @@
   .wkrow button .u { display: none; }
   .viewrow { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-top: 12px; }
   .viewrow .legend { margin-top: 0; }
-  .viewrow .seg button { min-height: 36px; }
   #bdbtns { margin-top: 12px; }
   #bdbtns .btn { padding: .5em 1em; }
   .palrow { margin-bottom: 10px; }

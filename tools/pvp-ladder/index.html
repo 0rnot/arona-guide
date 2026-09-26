@@ -28,7 +28,7 @@
      日別報酬の表は 1 つにして既定で閉じた。数字は data.js（scripts/build-tool-data.py の build_pvp、
      ba-data の DB/）から取る。ハッシュの形はページ末尾の小物の script に書いた -->
 <link rel="stylesheet" href="../../style.css?v=25">
-<link rel="stylesheet" href="../tool.css?v=18">
+<link rel="stylesheet" href="../tool.css?v=19">
 <style>
   /* 階段。**1 行 1 戦。**上から順に読めるようにする */
   .ladder { display: flex; flex-direction: column; gap: 0; margin-top: 6px; }
@@ -69,16 +69,15 @@
   .pv-in .field > input, .pv-in .field > select { margin-top: auto; }
   /* 選び方は帯と一言を 1 行に */
   .pv-mode { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin-top: 12px; }
-  .pv-mode .seg button { min-height: 36px; }
-  /* 2 行に折れても楕円の塊にしない（tool.css の .seg と同じ理由） */
-  .pv-cols .checks label { border-radius: 14px; min-height: 40px; box-sizing: border-box; }
+  /* 押せる高さ。角丸（折れても楕円の塊にしない）は tool.css の .checks が持つ */
+  .pv-cols .checks label { min-height: 40px; box-sizing: border-box; }
   .pv-mode p { color: var(--fg-mute); font-size: .78rem; margin: 0; line-height: 1.5; }
 
   /* ---- スマホでは答えを入力のすぐ下へ。**柱をほどいて、板を並べ直す。**
      順位を上げる: 入力 → 数字 3 つ → 1 日の差 → 階段 → 最高記録
      コインの収支: 数字 3 つ → 入る → 出る → 手持ち（収支が最初の画面に入る） */
+  /* 柱をほどくのは tool.css の `.tcols.unwrap`。ここでは順番だけ */
   @media (max-width: 899px) {
-    .pv-cols > .tcol { display: contents; }
     #sec-ladder .pv-in-panel { order: 1; }
     #sec-ladder .stats { order: 2; }
     #sec-ladder .pv-day { order: 3; }
@@ -87,13 +86,8 @@
     #sec-coin .stats { order: 0; }
     #sec-coin .tcol:first-child > .panel { order: 1; }
     #sec-coin .pv-have { order: 2; }
-    /* 数字 3 つは 1 行に。スマホでも 1 画面に入る高さにする */
-    .pv-cols .stats.c3 { grid-template-columns: 1.15fr 1fr 1fr; gap: 6px; margin: 0; }
-    .pv-cols .stats.c3 > .stat:nth-child(3):last-child { grid-column: auto; }
-    .pv-cols .stat { padding: 8px 10px; min-width: 0; }
-    .pv-cols .stat .k { font-size: .7rem; letter-spacing: 0; line-height: 1.4; }
-    .pv-cols .stat .v { font-size: 1.3rem; }
-    .pv-cols .stat .sub { font-size: .68rem; line-height: 1.4; }
+    /* 数字 3 つは 1 行に（tool.css の `.row3.strip`）。いちばん左だけ少し広く */
+    .pv-cols .stats.c3 { grid-template-columns: 1.15fr 1fr 1fr; margin: 0; }
   }
 </style>
 </head>
@@ -212,7 +206,7 @@
 
     <!-- ================================================ 順位を上げる（元の pvp-ladder） -->
     <div class="tpane" id="sec-ladder" data-p="ladder" role="tabpanel" aria-labelledby="tb-sec-ladder" tabindex="0">
-  <div class="tcols wideleft pv-cols" style="margin-top:12px">
+  <div class="tcols wideleft pv-cols unwrap" style="margin-top:12px">
 
     <div class="tcol">
       <div class="panel pv-in-panel">
@@ -246,7 +240,7 @@
     </div>
 
     <div class="tcol">
-      <div class="stats c3">
+      <div class="stats c3 row3 strip">
         <div class="stat hero">
           <div class="k">勝つ回数</div>
           <div class="v" id="o-steps">—</div>
@@ -286,7 +280,7 @@
 
     <!-- ================================================ コインの収支（元の pvp-coin） -->
     <div class="tpane" id="sec-coin" data-p="coin" role="tabpanel" aria-labelledby="tb-sec-coin" tabindex="0">
-  <div class="tcols lean pv-cols" style="margin-top:12px">
+  <div class="tcols lean pv-cols unwrap" style="margin-top:12px">
     <div class="tcol">
       <div class="panel">
         <div class="panel-h"><h2><img class="ico" src="../img/item_icon_arenacoin.webp" alt="" width="24" height="24" loading="lazy"> 入ってくるぶん<button type="button" class="qm" data-hint="日別報酬は毎日14時のリセット時点の順位で決まります。その直前に順位を上げておくと、1段上の報酬を取れます。順位帯は「順位を上げる」で選んだ目標に合わせてあり、ここで選び直すとそちらが優先されます。"></button></h2></div>
@@ -324,7 +318,7 @@
     </div>
 
     <div class="tcol">
-      <div class="stats c3">
+      <div class="stats c3 row3 strip">
         <div class="stat hero">
           <div class="k">1 日の収支</div>
           <div class="v" id="o-net">—</div>

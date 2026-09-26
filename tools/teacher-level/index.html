@@ -22,22 +22,19 @@
 <meta name="twitter:description" content="目標の先生レベルまで、あと何 AP・何日かかるかを出します。経験値 2 倍期間と新米先生ブースト、Lv90 のあとの熟達証書にも対応。">
 <meta name="twitter:image" content="https://arona-bot.com/images/og/teacher-level.jpg">
 <link rel="stylesheet" href="../../style.css?v=25">
-<link rel="stylesheet" href="../tool.css?v=18">
+<link rel="stylesheet" href="../tool.css?v=19">
 <style>
   /* **倍率と月額の 2 段は、見出しの幅を揃えて詰める**（2026-09-26 の UI 見直し。段の間が 18px 空いていた） */
   .pick-row2 { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; margin-top: 10px; }
   .pick-row2 .lb2 { font-size: .8rem; font-weight: 700; color: var(--fg-mute); min-width: 6.2em; }
-  .pick-row2 .seg button { min-height: 36px; }
 
   /* **今の状況の 3 欄はスマホでも 1 段に。**どれも 2 桁〜数千の数字なので入る */
   #now-panel .fields.fgrid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
   .at-max #now-panel .fields.fgrid { grid-template-columns: minmax(0, 14em); }
 
   /* 答えの 3 枚。**日数を横いっぱい、AP と次のレベルを 2 列**（1 列だと 3 段で 330px あった） */
-  .tcol .stats.c3 { grid-template-columns: 1fr 1fr; }
-  .tcol .stats.c3 > .stat.hero { grid-column: 1 / -1; }
-  .tcol .stats.c3 > .stat:nth-child(3):last-child { grid-column: auto; }
-  @media (max-width: 480px) { .tcol .stats.c3 > .stat:not(.hero) .v { font-size: 1.3rem; } }
+  /* 並びは tool.css の `.hero2` */
+  @media (max-width: 480px) { .stats.hero2 > .stat:not(.hero) .v { font-size: 1.3rem; } }
   /* 1 日の合計の横に、目標までの日数を小さく返す。**AP の板をいじっている間も答えが見える** */
   #a-days { display: block; font-size: .76rem; font-weight: 600; color: var(--fg-mute); margin-top: .15em; }
   #a-days:empty { display: none; }
@@ -63,8 +60,8 @@
      柱のままだと、長い「1 日に手に入る AP」の下まで熟達証書が降りてしまう（390 幅で実測） */
   /* **Lv90 未満でも同じ。**答え（日数）を「今の状況」のすぐ下に出す。前は長い
      「1 日に手に入る AP」の下で、390 幅で y=1388 まで沈んでいた（2026-09-26 の UI 見直し） */
+  /* 柱をほどくのは tool.css の `.tcols.unwrap`。ここでは順番だけ */
   @media (max-width: 899px) {
-    .tcols > .tcol { display: contents; }
     #now-panel { order: -3; }
     .tcol > .stats { order: -2; margin: 0; }
   }
@@ -178,7 +175,7 @@
 
 <div class="twrap">
 
-  <div class="tcols lean">
+  <div class="tcols lean unwrap">
 
     <div class="tcol">
       <div class="panel" id="now-panel">
@@ -276,7 +273,7 @@
     </div>
 
     <div class="tcol sticky">
-      <div class="stats c3 lv-only">
+      <div class="stats c3 hero2 lv-only">
         <div class="stat hero">
           <div class="k"><i class="gi gi-common-icon-time"></i> かかる日数</div>
           <div class="v" id="o-days">—</div>

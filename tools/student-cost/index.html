@@ -22,7 +22,7 @@
 <meta name="twitter:description" content="この子を仕上げるのに、クレジットがいくらで、素材が何個要るか。星上げと潜在解放も。">
 <meta name="twitter:image" content="https://arona-bot.com/images/og/student-cost.jpg">
 <link rel="stylesheet" href="../../style.css?v=25">
-<link rel="stylesheet" href="../tool.css?v=18">
+<link rel="stylesheet" href="../tool.css?v=19">
 <style>
   /* ================================================================ 区画の外（生徒）と総額
      **2026-09-26 に student-cost・eleph・potential の 3 本を 1 本にまとめた。**
@@ -44,25 +44,22 @@
   .stuimg .ph { display: grid; place-items: center; width: 100%; height: 100%; color: var(--fg-mute); opacity: .55; }
   .stuimg .ph svg { width: 58%; height: 58%; }
   .stulb { display: flex; align-items: center; gap: .2em; font-size: 1rem; font-weight: 800; margin: 0 0 .35em; line-height: 1.5; }
-  .vh { position: absolute !important; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
   .stunote { font-size: .76rem; color: var(--fg-mute); margin: .4em 0 0; line-height: 1.55; }
   #p-stu .err { margin-top: 8px; }
   @media (min-width: 900px) { #i-student { max-width: 30em; } }
 
   /* よくある目標。**3 つを 1 段に等分**（390 幅で 2 段に折れて、3 つ目だけ下に落ちていた） */
   #preset { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); width: 100%; box-sizing: border-box; }
-  #preset button { padding: .5em .3em; font-size: .8rem; white-space: nowrap; min-height: 36px; }
+  #preset button { padding: .5em .3em; font-size: .8rem; white-space: nowrap; }
 
-  /* 答えの札。**スマホでも 2 列**（1 列だと総額で 5 段・星上げで 4 段積まれていた） */
-  .tcol .stats.c4 { grid-template-columns: 1fr 1fr; }
-  #sec-star .tcol .stats.c4 > .stat.hero { grid-column: auto; }
+  /* 答えの札。**スマホでも 2 列**（1 列だと総額で 5 段・星上げで 4 段積まれていた）。
+     総額は 5 枚なのでクレジットだけ横いっぱい（`.hero2`）、星上げは 4 枚を 2×2（`.duo`） */
   @media (max-width: 480px) {
     .tcol .stats .stat { padding: 10px 12px; }
     .tcol .stats .stat:not(.hero) .v { font-size: 1.25rem; }
   }
   /* 星上げは、スマホでは答えを「どこまで上げますか」のすぐ下へ。段ごとの中身はその下 */
   @media (max-width: 899px) {
-    #sec-star .tcols > .tcol { display: contents; }
     #sec-star .tcol:first-child > .panel:first-child { order: -3; }
     #sec-star .tcol > .stats { order: -2; margin: 0; }
   }
@@ -113,8 +110,6 @@
                    font-size: .72rem; color: var(--accent-tx); }
   .goal .nm .hot img { width: 18px; height: 18px; }
 
-  /* 札が 5 枚。**クレジットだけ横いっぱい**、残り 4 枚を 2×2 に */
-  .tcol .stats.c4 > .stat.hero { grid-column: 1 / -1; }
 
   /* 素材の一覧 */
   .mats { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
@@ -443,7 +438,7 @@
       </div>
 
       <div class="tcol">
-        <div class="stats c4">
+        <div class="stats c4 hero2">
           <div class="stat hero">
             <div class="k"><img class="ico" src="../img/currency_icon_gold.webp" alt="" width="18" height="18" loading="lazy"> クレジット</div>
             <div class="v" id="o-credit">—</div>
@@ -497,7 +492,7 @@
     <!-- ================================================================ 星上げ（元の tools/eleph/）
          id はほかの区画と重ならないよう `e-` を付けた（star.js の el() が付けて引く） -->
     <div class="tpane" id="sec-star" data-p="star" role="tabpanel" aria-labelledby="tb-sec-star" tabindex="0">
-    <div class="tcols lean" style="margin-top:12px">
+    <div class="tcols lean unwrap" style="margin-top:12px">
       <div class="tcol">
         <div class="panel">
           <div class="panel-h"><h2>どこまで上げますか</h2></div>
@@ -532,7 +527,7 @@
       <div class="tcol sticky">
         <!-- **上に出すのは 4 つだけ**（2026-09-26 の先生の判断）: 要る文字／手持ちを引いた不足／
              不足をカケラで買うと何個／クレジット。攻撃力の伸びと「1 週間の見込み」は消した -->
-        <div class="stats c4">
+        <div class="stats c4 duo">
           <div class="stat hero">
             <!-- **生の item_icon_secretstone は使わない。**あれは「神名のカケラ」の絵
                  （2026-08-30 の先生の指摘）。生徒共通の神名文字の絵は無いので、

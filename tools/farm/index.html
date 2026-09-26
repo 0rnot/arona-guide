@@ -22,7 +22,7 @@
 <meta name="twitter:description" content="この素材はどこで掘れて、誰が使うのか。素材から周回先と生徒を引きます。">
 <meta name="twitter:image" content="https://arona-bot.com/images/og/farm.jpg">
 <link rel="stylesheet" href="../../style.css?v=25">
-<link rel="stylesheet" href="../tool.css?v=18">
+<link rel="stylesheet" href="../tool.css?v=19">
 <style>
   /* ===== 素材を選ぶところ（区画の外。2 区画で同じ素材を使う） ===== */
   /* 広い画面では左にカードと仲間、右に札の一覧 */
@@ -63,7 +63,6 @@
   #browse > summary small { font-weight: 400; color: var(--fg-mute); font-size: .76rem; }
   @media (min-width: 900px) { #browse > summary { display: none; } }
   #mgroups { margin: 4px 0 10px; }
-  .vh { position: absolute !important; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
   @media (max-width: 899px) { .pick2 { gap: 10px; } }
   /* 広い画面では左の段（カードと仲間）の高さに近づける。320px だと答えが 1 画面目から落ちていた */
   @media (min-width: 900px) { #matbox { max-height: 232px; } }
@@ -71,13 +70,10 @@
   /* 倍率はラベルと同じ行に */
   .inl { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; margin-top: 12px; }
   .inl .lb { font-size: .875rem; font-weight: 700; }
-  /* 答えの札。**いちばんの場所を横いっぱい、残りを 2 列**（スマホで 3 段・330px あった） */
-  .tcol .stats.c3 { grid-template-columns: 1fr 1fr; margin: 0; }
-  .tcol .stats.c3 > .stat.hero { grid-column: 1 / -1; }
-  .tcol .stats.c3 > .stat:nth-child(3):last-child { grid-column: auto; }
+  /* 答えの札。**いちばんの場所を横いっぱい、残りを 2 列**（スマホで 3 段・330px あった）。
+     並びは tool.css の `.hero2`。誰が使うの札は 2 枚だけなので `.duo` で横に並べる */
+  .tcol .stats.c3 { margin: 0; }
   .tpane > .tcols { margin-top: 12px; }
-  /* 誰が使うの札は 2 枚だけ。**横に並べる** */
-  #sec-use .tcol .stats.c3 > .stat.hero { grid-column: auto; }
   /* 段ごとの合計。**絵を左、数と名前を右に**（縦に積むと 1 枚 200px あった。2026-09-26 の UI 見直し） */
   .tiers4 .t4 { display: grid; grid-template-columns: 40px minmax(0, 1fr); gap: 0 10px; align-items: center;
                 text-align: left; padding: 8px 10px; }
@@ -359,7 +355,7 @@
       </div>
 
       <div class="tcol">
-        <div class="stats c3">
+        <div class="stats c3 hero2">
           <div class="stat hero">
             <div class="k">いちばん効率のいい場所</div>
             <div class="v" id="o-best">—</div>
@@ -403,7 +399,7 @@
       </div>
 
       <div class="tcol">
-        <div class="stats c3">
+        <div class="stats c3 duo">
           <div class="stat hero">
             <div class="k">使う生徒</div>
             <div class="v" id="u-o-n">—</div>

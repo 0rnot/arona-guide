@@ -22,7 +22,7 @@
 <meta name="twitter:description" content="拠点防衛と信用回収、今日はどちらを回るか。手持ちのレポートとクレジットが何人ぶんかを数えます。">
 <meta name="twitter:image" content="https://arona-bot.com/images/og/report-credit.jpg">
 <link rel="stylesheet" href="../../style.css?v=25">
-<link rel="stylesheet" href="../tool.css?v=18">
+<link rel="stylesheet" href="../tool.css?v=19">
 <style>
   /* 素材の欄。**2×2 に詰める**（2026-09-26 の UI 見直し）。1 行ずつだと 4 段で 256px あった。
      左に絵、右に名前と入力を縦に */
@@ -32,8 +32,6 @@
   .mat img { width: 34px; height: 34px; border-radius: 7px; grid-row: 1 / 3; align-self: center; }
   .mat .nm { font-size: .78rem; line-height: 1.35; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .mat input { text-align: right; padding: .3em .55em; font-size: .95rem; }
-  /* 判定の下の 2 枚は**スマホでも横に並べる**（数字 1 つずつなので入る） */
-  .tcol .stats.c2 { grid-template-columns: 1fr 1fr; }
   #p-have .fields { margin-top: 12px; }
   .verdict {
     border-radius: 12px; padding: 14px 16px; margin: 0;
@@ -179,7 +177,7 @@
         <p id="v-body"></p>
       </div>
 
-      <div class="stats c2">
+      <div class="stats c2 duo">
         <div class="stat hero">
           <div class="k"><img class="ico" src="../img/item_icon_expitem_3.webp" alt="" width="18" height="18" loading="lazy"> レポート</div>
           <div class="v" id="o-rep">—</div>
