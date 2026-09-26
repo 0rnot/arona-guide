@@ -50,9 +50,50 @@
   .lad.brk { border-top: 2px solid var(--accent); }
   .lad.brk .n::after { content: " ▸"; color: var(--accent); }
   /* 狭い画面では範囲を下の行へ落とす。3 列のままだと矢印が折り返す */
+  /* **範囲は見出しに 1 回だけ書いて、行は 1 行に収める**（2026-09-26 UI 見直し）。
+     前は 1 段ごとに「挑戦できる範囲 …」を 2 行目に落としていて、23 段で 1,150px あった */
+  .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .lad.lh { padding: 0 0 .3em; font-size: .72rem; color: var(--fg-mute); font-weight: 500; }
+  .lad { padding: .38em 0; }
+  .lad .rg { text-align: right; }
   @media (max-width: 520px) {
-    .lad { grid-template-columns: 2.2em 1fr; }
-    .lad .rg { grid-column: 2; white-space: normal; }
+    .lad { grid-template-columns: 1.7em 1fr auto; gap: .5em; font-size: .86rem; }
+    .lad .rg { font-size: .72rem; }
+  }
+
+  /* ---- 入力を 1 枚に詰める（2026-09-26 UI 見直し） */
+  /* 順位と目標は横に並べる。目標の選択肢は「8,001 〜 15,000 位」まであるので、そちらを広く */
+  .pv-in { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.45fr); gap: 10px 12px; }
+  .pv-in .field .hint { display: block; margin: 0; }
+  .pv-in .field { display: flex; flex-direction: column; min-width: 0; }
+  .pv-in .field > input, .pv-in .field > select { margin-top: auto; }
+  /* 選び方は帯と一言を 1 行に */
+  .pv-mode { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin-top: 12px; }
+  .pv-mode .seg button { min-height: 36px; }
+  /* 2 行に折れても楕円の塊にしない（tool.css の .seg と同じ理由） */
+  .pv-cols .checks label { border-radius: 14px; min-height: 40px; box-sizing: border-box; }
+  .pv-mode p { color: var(--fg-mute); font-size: .78rem; margin: 0; line-height: 1.5; }
+
+  /* ---- スマホでは答えを入力のすぐ下へ。**柱をほどいて、板を並べ直す。**
+     順位を上げる: 入力 → 数字 3 つ → 1 日の差 → 階段 → 最高記録
+     コインの収支: 数字 3 つ → 入る → 出る → 手持ち（収支が最初の画面に入る） */
+  @media (max-width: 899px) {
+    .pv-cols > .tcol { display: contents; }
+    #sec-ladder .pv-in-panel { order: 1; }
+    #sec-ladder .stats { order: 2; }
+    #sec-ladder .pv-day { order: 3; }
+    #sec-ladder .pv-lad { order: 4; }
+    #sec-ladder .note-box { order: 5; }
+    #sec-coin .stats { order: 0; }
+    #sec-coin .tcol:first-child > .panel { order: 1; }
+    #sec-coin .pv-have { order: 2; }
+    /* 数字 3 つは 1 行に。スマホでも 1 画面に入る高さにする */
+    .pv-cols .stats.c3 { grid-template-columns: 1.15fr 1fr 1fr; gap: 6px; margin: 0; }
+    .pv-cols .stats.c3 > .stat:nth-child(3):last-child { grid-column: auto; }
+    .pv-cols .stat { padding: 8px 10px; min-width: 0; }
+    .pv-cols .stat .k { font-size: .7rem; letter-spacing: 0; line-height: 1.4; }
+    .pv-cols .stat .v { font-size: 1.3rem; }
+    .pv-cols .stat .sub { font-size: .68rem; line-height: 1.4; }
   }
 </style>
 </head>
@@ -171,15 +212,13 @@
 
     <!-- ================================================ 順位を上げる（元の pvp-ladder） -->
     <div class="tpane" id="sec-ladder" data-p="ladder" role="tabpanel" aria-labelledby="tb-sec-ladder" tabindex="0">
-  <div class="tcols wideleft" style="margin-top:20px">
+  <div class="tcols wideleft pv-cols" style="margin-top:12px">
 
     <div class="tcol">
-      <div class="panel">
-        <div class="panel-h"><h2>今の順位</h2></div>
-        <p class="lead">シーズンの開始時は全員 15001 位からです。</p>
-        <div class="fields c2">
+      <div class="panel pv-in-panel">
+        <div class="pv-in">
           <div class="field" id="f-rank">
-            <label for="i-rank">今の順位<span class="hint">2 〜 15001</span></label>
+            <label for="i-rank">今の順位<button type="button" class="qm" data-hint="2 〜 15001 位。シーズンの開始時は全員 15001 位からです。"></button></label>
             <input id="i-rank" type="number" inputmode="numeric" min="2" max="15001" step="1" value="15001">
           </div>
           <div class="field">
@@ -187,18 +226,17 @@
             <select id="i-goal" aria-label="目標の順位"></select>
           </div>
         </div>
-        <div style="margin-top:16px">
-          <span class="lb" style="display:block;font-size:.84rem;font-weight:700;margin-bottom:.5em">選び方</span>
+        <div class="pv-mode">
           <div class="seg" id="mode" role="group" aria-label="経路の選び方">
             <button type="button" data-m="top" aria-pressed="true">最短で登る</button>
             <button type="button" data-m="many" aria-pressed="false">対戦回数を稼ぐ</button>
           </div>
-          <p id="mode-note" style="color:var(--fg-mute);font-size:.78rem;margin:.7em 0 0;line-height:1.7"></p>
+          <p id="mode-note"></p>
         </div>
         <p class="err" id="err" hidden></p>
       </div>
 
-      <div class="panel">
+      <div class="panel pv-lad">
         <div class="panel-h"><h2>登り方</h2></div>
         <!-- **答えの数字をここにも出す。**「勝つ回数」の枠はスマホだと階段 23 段の
              下（入力から約 2,300px）に居て、入力しても答えが見えなかった（2026-08-31 に実測） -->
@@ -226,9 +264,8 @@
         </div>
       </div>
 
-      <div class="panel">
-        <div class="panel-h"><h2><img class="ico" src="../img/currency_icon_gem.webp" alt="" width="24" height="24" loading="lazy"><img class="ico" src="../img/item_icon_arenacoin.webp" alt="" width="24" height="24" loading="lazy"> 1 日にもらえるもの</h2></div>
-        <p class="lead"><b>毎日 14 時にリセット</b>されます。</p>
+      <div class="panel pv-day">
+        <div class="panel-h"><h2><img class="ico" src="../img/currency_icon_gem.webp" alt="" width="24" height="24" loading="lazy"><img class="ico" src="../img/item_icon_arenacoin.webp" alt="" width="24" height="24" loading="lazy"> 1 日にもらえるもの<button type="button" class="qm" data-hint="毎日 14 時にリセットされます。そのときの順位の帯でもらえます。"></button></h2></div>
         <div class="ledger">
           <div class="row"><span id="l-now-k">今の順位（—）</span><span id="l-now">—</span></div>
           <div class="row"><span id="l-goal-k">目標の順位</span><span id="l-goal">—</span></div>
@@ -249,7 +286,7 @@
 
     <!-- ================================================ コインの収支（元の pvp-coin） -->
     <div class="tpane" id="sec-coin" data-p="coin" role="tabpanel" aria-labelledby="tb-sec-coin" tabindex="0">
-  <div class="tcols lean" style="margin-top:20px">
+  <div class="tcols lean pv-cols" style="margin-top:12px">
     <div class="tcol">
       <div class="panel">
         <div class="panel-h"><h2><img class="ico" src="../img/item_icon_arenacoin.webp" alt="" width="24" height="24" loading="lazy"> 入ってくるぶん<button type="button" class="qm" data-hint="日別報酬は毎日14時のリセット時点の順位で決まります。その直前に順位を上げておくと、1段上の報酬を取れます。順位帯は「順位を上げる」で選んだ目標に合わせてあり、ここで選び直すとそちらが優先されます。"></button></h2></div>
@@ -258,7 +295,7 @@
           <select id="i-band" aria-label="順位帯"></select>
         </div>
         <div class="numrow">
-          <div class="nm"><img class="ico sm" src="../img/ui_type_defense.webp" alt="" width="18" height="18" loading="lazy">防衛で勝つ回数<small id="def-note">1 勝 3 枚。1 日 10 回まで</small></div>
+          <div class="nm"><i class="gi gi-type-defense" aria-hidden="true"></i>防衛で勝つ回数<small id="def-note">1 勝 3 枚。1 日 10 回まで</small></div>
           <select id="i-def" aria-label="防衛勝利の回数"></select>
         </div>
         <div class="numrow sum"><div>1 日に入るコイン</div><div class="v" id="o-in">—</div></div>
@@ -275,11 +312,12 @@
           <select id="i-reset" aria-label="ショップの更新回数"></select>
         </div>
         <div class="numrow">
-          <div class="nm"><i class="gi gi-craftnode-secretstone" aria-hidden="true"></i>神名文字<small id="eleph-note">1 口 50 枚で 5 個。買う口数を入れてください</small></div>
-          <input id="i-eleph" type="number" inputmode="numeric" min="0" max="7" step="1" value="0">
+          <div class="nm"><i class="gi gi-craftnode-secretstone" aria-hidden="true"></i>神名文字<small id="eleph-note">1 口 50 枚で 5 個</small></div>
+          <!-- **口数は選ぶ。**0〜7 しか無いので、打つより 1 回で済む（2026-09-26）。値は元の数字のまま -->
+          <select id="i-eleph" aria-label="神名文字を買う口数"></select>
         </div>
         <div class="checks" style="margin-top:14px">
-          <label><input type="checkbox" id="i-eleph-once"> 神名文字は更新のたびには買わない（1 日 1 回だけ）</label>
+          <label><input type="checkbox" id="i-eleph-once"> 神名文字は更新ごとに買わない（1 日 1 回）</label>
         </div>
         <div class="numrow sum"><div>1 日に出るコイン</div><div class="v" id="o-out">—</div></div>
       </div>
@@ -304,7 +342,7 @@
         </div>
       </div>
 
-      <div class="panel">
+      <div class="panel pv-have">
         <div class="panel-h"><h2>手持ちで何日もつか</h2></div>
         <div class="fields c2 fgrid">
           <div class="field">
@@ -560,10 +598,11 @@ window.pvpSegOf = function (key) {
       h += '<div class="lad' + (s.to <= goal ? ' goal' : '') + (brk ? ' brk' : '') + '">' +
         '<span class="n">' + (i + 1) + '</span>' +
         '<span class="mv">' + fmt(s.from) + ' 位<span class="ar">→</span><b>' + fmt(s.to) + ' 位</b></span>' +
-        '<span class="rg">挑戦できる範囲 ' + fmt(s.lo) + '〜' + fmt(s.hi) + ' 位</span>' +
+        '<span class="rg"><span class="sr-only">挑戦できる範囲 </span>' + fmt(s.lo) + '〜' + fmt(s.hi) + ' 位</span>' +
         '</div>';
     });
-    el('ladder').innerHTML = h;
+    // **範囲の説明は見出しに 1 回だけ。**行ごとに書くと 2 行に折れる
+    el('ladder').innerHTML = '<div class="lad lh" aria-hidden="true"><span>#</span><span>勝って上がる順位</span><span class="rg">挑戦できる範囲</span></div>' + h;
 
     drawRewards(rank);
   }
@@ -672,9 +711,14 @@ window.pvpSegOf = function (key) {
       h += '<option value="' + k + '"' + (k === RESET_MAX ? ' selected' : '') + '>' + (k ? k + ' 回' : 'しない') + '</option>';
     }
     iReset.innerHTML = h;
-    iEleph.max = ELEPH_SLOTS;
-    el('reset-note').textContent = '1 回 ' + RESET_COST + ' 枚。更新すると、上のドリンクをまた買える';
-    el('eleph-note').textContent = '1 口 ' + ELEPH + ' 枚で ' + ELEPH_N + ' 個。買う口数を入れてください（最大 ' + ELEPH_SLOTS + '）';
+    h = '';
+    for (var e = 0; e <= ELEPH_SLOTS; e++) {
+      h += '<option value="' + e + '"' + (e === 0 ? ' selected' : '') + '>' + (e ? e + ' 口' : '買わない') + '</option>';
+    }
+    iEleph.innerHTML = h;
+    // **行の下の一言は数字だけ。**「更新するとまた買える」は出ていくぶんの ⓘ にある
+    el('reset-note').textContent = '1 回 ' + RESET_COST + ' 枚（1 日 ' + RESET_MAX + ' 回まで）';
+    el('eleph-note').textContent = '1 口 ' + ELEPH + ' 枚で ' + ELEPH_N + ' 個（' + ELEPH_SLOTS + ' 口まで）';
     el('out-hint').setAttribute('data-hint', 'ショップは1日' + RESET_MAX + '回まで更新でき、更新のたびに並んだものをもう一度買えます。このツールは、更新のたびに同じドリンクを買い直す前提で計算しています。買わない更新があるときは、更新回数を減らしてください。');
   })();
 
@@ -718,10 +762,10 @@ window.pvpSegOf = function (key) {
     el('band-note').textContent = (iBand.value ? '毎日 14 時にリセット' : '「順位を上げる」の目標の帯') +
       '。この順位帯なら 1 日 ' + rw.coin + ' 枚';
     var d = parseInt(iDef.value, 10) || 0;
-    el('def-note').textContent = '1 勝 ' + DEF_COIN + ' 枚。1 日 ' + DEF_MAX + ' 回まで。' + d + ' 勝で ' + (d * DEF_COIN) + ' 枚';
+    el('def-note').textContent = '1 勝 ' + DEF_COIN + ' 枚（' + DEF_MAX + ' 回まで）→ ' + (d * DEF_COIN) + ' 枚';
     var dr = parseInt(iDrink.value, 10) || 0;
     el('drink-note').textContent = '初級（AP' + DR[0].ap + '）' + DR[0].cost + ' 枚 ／ 中級（AP' + DR[1].ap + '）' + DR[1].cost + ' 枚' +
-      (dr > 0 ? '。この選択で 1 回 ' + dr + ' 枚' : '');
+      (dr > 0 ? ' → 1 回 ' + dr + ' 枚' : '');
   }
   function calc() {
     noteRows();
