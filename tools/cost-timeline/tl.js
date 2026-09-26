@@ -96,9 +96,9 @@
 
   function formNote(d) {
     var k = FORM_RULE[d.id] || 'hold';
-    return k === 'pick' ? '自動では決めていません。撃つ形態を選んでください'
-         : k === 'alt' ? '撃つたびに入れ替わるものとして数えています'
-         : '2 回目から次の形態、最後の形態はそのまま続くものとして数えています';
+    return k === 'pick' ? '自動では決めません。欄で選んでください'
+         : k === 'alt' ? '撃つたびに入れ替わる'
+         : '順送り、最後の形態で止まる';
   }
   /** `sp` の印を日本語にする。**値は data.js のもの、文は原文のまま出す。** */
   var SP_JA = {
@@ -198,8 +198,8 @@
     var n = el('o-durnote');
     if (!n) return;
     n.textContent = dur
-      ? '書き出しの時刻は「残り ' + clockIn(dur) + ' から数えた残り時間」で出ます'
-      : '選ぶと、書き出しの時刻が「残り時間」になります';
+      ? '書き出しは残り時間（' + clockIn(dur) + ' から）'
+      : '選ぶと書き出しが残り時間になります';
   }
 
   function state() {
@@ -556,8 +556,8 @@
     slots.forEach(function (s, i) { if (s.id && s.w4 && !isMain(i) && live(i)) w4++; });
     el('o-capv').textContent = n1(cap);
     el('o-capnote').textContent = w4
-      ? '素の ' + LAYOUT[mode].cap + ' ＋ 固有武器 ★4 のスペシャル ' + w4 + ' 人ぶん（＋' + n1(w4 * W4_CAP) + '）'
-      : '素の ' + LAYOUT[mode].cap + '。スペシャルの枠で「固有4」に印を付けると ＋' + n1(W4_CAP) + ' ずつ増えます';
+      ? '素の ' + LAYOUT[mode].cap + ' ＋ 固有4 のスペシャル ' + w4 + ' 人（＋' + n1(w4 * W4_CAP) + '）'
+      : '素の ' + LAYOUT[mode].cap + '。スペシャルの「固有4」1 人につき ＋' + n1(W4_CAP);
 
     var b = startBonus(), man = parseFloat(el('i-start').value) || 0;
     var note = el('start-note');
@@ -566,10 +566,10 @@
       note.textContent = '';
     } else {
       note.hidden = false;
-      note.textContent = b.d.n + ' のノーマルスキル Lv' + b.lv + ' で ＋' + nn(b.amt) + ' コスト' +
+      note.textContent = b.d.n + ' のノーマル Lv' + b.lv + ' で ＋' + nn(b.amt) +
         (b.per ? '（' + nn(b.v) + ' × ' + b.n + ' 人）' : '') +
-        '。手で入れた ' + nn(man) + ' と合わせて、開始時は ' + nn(Math.min(cap, man + b.amt)) + ' コストです。' +
-        (b.off.length ? b.off.join('・') + ' は、同じ効果が重ならないので不発です。' : '');
+        '。開始時は ' + nn(Math.min(cap, man + b.amt)) + ' コストです。' +
+        (b.off.length ? b.off.join('・') + ' は重ならないので不発。' : '');
     }
 
     el('gims').innerHTML = gims.length ? gims.map(function (g, j) {
@@ -627,7 +627,7 @@
   /** 「すぐにドロー」で手札に戻った行に、そのことを 1 行で出す。 */
   function keepHtml(r) {
     if (!r.kept) return '';
-    return '<br>' + esc(r.d.n) + ' のカードは山札へ戻らず、すぐ手札に返ります';
+    return '<br>' + esc(r.d.n) + ' のカードはすぐ手札に戻ります';
   }
 
   /** 複製の行き先を、行の下に 1 行で出す。 */
@@ -803,15 +803,13 @@
     var pin = Math.min(LAYOUT[mode].start, sim.deck.length);
     var full = pin >= sim.deck.length - 1;
     el('tl-lead').textContent = (miss.length
-      ? miss.length + ' 発、そのとき手札にありません。並べ直してください。'
+      ? miss.length + ' 発が手札にありません。並べ直してください。'
       : ng.length
         ? ng.length + ' 発、指定した秒には撃てません。'
-        : ok.length + ' 発ぜんぶ撃つのに、コストの都合では最短 ' +
-          n1(ok.length ? ok[ok.length - 1].at : 0) + ' 秒かかります。') +
-      (miss.length || !sim.deck.length ? ''
-        : '山札は ' + sim.deck.length + ' 枚で、開始スキルで指定できるのは ' + pin + ' 人。' +
-          (full ? '残りは自動で決まるので、この並びは最後まで再現できます。'
-                : '指定できない ' + (sim.deck.length - pin) + ' 人ぶんは山札の順しだいです。'));
+        : ok.length + ' 発で最短 ' +
+          n1(ok.length ? ok[ok.length - 1].at : 0) + ' 秒。') +
+      (miss.length || !sim.deck.length || full ? ''
+        : '開始スキルで指定できない ' + (sim.deck.length - pin) + ' 人ぶんは山札の順しだいです。');
 
     /* 書き出し。**4 列の本体は今までと同じ形。**上に `#` で始まる 2 行を足した。
        1 行目に共有 URL が入っているので、**これをそのまま貼り戻すと編成ごと戻る。**
@@ -907,10 +905,8 @@
       g + '<path class="area" d="' + area + '"></path><path class="line" d="' + line + '"></path>' +
       marks + goalMark(goal, x, T, y(lo), span) + '</svg>';
     el('chart-lead').textContent = '縦がコスト（上限 ' + n1(cap) + (lo < 0 ? '、下限 ' + neg(lo) : '') +
-      '）、横が秒です。破線は EX を撃ったところ。'
-      + '戦闘開始から ' + REC_DELAY + ' 秒は貯まりません。傾きが変わるところは、'
-      + 'コスト回復力のバフが立ったか切れたところです。'
-      + (goal == null ? '' : '赤い縦線が目標の ' + clockIn(goal) + ' です。');
+      '）、横が秒。破線が EX を撃ったところ'
+      + (goal == null ? '' : '、赤い縦線が目標の ' + clockIn(goal)) + '。';
     drawSide(sim, span, W, L, R);
   }
 
@@ -1118,7 +1114,7 @@
     }
     /* **画面に出す文は数だけ。**色の意味・初回の決め方・特効の扱いは丸に i へ
        （2026-08-31 の先生の指示——文章は最小限、詳しいのは丸に i で十分）。 */
-    lead.textContent = '帯 ' + bars.length + ' 本。左端が発動、右端の縦線で切れます。' +
+    lead.textContent = '帯 ' + bars.length + ' 本。左端で発動、右端で切れます。' +
       (ns ? (ns === bars.length ? '' : 'うち ') + ns + ' 本はノーマル・パッシブ・サブ。' : '') +
       (over ? over + ' 本は右端より先まで続きます。' : '') +
       (cut ? cut + ' 本は ' + TICK_MAX + ' 回で打ち切り。' : '');
@@ -1198,7 +1194,7 @@
       f: function (b) { return b.root === 'AttackPower' && b.k === 'c' && b.sd !== 'enemy'; } },
     { t: '攻撃力（足し算・実数）— 倍率には直せません',
       f: function (b) { return b.root === 'AttackPower' && b.k === 'b' && b.sd !== 'enemy'; } },
-    { t: '属性特効 — 受け取る子の攻撃属性が合ったときだけ乗ります。相手の装甲でも通り方が変わるので、上の倍率には入れていません',
+    { t: '属性特効 — 攻撃属性が合う子だけに乗るので、倍率には入れていません',
       f: function (b) { return b.amp && b.sd !== 'enemy'; } },
     { t: '火力に効きますが、攻撃力ではないもの',
       f: function (b) {
@@ -1282,11 +1278,7 @@
       }).join('');
       box.innerHTML = '<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="攻撃力の倍率">' +
         g + rows + goalMark(goal, x, T, H - B, span) + '</svg>';
-      lead.textContent = '素の攻撃力を 1 としたときの倍率です。' +
-        '本人にかかるバフは撃った子だけ、味方にかかるバフは編成の全員に乗せています。' +
-        '1 人にしか付かないスキルは、上の「撃つ順番」でその行の相手を選ぶと、' +
-        'その子だけに乗ります。' +
-        '足し算の攻撃力（AttackPower_Base）と特効は、ここには入れていません。';
+      lead.textContent = '素の攻撃力を 1 とした倍率です。足し算の攻撃力と特効は入っていません。';
     }
     // 内訳。**攻撃力に入れたものと、入れなかったものを分けて出す。**
     var seen = {}, html = '';
@@ -1338,9 +1330,7 @@
     });
     box.innerHTML = items.length ? '<div class="tlx-list">' + items.join('') + '</div>' : '';
     lead.textContent = items.length
-      ? items.length + ' 件。スキル文に「N秒毎に」と書かれていないので、いつ発動するかがデータから決まりません。' +
-        '引き金はゲームの書きぶりのまま出しています（<?1> や <b:Shield> はゲーム側の差し込み記号で、' +
-        '意味が変わらないよう直していません）。時間軸には乗せていないので、手で補ってください。'
+      ? items.length + ' 件。発動の時刻が決まらないので、ほかの図には乗せていません。'
       : (ms.length ? '条件で発動するスキルを持った子は、この編成にはいません。'
                    : '編成を決めると条件発動のスキルが出ます。');
   }
@@ -1349,7 +1339,7 @@
     var holders = D.students.filter(function (s) { return s.r && s.r.length; });
     holders.sort(function (a, b) { return a.n.localeCompare(b.n, 'ja'); });
     el('rlist-lead').textContent = '全 ' + D.students.length + ' 人のうち ' + holders.length +
-      ' 人です。数値は右がスキル最大のときの値で、% は編成の全員にかかります。';
+      ' 人。右端がスキル最大の値で、% は編成の全員にかかります。';
     el('rlist').innerHTML = holders.map(function (s) {
       var ef = s.r.map(function (e) {
         var row = e.v[e.v.length - 1] || [];
