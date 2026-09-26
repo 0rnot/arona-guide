@@ -313,23 +313,7 @@
 
 <div class="twrap wide">
 
-  <!-- **イベントと周だけは盤の上。**型の欄から出した（2026-09-26）。
-       ここを選べば備品の型は自動で入るので、盤を触る前に要るのはこれだけ -->
-  <div class="panel">
-    <div class="pickev">
-      <div class="field">
-        <label for="event">イベント</label>
-        <select id="event"></select>
-        <p class="hintline" id="event-note"></p>
-      </div>
-      <div>
-        <p class="wklabel">この周の中身を入れる<button type="button" class="qm" data-hint="押すと備品の型が入れ替わり、盤面も白紙に戻ります。"></button></p>
-        <div class="wkrow" id="weeks"></div>
-      </div>
-    </div>
-  </div>
-
-  <div class="tcols wideleft" style="margin-top:20px">
+  <div class="tcols wideleft">
 
     <div class="tcol">
       <div class="panel">
@@ -355,6 +339,26 @@
         </div>
         <p class="err" id="err" hidden></p>
       </div>
+      <!-- **盤 → イベント → 備品の型 → 答え の順**（2026-09-27 の先生の指示）。
+           イベントと型は盤の下に続けて置き、PC でも 2 つを隣にする（右の細い列だと型の欄が潰れた）。
+           右の列は答えだけにして盤の横に出す。スマホは左の列、右の列の順に縦に積まれるので指示どおりになる -->
+      <div class="panel">
+        <div class="pickev">
+          <div class="field">
+            <label for="event">イベント</label>
+            <select id="event"></select>
+            <p class="hintline" id="event-note"></p>
+          </div>
+          <div>
+            <p class="wklabel">この周の中身を入れる<button type="button" class="qm" data-hint="押すと備品の型が入れ替わり、盤面も白紙に戻ります。"></button></p>
+            <div class="wkrow" id="weeks"></div>
+          </div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-h"><h2>備品の型</h2><span class="hsub">書き換えられます。「狙う」を外すと確率に数えません</span><button type="button" class="qm" data-hint="名前・よこ・たて・個数は書き換えられます。狙うものを絞ると、マスの数字が「なにかある確率」から「狙っているものがある確率」に変わります。盤の置き方の数え上げは変わらないので、外した備品もちゃんと場所を取ったまま計算します。周を切り替えると「狙う」は全部に戻ります。"></button></div>
+        <div id="items"></div>
+      </div>
     </div>
 
     <div class="tcol">
@@ -379,14 +383,6 @@
       <div class="panel">
         <div class="panel-h"><h2>おすすめのマス</h2><span class="hsub"><span id="picks-k">当たる確率</span>が高い順</span><button type="button" class="qm" data-hint="「当たる備品の大きさ」は、そこに何かあったときそれが何マスの備品かの期待値です。大きいものほど、見つけたときの手がかりが増えます。"></button></div>
         <div class="picks" id="picks"></div>
-      </div>
-    </div>
-
-    <!-- 備品の型は盤の下の全幅（2026-09-26）。周を選べば入るので、書き換えるときだけ触る -->
-    <div class="tfull">
-      <div class="panel">
-        <div class="panel-h"><h2>備品の型</h2><span class="hsub">書き換えられます。「狙う」を外すと確率に数えません</span><button type="button" class="qm" data-hint="名前・よこ・たて・個数は書き換えられます。狙うものを絞ると、マスの数字が「なにかある確率」から「狙っているものがある確率」に変わります。盤の置き方の数え上げは変わらないので、外した備品もちゃんと場所を取ったまま計算します。周を切り替えると「狙う」は全部に戻ります。"></button></div>
-        <div id="items"></div>
       </div>
     </div>
 
