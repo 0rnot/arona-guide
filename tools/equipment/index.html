@@ -322,6 +322,62 @@
   .wgain li.now b { color: var(--accent-tx); }
 
   .sortlb { font-size: .78rem; color: var(--fg-mute); align-self: center; }
+  /* ============================== UI 見直し（2026-09-26、先生「無駄な余白を無くして、
+     入力のしやすさを向上して、必要な情報がひと目でわかるように」）
+     390 幅で最初の欄が y=1264・頁 4,786px だった */
+  /* **札の上段は「段＋絵」を 1 行に。**絵は部位の見分け用なので小さくてよい。
+     1 部位あたり 2 段 × 30px ほど縮む */
+  .pc .tg { display: inline; vertical-align: middle; }
+  .pc img { display: inline-block; width: 26px; height: 26px; margin: 0 0 2px 3px; vertical-align: middle; }
+  .invbtns { margin: 10px 0; gap: 6px; }
+  .invbtns .btn { font-size: .8rem; padding: .5em 1em; }
+  @media (max-width: 560px) {
+    .cat { padding: 9px 9px 10px; margin-bottom: 8px; }
+    .cat .bar { margin: .35em 0 .5em; }
+    .pc { padding: 3px 2px 2px; }
+    .pc img { width: 20px; height: 20px; margin: 0 0 1px 1px; }
+    .pc .tg { font-size: .62rem; }
+    .invbtns { display: grid; grid-template-columns: auto auto 1fr; }
+    .invbtns .btn { padding: .6em .7em; white-space: nowrap; }
+  }
+  /* **数字の帯。**スマホでは 3 つを 1 段に詰める（前は 1 枚ずつ縦に 3 段、330px） */
+  @media (max-width: 559px) {
+    #eqwrap .stats.strip { grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr) minmax(0, 1fr); gap: 6px; }
+    #eqwrap .stats.strip > .stat { grid-column: auto; padding: 7px 9px 6px; min-width: 0; }
+    #eqwrap .stats.strip .k { font-size: .66rem; letter-spacing: 0; line-height: 1.35; }
+    #eqwrap .stats.strip .k .ico { width: 1.6em; height: 1.6em; vertical-align: -.45em; margin-right: .15em; }
+    #eqwrap .stats.strip .v { font-size: 1.14rem; margin-top: 0; }
+    #eqwrap .stats.strip .sub { font-size: .62rem; line-height: 1.4; margin-top: 0;
+                                white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    #eqwrap .stats.strip .cl { font-size: .62rem; gap: 0 4px; margin-top: .1em; }
+    #eqwrap .stats.strip .lg { display: none; }
+    /* **設計図の帯は上に貼り付ける。**在庫を下のほうの部位まで打っていても、
+       答えが目の前に出ている。上のバー（sticky、57px）の真下 */
+    #farm-sum { position: sticky; top: 56px; z-index: 5; background: var(--bg);
+                margin: 8px -6px 0; padding: 6px; border-radius: 0 0 14px 14px; }
+    /* ①〜④ を 1 行に */
+    #eqwrap [data-panes="equipment"] > .ttabs { flex-wrap: nowrap; margin-top: 10px; }
+    #eqwrap [data-panes="equipment"] > .ttabs button { flex: 1 1 auto; padding: .5em .45em; font-size: .8rem; }
+  }
+  @media (max-width: 420px) { #eqwrap .ttabs .lg { display: none; } }
+  /* **焦点が移った欄を帯の下に隠さない。**Enter で次の欄へ進むと、ブラウザは
+     ぎりぎりまでしか送らないので、上のバー＋帯（約 140px）の裏に入る */
+  @media (max-width: 559px) { html { scroll-padding-top: 150px; } }
+  /* 強化珠の行。**スマホでは「個数」と ✕ を 1 行に**（前は個数だけで 1 段取っていた） */
+  @media (max-width: 700px) {
+    .eqrow { padding: 8px 0 10px; }
+    .eqrow .cnt { grid-template-columns: auto 6.5em; align-items: center; justify-content: start; gap: 8px; }
+    .eqrow .cnt .lb { grid-column: auto; }
+    .eqrow .del { width: 40px; height: 40px; align-self: center; }
+  }
+  /* 強化珠の手持ち 4 つは 1 段に（前は 2×2 で 190px） */
+  .gems { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+  .gem { grid-template-columns: minmax(0, 1fr); justify-items: center; text-align: center; gap: 3px; }
+  .gem img { width: 28px; height: 28px; }
+  .gem > div { width: 100%; min-width: 0; }
+  .gem .gn { display: block; font-size: .72rem; margin-bottom: 3px; }
+  .gem .gn small { font-size: .62rem; }
+  .gem input { text-align: center; }
 </style>
 </head>
 <body>
@@ -438,7 +494,9 @@
     </div>
 
     <div class="tpane" id="sec-farm" data-p="farm" role="tabpanel" aria-labelledby="tb-sec-farm" tabindex="0">
-  <div class="stats c3" style="margin-top:20px">
+  <!-- **スマホでは 3 つを 1 段に詰めて、上に貼り付ける**（2026-09-26 UI 見直し）。
+       在庫を 90 欄打っている間も「次に周回するところ」が見えているように -->
+  <div class="stats c3 strip" id="farm-sum" style="margin-top:12px">
     <div class="stat hero">
       <div class="k">次に周回するところ</div>
       <div class="v" id="o-stage">—</div>
@@ -450,16 +508,10 @@
       <div class="sub" id="o-runs-sub"></div>
     </div>
     <div class="stat">
-      <div class="k">目標までの達成率</div>
+      <div class="k"><span class="lg">目標までの</span>達成率</div>
       <div class="v" id="o-pct">—</div>
       <div class="sub" id="o-pct-sub"></div>
     </div>
-  </div>
-
-  <div class="note-box" style="margin-top:16px">
-    <b>入れるのは「いま持っている設計図の枚数」だけです。</b>そこから足りないものを出して、
-    <b>いちばん埋まりが早いステージを 1 本</b>選びます。回った結果を入れると、次の 1 本が出ます。
-    入力はこの端末のブラウザに残り、URL にも入るので、別の端末へはリンクを送れば移せます。
   </div>
 
   <!-- **①〜④ をタブで畳む。**在庫の板だけで 3,426px、頁ぜんぶで 8,973px
@@ -469,12 +521,12 @@
        既定は ①。開いた直後は在庫が空で、②③ には出せるものが無い。
        ①の「周回先へ移動」を押すと equip.js が ③ の面へ移す。
        **URL の区画は `eqp=`**（外側の 3 区画が `pane=` を使うので。2026-09-26） -->
-  <div class="tfull tpanes" data-panes="equipment" data-key="eqp" style="margin-top:20px">
+  <div class="tfull tpanes" data-panes="equipment" data-key="eqp" style="margin-top:12px">
     <div class="ttabs" role="tablist" aria-label="どの段を見るか" hidden>
       <button type="button" role="tab" id="tb-eq-inv" data-p="inv"
               aria-controls="pn-inv" aria-selected="true">① 在庫</button>
       <button type="button" role="tab" id="tb-eq-short" data-p="short"
-              aria-controls="pn-short" aria-selected="false">② 足りないもの</button>
+              aria-controls="pn-short" aria-selected="false">② 足りない<span class="lg">もの</span></button>
       <button type="button" role="tab" id="tb-eq-plan" data-p="plan"
               aria-controls="pn-plan" aria-selected="false">③ 周回先</button>
       <button type="button" role="tab" id="tb-eq-set" data-p="set"
@@ -484,9 +536,9 @@
     <div class="tpane" id="pn-inv" data-p="inv" role="tabpanel"
          aria-labelledby="tb-eq-inv" tabindex="0">
       <div class="panel" id="p-inv">
-        <div class="panel-h"><h2>① いま持っている設計図</h2></div>
-        <p class="lead">部位ごとに、<b>T2 から T10 の設計図と万能設計図</b>の枚数を入れてください。
-          <button type="button" class="qm" data-hint="持っていない段は0のままで大丈夫です。欄に入ると数字が選ばれ、Enterで次の欄へ進みます。90個まとめて貼りたいときは下の「まとめて入れる・書き出す」から。右上の数字は「T1からT10まで上げきれる装備が何個ぶんあるか」で、万能設計図をいちばん足りない段に配ったものとして数えています。"></button></p>
+        <!-- **説明は丸の i に畳む**（2026-09-26 UI 見直し）。前は上に note-box と説明の段があり、
+             390 幅で最初の欄が y=1264 まで下がっていた -->
+        <div class="panel-h"><h2>① いま持っている設計図<button type="button" class="qm" data-hint="部位ごとに、T2からT10の設計図と万能設計図の枚数を入れてください。入れるのは「いま持っている枚数」だけです。そこから足りないものを出して、いちばん埋まりが早いステージを1本選びます。回った結果を入れると、次の1本が出ます。入力はこの端末のブラウザに残り、URLにも入るので、別の端末へはリンクを送れば移せます。持っていない段は0のままで大丈夫です。欄に入ると数字が選ばれ、Enterで次の欄へ進みます。90個まとめて貼りたいときは下の「まとめて入れる・書き出す」から。部位ごとの右上の数字は「T1からT10まで上げきれる装備が何個ぶんあるか」で、万能設計図をいちばん足りない段に配ったものとして数えています。"></button></h2></div>
 
         <details class="src bulk" id="bulk">
           <summary>まとめて入れる・書き出す</summary>
@@ -506,7 +558,7 @@
             <b>合っているかは必ずご自分で見比べてください。</b></p>
         </details>
 
-        <div class="btnrow" style="margin:12px 0">
+        <div class="btnrow invbtns">
           <button type="button" class="btn" id="fold-all">ぜんぶ畳む</button>
           <button type="button" class="btn" id="zero-all">ぜんぶ 0 に戻す</button>
           <button type="button" class="btn" id="go-plan">周回先へ移動</button>
@@ -578,20 +630,20 @@
     </div>
 
     <div class="tpane" id="sec-level" data-p="level" role="tabpanel" aria-labelledby="tb-sec-level" tabindex="0">
-  <div class="tcols lean" style="margin-top:20px">
+  <div class="tcols lean" style="margin-top:12px">
 
     <div class="tcol">
       <div class="panel">
         <!-- **説明は丸の i に畳む**（2026-09-26 grill-me Q0-1。中級の先生向け）。
              前は「部位は選びません」「Tier が上がると Lv1 に戻ります」を常に出していた -->
-        <div class="panel-h"><h2>どの装備を上げますか<button type="button" class="qm" data-hint="部位は選びません。帽子でもお守りでも、Tierごとのレベル上限と必要経験値は9部位すべて同じです。Tierが上がるとレベルはLv1に戻るので、T1 Lv1 → T10 Lv70 のようにTierをまたいで入れられます。"></button></h2></div>
+        <div class="panel-h"><h2>どの装備を上げますか<button type="button" class="qm" data-hint="部位は選びません。帽子でもお守りでも、Tierごとのレベル上限と必要経験値は9部位すべて同じです。Tierが上がるとレベルはLv1に戻るので、T1 Lv1 → T10 Lv70 のようにTierをまたいで入れられます。Tier上げに要る設計図はここでは数えません（上の「設計図を集める」で数えます）。"></button></h2></div>
         <div id="rows"></div>
-        <div class="btnrow" style="margin-top:14px">
+        <div class="btnrow invbtns" style="margin-bottom:0">
           <button type="button" class="btn" id="b-add">行を足す</button>
           <button type="button" class="btn" id="b-one">生徒 1 人ぶん（3 枠）</button>
         </div>
         <!-- 「戻す」は消した（2026-09-26）。**見出しの下の「最初に戻す」（remember.js）と 1 つにまとめる** -->
-        <p class="lead" style="margin:16px 0 0"><b>設計図は数えません</b>（<a href="#pane=farm" data-go="farm">設計図を集める</a>で数えます）</p>
+        <!-- 「設計図は数えません（設計図を集めるで数えます）」の段は丸の i へ畳んだ（2026-09-26 UI 見直し） -->
       </div>
 
       <div class="panel">
@@ -601,7 +653,7 @@
     </div>
 
     <div class="tcol">
-      <div class="stats c3">
+      <div class="stats c3 strip">
         <div class="stat hero">
           <div class="k">要る経験値</div>
           <div class="v" id="o-exp">—</div>
@@ -616,7 +668,7 @@
              「強化のぶんと合わせて」を下の「ショップで買うと」欄に出していて、同じ合計が 2 か所にあった。
              大きい数字は合計、下に強化／買い足しの内訳 -->
         <div class="stat">
-          <div class="k"><img class="ico" src="../img/currency_icon_gold.webp" alt="" width="18" height="18" loading="lazy"> クレジット（合計）<button type="button" class="qm" id="credit-qm" data-hint=""></button></div>
+          <div class="k"><img class="ico" src="../img/currency_icon_gold.webp" alt="" width="18" height="18" loading="lazy"> クレジット<span class="lg">（合計）</span><button type="button" class="qm" id="credit-qm" data-hint=""></button></div>
           <div class="v" id="o-credit">—</div>
           <div class="cl" id="o-credit-sub"></div>
         </div>
@@ -678,7 +730,7 @@
     </div>
 
     <div class="tpane" id="sec-stats" data-p="stats" role="tabpanel" aria-labelledby="tb-sec-stats" tabindex="0">
-  <div class="btnrow" style="margin-top:20px">
+  <div class="btnrow" style="margin-top:12px">
     <div class="seg" id="gs-tab" role="group" aria-label="何を見るか">
       <button type="button" data-v="eq" aria-pressed="true">装備</button>
       <button type="button" data-v="gear" aria-pressed="false">愛用品</button>
@@ -686,7 +738,7 @@
     </div>
   </div>
 
-  <div class="tfull" id="pane-eq" style="margin-top:16px">
+  <div class="tfull" id="pane-eq" style="margin-top:10px">
     <div class="panel">
       <div class="panel-h"><h2>部位</h2></div>
       <div class="btnrow">
