@@ -3902,6 +3902,86 @@ MAT_ORDER = ["オーパーツ", "技術ノート", "戦術教育BD", "レポー�
              "武器パーツ", "神名文字", "コイン"]
 
 
+def chaser_stages_from_badb(wd, wdr, items_ba, gacha_el, groups):
+    """指名手配（`WeekDungeon` の ChaserA〜）を **SchaleDB の `stages` と同じ形**に組む。
+
+    **2026-09-23（v1.73）から、指名手配だけ ba-data を正本にする。**SchaleDB は
+    9/15 版のまま止まっていて、この日の改修（ドロップ率の上昇・エリアが 3 → 5・
+    各エリアの学校とオーパーツが 4 種 → 2〜3 種・ステージ07 から挑戦可能）が入っていない。
+
+    読み方（**SchaleDB の組み方と同じ定義**。9/9 版の ba-data で組むと、SchaleDB の
+    30 本と行ごとに一致することを 2026-09-26 に確かめた）:
+
+    - `WeekDungeonRewardExcelTable` の `GroupId` が `StageRewardId`。**`RewardTag` の欄は無く**、
+      初回クリア・3 つ星の行も無い。行はすべて 1 周ごとの抽選
+    - `RewardParcelProbability` は 1/10000。**0 の行は表示だけ**（`IsDisplayed`）で、落ちない
+    - **Item 30022 / 40022 などは「使うと箱が開く」アイテム**（`ImmediateUse` かつ
+      `UsingResultParcelType: GachaGroup`）。30022 は箱 10322（初級戦術教育BD ゲヘナ／
+      ハイランダー）、40022 は箱 10422（初級技術ノート 同）。SchaleDB も 9/15 版では
+      30010 を箱 10310 に置き換えて載せている。**同じく箱に開いて数える**
+    - 箱の中身は SchaleDB の `groups` にあればそちら、無ければ ba-data の
+      `GachaElementExcelTable`（`Prob` の比）。9/23 の箱 10122〜・10322〜・10422〜・10600 は
+      SchaleDB にまだ無い
+    """
+    ge = {}
+    for x in gacha_el:
+        ge.setdefault(x["GachaGroupID"], []).append(x)
+    out, used = [], set()
+    rew = {}
+    for r in wdr:
+        rew.setdefault(r["GroupId"], []).append(r)
+    for w in wd:
+        ty = str(w.get("WeekDungeonType") or "")
+        if not ty.startswith("Chaser"):
+            continue
+        rows = rew.get(w["StageRewardId"]) or []
+        if not rows:
+            raise SystemExit(f"指名手配 {w['StageId']} の報酬（{w['StageRewardId']}）が無い")
+        rewards, shown = [], set()
+        for r in rows:
+            kind, pid = r["RewardParcelType"], r["RewardParcelId"]
+            p = r.get("RewardParcelProbability") or 0
+            if not p:
+                if r.get("IsDisplayed") and kind == "Item":
+                    shown.add(pid)
+                continue
+            amt = r.get("RewardParcelAmount") or 1
+            it = items_ba.get(pid) if kind == "Item" else None
+            if it and it.get("UsingResultParcelType") == "GachaGroup":
+                if not it.get("ImmediateUse"):
+                    raise SystemExit(f"指名手配 {w['StageId']} の Item {pid} は箱を開くのに"
+                                     "ImmediateUse でない。手持ちに残る箱は数え方が変わる")
+                kind, pid = "GachaGroup", it["UsingResultId"]
+                amt *= it.get("UsingResultAmount") or 1
+            elif it and it.get("UsingResultParcelType") not in (None, "None"):
+                raise SystemExit(f"指名手配 {w['StageId']} の Item {pid} は使うと "
+                                 f"{it.get('UsingResultParcelType')} になる。数え方を決めていない")
+            rewards.append({"Type": kind, "Id": pid, "Amount": amt, "Chance": p / 10000.0})
+            if kind == "GachaGroup":
+                used.add(pid)
+        out.append({"Id": w["StageId"], "Category": "Bounty", "Type": ty,
+                    "Stage": w.get("Difficulty") or 0,
+                    "EntryCost": [[c, a] for c, a in zip(w.get("StageEnterCostId") or [],
+                                                         w.get("StageEnterCostAmount") or [])],
+                    "Rewards": rewards, "_shown": shown})
+
+    # 箱の中身。SchaleDB に無いものだけ ba-data から足す
+    for gid in sorted(used):
+        if gid in groups or gid in BOX_EMPTY:
+            continue
+        el = ge.get(gid)
+        if not el:
+            raise SystemExit(f"指名手配の箱 {gid} の中身が SchaleDB にも ba-data にも無い")
+        tot = float(sum(e.get("Prob") or 0 for e in el))
+        if tot <= 0:
+            raise SystemExit(f"箱 {gid} の Prob が全部 0")
+        groups[gid] = {"Items": [{"Type": e["ParcelType"], "Id": e["ParcelID"],
+                                  "Chance": (e.get("Prob") or 0) / tot,
+                                  "AmountMin": e.get("ParcelAmountMin") or 1,
+                                  "AmountMax": e.get("ParcelAmountMax") or 1} for e in el]}
+    return out
+
+
 def build_farm():
     print("素材の掘り場")
     # **箱の中身は SchaleDB の `groups.min.json` から取る。**
@@ -3917,6 +3997,21 @@ def build_farm():
     groups = {int(k): v for k, v in get_json(SD_GROUPS).items()}
     loc = get_json(SD.format("localization"))
     st_type, st_title = loc.get("StageType") or {}, loc.get("StageTitle") or {}
+
+    # **指名手配だけ ba-data から組む**（9/23 の改修が SchaleDB に入っていないため）。
+    # 並びは SchaleDB で指名手配が居た場所にそのまま差し込む
+    items_ba = {x["Id"]: x for x in as_list(get_json(BADB.format("ItemExcelTable")))}
+    chaser = chaser_stages_from_badb(
+        as_list(get_json(BADB.format("WeekDungeonExcelTable"))),
+        as_list(get_json(BADB.format("WeekDungeonRewardExcelTable"))),
+        items_ba, as_list(get_json(BADB.format("GachaElementExcelTable"))), groups)
+    sd_types = {s.get("Type") for s in stages if s.get("Category") == "Bounty"}
+    if len(chaser) < 30 or not sd_types <= {s["Type"] for s in chaser}:
+        raise SystemExit(f"ba-data の指名手配が {len(chaser)} 本、SchaleDB の種類 {sorted(sd_types)} を"
+                         "覆っていない")
+    at = next((i for i, s in enumerate(stages) if s.get("Category") == "Bounty"), len(stages))
+    stages = ([s for s in stages[:at] if s.get("Category") != "Bounty"] + chaser +
+              [s for s in stages[at:] if s.get("Category") != "Bounty"])
 
     def clean(s):
         # **`SD/items` の名前には改行が入っている。**「初級戦術教育BD\n（百鬼夜行）」
@@ -3975,6 +4070,19 @@ def build_farm():
                 if m:
                     acc[m[0]] = acc.get(m[0], 0) + ev
                     mats[m[0]] = m
+        if "_shown" in s:
+            # **ba-data の箱の中身を、ゲームが画面に出す「落ちるもの」と突き合わせる。**
+            # GachaElementExcelTable は学校が欠けることがある（上の注記）。BD・ノート・
+            # オーパーツは両方の顔ぶれが一致しないと止める。**画面は最上段しか出さない**
+            # （30103 なら中級だけ）ので、段を落とした絵柄（アイコンの末尾 `_N` を除く）で比べる
+            core = {"オーパーツ", "技術ノート", "戦術教育BD"}
+            fam = lambda icon: re.sub(r"_\d+$", "", str(icon))
+            got_k = {fam(mats[k][2]) for k in acc if mats[k][3] in core}
+            want = {fam(m[2]) for m in (material("Item", x) for x in s["_shown"])
+                    if m and m[3] in core}
+            if got_k != want:
+                raise SystemExit(f"指名手配 {s['Id']} の箱の中身 {sorted(got_k)} が、"
+                                 f"画面に出る素材 {sorted(want)} と違う")
         if not acc:
             continue
 
@@ -4042,8 +4150,11 @@ def build_farm():
           f"組 {sum(len(v) for v in drops.values())} 件")
 
     # **初期表示の素材は「いちばん多くのステージから出るもの」。**
-    # 手で決めると、その素材が消えたときに空の画面になる
-    default = max(sorted(drops), key=lambda k: (len(drops[k]), k))
+    # 手で決めると、その素材が消えたときに空の画面になる。
+    # **コインと神名文字は外す。**9/23 から指名手配 50 本すべてが指名手配コインと
+    # 神名文字 20 種（箱 10600、10%）を落とすので、数だけで選ぶとそれが最初に出る
+    pool = [k for k in sorted(drops) if mats[k][3] not in ("コイン", "神名文字")] or sorted(drops)
+    default = max(pool, key=lambda k: (len(drops[k]), k))
 
     ml = [{"k": k, "n": m[1], "i": m[2], "g": m[3], "q": m[4]}
           for k, m in sorted(mats.items(), key=lambda kv: (MAT_ORDER.index(kv[1][3]), kv[0]))]
@@ -4051,7 +4162,8 @@ def build_farm():
         "groups": [g for g in MAT_ORDER if g in got],
         "mats": ml, "stages": st_out, "drops": drops, "def": default,
         "itemStages": len(item_st), "itemPairs": item_pairs,
-        "version": "SchaleDB jp（ステージ・報酬・入場料・箱の中身・素材の名前とアイコン）",
+        "version": "SchaleDB jp（ステージ・報酬・入場料・箱の中身・素材の名前とアイコン）"
+                   "＋ ba-data jp（指名手配の報酬・入場料・新しい箱の中身）",
     }, header="/* scripts/build-tool-data.py が吐く。**手で直さない。** */\n")
 
 

@@ -259,9 +259,18 @@
         <summary>数字の出どころ</summary>
         <p><b>落ちる個数はゲームのデータをそのまま読んでいます。</b>周回してドロップを数えた値ではありません。</p>
         <ul>
+          <!-- 指名手配は ba-data（9/23 から SchaleDB の遅れのため）。SchaleDB は 9/15 版のまま、
+               9/23（v1.73）の指名手配の改修が入っていない。build_farm の chaser_stages_from_badb -->
           <li>ステージと報酬は <a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a> の
             <code>data/jp/stages.min.json</code>。任務・指名手配・拠点防衛・学園交流会のうち、
             素材が落ちる <b><span id="src-stage">—</span> 本</b>を載せています</li>
+          <li><b>指名手配だけは <a href="https://github.com/electricgoat/ba-data" target="_blank" rel="noopener">ba-data</a> から直接読んでいます。</b>
+            9/23 の改修（エリアが 5 つに・ドロップ率の上昇・どのエリアもステージ07 から挑戦可能）が
+            SchaleDB にまだ入っていないためです。<code>WeekDungeonExcelTable</code> と
+            <code>WeekDungeonRewardExcelTable</code> で、確率は 1/10000 単位、<b>確率 0 の行は画面に出すだけで落ちません</b>。
+            「使うとすぐ開く箱」のアイテム（例 <code>30022</code> → 箱 <code>10322</code>、初級戦術教育BD のゲヘナかハイランダー）は
+            箱に開いて数えています。9/9 版のデータで同じ組み方をすると、SchaleDB の 30 本と行ごとに一致しました。
+            <b>神名文字 20 種の箱（<code>10600</code>）も 1 周 10% で落ちる</b>ので、1 種あたり 0.005 個として載せています</li>
           <li>1 周あたりの期待個数は <code>個数 × Chance</code>。<code>AmountMin</code> /
             <code>AmountMax</code> があるときはその平均、<code>Chance</code> が無ければ 1.0 です。
             <b><code>Amount</code> と <code>AmountMin/Max</code> は掛け算です</b> ——
@@ -272,8 +281,9 @@
           <li>箱（<code>GachaGroup</code>）の中身は SchaleDB の
             <code>data/groups.min.json</code>。中身ごとに <code>Chance</code> が入っているので、
             期待個数は <code>箱の期待個数 × 中身の Chance × 中身の個数</code>です。
-            <b>ba-data の <code>GachaElementExcelTable</code> は使っていません。</b>
-            あちらは 2025-05-07 で止まっていて、たとえば箱 <code>10314</code> が
+            <b>ba-data の <code>GachaElementExcelTable</code> は、SchaleDB にまだ無い 9/23 の指名手配の箱にだけ使っています</b>
+            （そのときは画面に出る素材の顔ぶれと突き合わせ、食い違えばデータを作る側で止まります）。
+            あちらは古い箱で学校が欠けていて、たとえば箱 <code>10314</code> が
             「百鬼夜行・トリニティ・アリウスの 3 種で各 1/3」になっています。
             実際はオデュッセイアが加わった 4 種で各 0.25 で、<b>使うと期待個数が 1.33 倍に膨らみます。</b>
             ステージが使う 100 個の箱を 1 つずつ突き合わせて、中身が同じ 83 個では
@@ -286,7 +296,7 @@
           <li>入場料は <code>EntryCost</code>。<b>通貨 5 が AP、22 が指名手配券、23 が学園交流会チケット</b>で、
             出てくるのはこの 3 つだけです（4 つ目が出たらデータを作る側で止まります）。
             <b>学園交流会はチケットと AP の 2 本立て</b>なので、券あたりと AP を別々に出しています</li>
-          <li>名前の無いステージ（指名手配 30 本・拠点防衛 14 本・学園交流会 12 本の 56 本）は
+          <li>名前の無いステージ（指名手配 50 本・拠点防衛 14 本・学園交流会 12 本の 76 本）は
             <code>data/jp/localization.min.json</code> の <code>StageTitle</code> に番号を差し込んで作っています。
             <code>"ChaserA": "ハイウェイ{0}"</code> のような形です。
             <b><code>FindGift</code>（スランピア広場）は「贈り物」ではなくクレジット回収</b>で、
@@ -303,7 +313,8 @@
         <p><b>ドロップ 2 倍・3 倍は、1 周あたりの期待個数をそのまま倍にしています。</b>
           倍率が報酬のどの行に掛かるかまではデータに書かれていないので、そこは確かめられていません。</p>
         <p>出典 —
-          <a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a>。
+          <a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a>、指名手配は
+          <a href="https://github.com/electricgoat/ba-data" target="_blank" rel="noopener">ba-data</a>。
           期待個数の出し方も、あちらの <code>assets/ItemView-*.js</code> に合わせています。
           取得は <span id="ver">—</span>。</p>
       </details>
@@ -343,6 +354,8 @@
   </div>
 </footer>
 
+<!-- **remember.js は data.js とツールの JS より先に。**あとだと、ツールが空のハッシュで組み上がる -->
+<script src="../remember.js?v=1"></script>
 <script src="data.js"></script>
 <script>
 (function () {
