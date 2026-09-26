@@ -37,6 +37,16 @@
   .mx td.w05 { background: color-mix(in srgb, var(--fg-mute) 12%, transparent); color: var(--fg-mute); }
   .mx td.here { outline: 2px solid var(--accent); outline-offset: -2px; }
   .mx .cur { color: var(--accent-tx); }
+  /* **スマホ幅でも表の箱の中に収める**（2026-09-26。390 幅で弾力装甲より右が切れていた）。
+     `min-width` を外して字を詰め、見出しは「弾力／装甲」のように <wbr> の所でだけ折る
+     （`keep-all` で、それ以外の字の間では折らせない）。**それでも入らない幅では
+     `.tscroll` の箱だけが横に動く**（ページは動かない） */
+  @media (max-width: 600px) {
+    .mx { min-width: 0; font-size: .72rem; }
+    .mx th, .mx td { padding: .45em .15em; }
+    .mx thead th { font-size: .66rem; line-height: 1.25; word-break: keep-all; }
+    .mx tbody th { padding-left: .35em; }
+  }
 
   /* 凡例 */
   .leg { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; font-size: .76rem; color: var(--fg-mute); }
@@ -259,10 +269,12 @@
     <div class="tcol sticky">
       <div class="panel">
         <div class="panel-h"><h2>地形適性の 6 段</h2></div>
-        <p class="lead" style="margin:0 0 12px"><b>3 つの地形で値は同じです。</b>変わるのは段だけです。</p>
+        <!-- **ShotFactor / BlockFactor の生の値は丸の i へ**（2026-09-26、Q17-1）。
+             意味を断定できない数字が表の半分を占めていた。値は data.js から i の中に組む -->
+        <p class="lead" style="margin:0 0 12px"><b>3 つの地形で値は同じです。</b>変わるのは段だけです。<button type="button" class="qm" id="tt-hint" data-hint="遮蔽まわりの値（ShotFactor / BlockFactor）も段ごとにあります。"></button></p>
         <div class="tscroll">
           <table class="dt">
-            <thead><tr><th>適性</th><th>攻撃力</th><th>ShotFactor</th><th>BlockFactor</th></tr></thead>
+            <thead><tr><th>適性</th><th>攻撃力</th></tr></thead>
             <tbody id="tt"></tbody>
           </table>
         </div>
@@ -319,7 +331,7 @@
           <code>AttackPowerFactor</code> が 10000 分率で <code>13000 / 12000 / 11000 / 10000 / 9000 / 8000</code>——<b>SS で ×1.3、D で ×0.8</b>。
           これは <a href="https://game8.jp/blue-archive/639677" target="_blank" rel="noopener">ゲームエイト「地形適性（戦地適性）の倍率と効果・上げ方」</a>の「SS 1.3倍 / S 1.2倍 / A 1.1倍 / B 1.0倍 / C 0.9倍 / D 0.8倍」と一致します。</p>
         <p><b><code>ShotFactor</code> と <code>BlockFactor</code> の意味は断定しません。</b>どちらも <code>7500 / 6000 / 4500 / 3000 / 1500 / 0</code> と並んでいて、遮蔽まわりの値であることは
-          <a href="https://gamerch.com/bluearchive/186855" target="_blank" rel="noopener">同じ攻略wiki</a>の「戦地適性で遮蔽物利用時の成功率が変化します。戦地適性が高ければ遮蔽物に隠れているときの BLOCK 率が上昇したり」という記述から分かりますが、<b>数値の単位までは書いた出どころが見つかりませんでした。</b>表には生の数字だけ載せています。同じ表の <code>AccuracyFactor</code> と <code>DodgeFactor</code> は 18 行すべて <code>0</code> なので出していません。</p>
+          <a href="https://gamerch.com/bluearchive/186855" target="_blank" rel="noopener">同じ攻略wiki</a>の「戦地適性で遮蔽物利用時の成功率が変化します。戦地適性が高ければ遮蔽物に隠れているときの BLOCK 率が上昇したり」という記述から分かりますが、<b>数値の単位までは書いた出どころが見つかりませんでした。</b>生の数字は地形適性の表の丸の i にだけ置いています。同じ表の <code>AccuracyFactor</code> と <code>DodgeFactor</code> は 18 行すべて <code>0</code> なので出していません。</p>
         <p><b>生徒の攻撃属性・装甲・地形適性は <a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a> の <code>students</code> から。</b>地形適性は <code>StreetBattleAdaptation</code> / <code>OutdoorBattleAdaptation</code> / <code>IndoorBattleAdaptation</code> に <code>0</code>〜<code>5</code> の数字で入っていて、<b>0 が D、5 が SS</b> です。<span id="src-stu">—</span> 人ぶん、範囲の外に出ていないことを確かめています。
           <b>固有武器の 3 凸で適性が 1〜2 段上がりますが、ここでは素の値を出しています。</b><button type="button" class="qm" data-hint="上がり幅は生徒ごとに違います。1 段の子が 248 人、2 段の子が 27 人です（CharacterWeaponExcelTable の StatType の 3 番目を数えました）。"></button></p>
         <p>出典 — <a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a>（倍率表・生徒）、<a href="https://github.com/electricgoat/ba-data" target="_blank" rel="noopener">electricgoat/ba-data</a>（倍率表・地形適性）、<a href="https://game8.jp/blue-archive/639677" target="_blank" rel="noopener">ゲームエイト</a>と<a href="https://gamerch.com/bluearchive/186855" target="_blank" rel="noopener">Gamerch</a>（地形と分解・複合装甲の裏取り）。取得は <span id="ver">—</span>。</p>
@@ -366,6 +378,8 @@
   </div>
 </footer>
 
+<!-- **remember.js は data.js とツールの JS より先に。**あとだと、ツールが空のハッシュで組み上がる -->
+<script src="../remember.js?v=2"></script>
 <script src="data.js"></script>
 <script>
 (function () {
@@ -420,8 +434,10 @@
   })();
 
   function drawMatrix() {
-    var h = '<thead><tr><th>攻撃属性 \\ 装甲</th>' + M.armors.map(function (a) {
-      return '<th' + (a === armor ? ' class="cur"' : '') + '>' + esc(M.aJa[a] || a) + '</th>';
+    // 見出しは「装甲」「装備」の前でだけ折れるように <wbr>（スマホ幅の CSS と組）
+    var h = '<thead><tr><th>攻撃<wbr>属性 \\<wbr> 装甲</th>' + M.armors.map(function (a) {
+      return '<th' + (a === armor ? ' class="cur"' : '') + '>' +
+        esc(M.aJa[a] || a).replace(/(装甲|装備)$/, '<wbr>$1') + '</th>';
     }).join('') + '</tr></thead><tbody>';
     M.bullets.forEach(function (b) {
       h += '<tr><th>' + esc(M.bJa[b] || b) + '</th>' + M.armors.map(function (a) {
@@ -434,9 +450,15 @@
 
   (function drawTerr() {
     el('tt').innerHTML = M.terr.map(function (t) {
-      return '<tr><td>' + t.g + '</td><td>×' + (t.atk / 10000).toFixed(1) + '</td><td>' +
-        t.shot.toLocaleString('ja-JP') + '</td><td>' + t.block.toLocaleString('ja-JP') + '</td></tr>';
+      return '<tr><td>' + t.g + '</td><td>×' + (t.atk / 10000).toFixed(1) + '</td></tr>';
     }).join('');
+    // **生の値は丸の i の中に残す。**意味は断定しない（出どころの節を参照）
+    function row(k) {
+      return M.terr.map(function (t) { return t.g + ' ' + t[k].toLocaleString('ja-JP'); }).join(' / ');
+    }
+    el('tt-hint').setAttribute('data-hint',
+      '遮蔽まわりの値。意味と単位は出どころが見つからないので断定しません。' +
+      'ShotFactor: ' + row('shot') + '。BlockFactor: ' + row('block') + '。');
   })();
 
   function drawStudent() {
