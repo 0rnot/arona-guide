@@ -16,6 +16,10 @@
 #
 # `exclude` を書くと Jekyll の既定の一覧（Gemfile / node_modules / vendor）が
 # 置き換わります。**このリポジトリにはどれも無い**ので影響はありません。
+#
+# **末尾の `/` を消さないこと。** Jekyll の exclude は前方一致で、`tools/tl` と書くと
+# `tools/tl-engine.js` まで外れる。2026-09-04 から 09-26 まで本番の cost-timeline が
+# これで 404 を踏んで動いていなかった（手元の http.server では再現しない）。
 exclude:
-  - tools/tl
-  - tl
+  - tools/tl/
+  - tl/
