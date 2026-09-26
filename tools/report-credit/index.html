@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>特別依頼の行き先｜AronaBot</title>
-<meta name="description" content="手持ちのレポート・強化珠・クレジットが何人ぶんかを出して、特別依頼でレポートとクレジットのどちらを回るべきかを決めます。経験値はゲームのデータそのままです。">
+<meta name="description" content="手持ちのレポートとクレジットが生徒何人ぶんかを数えて、特別依頼で拠点防衛（レポート）と信用回収（クレジット）のどちらを回るかを決めます。数字はゲームのデータそのままです。">
 <meta name="theme-color" content="#c8892e">
 <link rel="icon" href="../../favicon.svg" type="image/svg+xml">
 <meta property="og:type" content="website">
@@ -12,14 +12,14 @@
 <meta property="og:locale" content="ja_JP">
 <meta property="og:url" content="https://arona-bot.com/tools/report-credit/">
 <meta property="og:title" content="特別依頼の行き先">
-<meta property="og:description" content="レポート・強化珠・クレジットの手持ちが何人ぶんかを数えて、今日は特別依頼のどこを回るかを決めます。">
+<meta property="og:description" content="拠点防衛と信用回収、今日はどちらを回るか。手持ちのレポートとクレジットが何人ぶんかを数えます。">
 <meta property="og:image" content="https://arona-bot.com/images/og/report-credit.jpg">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta property="og:image:alt" content="特別依頼の行き先 — AronaBot のツール">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="特別依頼の行き先">
-<meta name="twitter:description" content="レポート・強化珠・クレジットの手持ちが何人ぶんかを数えて、今日は特別依頼のどこを回るかを決めます。">
+<meta name="twitter:description" content="拠点防衛と信用回収、今日はどちらを回るか。手持ちのレポートとクレジットが何人ぶんかを数えます。">
 <meta name="twitter:image" content="https://arona-bot.com/images/og/report-credit.jpg">
 <link rel="stylesheet" href="../../style.css?v=25">
 <link rel="stylesheet" href="../tool.css?v=17">
@@ -134,7 +134,7 @@
   </div>
   <div class="thero-body">
     <h1>特別依頼の行き先</h1>
-    <p class="thero-lead">レポート・強化珠・クレジットの手持ちから、今日はどちらを回るべきかを決めます。</p>
+    <p class="thero-lead">拠点防衛（レポート）と信用回収（クレジット）、今日はどちらを回るか。</p>
   </div>
 </header>
 
@@ -143,24 +143,15 @@
 
   <div class="tcols lean" style="margin-top:20px">
 
+    <!-- **入力は左にまとめる**（2026-09-26）。強化珠の欄を消して左がレポート 1 枚になったので、
+         クレジットも左へ寄せて、右は判定と数だけにした。スマホでは レポート → クレジット → 判定 の順 -->
     <div class="tcol">
       <div class="panel">
         <div class="panel-h"><h2>持っているレポート</h2></div>
-        <p class="lead">生徒を Lv1 から Lv90 まで上げるのに <b>1,249,185</b> の経験値が要ります。</p>
         <div id="reports"></div>
         <div class="numrow sum"><div>経験値にすると</div><div class="v" id="o-repexp">—</div></div>
       </div>
 
-      <div class="panel">
-        <div class="panel-h"><h2>持っている強化珠</h2></div>
-        <p class="lead">装備 1 個を Tier1 Lv1 から Tier10 Lv70 まで上げるのに <b>246,680</b> の経験値が要ります。</p>
-        <div id="stones"></div>
-        <div class="numrow sum"><div>経験値にすると</div><div class="v" id="o-stoneexp">—</div></div>
-      </div>
-
-    </div>
-
-    <div class="tcol sticky">
       <div class="panel">
         <div class="panel-h"><h2>持っているクレジット</h2></div>
         <div class="fields c2">
@@ -171,42 +162,38 @@
             <input id="i-credit" type="number" inputmode="numeric" min="0" step="1000000" value="50000000">
           </div>
           <div class="field">
-            <label for="i-per">1 人を仕上げるクレジット<span class="hint">レベル・スキル 4 種・装備 3 個 ＝ <span id="h-per">—</span></span></label>
-            <input id="i-per" type="number" inputmode="numeric" min="1000000" step="1000000" value="51721955">
+            <!-- 既定値は data.js（build_report_credit）。**HTML に数字を書かない**——手書きの
+                 51,721,955 は装備の Tier 上げが抜けていた（2026-09-26） -->
+            <label for="i-per">1 人を仕上げるクレジット<span class="hint" id="h-per">—</span></label>
+            <input id="i-per" type="number" inputmode="numeric" min="1000000" step="1000000">
           </div>
         </div>
-        <p class="lead" style="margin:14px 0 0">星上げ（神名文字）ぶんは含みません。<button type="button" class="qm" data-hint="右の 4 つの数字はゲームのデータから出しています。内訳は下の「数字の出どころ」にあります。"></button></p>
+        <p class="lead" style="margin:14px 0 0">レベル・スキル 4 種・装備 3 部位を最大まで。<button type="button" class="qm" id="q-per" data-hint=""></button></p>
       </div>
+    </div>
 
+    <div class="tcol sticky">
       <div class="verdict" id="verdict">
         <p class="hd" id="v-hd">—</p>
         <p id="v-body"></p>
       </div>
 
-      <div class="stats c3">
+      <div class="stats c2">
         <div class="stat hero">
           <div class="k"><img class="ico" src="../img/item_icon_expitem_3.webp" alt="" width="18" height="18" loading="lazy"> レポート</div>
           <div class="v" id="o-rep">—</div>
-          <div class="sub">人ぶんの経験値</div>
         </div>
         <div class="stat">
           <div class="k"><img class="ico" src="../img/currency_icon_gold.webp" alt="" width="18" height="18" loading="lazy"> クレジット</div>
           <div class="v" id="o-cre">—</div>
-          <div class="sub">人ぶん</div>
-        </div>
-        <div class="stat">
-          <div class="k"><img class="ico" src="../img/equipment_icon_exp_2.webp" alt="" width="18" height="18" loading="lazy"> 強化珠</div>
-          <div class="v" id="o-sto">—</div>
-          <div class="sub">装備ぶん</div>
         </div>
       </div>
 
       <div class="panel">
         <div class="panel-h"><h2>内訳</h2></div>
         <div class="ledger">
-          <div class="row"><span>レポートの経験値<span class="subnote">50 / 500 / 2,000 / 10,000</span></span><span id="l-rep">—</span></div>
-          <div class="row"><span>強化珠の経験値<span class="subnote">90 / 360 / 1,440 / 5,760</span></span><span id="l-sto">—</span></div>
-          <div class="row"><span>強化珠は何人ぶん<span class="subnote">1 人あたり装備 3 個として</span></span><span id="l-sto3">—</span></div>
+          <div class="row"><span>レポートの経験値<span class="subnote">1 人 <span id="l-exp1">—</span></span></span><span id="l-rep">—</span></div>
+          <div class="row"><span>クレジット<span class="subnote">1 人 <span id="l-per1">—</span></span></span><span id="l-cre">—</span></div>
           <div class="row total"><span>レポートとクレジットの差</span><span id="l-gap">—</span></div>
         </div>
       </div>
@@ -217,33 +204,28 @@
 
       <details class="src">
         <summary>数字の出どころ</summary>
-        <p><b>レポートの経験値と、生徒の必要経験値は、ゲームのデータそのままです。</b>推測はありません。</p>
+        <p><b>どれもゲームのデータそのままです。</b><a href="../student-cost/">生徒 1 人の育成費用</a>と同じデータ・同じ数え方です。</p>
         <ul>
-          <li><code>DB/ItemExcelTable.json</code> の <code>StackableFunction</code>（SchaleDB の <code>items</code> では <code>ExpValue</code>。値は同じ）— 初級レポート <code>50</code>／中級 <code>500</code>／上級 <code>2000</code>／最上級 <code>10000</code></li>
-          <li><code>data/jp/equipment.min.json</code> の <code>Category: "Exp"</code> — 強化珠の <code>LevelUpFeedExp</code> が <code>90 / 360 / 1440 / 5760</code></li>
-          <li><code>DB/CharacterLevelExcelTable.json</code> — Lv90 の <code>TotalExp: 1249185</code></li>
-          <li><code>DB/EquipmentLevelExcelTable.json</code> — Lv70 の <code>TotalExp</code> が Tier1 から順に
-            <code>381 / 1841 / 5456 / 12326 / 17326 / 23551 / 31141 / 40231 / 50961 / 63466</code>。<b>足すとちょうど 246,680</b> で、これが装備 1 個を Tier1 Lv1 から Tier10 Lv70 まで上げるのに要る経験値です</li>
+          <li><code>DB/ItemExcelTable.json</code> の <code>StackableFunction</code>（SchaleDB の <code>items</code> では <code>ExpValue</code>）— レポート 1 枚の経験値 <code>50 / 500 / 2000 / 10000</code></li>
+          <li><code>DB/CharacterLevelExcelTable.json</code> — Lv1→Lv90 の経験値 <b id="s-exp">—</b>。1 経験値 <code id="s-cpe">—</code> クレジット（<code>ConstCommonExcelTable</code> の <code>CharacterLvUpCoefficient</code>）</li>
+          <li><code>DB/RecipeIngredientExcelTable.json</code> の <code>CostAmount</code> — スキルのクレジット</li>
+          <li>SchaleDB <code>equipment</code> の <code>RecipeCost</code> と <code>DB/EquipmentLevelExcelTable.json</code> の <code>TotalExp</code>（× <code>4</code>）— 装備の Tier 上げと強化</li>
         </ul>
-        <p><b>強化珠の経験値もゲームのデータそのままです。</b>レポートが <code>items</code> に入っているのに対して、強化珠は <code>equipment</code> のほうに
-          <code>Category: "Exp"</code> として入っていて、<code>LevelUpFeedExp</code> が初級 <code>90</code>／中級 <code>360</code>／上級 <code>1440</code>／最上級 <code>5760</code> です。
-          246,680 ÷ 5,760 = 42.8 で「最上級強化珠 43 個ぶん」、
-          1,249,185 ÷ 10,000 = 124.9 で「最上級レポート 125 個ぶん」。どちらも攻略サイトに載っている数字と同じでした。</p>
-        <p><b>1 人を仕上げるクレジット（51,721,955）は、次の 4 つを足したものです。</b>レベル Lv1→Lv90 が 8,744,295（1,249,185 経験値 × 7）、
-          EX スキル Lv1→Lv5 が 13,580,000、ノーマル・パッシブ・サブの 3 つを Lv1→Lv10 で 26,437,500、装備 3 部位を T1→T10 で 2,960,160
-          （1 部位ぶんの 246,680 経験値 × 4 × 3 部位）。<b>星上げ（神名文字）・固有武器・愛用品は入っていません。</b>
-          生徒ごとの額は<a href="../student-cost/">生徒 1 人の育成費用</a>で出せます——ただし<b>あちらは装備を含みません</b>ので、装備ぶんは<a href="../equip-level/">装備の強化珠計算機</a>で別に足してください。
-          自分の育て方に合わせて書き換えてください。</p>
+        <p><b>1 人を仕上げるクレジット <span id="s-per">—</span></b> ＝ レベル Lv1→Lv90 <span id="s-lv">—</span>
+          ＋ EX スキル Lv1→Lv5 <span id="s-ex">—</span>
+          ＋ ノーマル・パッシブ・サブ Lv1→Lv10 <span id="s-sk">—</span>
+          ＋ 装備 3 部位 T1 Lv1→T10 Lv70 <span id="s-eq">—</span>（Tier 上げ <span id="s-eqt">—</span>・強化 <span id="s-eql">—</span>）。
+          <b>星上げ・固有武器・愛用品は入れていません。</b></p>
         <p>出典 —
           <a href="https://github.com/electricgoat/ba-data" target="_blank" rel="noopener">electricgoat/ba-data</a>（jp ブランチ）、
-          <a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a>、<a href="https://game8.jp/blue-archive/639839" target="_blank" rel="noopener">ゲームエイト「生徒レベルの上げ方」</a>（Lv90 の累計経験値 1,249,185）。</p>
+          <a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a>。</p>
       </details>
     </div>
 
   </div>
 </div>
 
-<script>window.TOUR = {"key": "report-credit", "steps": [{"sel": "#reports", "t": "持っているレポートを入れます", "d": "初級から最上級まで、手持ちの枚数を入れると経験値の合計が出ます。"}, {"sel": "#i-credit", "t": "クレジットも入れます", "d": "レポートとクレジットのどちらが先に足りなくなるかを見るための道具です。"}, {"sel": "#v-body", "t": "どちらが足りないかが出ます", "d": "レポートが余っているのか、クレジットが先に尽きるのかを言葉で出しています。"}]};</script>
+<script>window.TOUR = {"key": "report-credit", "steps": [{"sel": "#reports", "t": "持っているレポートを入れます", "d": "初級から最上級まで、手持ちの枚数を入れます。"}, {"sel": "#i-credit", "t": "クレジットも入れます", "d": "それぞれ生徒何人ぶんかを数えます。"}, {"sel": "#v-body", "t": "今日回るほうが出ます", "d": "少ないほうが先に尽きるので、そちらを回ります。"}]};</script>
 <script src="../tour.js?v=2"></script>
 
 <script src="../share.js?v=3"></script>
@@ -274,121 +256,123 @@
   </div>
 </footer>
 
+<!-- **remember.js は下のツールの JS より先に。**あとだと、ツールが空のハッシュで組み上がる -->
+<script src="../remember.js?v=1"></script>
+<script src="data.js?v=1"></script>
 <script>
 (function () {
   'use strict';
   var el = function (id) { return document.getElementById(id); };
-  var STUDENT_EXP = 1249185;   // Lv1 → Lv90
-  var EQUIP_EXP = 246680;      // Tier1 Lv1 → Tier10 Lv70
+  /* 数字は data.js（build_report_credit）から。**生徒 1 人の育成費用と同じデータ・同じ数え方。**
+     「1 人を仕上げる」はどの生徒でも同じ額なので（2026-09-26 に 275 人で確かめた）、
+     生徒の選択は置いていない。違ってきたらビルドが止まる */
+  var D = window.RC;
+  var STUDENT_EXP = D.exp;       // Lv1 → Lv90
+  var PER = D.per;               // 1 人を仕上げるクレジット（既定）
 
-  var REPORTS = [
-    { id: 'r1', name: '初級レポート',   exp: 50,    icon: 'item_icon_expitem_0', def: 500 },
-    { id: 'r2', name: '中級レポート',   exp: 500,   icon: 'item_icon_expitem_1', def: 300 },
-    { id: 'r3', name: '上級レポート',   exp: 2000,  icon: 'item_icon_expitem_2', def: 200 },
-    { id: 'r4', name: '最上級レポート', exp: 10000, icon: 'item_icon_expitem_3', def: 100 }
-  ];
-  var STONES = [
-    { id: 's1', name: '初級強化珠',   exp: 90,   icon: 'equipment_icon_exp_0', def: 300 },
-    { id: 's2', name: '中級強化珠',   exp: 360,  icon: 'equipment_icon_exp_1', def: 200 },
-    { id: 's3', name: '上級強化珠',   exp: 1440, icon: 'equipment_icon_exp_2', def: 100 },
-    { id: 's4', name: '最上級強化珠', exp: 5760, icon: 'equipment_icon_exp_3', def: 40 }
-  ];
-
-  function rows(list, into, base) {
-    into.innerHTML = list.map(function (m) {
-      return '<div class="mat">' +
-        '<img src="../img/' + m.icon + '.webp" alt="" width="46" height="46" loading="lazy">' +
-        '<span class="nm">' + m.name + '<small>1 個 ' + m.exp.toLocaleString('ja-JP') + '</small></span>' +
-        '<input id="i-' + m.id + '" type="number" inputmode="numeric" min="0" step="1" value="' + (m.def || 0) + '" aria-label="' + m.name + 'の個数">' +
-        '</div>';
-    }).join('');
-  }
-  rows(REPORTS, el('reports'));
-  rows(STONES, el('stones'));
+  // 手持ちの既定。**打ったことの無い人に「クレジットを回る」側の例を見せる**
+  var DEF = [500, 300, 200, 100];
 
   function fmt(n) { return Math.round(n).toLocaleString('ja-JP'); }
   function f1(n) { return (Math.round(n * 10) / 10).toLocaleString('ja-JP'); }
 
-  function sumOf(list) {
-    var t = 0;
-    list.forEach(function (m) {
-      var v = parseInt(el('i-' + m.id).value, 10);
-      if (v > 0) t += v * m.exp;
-    });
-    return t;
-  }
+  el('reports').innerHTML = D.rep.map(function (m, i) {
+    return '<div class="mat">' +
+      '<img src="../img/' + m.i + '.webp" alt="" width="46" height="46" loading="lazy">' +
+      '<span class="nm">' + m.n + '<small>1 枚 ' + fmt(m.e) + '</small></span>' +
+      '<input id="i-r' + (i + 1) + '" type="number" inputmode="numeric" min="0" step="1" value="' + DEF[i] + '" aria-label="' + m.n + 'の枚数">' +
+      '</div>';
+  }).join('');
+  el('i-per').value = PER;
+
+  // 1 人ぶんの中身。**画面には出さず丸の i と「数字の出どころ」へ**
+  var P = D.parts, eq = P.eqTier + P.eqLv;
+  el('q-per').setAttribute('data-hint',
+    '既定 ' + fmt(PER) + ' ＝ レベル ' + fmt(P.lv) + '・EX スキル ' + fmt(P.ex) +
+    '・ほかの 3 スキル ' + fmt(P.sk) + '・装備 3 部位 ' + fmt(eq) +
+    '。星上げ・固有武器・愛用品は入れていません。どの生徒でも同じ額です（' + D.n +
+    ' 人で確かめています）。自分の育て方に合わせて書き換えられます。');
+  el('s-exp').textContent = fmt(STUDENT_EXP);
+  el('s-cpe').textContent = fmt(P.lv / STUDENT_EXP);
+  el('s-per').textContent = fmt(PER);
+  el('s-lv').textContent = fmt(P.lv);
+  el('s-ex').textContent = fmt(P.ex);
+  el('s-sk').textContent = fmt(P.sk);
+  el('s-eq').textContent = fmt(eq);
+  el('s-eqt').textContent = fmt(P.eqTier);
+  el('s-eql').textContent = fmt(P.eqLv);
+  el('l-exp1').textContent = fmt(STUDENT_EXP);
+
+  function num(id, min) { var v = parseInt(el(id).value, 10); return v >= min ? v : min; }
 
   function calc() {
-    var repExp = sumOf(REPORTS);
-    var stoExp = sumOf(STONES);
-    var credit = Math.max(0, parseInt(el('i-credit').value, 10) || 0);
-    var per = Math.max(1, parseInt(el('i-per').value, 10) || 1);
+    var repExp = 0;
+    D.rep.forEach(function (m, i) { repExp += num('i-r' + (i + 1), 0) * m.e; });
+    var credit = num('i-credit', 0);
+    var per = num('i-per', 1);
 
     var rep = repExp / STUDENT_EXP;       // 何人ぶん
     var cre = credit / per;               // 何人ぶん
-    var sto = stoExp / EQUIP_EXP;         // 何装備ぶん
 
     // 桁区切りの読み返し。入力欄の生の数字（50000000）は桁を数えないと読めない
     el('h-credit').textContent = fmt(credit);
     el('h-per').textContent = fmt(per);
 
     el('o-repexp').textContent = fmt(repExp);
-    el('o-stoneexp').textContent = fmt(stoExp);
-    el('o-rep').innerHTML = f1(rep) + '<small>人</small>';
-    el('o-cre').innerHTML = f1(cre) + '<small>人</small>';
-    el('o-sto').innerHTML = f1(sto) + '<small>個</small>';
+    el('o-rep').innerHTML = f1(rep) + '<small>人ぶん</small>';
+    el('o-cre').innerHTML = f1(cre) + '<small>人ぶん</small>';
 
     el('l-rep').textContent = fmt(repExp);
-    el('l-sto').textContent = fmt(stoExp);
-    el('l-sto3').textContent = f1(sto / 3) + ' 人';
+    el('l-cre').textContent = fmt(credit);
+    el('l-per1').textContent = fmt(per);
     var gap = rep - cre;
     el('l-gap').textContent = (gap >= 0 ? '+' : '−') + f1(Math.abs(gap)) + ' 人ぶん';
 
-    // 判定。**しきい値は「4 人ぶん」。**
-    // 1 人ぶんも無いうちは差を見ても意味がないので、まず量そのものを見る。
+    /* 判定。**少ないほうを回る**（2026-09-26 に作り直した。先生の判断 Q8-1）。
+       それまでは「4 人ぶん」をしきい値にしていて、画面の「4 人ぶんに届いていません」が
+       何の 4 人か読めなかった。数を 2 つ並べて、結論を 1 行で言う。
+       表示の桁（0.1 人）で同じなら、どちらでもいい */
+    var nums = 'レポートは <b>' + f1(rep) + ' 人ぶん</b>、クレジットは <b>' + f1(cre) + ' 人ぶん</b>。';
     var hd, body;
-    if (rep < 4 && cre < 4) {
-      hd = 'どちらも足りていません';
-      body = 'レポートもクレジットも 4 人ぶんに届いていません。' +
-        (rep <= cre ? 'より少ないのはレポートなので、<b>レポートを回る</b>ところから。' : 'より少ないのはクレジットなので、<b>クレジットを回る</b>ところから。');
-    } else if (rep < 4) {
-      hd = 'レポートを回りましょう';
-      body = 'クレジットは <b>' + f1(cre) + ' 人ぶん</b>あるのに、レポートは <b>' + f1(rep) + ' 人ぶん</b>しかありません。';
-    } else if (gap > 4) {
-      hd = 'クレジットを回りましょう';
-      body = 'レポートは <b>' + f1(rep) + ' 人ぶん</b>あるのに、クレジットは <b>' + f1(cre) + ' 人ぶん</b>。<b>強化珠を買うのも控えめに。</b>';
-    } else if (gap < -4) {
-      hd = 'レポートを回りましょう';
-      body = 'クレジットは <b>' + f1(cre) + ' 人ぶん</b>あります。レポートの <b>' + f1(rep) + ' 人ぶん</b>が先に尽きます。';
-    } else {
+    if (f1(rep) === f1(cre)) {
       hd = 'どちらでも大丈夫です';
-      body = 'レポート <b>' + f1(rep) + ' 人ぶん</b>、クレジット <b>' + f1(cre) + ' 人ぶん</b>。釣り合っています。';
+      body = nums + '釣り合っています。';
+    } else if (rep < cre) {
+      hd = '今日は拠点防衛（レポート）';
+      body = nums + '少ないほうの<b>レポート</b>を回ります。';
+    } else {
+      hd = '今日は信用回収（クレジット）';
+      body = nums + '少ないほうの<b>クレジット</b>を回ります。';
     }
     el('v-hd').textContent = hd;
     el('v-body').innerHTML = body;
   }
 
-  [].forEach.call(document.querySelectorAll('input'), function (n) { n.addEventListener('input', calc); });
+  [].forEach.call(document.querySelectorAll('.tcols input'), function (n) { n.addEventListener('input', calc); });
 
-  /* ---- 状態を URL に残す。**share.js が「結果を共有」のときに呼ぶ**
-     （eleph などと同じ作法。これが無いと、共有バーの「開いている状態ごと
-     URL になります」が嘘になる） */
-  var HASH_IDS = ['r1', 'r2', 'r3', 'r4', 's1', 's2', 's3', 's4'];
+  /* ---- 状態を URL に残す。**share.js が「結果を共有」のときに、remember.js が
+     触られるたびに呼ぶ。**形は `#初|中|上|最|クレジット|1 人ぶん`。
+
+     **1 人ぶんは既定のままなら空にする。**既定の数字をハッシュに焼くと、データが
+     変わった日に古い額が覚えられたまま残る。
+
+     2026-09-26 より前の `#初|中|上|最|強化珠×4|クレジット|1 人ぶん`（10 区切り）も開ける。
+     そのころの既定 51,721,955 は装備の Tier 上げが抜けていたので、既定として読み替える */
   window.shareUrl = function () {
-    var p = HASH_IDS.map(function (id) { return el('i-' + id).value || 0; });
-    p.push(el('i-credit').value || 0, el('i-per').value || 0);
+    var p = D.rep.map(function (m, i) { return num('i-r' + (i + 1), 0); });
+    var per = num('i-per', 1);
+    p.push(num('i-credit', 0), per === PER ? '' : per);
     return '#' + p.join('|');
   };
   (function fromHash() {
     var h = location.hash.replace(/^#/, '');
     if (!h) return;
     var p = h.split('|');
-    if (p.length < 10) return;
-    HASH_IDS.forEach(function (id, i) {
-      if (+p[i] >= 0) el('i-' + id).value = Math.floor(+p[i]);
-    });
-    if (+p[8] >= 0) el('i-credit').value = Math.floor(+p[8]);
-    if (+p[9] >= 1) el('i-per').value = Math.floor(+p[9]);
+    if (p.length >= 10) p = p.slice(0, 4).concat(p.slice(8, 10));   // 強化珠のあった形
+    if (p.length < 6) return;
+    for (var i = 0; i < 4; i++) if (p[i] !== '' && +p[i] >= 0) el('i-r' + (i + 1)).value = Math.floor(+p[i]);
+    if (p[4] !== '' && +p[4] >= 0) el('i-credit').value = Math.floor(+p[4]);
+    if (p[5] !== '' && +p[5] >= 1 && +p[5] !== 51721955) el('i-per').value = Math.floor(+p[5]);
   })();
 
   calc();

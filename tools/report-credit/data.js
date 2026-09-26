@@ -1,0 +1,2 @@
+/* scripts/build-tool-data.py が吐く。**手で直さない。**元は tools/student-cost/data.js（build_report_credit を見る） */
+window.RC = {"exp":1249185,"per":53856455,"n":275,"parts":{"lv":8744295,"ex":13580000,"sk":26437500,"eqTier":2134500,"eqLv":2960160},"rep":[{"id":10,"n":"初級レポート","e":50,"i":"item_icon_expitem_0"},{"id":11,"n":"中級レポート","e":500,"i":"item_icon_expitem_1"},{"id":12,"n":"上級レポート","e":2000,"i":"item_icon_expitem_2"},{"id":13,"n":"最上級レポート","e":10000,"i":"item_icon_expitem_3"}],"fetched":"2026-09-26"};

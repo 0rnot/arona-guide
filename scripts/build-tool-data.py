@@ -1450,6 +1450,61 @@ def student_cost_equip(mat):
             "gems": [{"n": g["Name"], "i": g["Icon"], "e": g["LevelUpFeedExp"]} for g in gems]}
 
 
+# ------------------------------------------------------------ 特別依頼の行き先
+
+def build_report_credit():
+    """特別依頼の行き先。「1 人を仕上げるクレジット」と「1 人ぶんの経験値」を、
+    **生徒 1 人の育成費用の data.js から数え直す**（2026-09-26、先生の判断 Q8-2）。
+
+    範囲はレポートとクレジットで埋まるところだけ——レベル Lv1→最大、スキル 4 種を
+    Lv1→最大、装備 3 部位を T1 Lv1→最上 Tier の上限 Lv。数え方は student-cost の
+    cost.js（calc() の「ぜんぶ最大まで」から星・固有武器・愛用品を外したもの）と同じ。
+
+    **2026-09-26 に 275 人で数えたら全員同じ 53,856,455 だった。**スキルのクレジットは
+    `build_student_cost` の `only()` が全員同じと確かめていて、装備の Tier 上げの
+    `RecipeCost` も 9 部位すべて 711,500。設計図の枚数は部位で違うが、クレジットは
+    違わない。だから画面に生徒の選択は置かず、**生徒ごとに違ってきたらここで止める**
+    （そのときは画面に生徒の選択を足す）。
+
+    それまでの手書きの 51,721,955 は装備の Tier 上げ（3 部位で 2,134,500）が抜けていた。
+
+    `build_student_cost` の出力を読むので、全部回すときはその後ろで走る（BUILDERS の順）。
+    """
+    print("特別依頼の行き先")
+    src = ROOT / "tools" / "student-cost" / "data.js"
+    txt = src.read_text(encoding="utf-8")
+    C = json.loads(txt[txt.index("{"):txt.rstrip().rindex(";")])
+    eq = C["eq"]
+
+    exp = sum(C["need"])
+    lv = exp * C["creditPerExp"]
+    top = len(eq["maxLv"])
+    eq_lv = sum(eq["cum"][str(t)][eq["maxLv"][t - 1]] for t in range(1, top + 1)) * eq["coef"]
+
+    def tier_up(cat):                   # T1 → 最上 Tier。cost.js の eqTier(cat, 1, 10)
+        return sum(eq["rec"][cat][str(t)][0] for t in range(2, top + 1))
+
+    parts = set()
+    for s in C["stu"]:
+        ex = sum(x[0] for x in s["ex"])
+        sk = sum(x[0] for x in s["sk"]) * 3             # ノーマル・パッシブ・サブは同じ表
+        tu = sum(tier_up(c) for c in s["eq"])
+        parts.add((ex, sk, tu))
+    if len(parts) != 1:
+        raise SystemExit(f"1 人を仕上げるクレジットが生徒ごとに違う（{len(parts)} 通り）。"
+                         "report-credit に生徒の選択を足すこと")
+    ex, sk, tu = parts.pop()
+    el3 = eq_lv * 3
+    per = lv + ex + sk + tu + el3
+
+    return write_js("tools/report-credit/data.js", "RC", {
+        "exp": exp, "per": per, "n": len(C["stu"]),
+        "parts": {"lv": lv, "ex": ex, "sk": sk, "eqTier": tu, "eqLv": el3},
+        "rep": C["rep"],
+    }, header="/* scripts/build-tool-data.py が吐く。**手で直さない。**"
+              "元は tools/student-cost/data.js（build_report_credit を見る） */\n")
+
+
 # ------------------------------------------------------------ 宝探し（在庫管理）
 
 # **文字列の Id は XXHash32（seed 0）。**LocalizeExcelTable の Key がこれで、
@@ -8784,7 +8839,8 @@ def build_lag():
 
 BUILDERS = {"bond": build_bond, "teacher-level": build_teacher_level,
             "equipment": build_equipment, "tier": build_tier, "raid": build_raid,
-            "student-cost": build_student_cost, "treasure": build_treasure,
+            "student-cost": build_student_cost, "report-credit": build_report_credit,
+            "treasure": build_treasure,
             "cost-timeline": build_cost_timeline,
             "raid-calendar": build_raid_calendar,
             "gear-stats": build_gear_stats,
