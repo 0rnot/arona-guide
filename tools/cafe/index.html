@@ -3,27 +3,165 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>カフェの収入計算機｜AronaBot</title>
-<meta name="description" content="快適度を入れると 1 時間あたりのクレジットと AP、倉庫が満杯になるまでの時間が出ます。ランクごとの快適度上限と招待人数、ランクアップに要るクレジットも一緒に。">
+<title>カフェ｜AronaBot</title>
+<meta name="description" content="収入: 快適度から 1 時間のクレジットと AP、倉庫が満杯になるまでの時間、ランクアップの費用。家具配置: 床と壁に家具を並べて快適度の合計を確かめ、その快適度がそのまま収入に入ります。公式の家具テンプレート 26 個も読み込めます。">
 <meta name="theme-color" content="#c8892e">
 <link rel="icon" href="../../favicon.svg" type="image/svg+xml">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="AronaBot">
 <meta property="og:locale" content="ja_JP">
 <meta property="og:url" content="https://arona-bot.com/tools/cafe/">
-<meta property="og:title" content="カフェの収入計算機">
-<meta property="og:description" content="快適度を入れると 1 時間あたりのクレジットと AP、倉庫が満杯になるまでの時間が出ます。ランクごとの快適度上限と招待人数、ランクアップに要るクレジットも一緒に。">
+<meta property="og:title" content="カフェ">
+<meta property="og:description" content="快適度から 1 時間の収入を出し、家具を並べて快適度を作ります。並べた快適度がそのまま収入に入ります。">
 <meta property="og:image" content="https://arona-bot.com/images/og/cafe.jpg">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="カフェの収入計算機 — AronaBot のツール">
+<meta property="og:image:alt" content="カフェ — AronaBot のツール">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="カフェの収入計算機">
-<meta name="twitter:description" content="快適度を入れると 1 時間あたりのクレジットと AP、倉庫が満杯になるまでの時間が出ます。ランクごとの快適度上限と招待人数、ランクアップに要るクレジットも一緒に。">
+<meta name="twitter:title" content="カフェ">
+<meta name="twitter:description" content="快適度から 1 時間の収入を出し、家具を並べて快適度を作ります。並べた快適度がそのまま収入に入ります。">
 <meta name="twitter:image" content="https://arona-bot.com/images/og/cafe.jpg">
+<!-- **カフェの 2 本を 1 本にまとめた**（2026-09-26 grill-me Q18-1）。
+     区画は 2 つ——「収入」（元の cafe。既定）と「家具配置」（元の /tools/cafe-layout/）。
+     古い /tools/cafe-layout/ は転送ページ（noindex）が `#pane=layout` へ送る。
+     **カフェ（1 号店／2 号店）とランクは区画の外に 1 つ。****家具配置の合計快適度が、収入の快適度の既定になる**
+     （収入の側で手で打ったらそちらが勝つ。「家具配置に合わせる」で戻せる。戦術対抗戦の「目標に合わせる」と同じ作り）。
+     家具とセットの一覧は区画の外に 1 つ（閉じた欄）。数字は data.js（build_cafe）と data-layout.js
+     （build_cafe_layout）。ハッシュの形はページ末尾の小物の script に書いた -->
 <link rel="stylesheet" href="../../style.css?v=25">
 <link rel="stylesheet" href="../tool.css?v=17">
 <style>
+  /* ============================================================ 家具配置 */
+  /* ------------------------------------------------------------ 盤
+
+     **真上から見た平面図にする。**参考にした kur-3dcg のシミュレーターは
+     Pixi.js のクォータービュー（アイソメトリック）だが、20 マスを斜めに描くと
+     横幅が 20 × 32 × 2 = 1,280px 要る。このサイトは 390px でも横に
+     はみ出さないのが決まりなので、正方のマス目にした。座標はデータの
+     `PositionX/Y` と 1 対 1 で、目で数えたマスがそのままデータの値になる。 */
+  .bd { position: relative; }
+  .bd-in {
+    position: relative; width: 100%;
+    background: var(--bg-sub);
+    border: 1px solid var(--line); border-radius: 8px;
+    /* マス目の線。**1px の線を背景で描く。**400 個の <div> を置くより軽い */
+    background-image:
+      linear-gradient(to right, var(--line) 1px, transparent 1px),
+      linear-gradient(to bottom, var(--line) 1px, transparent 1px);
+    background-position: -1px -1px;
+    touch-action: manipulation; cursor: crosshair;
+    overflow: hidden;
+  }
+  .bd-in.del { cursor: not-allowed; }
+  /* **家具だけを差し替える入れ物。**盤そのものの innerHTML を書き換えると
+     プレビューの <div> が毎回消えて、位置が 1 手ぶん遅れる */
+  .fus { position: absolute; inset: 0; }
+
+  /* 置いた家具。**面は accent、文字は accent-in。**色は数だけ増やさない
+     （生の色を書かない決まり）。隣り合った家具は枠線で分ける */
+  .fu {
+    position: absolute; box-sizing: border-box;
+    background: var(--accent); color: var(--accent-in);
+    border: 1px solid var(--card); border-radius: 4px;
+    font-size: .62rem; line-height: 1.15; font-weight: 700;
+    padding: 2px 3px; overflow: hidden;
+    display: flex; align-items: center; justify-content: center;
+    text-align: center; word-break: break-all;
+  }
+  /* カーペット（床の装飾）は下に敷ける。**薄くして、上の家具を隠さない** */
+  .fu.under {
+    background: var(--bg-sub); color: var(--fg-mute);
+    border: 1px dashed var(--accent); z-index: 0;
+  }
+  .bd-in.small .fu { font-size: 0; padding: 0; }
+  /* **2 マス以下の家具は名前を出さない。**1×1 に「モンステラの白い植木鉢」を
+     入れると「のス」のような切れ端になって、かえって読み違える。
+     名前は title 属性と下の「置いた家具」の表にある（2026-08-30 に実物を見て決めた） */
+  .fu.tiny { font-size: 0; padding: 0; }
+  /* **絵がある家具は絵で見せる**（2026-08-31 に追加。SchaleDB の
+     furniture/icon/ を生成スクリプト経由で取り込んだ）。名前の文字は消す——
+     絵と文字を重ねるとどちらも読めない。名前は title と「置いた家具」の表にある。
+     地の accent 色はそのまま残して、専有しているマスの範囲も見えるようにする */
+  .fu.pic { background-image: var(--fi); background-size: contain;
+            background-repeat: no-repeat; background-position: center; }
+  .fu.pic > span { display: none; }
+
+  /* 置く前の見え方。**「置けない」を色だけで伝えない。**斜線と文字でも出す */
+  .pv { position: absolute; box-sizing: border-box; pointer-events: none;
+        border: 2px solid var(--accent); border-radius: 4px;
+        background: var(--accent); opacity: .45; z-index: 3; }
+  .pv.no {
+    border-style: dashed; border-color: var(--fg); background: transparent; opacity: 1;
+    background-image: repeating-linear-gradient(45deg,
+      var(--fg) 0 2px, transparent 2px 7px);
+  }
+  .pv.off { display: none; }
+
+  .bdbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 12px 0 0; }
+  .bdnote { font-size: .78rem; color: var(--fg-mute); margin: .7em 0 0; line-height: 1.75; }
+  .bdnote b { color: var(--fg); }
+
+  /* 選んでいる家具の札 */
+  .cur { display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+         border: 1px solid var(--line); border-radius: 10px;
+         background: var(--bg-sub); padding: .6em .8em; font-size: .84rem; }
+  .cur b { font-weight: 800; }
+  .cur .sz { color: var(--fg-mute); font-size: .78rem; }
+  .cur img { width: 36px; height: 36px; flex: none; border-radius: 6px; }
+
+  /* 家具を選ぶ一覧 */
+  .pick { max-height: 340px; overflow-y: auto; border: 1px solid var(--line);
+          border-radius: 10px; margin-top: 12px; }
+  .pick button {
+    /* **align-items は center。**絵を足す前は baseline だったが、
+       40px の絵と 2 行の文字を baseline で並べると絵が浮く（2026-08-31） */
+    display: flex; width: 100%; box-sizing: border-box; gap: .6em; align-items: center;
+    font: inherit; font-size: .84rem; text-align: left; cursor: pointer;
+    background: transparent; color: var(--fg); border: 0;
+    border-bottom: 1px solid var(--line); padding: .45em .75em;
+  }
+  .pick button img { width: 40px; height: 40px; flex: none; border-radius: 6px; }
+  .pick button:last-child { border-bottom: 0; }
+  .pick button:hover { background: var(--bg-sub); }
+  .pick button[aria-pressed="true"] { background: var(--accent); color: var(--accent-in); }
+  .pick .nm { flex: 1; min-width: 0; }
+  .pick .mi { font-size: .74rem; color: var(--fg-mute); white-space: nowrap; }
+  .pick button[aria-pressed="true"] .mi { color: var(--accent-in); opacity: .85; }
+
+  /* テンプレートの札 */
+  .tpls { display: grid; gap: 8px; grid-template-columns: 1fr; }
+  @media (min-width: 560px) { .tpls { grid-template-columns: 1fr 1fr; } }
+  @media (min-width: 900px) { .tpls { grid-template-columns: 1fr 1fr 1fr; } }
+  .tpls button {
+    font: inherit; font-size: .82rem; text-align: left; cursor: pointer;
+    background: var(--card); color: var(--fg);
+    border: 1px solid var(--line); border-radius: 10px; padding: .6em .8em;
+  }
+  .tpls button:hover { border-color: var(--accent); }
+  .tpls button b { display: block; font-weight: 800; }
+  .tpls button small { color: var(--fg-mute); }
+
+  .warn { border: 1px dashed var(--line); border-radius: 12px; padding: .7em .9em;
+          font-size: .82rem; color: var(--fg-mute); line-height: 1.75; margin-top: 12px; }
+  .warn b { color: var(--fg); }
+
+  .bar { height: 12px; border-radius: 999px; background: var(--bg-sub);
+         border: 1px solid var(--line); overflow: hidden; margin: .55em 0 .35em; }
+  .bar > i { display: block; height: 100%; background: var(--accent); }
+
+  table.dt td.nmc { white-space: normal; word-break: auto-phrase; min-width: 7em; }
+  table.dt td.nmc small { display: block; font-size: .72rem; color: var(--fg-mute); }
+  table.dt td.nmc img { width: 28px; height: 28px; border-radius: 5px;
+                        vertical-align: -.55em; margin-right: .35em; }
+  .rowoff td { color: var(--fg-mute); }
+
+  @media (max-width: 460px) {
+    table.dt th, table.dt td { padding: .5em .42em; }
+    table.dt { font-size: .82rem; }
+    .pick { max-height: 260px; }
+  }
+
+  /* ============================================================ 収入 */
   /* 快適度のつまみ */
   input[type="range"] { width: 100%; margin: 12px 0 2px; accent-color: var(--accent); }
   .bar { height: 12px; border-radius: 999px; background: var(--bg-sub);
@@ -58,9 +196,25 @@
     /* **家具の名前を伸ばさない。**伸ばすと「マスあたり」が画面の外へ出る */
     table.dt td.nmc { min-width: 0; max-width: 10.5em; }
   }
+
+  /* ============================================================ 区画の外 */
+  /* 快適度の出どころ（家具配置か、手で入れた値か）の一言 */
+  .srcnote { font-size: .8rem; color: var(--fg-mute); margin: .7em 0 0; line-height: 1.75; }
+  .srcnote b { color: var(--fg); }
+  .srcnote .btn { margin: .45em .4em 0 0; }
+  /* 参考の表。**既定は閉じる**（bond・戦術対抗戦の参考の表と同じ見た目） */
+  details.ref { margin: 0; }
+  details.ref > summary { cursor: pointer; list-style: none; font-weight: 800; font-size: 1rem;
+                          display: flex; align-items: center; gap: .4em; }
+  details.ref > summary::-webkit-details-marker { display: none; }
+  details.ref > summary::before { content: "▸"; color: var(--fg-mute); }
+  details.ref[open] > summary::before { content: "▾"; }
+  details.ref .qnote { font-size: .8rem; color: var(--fg-mute); margin: 12px 0 0; }
+  details.ref h3 { font-size: .92rem; margin: 20px 0 8px; }
 </style>
 </head>
 <body>
+
 
 <!-- 上のバーと footer は scripts/sync-chrome.py が流し込む。
      **閉じタグの前に改行を入れておくこと。**あちらの正規表現は閉じタグの直前の
@@ -156,36 +310,63 @@
     </picture>
   </div>
   <div class="thero-body">
-    <h1>カフェの収入計算機</h1>
-    <p class="thero-lead">快適度を入れると、1 時間の収入と倉庫が満杯になるまでの時間が出ます。</p>
+    <h1>カフェ</h1>
+    <p class="thero-lead">快適度から 1 時間の収入を出し、家具を並べてその快適度を作ります。<button type="button" class="qm" data-hint="収入: 1 時間のクレジットと AP、倉庫が満杯になるまでの時間、ランクアップの費用。家具配置: 床と壁に家具を並べて、置けるかどうかと快適度の合計を確かめます。並べた快適度は、そのまま収入の計算に入ります。"></button></p>
   </div>
 </header>
 
 <div class="twrap">
-  <p class="tcrumb"><a href="../../">AronaBotの使い方</a><span class="sl">/</span><a href="../">ツール</a><span class="sl">/</span>カフェの収入計算機</p>
+  <p class="tcrumb"><a href="../../">AronaBotの使い方</a><span class="sl">/</span><a href="../">ツール</a><span class="sl">/</span>カフェ</p>
 
+  <!-- **2 つの区画。**2026-09-26 に cafe（収入）と cafe-layout（家具配置）を 1 本にまとめた
+       （grill-me Q18-1）。切り替えは ../panes.js（`pane=`）。
+       **カフェとランクは区画の外で 1 つだけ**——選んだ店とランクが両方の区画に効く（tools/raid/ のボス選択と同じ置き方）。
+       **家具配置の合計快適度が、収入の快適度に入る。**収入の側で手で打ったらそちらが勝つ
+       （「家具配置に合わせる」に戻せば、また追う）。JS が無ければタブは出ず、選択と 2 区画が縦に全部並ぶ -->
+  <div class="tpanes" data-panes="cafe-sec" style="margin-top:20px">
+    <div class="ttabs" id="sec-tabs" role="tablist" aria-label="区画" hidden>
+      <button type="button" role="tab" id="tb-sec-inc" data-p="inc"
+              aria-controls="sec-inc" aria-selected="true">収入</button>
+      <button type="button" role="tab" id="tb-sec-layout" data-p="layout"
+              aria-controls="sec-layout" aria-selected="false">家具配置</button>
+    </div>
+
+  <!-- ===== カフェとランク。**ページ全体で 1 つ。**元は 2 本とも同じ欄を持っていた ===== -->
+  <div class="panel" id="p-cafe">
+    <div class="panel-h"><h2>どのカフェの、どのランクか</h2></div>
+    <p class="lead"><b>収入と家具配置の両方</b>に効きます。<button type="button" class="qm" data-hint="床と壁の広さは1号店と2号店で同じ前提です（データに店ごとの広さがありません。詳しくは家具配置の「数字の出どころ」欄）。ランクで変わるのは快適度の上限と収入です。"></button></p>
+    <div class="seg" id="segcafe" role="group" aria-label="カフェを選ぶ">
+      <button type="button" data-c="1" aria-pressed="true">1 号店</button>
+      <button type="button" data-c="2" aria-pressed="false">2 号店</button>
+    </div>
+    <div class="fields c2" style="margin-top:14px">
+      <div class="field">
+        <label for="i-rank">ランク</label>
+        <select id="i-rank"></select>
+      </div>
+      <div class="field">
+        <span class="lb">快適度の上限</span>
+        <p class="bdnote" style="margin:0"><b id="capv">—</b></p>
+      </div>
+    </div>
+  </div>
+
+    <!-- ================================================ 収入（元の cafe） -->
+    <div class="tpane" id="sec-inc" data-p="inc" role="tabpanel" aria-labelledby="tb-sec-inc" tabindex="0">
   <div class="tcols lean" style="margin-top:20px">
 
     <div class="tcol">
       <div class="panel" id="p-in">
-        <div class="panel-h"><h2>どちらのカフェですか</h2></div>
-        <div class="seg" id="segcafe" role="group" aria-label="カフェを選ぶ">
-          <button type="button" data-c="1" aria-pressed="true">1 号店</button>
-          <button type="button" data-c="2" aria-pressed="false">2 号店</button>
-        </div>
-        <div class="fields c2" style="margin-top:14px">
-          <div class="field">
-            <label for="i-rank">ランク</label>
-            <select id="i-rank"></select>
-          </div>
-          <div class="field">
-            <label for="i-comfort">快適度<span class="hint" id="hint-cap">上限 —</span></label>
-            <input id="i-comfort" type="number" min="0" step="10" inputmode="numeric">
-          </div>
+        <div class="panel-h"><h2>いまの快適度</h2></div>
+        <div class="field">
+          <label for="i-comfort">快適度<span class="hint" id="hint-cap">上限 —</span></label>
+          <input id="i-comfort" type="number" min="0" step="10" inputmode="numeric">
         </div>
         <input type="range" id="i-slider" min="0" step="10" aria-label="快適度">
         <div class="bar"><i id="bar" style="width:0%"></i></div>
         <p class="barnote" id="capnote">—</p>
+        <!-- **既定は家具配置の合計。**手で打つとそちらが勝ち、ここのボタンで戻す -->
+        <div class="srcnote" id="srcnote">—</div>
         <div class="btnrow" style="margin-top:12px">
           <button type="button" class="btn" id="b-cap">このランクの上限まで</button>
           <button type="button" class="btn" id="b-max">最大ランクの上限まで</button>
@@ -232,103 +413,237 @@
 
       <div class="panel" id="p-comfort">
         <div class="panel-h"><h2>快適度をどう作るか</h2></div>
-        <p class="lead">快適度は<b>家具の合計 ＋ セットボーナス</b>（上限で頭打ち）です。</p>
+        <p class="lead">快適度は<b>家具の合計 ＋ セットボーナス</b>（上限で頭打ち）です。<a href="#pane=layout" data-go="layout">家具配置</a>で並べて確かめられます。</p>
         <div class="ledger" id="need"></div>
         <div class="tscroll">
           <table class="dt">
             <thead><tr><th>同じセットを</th><th>その段で</th><th>そこまでの合計</th><th>1 個あたり</th></tr></thead>
-            <tbody id="settb"></tbody>
+            <tbody id="stepstb"></tbody>
           </table>
         </div>
         <p class="barnote"><b>段のボーナスは足し上がります。</b>同時に <b><span id="n-setmax">3</span> セット</b>まで効くので、上限は <b id="n-setsum">＋4,500</b> です。<button type="button" class="qm" data-hint="7個そろえると+100+200+450+750で+1,500です（2026-08-30に神ゲー攻略・ゲームエイトの数値と突き合わせて直しました）。"></button></p>
       </div>
     </div>
 
-    <!-- **ここから下はタブで畳む。**参考の表が 3 枚あって、スマホでは 4,842px（6.2 画面ぶん）あった（2026-08-30 に実測）。
-         入力と時給の板は上に出したままにする。**家具の一覧だけで 2,742px あるので、
-         セットとは面を分けた**（同じ面に置くと 8,079px ＝ 10.4 画面ぶんになる）。
-         セットの札を押したときは、下の JS が「家具の快適度」の面へ移してから絞る -->
-    <div class="tfull tpanes" data-panes="cafe">
-      <div class="ttabs" role="tablist" aria-label="下に出すもの" hidden>
-        <button type="button" role="tab" id="tb-c-rank" data-p="rank"
-                aria-controls="pn-rank" aria-selected="true">ランクごとの一覧</button>
-        <button type="button" role="tab" id="tb-c-furn" data-p="furn"
-                aria-controls="pn-furn" aria-selected="false">家具の快適度</button>
-        <button type="button" role="tab" id="tb-c-sets" data-p="sets"
-                aria-controls="pn-sets" aria-selected="false">セットの一覧</button>
+    <!-- ランクごとの一覧。**家具とセットの一覧は区画の外へ出した**（家具配置と共有。元は収入の下のタブ 2 枚） -->
+    <div class="tfull">
+      <div class="panel" id="p-tb">
+        <div class="panel-h"><h2>ランクごとの一覧</h2></div>
+        <p class="lead">クレジットと AP は、<b>快適度上限まで埋めたとき</b>の 1 時間あたりです。<button type="button" class="qm" data-hint="倉庫はクレジットならちょうど24時間ぶんです。APだけは丸められています。"></button></p>
+        <div class="tscroll">
+          <table class="dt">
+            <thead><tr><th>ランク</th><th>快適度の上限</th><th>クレジット/時</th><th>AP/時</th><th>倉庫</th><th>招待</th><th>タグ</th><th>次へ上げる費用</th></tr></thead>
+            <tbody id="ranktb"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </div>
+    </div>
+
+    <!-- ================================================ 家具配置（元の cafe-layout） -->
+    <div class="tpane" id="sec-layout" data-p="layout" role="tabpanel" aria-labelledby="tb-sec-layout" tabindex="0">
+  <div class="tcols lean" style="margin-top:20px">
+
+    <div class="tcol">
+      <div class="panel" id="p-board">
+        <div class="panel-h"><h2>床と壁に並べる</h2></div>
+        <p class="lead">下の「家具を選ぶ」で選んで、マス目を押すと置けます。<button type="button" class="qm" data-hint="カーソルのマスが家具の左上になります。すでに家具があるところには置けません。床の装飾（カーペット）だけは家具の下に敷けます。"></button></p>
+        <div class="seg" id="segplane" role="group" aria-label="どの面に置くか">
+          <button type="button" data-p="0" aria-pressed="true">床 20×20</button>
+          <button type="button" data-p="1" aria-pressed="false">左の壁 20×7</button>
+          <button type="button" data-p="2" aria-pressed="false">右の壁 20×7</button>
+        </div>
+        <div class="bd" style="margin-top:12px">
+          <div class="bd-in" id="bdin"><div class="fus" id="fus"></div><div class="pv off" id="pv"></div></div>
+        </div>
+        <div class="bdbar">
+          <div class="seg" id="segmode" role="group" aria-label="置くか消すか">
+            <button type="button" data-m="put" aria-pressed="true">置く</button>
+            <button type="button" data-m="del" aria-pressed="false">消す</button>
+          </div>
+          <button type="button" class="btn" id="b-rot">回転 <span id="rotv">0°</span></button>
+          <button type="button" class="btn" id="b-undo">元に戻す</button>
+          <button type="button" class="btn" id="b-clear">この面を空にする</button>
+        </div>
+        <p class="bdnote" id="bdnote">—</p>
       </div>
 
-      <div class="tpane" id="pn-rank" data-p="rank" role="tabpanel"
-           aria-labelledby="tb-c-rank" tabindex="0">
-        <div class="panel" id="p-tb">
-          <div class="panel-h"><h2>ランクごとの一覧</h2></div>
-          <p class="lead">クレジットと AP は、<b>快適度上限まで埋めたとき</b>の 1 時間あたりです。<button type="button" class="qm" data-hint="倉庫はクレジットならちょうど24時間ぶんです。APだけは丸められています。"></button></p>
-          <div class="tscroll">
-            <table class="dt">
-              <thead><tr><th>ランク</th><th>快適度の上限</th><th>クレジット/時</th><th>AP/時</th><th>倉庫</th><th>招待</th><th>タグ</th><th>次へ上げる費用</th></tr></thead>
-              <tbody id="ranktb"></tbody>
-            </table>
+      <div class="panel" id="p-pick">
+        <div class="panel-h"><h2>家具を選ぶ</h2></div>
+        <p class="lead">いま選んでいる面（<b id="planenm">床</b>）に置ける家具だけです。</p>
+        <div class="cur" id="cur">家具を選んでください。</div>
+        <div class="fields c2" style="margin-top:14px">
+          <div class="field">
+            <label for="f-q">名前でさがす</label>
+            <input id="f-q" type="search" placeholder="ソファ／こたつ など" autocomplete="off">
+          </div>
+          <div class="field">
+            <label for="f-set">セット</label>
+            <select id="f-set"></select>
+          </div>
+          <div class="field">
+            <label for="f-sc">種類</label>
+            <select id="f-sc"></select>
+          </div>
+          <div class="field">
+            <label for="f-sort">並べ方</label>
+            <select id="f-sort">
+              <option value="e">マスあたりの快適度が高い順</option>
+              <option value="c">快適度が高い順</option>
+              <option value="s">小さい順</option>
+              <option value="n">名前順</option>
+            </select>
           </div>
         </div>
-
+        <div class="pick" id="pick"></div>
+        <p class="bdnote" id="pickn">—</p>
       </div>
 
-      <div class="tpane" id="pn-furn" data-p="furn" role="tabpanel"
-           aria-labelledby="tb-c-furn" tabindex="0">
-        <div class="panel" id="p-furn">
-          <div class="panel-h"><h2>家具の快適度</h2></div>
-          <p class="lead"><b><span id="n-furn">—</span> 個</b>あります。<b>マスあたり</b>は快適度をサイズ（縦 × 横）で割ったものです。<button type="button" class="qm" data-hint="快適度は 20/50/120/180/350/500 の6段階しかありません。"></button></p>
-          <div class="fields c3">
-            <div class="field">
-              <label for="f-set">セット</label>
-              <select id="f-set"></select>
-            </div>
-            <div class="field">
-              <label for="f-rr">レア度</label>
-              <select id="f-rr">
-                <option value="">ぜんぶ</option>
-                <option value="SSR">SSR</option>
-                <option value="SR">SR</option>
-                <option value="R">R</option>
-                <option value="N">N</option>
-              </select>
-            </div>
-            <div class="field">
-              <label for="f-sort">並べ方</label>
-              <select id="f-sort">
-                <option value="c">快適度が高い順</option>
-                <option value="e">マスあたりが高い順</option>
-              </select>
-            </div>
+      <div class="panel" id="p-room">
+        <div class="panel-h"><h2>部屋そのものの化粧</h2></div>
+        <p class="lead">床材・壁紙・背景は<b>それぞれ 1 つだけ</b>です。<button type="button" class="qm" data-hint="マス目は使いません。公式のテンプレート26個すべてが1つずつ持っていたので、この形にしています。"></button></p>
+        <div class="fields c3">
+          <div class="field">
+            <label for="r-fm">床材</label>
+            <select id="r-fm"></select>
           </div>
-          <div class="tscroll">
-            <table class="dt">
-              <thead><tr><th>家具</th><th>快適度</th><th>サイズ</th><th>マスあたり</th></tr></thead>
-              <tbody id="furntb"></tbody>
-            </table>
+          <div class="field">
+            <label for="r-wp">壁紙</label>
+            <select id="r-wp"></select>
           </div>
-          <div class="btnrow" style="margin-top:12px">
-            <button type="button" class="btn" id="b-more">もっと見る</button>
-            <span class="barnote" id="fcount" style="margin:0;align-self:center">—</span>
+          <div class="field">
+            <label for="r-bg">背景</label>
+            <select id="r-bg"></select>
           </div>
         </div>
-
       </div>
+    </div>
 
-      <div class="tpane" id="pn-sets" data-p="sets" role="tabpanel"
-           aria-labelledby="tb-c-sets" tabindex="0">
-        <div class="panel" id="p-sets">
-          <div class="panel-h"><h2>セットの一覧</h2></div>
-          <p class="lead"><b><span id="n-sets">—</span> セット</b>あります。押すと、家具の一覧がそのセットに絞られます。</p>
-          <div class="chips" id="setchips"></div>
-          <div class="warn" id="setwarn"></div>
+    <div class="tcol">
+      <div class="stats c4">
+        <div class="stat hero">
+          <div class="k"><img class="ico" src="../img/ui_cafe_icon_comfort.webp" alt="" width="18" height="18" loading="lazy"> 合計快適度</div>
+          <div class="v" id="o-total">—</div>
+          <div class="sub" id="o-total-sub">家具を置くと出ます</div>
         </div>
-
+        <div class="stat">
+          <div class="k">ランクの上限まで</div>
+          <div class="v" id="o-gap">—</div>
+          <div class="sub" id="o-gap-sub">—</div>
+        </div>
+        <div class="stat">
+          <div class="k">セットボーナス</div>
+          <div class="v" id="o-set">—</div>
+          <div class="sub" id="o-set-sub">同時に 3 セットまで</div>
+        </div>
+        <div class="stat">
+          <div class="k">使ったマス</div>
+          <div class="v" id="o-cell">—</div>
+          <div class="sub" id="o-cell-sub">床 400 マス</div>
+        </div>
       </div>
 
-      <div class="sharebar" id="sharebar"></div>
+      <!-- **この合計が収入の快適度に入る。**収入の側で手で打っていたら、そちらが勝っていることを言う -->
+      <p class="srcnote" id="lay-inc">—</p>
 
-      <details class="src">
+      <div class="panel" id="p-sets">
+        <div class="panel-h"><h2>効いているセット</h2></div>
+        <p class="lead">同じセットをそろえると、家具の快適度とは<b>別に</b>ボーナスが乗ります。</p>
+        <div class="tscroll">
+          <table class="dt">
+            <thead><tr><th>セット</th><th>置いた数</th><th>種類</th><th>ボーナス</th></tr></thead>
+            <tbody id="settb"></tbody>
+          </table>
+        </div>
+        <p class="bdnote" id="setnote">—</p>
+      </div>
+    </div>
+
+    <div class="tfull">
+      <div class="panel" id="p-tpl">
+        <div class="panel-h"><h2>公式のテンプレートを読み込む</h2></div>
+        <p class="lead">ゲームが持っている<b>家具テンプレート <span id="n-tpl">26</span> 個</b>です。押すと、<b>今の並びをすべて置き換えて</b>盤に載せます。<button type="button" class="qm" data-hint="この26個は1マスもはみ出さず、重なりもありません。それが床20×20・壁20×7という広さの裏取りになっています。"></button></p>
+        <div class="tpls" id="tpls"></div>
+      </div>
+
+      <div class="panel" id="p-list">
+        <div class="panel-h"><h2>置いた家具</h2></div>
+        <div class="tscroll">
+          <table class="dt">
+            <thead><tr><th>家具</th><th>面</th><th>位置</th><th>大きさ</th><th>快適度</th><th></th></tr></thead>
+            <tbody id="listtb"></tbody>
+          </table>
+        </div>
+        <p class="bdnote" id="listn">—</p>
+      </div>
+
+      <div class="panel" id="p-out">
+        <div class="panel-h"><h2>この盤に載せていない家具</h2></div>
+        <p class="lead" id="outlead">—</p>
+        <div class="warn" id="outwarn"></div>
+      </div>
+    </div>
+
+  </div>
+    </div>
+  </div>
+
+  <div class="tfull">
+    <!-- **家具とセットの一覧は 1 つ。**元は収入の下のタブ 2 枚（家具の快適度・セットの一覧）で、
+         家具配置の「家具を選ぶ」とも中身が重なっていた。既定は閉じる。
+         古い cafe の `#pane=furn|sets` で来たら開いておく（末尾の script） -->
+    <div class="panel" style="margin-top:20px">
+      <details class="ref" id="furn-ref">
+        <summary>家具とセットの一覧</summary>
+        <p class="qnote"><b><span id="n-furn">—</span> 個</b>の家具と <b><span id="n-sets">—</span> セット</b>です。<b>マスあたり</b>は快適度をサイズ（縦 × 横）で割ったものです。<button type="button" class="qm" data-hint="快適度は 20/50/120/180/350/500 の6段階しかありません。"></button></p>
+        <h3>セット</h3>
+        <p class="qnote" style="margin-top:0">押すと、下の家具の一覧がそのセットに絞られます。</p>
+        <div class="chips" id="setchips"></div>
+        <div class="warn" id="setwarn"></div>
+        <h3 id="furn-h">家具の快適度</h3>
+        <div class="fields c3">
+          <div class="field">
+            <label for="l-set">セット</label>
+            <select id="l-set"></select>
+          </div>
+          <div class="field">
+            <label for="l-rr">レア度</label>
+            <select id="l-rr">
+              <option value="">ぜんぶ</option>
+              <option value="SSR">SSR</option>
+              <option value="SR">SR</option>
+              <option value="R">R</option>
+              <option value="N">N</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="l-sort">並べ方</label>
+            <select id="l-sort">
+              <option value="c">快適度が高い順</option>
+              <option value="e">マスあたりが高い順</option>
+            </select>
+          </div>
+        </div>
+        <div class="tscroll">
+          <table class="dt">
+            <thead><tr><th>家具</th><th>快適度</th><th>サイズ</th><th>マスあたり</th></tr></thead>
+            <tbody id="furntb"></tbody>
+          </table>
+        </div>
+        <div class="btnrow" style="margin-top:12px">
+          <button type="button" class="btn" id="b-more">もっと見る</button>
+          <span class="barnote" id="fcount" style="margin:0;align-self:center">—</span>
+        </div>
+      </details>
+    </div>
+
+    <!-- 共有の帯は 1 つ。**配るのは開いている区画だけ**（下の shareUrl）。
+         「数字の出どころ」は区画ごとにあり、開いている区画のものだけを出す -->
+    <div class="sharebar" id="sharebar"></div>
+
+      <details class="src" data-sec="inc">
         <summary>数字の出どころ</summary>
         <p><b>時給の式はゲームのデータそのままです。</b>それが正しいことを、データの中だけで確かめられました。</p>
         <ul>
@@ -374,7 +689,7 @@
             <a href="https://game8.jp/blue-archive/645032" target="_blank" rel="noopener">ゲームエイト</a>で確かめました）で、
             <b>25 セットすべて同じ値</b>でした（1 つでも違えばセットごとに持つ形へ直します）。
             同時に効く数は <code>ConstCommonExcelTable.CafeSetGroupApplyCount</code> の
-            <b><span id="src-setmax">—</span></b></li>
+            <b><span id="src-setmax-i">—</span></b></li>
           <li>家具 <b><span id="src-furn">—</span> 個</b>とセット名は
             <a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a> の
             <code>furniture</code>。<b>ba-data（<code>DB/</code>）の
@@ -384,33 +699,156 @@
             （2026-08-31 に <code>DB/</code> で引き直して解消。裏が取れないセットが
             また出たときは、一覧に印が付きます）</li>
         </ul>
-        <p><b>出していないもの。</b>家具をカフェの床に詰める配置は作っていません。
-          家具の <code>Size</code> はデータにありますが、<b>床の広さと置ける形がデータのどこにも無い</b>ので、
-          「マスあたりの快適度」までにしています。
+        <p><b>出していないもの。</b>
           招待できる生徒の当選確率（<code>CafeVisitWeightBase</code> ほか）も式が分からないので、
           <b><code>CharacterVisitMin</code> 〜 <code>CharacterVisitMax</code> の幅だけ</b>を出しています。
           <code>CafeRandomVisitMinComfortBonus = 1000</code> の意味も分かりませんでした。
-          <b>裏が取れないものは書かない</b>ことにしています。</p>
+          <b>裏が取れないものは書かない</b>ことにしています。
+          家具を床に並べる話は<a href="#pane=layout" data-go="layout">家具配置</a>の区画にあります
+          （床の広さはカフェの表には無く、家具の大きさと公式テンプレートの座標から確かめています）。</p>
         <p>出典 —
           <a href="https://github.com/electricgoat/ba-data" target="_blank" rel="noopener">electricgoat/ba-data</a>（生産・ランク・レシピ・セットボーナス・道具の名前）、
           <a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a>（家具・セット名・絵）。
           裏取りに <a href="https://gamerch.com/bluearchive/222609" target="_blank" rel="noopener">ブルアカ攻略wiki（Gamerch）</a>、
           <a href="https://game8.jp/blue-archive/645032" target="_blank" rel="noopener">ゲームエイト</a>。
-          取得は <span id="ver">—</span>。</p>
+          取得は <span id="ver-i">—</span>。</p>
       </details>
-    </div>
+
+      <details class="src" data-sec="layout">
+        <summary>数字の出どころ</summary>
+        <p><b>床と壁の広さは、2 つの別々のところから同じ答えが出ました。</b>ゲームのデータに「部屋の広さ」という欄はありませんが、次の 2 つで確かめられます。</p>
+        <ul>
+          <li><b>1 枚で部屋いっぱいに敷く家具の大きさ。</b>
+            <a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a> の
+            <code>furniture</code> で <code>SubCategory</code> が <code>Floor</code>（床材）の 26 個のうち
+            <b><span id="src-wf">8</span> 個</b>が <code>"Size": [20, 20]</code>、
+            <code>Wallpaper</code>（壁紙）の 26 個のうち <b><span id="src-ww">2</span> 個</b>が
+            <code>"Size": [20, 7]</code> です。
+            <span id="src-wfnm">—</span>
+            <b>1,091 個の家具のうち、縦にも横にも 20 を超えるものは 1 つもありません。</b></li>
+          <li><b>公式の家具テンプレート 26 個を、その枠に置き直せること。</b>
+            <code>DB/FurnitureTemplateElementExcelTable.json</code> の 1,718 行には、
+            テンプレートごとに家具の <code>PositionX</code> / <code>PositionY</code> /
+            <code>Rotation</code> が入っています。<b>座標は家具の中心</b>で、
+            幅が奇数のときだけ <code>.5</code> が付きます
+            （マス目に乗る <b><span id="src-rows">1,640</span> 行</b>のうち
+            <b><span id="src-okrows">1,632</span> 行</b>で成り立ちました。
+            外れる <b><span id="src-half">8</span> 行</b>はいちばん近いマスへ丸めていますが、
+            <b>丸めてもはみ出し 0・重なり 0 のまま</b>です）。
+            左上のマスを <code>round(座標 − 大きさ ÷ 2)</code> で出すと、
+            <b><span id="src-cells">7,221</span> マスが 1 マスもはみ出さず、重なりも 0</b> でした。
+            <b>1 つでもはみ出すか重なったら、データを作る側で止まります。</b></li>
+          <li><b>床の装飾（カーペット）だけは重ねてよい</b>ことも、そこから分かります。
+            カーペットを検査に入れると重なりが <b>837 マス</b>出ますが、外すと 0 になります。
+            つまり公式のテンプレートは<b>カーペットの上に家具を置いています</b></li>
+          <li><b>どの家具がどの面に行くか</b>は、同じ表の <code>Location</code> 欄
+            （<code>Floor</code> / <code>WallLeft</code> / <code>WallRight</code>）から決めました。
+            <b>ベッド・椅子・クローゼット・床の装飾・家電・小物・テーブルは 1,377 行すべてが
+            <code>Floor</code>、壁の装飾は 263 行すべてが壁</b>で、混ざった行は 1 つもありません。
+            床材・壁紙・背景は<b>どのテンプレートにもちょうど 1 つずつ</b>入っていたので、
+            この画面でも 1 つだけ選ぶ形にしています</li>
+        </ul>
+        <p><b>快適度の出し方。</b></p>
+        <ul>
+          <li>家具そのものの快適度は <code>furniture</code> の <code>ComfortBonus</code>。
+            <b>20 / 50 / 120 / 180 / 350 / 500 の 6 段階</b>しかありません</li>
+          <li>セットボーナスの段は <code>DB/FurnitureGroupExcelTable.json</code> の
+            <code>RequiredFurnitureCount = [2, 3, 5, 7]</code> と
+            <code>ComfortBonus = [100, 200, 450, 750]</code>。
+            <b>25 セットすべて同じ値</b>でした。同時に効くセット数は
+            <code>Excel/ConstCommonExcelTable.json</code> の
+            <code>CafeSetGroupApplyCount = <span id="src-setmax">3</span></code></li>
+          <li><b>この 4 つは足し上がります。</b>データだけでは「置き換わる」のか
+            「足し上がる」のか決められないので、外の表と突き合わせました。
+            <a href="https://kamigame.jp/bluearchive/page/143084388039553700.html" target="_blank" rel="noopener">神ゲー攻略</a>が
+            「同シリーズ配置数 2個 / 3個 / 5個 / 7個」に対して
+            「ボーナス値 100 / 200 / 450 / 750」「上昇する快適度 100 / 300 / 750 / 1500」という
+            2 列の表を出していて、右の列が左の列の積み上げになっています。
+            <a href="https://game8.jp/blue-archive/645032" target="_blank" rel="noopener">ゲームエイト</a>の
+            表も「2個 100 / 3個 200 / 5個 450 / 7個 750 / 合計 1500」で、
+            <b>1 セットの上限が 1,500 という点で 2 つが一致</b>しました。
+            この画面はその積み上げ（<b>7 個で ＋1,500</b>）で計算しています</li>
+          <li><b>確かめられていないこと が 2 つあります。</b>
+            1 つは<b>同じ家具を 2 個置いたとき、セットの数え方が「個数」なのか「種類」なのか</b>。
+            神ゲー攻略は「同じシリーズの家具が<b>配置されている数</b>に応じて」と書き、
+            ゲームエイト側は「<b>7種</b>を置くと」と書いていて、言い方が割れています。
+            この画面は<b>個数で数え</b>、表に種類の数も並べています。
+            <b>床材・壁紙・背景も 1 個ずつ数に入れています。</b>部屋の化粧 76 個のうち
+            73 個がセットに属していて（青いタイルの床と壁は同じセット）、
+            そろえると 1 セットあたり最大 3 個ぶん早くボーナスが点きます。
+            <b>2 つの数が食い違ったときは、表の下に注意書きが出ます。</b>
+            もう 1 つは<b>効く 3 セットの選び方</b>で、
+            この画面は<b>ボーナスが大きい順に 3 つ</b>としています</li>
+          <li>快適度の上限は <code>DB/CafeRankExcelTable.json</code> の
+            <code>ComfortMax</code>。<b>1,000 から 500 きざみで 5,500 まで</b>で、
+            これが並んでいなければデータを作る側で止まります</li>
+        </ul>
+        <p><b>参考にしたもの。</b>この画面は
+          <a href="https://kur-3dcg.github.io/Furniture-placement-simulator/" target="_blank" rel="noopener">kur-3dcg さんの「家具シミュレーションツール」</a>
+          （<a href="https://github.com/kur-3dcg/Furniture-placement-simulator" target="_blank" rel="noopener">GitHub</a>）を
+          先に読んでから作りました。<b>借りたのは考え方だけで、コードは 1 行も写していません。</b>
+          向こうは <b>20×20 のマス目・家具は長方形・重ねて置けない・R キーで 90 度ずつ回転・
+          置く前に「置ける／置けない」を見せる・<code>localStorage</code> に残す</b>という骨格で、
+          ここもその骨格に合わせています。<b>ただし向こうは家具の名前と大きさを手で入力する形</b>で、
+          ブルアカのデータは読み込んでいません（読み込んでいるのは Pixi.js だけ）。
+          こちらは家具・大きさ・快適度・セット・公式テンプレートをすべてゲームのデータから引いています。
+          <b>見た目はクォータービューではなく真上から</b>にしました。斜めに描くと横幅が
+          1,280px 必要で、スマホで横にはみ出すためです。
+          <b>向こうのリポジトリに LICENSE ファイルはありません</b>（README には
+          「このツールは教育・学習目的で作成されています」とだけあります）。
+          そのぶんコードは写さず、考え方とデータの出どころだけを借りています。
+          <code>tools/cost-timeline/</code> でも同じ方の
+          <code>characters_st.json</code> を参考にしています</p>
+        <p><b>出していないもの。</b>
+          <b>1 号店と 2 号店で床の形が違うかどうかは分かりません。</b>
+          <code>DB/CafeInfoExcelTable.json</code> は 2 行しかなく、持っているのは
+          <code>IsDefault</code> と開放条件の名前、招待券の情報だけで、広さも形も入っていません。
+          公式テンプレートにも「どちらの店用か」という欄がありません。
+          <b>この画面は両方を 20×20 として扱っています。実際の 2 号店で合わない場合があります。</b>
+          <b>床の形が長方形でない</b>（柱や段差でマスが欠けている）可能性も否定できません。
+          テンプレートが使っていないマスがあっても、それが「置けないマス」なのか
+          「たまたま置いていないマス」なのかはデータから区別できないので、
+          <b>欠けは作っていません。</b>
+          <b>トロフィー <span id="src-tro">96</span> 個とその他 <span id="src-etc">8</span> 個は
+          盤に載せていません。</b>この 2 種類は公式テンプレート 26 個に 1 度も出てこないので、
+          床なのか壁なのかが確かめられませんでした。快適度の合計にも入れていません。
+          家具を「持っているかどうか」も見ていません。<b>全部持っている前提</b>の画面です。</p>
+        <p>出典 —
+          <a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a>（家具・大きさ・快適度・セット名）、
+          <a href="https://github.com/electricgoat/ba-data" target="_blank" rel="noopener">electricgoat/ba-data</a>（家具テンプレート・セットボーナス・カフェのランク）。
+          考え方の参考に
+          <a href="https://kur-3dcg.github.io/Furniture-placement-simulator/" target="_blank" rel="noopener">kur-3dcg／家具シミュレーションツール</a>。
+          セットボーナスの積み上げの裏取りに
+          <a href="https://kamigame.jp/bluearchive/page/143084388039553700.html" target="_blank" rel="noopener">神ゲー攻略</a>と
+          <a href="https://game8.jp/blue-archive/645032" target="_blank" rel="noopener">ゲームエイト</a>。
+          取得は <span id="ver-l">—</span>。</p>
+      </details>
 
   </div>
 </div>
 
-<script>window.TOUR = {"key": "cafe", "steps": [
-  {"sel": "#p-in", "t": "カフェとランクと快適度", "d": "今の快適度を入れてください。2 号店は AP を作りません。"},
-  {"sel": "#o-ch", "t": "1 時間あたりが出ます", "d": "放っておくと倉庫が満杯で止まります。"},
-  {"sel": "#p-up", "t": "ランクを 1 つ上げたときの差", "d": "かかるクレジットと、何日で戻ってくるかを出しています。"},
-  {"sel": "#p-comfort", "t": "快適度の作り方", "d": "あと何個の家具が要るかと、セットボーナスの段です。"},
-  {"sel": "#sharebar", "t": "結果はそのまま渡せます", "d": "リンクを送ると、相手の画面にも同じ結果が出ます。"}
-]};</script>
-<script src="../panes.js?v=1"></script>
+<script>window.TOUR = {"key": "cafe-2", "steps": [{"sel": "#sec-tabs", "t": "カフェは 2 つに分けています", "d": "収入: 快適度から 1 時間のクレジットと AP。家具配置: 床と壁に家具を並べて快適度を作ります。入力はこの端末に残ります。"}, {"sel": "#p-cafe", "t": "カフェとランクは共通です", "d": "ここで選んだ店とランクが、収入と家具配置の両方に効きます。2 号店は AP を作りません。"}, {"sel": "#p-in", "pre": ["#tb-sec-inc"], "t": "快適度", "d": "最初は家具配置の合計が入ります（空ならランクの上限）。手で打つとそちらが優先され、「家具配置に合わせる」で戻せます。"}, {"sel": "#o-ch", "pre": ["#tb-sec-inc"], "t": "1 時間あたりが出ます", "d": "放っておくと倉庫が満杯で止まります。"}, {"sel": "#p-up", "pre": ["#tb-sec-inc"], "t": "ランクを 1 つ上げたときの差", "d": "かかるクレジットと、何日で戻ってくるかを出しています。"}, {"sel": "#p-board", "pre": ["#tb-sec-layout"], "t": "家具配置: 床と壁に並べます", "d": "面を選び、マス目を押すと置けます。回すのは「回転」ボタンか R キーです。"}, {"sel": "#p-pick", "pre": ["#tb-sec-layout"], "t": "置く家具はここで選びます", "d": "いま選んでいる面に置けるものだけです。「マス」は快適度を面積で割った値です。"}, {"sel": "#p-tpl", "pre": ["#tb-sec-layout"], "t": "公式のテンプレートを丸ごと読めます", "d": "ゲームが持っている 26 個の並びです。押すと盤に載ります。"}, {"sel": "#o-total", "pre": ["#tb-sec-layout"], "t": "合計快適度", "d": "家具の快適度とセットボーナスの合計です。この数字がそのまま収入に入ります。"}, {"sel": "#furn-ref > summary", "t": "家具とセットの一覧", "d": "快適度・大きさ・マスあたりの一覧と、セットの一覧です。ふだんは畳んであります。"}, {"sel": "#sharebar", "t": "開いている区画ごと URL になります", "d": "リンクを送ると、相手の画面にも同じ結果が出ます。案内を閉じると、開く前の区画に戻ります。"}]};</script>
+<!-- **元の cafe の `#pane=rank|furn|sets` は、下のタブ 3 枚の名前だった。**いまの `pane=` は区画
+     （inc・layout）なので、古い共有リンクをここで読み替える（../remember.js と ../panes.js より前に）。
+     rank は収入の区画の中、furn・sets は区画の外の「家具とセットの一覧」（開いておく） -->
+<script>
+(function () {
+  var re = /(^#|&)pane=(rank|furn|sets)(?=&|$)/;
+  var m = re.exec(location.hash);
+  if (!m) return;
+  if (m[2] !== 'rank') window.CAFE_OPENREF = true;
+  var h = location.hash.replace(/^#/, '').split('&').filter(function (x) {
+    return x && !/^pane=(rank|furn|sets)$/.test(x);
+  }).join('&');
+  try { history.replaceState(null, '', location.pathname + location.search + (h ? '#' + h : '')); } catch (e) { /* file:// */ }
+})();
+</script>
+<!-- **入力を覚える。../panes.js と各区画の JS より前に読むこと**（前回のハッシュを先に URL へ戻す）。
+     `data-keep`: 家具配置のリンクで開いても、書いていない店・ランク・収入の快適度は前の続きのまま。
+     **家具の並びは remember.js ではなく、元の cafe-layout の localStorage（`arona-cafe-layout`）に残す**
+     （キーを変えると、今までの利用者の並びが消えるので） -->
+<script src="../remember.js?v=2" data-keep="c,r,v"></script>
+<script src="../panes.js?v=2"></script>
 <script src="../tour.js?v=2"></script>
 
 <script src="../share.js?v=3"></script>
@@ -426,7 +864,7 @@
       <span class="sep">/</span>
       <a href="https://x.com/pe6cak" target="_blank" rel="noopener">制作者の X（@pe6cak）</a>
       <span class="sep">/</span>
-      <a href="https://github.com/0rnot/arona-guide/issues/new?template=tool-feedback.yml&title=%5B%E3%82%AB%E3%83%95%E3%82%A7%E3%81%AE%E5%8F%8E%E5%85%A5%E8%A8%88%E7%AE%97%E6%A9%9F%5D%20&tool=%E3%82%AB%E3%83%95%E3%82%A7%E3%81%AE%E5%8F%8E%E5%85%A5%E8%A8%88%E7%AE%97%E6%A9%9F" target="_blank" rel="noopener">このツールへの要望・不具合</a>
+      <a href="https://github.com/0rnot/arona-guide/issues/new?template=tool-feedback.yml&title=%5B%E3%82%AB%E3%83%95%E3%82%A7%5D%20&tool=%E3%82%AB%E3%83%95%E3%82%A7" target="_blank" rel="noopener">このツールへの要望・不具合</a>
       <span class="sep">/</span>
       <span>Discord なら <b>@0r.not</b> まで</span>
     </p>
@@ -441,18 +879,97 @@
   </div>
 </footer>
 
-<script src="data.js"></script>
+<!-- 数字は data.js（scripts/build-tool-data.py の build_cafe）と data-layout.js（同じく build_cafe_layout） -->
+<script src="data.js?v=2"></script>
+<script src="data-layout.js?v=1"></script>
 <script>
+/* 区画をまたいで使う小物。**URL のハッシュは `&` 区切りの区画で、各区画は自分の区画しか書き換えない。**
+     pane=layout          開いている区画（収入は既定なので書かない）               ../panes.js
+     c=1|2&r=1〜10        カフェとランク。**区画の外で 1 つ**（元は両方が同じ形で持っていた）
+     v=快適度             収入の区画。**手で入れたときだけ書く。**無ければ家具配置の合計に合わせる
+                          （元の cafe は必ず書いていたので、古いリンクは「手で入れた値」として読まれる）
+     m=床材.壁紙.背景&i=家具,面,x,y,回転_…
+                          家具配置の区画（元の cafe-layout の形そのまま）。**共有するときだけ組む**——
+                          並びは localStorage の `arona-cafe-layout`（元のキーのまま）が持つ */
+window.CAFESEG = window.CAFESEG || {};
+window.cafePut = function (key, val) {
+  var s = location.hash.replace(/^#/, '').split('&').filter(Boolean), hit = false;
+  s = s.map(function (x) {
+    if (x.indexOf(key + '=') !== 0) return x;
+    if (hit) return '';
+    hit = true;
+    return val;
+  }).filter(Boolean);
+  if (!hit && val) s.push(val);
+  try {
+    history.replaceState(null, '', location.pathname + location.search + (s.length ? '#' + s.join('&') : ''));
+  } catch (e) { /* file:// では黙って諦める */ }
+};
+
+/* ================================================================ カフェとランク（区画の外） */
 (function () {
   'use strict';
-  var C = window.CAFE;
+  var C = window.CAFE, MAXR = 10;
   var el = function (id) { return document.getElementById(id); };
-  var MAXR = 10;
+  var capOf = {};
+  C.rank.forEach(function (r) { capOf[r.c + ':' + r.r] = r.cm; });
+
+  var S = window.CAFE_SHARED = {
+    cafe: 1, rank: 1, MAXR: MAXR,
+    cap: function (c, r) { return capOf[c + ':' + r]; },
+    /** 店かランクを変える。**両方の区画へ `cafe:shared` で知らせる** */
+    set: function (o) {
+      if (o.cafe === 1 || o.cafe === 2) S.cafe = o.cafe;
+      if (o.rank >= 1 && o.rank <= MAXR) S.rank = o.rank;
+      sync();
+      try { document.dispatchEvent(new CustomEvent('cafe:shared')); } catch (e) { /* 古いブラウザ */ }
+    }
+  };
+
+  (function readHash() {
+    var m = /[#&]c=(\d)(?=&|$)/.exec(location.hash);
+    if (m && (+m[1] === 1 || +m[1] === 2)) S.cafe = +m[1];
+    var r = /[#&]r=(\d+)(?=&|$)/.exec(location.hash);
+    if (r && +r[1] >= 1 && +r[1] <= MAXR) S.rank = +r[1];
+  })();
+
+  var ro = '';
+  for (var i = 1; i <= MAXR; i++) ro += '<option value="' + i + '">ランク ' + i + '</option>';
+  el('i-rank').innerHTML = ro;
+
+  function sync() {
+    el('i-rank').value = String(S.rank);
+    var bs = el('segcafe').querySelectorAll('button');
+    for (var i = 0; i < bs.length; i++) {
+      bs[i].setAttribute('aria-pressed', +bs[i].dataset.c === S.cafe ? 'true' : 'false');
+    }
+    el('capv').textContent = S.cap(S.cafe, S.rank).toLocaleString('ja-JP');
+    // **URL バーにも書く。**元の cafe と同じく、再読み込みで店とランクが消えないように
+    window.cafePut('c', 'c=' + S.cafe);
+    window.cafePut('r', 'r=' + S.rank);
+  }
+
+  el('segcafe').addEventListener('click', function (e) {
+    var b = e.target.closest ? e.target.closest('button') : null;
+    if (!b || !b.dataset.c) return;
+    S.set({ cafe: +b.dataset.c });
+  });
+  el('i-rank').addEventListener('change', function () { S.set({ rank: +this.value }); });
+  sync();
+})();
+</script>
+<script>
+/* ================================================================ 収入（元の cafe） */
+(function () {
+  'use strict';
+  var C = window.CAFE, S = window.CAFE_SHARED;
+  var el = function (id) { return document.getElementById(id); };
+  var MAXR = S.MAXR;
   var CRED = '1', AP = '5';
 
   var rankOf = {};
   C.rank.forEach(function (r) { rankOf[r.c + ':' + r.r] = r; });
-  function capOf(c, r) { return rankOf[c + ':' + r].cm; }
+  function capOf(c, r) { return S.cap(c, r); }
   /** 1 時間あたり。**10000 で割る。** */
   function hour(c, parcel, r, comfort) {
     var t = C.prod[String(c)][parcel];
@@ -472,28 +989,32 @@
     return Math.floor(m / 60) + ' 時間 ' + (m % 60) + ' 分';
   }
 
-  /* ---- 状態 ---- */
-  var cafe = 1, rank = 1, comfort = capOf(1, 1), shown = 25;
-  var fset = '', frr = '', fsort = 'c';
+  /* ---- 状態 ----
+     **`manual` は手で入れた快適度。null なら家具配置に合わせる**（戦術対抗戦の「目標に合わせる」と同じ考え）。
+     家具配置が空のときは、元の cafe の既定だった「ランクの上限」で出す */
+  var manual = null;
+  (function readHash() {
+    var v = /[#&]v=(\d+)(?=&|$)/.exec(location.hash);
+    if (v) manual = Math.min(capOf(S.cafe, MAXR), +v[1]);
+  })();
+  function layout() {
+    var L = window.cafeLayout ? window.cafeLayout() : null;
+    return L && L.n ? L : null;
+  }
+  function comfortNow() {
+    if (manual !== null) return manual;
+    var L = layout();
+    return L ? Math.min(L.total, capOf(S.cafe, MAXR)) : capOf(S.cafe, S.rank);
+  }
 
   /* ---- 一度だけ組む ---- */
-  var ro = '';
-  for (var i = 1; i <= MAXR; i++) ro += '<option value="' + i + '">ランク ' + i + '</option>';
-  el('i-rank').innerHTML = ro;
-
-  el('f-set').innerHTML = '<option value="">ぜんぶ</option>' +
-    '<option value="0">セットに属さない家具</option>' +
-    C.sets.map(function (s) {
-      return '<option value="' + s.id + '">' + s.nm + '（' + s.n + '）</option>';
-    }).join('');
-
   /* **段のボーナスは足し上がる。**`FurnitureGroupExcelTable` は段ごとの数しか
      持たないので、データだけでは累積かどうか決められない。外の 2 つが
      どちらも「7 個で合計 1,500」と書いていたので、積み上げで出す
      （2026-08-30。それまで「7 個 ＋750」と非累積で書いていて、
       同じ日に作った家具配置のツールと食い違っていた）。 */
   var setCum = 0;
-  el('settb').innerHTML = C.setStep.map(function (n, i) {
+  el('stepstb').innerHTML = C.setStep.map(function (n, i) {
     setCum += C.setBonus[i];
     return '<tr><td>' + n + ' 個</td><td>＋' + num(C.setBonus[i]) + '</td><td><b>＋' +
            num(setCum) + '</b></td><td>' + num(setCum / n, 1) + '</td></tr>';
@@ -502,85 +1023,59 @@
   var setAll = 0;
   C.setBonus.forEach(function (v) { setAll += v; });
   el('n-setsum').textContent = '＋' + num(setAll * C.setMax);
-  el('n-furn').textContent = num(C.furn.length);
-  el('n-sets').textContent = num(C.sets.length);
   el('src-furn').textContent = num(C.furn.length);
-  el('src-setmax').textContent = String(C.setMax);
-  el('ver').textContent = C.fetched;
-
-  el('setchips').innerHTML = C.sets.map(function (s) {
-    return '<button type="button" class="chip" data-s="' + s.id + '">' + s.nm +
-           '<small>' + s.n + '</small>' + (s.ok ? '' : ' ※') + '</button>';
-  }).join('');
-  var nook = C.sets.filter(function (s) { return !s.ok; });
-  el('setwarn').innerHTML = nook.length
-    ? '<b>※ の ' + nook.length + ' セットは未確認です</b>（' +
-      nook.map(function (s) { return s.nm; }).join('、') +
-      '）。<b>ボーナスの段を他と同じと決めつけないでください。</b>'
-    : '<b>全セット、ボーナスの段を確認済みです。</b>';
+  el('src-setmax-i').textContent = String(C.setMax);
+  el('ver-i').textContent = C.fetched;
 
   /* ---- 出来事 ---- */
-  el('segcafe').addEventListener('click', function (e) {
-    var b = e.target.closest ? e.target.closest('button') : null;
-    if (!b || !b.dataset.c) return;
-    cafe = +b.dataset.c;
-    if (comfort > capOf(cafe, rank)) comfort = capOf(cafe, rank);
+  // **店やランクを変えたら、手で入れた値だけ上限で切る**（元の cafe と同じ）。家具配置に合わせているときは切らない
+  document.addEventListener('cafe:shared', function () {
+    if (manual !== null && manual > capOf(S.cafe, S.rank)) manual = capOf(S.cafe, S.rank);
     sync(); draw();
   });
-  el('i-rank').addEventListener('change', function () {
-    rank = +this.value;
-    if (comfort > capOf(cafe, rank)) comfort = capOf(cafe, rank);
-    sync(); draw();
+  // 家具配置が動いたら追う。**手で入れているときも、戻すボタンの数字は変わる**
+  document.addEventListener('cafe:layout', function () {
+    if (manual === null) sync();
+    draw();
   });
   function onComfort(v) {
     var n = parseInt(v, 10);
     if (!isFinite(n)) return;
-    comfort = Math.max(0, Math.min(capOf(cafe, MAXR), n));
+    manual = Math.max(0, Math.min(capOf(S.cafe, MAXR), n));
     draw();
   }
   // **入力欄そのものは作り直さない。**打っている途中で値と焦点が飛ぶ
   el('i-comfort').addEventListener('input', function () {
     onComfort(this.value);
-    el('i-slider').value = String(comfort);
+    el('i-slider').value = String(comfortNow());
   });
   el('i-slider').addEventListener('input', function () {
     onComfort(this.value);
-    el('i-comfort').value = String(comfort);
+    el('i-comfort').value = String(comfortNow());
   });
-  el('b-cap').addEventListener('click', function () { comfort = capOf(cafe, rank); sync(); draw(); });
+  el('b-cap').addEventListener('click', function () { manual = capOf(S.cafe, S.rank); sync(); draw(); });
   el('b-max').addEventListener('click', function () {
-    rank = MAXR; comfort = capOf(cafe, MAXR); sync(); draw();
+    manual = capOf(S.cafe, MAXR);
+    S.set({ rank: MAXR });            // これが cafe:shared で sync・draw まで回す
   });
-  el('f-set').addEventListener('change', function () { fset = this.value; shown = 25; drawFurn(); });
-  el('f-rr').addEventListener('change', function () { frr = this.value; shown = 25; drawFurn(); });
-  el('f-sort').addEventListener('change', function () { fsort = this.value; shown = 25; drawFurn(); });
-  el('b-more').addEventListener('click', function () { shown += 60; drawFurn(); });
-  el('setchips').addEventListener('click', function (e) {
-    var b = e.target.closest ? e.target.closest('.chip') : null;
+  el('srcnote').addEventListener('click', function (e) {
+    var b = e.target.closest ? e.target.closest('#b-follow') : null;
     if (!b) return;
-    fset = fset === b.dataset.s ? '' : b.dataset.s;
-    el('f-set').value = fset;
-    shown = 25; drawFurn();
-    /* **家具の一覧は別の面にいる。**先に開かないと送った先が隠れたままになる
-       （2026-08-30、参考の 3 枚をタブに割ったときから）。
-       `showPane` は `../panes.js` が置いていく。無くても動くようにしておく。 */
-    if (window.showPane) window.showPane(el('p-furn'));
-    el('p-furn').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    manual = null; sync(); draw();
   });
+  /** 家具配置の区画からも「合わせる」に戻せるように */
+  window.cafeFollow = function () { manual = null; sync(); draw(); };
 
   function sync() {
-    el('i-rank').value = String(rank);
-    el('i-comfort').value = String(comfort);
-    el('i-slider').max = String(capOf(cafe, MAXR));
-    el('i-slider').value = String(comfort);
-    var bs = el('segcafe').querySelectorAll('button');
-    for (var i = 0; i < bs.length; i++) {
-      bs[i].setAttribute('aria-pressed', +bs[i].dataset.c === cafe ? 'true' : 'false');
-    }
+    var c = comfortNow();
+    el('i-comfort').value = String(c);
+    el('i-slider').max = String(capOf(S.cafe, MAXR));
+    el('i-slider').value = String(c);
   }
 
   /* ---- 書き出し ---- */
   function draw() {
+    var cafe = S.cafe, rank = S.rank, comfort = comfortNow();
     var cap = capOf(cafe, rank), hard = capOf(cafe, MAXR);
     var eff = Math.min(comfort, cap);          // 上限で頭打ち
     var ch = hour(cafe, CRED, rank, eff);
@@ -595,6 +1090,21 @@
         ' 入っていますが、超えたぶんは収入に効きません。'
       : '上限 <b>' + num(cap) + '</b> まであと <b>' + num(cap - comfort) + '</b>。' +
         (cafe === 2 ? '<b>2 号店は AP を作りません。</b>' : '');
+
+    // 快適度の出どころ。**どちらが効いているかを必ず言う**
+    var L = layout();
+    if (manual !== null) {
+      el('srcnote').innerHTML = '<b>手で入れた値</b>で出しています。' +
+        '<br><button type="button" class="btn" id="b-follow">家具配置に合わせる（' +
+        (L ? num(Math.min(L.total, hard)) : '空なので上限の ' + num(cap)) + '）</button>';
+    } else if (L) {
+      el('srcnote').innerHTML = '<b>家具配置の合計</b>（家具 ' + num(L.base) + ' ＋ セット ' + num(L.set) +
+        '）をそのまま使っています。' + (L.total > hard ? '最大ランクの上限 ' + num(hard) + ' で止めています。' : '') +
+        '手で打つと、そちらが優先されます。';
+    } else {
+      el('srcnote').innerHTML = '<a href="#pane=layout" data-go="layout">家具配置</a>がまだ空なので、' +
+        '<b>ランクの上限</b>で出しています。並べると、その合計に変わります。手で打つこともできます。';
+    }
 
     // **単位を .v に入れない。**幅が足りないと「クレジ／ット」で割れる（実測）
     el('o-ch').textContent = num(ch, 2);
@@ -671,7 +1181,7 @@
     // 快適度をどう作るか
     var lack = Math.max(0, cap - comfort);
     var nl = ['<div class="row"><span>ランク ' + rank + ' の上限</span><span>' + num(cap) + '</span></div>',
-              '<div class="row"><span>いま入れた快適度</span><span>' + num(comfort) + '</span></div>',
+              '<div class="row"><span>いまの快適度</span><span>' + num(comfort) + '</span></div>',
               '<div class="row total"><span>あと</span><span>' + num(lack) + '</span></div>'];
     if (lack > 0) {
       // **段はデータから取る。**[500, 350, 120, 50] と書いていた時期があり、
@@ -708,12 +1218,635 @@
       return out.join('');
     })();
 
-    drawFurn();
-    hash = '#c=' + cafe + '&r=' + rank + '&v=' + comfort;
-    syncHash();
+    // **URL バーには手で入れたときだけ書く**（家具配置に合わせているときは書かない）
+    window.cafePut('v', manual !== null ? 'v=' + manual : '');
+    last = { cafe: cafe, rank: rank, comfort: eff, ch: ch, manual: manual !== null };
+    try { document.dispatchEvent(new CustomEvent('cafe:income')); } catch (e) { /* 古いブラウザ */ }
+  }
+  var last = null;
+  /** 家具配置の区画から読む口。いま収入に入っている快適度と 1 時間のクレジット */
+  window.cafeIncome = function () { return last; };
+
+  /* ---- URL の区画 `v=`。**共有するときは、家具配置に合わせた値も数字で書く**
+     （受け取った人の家具配置は別なので）。覚えるときは手で入れたときだけ */
+  window.CAFESEG.inc = function (share) {
+    var v = manual !== null ? manual : (share ? comfortNow() : null);
+    return v === null ? '' : 'v=' + v;
+  };
+
+  sync();
+  draw();
+})();
+</script>
+<script>
+/* ================================================================ 家具配置（元の cafe-layout） */
+(function () {
+  'use strict';
+  var C = window.CLAY, S = window.CAFE_SHARED;
+  function el(id) { return document.getElementById(id); }
+  function num(n, d) {
+    return n.toLocaleString('ja-JP', { minimumFractionDigits: d || 0, maximumFractionDigits: d || 0 });
+  }
+  function esc(s) {
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
 
-  function drawFurn() {
+  var MAXR = 10;
+  /* 面。**左の壁と右の壁は別の盤。**公式テンプレートでは同じ (x, y) が
+     両方の壁に出てくるので、1 枚にまとめると重なりの検査が壊れる */
+  var PL = [
+    { nm: '床', w: C.floor[0], h: C.floor[1], k: 'f' },
+    { nm: '左の壁', w: C.wall[0], h: C.wall[1], k: 'w' },
+    { nm: '右の壁', w: C.wall[0], h: C.wall[1], k: 'w' }
+  ];
+  /* 床の装飾（カーペット）だけは家具の下に敷ける。**公式テンプレート 26 個で
+     837 マスぶん重なっていた**ので、重なりの検査から外す唯一の種類 */
+  var UNDER = 'FloorDecoration';
+  var LSKEY = 'arona-cafe-layout';
+
+  var i, fby = {};
+  for (i = 0; i < C.furn.length; i++) fby[C.furn[i].id] = C.furn[i];
+  var setnm = {}, setok = {};
+  for (i = 0; i < C.sets.length; i++) { setnm[C.sets[i].id] = C.sets[i].nm; setok[C.sets[i].id] = C.sets[i].ok; }
+  var capOf = {};
+  for (i = 0; i < C.rank.length; i++) capOf[C.rank[i].c + ':' + C.rank[i].r] = C.rank[i].cm;
+  function subJa(k) { return C.subJa[k] || k; }
+
+  /* ---- 状態 ---- */
+  var plane = 0, mode = 'put', rot = 0, sel = 0;
+  var items = [];                       // { f: 家具 id, p: 面, x, y, r: 回転 0〜3 }
+  var room = { fm: 0, wp: 0, bg: 0 };   // 床材・壁紙・背景。**それぞれ 1 つだけ**
+  var undo = [], hover = null, msg = '';
+  var q = '', fset = '', fsc = '', fsort = 'e', shown = 120;
+
+  /* ---- 置ける／置けない ---- */
+  function sizeOf(f, r) { return (r % 2) ? [f.h, f.w] : [f.w, f.h]; }
+  function blocks(f) { return f.sc !== UNDER; }
+  function hits(ax, ay, aw, ah, bx, by, bw, bh) {
+    return ax < bx + bw && bx < ax + aw && ay < by + bh && by < ay + ah;
+  }
+  function canPlace(p, fid, x, y, r) {
+    var f = fby[fid];
+    if (!f) return false;
+    var s = sizeOf(f, r), pl = PL[p];
+    if (x < 0 || y < 0 || x + s[0] > pl.w || y + s[1] > pl.h) return false;
+    if (!blocks(f)) return true;
+    for (var i = 0; i < items.length; i++) {
+      var it = items[i];
+      if (it.p !== p) continue;
+      var g = fby[it.f];
+      if (!g || !blocks(g)) continue;
+      var t = sizeOf(g, it.r);
+      if (hits(x, y, s[0], s[1], it.x, it.y, t[0], t[1])) return false;
+    }
+    return true;
+  }
+  /** そのマスにある家具のうち、**いちばんあとに置いたもの**の番号。無ければ −1 */
+  function topAt(p, x, y) {
+    for (var i = items.length - 1; i >= 0; i--) {
+      var it = items[i];
+      if (it.p !== p) continue;
+      var g = fby[it.f];
+      if (!g) continue;
+      var t = sizeOf(g, it.r);
+      if (x >= it.x && x < it.x + t[0] && y >= it.y && y < it.y + t[1]) return i;
+    }
+    return -1;
+  }
+
+  /* ---- 快適度 ----
+     家具そのものの快適度 ＋ 床材・壁紙・背景 ＋ セットボーナス。
+     **セットの段は足し上がる。**2 個で ＋100、3 個でさらに ＋200（計 300）…
+     7 個で計 1,500。データだけでは決められないので、神ゲー攻略の
+     「上昇する快適度 100 / 300 / 750 / 1500」で裏を取っている。 */
+  function comfort(its, rm) {
+    var base = 0, cnt = {}, kinds = {}, i, k;
+    function add(fid) {
+      var f = fby[fid];
+      if (!f) return;
+      base += f.c;
+      if (f.g) {
+        cnt[f.g] = (cnt[f.g] || 0) + 1;
+        if (!kinds[f.g]) kinds[f.g] = {};
+        kinds[f.g][fid] = 1;
+      }
+    }
+    for (i = 0; i < its.length; i++) add(its[i].f);
+    // **床材・壁紙・背景もセットの個数に数える。**部屋の化粧 76 個のうち
+    // 73 個が `SetGroupId` を持っている（青いタイルの床と壁は同じセット 100）
+    add(rm.fm); add(rm.wp); add(rm.bg);
+
+    var rows = [];
+    for (k in cnt) {
+      if (!Object.prototype.hasOwnProperty.call(cnt, k)) continue;
+      var n = cnt[k], b = 0, kk = 0, z;
+      for (i = 0; i < C.setStep.length; i++) if (n >= C.setStep[i]) b += C.setBonus[i];
+      for (z in kinds[k]) if (Object.prototype.hasOwnProperty.call(kinds[k], z)) kk++;
+      rows.push({ g: +k, n: n, k: kk, b: b, on: false });
+    }
+    rows.sort(function (a, b) { return b.b - a.b || b.n - a.n; });
+    var sum = 0, used = 0;
+    for (i = 0; i < rows.length; i++) {
+      if (rows[i].b > 0 && used < C.setMax) { rows[i].on = true; used++; sum += rows[i].b; }
+    }
+    return { base: base, set: sum, total: base + sum, rows: rows };
+  }
+
+  /* ---- 一度だけ組む ---- */
+  (function () {
+    el('f-set').innerHTML = '<option value="">セットで絞らない</option>' +
+      '<option value="0">セットに属さない</option>' +
+      C.sets.map(function (s) {
+        return '<option value="' + s.id + '">' + esc(s.nm) + '（' + s.n + '）</option>';
+      }).join('');
+
+    ['fm', 'wp', 'bg'].forEach(function (kind) {
+      var list = C.furn.filter(function (f) { return f.pl === kind; })
+                       .sort(function (a, b) { return b.c - a.c || (a.nm < b.nm ? -1 : 1); });
+      el('r-' + kind).innerHTML = '<option value="0">（置かない）</option>' +
+        list.map(function (f) {
+          return '<option value="' + f.id + '">' + esc(f.nm) + '（快適度 ' + f.c + '）</option>';
+        }).join('');
+    });
+
+    el('n-tpl').textContent = String(C.tpl.length);
+    el('src-setmax').textContent = String(C.setMax);
+    el('src-cells').textContent = num(C.cells);
+    el('src-rows').textContent = num(C.rows);
+    el('src-okrows').textContent = num(C.rows - C.half.length);
+    el('src-half').textContent = num(C.half.length);
+    el('src-wf').textContent = String(C.wholeFloor.length);
+    el('src-ww').textContent = String(C.wholeWall.length);
+    el('src-wfnm').textContent = '20×20 の 8 個は ' +
+      C.wholeFloor.map(function (id) { return fby[id] ? fby[id].nm : id; }).join('・') +
+      '、20×7 の 2 個は ' +
+      C.wholeWall.map(function (id) { return fby[id] ? fby[id].nm : id; }).join('・') + ' です。';
+    el('ver-l').textContent = C.fetched;
+
+    var tro = C.furn.filter(function (f) { return f.sc === 'Trophy'; });
+    var etcf = C.furn.filter(function (f) { return f.sc === 'FurnitureEtc'; });
+    el('src-tro').textContent = String(tro.length);
+    el('src-etc').textContent = String(etcf.length);
+    el('outlead').innerHTML = '<b>' + (tro.length + etcf.length) + ' 個</b>あります。' +
+      'トロフィー <b>' + tro.length + ' 個</b>と、その他 <b>' + etcf.length + ' 個</b>' +
+      '（リコレクト・メモリーの家具）です。';
+    el('outwarn').innerHTML = '<b>盤にも合計快適度にも入れていません。</b>実際に置いているぶんは、手で足してください。' +
+      '<button type="button" class="qm" data-hint="公式の家具テンプレート' + C.tpl.length +
+      '個に1度も出てこないため、床か壁かが確かめられません。トロフィーは' + tro.length + '個中' +
+      tro.filter(function (f) { return f.c === 50; }).length + '個が快適度50、その他の8個はすべて1×2で快適度350です。"></button>';
+
+    el('tpls').innerHTML = C.tpl.map(function (t) {
+      var c = comfort(t.it.map(function (a) { return { f: a[0], p: a[1], x: a[2], y: a[3], r: a[4] }; }),
+                      { fm: t.fm, wp: t.wp, bg: t.bg });
+      return '<button type="button" data-t="' + t.id + '"><b>' + esc(t.nm) + '</b>' +
+             '<small>家具 ' + t.it.length + ' 個・快適度 ' + num(c.total) +
+             '（うちセット ＋' + num(c.set) + '）</small></button>';
+    }).join('');
+  })();
+
+  /* ---- 出来事 ---- */
+  function segclick(id, key, fn) {
+    el(id).addEventListener('click', function (e) {
+      var b = e.target.closest ? e.target.closest('button') : null;
+      if (!b || !b.dataset[key]) return;
+      fn(b.dataset[key]);
+      var bs = el(id).querySelectorAll('button');
+      for (var i = 0; i < bs.length; i++) {
+        bs[i].setAttribute('aria-pressed', bs[i].dataset[key] === b.dataset[key] ? 'true' : 'false');
+      }
+    });
+  }
+  segclick('segplane', 'p', function (v) {
+    plane = +v; hover = null; sel = 0; rot = 0; shown = 120; fsc = ''; msg = ''; draw();
+  });
+  segclick('segmode', 'm', function (v) { mode = v; msg = ''; draw(); });
+  // **カフェとランクは区画の外の選択。**変わったら上限との差を描き直す
+  document.addEventListener('cafe:shared', function () { draw(); });
+
+  el('b-rot').addEventListener('click', function () { rot = (rot + 1) % 4; draw(); });
+  el('b-undo').addEventListener('click', function () { popUndo(); });
+  el('b-clear').addEventListener('click', function () {
+    push();
+    items = items.filter(function (t) { return t.p !== plane; });
+    msg = PL[plane].nm + 'を空にしました。';
+    draw();
+  });
+  ['f-q', 'f-set', 'f-sc', 'f-sort'].forEach(function (id) {
+    el(id).addEventListener('input', function () {
+      q = el('f-q').value.trim(); fset = el('f-set').value;
+      fsc = el('f-sc').value; fsort = el('f-sort').value;
+      shown = 120; drawPick();
+    });
+  });
+  ['fm', 'wp', 'bg'].forEach(function (kind) {
+    el('r-' + kind).addEventListener('change', function () {
+      push(); room[kind] = +this.value; draw();
+    });
+  });
+  el('pick').addEventListener('click', function (e) {
+    var b = e.target.closest ? e.target.closest('button') : null;
+    if (!b) return;
+    sel = sel === +b.dataset.f ? 0 : +b.dataset.f;
+    rot = 0; msg = ''; draw();
+  });
+  el('tpls').addEventListener('click', function (e) {
+    var b = e.target.closest ? e.target.closest('button') : null;
+    if (!b) return;
+    loadTpl(+b.dataset.t);
+  });
+  el('listtb').addEventListener('click', function (e) {
+    var b = e.target.closest ? e.target.closest('button') : null;
+    if (!b) return;
+    push(); items.splice(+b.dataset.i, 1); draw();
+  });
+
+  var bd = el('bdin');
+  function cellAt(ev) {
+    var pl = PL[plane], r = bd.getBoundingClientRect();
+    if (!r.width || !r.height) return null;
+    var x = Math.floor((ev.clientX - r.left) / r.width * pl.w);
+    var y = Math.floor((ev.clientY - r.top) / r.height * pl.h);
+    if (x < 0 || y < 0 || x >= pl.w || y >= pl.h) return null;
+    return { x: x, y: y };
+  }
+  bd.addEventListener('pointermove', function (ev) {
+    var c = cellAt(ev);
+    if (c && hover && hover.x === c.x && hover.y === c.y) return;
+    hover = c; drawPreview();
+  });
+  bd.addEventListener('pointerleave', function () { hover = null; drawPreview(); });
+  bd.addEventListener('click', function (ev) {
+    var c = cellAt(ev);
+    if (!c) return;
+    if (mode === 'del') {
+      var k = topAt(plane, c.x, c.y);
+      if (k < 0) { msg = 'そのマスには何もありません。'; draw(); return; }
+      push(); items.splice(k, 1); msg = ''; draw();
+      return;
+    }
+    if (!sel) {
+      msg = '先に「家具を選ぶ」から 1 つ選んでください。'; draw();
+      /* **一覧は盤の下にいる。**言葉だけだと、390px では 1.5 画面ぶん
+         探させることになる（2026-08-31 に実測）。その場へ連れて行く */
+      el('p-pick').scrollIntoView({ behavior: 'smooth', block: 'start' });
+      return;
+    }
+    if (!canPlace(plane, sel, c.x, c.y, rot)) {
+      var f = fby[sel], s = sizeOf(f, rot), pl = PL[plane];
+      msg = (c.x + s[0] > pl.w || c.y + s[1] > pl.h)
+        ? '左上を (' + c.x + ', ' + c.y + ') に置くと、' + s[0] + '×' + s[1] +
+          'が' + pl.nm + 'の外にはみ出します。'
+        : 'そのマスには、すでに別の家具があります。';
+      draw();
+      return;
+    }
+    push();
+    items.push({ f: sel, p: plane, x: c.x, y: c.y, r: rot });
+    msg = ''; draw();
+  });
+  document.addEventListener('keydown', function (e) {
+    var t = e.target && e.target.tagName;
+    if (t === 'INPUT' || t === 'SELECT' || t === 'TEXTAREA') return;
+    // **収入の区画を見ているあいだは回さない**（盤が見えないところで向きが変わる）
+    if (el('sec-layout').hidden) return;
+    if (e.key === 'r' || e.key === 'R') { rot = (rot + 1) % 4; draw(); }
+  });
+
+  /* ---- 元に戻す ---- */
+  function snap() {
+    return JSON.stringify({ i: items, m: room });
+  }
+  function push() {
+    undo.push(snap());
+    if (undo.length > 40) undo.shift();
+  }
+  function popUndo() {
+    if (!undo.length) { msg = 'もう戻せません。'; draw(); return; }
+    var s = JSON.parse(undo.pop());
+    items = s.i; room = s.m; msg = ''; draw();
+  }
+
+  function loadTpl(id) {
+    var t = null;
+    for (var i = 0; i < C.tpl.length; i++) if (C.tpl[i].id === id) t = C.tpl[i];
+    if (!t) return;
+    push();
+    items = t.it.map(function (a) { return { f: a[0], p: a[1], x: a[2], y: a[3], r: a[4] }; });
+    room = { fm: t.fm, wp: t.wp, bg: t.bg };
+    msg = '「' + t.nm + '」を読み込みました。元の並びに戻すなら「元に戻す」を押してください。';
+    draw();
+  }
+
+  /* ---- 書き出し ---- */
+  function drawPreview() {
+    var pv = el('pv');
+    if (!hover || mode === 'del' || !sel || !fby[sel]) { pv.className = 'pv off'; return; }
+    var pl = PL[plane], s = sizeOf(fby[sel], rot);
+    var ok = canPlace(plane, sel, hover.x, hover.y, rot);
+    pv.className = 'pv' + (ok ? '' : ' no');
+    pv.style.left = (hover.x / pl.w * 100) + '%';
+    pv.style.top = (hover.y / pl.h * 100) + '%';
+    pv.style.width = (Math.min(s[0], pl.w - hover.x) / pl.w * 100) + '%';
+    pv.style.height = (Math.min(s[1], pl.h - hover.y) / pl.h * 100) + '%';
+  }
+
+  function drawBoard() {
+    var pl = PL[plane];
+    bd.style.aspectRatio = pl.w + ' / ' + pl.h;
+    bd.style.backgroundSize = (100 / pl.w) + '% ' + (100 / pl.h) + '%';
+    bd.classList.toggle('del', mode === 'del');
+    var out = [];
+    for (var i = 0; i < items.length; i++) {
+      var it = items[i];
+      if (it.p !== plane) continue;
+      var f = fby[it.f];
+      if (!f) continue;
+      var s = sizeOf(f, it.r), un = !blocks(f);
+      out.push('<div class="fu' + (un ? ' under' : '') +
+        (s[0] * s[1] < 3 ? ' tiny' : '') + (f.ic ? ' pic' : '') + '" style="' +
+        (f.ic ? '--fi:url(../img/' + f.ic + '.webp);' : '') + 'left:' +
+        (it.x / pl.w * 100) + '%;top:' + (it.y / pl.h * 100) + '%;width:' +
+        (s[0] / pl.w * 100) + '%;height:' + (s[1] / pl.h * 100) + '%;z-index:' +
+        (un ? 0 : 1) + '" title="' + esc(f.nm + '／' + s[0] + '×' + s[1] +
+        '／快適度 ' + f.c + '／左上 (' + it.x + ', ' + it.y + ')') +
+        '"><span>' + esc(f.nm) + '</span></div>');
+    }
+    el('fus').innerHTML = out.join('');
+    // **マスが小さいときは名前を消す。**390px では 1 マス 19px しかなく、
+    // 文字を入れると全部の家具が読めない塗りつぶしになる（実測）
+    bd.classList.toggle('small', bd.clientWidth / pl.w < 26);
+    drawPreview();
+  }
+
+  function drawPick() {
+    var pl = PL[plane];
+    var all = C.furn.filter(function (f) { return f.pl === pl.k; });
+
+    // 種類の選び手は、その面にあるものだけ
+    var scs = {};
+    all.forEach(function (f) { scs[f.sc] = (scs[f.sc] || 0) + 1; });
+    var keys = Object.keys(scs).sort();
+    var want = '<option value="">種類で絞らない</option>' + keys.map(function (k) {
+      return '<option value="' + k + '">' + esc(subJa(k)) + '（' + scs[k] + '）</option>';
+    }).join('');
+    if (el('f-sc').innerHTML !== want) { el('f-sc').innerHTML = want; el('f-sc').value = fsc; }
+
+    var list = all.filter(function (f) {
+      if (q && f.nm.indexOf(q) < 0) return false;
+      if (fset !== '' && String(f.g) !== fset) return false;
+      if (fsc && f.sc !== fsc) return false;
+      return true;
+    });
+    list = list.slice().sort(function (a, b) {
+      if (fsort === 'c') return b.c - a.c || (a.nm < b.nm ? -1 : 1);
+      if (fsort === 's') return (a.w * a.h) - (b.w * b.h) || b.c - a.c;
+      if (fsort === 'n') return a.nm < b.nm ? -1 : (a.nm > b.nm ? 1 : 0);
+      return (b.c / (b.w * b.h)) - (a.c / (a.w * a.h)) || b.c - a.c;
+    });
+    el('pick').innerHTML = list.slice(0, shown).map(function (f) {
+      return '<button type="button" data-f="' + f.id + '" aria-pressed="' +
+        (sel === f.id ? 'true' : 'false') + '">' +
+        (f.ic ? '<img src="../img/' + f.ic + '.webp" alt="" width="40" height="40" loading="lazy">' : '') +
+        '<span class="nm">' + esc(f.nm) +
+        '</span><span class="mi">' + f.w + '×' + f.h + '／快適度 ' + f.c +
+        '／マス ' + num(f.c / (f.w * f.h), 1) + '</span></button>';
+    }).join('') || '<button type="button" disabled style="cursor:default">あてはまる家具がありません。</button>';
+    el('pickn').innerHTML = list.length
+      ? num(Math.min(shown, list.length)) + ' / ' + num(list.length) + ' 個を出しています。' +
+        '<b>マス</b>は快適度をマスの数で割ったものです。'
+      : '条件に合う家具がありません。';
+  }
+
+  function drawList() {
+    var rows = [];
+    for (var i = 0; i < items.length; i++) {
+      var it = items[i], f = fby[it.f];
+      if (!f) continue;
+      var s = sizeOf(f, it.r);
+      rows.push('<tr><td class="nmc">' +
+        (f.ic ? '<img src="../img/' + f.ic + '.webp" alt="" width="28" height="28" loading="lazy">' : '') +
+        esc(f.nm) + '<small>' + esc(subJa(f.sc)) +
+        (f.g ? '／' + esc(setnm[f.g] || '') : '') + '</small></td><td>' + PL[it.p].nm +
+        '</td><td>(' + it.x + ', ' + it.y + ')</td><td>' + s[0] + '×' + s[1] +
+        (it.r ? '<small>' + (it.r * 90) + '°</small>' : '') + '</td><td><b>' + f.c +
+        '</b></td><td><button type="button" class="btn" data-i="' + i + '">消す</button></td></tr>');
+    }
+    el('listtb').innerHTML = rows.join('') ||
+      '<tr><td colspan="6">まだ 1 つも置いていません。</td></tr>';
+    var used = { 0: 0, 1: 0, 2: 0 };
+    for (i = 0; i < items.length; i++) {
+      var g = fby[items[i].f];
+      if (!g) continue;
+      var t = sizeOf(g, items[i].r);
+      used[items[i].p] += t[0] * t[1];
+    }
+    el('listn').innerHTML = '床 <b>' + used[0] + '</b> / ' + (PL[0].w * PL[0].h) +
+      ' マス、左の壁 <b>' + used[1] + '</b> / ' + (PL[1].w * PL[1].h) +
+      ' マス、右の壁 <b>' + used[2] + '</b> / ' + (PL[2].w * PL[2].h) + ' マス。' +
+      '<button type="button" class="qm" data-hint="カーペットは家具の下に敷けるので、合計がマスの数を超えることがあります。"></button>';
+    return used;
+  }
+
+  function draw() {
+    // 選んでいるもの
+    el('planenm').textContent = PL[plane].nm;
+    el('rotv').textContent = (rot * 90) + '°';
+    el('r-fm').value = String(room.fm);
+    el('r-wp').value = String(room.wp);
+    el('r-bg').value = String(room.bg);
+
+    var cf = sel && fby[sel] ? fby[sel] : null;
+    if (cf) {
+      var s = sizeOf(cf, rot);
+      el('cur').innerHTML =
+        (cf.ic ? '<img src="../img/' + cf.ic + '.webp" alt="" width="36" height="36">' : '') +
+        '<b>' + esc(cf.nm) + '</b><span class="sz">' + s[0] + '×' + s[1] +
+        '／快適度 ' + cf.c + '／' + esc(subJa(cf.sc)) +
+        (cf.g ? '／' + esc(setnm[cf.g] || '') : '') + '</span>';
+    } else {
+      el('cur').textContent = '家具を選んでください。下の一覧を押すと選べます。';
+    }
+
+    drawBoard();
+    drawPick();
+    var used = drawList();
+
+    // 快適度
+    var c = comfort(items, room), cap = capOf[S.cafe + ':' + S.rank];
+    el('o-total').textContent = num(c.total);
+    el('o-total-sub').textContent = '家具 ' + num(c.base) + ' ＋ セット ' + num(c.set);
+    var gap = cap - c.total;
+    el('o-gap').textContent = gap >= 0 ? 'あと ' + num(gap) : num(-gap) + ' 超過';
+    el('o-gap-sub').textContent = gap >= 0
+      ? 'カフェ ' + S.cafe + ' 号店・ランク ' + S.rank + ' の上限 ' + num(cap)
+      : '上限 ' + num(cap) + '。超えたぶんは収入に効きません';
+    el('o-set').textContent = '＋' + num(c.set);
+    el('o-cell').textContent = num(used[0]) + ' / ' + (PL[0].w * PL[0].h);
+    el('o-cell-sub').textContent = '壁は左 ' + used[1] + '・右 ' + used[2] + ' マス';
+
+    // セット
+    var dup = false;
+    el('settb').innerHTML = c.rows.map(function (r) {
+      if (r.n !== r.k) dup = true;
+      return '<tr' + (r.on ? '' : ' class="rowoff"') + '><td class="nmc">' +
+        esc(setnm[r.g] || ('セット' + r.g)) + (setok[r.g] ? '' : '<small>※ ba-data 側に無いセット</small>') +
+        '</td><td>' + r.n + '</td><td>' + r.k + '</td><td>' +
+        (r.on ? '<b>＋' + num(r.b) + '</b>' : (r.b ? '（' + num(r.b) + '／効いていません）' : '—')) +
+        '</td></tr>';
+    }).join('') || '<tr><td colspan="4">セットに属する家具をまだ置いていません。</td></tr>';
+    el('setnote').innerHTML = (c.rows.length
+        ? '<b>段は足し上がります</b>（7 個そろえると計 ＋1,500）。'
+        : '2 個そろえると ＋100 から始まります。') +
+      (dup ? '<br><b>同じ家具を 2 個以上置いています。</b>「置いた数」で数えています' +
+             '<button type="button" class="qm" data-hint="ゲーム側は「種類」で数えている可能性があります。詳しくは出どころ欄を読んでください。"></button>' : '');
+
+    // 盤の状態
+    el('bdnote').innerHTML = (msg ? '<b>' + esc(msg) + '</b> ' : '') +
+      PL[plane].nm + 'に <b>' +
+      items.filter(function (t) { return t.p === plane; }).length +
+      '</b> 個。' + (mode === 'del' ? '<b>押したマスの家具を消します。</b>'
+                                    : '押すと、そのマスを左上にして置きます。') +
+      '<b>R キー</b>でも回せます。';
+
+    // 残す。**キーは元の cafe-layout のまま**（変えると今までの並びが消える）
+    try { localStorage.setItem(LSKEY, snap()); } catch (e) { /* 使えなくても止めない */ }
+    // **収入の区画へ知らせる。**合計快適度がそのまま収入の快適度の既定になる
+    last = c;
+    try { document.dispatchEvent(new CustomEvent('cafe:layout')); } catch (e) { /* 古いブラウザ */ }
+  }
+
+  /** 収入の区画と区画の外から読む口。**n は置いた家具と床材・壁紙・背景の数**（0 なら空） */
+  var last = null;
+  window.cafeLayout = function () {
+    if (!last) return null;
+    return { total: last.total, base: last.base, set: last.set,
+             n: items.length + (room.fm ? 1 : 0) + (room.wp ? 1 : 0) + (room.bg ? 1 : 0) };
+  };
+
+  /* ---- URL の区画 `m=床材.壁紙.背景&i=家具,面,x,y,回転_…`（元の cafe-layout の形。
+     店とランクの `c=`・`r=` は区画の外が持つ）。**共有するときだけ組む。**
+     URL バーには書かない——並びは localStorage が持つ（元の cafe-layout と同じ） */
+  window.CAFESEG = window.CAFESEG || {};
+  window.CAFESEG.layout = encode;
+  function encode() {
+    var s = 'm=' + room.fm + '.' + room.wp + '.' + room.bg;
+    if (items.length) {
+      s += '&i=' + items.map(function (t) {
+        return t.f + ',' + t.p + ',' + t.x + ',' + t.y + ',' + t.r;
+      }).join('_');
+    }
+    return s;
+  }
+  /**
+   * URL やテンプレートから家具を並べ直す。
+   *
+   * **盤に置けるかどうかまで見る。** 家具の種類と向きだけ見て素通しにしていた
+   * 時期があり、手で URL をいじると**盤の外へはみ出した家具**や
+   * **同じマスに重なった家具**がそのまま描かれて、「使ったマス」も
+   * 二重に数えていた（2026-09-24）。盤上の操作は `canPlace` を通っていたので、
+   * ここだけが素通しだった。**同じ関門を通す。**
+   *
+   * `canPlace` は `items` を見て重なりを調べるので、
+   * **`items` に積みながら 1 つずつ確かめる。**
+   */
+  function place(list) {
+    items = [];
+    for (var i = 0; i < list.length; i++) {
+      var a = String(list[i]).split(',');
+      if (a.length !== 5) continue;
+      var f = +a[0], p = +a[1], x = +a[2], y = +a[3], r = +a[4];
+      if (!fby[f] || !(p >= 0 && p <= 2) || !PL[p]) continue;
+      if (fby[f].pl !== PL[p].k) continue;
+      if (!(x >= 0) || !(y >= 0) || !(r >= 0 && r <= 3)) continue;
+      if (!canPlace(p, f, x, y, r)) continue;
+      items.push({ f: f, p: p, x: x, y: y, r: r });
+    }
+    return items;
+  }
+  function readRoom(s) {
+    var a = String(s).split('.');
+    ['fm', 'wp', 'bg'].forEach(function (k, i) {
+      var v = +a[i];
+      room[k] = (fby[v] && fby[v].pl === k) ? v : 0;
+    });
+  }
+
+  (function start() {
+    var h = location.hash, got = false;
+    var mm = /[#&]m=([\d.]+)/.exec(h);
+    if (mm) { readRoom(mm[1]); got = true; }
+    var it = /[#&]i=([\d,_]+)/.exec(h);
+    if (it) { items = place(it[1].split('_')); got = true; }
+    if (!got) {
+      // URL に何も無ければ、前に開いたときの並びを出す
+      try {
+        var s = JSON.parse(localStorage.getItem(LSKEY) || 'null');
+        if (s && s.i && s.m) { items = place(s.i.map(function (t) {
+          return t.f + ',' + t.p + ',' + t.x + ',' + t.y + ',' + t.r;
+        })); readRoom(s.m.fm + '.' + s.m.wp + '.' + s.m.bg); }
+      } catch (e) { /* 壊れていたら空で始める */ }
+    }
+    /* **読んだら URL バーから外す。**並びは localStorage に移ったので、残しておくと
+       あとで並べ替えても、再読み込みで古いリンクの並びに戻ってしまう */
+    window.cafePut('m', ''); window.cafePut('i', '');
+    draw();
+  })();
+
+  // **幅が変わると 1 マスの大きさが変わる。**名前を出すか消すかを取り直す
+  window.addEventListener('resize', function () { drawBoard(); });
+  /* **隠れていた区画を開いたときも。**収入の区画を見ているあいだは盤の幅が 0 で、
+     「小さい」と判定されたまま名前が消えている */
+  document.addEventListener('panechange', function (e) {
+    if (e.detail && e.detail.id === 'layout') drawBoard();
+  });
+})();
+
+</script>
+<script>
+/* ================================================================ 家具とセットの一覧（区画の外に 1 つ） */
+(function () {
+  'use strict';
+  var C = window.CAFE;
+  var el = function (id) { return document.getElementById(id); };
+  function num(n, d) {
+    return n.toLocaleString('ja-JP', { minimumFractionDigits: d || 0, maximumFractionDigits: d || 0 });
+  }
+  var fset = '', frr = '', fsort = 'c', shown = 25;
+
+  el('l-set').innerHTML = '<option value="">ぜんぶ</option>' +
+    '<option value="0">セットに属さない家具</option>' +
+    C.sets.map(function (s) {
+      return '<option value="' + s.id + '">' + s.nm + '（' + s.n + '）</option>';
+    }).join('');
+  el('n-furn').textContent = num(C.furn.length);
+  el('n-sets').textContent = num(C.sets.length);
+
+  el('setchips').innerHTML = C.sets.map(function (s) {
+    return '<button type="button" class="chip" data-s="' + s.id + '">' + s.nm +
+           '<small>' + s.n + '</small>' + (s.ok ? '' : ' ※') + '</button>';
+  }).join('');
+  var nook = C.sets.filter(function (s) { return !s.ok; });
+  el('setwarn').innerHTML = nook.length
+    ? '<b>※ の ' + nook.length + ' セットは未確認です</b>（' +
+      nook.map(function (s) { return s.nm; }).join('、') +
+      '）。<b>ボーナスの段を他と同じと決めつけないでください。</b>'
+    : '<b>全セット、ボーナスの段を確認済みです。</b>';
+
+  el('l-set').addEventListener('change', function () { fset = this.value; shown = 25; draw(); });
+  el('l-rr').addEventListener('change', function () { frr = this.value; shown = 25; draw(); });
+  el('l-sort').addEventListener('change', function () { fsort = this.value; shown = 25; draw(); });
+  el('b-more').addEventListener('click', function () { shown += 60; draw(); });
+  el('setchips').addEventListener('click', function (e) {
+    var b = e.target.closest ? e.target.closest('.chip') : null;
+    if (!b) return;
+    fset = fset === b.dataset.s ? '' : b.dataset.s;
+    el('l-set').value = fset;
+    shown = 25; draw();
+    el('furn-h').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+
+  function draw() {
     var list = C.furn.filter(function (f) {
       if (fset !== '' && String(f.g) !== fset) return false;
       if (frr && f.rr !== frr) return false;
@@ -732,40 +1865,136 @@
              '</b></td><td>' + f.w + ' × ' + f.h + '</td><td>' +
              num(f.c / (f.w * f.h), 1) + '</td></tr>';
     }).join('') || '<tr><td colspan="4">あてはまる家具がありません。</td></tr>';
+    var chips = el('setchips').querySelectorAll('.chip');
+    for (var i = 0; i < chips.length; i++) {
+      chips[i].setAttribute('aria-pressed', chips[i].dataset.s === fset ? 'true' : 'false');
+    }
     el('fcount').textContent = list.length
       ? num(Math.min(shown, list.length)) + ' / ' + num(list.length) + ' 個'
       : '0 個';
     el('b-more').disabled = shown >= list.length;
   }
+  draw();
 
-  /* ---- URL ---- */
-  var hash = '';
-  window.shareUrl = function () { return hash; };
-  /** **URL バーにも書く。**このツールは localStorage を持たないので、書かないと
-      再読み込みで入力が全部消える（2026-08-31 に実機で踏んだ）。
-      `&pane=…` は ../panes.js の区画なので、消さずに残す。 */
-  function syncHash() {
-    var keep = '';
-    var seg = location.hash.replace(/^#/, '').split('&');
-    for (var i = 0; i < seg.length; i++) {
-      if (seg[i].indexOf('pane=') === 0) keep = '&' + seg[i];
-    }
-    try {
-      history.replaceState(null, '', location.pathname + location.search + hash + keep);
-    } catch (e) { /* file:// では黙って諦める */ }
+  // 古い cafe の `#pane=furn|sets` で来たら、開いて見せる
+  if (window.CAFE_OPENREF) {
+    el('furn-ref').open = true;
+    addEventListener('load', function () { el('furn-ref').scrollIntoView({ block: 'start' }); });
+  }
+})();
+</script>
+<script>
+(function () {
+  'use strict';
+  /* 2 つの区画をつなぐ。**各区画の JS は自分の区画（`v=`・`m=`/`i=`）しか触らない。**
+     ここが持つのは、区画をまたぐものだけ——家具配置から収入への一言、共有の URL、覚えるハッシュ、
+     「最初に戻す」、「数字の出どころ」の出し分け、使い方（tools/pvp-ladder/・tools/raid/ と同じ作り） */
+  var S = window.CAFE_SHARED;
+  var tabs = document.getElementById('sec-tabs');
+  var box = document.querySelector('[data-panes="cafe-sec"]');
+  if (!tabs || !box) return;
+  var el = function (id) { return document.getElementById(id); };
+  function now() {
+    var b = tabs.querySelector('[aria-selected="true"]');
+    return (b && b.getAttribute('data-p')) || 'inc';
+  }
+  function seg(k, share) { var f = window.CAFESEG[k]; return f ? f(share) : ''; }
+  function num(n, d) {
+    return n.toLocaleString('ja-JP', { minimumFractionDigits: d || 0, maximumFractionDigits: d || 0 });
   }
 
-  (function readHash() {
-    var m = /[#&]c=(\d)/.exec(location.hash);
-    if (m && (+m[1] === 1 || +m[1] === 2)) cafe = +m[1];
-    var r = /[#&]r=(\d+)/.exec(location.hash);
-    if (r && +r[1] >= 1 && +r[1] <= MAXR) rank = +r[1];
-    var v = /[#&]v=(\d+)/.exec(location.hash);
-    comfort = v ? Math.min(capOf(cafe, MAXR), +v[1]) : capOf(cafe, rank);
-  })();
+  /* ---- 家具配置の区画の「この合計が収入に入る」の一言 */
+  function link() {
+    var I = window.cafeIncome ? window.cafeIncome() : null;
+    var L = window.cafeLayout ? window.cafeLayout() : null;
+    if (!I) return;
+    el('lay-inc').innerHTML = I.manual
+      ? '<a href="#pane=inc" data-go="inc">収入</a>は<b>手で入れた快適度 ' + num(I.comfort) + '</b> で出しています。' +
+        '<br><button type="button" class="btn" id="b-follow2">この合計を収入に使う</button>'
+      : (L && L.n
+        ? 'この合計が<a href="#pane=inc" data-go="inc">収入</a>の快適度に入ります（上限で頭打ち）。' +
+          '<b>1 時間 ' + num(I.ch, 2) + ' クレジット</b>です。'
+        : '並べると、この合計が<a href="#pane=inc" data-go="inc">収入</a>の快適度に入ります。');
+  }
+  document.addEventListener('cafe:income', link);
+  document.addEventListener('cafe:layout', link);
+  link();
 
-  sync();
-  draw();
+  /* ---- 区画をまたぐリンク（`data-go`）。**タブを押したのと同じにする** */
+  document.addEventListener('click', function (e) {
+    if (e.target.closest && e.target.closest('#b-follow2')) {
+      if (window.cafeFollow) window.cafeFollow();
+      return;
+    }
+    var a = e.target.closest ? e.target.closest('[data-go]') : null;
+    if (!a) return;
+    var b = document.getElementById('tb-sec-' + a.getAttribute('data-go'));
+    if (!b) return;
+    e.preventDefault();
+    b.click(); toTabs();
+  });
+
+  /* ---- 「数字の出どころ」は開いている区画のものだけ */
+  function fit(id) {
+    [].forEach.call(document.querySelectorAll('details.src[data-sec]'), function (d) {
+      d.hidden = d.getAttribute('data-sec') !== id;
+    });
+  }
+  box.addEventListener('panechange', function (e) { if (e.target === box) fit(e.detail.id); });
+  fit(now());
+
+  /* ---- 共有するのは**店とランクと今の区画だけ**。区画の名前（`pane=`）は ../panes.js が足す。
+     収入なら元の cafe と同じ `#c=&r=&v=`、家具配置なら元の cafe-layout と同じ `#c=&r=&m=&i=` */
+  function shared() { return 'c=' + S.cafe + '&r=' + S.rank; }
+  window.shareUrl = function () {
+    return '#' + [shared(), seg(now(), true)].filter(Boolean).join('&');
+  };
+
+  /* ---- 覚えるのは店・ランク・収入の快適度と区画（../remember.js）。**家具の並びは入れない**——
+     元の cafe-layout の localStorage（`arona-cafe-layout`）が持っている。
+     `pane=` は既定の区画でも書く——空だと前に覚えた区画が次も開いてしまう */
+  function all(skip) {
+    var s = [];
+    if (skip !== 'inc') {
+      s.push(shared());
+      var v = seg('inc', false);
+      if (v) s.push(v);
+    }
+    s.push('pane=' + now());
+    return '#' + s.join('&');
+  }
+  window.rememberUrl = function () { return all(''); };
+  /* ---- 「最初に戻す」は**今の区画だけ**。収入なら店・ランク・手で入れた快適度、
+     家具配置なら並び（**消える量が大きいので確かめる**）。もう片方は残す */
+  window.rememberReset = function () {
+    if (now() !== 'layout') return all('inc');
+    var L = window.cafeLayout ? window.cafeLayout() : null;
+    if (L && L.n && !window.confirm('家具配置の並び（家具と床材・壁紙・背景、' + L.n +
+        ' 個）を消して最初に戻します。収入の入力とカフェ・ランクは残ります。よろしいですか。')) return null;
+    try { localStorage.removeItem('arona-cafe-layout'); } catch (e) { /* 無ければそれでいい */ }
+    return all('layout');
+  };
+
+  function toTabs() {
+    var bar = document.querySelector('.topbar');
+    var off = (bar ? bar.getBoundingClientRect().height : 0) + 14;
+    window.scrollTo({ top: Math.max(0, tabs.getBoundingClientRect().top + window.pageYOffset - off),
+                      behavior: 'smooth' });
+  }
+
+  /* ---- 使い方（../tour.js）は 2 区画を順に開いて回る。**閉じたら開く前の区画に戻す。**
+     tour.js には手を入れず、body の `tour-on` の付け外しを見張る（1 段目は区画の帯で、
+     区画を切り替えないので、付いた時点で読めば開く前の状態が取れる） */
+  var before = null;
+  new MutationObserver(function () {
+    var on = document.body.classList.contains('tour-on');
+    if (on && !before) {
+      before = now();
+    } else if (!on && before) {
+      var b = document.getElementById('tb-sec-' + before); before = null;
+      if (b) { b.click(); toTabs(); }
+    }
+  }).observe(document.body, { attributes: true, attributeFilter: ['class'] });
 })();
 </script>
 </body>

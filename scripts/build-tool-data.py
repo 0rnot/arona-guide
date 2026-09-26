@@ -4326,7 +4326,8 @@ def build_cafe_layout():
     if n:
         print(f"  絵を {n} 枚追加")
 
-    return write_js("tools/cafe-layout/data.js", "CLAY", {
+    # **2026-09-26 に cafe と 1 本にまとめた**（grill-me Q18-1）。家具配置は tools/cafe/ の区画
+    return write_js("tools/cafe/data-layout.js", "CLAY", {
         "floor": CL_FLOOR, "wall": CL_WALL,
         "wholeFloor": whole_floor, "wholeWall": whole_wall,
         "rank": [{"c": c, "r": r, "cm": cm[(c, r)]} for c in (1, 2) for r in range(1, 11)],
