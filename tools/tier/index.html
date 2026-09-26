@@ -141,6 +141,41 @@
      「URL をコピー」の右に中身の無い小さな楕円が出ていた（2026-09-26 に直した） */
   #msg:empty { display: none; }
 
+  /* 「みんなで編集」（3 桁の合言葉。2026-09-26）。**盤の下、保存や URL の並びに置く。**
+     入っていないときは 1 行で済ませ、入っている間だけ合言葉を大きく出す
+     （相手に伝えるための数字なので、読み上げられる大きさにする） */
+  .room { margin-top: 16px; padding-top: 14px; border-top: 1px dashed var(--line); }
+  .room-h { display: flex; align-items: center; gap: .3em; margin: 0 0 8px; font-size: .86rem; font-weight: 800; }
+  .room .btn { padding: .42em 1.05em; font-size: .82rem; white-space: nowrap; }
+  .room-idle { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; }
+  .room-join { display: flex; gap: 6px; align-items: center; margin: 0; }
+  .room-join input[type="text"] {
+    width: 4.6em; padding: .4em .5em; text-align: center; letter-spacing: .18em; font-weight: 800;
+  }
+  .room-join input[type="text"]::placeholder { letter-spacing: 0; font-weight: 400; }
+  .room-on { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 22px; }
+  .room-on[hidden], .room-idle[hidden], .room-paused[hidden] { display: none; }
+  .room-code { display: flex; align-items: center; gap: .6em; }
+  .room-code .lab { font-size: .78rem; font-weight: 700; color: var(--fg-mute); writing-mode: horizontal-tb; }
+  .room-num {
+    font-size: 2.5rem; font-weight: 900; line-height: 1; letter-spacing: .14em;
+    font-variant-numeric: tabular-nums; color: var(--fg);
+  }
+  .room-open { margin: 0; font-size: .9rem; line-height: 1.5; }
+  .room-open b { font-size: 1.25rem; font-variant-numeric: tabular-nums; }
+  .room-open.shut { color: var(--fg-mute); }
+  .room-acts { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; flex: 1 1 100%; }
+  .room-st { margin: 8px 0 0; font-size: .76rem; color: var(--fg-mute); }
+  .room-st:empty { display: none; }
+  .room-paused { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; font-size: .86rem; }
+  .room-paused[hidden] { display: none; }
+  .room-msg {
+    margin: 10px 0 0; padding: .45em .8em; border-radius: 10px; font-size: .84rem; line-height: 1.6;
+    background: color-mix(in srgb, var(--accent) 12%, var(--card)); border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--line));
+  }
+  .room-msg:empty { display: none; }
+  #room-tag[hidden] { display: none; }
+
   @media (max-width: 560px) {
     .tiers { --sz: calc(var(--zv, 62px) * .84); }
     .row { grid-template-columns: 56px 1fr 26px; }
@@ -252,7 +287,7 @@
   <p class="tcrumb"><a href="../../">AronaBotの使い方</a><span class="sl">/</span><a href="../">ツール</a><span class="sl">/</span>Tier表メーカー</p>
 
   <div class="panel" style="margin-top:20px">
-    <div class="panel-h"><h2>並べる</h2></div>
+    <div class="panel-h"><h2>並べる</h2><span class="tag on" id="room-tag" hidden></span></div>
     <p class="lead"><b>生徒を押してから、置きたい段を押します。</b><button type="button" class="qm" data-hint="置いた生徒も、押して掴めば別の段へ動かせます。パソコンならそのまま掴んで運べます。段の名前（S・A…）は押すと書き換えられます（8 文字まで）。"></button></p>
     <div class="held-note" id="held-note" hidden>
       <span id="held-img"></span>
@@ -276,6 +311,38 @@
       <button type="button" class="btn" id="share">この並びの URL をコピー</button>
       <span class="tag" id="msg"></span>
     </div>
+
+    <!-- みんなで編集。動かしているのは room.js。**部屋に入っていないときは今までどおり** -->
+    <div class="room" id="room">
+      <p class="room-h">みんなで編集<button type="button" class="qm" data-hint="「合言葉を作る」を押すと 3 桁の番号が出ます。それを伝えれば、作ってから 15 分のあいだ、だれでもその番号で入って同じ表を直せます。一度入った端末は、締め切ったあとも直し続けられます。直したものは数秒でみんなの画面に出ます。同時に直したときは、あとから保存したほうが残ります。表は最後に直してから 14 日で消えます。"></button></p>
+      <div class="room-idle" id="room-idle">
+        <button type="button" class="btn" id="room-make">合言葉を作る</button>
+        <form class="room-join" id="room-join">
+          <input type="text" id="room-code" inputmode="numeric" maxlength="3" autocomplete="off" placeholder="3 桁" aria-label="合言葉（3 桁の数字）" enterkeyhint="go">
+          <button type="submit" class="btn">入る</button>
+        </form>
+      </div>
+      <div class="room-on" id="room-on" hidden>
+        <div class="room-code">
+          <span class="lab">合言葉</span>
+          <strong class="room-num" id="room-num"></strong>
+          <button type="button" class="btn" id="room-copy">コピー</button>
+        </div>
+        <p class="room-open" id="room-open"></p>
+        <div class="room-acts">
+          <button type="button" class="btn" id="room-reopen">募集を開き直す</button>
+          <button type="button" class="btn" id="room-undo">1 つ戻す</button>
+          <button type="button" class="btn" id="room-leave">抜ける</button>
+          <button type="button" class="qm" data-hint="「募集を開き直す」で、もう 15 分だれでも入れるようにします。「1 つ戻す」はみんなの表を 1 つ前の保存に戻します（もう一度押すと戻したのを取り消せます）。「抜ける」はこの端末だけ共有をやめて、入る前の表に戻します。部屋は消えないので、残りの人はそのまま続けられます。"></button>
+        </div>
+      </div>
+      <div class="room-paused" id="room-paused" hidden>
+        <span>リンクの表を見ています。<b>合言葉 <span id="room-pnum"></span></b> の共有は止めています。</span>
+        <button type="button" class="btn" id="room-resume">共有の表に戻る</button>
+      </div>
+      <p class="room-st" id="room-st"></p>
+      <p class="room-msg" id="room-msg" role="status" aria-live="polite"></p>
+    </div>
   </div>
 
   <div class="panel">
@@ -296,7 +363,7 @@
   </div>
 
   <div class="note-box">
-    <p><b>並びはこのブラウザに残ります</b>（外へは送りません）。<button type="button" class="qm" data-hint="「この並びのURLをコピー」を押すと、並びが入ったURLができます。それを渡せば、相手の画面にも同じ表が出ます。"></button></p>
+    <p><b>並びはこのブラウザに残ります</b>（外へ送るのは「みんなで編集」を使ったときだけ）。<button type="button" class="qm" data-hint="「この並びのURLをコピー」を押すと、並びが入ったURLができます。それを渡せば、相手の画面にも同じ表が出ます。「みんなで編集」の表は AronaBot のサーバーに置き、最後に直してから 14 日で消えます。入っている間、このブラウザに残した表には触らず、抜けるとそちらに戻ります。"></button></p>
   </div>
 
   <div class="sharebar" id="sharebar"></div>
@@ -314,7 +381,7 @@
   </details>
 </div>
 
-<script>window.TOUR = {"key": "tier", "steps": [{"sel": "#size", "t": "並べる大きさを決めます", "d": "バーでアイコンの大きさを変えられます。段の名前（S・A…）は押すと書き換えられ、段は盤の下の「段を足す」で増やせます。"}, {"sel": "#q", "t": "生徒を探して置きます", "d": "学校・役割・攻撃属性・防御属性で絞り込めます。生徒を押してから段を押すと置けます。"}, {"sel": "#sharebar", "t": "作った表はそのまま渡せます", "d": "並べた状態ごと URL になります。画像にしなくてもリンクで渡せます。"}]};</script>
+<script>window.TOUR = {"key": "tier", "steps": [{"sel": "#size", "t": "並べる大きさを決めます", "d": "バーでアイコンの大きさを変えられます。段の名前（S・A…）は押すと書き換えられ、段は盤の下の「段を足す」で増やせます。"}, {"sel": "#q", "t": "生徒を探して置きます", "d": "学校・役割・攻撃属性・防御属性で絞り込めます。生徒を押してから段を押すと置けます。"}, {"sel": "#room", "t": "みんなで同じ表を直せます", "d": "「合言葉を作る」で 3 桁の番号が出ます。相手がその番号で入ると、同じ表を一緒に直せます。"}, {"sel": "#sharebar", "t": "作った表はそのまま渡せます", "d": "並べた状態ごと URL になります。画像にしなくてもリンクで渡せます。"}]};</script>
 <script src="../tour.js?v=2"></script>
 
 <script src="../share.js?v=3"></script>
@@ -386,9 +453,9 @@
 
   /* **表の状態を 1 つの JSON で出し入れする。**
        { v: 2, size: 62, rows: [ { n: 'S', ids: [10000, 10001] }, … ] }
-     保存・URL・読み込みはこの 2 つを通る。**合言葉で複数人が同じ表を扱う機能を
-     足すときは、受け取った JSON を setState に渡し、`tier:change` を聞いて送る**
-     （2026-09-26 に寄せた。サーバー側はまだ無い）。 */
+     保存・URL・読み込みはこの 2 つを通る。**合言葉で複数人が同じ表を扱う機能
+     （room.js）は、受け取った JSON を setState に渡し、`tier:change` を聞いて送る**
+     （2026-09-26。サーバーは api.arona-bot.com/tier/v1）。 */
   function getState() {
     return { v: 2, size: size, rows: rows.map(function (r) { return { n: r.n, ids: r.ids.slice() }; }) };
   }
@@ -417,7 +484,22 @@
     applyZoom(); draw();
     return true;
   }
-  window.TierTool = { getState: getState, setState: setState };
+  /* **合言葉の部屋に入っている間は、このブラウザの保存（KEY）に書かない。**
+     みんなの表で自分の表を上書きすると、抜けたときに戻る先が無くなる。
+     抜けたら local() の表に戻す（2026-09-26、room.js と一緒に足した） */
+  var shared = false;
+  function local() {
+    var s = null;
+    try { s = normState(JSON.parse(localStorage.getItem(KEY) || 'null')); } catch (e) {}
+    return s || { v: 2, size: size, rows: DEFAULT.map(function (n) { return { n: n, ids: [] }; }) };
+  }
+  /* **いま手が動いているか。**掴んでいる・運んでいる・段の名前を書いている間に
+     相手の表で描き直すと、持っていた子や書きかけの名前が消える */
+  function busy() { return held != null || dragId != null || !!document.querySelector('input.lb'); }
+  window.TierTool = {
+    getState: getState, setState: setState, local: local, busy: busy,
+    setShared: function (on) { shared = !!on; }
+  };
 
   function applyZoom() {
     var n = el('tiers');
@@ -446,7 +528,7 @@
       lastJson = j;
       try { document.dispatchEvent(new CustomEvent('tier:change', { detail: getState() })); } catch (e) {}
     }
-    if (!dirty) return;
+    if (!dirty || shared) return;
     try { localStorage.setItem(KEY, j); } catch (e) {}
   }
   /* URL の形は `#t=名前:id.id~名前:id~…&z=大きさ`。**`&z=` は 2026-09-26 から。**
@@ -760,7 +842,9 @@
   }
   el('share').addEventListener('click', function () {
     var url = location.origin + location.pathname + '#t=' + encode();
-    history.replaceState(null, '', '#t=' + encode());
+    /* **部屋に入っている間はアドレス欄を書き換えない。**書くと、再読み込みで
+       「リンクの表を見ている」扱いになり、共有が止まる（room.js） */
+    if (!shared) history.replaceState(null, '', '#t=' + encode());
     if (navigator.clipboard) {
       navigator.clipboard.writeText(url).then(function () { flash('URL をコピーしました'); },
         function () { flash('コピーできませんでした。アドレス欄からどうぞ'); });
@@ -894,5 +978,7 @@
   draw();
 })();
 </script>
+<!-- **表の組み立てより後に読む。**TierTool と、最初の draw() が済んでから部屋の表を載せる -->
+<script src="room.js?v=1"></script>
 </body>
 </html>
