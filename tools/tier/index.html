@@ -43,35 +43,68 @@
   }
   .stu[data-drag="over"] { border-color: var(--accent); }
 
-  /* Tier の行。**--sz は盤の中だけ差し替える**（下の手札は今の大きさのまま） */
-  .tiers { display: flex; flex-direction: column; gap: 8px; --sz: 62px; }
-  .tiers.sz-s { --sz: 44px; }
-  .tiers.sz-l { --sz: 88px; }
-  /* 小さいときは名前が読めないので出さない。大きいときは少し上げる */
-  .tiers.sz-s .stu .nm { display: none; }
-  .tiers.sz-l .stu .nm { font-size: 11px; padding: .2em .25em .25em; }
+  /* Tier の行。**--sz は盤の中だけ差し替える**（下の手札は今の大きさのまま）。
+     **大きさはバーの値（--zv）から決める**（2026-09-26。前は小・中・大の 3 段で、
+     44・62・88px のどれかだった。バーはその 3 つを含む 40〜100px の連続値）。
+     スマホでは同じ値を 0.84 倍する——前の 3 段もスマホは 38・52・74 と約 0.84 倍だった */
+  .tiers { display: flex; flex-direction: column; gap: 8px; --sz: var(--zv, 62px); }
+  /* **名前の字は顔に比例させる。**前は大のときだけ 11px に上げていた。
+     小さいとき（バーが 50 未満）は読めないので出さない（.nm-off は JS が付ける） */
+  .tiers .stu .nm { font-size: clamp(9px, calc(var(--sz) * .14), 12px); }
+  .tiers.nm-off .stu .nm { display: none; }
   .row {
     display: grid; grid-template-columns: 74px 1fr 30px; align-items: stretch;
     border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: var(--card);
   }
+  /* **段の名前は押すと書き換えられる。**前から <input> だったが、見た目がただの
+     色の札で、押せると気付けなかった（2026-09-26 の先生の要望）。いまは普段は
+     ボタンで、押すとその場で入力欄に替わる。右下の鉛筆が「書ける」の目印。
+     長い名前は字を小さくして折り返す（data-len は JS が付ける） */
   .row .lb {
-    display: grid; place-items: center; padding: .5em .3em; min-height: calc(var(--sz) + 12px);
-    font-size: 1.25rem; font-weight: 900; color: #241a08;
-    border: 0; font-family: inherit; text-align: center; width: 100%;
-    background: var(--tc, #e8b45a); resize: none; letter-spacing: .02em;
+    position: relative; display: grid; place-items: center; padding: .5em .3em;
+    min-height: calc(var(--sz) + 12px);
+    font-size: 1.25rem; font-weight: 900; line-height: 1.15; color: #241a08;
+    border: 0; font-family: inherit; text-align: center; width: 100%; cursor: text;
+    background: var(--tc, #e8b45a); letter-spacing: .02em;
+    overflow-wrap: anywhere; word-break: break-all;
   }
-  .row .lb:focus { outline: 2px solid #241a08; outline-offset: -4px; }
+  .row .lb[data-len="m"] { font-size: .95rem; }
+  .row .lb[data-len="l"] { font-size: .78rem; letter-spacing: 0; }
+  .row .lb .pen {
+    position: absolute; right: 4px; bottom: 4px; width: 11px; height: 11px;
+    fill: #241a08; opacity: .35; transition: opacity .12s ease;
+  }
+  .row .lb:hover .pen, .row .lb:focus-visible .pen { opacity: .8; }
+  .row .lb:focus-visible { outline: 2px solid #241a08; outline-offset: -4px; }
+  /* 書いているあいだの入力欄。**style.css の input の枠と余白を消す** */
+  .row input.lb { padding: .3em .2em; border-radius: 0; box-shadow: none; min-width: 0; }
+  .row input.lb:focus { outline: 2px solid #241a08; outline-offset: -4px; }
+  /* **掴んでいる間は段の見出しも置き場。**スマホでは見出しのほうが狙いやすい */
+  .tiers.holding .lb { cursor: pointer; }
   .row .drop {
     display: flex; flex-wrap: wrap; gap: 6px; padding: 8px; min-height: calc(var(--sz) + 12px);
     align-content: flex-start; background: var(--bg-sub);
   }
   .row .drop.over { background: color-mix(in srgb, var(--accent) 16%, var(--bg-sub)); }
+  /* **掴んでいる間は、置ける場所に点線を出す。**前は帯の文字だけが頼りで、
+     どこを押せば置けるのかが見た目に出ていなかった。空の段には一言添える */
+  .tiers.holding .drop {
+    outline: 2px dashed color-mix(in srgb, var(--accent) 55%, transparent);
+    outline-offset: -5px; cursor: pointer;
+  }
+  .tiers.holding .drop:empty { align-content: center; }
+  .tiers.holding .drop:empty::before {
+    content: 'ここに置く'; margin: auto; align-self: center;
+    font-size: .78rem; font-weight: 700; color: var(--fg-mute);
+  }
   .row .side { display: flex; flex-direction: column; border-left: 1px solid var(--line); }
   .row .side button {
     flex: 1; border: 0; background: var(--card); color: var(--fg-mute);
     cursor: pointer; font-size: 11px; font-family: inherit; padding: 0;
   }
   .row .side button:hover { background: var(--bg-sub); color: var(--fg); }
+  /* **× は ▲▼ より大きく。**11px のままだと点にしか見えなかった */
+  .row .side button[data-act="del"] { font-size: 15px; line-height: 1; }
 
   .pool { display: flex; flex-wrap: wrap; gap: 6px; }
   .pool.over { outline: 2px dashed var(--accent); outline-offset: 4px; border-radius: 12px; }
@@ -91,13 +124,29 @@
   }
   .held-note[hidden] { display: none; }
   .held-note img { width: 30px; height: 30px; border-radius: 7px; display: block; }
+  /* **スマホでは顔を縮めず、ボタンは次の行へ。**390 幅で顔が細い線に潰れ、
+     文が 4 行・「手札に戻す」が 2 行に折れていた（2026-09-26 に撮って直した） */
+  .held-note #held-img { flex: none; }
+  .held-note .btn { white-space: nowrap; }
+  @media (max-width: 560px) {
+    .held-note { flex-wrap: wrap; }
+    .held-note > span:nth-child(2) { flex: 1 1 calc(100% - 50px); }
+  }
+
+  /* 顔の大きさのバー。**両端に小・大を置く。**px の数字を出しても伝わらない */
+  .zoom { display: flex; align-items: center; gap: .6em; flex: 1 1 200px; max-width: 320px; }
+  .zoom input[type="range"] { flex: 1 1 auto; margin: 0; min-width: 0; }
+  .zoom span { font-size: .78rem; font-weight: 700; color: var(--fg-mute); }
+  /* **知らせが無いときは枠ごと隠す。**.tag は枠と背景を持つので、空のままだと
+     「URL をコピー」の右に中身の無い小さな楕円が出ていた（2026-09-26 に直した） */
+  #msg:empty { display: none; }
 
   @media (max-width: 560px) {
-    .tiers { --sz: 52px; }
-    .tiers.sz-s { --sz: 38px; }
-    .tiers.sz-l { --sz: 74px; }
+    .tiers { --sz: calc(var(--zv, 62px) * .84); }
     .row { grid-template-columns: 56px 1fr 26px; }
     .row .lb { font-size: 1rem; }
+    .row .lb[data-len="m"] { font-size: .8rem; }
+    .row .lb[data-len="l"] { font-size: .68rem; }
     .row .drop { padding: 6px; gap: 5px; }
   }
 </style>
@@ -204,7 +253,7 @@
 
   <div class="panel" style="margin-top:20px">
     <div class="panel-h"><h2>並べる</h2></div>
-    <p class="lead"><b>生徒を押してから、置きたい段を押します。</b><button type="button" class="qm" data-hint="置いた生徒も、押して掴めば別の段へ動かせます。パソコンならそのまま掴んで運べます。段の名前は書き換えられます。"></button></p>
+    <p class="lead"><b>生徒を押してから、置きたい段を押します。</b><button type="button" class="qm" data-hint="置いた生徒も、押して掴めば別の段へ動かせます。パソコンならそのまま掴んで運べます。段の名前（S・A…）は押すと書き換えられます（8 文字まで）。"></button></p>
     <div class="held-note" id="held-note" hidden>
       <span id="held-img"></span>
       <span><b id="held-name"></b> を持っています。置きたい段か、割り込みたい生徒を押してください。</span>
@@ -212,11 +261,11 @@
       <button type="button" class="btn" id="held-cancel" style="padding:.3em .8em;font-size:.8rem">やめる</button>
     </div>
     <div class="btnrow" style="margin-bottom:12px">
-      <span style="font-size:.8rem;font-weight:700;color:var(--fg-mute)">顔の大きさ</span>
-      <div class="seg" id="size" role="group" aria-label="顔の大きさ">
-        <button type="button" data-z="s">小</button>
-        <button type="button" data-z="m" aria-pressed="true">中</button>
-        <button type="button" data-z="l">大</button>
+      <label for="size-r" style="font-size:.8rem;font-weight:700;color:var(--fg-mute)">顔の大きさ</label>
+      <div class="zoom" id="size">
+        <span aria-hidden="true">小</span>
+        <input type="range" id="size-r" min="40" max="100" step="2" value="62" aria-label="顔の大きさ">
+        <span aria-hidden="true">大</span>
       </div>
     </div>
     <div class="tiers" id="tiers"></div>
@@ -265,7 +314,7 @@
   </details>
 </div>
 
-<script>window.TOUR = {"key": "tier", "steps": [{"sel": "#size", "t": "並べる大きさを決めます", "d": "アイコンの大きさを変えられます。段は盤の下の「段を足す」で増やせます。"}, {"sel": "#q", "t": "生徒を探して置きます", "d": "学校・役割・攻撃属性・装甲で絞り込めます。掴んで段に落としてください。"}, {"sel": "#sharebar", "t": "作った表はそのまま渡せます", "d": "並べた状態ごと URL になります。画像にしなくてもリンクで渡せます。"}]};</script>
+<script>window.TOUR = {"key": "tier", "steps": [{"sel": "#size", "t": "並べる大きさを決めます", "d": "バーでアイコンの大きさを変えられます。段の名前（S・A…）は押すと書き換えられ、段は盤の下の「段を足す」で増やせます。"}, {"sel": "#q", "t": "生徒を探して置きます", "d": "学校・役割・攻撃属性・防御属性で絞り込めます。生徒を押してから段を押すと置けます。"}, {"sel": "#sharebar", "t": "作った表はそのまま渡せます", "d": "並べた状態ごと URL になります。画像にしなくてもリンクで渡せます。"}]};</script>
 <script src="../tour.js?v=2"></script>
 
 <script src="../share.js?v=3"></script>
@@ -308,21 +357,74 @@
   var COLORS = ['#e8635c', '#e89a4a', '#e8cc5a', '#8fc46a', '#6aa8d8', '#9b8fd0', '#b8b8b8'];
   var DEFAULT = ['S', 'A', 'B', 'C', 'D'];
 
+  /* **表の状態はこの 2 つだけ**（段の並び＋顔の大きさ）。手に持っている子（held）と
+     絞り込みは画面の都合なので入れない。保存・URL・画像はすべてここから作る */
   var rows = DEFAULT.map(function (n) { return { n: n, ids: [] }; });
+  var size = 62;                   // 顔の大きさ（px）。**盤の中の顔だけを変える**
   var held = null;                 // 手に持っている生徒の id
   var filters = { q: '', sc: '', ro: '', bt: '', at: '', sq: '', st: '' };
-  var KEY = 'arona-tier-v1';
-  var SZKEY = 'arona-tier-size';
-  var zoom = 'm';     // s / m / l。**盤の中の顔の大きさだけを変える**
+  var KEY = 'arona-tier-v2';       // getState() をそのまま JSON にして置く
+  var OLDKEY = 'arona-tier-v1';    // 〜2026-09-26。段の配列だけ
+  var SZKEY = 'arona-tier-size';   // 〜2026-09-26。's' / 'm' / 'l'
+  var NAMEMAX = 8;                 // 段の名前の上限（文字）
+  var SZMIN = 40, SZMAX = 100;
+  /* 前の小・中・大。**古い保存と、画像の大きさの目安に使う** */
+  var OLDSZ = { s: 44, m: 62, l: 88 };
+
+  /* 段の名前をそろえる。**上限は文字で数える**（絵文字 1 つを 2 と数えない）。
+     改行や制御文字は画像の上で崩れるので落とす */
+  function cleanName(v) {
+    var s = String(v == null ? '' : v).replace(/[\u0000-\u001f\u007f]/g, '').trim();
+    return Array.from(s).slice(0, NAMEMAX).join('');
+  }
+  function cleanSize(v) {
+    if (typeof v === 'string' && OLDSZ[v]) return OLDSZ[v];
+    var n = Math.round(Number(v));
+    if (!isFinite(n) || !n) return 62;
+    return Math.min(SZMAX, Math.max(SZMIN, n));
+  }
+
+  /* **表の状態を 1 つの JSON で出し入れする。**
+       { v: 2, size: 62, rows: [ { n: 'S', ids: [10000, 10001] }, … ] }
+     保存・URL・読み込みはこの 2 つを通る。**合言葉で複数人が同じ表を扱う機能を
+     足すときは、受け取った JSON を setState に渡し、`tier:change` を聞いて送る**
+     （2026-09-26 に寄せた。サーバー側はまだ無い）。 */
+  function getState() {
+    return { v: 2, size: size, rows: rows.map(function (r) { return { n: r.n, ids: r.ids.slice() }; }) };
+  }
+  /* 形の崩れたものは読まずに null。**同じ子が 2 つの段にいたら上の段を残す**
+     （putIn は 1 人 1 か所が前提で、2 か所にいると動かしたときに片方が残る） */
+  function normState(o) {
+    if (!o || !Array.isArray(o.rows) || !o.rows.length) return null;
+    var seen = {};
+    var rs = o.rows.slice(0, 30).map(function (r) {
+      r = r || {};
+      var ids = (Array.isArray(r.ids) ? r.ids : []).map(Number).filter(function (x) {
+        if (!S[x] || seen[x]) return false;
+        seen[x] = true; return true;
+      });
+      return { n: cleanName(r.n), ids: ids };
+    });
+    return { v: 2, size: cleanSize(o.size), rows: rs };
+  }
+  function setState(o) {
+    var s = normState(o);
+    if (!s) return false;
+    rows = s.rows; size = s.size; held = null;
+    /* **外から入れた状態では tier:change を出さない。**出すと、相手から届いた表を
+       そのまま送り返して往復が止まらなくなる */
+    lastJson = JSON.stringify(getState());
+    applyZoom(); draw();
+    return true;
+  }
+  window.TierTool = { getState: getState, setState: setState };
 
   function applyZoom() {
     var n = el('tiers');
-    n.classList.remove('sz-s', 'sz-l');
-    if (zoom === 's') n.classList.add('sz-s');
-    if (zoom === 'l') n.classList.add('sz-l');
-    [].forEach.call(el('size').querySelectorAll('button'), function (b) {
-      b.setAttribute('aria-pressed', String(b.dataset.z === zoom));
-    });
+    n.style.setProperty('--zv', size + 'px');
+    n.classList.toggle('nm-off', size < 50);
+    el('size-r').value = size;
+    el('size-r').setAttribute('aria-valuetext', size + ' ピクセル');
   }
 
   function placed() {
@@ -335,53 +437,68 @@
   /* **URL から開いただけでは保存しない。**人の表のリンクを見に来ただけで、
      自分が作って保存してあった表が黙って上書きされていた。
      一度でも触った（＝この表を使う気がある）ら通常どおり保存する */
-  var dirty = true;
+  var dirty = true, lastJson = '';
   function save() {
+    var j = JSON.stringify(getState());
+    /* **中身が変わったときだけ知らせる。**掴む・放すだけでも draw() は走るので、
+       そのたびに送ると合言葉の相手に空の更新が飛ぶ */
+    if (j !== lastJson) {
+      lastJson = j;
+      try { document.dispatchEvent(new CustomEvent('tier:change', { detail: getState() })); } catch (e) {}
+    }
     if (!dirty) return;
-    try { localStorage.setItem(KEY, JSON.stringify(rows)); localStorage.setItem(SZKEY, zoom); } catch (e) {}
+    try { localStorage.setItem(KEY, j); } catch (e) {}
   }
+  /* URL の形は `#t=名前:id.id~名前:id~…&z=大きさ`。**`&z=` は 2026-09-26 から。**
+     無い URL（前の形）は中の大きさ 62 で開く。名前は encodeURIComponent だが、
+     `~` はそれでは化けず段の区切りと衝突するので、自分で %7E にする */
   function encode() {
     return rows.map(function (r) {
-      return encodeURIComponent(r.n) + ':' + r.ids.join('.');
-    }).join('~');
+      return encodeURIComponent(r.n).replace(/~/g, '%7E') + ':' + r.ids.join('.');
+    }).join('~') + '&z=' + size;
   }
   function decode(str) {
     var out = [];
     str.split('~').forEach(function (part) {
       var i = part.indexOf(':');
       if (i < 0) return;
-      var n = decodeURIComponent(part.slice(0, i));
-      var ids = part.slice(i + 1).split('.').map(Number).filter(function (x) { return S[x]; });
-      out.push({ n: n, ids: ids });
+      var n;
+      try { n = decodeURIComponent(part.slice(0, i)); } catch (e) { n = ''; }
+      out.push({ n: n, ids: part.slice(i + 1).split('.').map(Number) });
     });
     return out.length ? out : null;
   }
+  function fromHash(hash) {
+    var p = {};
+    hash.replace(/^#/, '').split('&').forEach(function (kv) {
+      var i = kv.indexOf('=');
+      if (i > 0) p[kv.slice(0, i)] = kv.slice(i + 1);
+    });
+    var r = p.t ? decode(p.t) : null;
+    return r ? normState({ rows: r, size: p.z || 62 }) : null;
+  }
   window.shareUrl = function () { return '#t=' + encode(); };
   (function load() {
-    var h = location.hash.replace(/^#t=/, '');
-    var fromUrl = h && h !== location.hash ? decode(h) : null;
-    if (fromUrl) {
-      rows = fromUrl;
+    var u = fromHash(location.hash);
+    if (u) {
+      rows = u.rows; size = u.size;
       dirty = false;
       document.addEventListener('pointerdown', function () { dirty = true; });
       document.addEventListener('keydown', function () { dirty = true; });
       return;
     }
-    try {
-      var z = localStorage.getItem(SZKEY);
-      if (z === 's' || z === 'm' || z === 'l') zoom = z;
-    } catch (e) {}
-    try {
-      var raw = localStorage.getItem(KEY);
-      if (raw) {
-        var v = JSON.parse(raw);
-        if (Array.isArray(v) && v.length) {
-          rows = v.map(function (r) {
-            return { n: String(r.n || ''), ids: (r.ids || []).filter(function (x) { return S[x]; }) };
-          });
-        }
-      }
-    } catch (e) {}
+    var s = null;
+    try { s = normState(JSON.parse(localStorage.getItem(KEY) || 'null')); } catch (e) {}
+    if (!s) {
+      // **前の形（段の配列＋'s'/'m'/'l'）も読む。**次に保存したときに新しい形へ移る
+      try {
+        var v = JSON.parse(localStorage.getItem(OLDKEY) || 'null');
+        var z = localStorage.getItem(SZKEY);
+        if (Array.isArray(v)) s = normState({ rows: v, size: z || 62 });
+        else if (z) size = cleanSize(z);
+      } catch (e) {}
+    }
+    if (s) { rows = s.rows; size = s.size; }
   })();
 
   // ---- 生徒の札
@@ -393,12 +510,27 @@
       '<span class="nm">' + s.n + '</span></button>';
   }
 
+  function esc(s) {
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+  /* 名前の長さで字の大きさを 3 段に分ける。**2 文字までは今までどおり大きく** */
+  function nameLen(n) {
+    var k = Array.from(n).length;
+    return k <= 2 ? 's' : (k <= 4 ? 'm' : 'l');
+  }
+  var PEN = '<svg class="pen" viewBox="0 0 24 24" aria-hidden="true" focusable="false">' +
+    '<path d="M3 17.25V21h3.75L17.8 9.94l-3.75-3.75L3 17.25zm17.7-10.2a1 1 0 0 0 0-1.4l-2.35-2.35a1 1 0 0 0-1.4 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>';
+  function labelHtml(r, i) {
+    return '<button type="button" class="lb" style="--tc:' + COLORS[Math.min(i, COLORS.length - 1)] + '"' +
+      ' data-r="' + i + '" data-len="' + nameLen(r.n) + '"' +
+      ' aria-label="' + (i + 1) + ' 段目の名前「' + esc(r.n) + '」。押すと書き換えられます">' +
+      '<span>' + esc(r.n) + '</span>' + PEN + '</button>';
+  }
+
   function drawTiers() {
+    el('tiers').classList.toggle('holding', held != null);
     el('tiers').innerHTML = rows.map(function (r, i) {
-      var c = COLORS[Math.min(i, COLORS.length - 1)];
-      return '<div class="row" data-r="' + i + '">' +
-        '<input class="lb" style="--tc:' + c + '" value="' + r.n.replace(/"/g, '&quot;') +
-          '" data-r="' + i + '" aria-label="' + (i + 1) + ' 段目の名前" maxlength="6">' +
+      return '<div class="row" data-r="' + i + '">' + labelHtml(r, i) +
         '<div class="drop" data-r="' + i + '">' +
           r.ids.map(function (id) { return chip(S[id], 'row'); }).join('') + '</div>' +
         '<div class="side">' +
@@ -527,11 +659,48 @@
     [].forEach.call(document.querySelectorAll('.drop.over, .pool.over'), function (x) { x.classList.remove('over'); });
   });
 
-  // ---- 段の操作
-  el('tiers').addEventListener('input', function (ev) {
-    var t = ev.target; if (!t.classList.contains('lb')) return;
-    rows[+t.dataset.r].n = t.value; save();
+  // ---- 段の名前
+  /* 押すとその場で入力欄に替わり、Enter か外を押せば決まる。Esc で取り消し。
+     **決めたときに盤ぜんぶを描き直さない。**外を押した瞬間に描き直すと、
+     押した先の顔が消えてクリックが空振りする。替えるのはこの札 1 枚だけ */
+  function editLabel(btn) {
+    var i = +btn.dataset.r, r = rows[i];
+    if (!r) return;
+    var inp = document.createElement('input');
+    inp.className = 'lb';
+    inp.type = 'text';
+    inp.value = r.n;
+    inp.maxLength = NAMEMAX * 2;   // 絵文字の分の余裕。実際の上限は cleanName が切る
+    inp.style.cssText = btn.style.cssText;
+    inp.setAttribute('aria-label', (i + 1) + ' 段目の名前（' + NAMEMAX + ' 文字まで）');
+    inp.setAttribute('enterkeyhint', 'done');
+    btn.replaceWith(inp);
+    inp.focus(); inp.select();
+    var done = false;
+    function finish(keep) {
+      if (done) return; done = true;
+      if (keep) r.n = cleanName(inp.value);
+      if (inp.isConnected) inp.replaceWith(htmlToNode(labelHtml(r, i)));
+      save();
+    }
+    inp.addEventListener('keydown', function (ev) {
+      if (ev.key === 'Enter' && !ev.isComposing) { ev.preventDefault(); finish(true); }
+      else if (ev.key === 'Escape') { finish(false); }
+    });
+    inp.addEventListener('blur', function () { finish(true); });
+  }
+  function htmlToNode(h) {
+    var t = document.createElement('template'); t.innerHTML = h; return t.content.firstChild;
+  }
+  el('tiers').addEventListener('click', function (ev) {
+    var b = ev.target.closest('button.lb'); if (!b) return;
+    ev.stopPropagation();
+    // **掴んでいる間は、見出しを押すとその段の末尾に置く**（帯の案内どおり「段を押す」）
+    if (held != null) { putIn(+b.dataset.r, held); held = null; draw(); return; }
+    editLabel(b);
   });
+
+  // ---- 段の操作
   el('tiers').addEventListener('click', function (ev) {
     var b = ev.target.closest('[data-act]'); if (!b) return;
     var i = +b.dataset.r, act = b.dataset.act;
@@ -603,7 +772,8 @@
   // 段の色・顔・名前を同じ並びで描く。名前を入れるのは、渡された相手が
   // 顔だけでは分からない子を判別できるようにするため
   el('save').addEventListener('click', function () {
-    var SZ = zoom === 's' ? 54 : (zoom === 'l' ? 104 : 76);
+    /* 画面の 1.2 倍前後。**前の小・中・大（54・76・104）と同じ見え方になる比** */
+    var SZ = Math.round(size * 1.2);
     var NH = 17, GAP = 10, PAD = 12, LB = 104, W = 1120;
     var CW = SZ, CH = SZ + NH;
     var perRow = Math.max(1, Math.floor((W - LB - PAD * 2 + GAP) / (CW + GAP)));
@@ -641,6 +811,23 @@
     var imgs = {}, need = 0, done = 0;
     rows.forEach(function (r) { need += r.ids.length; });
 
+    /* 段の名前を札に収める。**1 行で入らなければ字を小さくし、それでも
+       入らなければ 2 行に割る**（8 文字まで書けるようになったため。2026-09-26） */
+    function labelText(n, cx, cy, maxW, maxH) {
+      var ch = Array.from(n);
+      for (var px = 28; px >= 12; px -= 2) {
+        g.font = '900 ' + px + 'px "Helvetica Neue", Arial, sans-serif';
+        if (g.measureText(n).width <= maxW) { g.fillText(n, cx, cy); return; }
+        var half = Math.ceil(ch.length / 2);
+        var a = ch.slice(0, half).join(''), b = ch.slice(half).join('');
+        var lh = px * 1.15;
+        if (Math.max(g.measureText(a).width, g.measureText(b).width) <= maxW && lh * 2 <= maxH) {
+          g.fillText(a, cx, cy - lh / 2); g.fillText(b, cx, cy + lh / 2); return;
+        }
+      }
+      g.fillText(n, cx, cy, maxW);   // ここまで来たら横に縮めて入れる
+    }
+
     function paint() {
       var y = top;
       rows.forEach(function (r, i) {
@@ -648,9 +835,8 @@
         g.fillStyle = COLORS[Math.min(i, COLORS.length - 1)];
         rrect(20, y, LB, h, 10); g.fill();
         g.fillStyle = '#241a08';
-        g.font = '900 28px "Helvetica Neue", Arial, sans-serif';
         g.textAlign = 'center'; g.textBaseline = 'middle';
-        g.fillText(r.n, 20 + LB / 2, y + h / 2);
+        labelText(r.n, 20 + LB / 2, y + h / 2, LB - 14, h - 12);
         g.textAlign = 'left'; g.textBaseline = 'alphabetic';
 
         g.fillStyle = card;
@@ -697,10 +883,9 @@
     });
   });
 
-  el('size').addEventListener('click', function (ev) {
-    var b = ev.target.closest('button'); if (!b) return;
-    zoom = b.dataset.z; applyZoom(); save();
-  });
+  /* 動かしている間は見た目だけ変え、放したときに保存する */
+  el('size-r').addEventListener('input', function () { size = cleanSize(this.value); applyZoom(); });
+  el('size-r').addEventListener('change', function () { size = cleanSize(this.value); applyZoom(); save(); });
 
   el('hero-n').textContent = T.students.length;
   el('ver-n').textContent = T.students.length;
