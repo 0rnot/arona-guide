@@ -71,6 +71,29 @@
   table.dt .num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
   table.dt th.num { text-align: right; }
   table.dt tr.hi td { background: color-mix(in srgb, var(--accent) 10%, transparent); font-weight: 700; }
+
+  /* クレジットの内訳（強化／買い足し）。合計は .v に大きく */
+  .stat .cl { display: grid; grid-template-columns: auto 1fr; gap: 2px 12px; margin-top: .45em;
+              font-size: .8rem; color: var(--fg-mute); }
+  .stat .cl b { color: var(--fg); text-align: right; font-variant-numeric: tabular-nums; }
+
+  /* 参考の表。**既定は閉じる**（2026-09-26、eleph の早見表と同じ見た目） */
+  details.ref { margin: 0; }
+  details.ref > summary { cursor: pointer; list-style: none; font-weight: 800; font-size: 1rem;
+                          display: flex; align-items: center; gap: .4em; }
+  details.ref > summary::-webkit-details-marker { display: none; }
+  details.ref > summary::before { content: "▸"; color: var(--fg-mute); }
+  details.ref[open] > summary::before { content: "▾"; }
+  details.ref > summary .qsub { font-weight: 400; font-size: .78rem; color: var(--fg-mute); }
+  details.ref h3 { font-size: .95rem; font-weight: 800; margin: 26px 0 4px; }
+  details.ref .qnote { font-size: .82rem; color: var(--fg-mute); margin: 0; }
+  /* **Tier の表は 390px に収める。**Tier と上限を 1 マスにし、見出しは折り返してよい */
+  table.tt { font-size: .8rem; }
+  table.tt th { white-space: normal; }
+  table.tt th, table.tt td { padding-left: .35em; padding-right: .35em; }
+  /* ショップの表は「中身」を左寄せで折り返す（1 品 1 行）。390px で箱ごと横に送らせない */
+  table.st td:nth-child(2), table.st th:nth-child(2) { text-align: left; white-space: normal; }
+  table.tt td small { display: block; color: var(--fg-mute); font-weight: 400; font-size: .72rem; }
 </style>
 </head>
 <body>
@@ -181,23 +204,21 @@
 
     <div class="tcol">
       <div class="panel">
-        <div class="panel-h"><h2>どの装備を上げますか</h2></div>
-        <p class="lead"><b>部位は選びません。</b><b>Tier が上がるとレベルは Lv1 に戻ります。</b>
-          <button type="button" class="qm" data-hint="帽子でもお守りでも、Tierごとのレベル上限と必要経験値は9部位すべて同じです。"></button></p>
+        <!-- **説明は丸の i に畳む**（2026-09-26 grill-me Q0-1。中級の先生向け）。
+             前は「部位は選びません」「Tier が上がると Lv1 に戻ります」を常に出していた -->
+        <div class="panel-h"><h2>どの装備を上げますか<button type="button" class="qm" data-hint="部位は選びません。帽子でもお守りでも、Tierごとのレベル上限と必要経験値は9部位すべて同じです。Tierが上がるとレベルはLv1に戻るので、T1 Lv1 → T10 Lv70 のようにTierをまたいで入れられます。"></button></h2></div>
         <div id="rows"></div>
         <div class="btnrow" style="margin-top:14px">
           <button type="button" class="btn" id="b-add">行を足す</button>
           <button type="button" class="btn" id="b-one">生徒 1 人ぶん（3 枠）</button>
-          <button type="button" class="btn" id="b-reset">戻す</button>
         </div>
-        <p class="lead" style="margin:16px 0 0"><b>設計図はここでは数えません。</b><a href="../equipment/">装備設計図の周回計算機</a>へ。</p>
+        <!-- 「戻す」は消した（2026-09-26）。**見出しの下の「最初に戻す」（remember.js）と 1 つにまとめる** -->
+        <p class="lead" style="margin:16px 0 0"><b>設計図は数えません</b>（<a href="../equipment/">装備設計図の周回計算機</a>）</p>
       </div>
 
       <div class="panel">
-        <div class="panel-h"><h2>手持ちの強化珠</h2></div>
+        <div class="panel-h"><h2>手持ちの強化珠<button type="button" class="qm" data-hint="上の段から順に、あふれる経験値が最小になるように詰めます。ゲーム内の「自動選択」と同じ詰め方です。"></button></h2></div>
         <div class="gems" id="own"></div>
-        <p class="lead" style="margin:16px 0 0">上の段から順に、<b>あふれが最小になるように</b>詰めます。
-          <button type="button" class="qm" data-hint="ゲーム内の「自動選択」と同じ詰め方です。"></button></p>
       </div>
     </div>
 
@@ -213,10 +234,13 @@
           <div class="v" id="o-buy">—</div>
           <div class="sub" id="o-buy-sub">手持ちを引いたぶん</div>
         </div>
+        <!-- **クレジットはこの 1 枚だけ**（2026-09-26 grill-me Q6-1）。前は「強化のぶん」をここに、
+             「強化のぶんと合わせて」を下の「ショップで買うと」欄に出していて、同じ合計が 2 か所にあった。
+             大きい数字は合計、下に強化／買い足しの内訳 -->
         <div class="stat">
-          <div class="k"><img class="ico" src="../img/currency_icon_gold.webp" alt="" width="18" height="18" loading="lazy"> クレジット</div>
+          <div class="k"><img class="ico" src="../img/currency_icon_gold.webp" alt="" width="18" height="18" loading="lazy"> クレジット（合計）<button type="button" class="qm" id="credit-qm" data-hint=""></button></div>
           <div class="v" id="o-credit">—</div>
-          <div class="sub" id="o-credit-sub">強化そのものにかかるぶん</div>
+          <div class="cl" id="o-credit-sub"></div>
         </div>
       </div>
 
@@ -227,49 +251,32 @@
         <div class="ledger" id="plan"></div>
       </div>
 
+      <!-- **日数と 1 日の上限だけ。**クレジットは上の 1 枚へ寄せた（2026-09-26） -->
       <div class="panel">
         <div class="panel-h"><h2>ショップで買うと</h2></div>
-        <p class="lead"><b>経験値あたりの値段はどれも同じ</b>（<span id="rate">—</span> クレジット / 1 EXP）。1 日に買えるのは全部で <b><span id="dayexp">—</span> EXP</b>ぶんです。</p>
         <div class="ledger" id="shop"></div>
       </div>
     </div>
 
-    <!-- **ここから下はタブで畳む。**参考の表が 3 枚で、スマホでは 2,655px あった
-         （2026-08-30 に実測。頁ぜんぶで 6,024px ＝ 7.7 画面ぶん）。
-         入力と結果の 2 段組みは上に出したまま。既定は「必要経験値」——
-         いま入れている段に色が付く表なので、入力の答え合わせになる -->
-    <div class="tfull tpanes" data-panes="equip-level">
-      <div class="ttabs" role="tablist" aria-label="下に出すもの" hidden>
-        <button type="button" role="tab" id="tb-e-tier" data-p="tier"
-                aria-controls="pn-tier" aria-selected="true">必要経験値</button>
-        <button type="button" role="tab" id="tb-e-waste" data-p="waste"
-                aria-controls="pn-waste" aria-selected="false">端数を埋める</button>
-        <button type="button" role="tab" id="tb-e-shop" data-p="shop"
-                aria-controls="pn-shop" aria-selected="false">ショップ</button>
-      </div>
+    <!-- **参考の表 3 枚は、既定で閉じた 1 つの欄に畳む**（2026-09-26 grill-me Q6-1・Q6-2。
+         3 枚とも残す）。前は panes.js のタブ 3 枚で、閉じていても 1 枚は常に開いていた
+         （2026-08-30 にスマホで 2,655px あったのをタブにした経緯）。
+         **Tier の表は 390px に収める。**6 列あって右の「最上級強化珠だけなら」が切れていたので、
+         Tier と上限を 1 つのマスにまとめ、見出しを短くした。列の意味は丸の i に -->
+    <div class="tfull">
+      <div class="panel">
+        <details class="ref" id="ref">
+          <summary>参考の表 <span class="qsub">必要経験値・端数・ショップ</span></summary>
 
-      <div class="tpane" id="pn-tier" data-p="tier" role="tabpanel"
-           aria-labelledby="tb-e-tier" tabindex="0">
-        <div class="panel">
-          <div class="panel-h"><h2>Tier ごとの必要経験値</h2></div>
-          <p class="lead"><b>レベルは Tier が上がるたびに Lv1 からやり直しです。</b><b>いま選んでいる段には色が付きます。</b>
-            <button type="button" class="qm" data-hint="「必要な経験値」は、そのTierでLv1からレベル上限まで上げるぶんです。「初級で割った余り」は、初級強化珠(90)だけで詰めたときに最後に残る経験値で、下の「端数を埋める」面に出る「あふれ」(上から詰めたときの行き過ぎ)とは別物です。いちばん右の「T1からの累計」は積み上げた合計です。"></button></p>
+          <h3>Tier ごとの必要経験値<button type="button" class="qm" data-hint="「必要EXP」は、そのTierでLv1からレベル上限まで上げるぶんです。「最上級」は最上級強化珠だけで詰めたときの個数、「初級の余り」は初級強化珠(90)だけで詰めたときに最後に残る経験値で、「端数を埋める」に出る「あふれ」(上から詰めたときの行き過ぎ)とは別物です。「累計」はT1から積み上げた合計です。いま入れている段には色が付きます。"></button></h3>
           <div class="tscroll" id="tier-scroll">
-            <table class="dt">
-              <thead><tr><th>Tier</th><th class="num">レベル上限</th><th class="num">必要な経験値</th><th class="num">最上級強化珠だけなら</th><th class="num">初級で割った余り</th><th class="num">T1 からの累計</th></tr></thead>
+            <table class="dt tt">
+              <thead><tr><th>Tier</th><th class="num">必要 EXP</th><th class="num">最上級</th><th class="num">初級の余り</th><th class="num">累計</th></tr></thead>
               <tbody id="tb-tier"></tbody>
             </table>
           </div>
-        </div>
 
-      </div>
-
-      <div class="tpane" id="pn-waste" data-p="waste" role="tabpanel"
-           aria-labelledby="tb-e-waste" tabindex="0">
-        <div class="panel">
-          <div class="panel-h"><h2>あふれるぶんを設計図で埋める</h2></div>
-          <p class="lead"><b>強化珠だけだと、最後に経験値があふれます。</b>設計図や余った装備でも埋められます。
-            <button type="button" class="qm" data-hint="強化珠の初級を1個減らし、そのぶんを設計図や余った装備で埋めると無駄が消えます。"></button></p>
+          <h3>端数を埋める<button type="button" class="qm" data-hint="強化珠だけだと、最後に経験値があふれます。初級を1個減らし、そのぶんを設計図や余った装備で埋めると無駄が消えます。"></button></h3>
           <div class="ledger" id="waste"></div>
           <div class="tscroll">
             <table class="dt">
@@ -277,25 +284,20 @@
               <tbody id="tb-feed"></tbody>
             </table>
           </div>
-        </div>
 
-      </div>
-
-      <div class="tpane" id="pn-shop" data-p="shop" role="tabpanel"
-           aria-labelledby="tb-e-shop" tabindex="0">
-        <div class="panel">
-          <div class="panel-h"><h2>通常アイテムショップの品ぞろえ</h2></div>
-          <p class="lead">1 日に 1 回ずつ買えます。<b>全部買うと <span id="daycredit">—</span> クレジットで <span id="dayexp2">—</span> EXP</b>ぶんです。</p>
+          <h3>通常アイテムショップの品ぞろえ</h3>
+          <p class="qnote">1 日 1 回ずつ。<b>全部で <span id="daycredit">—</span> クレジット・<span id="dayexp2">—</span> EXP</b></p>
           <div class="tscroll">
-            <table class="dt">
-              <thead><tr><th>値段</th><th>中身</th><th class="num">経験値</th><th class="num">1 EXP あたり</th></tr></thead>
+            <table class="dt tt st">
+              <thead><tr><th>値段</th><th>中身</th><th class="num">EXP</th><th class="num">1 EXP あたり</th></tr></thead>
               <tbody id="tb-shop"></tbody>
             </table>
           </div>
-        </div>
-
+        </details>
       </div>
+    </div>
 
+    <div class="tfull">
       <div class="sharebar" id="sharebar"></div>
 
       <details class="src">
@@ -367,8 +369,7 @@
   </div>
 </div>
 
-<script>window.TOUR = {"key": "equip-level", "steps": [{"sel": "#rows", "t": "今と目標を入れます", "d": "Tier が上がるとレベルは Lv1 に戻るので、T1 Lv1 から T10 Lv70 のように Tier をまたいで入れられます。部位は選びません。"}, {"sel": "#own", "t": "手持ちの強化珠を入れます", "d": "上の段から順に、あふれるぶんがいちばん少なくなるように詰めます。ゲーム内の自動選択と同じ詰め方です。"}, {"sel": "#o-exp", "t": "要る経験値とクレジットが出ます", "d": "クレジットは 1 EXP につき 4。買い足す強化珠のぶんは、その下の板に分けて出しています。"}, {"sel": "#plan", "t": "内訳は「手持ち／買う」で分けます", "d": "手持ちを使い切ったあと、足りないぶんを最上級から詰め直した数です。"}, {"sel": "#tier-scroll", "pre": "#tb-e-tier", "t": "Tier ごとの必要経験値", "d": "いま入れている段には色が付きます。いちばん右は T1 から積み上げた累計です。"}, {"sel": "#sharebar", "t": "結果はそのまま渡せます", "d": "入れている行と手持ちごと URL になるので、リンクを送れば相手の画面にも同じ結果が出ます。"}]};</script>
-<script src="../panes.js?v=1"></script>
+<script>window.TOUR = {"key": "equip-level", "steps": [{"sel": "#rows", "t": "今と目標を入れます", "d": "T1 Lv1 から T10 Lv70 のように、Tier をまたいで入れられます。行は何行でも足せます。"}, {"sel": "#own", "t": "手持ちの強化珠を入れます", "d": "上の段から順に、あふれるぶんがいちばん少なくなるように詰めます。ゲーム内の自動選択と同じ詰め方です。"}, {"sel": "#o-exp", "t": "要る経験値と買い足す数が出ます", "d": "クレジットは合計を大きく出し、その下に強化のぶんと買い足しのぶんを分けています。"}, {"sel": "#plan", "t": "内訳は「手持ち／買う」で分けます", "d": "手持ちを使い切ったあと、足りないぶんを最上級から詰め直した数です。"}, {"sel": "#shop", "t": "ショップで何日かかるか", "d": "通常アイテムショップで 1 日に買える量から、買い足しに何日かかるかを出します。"}, {"sel": "#ref", "t": "参考の表", "d": "Tier ごとの必要経験値・端数の埋め方・ショップの品ぞろえ。押すと開きます。"}, {"sel": "#sharebar", "t": "結果はそのまま渡せます", "d": "入れている行と手持ちごと URL になるので、リンクを送れば相手の画面にも同じ結果が出ます。"}]};</script>
 <script src="../tour.js?v=2"></script>
 
 <script src="../share.js?v=3"></script>
@@ -399,6 +400,8 @@
   </div>
 </footer>
 
+<!-- **入力を覚える。data.js とツールの JS より前に読むこと**（前回のハッシュを先に URL へ戻す。2026-09-26 grill-me Q0-2） -->
+<script src="../remember.js?v=1"></script>
 <script src="data.js"></script>
 <script>
 (function () {
@@ -530,9 +533,10 @@
     el('o-buy-sub').innerHTML = p.need
       ? '足りない <b>' + fmt(p.need) + '</b> EXP ぶん'
       : exp ? '手持ちで足りています。' : '—';
-    el('o-credit').textContent = fmt(lvCredit);
-    el('o-credit-sub').innerHTML = '1 EXP につき <b>' + E.coef + '</b> クレジット' +
-      (shopCredit ? '。強化珠を買うぶんを足すと <b>' + fmt(lvCredit + shopCredit) + '</b>' : '');
+    el('o-credit').textContent = fmt(lvCredit + shopCredit);
+    el('o-credit-sub').innerHTML =
+      '<span>強化</span><b>' + fmt(lvCredit) + '</b>' +
+      '<span>買い足し</span><b>' + fmt(shopCredit) + '</b>';
 
     var pct = exp ? Math.min(100, useExp / exp * 100) : 100;
     el('bar').style.width = pct.toFixed(1) + '%';
@@ -545,27 +549,25 @@
     el('plan').innerHTML = GEMS.slice().reverse().map(function (g) {
       var i = GEMS.indexOf(g);
       return '<div class="row"><span><img class="ico" src="../img/' + g.i + '.webp" alt="" width="20" height="20" loading="lazy">' +
-        esc(g.n) + '<span class="subnote">上から詰めるだけなら ' + fmt(pure[i]) + ' 個</span></span>' +
+        esc(g.n) + '</span>' +
         '<span class="nowrap">手持ち ' + fmt(p.use[i]) + ' ／ 買う <b>' + fmt(p.buy[i]) + '</b></span></div>';
     }).join('') +
-      '<div class="row"><span>あふれる経験値<span class="subnote">詰め切れずに無駄になるぶん</span></span>' +
+      '<div class="row"><span>あふれる経験値</span>' +
       '<span class="nowrap">' + fmt(Math.max(0, useExp + buyExp - exp)) + ' EXP</span></div>' +
       '<div class="row total"><span>合わせて</span><span class="nowrap">' +
       fmt(p.use.reduce(function (a, v) { return a + v; }, 0)) + ' ／ <b>' + fmt(buyN) + '</b> 個</span></div>';
 
+    // **日数と 1 日の上限だけ。**クレジットは上の 1 枚（2026-09-26）
     el('shop').innerHTML =
       '<div class="row"><span>買う強化珠の経験値<span class="subnote">足りない ' + fmt(p.need) +
         ' EXP ＋ あふれる ' + fmt(buyExp - p.need) + ' EXP</span></span><span>' + fmt(buyExp) + ' EXP</span></div>' +
-      '<div class="row"><span>ショップのクレジット<span class="subnote">' +
-        (E.dayCredit / E.dayExp).toFixed(2) + ' クレジット / 1 EXP</span></span><span>' + fmt(shopCredit) + '</span></div>' +
-      '<div class="row"><span>何日ぶん<span class="subnote">1 日 ' + fmt(E.dayExp) + ' EXP まで</span></span><span>' +
-        (buyExp ? (buyExp / E.dayExp).toFixed(1) + ' 日' : '0 日') + '</span></div>' +
-      '<div class="row total"><span>強化のぶんと合わせて</span><span>' + fmt(lvCredit + shopCredit) + '</span></div>';
+      '<div class="row total"><span>何日ぶん<span class="subnote">1 日に買えるのは ' + fmt(E.dayExp) + ' EXP まで</span></span><span>' +
+        (buyExp ? (buyExp / E.dayExp).toFixed(1) + ' 日' : '0 日') + '</span></div>';
 
     // あふれるぶん
     var over = expOf(pure) - exp;
     el('waste').innerHTML =
-      '<div class="row"><span>上から詰めたときのあふれ<span class="subnote">初級強化珠 1 個ぶん未満に収まります</span></span><span>' +
+      '<div class="row"><span>上から詰めたときのあふれ</span><span>' +
         fmt(over) + ' EXP</span></div>' +
       '<div class="row"><span>初級を 1 個減らすと<span class="subnote">代わりに埋めたい経験値</span></span><span>' +
         (pure[0] > 0 ? fmt(GEMS[0].e - over) + ' EXP' : '—') + '</span></div>';
@@ -587,8 +589,7 @@
     var acc = 0;
     el('tb-tier').innerHTML = TIERS.map(function (t) {
       var e = cum(t, maxLv(t)); acc += e;
-      return '<tr data-t="' + t + '"><td class="nowrap">T' + t + '</td>' +
-        '<td class="num">Lv' + maxLv(t) + '</td>' +
+      return '<tr data-t="' + t + '"><td class="nowrap">T' + t + '<small>上限 Lv' + maxLv(t) + '</small></td>' +
         '<td class="num">' + fmt(e) + '</td>' +
         '<td class="num">' + Math.ceil(e / GEMS[3].e) + ' 個</td>' +
         '<td class="num">' + (e % GEMS[0].e) + '</td>' +
@@ -599,7 +600,7 @@
     GEMS.forEach(function (g) { gname[g.id] = g.n; });
     el('tb-shop').innerHTML = E.bundles.map(function (b) {
       return '<tr><td class="nowrap">' + fmt(b.c) + '</td><td>' +
-        b.it.map(function (x) { return esc(gname[x[0]]) + ' × ' + x[1]; }).join('／') +
+        b.it.map(function (x) { return esc(gname[x[0]]) + ' × ' + x[1]; }).join('<br>') +
         '</td><td class="num">' + fmt(b.e) + '</td>' +
         '<td class="num">' + (b.c / b.e).toFixed(2) + '</td></tr>';
     }).join('');
@@ -611,8 +612,10 @@
         '</td><td class="num">' + fmt(p[1]) + '</td></tr>';
     }).join('');
 
-    el('rate').textContent = (E.dayCredit / E.dayExp).toFixed(2);
-    el('dayexp').textContent = fmt(E.dayExp);
+    // 値段はデータから作るので、丸の i の文も JS で入れる（hint.js は押されたときに読む）
+    el('credit-qm').setAttribute('data-hint', '強化は1 EXPにつき' + E.coef + 'クレジット。' +
+      '買い足しは通常アイテムショップで強化珠を買うぶんで、どの品も経験値あたりの値段は同じ(' +
+      (E.dayCredit / E.dayExp).toFixed(2) + 'クレジット / 1 EXP)です。');
     el('dayexp2').textContent = fmt(E.dayExp);
     el('daycredit').textContent = fmt(E.dayCredit);
     el('src-all').textContent = fmt(E.allTiers);
@@ -659,11 +662,6 @@
   el('b-one').addEventListener('click', function () {
     rows = [{ t0: 1, l0: 1, t1: 10, l1: 70, n: 3 }]; draw();
   });
-  el('b-reset').addEventListener('click', function () {
-    rows = [blank()];
-    GEMS.forEach(function (g) { el('own-' + g.id).value = 0; });
-    draw();
-  });
 
   function toHash() {
     return rows.map(function (r) { return [r.t0, r.l0, r.t1, r.l1, r.n].join('.'); }).join(',') +
@@ -674,7 +672,9 @@
   (function fromHash() {
     /* **自分の区画だけ読む。**`../panes.js` が `&pane=…` を足すので、
        そのまま `|` で割ると手持ちの最後の欄に混ざる（2026-08-30）。
-       この区画に `&` は出てこないので、先頭だけ取れば足りる。 */
+       この区画に `&` は出てこないので、先頭だけ取れば足りる。
+       **2026-09-26 にタブ（panes.js）をやめた**が、`&pane=waste` 付きで配られた古い URL が
+       あるので、この切り捨ては残す。student-cost からの `#T.Lv.T.Lv.1`（手持ち無し）もここで 1 行になる */
     var h = decodeURIComponent(location.hash.replace(/^#/, '')).split('&')[0];
     var p = h.split('|');
     (p[0] || '').split(',').forEach(function (s) {
