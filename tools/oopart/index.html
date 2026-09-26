@@ -54,6 +54,21 @@
   .srow .tot { font-weight: 800; font-size: 1.05rem; font-variant-numeric: tabular-nums; white-space: nowrap; }
   .srow .tot small { font-weight: 400; color: var(--fg-mute); font-size: .72rem; }
 
+  /* 範囲の行。**student-cost の「どこまで育てますか」と同じ形**（左が今、右が目標） */
+  .goal { display: grid; grid-template-columns: 1fr 104px 18px 104px; gap: .5em;
+          align-items: center; padding: .45em 0; border-bottom: 1px solid var(--line); }
+  .goal:last-of-type { border-bottom: 0; }
+  .goal .nm { font-size: .9rem; font-weight: 700; }
+  .goal .ar { text-align: center; color: var(--fg-mute); font-size: .9rem; }
+  /* **矢印のぶんを空けておく。**padding のショートハンドは tool.css の padding-right を上書きする */
+  .goal select { width: 100%; padding: .4em 2.2em .4em .5em; font-size: .92rem; text-align: right; }
+  /* **スマホでも 106px。**student-cost の 94px だと「Lv10 ◎」の ◎ が矢印の下で切れた（2026-09-26）。
+     左の見出しは「ほかのスキル」までなので、そのぶん詰めても入る */
+  @media (max-width: 480px) {
+    .goal { grid-template-columns: 1fr 106px 14px 106px; gap: .3em; }
+    .goal .nm { font-size: .84rem; }
+  }
+
   .tiers4 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
   .t4 { text-align: center; padding: 10px 6px; border: 2px solid var(--rar, var(--line));
         border-radius: 11px; background: var(--bg-sub); }
@@ -193,6 +208,13 @@
   <div class="tcols lean" style="margin-top:20px">
 
     <div class="tcol">
+      <!-- 範囲。**全員に同じ範囲を当てる**（2026-09-26 の先生の判断。1 人ずつは student-cost） -->
+      <div class="panel">
+        <div class="panel-h"><h2>スキルをどこまで上げますか</h2></div>
+        <p class="lead">左が今、右が目標です。全員に同じ範囲を当てて数えます。<button type="button" class="qm" data-hint="ほかのスキルはノーマル・パッシブ・サブの 3 つで、どれも同じ表なので同じ範囲を 3 つぶん数えます。Lv9→Lv10 は秘伝ノート 1 冊だけで技術ノートは要らず、秘伝ノートは学校を問わないのでここには出していません。◎ は効果の伸びが大きくなる Lv です。"></button></p>
+        <div id="range"></div>
+      </div>
+
       <div class="panel">
         <div class="panel-h"><h2>どの素材について調べますか</h2></div>
         <p class="lead">オーパーツは生徒ごと、技術ノートと戦術教育 BD は学校ごとに決まっています。</p>
@@ -217,7 +239,7 @@
         <div class="stat">
           <div class="k">全員ぶんの合計</div>
           <div class="v" id="o-sum">—</div>
-          <div class="sub">スキルを最大まで上げたとき</div>
+          <div class="sub" id="o-sum-sub">スキルを最大まで上げたとき</div>
         </div>
       </div>
 
@@ -255,9 +277,9 @@
           <code>rgb(214,173,129)</code> / <code>rgb(168,138,236)</code>、暗い配色のとき
           <code>rgb(140,147,158)</code> / <code>rgb(101,141,191)</code> / <code>rgb(168,125,81)</code> /
           <code>rgb(122,91,190)</code>）。</p>
-        <p><b>個数は「スキルを最大まで上げたとき」のものです。</b>
+        <p><b>個数は上で選んだ範囲のものです。</b>既定は最大まで——
           EX スキルを Lv1 → Lv5、ノーマル・パッシブ・サブをそれぞれ Lv1 → Lv10 にしたときに使う数を足しています。
-          <b>EX 以外の 3 つは同じ表を使う</b>ので、1 つぶんの 3 倍です。途中まででいい場合は<a href="../student-cost/">生徒 1 人の育成費用</a>で刻んで出せます。</p>
+          <b>EX 以外の 3 つは同じ表を使う</b>ので、1 つぶんの 3 倍です。1 人ずつ範囲を変えたいときは<a href="../student-cost/">生徒 1 人の育成費用</a>で出せます。</p>
         <p><b>素材そのものは <a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a> の <code>data/jp/students.min.json</code> の
           <code>SkillExMaterial</code> / <code>SkillMaterial</code> です。</b>種類の分け方はアイコンの名前で決めています——
           <code>item_icon_material_exskill_*</code> が戦術教育 BD、<code>item_icon_skillbook_*</code> が技術ノート、それ以外の <code>item_icon_material_*</code> がオーパーツです（<code>Category</code> はどれも <code>Material</code> で区別が付きません）。</p>
@@ -269,7 +291,7 @@
   </div>
 </div>
 
-<script>window.TOUR = {"key": "oopart", "steps": [{"sel": "#kind", "t": "素材の種類を選びます", "d": "オーパーツ・技術ノート・戦術教育 BD の 3 つを切り替えられます。"}, {"sel": "#mats", "t": "調べたい素材を選びます", "d": "その素材を使う生徒が下に並びます。「このオーパーツは誰が使うのか」を素材から引くための道具です。"}, {"sel": "#list", "t": "使う生徒が多い順に並びます", "d": "スキルを最大まで上げたときの必要数です。段ごとの内訳も出しています。"}]};</script>
+<script>window.TOUR = {"key": "oopart", "steps": [{"sel": "#range", "t": "どこまで上げるかを選びます", "d": "EX とほかのスキルの今と目標です。全員に同じ範囲を当てて、下の個数を数え直します。"}, {"sel": "#kind", "t": "素材の種類を選びます", "d": "オーパーツ・技術ノート・戦術教育 BD の 3 つを切り替えられます。"}, {"sel": "#mats", "t": "調べたい素材を選びます", "d": "その素材を使う生徒が下に並びます。「このオーパーツは誰が使うのか」を素材から引くための道具です。"}, {"sel": "#list", "t": "使う生徒が多い順に並びます", "d": "選んだ範囲で要る数です。段ごとの内訳も出しています。範囲の中で使わない生徒は出てきません。"}]};</script>
 <script src="../tour.js?v=2"></script>
 
 <script src="../share.js?v=3"></script>
@@ -300,6 +322,8 @@
   </div>
 </footer>
 
+<!-- **data.js より前。**あとだと、覚えた範囲を戻す前にツールが組み上がる -->
+<script src="../remember.js?v=1"></script>
 <script src="../student-cost/data.js"></script>
 <script src="oopart.js"></script>
 </body>
