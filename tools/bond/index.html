@@ -3,24 +3,35 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>絆ランク計算機｜AronaBot</title>
-<meta name="description" content="生徒を選ぶと、その子に効く贈り物と絆経験値が分かります。目標の絆ランクまで、贈り物が何個・カフェタッチが何回・何日かかるかを出します。">
+<title>絆と贈り物の計算機｜AronaBot</title>
+<meta name="description" content="生徒を選ぶと、その子に効く贈り物と、目標の絆ランクまで贈り物が何個・カフェタッチが何回・何日かかるかを出します。贈り物を選ぶと、それが ×4 で効く生徒が顔つきで並びます。">
 <meta name="theme-color" content="#c8892e">
 <link rel="icon" href="../../favicon.svg" type="image/svg+xml">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="AronaBot">
 <meta property="og:locale" content="ja_JP">
 <meta property="og:url" content="https://arona-bot.com/tools/bond/">
-<meta property="og:title" content="絆ランク計算機">
-<meta property="og:description" content="その生徒に効く贈り物が一目で分かります。目標の絆ランクまで何個・何日かかるかも。">
+<meta property="og:title" content="絆と贈り物の計算機">
+<meta property="og:description" content="その生徒に効く贈り物と、目標の絆ランクまでの個数・日数。贈り物からは、それが効く生徒が顔で引けます。">
 <meta property="og:image" content="https://arona-bot.com/images/og/bond.jpg">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="絆ランク計算機 — AronaBot のツール">
+<meta property="og:image:alt" content="絆と贈り物の計算機 — AronaBot のツール">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="絆ランク計算機">
-<meta name="twitter:description" content="その生徒に効く贈り物が一目で分かります。目標の絆ランクまで何個・何日かかるかも。">
+<meta name="twitter:title" content="絆と贈り物の計算機">
+<meta name="twitter:description" content="その生徒に効く贈り物と、目標の絆ランクまでの個数・日数。贈り物からは、それが効く生徒が顔で引けます。">
 <meta name="twitter:image" content="https://arona-bot.com/images/og/bond.jpg">
+<!-- **絆の 3 本を 1 本にまとめた**（2026-09-26 grill-me、先生「絆は全部まとめられる？」）。
+     入口は 2 つ——「生徒から」（元の絆ランク計算機。ここ）と「贈り物から」（元の贈り物の逆引き）。
+     スケジュールの期待値はツールごと廃止した（転送だけ残す）。
+     古い 2 本の URL は転送ページ（noindex）がここへ送る。見た目と数字は元の 2 本のまま。
+     下の <style> も 2 本ぶんをそのまま並べている（名前はぶつからない）。
+
+     **URL のハッシュは区画ごとの `&` 区切り。**各区画の JS は自分の区画しか読み書きしない。
+       pane=gift                   開いている区画（生徒からは既定なので書かない）   ../panes.js
+       st=生徒id|今|目標|タッチ|その他|手持ち|目標日   生徒から（元の bond の形そのまま）
+       gf=贈り物id|出す倍率|学校      贈り物から（元の贈り物の逆引きの形。学校は encodeURIComponent）
+     元の bond の `#生徒id|…`（`=` の無い区画）は、下の小さな script が読み込み時に `st=` へ直す。 -->
 <link rel="stylesheet" href="../../style.css?v=25">
 <link rel="stylesheet" href="../tool.css?v=17">
 <style>
@@ -99,7 +110,7 @@
   details.more > summary .qsub { font-weight: 400; font-size: .76rem; color: var(--fg-mute); }
   details.more > summary .held { font-weight: 700; font-size: .72rem; color: var(--accent-tx); }
 
-  /* 参考の表。**既定は閉じる**（eleph の早見表・equip-level の参考の表と同じ見た目） */
+  /* 参考の表。**既定は閉じる**（eleph の早見表・equipment の強化珠の参考の表と同じ見た目） */
   details.ref { margin: 0; }
   details.ref > summary { cursor: pointer; list-style: none; font-weight: 800; font-size: 1rem;
                           display: flex; align-items: center; gap: .4em; }
@@ -111,6 +122,75 @@
      「いちばん効く贈り物で」が折り返さず、右の列が切れていた */
   table.bt th, table.bt td { padding-left: .5em; padding-right: .5em; }
   table.bt th { white-space: normal; }
+
+  /* ============================== 贈り物から（元の贈り物の逆引き） */
+  /* 贈り物の一覧。**押して選ぶ。**顔の一覧が右に出る */
+  .glist { display: grid; grid-template-columns: repeat(auto-fill, minmax(148px, 1fr)); gap: 8px; }
+  .gcard { display: grid; grid-template-columns: 42px 1fr; gap: .55em; align-items: center;
+           padding: .5em .6em; border: 1px solid var(--line); border-radius: 11px;
+           background: var(--card); cursor: pointer; text-align: left; font: inherit; color: inherit; }
+  .gcard:hover { border-color: color-mix(in srgb, var(--accent) 50%, var(--line)); }
+  .gcard[aria-pressed="true"] { border-color: transparent; background: var(--accent); color: var(--accent-in); }
+  .gcard[aria-pressed="true"] .sub { color: color-mix(in srgb, var(--accent-in) 78%, transparent); }
+  .gcard img { width: 42px; height: 42px; border-radius: 8px; background: var(--bg-sub); display: block; }
+  /* **`1fr` の柱は中身より縮まない。**`min-width: 0` を入れないと、
+     長い贈り物の名前が柱を押し広げて画面からはみ出す
+     （2026-08-30 に 390px で 90px はみ出していた） */
+  .gcard > span { min-width: 0; }
+  .gcard .nm { display: block; font-size: .8rem; font-weight: 700; line-height: 1.35;
+               word-break: auto-phrase; overflow-wrap: anywhere; }
+  .gcard .sub { display: block; font-size: .72rem; color: var(--fg-mute); font-variant-numeric: tabular-nums; margin-top: .15em; }
+  /* **レア度は色で出す。**札を足すと名前が押し出されるので、字にはしない
+     （2026-08-31 の先生の指示——「贈り物レアレティで色変えて」
+     「レア度表示は不要、色だけで」）。ゲーム内と同じで SSR が金、SR が紫 */
+  .gcard { border-left-width: 3px; }
+  .gcard[data-r="SSR"] { border-left-color: #c08a1e;
+                         background: color-mix(in srgb, #c08a1e 7%, var(--card)); }
+  .gcard[data-r="SR"]  { border-left-color: #7b5ea7;
+                         background: color-mix(in srgb, #7b5ea7 7%, var(--card)); }
+  @media (prefers-color-scheme: dark) {
+    .gcard[data-r="SSR"] { border-left-color: #e2c061; }
+    .gcard[data-r="SR"]  { border-left-color: #b79ce0; }
+  }
+  /* 選ばれている札は、今までどおり地ごと塗る */
+  .gcard[aria-pressed="true"][data-r] { border-left-color: transparent;
+                                        background: var(--accent); }
+
+  /* 選んだ贈り物 */
+  .pick { display: grid; grid-template-columns: 74px 1fr; gap: 14px; align-items: center;
+          padding: 14px; margin-bottom: 16px;
+          border: 1px solid var(--line); border-radius: 14px; background: var(--bg-sub); }
+  .pick.none { border-style: dashed; }
+  .pick img { width: 74px; height: 74px; border-radius: 12px; background: var(--card);
+              border: 1px solid var(--line); display: block; }
+  .pick .ph { width: 74px; height: 74px; border-radius: 12px; background: var(--card);
+              border: 1px solid var(--line); display: grid; place-items: center;
+              font-size: .72rem; color: var(--fg-mute); font-weight: 700; }
+  .pick .nm { font-size: 1.12rem; font-weight: 800; margin: 0 0 .3em; }
+  .pick.none .nm { color: var(--fg-mute); font-size: .95rem; }
+  .pick .note { font-size: .78rem; color: var(--fg-mute); margin: 0; line-height: 1.6; }
+
+  /* 生徒の顔。**倍率ごとにまとめる。** */
+  .mgroup { margin-bottom: 18px; }
+  .mgroup:last-child { margin-bottom: 0; }
+  .mhead { display: flex; align-items: baseline; gap: .5em; margin: 0 0 .6em;
+           font-size: .88rem; font-weight: 800; }
+  .mhead .n { font-size: .78rem; font-weight: 400; color: var(--fg-mute); }
+  .mhead .ex { font-size: .78rem; font-weight: 700; color: var(--accent-tx); }
+  .faces { display: grid; grid-template-columns: repeat(auto-fill, minmax(58px, 1fr)); gap: 6px; }
+  .face { text-align: center; }
+  .face img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 9px;
+              border: 1px solid var(--line); background: var(--bg-sub); display: block; }
+  .face span { display: block; font-size: .66rem; line-height: 1.3; margin-top: .2em;
+               color: var(--fg-mute); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .mgroup.m4 .face img { border-color: color-mix(in srgb, var(--accent) 62%, var(--line)); }
+  .empty { font-size: .82rem; color: var(--fg-mute); }
+  /* **顔は押せる。**押すと「生徒から」の区画にその生徒で移る（2026-09-26、統合のとき）。
+     見た目は元の span のまま——ボタンの地・枠・余白を消しておく */
+  button.face { display: block; width: 100%; min-width: 0; padding: 0; border: 0; background: none;
+                font: inherit; color: inherit; cursor: pointer; }
+  button.face:hover img { border-color: var(--accent); }
+  button.face:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 9px; }
 </style>
 </head>
 <body>
@@ -205,14 +285,25 @@
     </picture>
   </div>
   <div class="thero-body">
-    <h1>絆ランク計算機</h1>
-    <p class="thero-lead">生徒を選ぶと、効く贈り物と目標ランクまでの日数が分かります。</p>
+    <h1>絆と贈り物の計算機</h1>
+    <p class="thero-lead">生徒からは効く贈り物と目標ランクまでの日数、贈り物からは効く生徒が分かります。</p>
   </div>
 </header>
 
 <div class="twrap">
-  <p class="tcrumb"><a href="../../">AronaBotの使い方</a><span class="sl">/</span><a href="../">ツール</a><span class="sl">/</span>絆ランク計算機</p>
+  <p class="tcrumb"><a href="../../">AronaBotの使い方</a><span class="sl">/</span><a href="../">ツール</a><span class="sl">/</span>絆と贈り物の計算機</p>
 
+  <!-- **2 つの入口。**切り替えは ../panes.js（`pane=`）。入力は区画ごとに持ち、混ざらない。
+       JS が無ければタブは出ず、2 区画が縦に全部並ぶ -->
+  <div class="tpanes" data-panes="bond-sec">
+    <div class="ttabs" id="sec-tabs" role="tablist" aria-label="入口" hidden>
+      <button type="button" role="tab" id="tb-sec-stu" data-p="stu"
+              aria-controls="sec-stu" aria-selected="true">生徒から</button>
+      <button type="button" role="tab" id="tb-sec-gift" data-p="gift"
+              aria-controls="sec-gift" aria-selected="false">贈り物から</button>
+    </div>
+
+    <div class="tpane" id="sec-stu" data-p="stu" role="tabpanel" aria-labelledby="tb-sec-stu" tabindex="0">
   <!-- **並びは「選ぶ → 結果 → 贈り物」。**2026-09-26 の先生の判断（Q9-1）——中級の先生が
        知りたいのは「あと何日か」なので、結果を生徒のすぐ下に置く。
        それまでは贈り物の一覧が先にあって、スマホでは結果まで 1 画面以上送っていた -->
@@ -302,7 +393,7 @@
       </div>
 
       <div class="panel">
-        <!-- 参考の表。**既定は閉じる**（2026-09-26、eleph・equip-level の早見表と同じ見た目） -->
+        <!-- 参考の表。**既定は閉じる**（2026-09-26、eleph の早見表・equipment の強化珠の参考の表と同じ見た目） -->
         <details class="ref" id="ref">
           <summary>絆ランクごとの必要量</summary>
           <p class="qnote" id="tb-note"></p>
@@ -315,11 +406,91 @@
         </details>
       </div>
     </div>
+  </div>
+    </div>
 
-    <div class="tfull">
-      <div class="sharebar" id="sharebar"></div>
+    <div class="tpane" id="sec-gift" data-p="gift" role="tabpanel" aria-labelledby="tb-sec-gift" tabindex="0">
+  <div class="tcols lean" style="margin-top:20px">
 
-      <details class="src">
+    <div class="tcol">
+      <div class="panel">
+        <div class="panel-h"><h2>どの贈り物ですか</h2></div>
+        <p class="lead">数字は ×4 で効く人数です。押すと効く生徒が顔で並びます。</p>
+        <div class="fields c2">
+          <div class="field">
+            <label for="i-q">名前で絞る</label>
+            <input id="i-q" type="search" placeholder="花束、ぬいぐるみ…" autocomplete="off">
+          </div>
+          <div class="field">
+            <label for="i-rar">レア度</label>
+            <select id="i-rar">
+              <option value="">ぜんぶ</option>
+              <option value="SSR">橙（SSR）</option>
+              <option value="SR">紫（SR）</option>
+            </select>
+          </div>
+        </div>
+        <div class="glist" id="glist" role="group" aria-label="贈り物" style="margin-top:14px"></div>
+      </div>
+    </div>
+
+    <div class="tcol">
+      <div class="pick none" id="pick">
+        <div class="ph" id="pick-img">none</div>
+        <div>
+          <p class="nm" id="pick-name">まだ選んでいません</p>
+          <p class="note" id="pick-note">贈り物を選ぶと、効く生徒が並びます。</p>
+        </div>
+      </div>
+
+      <div class="stats c3">
+        <div class="stat hero">
+          <div class="k"><img class="ico" src="../img/ui_cafe_interaction_gift_04.webp" alt="" width="18" height="18" loading="lazy"> ×4 になる生徒</div>
+          <div class="v" id="o-m4">—</div>
+          <div class="sub" id="o-m4-sub">絆経験値がいちばん伸びます</div>
+        </div>
+        <div class="stat">
+          <div class="k"><img class="ico" src="../img/ui_cafe_interaction_gift_03.webp" alt="" width="18" height="18" loading="lazy"> ×3</div>
+          <div class="v" id="o-m3">—</div>
+          <div class="sub" id="o-m3-sub"></div>
+        </div>
+        <div class="stat">
+          <div class="k"><img class="ico" src="../img/ui_cafe_interaction_gift_02.webp" alt="" width="18" height="18" loading="lazy"> ×2</div>
+          <div class="v" id="o-m2">—</div>
+          <div class="sub" id="o-m2-sub"></div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-h"><h2>効く生徒</h2></div>
+        <div class="fields c2">
+          <div class="field">
+            <label for="i-school">学校で絞る</label>
+            <select id="i-school"><option value="">ぜんぶ</option></select>
+          </div>
+          <div class="field">
+            <label for="i-min">出す倍率</label>
+            <select id="i-min">
+              <option value="4">×4 だけ</option>
+              <option value="3" selected>×3 以上</option>
+              <option value="2">×2 以上</option>
+              <option value="1">ぜんぶ</option>
+            </select>
+          </div>
+        </div>
+        <div id="groups" style="margin-top:14px"><p class="empty">まだ贈り物を選んでいません。</p></div>
+      </div>
+    </div>
+  </div>
+    </div>
+  </div>
+
+  <!-- 共有の帯は 1 つ。**配るのは開いている区画だけ**（下の shareUrl）。
+       「数字の出どころ」は区画ごとにあり、開いている区画のものだけを出す -->
+  <div class="tfull">
+    <div class="sharebar" id="sharebar"></div>
+
+  <details class="src" data-sec="stu">
         <summary>数字の出どころ</summary>
         <p><b>贈り物の絆経験値は、ゲームのデータから毎回その場で計算しています。</b>生徒ごとの表を持っているわけではありません。</p>
         <ul>
@@ -341,12 +512,57 @@
           <code>ExpValue * (matchingTags + 1)</code> と共通タグ）、
           <a href="https://github.com/electricgoat/ba-data" target="_blank" rel="noopener">electricgoat/ba-data</a>（絆ランクの必要経験値・贈り物の基本値・カフェタッチの経験値）、<a href="https://game8.jp/blue-archive/639224" target="_blank" rel="noopener">ゲームエイト「絆ランク（好感度）の上げ方とメリット」</a>と<a href="https://kamigame.jp/bluearchive/page/143084388039553700.html" target="_blank" rel="noopener">神ゲー攻略「カフェ」</a>（カフェタッチの回数制限とリセット時刻）。取得は <span id="ver">—</span>。</p>
       </details>
-    </div>
 
+  <details class="src" data-sec="gift">
+        <summary>数字の出どころ</summary>
+        <p><b>倍率は「生徒から」とまったく同じ式です。</b>生徒ごとの表を持っているわけではなく、毎回その場で数えています。</p>
+        <ul>
+          <li>生徒には <code>FavorItemTags</code>（好み）と <code>FavorItemUniqueTags</code>（とくに好き）が付いています</li>
+          <li>贈り物には <code>Tags</code> と <code>ExpValue</code>（基本の絆経験値。橙は 60、紫は 20）が付いています</li>
+          <li>さらに<b>誰にでも効く共通タグ</b>があります（<code>Excel/ConstCommonExcelTable.json</code> の <code>CommonFavorItemTags</code>: <code id="g-gen">—</code>）</li>
+          <li>絆経験値 ＝ <b><code>ExpValue ×（一致したタグの数 ＋ 1）</code></b>。<b>一致数は 3 で頭打ち</b>なので倍率の上限は ×4 です</li>
+        </ul>
+        <p><b>×4 が全員に効く贈り物は 2 つだけです。</b><b>美しい花束</b>と<b>さわやかな花束</b>が <span id="g-src-n">—</span> 人ぜんぶに ×4 で、
+          3 番目に広い<b>おしゃれなくし</b>でも <span id="g-src-3">—</span> 人まで落ちます。<b>花束は誰に渡しても最大効果</b>ということです。
+          逆に<b>どの生徒にも ×4 の贈り物が最低 1 つあります</b>——これはデータを作るときに 1 人ずつ数えて確かめていて、
+          1 人でも見つからなければ止まるようにしてあります。</p>
+        <p><b>「きらめきの花束」と初音ミクのフォトカードだけは、橙でも基本値が 20 です。</b>名前が似ていても中身が違うので、上の一覧では基本値も出しています。</p>
+        <p>出典 —
+          <a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a>（式そのもの、贈り物と生徒、学校名）、
+          <a href="https://github.com/electricgoat/ba-data" target="_blank" rel="noopener">electricgoat/ba-data</a>（共通タグ）。取得は <span id="g-ver">—</span>。</p>
+      </details>
   </div>
+
 </div>
 
-<script>window.TOUR = {"key": "bond", "steps": [{"sel": "#stucard", "t": "まず生徒を選びます", "d": "名前を入れると、好みに合わせて贈り物が並び替わります。"}, {"sel": "#result", "t": "目標までの日数がすぐ下に出ます", "d": "1 日のタッチ回数を入れると、何日かかるかが出ます。"}, {"sel": "#gifts", "t": "手持ちの贈り物を入れます", "d": "効く贈り物から順に並びます。入れた個数は上の結果から引きます。"}, {"sel": "#sharebar", "t": "結果はそのまま渡せます", "d": "リンクを送ると、相手の画面にも同じ結果が出ます。"}]};</script>
+<script>window.TOUR = {"key": "bond-2", "steps": [{"sel": "#sec-tabs", "t": "入口は 2 つです", "d": "生徒から: その子に効く贈り物と、目標ランクまでの日数。贈り物から: その贈り物が効く生徒。入力は入口ごとにこの端末に残ります。"}, {"sel": "#stucard", "pre": ["#tb-sec-stu"], "t": "まず生徒を選びます", "d": "名前を入れると、好みに合わせて贈り物が並び替わります。"}, {"sel": "#result", "pre": ["#tb-sec-stu"], "t": "目標までの日数がすぐ下に出ます", "d": "1 日のタッチ回数を入れると、何日かかるかが出ます。"}, {"sel": "#gifts", "pre": ["#tb-sec-stu"], "t": "手持ちの贈り物を入れます", "d": "効く贈り物から順に並びます。入れた個数は上の結果から引きます。"}, {"sel": "#glist", "pre": ["#tb-sec-gift"], "t": "贈り物から: 贈り物を押します", "d": "×4 で効く人数が多い順です。名前やレア度で絞れます。"}, {"sel": "#o-m4", "pre": ["#tb-sec-gift"], "t": "効く人数がここに出ます", "d": "×4・×3・×2 の人数です。"}, {"sel": "#groups", "pre": ["#tb-sec-gift"], "t": "顔で並びます", "d": "学校で絞れます。顔を押すと「生徒から」がその生徒で開きます。"}, {"sel": "#sharebar", "t": "開いている入口ごと URL になります", "d": "リンクを送ると、相手の画面にも同じ結果が出ます。案内を閉じると、開く前の入口に戻ります。"}]};</script>
+<script>
+/* **元の絆ランク計算機のハッシュ `#生徒id|今|目標|…` は、いまは「生徒から」の区画 `st=`。**
+   区画を `&` でつなぐようにしたので、`=` の無い区画を `st=` に読み替える。
+   前に覚えた入力（../remember.js の保存）も同じ形なので、一緒に直す（../remember.js より前に） */
+(function () {
+  function fix(h) {
+    var hit = false;
+    var s = String(h || '').replace(/^#/, '').split('&').map(function (x) {
+      if (x && x.indexOf('=') < 0 && x.indexOf('|') >= 0) { hit = true; return 'st=' + x; }
+      return x;
+    });
+    return hit ? '#' + s.join('&') : null;
+  }
+  var h = fix(location.hash);
+  if (h) {
+    try { history.replaceState(null, '', location.pathname + location.search + h); } catch (e) { /* file:// */ }
+  }
+  try {
+    var k = 'arona-state-' + location.pathname, v = localStorage.getItem(k), f = v && fix(v);
+    if (f) localStorage.setItem(k, f);
+  } catch (e) { /* 保存が読めないブラウザでは直さないだけ */ }
+})();
+</script>
+<!-- **入力を覚える。../panes.js と各区画の JS より前に読むこと**（前回のハッシュを先に URL へ戻す）。
+     `data-keep`: 片方の区画のリンクで開いても、もう片方は前の続きのまま -->
+<script src="../remember.js?v=2" data-keep="st,gf"></script>
+<script src="../panes.js?v=2"></script>
 <script src="../tour.js?v=2"></script>
 
 <script src="../share.js?v=3"></script>
@@ -362,7 +578,7 @@
       <span class="sep">/</span>
       <a href="https://x.com/pe6cak" target="_blank" rel="noopener">制作者の X（@pe6cak）</a>
       <span class="sep">/</span>
-      <a href="https://github.com/0rnot/arona-guide/issues/new?template=tool-feedback.yml&title=%5B%E7%B5%86%E3%83%A9%E3%83%B3%E3%82%AF%E8%A8%88%E7%AE%97%E6%A9%9F%5D%20&tool=%E7%B5%86%E3%83%A9%E3%83%B3%E3%82%AF%E8%A8%88%E7%AE%97%E6%A9%9F" target="_blank" rel="noopener">このツールへの要望・不具合</a>
+      <a href="https://github.com/0rnot/arona-guide/issues/new?template=tool-feedback.yml&title=%5B%E7%B5%86%E3%81%A8%E8%B4%88%E3%82%8A%E7%89%A9%E3%81%AE%E8%A8%88%E7%AE%97%E6%A9%9F%5D%20&tool=%E7%B5%86%E3%81%A8%E8%B4%88%E3%82%8A%E7%89%A9%E3%81%AE%E8%A8%88%E7%AE%97%E6%A9%9F" target="_blank" rel="noopener">このツールへの要望・不具合</a>
       <span class="sep">/</span>
       <span>Discord なら <b>@0r.not</b> まで</span>
     </p>
@@ -377,12 +593,13 @@
   </div>
 </footer>
 
-<!-- **入力を覚える。data.js とツールの JS より前に読むこと**（前回のハッシュを先に URL へ戻す） -->
-<script src="../remember.js?v=1"></script>
 <!-- 星ごとの絆上限は eleph のデータから借りる（gzip で 7KB。手書きしない。2026-09-26） -->
 <script src="../eleph/data.js"></script>
 <script src="data.js"></script>
+<!-- 「贈り物から」のデータ（元の贈り物の逆引きの data.js。scripts/build-tool-data.py の build_gift_search） -->
+<script src="data-gift.js"></script>
 <script>
+/* ============================== 生徒から（元の絆ランク計算機） */
 (function () {
   'use strict';
   var B = window.BOND;
@@ -704,21 +921,33 @@
 
   /* ---- 状態を URL に残す。**share.js が「結果を共有」のときに呼ぶ**
      （eleph などと同じ作法。ツアーの「リンクを送ると、相手の画面にも同じ
-     結果が出ます」はこれが担う）。形は `#生徒id|今|目標|タッチ|その他|手持ち|目標日`。
+     結果が出ます」はこれが担う）。形は `st=生徒id|今|目標|タッチ|その他|手持ち|目標日`。
      手持ちは `贈り物id.個数` をコンマでつなぐ。**0 個は入れない**——50 種ぜんぶ
      並べると URL が贈り物の数だけ伸びる。目標日と手持ちが無ければ後ろは空のまま
      （2026-08-31 まで前の 5 つだけで、手持ちを入れた送り手は「余り 7,035」、
-     受け手は「11 日」と別の結果を見ていた） */
-  window.shareUrl = function () {
+     受け手は「11 日」と別の結果を見ていた）。
+     **ハッシュは区画ごとの `&` 区切り**（2026-09-26、贈り物の逆引きと 1 本にしたとき）。
+     ここは `st=` の区画だけを返し、つなぐのは下の区画をまたぐ script */
+  window.BONDSEG = window.BONDSEG || {};
+  window.BONDSEG.stu = function () {
     var sid = 0, name = el('i-student').value.trim();
     for (var i = 0; i < B.students.length; i++) if (B.students[i].n === name) { sid = B.students[i].id; break; }
     var g = [];
     Object.keys(have).forEach(function (k) { if (have[k] > 0) g.push(k + '.' + have[k]); });
-    return '#' + [sid, el('i-from').value, el('i-to').value,
+    return 'st=' + [sid, el('i-from').value, el('i-to').value,
       el('i-touch').value, el('i-etc').value || 0, g.join(','), el('i-target').value].join('|');
   };
+  /** 「贈り物から」の顔を押したとき。**その生徒を選んだのと同じことをする** */
+  window.bondOpenStudent = function (id) {
+    for (var i = 0; i < B.students.length; i++) {
+      if (B.students[i].id === id) { el('i-student').value = B.students[i].n; calc(); return true; }
+    }
+    return false;
+  };
   (function fromHash() {
-    var h = location.hash.replace(/^#/, '');
+    // **`st=` の区画だけ読む。**`&` で割ってから中身をほどく
+    var h = '', s = location.hash.replace(/^#/, '').split('&');
+    for (var si = 0; si < s.length; si++) if (s[si].indexOf('st=') === 0) h = s[si].slice(3);
     if (!h) return;
     var p = h.split('|');
     if (p.length < 5) return;
@@ -753,6 +982,259 @@
     set('src-pairs', (B.students.length * B.gifts.length).toLocaleString('ja-JP'));
   })();
   calc();
+})();
+</script>
+<script>
+/* ============================== 贈り物から（元の贈り物の逆引き） */
+(function () {
+  'use strict';
+  var G = window.GIFTX;
+  var el = function (id) { return document.getElementById(id); };
+  var GEN = G.gen;
+  var MAX_MATCH = 3;                    // 一致数の頭打ち。×5 はゲームに無い
+
+  /** 贈り物 g をその生徒に渡したときの倍率。**絆ランク計算機と同じ式。** */
+  function mult(g, s) {
+    var all = (s.t || []).concat(s.u || [], GEN);
+    var m = 0;
+    for (var i = 0; i < g.t.length; i++) if (all.indexOf(g.t[i]) >= 0) m++;
+    return Math.min(m, MAX_MATCH) + 1;
+  }
+
+  // **組は 贈り物 × 生徒（2026-09 で 52 × 280 ほど）。**一度だけ数えて持っておく
+  var counts = {};
+  G.gifts.forEach(function (g) {
+    var c = [0, 0, 0, 0, 0];
+    G.stu.forEach(function (s) { c[mult(g, s)]++; });
+    counts[g.id] = c;
+  });
+  var order = G.gifts.slice().sort(function (a, b) {
+    return (counts[b.id][4] - counts[a.id][4]) || (b.e - a.e) || (a.id - b.id);
+  });
+
+  var picked = null;
+
+  (function schools() {
+    var seen = {}, out = [];
+    G.stu.forEach(function (s) { if (s.sc && !seen[s.sc]) { seen[s.sc] = 1; out.push(s.sc); } });
+    out.sort();
+    el('i-school').innerHTML = '<option value="">ぜんぶ</option>' +
+      out.map(function (x) { return '<option>' + x + '</option>'; }).join('');
+  })();
+
+  function drawList() {
+    var q = (el('i-q').value || '').trim().toLowerCase();
+    var rar = el('i-rar').value;
+    var rows = order.filter(function (g) {
+      if (rar && g.r !== rar) return false;
+      if (q && g.n.toLowerCase().indexOf(q) < 0) return false;
+      return true;
+    });
+    el('glist').innerHTML = rows.length ? rows.map(function (g) {
+      return '<button type="button" class="gcard" data-id="' + g.id + '" data-r="' + g.r + '"' +
+        ' aria-pressed="' + (picked && picked.id === g.id) + '">' +
+        '<img src="../img/' + g.i + '.webp" alt="" width="42" height="42" loading="lazy">' +
+        '<span><span class="nm">' + g.n + '</span>' +
+        // **札の中は「×4 が何人か」だけ。**基本の経験値は選んだあとの板に出る。
+        // 2 つ並べると 148px の札で必ず 2 行になって、スラッシュが行末に残った
+        // （2026-08-31 の先生の指摘——「中途半端な改行」）
+        '<span class="sub">×4 が ' + counts[g.id][4] + ' 人</span></span></button>';
+    }).join('') : '<p class="empty">その名前の贈り物は見つかりません。</p>';
+  }
+
+  function drawPick() {
+    var box = el('pick');
+    if (!picked) {
+      box.classList.add('none');
+      el('pick-img').outerHTML = '<div class="ph" id="pick-img">none</div>';
+      el('pick-name').textContent = 'まだ選んでいません';
+      el('pick-note').textContent = '贈り物を選ぶと、効く生徒が並びます。';
+      ['o-m4', 'o-m3', 'o-m2'].forEach(function (id) { el(id).textContent = '—'; });
+      el('o-m3-sub').textContent = ''; el('o-m2-sub').textContent = '';
+      el('groups').innerHTML = '<p class="empty">まだ贈り物を選んでいません。</p>';
+      setSeg();
+      return;
+    }
+    box.classList.remove('none');
+    el('pick-img').outerHTML = '<img id="pick-img" src="../img/' + picked.i +
+      '.webp" alt="" width="74" height="74">';
+    el('pick-name').textContent = picked.n;
+    var c = counts[picked.id];
+    el('pick-note').innerHTML = '基本 <b>' + picked.e + '</b>。×4 で <b>' +
+      picked.e * 4 + '</b>、×3 で <b>' + picked.e * 3 + '</b>。';
+    el('o-m4').textContent = c[4] + ' 人';
+    el('o-m4-sub').textContent = '1 個で ' + picked.e * 4 + ' の絆経験値';
+    el('o-m3').textContent = c[3] + ' 人';
+    el('o-m3-sub').textContent = picked.e * 3 + ' の絆経験値';
+    el('o-m2').textContent = c[2] + ' 人';
+    el('o-m2-sub').textContent = picked.e * 2 + ' の絆経験値';
+
+    var school = el('i-school').value, min = +el('i-min').value;
+    var buckets = { 4: [], 3: [], 2: [], 1: [] };
+    G.stu.forEach(function (s) {
+      if (school && s.sc !== school) return;
+      buckets[mult(picked, s)].push(s);
+    });
+    var html = '';
+    [4, 3, 2, 1].forEach(function (m) {
+      if (m < min) return;
+      var list = buckets[m];
+      if (!list.length) return;
+      html += '<div class="mgroup m' + m + '"><p class="mhead">×' + m +
+        '<span class="ex">' + picked.e * m + ' の絆経験値</span>' +
+        '<span class="n">' + list.length + ' 人</span></p><div class="faces">' +
+        list.map(function (s) {
+          // **顔は押せる。**押すと「生徒から」がその生徒で開く（下の #groups の click）
+          return '<button type="button" class="face" data-sid="' + s.id + '" title="' + s.n +
+            '：「生徒から」で開く"><img src="../img/student_' + s.id +
+            '.webp" alt="" width="58" height="58" loading="lazy"><span>' + s.n + '</span></button>';
+        }).join('') + '</div></div>';
+    });
+    el('groups').innerHTML = html || '<p class="empty">その条件に当てはまる生徒はいません。</p>';
+    setSeg();
+  }
+
+  function toHash() {
+    return (picked ? picked.id : '') + '|' + el('i-min').value + '|' +
+      encodeURIComponent(el('i-school').value);
+  }
+  /* **自分の区画（`gf=`）だけ書き換える。**元は `location.replace('#…')` でハッシュを丸ごと
+     作り直していたが、1 本にしてからは「生徒から」の `st=` と区画の `pane=` が同居している */
+  function setSeg() {
+    var s = location.hash.replace(/^#/, '').split('&').filter(function (x) {
+      return x && x.indexOf('gf=') !== 0;
+    });
+    var v = window.BONDSEG.gift();
+    if (v) s.push(v);
+    try {
+      history.replaceState(null, '', location.pathname + location.search + (s.length ? '#' + s.join('&') : ''));
+    } catch (e) { /* file:// では黙って諦める */ }
+  }
+  window.BONDSEG = window.BONDSEG || {};
+  // **何も選んでいない既定の形なら区画を書かない**（URL を短く保つ）
+  window.BONDSEG.gift = function () { var h = toHash(); return h === '|3|' ? '' : 'gf=' + h; };
+  /* 顔を押したら「生徒から」へ。区画の切り替えと画面の位置は下の区画をまたぐ script が持つ */
+  el('groups').addEventListener('click', function (e) {
+    var b = e.target.closest ? e.target.closest('button.face') : null;
+    if (!b) return;
+    document.dispatchEvent(new CustomEvent('bond:student', { detail: { id: +b.dataset.sid } }));
+  });
+
+  el('glist').addEventListener('click', function (e) {
+    var b = e.target.closest('.gcard'); if (!b) return;
+    var id = +b.dataset.id;
+    picked = (picked && picked.id === id) ? null : G.gifts.filter(function (g) { return g.id === id; })[0];
+    drawList(); drawPick();
+    /* **スマホでは結果が一覧の下、約 4 画面先にある。**押しても画面が動かないと
+       「効いていない」ように見える（2026-08-31 に 390px で実測。#pick が top 3802px）。
+       結果の札が見えていないときだけ、そこまで動かす。topbar は sticky なので
+       その高さぶん下げる（`panes.js` の keepInView と同じ流儀） */
+    if (picked) {
+      var bar = document.querySelector('.topbar');
+      var off = (bar ? bar.getBoundingClientRect().height : 0) + 14;
+      var r = el('pick').getBoundingClientRect();
+      if (r.top < off || r.bottom > window.innerHeight) {
+        window.scrollTo({ top: Math.max(0, r.top + window.pageYOffset - off),
+                          behavior: 'smooth' });
+      }
+    }
+  });
+  ['i-q', 'i-rar'].forEach(function (id) { el(id).addEventListener('input', drawList); });
+  ['i-school', 'i-min'].forEach(function (id) { el(id).addEventListener('change', drawPick); });
+
+  (function fromHash() {
+    // **`gf=` の区画だけ読む。**学校名は encodeURIComponent してあるので、区画を切り出してからほどく
+    var h = '', s = location.hash.replace(/^#/, '').split('&');
+    for (var si = 0; si < s.length; si++) if (s[si].indexOf('gf=') === 0) h = s[si].slice(3);
+    try { h = decodeURIComponent(h); } catch (e) { /* そのまま使う */ }
+    if (!h) return;
+    var p = h.split('|');
+    var hit = G.gifts.filter(function (g) { return g.id === +p[0]; })[0];
+    if (hit) picked = hit;
+    if (p[1]) el('i-min').value = p[1];
+    if (p[2]) el('i-school').value = p[2];
+  })();
+
+  el('g-gen').textContent = GEN.join(' / ');
+  el('g-src-n').textContent = G.stu.length;
+  el('g-src-3').textContent = counts[order[2].id][4];
+  el('g-ver').textContent = G.fetched;
+  drawList(); drawPick();
+})();
+</script>
+<script>
+(function () {
+  'use strict';
+  /* 2 つの区画をつなぐ。**各区画の JS は自分の区画（`st=`・`gf=`）しか触らない。**
+     ここが持つのは、区画をまたぐ 5 つだけ——共有の URL、覚えるハッシュ、「最初に戻す」、
+     「数字の出どころ」の出し分け、顔を押したときの移動（tools/equipment/ と同じ作り） */
+  var tabs = document.getElementById('sec-tabs');
+  var box = document.querySelector('[data-panes="bond-sec"]');
+  if (!tabs || !box) return;
+  function now() {
+    var b = tabs.querySelector('[aria-selected="true"]');
+    return (b && b.getAttribute('data-p')) || 'stu';
+  }
+  function seg(k) { var f = (window.BONDSEG || {})[k]; return f ? f() : ''; }
+
+  /* ---- 「数字の出どころ」は開いている区画のものだけ */
+  function fit(id) {
+    [].forEach.call(document.querySelectorAll('details.src[data-sec]'), function (d) {
+      d.hidden = d.getAttribute('data-sec') !== id;
+    });
+  }
+  box.addEventListener('panechange', function (e) { if (e.target === box) fit(e.detail.id); });
+  fit(now());
+
+  /* ---- 共有するのは**今の区画だけ**。区画の名前（`pane=`）は ../panes.js が足す。
+     手持ちの贈り物を「贈り物から」のリンクに混ぜて渡すと、受け取った人の入力を上書きしてしまう */
+  window.shareUrl = function () {
+    var s = seg(now());
+    return s ? '#' + s : '';
+  };
+
+  /* ---- 覚えるのは**両方の区画**（../remember.js）。**URL からではなく各区画の今の状態から組む。**
+     `pane=` は既定の区画でも書く——空だと前に覚えた区画が次も開いてしまう */
+  function all(skip) {
+    var s = [];
+    ['stu', 'gift'].forEach(function (k) {
+      var v = skip !== k ? seg(k) : '';
+      if (v) s.push(v);
+    });
+    s.push('pane=' + now());
+    return '#' + s.join('&');
+  }
+  window.rememberUrl = function () { return all(''); };
+  // ---- 「最初に戻す」は**今の区画だけ**。もう片方の入力は残す
+  window.rememberReset = function () { return all(now()); };
+
+  function toTabs() {
+    var bar = document.querySelector('.topbar');
+    var off = (bar ? bar.getBoundingClientRect().height : 0) + 14;
+    window.scrollTo({ top: Math.max(0, tabs.getBoundingClientRect().top + window.pageYOffset - off),
+                      behavior: 'smooth' });
+  }
+
+  /* ---- 「贈り物から」の顔を押したら、「生徒から」をその生徒で開く */
+  document.addEventListener('bond:student', function (e) {
+    if (!window.bondOpenStudent || !window.bondOpenStudent(e.detail.id)) return;
+    var b = document.getElementById('tb-sec-stu');
+    if (b) { b.click(); toTabs(); }
+  });
+
+  /* ---- 使い方（../tour.js）は 2 区画を順に開いて回る。**閉じたら開く前の区画に戻す。**
+     tour.js には手を入れず、body の `tour-on` の付け外しを見張る（1 段目は区画の帯で、
+     区画を切り替えないので、付いた時点で読めば開く前の状態が取れる） */
+  var before = null;
+  new MutationObserver(function () {
+    var on = document.body.classList.contains('tour-on');
+    if (on && !before) {
+      before = now();
+    } else if (!on && before) {
+      var b = document.getElementById('tb-sec-' + before); before = null;
+      if (b) { b.click(); toTabs(); }
+    }
+  }).observe(document.body, { attributes: true, attributeFilter: ['class'] });
 })();
 </script>
 </body>

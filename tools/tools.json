@@ -53,11 +53,11 @@
     },
     {
       "slug": "bond",
-      "name": "絆ランク計算機",
+      "name": "絆と贈り物の計算機",
       "cat": [
         "育成"
       ],
-      "desc": "その生徒に効く贈り物と、目標のランクまでの個数・日数。",
+      "desc": "生徒からは効く贈り物と目標ランクまでの日数、贈り物からは ×4 で効く生徒。",
       "img": "item_icon_favor_0",
       "group": "育てる"
     },
@@ -162,16 +162,6 @@
       "group": "育てる"
     },
     {
-      "slug": "gift-search",
-      "name": "贈り物の逆引き",
-      "cat": [
-        "育成"
-      ],
-      "desc": "贈り物を選ぶと、×4 で効く生徒が顔つきで並びます。",
-      "img": "item_icon_favor_lv2_package",
-      "group": "育てる"
-    },
-    {
       "slug": "matchup",
       "name": "属性と地形の早見",
       "cat": [
@@ -200,16 +190,6 @@
       "desc": "足りない素材を選ぶと、効率のいい周回先が順に並びます。",
       "img": "item_icon_skillbook_gehenna_2",
       "group": "集める・つくる"
-    },
-    {
-      "slug": "schedule",
-      "name": "スケジュールの期待値",
-      "cat": [
-        "育成"
-      ],
-      "desc": "どこにスケジュールを送ると絆経験値と神名文字がいちばん多いか。",
-      "img": "ui_school_icon_schedule_favor",
-      "group": "育てる"
     },
     {
       "slug": "cafe",
