@@ -211,6 +211,51 @@
   details.ref[open] > summary::before { content: "▾"; }
   details.ref .qnote { font-size: .8rem; color: var(--fg-mute); margin: 12px 0 0; }
   details.ref h3 { font-size: .92rem; margin: 20px 0 8px; }
+  /* ============================== UI 見直し（2026-09-26、先生「無駄な余白を無くして、
+     入力のしやすさを向上して、必要な情報がひと目でわかるように」）
+     390 幅で収入の答え（1 時間のクレジット）が y=1938、家具配置の合計快適度が y=2399 だった */
+  .vh { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  /* 店・ランク・上限を 1 行に */
+  .cafebar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+  .cafebar .rk { flex: 1 1 8.5em; max-width: 14em; min-width: 0; }
+  .capline { margin: 0; font-size: .82rem; color: var(--fg-mute); white-space: nowrap; }
+  .capline b { color: var(--fg); font-size: 1rem; font-variant-numeric: tabular-nums; }
+  /* 快適度の数字とつまみを 1 行に */
+  .cfrow { display: grid; grid-template-columns: 7.5em minmax(0, 1fr); gap: 12px; align-items: center; }
+  .cfrow input[type="range"] { margin: 0; }
+  #p-in .bar { height: 8px; margin: .6em 0 .2em; }
+  #p-in .srcnote { font-size: .76rem; line-height: 1.65; margin-top: .45em; }
+  .bdbar { gap: 6px; }
+  .bdbar .btn { font-size: .8rem; padding: .55em .95em; }
+  /* **2 列に詰めた選択欄は、字を一回り小さく。**半分の幅だと「セットで絞らない」が切れる */
+  @media (max-width: 559px) {
+    .fields.fgrid select { font-size: .88rem; padding-left: .55em; padding-right: 1.9em;
+                           background-position: calc(100% - 14px) calc(50% + 1px), calc(100% - 9px) calc(50% + 1px); }
+  }
+  /* 帳面の補足（「1 時間あたり」など）はラベルの右に続ける */
+  #p-up .ledger .row, #p-cost .ledger .row, #p-comfort .ledger .row { padding: 8px 0; }
+  #p-up .ledger .row .subnote { display: inline-block; margin-left: .45em; font-size: .74rem; white-space: nowrap; }
+  .smb { gap: 6px; }
+  .smb .btn { font-size: .8rem; padding: .55em .95em; }
+  @media (max-width: 899px) {
+    /* **答えを入力のすぐ下へ。**2 段組みが 1 列に畳まれると、右の柱（答え）が
+       左の柱の全部の下に回る。柱をほどいて並び順だけ付け直す */
+    #sec-inc > .tcols > .tcol, #sec-layout > .tcols > .tcol { display: contents; }
+    /* 柱が持っていた min-width: 0 を子に移す。無いと表の幅で頁ごと横に伸びる */
+    #sec-inc > .tcols > .tcol > *, #sec-layout > .tcols > .tcol > * { min-width: 0; }
+    #p-in { order: 1; } #inc-sum { order: 2; } #p-up { order: 3; } #p-cost { order: 4; } #p-comfort { order: 5; }
+    #lay-sum { order: 1; } #lay-inc { order: 2; margin: -4px 0 0; } #p-board { order: 3; } #p-pick { order: 4; }
+    #p-room { order: 5; } #p-sets { order: 6; }
+    .tcols > .stats.strip { margin: 0; }
+  }
+  /* 4 つの数字はスマホでも 2×2（前は縦に 4 枚） */
+  @media (max-width: 559px) {
+    .tcol .stats.c4.strip { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+    .stats.strip > .stat { padding: 8px 10px 7px; min-width: 0; }
+    .stats.strip .k { font-size: .7rem; letter-spacing: 0; }
+    .stats.strip .v { font-size: 1.25rem; margin-top: 0; }
+    .stats.strip .sub { font-size: .66rem; line-height: 1.45; margin-top: 0; }
+  }
 </style>
 </head>
 <body>
@@ -333,49 +378,44 @@
 
   <!-- ===== カフェとランク。**ページ全体で 1 つ。**元は 2 本とも同じ欄を持っていた ===== -->
   <div class="panel" id="p-cafe">
-    <div class="panel-h"><h2>どのカフェの、どのランクか</h2></div>
-    <p class="lead"><b>収入と家具配置の両方</b>に効きます。<button type="button" class="qm" data-hint="床と壁の広さは1号店と2号店で同じ前提です（データに店ごとの広さがありません。詳しくは家具配置の「数字の出どころ」欄）。ランクで変わるのは快適度の上限と収入です。"></button></p>
+    <!-- **店・ランク・上限を 1 行に**（2026-09-26 UI 見直し。前は 4 段で 250px） -->
+    <div class="panel-h"><h2>どのカフェの、どのランクか<button type="button" class="qm" data-hint="収入と家具配置の両方に効きます。床と壁の広さは1号店と2号店で同じ前提です（データに店ごとの広さがありません。詳しくは家具配置の「数字の出どころ」欄）。ランクで変わるのは快適度の上限と収入です。"></button></h2></div>
+    <div class="cafebar">
     <div class="seg" id="segcafe" role="group" aria-label="カフェを選ぶ">
       <button type="button" data-c="1" aria-pressed="true">1 号店</button>
       <button type="button" data-c="2" aria-pressed="false">2 号店</button>
     </div>
-    <div class="fields c2" style="margin-top:14px">
-      <div class="field">
-        <label for="i-rank">ランク</label>
-        <select id="i-rank"></select>
-      </div>
-      <div class="field">
-        <span class="lb">快適度の上限</span>
-        <p class="bdnote" style="margin:0"><b id="capv">—</b></p>
-      </div>
+      <label class="rk"><span class="vh">ランク</span><select id="i-rank"></select></label>
+      <p class="capline">快適度の上限 <b id="capv">—</b></p>
     </div>
   </div>
 
     <!-- ================================================ 収入（元の cafe） -->
     <div class="tpane" id="sec-inc" data-p="inc" role="tabpanel" aria-labelledby="tb-sec-inc" tabindex="0">
-  <div class="tcols lean" style="margin-top:20px">
+  <div class="tcols lean" style="margin-top:12px">
 
     <div class="tcol">
       <div class="panel" id="p-in">
         <div class="panel-h"><h2>いまの快適度</h2></div>
         <div class="field">
           <label for="i-comfort">快適度<span class="hint" id="hint-cap">上限 —</span></label>
-          <input id="i-comfort" type="number" min="0" step="10" inputmode="numeric">
+          <div class="cfrow">
+            <input id="i-comfort" type="number" min="0" step="10" inputmode="numeric">
+            <input type="range" id="i-slider" min="0" step="10" aria-label="快適度">
+          </div>
         </div>
-        <input type="range" id="i-slider" min="0" step="10" aria-label="快適度">
         <div class="bar"><i id="bar" style="width:0%"></i></div>
         <p class="barnote" id="capnote">—</p>
         <!-- **既定は家具配置の合計。**手で打つとそちらが勝ち、ここのボタンで戻す -->
         <div class="srcnote" id="srcnote">—</div>
-        <div class="btnrow" style="margin-top:12px">
+        <div class="btnrow smb" style="margin-top:10px">
           <button type="button" class="btn" id="b-cap">このランクの上限まで</button>
           <button type="button" class="btn" id="b-max">最大ランクの上限まで</button>
         </div>
       </div>
 
       <div class="panel" id="p-up">
-        <div class="panel-h"><h2>ランクを 1 つ上げると</h2></div>
-        <p class="lead">快適度はそのままで、ランクだけ 1 つ上げたときの差です。<button type="button" class="qm" data-hint="上限も 500 上がるので、家具を足せばさらに伸びます。"></button></p>
+        <div class="panel-h"><h2>ランクを 1 つ上げると<button type="button" class="qm" data-hint="快適度はそのままで、ランクだけ 1 つ上げたときの差です。上限も 500 上がるので、家具を足せばさらに伸びます。"></button></h2></div>
         <div class="ledger" id="up"></div>
         <p class="barnote" id="upnote">—</p>
       </div>
@@ -388,7 +428,7 @@
     </div>
 
     <div class="tcol">
-      <div class="stats c4">
+      <div class="stats c4 strip" id="inc-sum">
         <div class="stat hero">
           <div class="k"><img class="ico" src="../img/currency_icon_gold.webp" alt="" width="18" height="18" loading="lazy"> 1 時間のクレジット</div>
           <div class="v" id="o-ch">—</div>
@@ -444,12 +484,11 @@
 
     <!-- ================================================ 家具配置（元の cafe-layout） -->
     <div class="tpane" id="sec-layout" data-p="layout" role="tabpanel" aria-labelledby="tb-sec-layout" tabindex="0">
-  <div class="tcols lean" style="margin-top:20px">
+  <div class="tcols lean" style="margin-top:12px">
 
     <div class="tcol">
       <div class="panel" id="p-board">
-        <div class="panel-h"><h2>床と壁に並べる</h2></div>
-        <p class="lead">下の「家具を選ぶ」で選んで、マス目を押すと置けます。<button type="button" class="qm" data-hint="カーソルのマスが家具の左上になります。すでに家具があるところには置けません。床の装飾（カーペット）だけは家具の下に敷けます。"></button></p>
+        <div class="panel-h"><h2>床と壁に並べる<button type="button" class="qm" data-hint="下の「家具を選ぶ」で選んで、マス目を押すと置けます。カーソルのマスが家具の左上になります。すでに家具があるところには置けません。床の装飾（カーペット）だけは家具の下に敷けます。"></button></h2></div>
         <div class="seg" id="segplane" role="group" aria-label="どの面に置くか">
           <button type="button" data-p="0" aria-pressed="true">床 20×20</button>
           <button type="button" data-p="1" aria-pressed="false">左の壁 20×7</button>
@@ -474,7 +513,7 @@
         <div class="panel-h"><h2>家具を選ぶ</h2></div>
         <p class="lead">いま選んでいる面（<b id="planenm">床</b>）に置ける家具だけです。</p>
         <div class="cur" id="cur">家具を選んでください。</div>
-        <div class="fields c2" style="margin-top:14px">
+        <div class="fields fgrid" style="margin-top:10px">
           <div class="field">
             <label for="f-q">名前でさがす</label>
             <input id="f-q" type="search" placeholder="ソファ／こたつ など" autocomplete="off">
@@ -502,9 +541,8 @@
       </div>
 
       <div class="panel" id="p-room">
-        <div class="panel-h"><h2>部屋そのものの化粧</h2></div>
-        <p class="lead">床材・壁紙・背景は<b>それぞれ 1 つだけ</b>です。<button type="button" class="qm" data-hint="マス目は使いません。公式のテンプレート26個すべてが1つずつ持っていたので、この形にしています。"></button></p>
-        <div class="fields c3">
+        <div class="panel-h"><h2>部屋そのものの化粧<button type="button" class="qm" data-hint="床材・壁紙・背景はそれぞれ 1 つだけです。マス目は使いません。公式のテンプレート26個すべてが1つずつ持っていたので、この形にしています。"></button></h2></div>
+        <div class="fields fgrid">
           <div class="field">
             <label for="r-fm">床材</label>
             <select id="r-fm"></select>
@@ -522,7 +560,7 @@
     </div>
 
     <div class="tcol">
-      <div class="stats c4">
+      <div class="stats c4 strip" id="lay-sum">
         <div class="stat hero">
           <div class="k"><img class="ico" src="../img/ui_cafe_icon_comfort.webp" alt="" width="18" height="18" loading="lazy"> 合計快適度</div>
           <div class="v" id="o-total">—</div>
@@ -549,8 +587,7 @@
       <p class="srcnote" id="lay-inc">—</p>
 
       <div class="panel" id="p-sets">
-        <div class="panel-h"><h2>効いているセット</h2></div>
-        <p class="lead">同じセットをそろえると、家具の快適度とは<b>別に</b>ボーナスが乗ります。</p>
+        <div class="panel-h"><h2>効いているセット<button type="button" class="qm" data-hint="同じセットをそろえると、家具の快適度とは別にボーナスが乗ります。"></button></h2></div>
         <div class="tscroll">
           <table class="dt">
             <thead><tr><th>セット</th><th>置いた数</th><th>種類</th><th>ボーナス</th></tr></thead>
@@ -603,7 +640,7 @@
         <div class="chips" id="setchips"></div>
         <div class="warn" id="setwarn"></div>
         <h3 id="furn-h">家具の快適度</h3>
-        <div class="fields c3">
+        <div class="fields fgrid">
           <div class="field">
             <label for="l-set">セット</label>
             <select id="l-set"></select>
