@@ -24,8 +24,24 @@
 <link rel="stylesheet" href="../../style.css?v=25">
 <link rel="stylesheet" href="../tool.css?v=18">
 <style>
-  .pick-row2 { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; margin-top: 18px; }
-  .pick-row2 .lb2 { font-size: .8rem; font-weight: 700; color: var(--fg-mute); }
+  /* **倍率と月額の 2 段は、見出しの幅を揃えて詰める**（2026-09-26 の UI 見直し。段の間が 18px 空いていた） */
+  .pick-row2 { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; margin-top: 10px; }
+  .pick-row2 .lb2 { font-size: .8rem; font-weight: 700; color: var(--fg-mute); min-width: 6.2em; }
+  .pick-row2 .seg button { min-height: 36px; }
+
+  /* **今の状況の 3 欄はスマホでも 1 段に。**どれも 2 桁〜数千の数字なので入る */
+  #now-panel .fields.fgrid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+  .at-max #now-panel .fields.fgrid { grid-template-columns: minmax(0, 14em); }
+
+  /* 答えの 3 枚。**日数を横いっぱい、AP と次のレベルを 2 列**（1 列だと 3 段で 330px あった） */
+  .tcol .stats.c3 { grid-template-columns: 1fr 1fr; }
+  .tcol .stats.c3 > .stat.hero { grid-column: 1 / -1; }
+  .tcol .stats.c3 > .stat:nth-child(3):last-child { grid-column: auto; }
+  @media (max-width: 480px) { .tcol .stats.c3 > .stat:not(.hero) .v { font-size: 1.3rem; } }
+  /* 1 日の合計の横に、目標までの日数を小さく返す。**AP の板をいじっている間も答えが見える** */
+  #a-days { display: block; font-size: .76rem; font-weight: 600; color: var(--fg-mute); margin-top: .15em; }
+  #a-days:empty { display: none; }
+  #preset-row { margin-bottom: 10px; }
   .tag2 { font-size: .82rem; cursor: pointer; }
   .tag2 input { margin-right: .4em; vertical-align: -1px; }
   .mrow { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; margin-top: 14px; }
@@ -45,9 +61,12 @@
   .at-max #mastery-panel { order: -1; }   /* 右の柱（flex の縦並び）の先頭へ */
   /* **1 列に畳まれる幅では、柱をほどいて「今の状況」のすぐ下に出す。**
      柱のままだと、長い「1 日に手に入る AP」の下まで熟達証書が降りてしまう（390 幅で実測） */
+  /* **Lv90 未満でも同じ。**答え（日数）を「今の状況」のすぐ下に出す。前は長い
+     「1 日に手に入る AP」の下で、390 幅で y=1388 まで沈んでいた（2026-09-26 の UI 見直し） */
   @media (max-width: 899px) {
-    .at-max .tcols > .tcol { display: contents; }
-    .at-max #now-panel { order: -2; }
+    .tcols > .tcol { display: contents; }
+    #now-panel { order: -3; }
+    .tcol > .stats { order: -2; margin: 0; }
   }
 
   /* **レベルごとの表を 390 幅に収める。**5 列で 430px あって、右の「貯まる時間」が
@@ -166,7 +185,7 @@
         <div class="panel-h"><h2>今の状況</h2></div>
         <div class="fields c3 fgrid">
           <div class="field" id="f-level">
-            <label for="i-level">今の先生レベル<span class="hint" id="h-level">1 〜 —</span></label>
+            <label for="i-level">今のレベル<span class="hint" id="h-level">1 〜 —</span></label>
             <input id="i-level" type="number" inputmode="numeric" min="1" max="90" step="1" value="80">
           </div>
           <div class="field lv-only" id="f-exp">
@@ -174,7 +193,7 @@
             <input id="i-exp" type="number" inputmode="numeric" min="0" step="1" value="0">
           </div>
           <div class="field lv-only" id="f-target">
-            <label for="i-target">目標のレベル<span class="hint" id="h-target">上限は —</span></label>
+            <label for="i-target">目標<span class="hint" id="h-target">上限は —</span></label>
             <input id="i-target" type="number" inputmode="numeric" min="2" max="90" step="1" value="90">
           </div>
         </div>
@@ -199,7 +218,7 @@
 
       <div class="panel">
         <div class="panel-h"><h2><img class="ico" src="../img/currency_icon_ap.webp" alt="" width="24" height="24" loading="lazy"> 1 日に手に入る AP</h2></div>
-        <div class="btnrow" style="margin-bottom:18px">
+        <div class="btnrow" id="preset-row">
           <div class="seg" id="preset" role="group" aria-label="遊び方のめやす">
             <button type="button" data-p="light">ゆるめ</button>
             <button type="button" data-p="normal" aria-pressed="true">無課金</button>
@@ -228,7 +247,7 @@
         </div>
 
         <div class="numrow">
-          <div class="nm">AP ドリンク<small id="drink-note">戦術対抗戦コインと交換。初級 AP30 ／ 中級 AP60</small></div>
+          <div class="nm">AP ドリンク<button type="button" class="qm" data-hint="戦術対抗戦コインのショップで交換できます。初級が AP30、中級が AP60 です。"></button><small id="drink-note">初級 30 ／ 中級 60</small></div>
           <select id="a-drink" aria-label="AP ドリンク">
             <option value="0">買わない</option>
             <option value="30">初級だけ</option>
@@ -252,7 +271,7 @@
           <input id="a-etc" type="number" inputmode="numeric" min="0" step="10" value="0">
         </div>
 
-        <div class="numrow sum"><div>1 日の合計</div><div class="v" id="a-sum">—</div></div>
+        <div class="numrow sum"><div>1 日の合計<span class="lv-only" id="a-days"></span></div><div class="v" id="a-sum">—</div></div>
       </div>
     </div>
 
@@ -469,6 +488,7 @@
   function fmt(n) { return Math.round(n).toLocaleString('ja-JP'); }
 
   function clearOut() {
+    el('a-days').textContent = '';
     ['o-next', 'o-total', 'o-days'].forEach(function (o) { el(o).textContent = '—'; });
     ['o-next-sub', 'o-total-sub', 'o-days-sub'].forEach(function (o) { el(o).textContent = ''; });
     ['l-span', 'l-exp', 'l-refill', 'l-net'].forEach(function (o) { el(o).textContent = '—'; });
@@ -489,9 +509,8 @@
     var r = parseInt(cafeSel.value, 10);
     el('cafe-note').textContent = 'ランク ' + r + 'で 1 日 ' + fmt(CAFE[r - 1]) + ' AP';
     var d = parseInt(drinkSel.value, 10) || 0;
-    el('drink-note').textContent = d > 0
-      ? '戦術対抗戦コインと交換。初級 AP30 ／ 中級 AP60。この選択で 1 日 ' + d + ' AP'
-      : '戦術対抗戦コインと交換。初級 AP30 ／ 中級 AP60';
+    // 対抗戦コインで交換する話は丸の i へ（2026-09-26 の UI 見直し。3 行に折れていた）
+    el('drink-note').textContent = d > 0 ? 'この選択で 1 日 ' + d + ' AP' : '初級 30 ／ 中級 60';
     var g = parseInt(gemSel.value, 10) || 0;
     el('gem-note').textContent = g > 0
       ? '1 回 120 AP。' + g + ' 回で ' + fmt(g * GEM_HEAL) + ' AP・青輝石 ' + fmt(gemCost(g)) + ' 個'
@@ -650,6 +669,7 @@
 
     var days = Math.ceil(net / daily);
     el('o-days').innerHTML = fmt(days) + '<small>日</small>';
+    el('a-days').textContent = 'Lv' + target + ' まで ' + fmt(days) + ' 日';
     var d = new Date();
     d.setDate(d.getDate() + days);
     el('o-days-sub').textContent = '1 日 ' + fmt(daily) + ' AP なら ' +
