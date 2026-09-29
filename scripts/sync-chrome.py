@@ -132,7 +132,7 @@ def footer(up: str, tools_href: str, tool_name: str = "") -> str:
       <span class="sep">/</span>
       <a href="{tools_href}">ツール一覧</a>
       <span class="sep">/</span>
-      <a href="https://x.com/pe6cak" target="_blank" rel="noopener">制作者の X（@pe6cak）</a>
+      <a href="https://x.com/PE6K4C" target="_blank" rel="noopener">制作者の X（@PE6K4C）</a>
       <span class="sep">/</span>
       {fb}<span>Discord なら <b>@0r.not</b> まで</span>
     </p>
