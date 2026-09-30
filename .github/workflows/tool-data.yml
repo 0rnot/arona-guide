@@ -14,6 +14,7 @@ on:
   push:
     paths:
       - "scripts/build-tool-data.py"
+      - "scripts/build-discord-icons.py"
       - ".github/workflows/tool-data.yml"
 
 permissions:
@@ -38,6 +39,11 @@ jobs:
 
       - name: data.js とアイコンを作り直す
         run: python3 scripts/build-tool-data.py
+
+      # Discord の Arona（Java）が読む JPEG 版。**ImageIO は WebP を読めない**ので
+      # 同じ絵を 1 組だけ別形式で置いておく。理由は build-discord-icons.py の冒頭。
+      - name: Discord 用アイコン（JPEG）
+        run: python3 scripts/build-discord-icons.py
 
       - name: 変わっていれば commit
         run: |
