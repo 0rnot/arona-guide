@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>プライバシーポリシー｜AronaBot</title>
+<meta name="description" content="Discord ボット AronaBot が扱う情報と、その使い道・保存期間・消し方。">
+<meta name="theme-color" content="#c8892e">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<!-- 一覧サイト（top.gg ほか）と Discord の App Directory に出すために 2026-10-14 に作った。
+     **書いてあることは汎用Arona（本番）の実物に合わせてある。** Profile.java のフラグを
+     開けて扱う情報が増えたら（会話・音声・会話ログの収集など）、ここも直すこと。 -->
+<style>
+:root{--bg:#fbf8f2;--fg:#2b2620;--sub:#6d6355;--line:#e6dccb;--accent:#c8892e}
+@media (prefers-color-scheme:dark){:root{--bg:#1b1916;--fg:#ece6dc;--sub:#a99d8b;--line:#3a342c;--accent:#e0a54b}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.8 "Hiragino Sans","Noto Sans JP",system-ui,sans-serif}
+main{max-width:720px;margin:0 auto;padding:32px 16px 64px}
+a{color:var(--accent)}
+h1{font-size:1.6rem;margin:0 0 4px}
+h2{font-size:1.15rem;margin:36px 0 8px;padding-bottom:4px;border-bottom:1px solid var(--line)}
+.date{color:var(--sub);font-size:.9rem;margin:0 0 24px}
+ul{padding-left:1.3em}
+li{margin:4px 0}
+.back{font-size:.9rem}
+</style>
+</head>
+<body>
+<main>
+<p class="back"><a href="../">← AronaBotの使い方</a></p>
+<h1>プライバシーポリシー</h1>
+<p class="date">2026年10月14日 制定</p>
+
+<p>Discord ボット「AronaBot」（以下「アロナ」）と、そのサイト arona-bot.com が、どんな情報を扱い、何に使い、いつ消すかをまとめたものです。アロナは個人が趣味で運営している非公式のファン制作物です。</p>
+
+<h2>アロナが受け取る情報</h2>
+<p><b>アロナはふつうの会話のメッセージを読みません。</b>受け取るのは、あなたがスラッシュコマンド・ボタン・メニューを使ったときに Discord から届く情報だけです。</p>
+<ul>
+  <li>Discord のユーザー ID・サーバー ID・チャンネル ID と、サーバー名</li>
+  <li>使ったコマンドの名前と、コマンドに入力した内容</li>
+  <li>メッセージを右クリックして「リマインダー設定」を選んだときは、そのメッセージの ID</li>
+</ul>
+
+<h2>保存する情報と使い道</h2>
+<ul>
+  <li><b>ガチャ（/g）の記録</b> — サーバーごと・ユーザー ID ごとに、引いた回数・★の内訳・お迎えした生徒の名前・最初と最後に引いた日時。「記録」と「番付」の表示に使います。番付は同じサーバーの人に見えます</li>
+  <li><b>リマインダー</b> — 予約した人のユーザー ID、チャンネル ID、対象のメッセージ ID、通知する時刻。時刻が来たら通知し、記録を消します</li>
+  <li><b>サーバーの設定（/settings）</b> — 通知の ON/OFF と投稿先のチャンネル ID</li>
+  <li><b>利用の記録</b> — 「いつ・どのユーザー ID が・どのサーバーで・どのコマンドを使ったか」をサーバーのログに残します。不具合の調査と、利用状況の集計に使います</li>
+  <li><b>招待リンクのクリック</b> — arona-bot.com などの「サーバーに招待する」を押すと、api.arona-bot.com を経由して Discord の招待画面へ移ります。このとき、どの入口のリンクか・日時・ブラウザの種類を記録します。<b>IP アドレスはそのまま残さず、元に戻せない形（ハッシュ）に変えてから記録します</b></li>
+  <li><b>Tier 表の共有（/tier と Tier 表メーカー）</b> — 共有した Tier 表の中身。最後に保存してから 14 日で消えます</li>
+</ul>
+
+<h2>外部のサービスに送る情報</h2>
+<ul>
+  <li>リマインダーの時刻を自由入力で指定したときだけ、<b>その入力文（時刻の書き方）を</b>時刻を読み取るために Google の Gemini API へ送ります。メッセージの本文は送りません</li>
+  <li>これ以外に、あなたの情報を第三者に売ったり渡したりすることはありません</li>
+</ul>
+
+<h2>保存期間</h2>
+<ul>
+  <li>ガチャの記録とサーバーの設定は、消す依頼があるまで、またはアロナがサーバーから外されるまで残ります。サーバーから外されたときは、そのサーバーの設定を消します</li>
+  <li>リマインダーは通知した時点で消えます</li>
+  <li>利用の記録と招待リンクのクリックは、ログの容量の上限に達した古いものから順に消えます</li>
+</ul>
+
+<h2>消してほしいとき・問い合わせ</h2>
+<p>自分の記録を消してほしいとき、この方針について聞きたいことがあるときは、Discord の <b>@0r.not</b> か、X の <a href="https://x.com/PE6K4C" target="_blank" rel="noopener">@PE6K4C</a> まで連絡してください。ユーザー ID がわかれば、そのユーザーのぶんをまとめて消します。</p>
+
+<h2>このページの変更</h2>
+<p>アロナの機能が変わって扱う情報が増えたときは、このページを書き直し、日付を更新します。</p>
+</main>
+</body>
+</html>
