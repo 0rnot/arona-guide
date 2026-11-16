@@ -112,7 +112,16 @@
     if (x.b && C.bosses[x.b]) return C.bosses[x.b].n;
     return x.n || 'ボスは未定';
   }
-  function terrainOf(x) { return x.t ? '・' + (TERRAIN[x.t] || x.t) : ''; }
+  /* **フェーズで地形が変わるボス**（悪夢急行は屋内→市街地）は、期間表の地形（1 つだけ）ではなく
+     フェーズの並びを出す。2026-10-28 の更新から（build-tool-data.py の raid_phase_terrains） */
+  function terrainName(t, b) {
+    if (b && b.trph) return b.trph.map(function (p) { return (TERRAIN[p] || p).replace(/戦$/, ''); }).join('→') + '戦';
+    return TERRAIN[t] || t;
+  }
+  function terrainOf(x) {
+    var b = x.b ? C.bosses[x.b] : null;
+    return (x.t || (b && b.trph)) ? '・' + terrainName(x.t, b) : '';
+  }
 
   function upcoming(NX) {
     var KINDS = [['raid', '総力戦'], ['elim', '大決戦'], ['multi', '制約解除決戦']];
@@ -218,7 +227,8 @@
     var boss = bossNow();
     return all.filter(function (x) {
       if (kind !== 'all' && x.k !== kind) return false;
-      if (terrain && x.r.t !== terrain) return false;
+      if (terrain && x.r.t !== terrain &&
+          !((bossOf(x.r.b) || {}).trph || []).some(function (p) { return p === terrain; })) return false;
       if (boss != null && x.r.b !== boss) return false;
       return true;
     });
@@ -254,7 +264,7 @@
         '<small>〜 ' + ymd(x.r.c) + ' ' + hm(x.r.c) + '</small></span>' +
         '<span class="tx"><b>' +
         '<span class="gi ' + (TCLASS[x.r.t] || '') + '" aria-hidden="true"></span> ' +
-        esc((TERRAIN[x.r.t] || x.r.t) + '・' + b.n) + '</b>' +
+        esc(terrainName(x.r.t, b) + '・' + b.n) + '</b>' +
         '<small>' + (x.k === 'raid' ? '総力戦' : '大決戦') +
         (od ? '／' + esc(od) : '') + (live ? '／開催中' : '') + '</small></span>' +
         '<span class="rd"><b>' + (x.r.d || x.r.s) + '</b><small>回目</small></span></div>';

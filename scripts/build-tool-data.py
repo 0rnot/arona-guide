@@ -907,6 +907,36 @@ def raid_skill_html(desc, buffname):
     return "".join(out).replace("\n", "<br>"), unknown
 
 
+_PHASE_TR = None
+
+
+def raid_phase_terrains():
+    """**1 戦の中で地形が変わるボス**を `{DevName: [地形, ...]}` で返す（変わらないボスは入らない）。
+
+    2026-10-28 の更新から `GroundExcelTable.StageTopography` が配列になり、部屋（フェーズ）ごとの
+    地形が並ぶようになった。ほとんどのボスは全部同じだが、**悪夢急行（EN0023）は
+    `["Indoor", "Indoor", "Street"]` で、フェーズ1 が屋内・フェーズ2 が市街地**
+    （ゲームエイト・神ゲー攻略の記事と一致）。SchaleDB の `Terrain` は
+    `["Indoor", "Street"]` と、ビナーの「開催回ごとに屋外か市街地」と同じ形で来るので、
+    そのままだと別々の開催に見える。"""
+    global _PHASE_TR
+    if _PHASE_TR is None:
+        ground = {r["Id"]: r for r in as_list(get_json(BADB.format("GroundExcelTable")))}
+        out = {}
+        for r in as_list(get_json(BADB.format("RaidStageExcelTable"))):
+            tp = (ground.get(r.get("GroundId")) or {}).get("StageTopography")
+            if not isinstance(tp, list):
+                continue
+            seq = []
+            for t in tp:
+                if t and (not seq or seq[-1] != t):
+                    seq.append(t)
+            if len(set(seq)) > 1:
+                out.setdefault(r.get("RaidBossGroup"), seq)
+        _PHASE_TR = out
+    return _PHASE_TR
+
+
 def build_raid():
     print("総力戦・大決戦の相性チェッカー")
     raids = get_json(SD.format("raids"))
@@ -1003,6 +1033,10 @@ def build_raid():
             "id": r["Id"], "n": r["Name"], "p": r["PathName"],
             "dev": r.get("DevName", ""),
             "tr": r.get("Terrain", []),
+            # フェーズで地形が変わるボスだけ（例: 悪夢急行 ["Indoor", "Street"]）。
+            # `st[].ph`（フェーズの HP）と紛れないよう trph
+            **({"trph": raid_phase_terrains()[r.get("DevName", "")]}
+               if r.get("DevName", "") in raid_phase_terrains() else {}),
             "bt": r.get("BulletType", "Normal"),
             "bti": r.get("BulletTypeInsane", ""),
             "at": r.get("ArmorType", "Normal"),
@@ -2354,6 +2388,8 @@ def build_raid_calendar():
             "tr": r.get("Terrain") or [], "md": (r.get("MaxDifficulty") or [0])[0],
             "du": (r.get("BattleDuration") or [0])[0],
         }
+        if r.get("DevName", "") in raid_phase_terrains():
+            bosses[r["Id"]]["trph"] = raid_phase_terrains()[r["DevName"]]
     # **RaidSeasons は サーバー別の 3 本。先頭が日本。**
     # 総力戦の最終シーズンが日本の開催日と合うことを確かめてから使っている
     seasons = (raids.get("RaidSeasons") or [{}])[0]

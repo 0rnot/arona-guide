@@ -1105,7 +1105,10 @@
     return '<button type="button" class="boss" data-b="' + b.id + '" aria-pressed="' + on + '">' +
       '<img src="../img/boss_' + b.p + '.webp" alt="" width="520" height="160" loading="lazy">' +
       '<span class="cap">' + b.n +
-        '<small>' + b.tr.map(function (t) { return ja('AdaptationType', t); }).join(' / ') +
+        '<small>' + (b.trph
+          // **フェーズで地形が変わるボス**（悪夢急行）。「/」だと開催回ごとの違いに読めるので矢印で
+          ? b.trph.map(function (t) { return ja('AdaptationType', t); }).join('→')
+          : b.tr.map(function (t) { return ja('AdaptationType', t); }).join(' / ')) +
         '　' + ja('ArmorType', b.at) + '</small></span></button>';
   }
   function drawBosses() {
@@ -1141,6 +1144,7 @@
       var ic = TERRAIN_ICON[t];
       return '<button type="button" data-t="' + t + '" aria-pressed="' + (t === terrain) + '">' +
         (ic ? '<i class="gi gi-terrain-' + ic + '"></i>' : '') +
+        (b.trph && b.trph.indexOf(t) >= 0 ? 'フェーズ' + (b.trph.indexOf(t) + 1) + ' ' : '') +
         ja('AdaptationType', t) + '</button>';
     }).join('');
 
