@@ -37,7 +37,12 @@ jobs:
       - name: Pillow
         run: python3 -m pip install --quiet Pillow
 
+      # **落ちたツールがあっても、作れたぶんは commit する**（continue-on-error）。
+      # 赤くするのは最後の「落ちたものがあれば失敗にする」で。2026-10-28〜11-15 に
+      # TL の 1 か所で全ツールが 19 日止まったのを受けて（build-tool-data.py の末尾）
       - name: data.js とアイコンを作り直す
+        id: build
+        continue-on-error: true
         run: python3 scripts/build-tool-data.py
 
       # Discord の Arona（Java）が読む JPEG 版。**ImageIO は WebP を読めない**ので
@@ -56,3 +61,9 @@ jobs:
           git add tools/
           git commit -m "tool-data: ゲームのデータを取り直した"
           git push
+
+      - name: 落ちたものがあれば失敗にする
+        if: steps.build.outcome == 'failure'
+        run: |
+          echo "::error::build-tool-data.py の一部が落ちました。上の「data.js とアイコンを作り直す」のログを見てください"
+          exit 1

@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>カフェ｜AronaBot</title>
-<meta name="description" content="収入: 快適度から 1 時間のクレジットと AP、倉庫が満杯になるまでの時間、ランクアップの費用。家具配置: 床と壁に家具を並べて快適度の合計を確かめ、その快適度がそのまま収入に入ります。公式の家具テンプレート 26 個も読み込めます。">
+<meta name="description" content="収入: 快適度から 1 時間のクレジットと AP、倉庫が満杯になるまでの時間、ランクアップの費用。家具配置: 床と壁に家具を並べて快適度の合計を確かめ、その快適度がそのまま収入に入ります。公式の家具テンプレートも読み込めます。">
 <meta name="theme-color" content="#c8892e">
 <link rel="icon" href="../../favicon.svg" type="image/svg+xml">
 <meta property="og:type" content="website">
@@ -721,13 +721,13 @@
             データは段ごとの数しか持たないので、
             <a href="https://kamigame.jp/bluearchive/page/143084388039553700.html" target="_blank" rel="noopener">神ゲー攻略</a>と
             <a href="https://game8.jp/blue-archive/645032" target="_blank" rel="noopener">ゲームエイト</a>で確かめました）で、
-            <b>25 セットすべて同じ値</b>でした（1 つでも違えばセットごとに持つ形へ直します）。
+            <b><span class="n-sets">—</span> セットすべて同じ値</b>でした（1 つでも違えばセットごとに持つ形へ直します）。
             同時に効く数は <code>ConstCommonExcelTable.CafeSetGroupApplyCount</code> の
             <b><span id="src-setmax-i">—</span></b></li>
           <li>家具 <b><span id="src-furn">—</span> 個</b>とセット名は
             <a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a> の
             <code>furniture</code>。<b>ba-data（<code>DB/</code>）の
-            <code>FurnitureGroupExcelTable</code> も 25 セットで、SchaleDB の 25 セットと
+            <code>FurnitureGroupExcelTable</code> も <span class="n-sets">—</span> セットで、SchaleDB の <span class="n-sets">—</span> セットと
             一致します。</b>以前は <code>Excel/</code> 側（20 セットで止まっています）を
             見ていて、足りない 5 セットに「裏が取れていない」と印を付けていました
             （2026-08-31 に <code>DB/</code> で引き直して解消。裏が取れないセットが
@@ -754,14 +754,14 @@
         <ul>
           <li><b>1 枚で部屋いっぱいに敷く家具の大きさ。</b>
             <a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a> の
-            <code>furniture</code> で <code>SubCategory</code> が <code>Floor</code>（床材）の 26 個のうち
+            <code>furniture</code> で <code>SubCategory</code> が <code>Floor</code>（床材）の <span class="n-floor">—</span> 個のうち
             <b><span id="src-wf">8</span> 個</b>が <code>"Size": [20, 20]</code>、
-            <code>Wallpaper</code>（壁紙）の 26 個のうち <b><span id="src-ww">2</span> 個</b>が
+            <code>Wallpaper</code>（壁紙）の <span class="n-wallp">—</span> 個のうち <b><span id="src-ww">2</span> 個</b>が
             <code>"Size": [20, 7]</code> です。
             <span id="src-wfnm">—</span>
-            <b>1,091 個の家具のうち、縦にも横にも 20 を超えるものは 1 つもありません。</b></li>
-          <li><b>公式の家具テンプレート 26 個を、その枠に置き直せること。</b>
-            <code>DB/FurnitureTemplateElementExcelTable.json</code> の 1,718 行には、
+            <b><span class="n-furn">—</span> 個の家具のうち、縦にも横にも 20 を超えるものは 1 つもありません。</b></li>
+          <li><b>公式の家具テンプレート <span class="n-tpl">—</span> 個を、その枠に置き直せること。</b>
+            <code>DB/FurnitureTemplateElementExcelTable.json</code> の各行には、
             テンプレートごとに家具の <code>PositionX</code> / <code>PositionY</code> /
             <code>Rotation</code> が入っています。<b>座標は家具の中心</b>で、
             幅が奇数のときだけ <code>.5</code> が付きます
@@ -773,12 +773,12 @@
             <b><span id="src-cells">7,221</span> マスが 1 マスもはみ出さず、重なりも 0</b> でした。
             <b>1 つでもはみ出すか重なったら、データを作る側で止まります。</b></li>
           <li><b>床の装飾（カーペット）だけは重ねてよい</b>ことも、そこから分かります。
-            カーペットを検査に入れると重なりが <b>837 マス</b>出ますが、外すと 0 になります。
+            カーペットを検査に入れると重なりが出ますが、外すと 0 になります。
             つまり公式のテンプレートは<b>カーペットの上に家具を置いています</b></li>
           <li><b>どの家具がどの面に行くか</b>は、同じ表の <code>Location</code> 欄
             （<code>Floor</code> / <code>WallLeft</code> / <code>WallRight</code>）から決めました。
-            <b>ベッド・椅子・クローゼット・床の装飾・家電・小物・テーブルは 1,377 行すべてが
-            <code>Floor</code>、壁の装飾は 263 行すべてが壁</b>で、混ざった行は 1 つもありません。
+            <b>ベッド・椅子・クローゼット・床の装飾・家電・小物・テーブルはすべての行が
+            <code>Floor</code>、壁の装飾はすべての行が壁</b>で、混ざった行は 1 つもありません。
             床材・壁紙・背景は<b>どのテンプレートにもちょうど 1 つずつ</b>入っていたので、
             この画面でも 1 つだけ選ぶ形にしています</li>
         </ul>
@@ -789,7 +789,7 @@
           <li>セットボーナスの段は <code>DB/FurnitureGroupExcelTable.json</code> の
             <code>RequiredFurnitureCount = [2, 3, 5, 7]</code> と
             <code>ComfortBonus = [100, 200, 450, 750]</code>。
-            <b>25 セットすべて同じ値</b>でした。同時に効くセット数は
+            <b><span class="n-sets">—</span> セットすべて同じ値</b>でした。同時に効くセット数は
             <code>Excel/ConstCommonExcelTable.json</code> の
             <code>CafeSetGroupApplyCount = <span id="src-setmax">3</span></code></li>
           <li><b>この 4 つは足し上がります。</b>データだけでは「置き換わる」のか
@@ -844,7 +844,7 @@
           「たまたま置いていないマス」なのかはデータから区別できないので、
           <b>欠けは作っていません。</b>
           <b>トロフィー <span id="src-tro">96</span> 個とその他 <span id="src-etc">8</span> 個は
-          盤に載せていません。</b>この 2 種類は公式テンプレート 26 個に 1 度も出てこないので、
+          盤に載せていません。</b>この 2 種類は公式テンプレートに 1 度も出てこないので、
           床なのか壁なのかが確かめられませんでした。快適度の合計にも入れていません。
           家具を「持っているかどうか」も見ていません。<b>全部持っている前提</b>の画面です。</p>
         <p>出典 —
@@ -861,7 +861,7 @@
   </div>
 </div>
 
-<script>window.TOUR = {"key": "cafe-2", "steps": [{"sel": "#sec-tabs", "t": "カフェは 2 つに分けています", "d": "収入: 快適度から 1 時間のクレジットと AP。家具配置: 床と壁に家具を並べて快適度を作ります。入力はこの端末に残ります。"}, {"sel": "#p-cafe", "t": "カフェとランクは共通です", "d": "ここで選んだ店とランクが、収入と家具配置の両方に効きます。2 号店は AP を作りません。"}, {"sel": "#p-in", "pre": ["#tb-sec-inc"], "t": "快適度", "d": "最初は家具配置の合計が入ります（空ならランクの上限）。手で打つとそちらが優先され、「家具配置に合わせる」で戻せます。"}, {"sel": "#o-ch", "pre": ["#tb-sec-inc"], "t": "1 時間あたりが出ます", "d": "放っておくと倉庫が満杯で止まります。"}, {"sel": "#p-up", "pre": ["#tb-sec-inc"], "t": "ランクを 1 つ上げたときの差", "d": "かかるクレジットと、何日で戻ってくるかを出しています。"}, {"sel": "#p-board", "pre": ["#tb-sec-layout"], "t": "家具配置: 床と壁に並べます", "d": "面を選び、マス目を押すと置けます。回すのは「回転」ボタンか R キーです。"}, {"sel": "#p-pick", "pre": ["#tb-sec-layout"], "t": "置く家具はここで選びます", "d": "いま選んでいる面に置けるものだけです。「マス」は快適度を面積で割った値です。"}, {"sel": "#p-tpl", "pre": ["#tb-sec-layout"], "t": "公式のテンプレートを丸ごと読めます", "d": "ゲームが持っている 26 個の並びです。押すと盤に載ります。"}, {"sel": "#o-total", "pre": ["#tb-sec-layout"], "t": "合計快適度", "d": "家具の快適度とセットボーナスの合計です。この数字がそのまま収入に入ります。"}, {"sel": "#furn-ref > summary", "t": "家具とセットの一覧", "d": "快適度・大きさ・マスあたりの一覧と、セットの一覧です。ふだんは畳んであります。"}, {"sel": "#sharebar", "t": "開いている区画ごと URL になります", "d": "リンクを送ると、相手の画面にも同じ結果が出ます。案内を閉じると、開く前の区画に戻ります。"}]};</script>
+<script>window.TOUR = {"key": "cafe-2", "steps": [{"sel": "#sec-tabs", "t": "カフェは 2 つに分けています", "d": "収入: 快適度から 1 時間のクレジットと AP。家具配置: 床と壁に家具を並べて快適度を作ります。入力はこの端末に残ります。"}, {"sel": "#p-cafe", "t": "カフェとランクは共通です", "d": "ここで選んだ店とランクが、収入と家具配置の両方に効きます。2 号店は AP を作りません。"}, {"sel": "#p-in", "pre": ["#tb-sec-inc"], "t": "快適度", "d": "最初は家具配置の合計が入ります（空ならランクの上限）。手で打つとそちらが優先され、「家具配置に合わせる」で戻せます。"}, {"sel": "#o-ch", "pre": ["#tb-sec-inc"], "t": "1 時間あたりが出ます", "d": "放っておくと倉庫が満杯で止まります。"}, {"sel": "#p-up", "pre": ["#tb-sec-inc"], "t": "ランクを 1 つ上げたときの差", "d": "かかるクレジットと、何日で戻ってくるかを出しています。"}, {"sel": "#p-board", "pre": ["#tb-sec-layout"], "t": "家具配置: 床と壁に並べます", "d": "面を選び、マス目を押すと置けます。回すのは「回転」ボタンか R キーです。"}, {"sel": "#p-pick", "pre": ["#tb-sec-layout"], "t": "置く家具はここで選びます", "d": "いま選んでいる面に置けるものだけです。「マス」は快適度を面積で割った値です。"}, {"sel": "#p-tpl", "pre": ["#tb-sec-layout"], "t": "公式のテンプレートを丸ごと読めます", "d": "ゲームが持っている並びです。押すと盤に載ります。"}, {"sel": "#o-total", "pre": ["#tb-sec-layout"], "t": "合計快適度", "d": "家具の快適度とセットボーナスの合計です。この数字がそのまま収入に入ります。"}, {"sel": "#furn-ref > summary", "t": "家具とセットの一覧", "d": "快適度・大きさ・マスあたりの一覧と、セットの一覧です。ふだんは畳んであります。"}, {"sel": "#sharebar", "t": "開いている区画ごと URL になります", "d": "リンクを送ると、相手の画面にも同じ結果が出ます。案内を閉じると、開く前の区画に戻ります。"}]};</script>
 <!-- **元の cafe の `#pane=rank|furn|sets` は、下のタブ 3 枚の名前だった。**いまの `pane=` は区画
      （inc・layout）なので、古い共有リンクをここで読み替える（../remember.js と ../panes.js より前に）。
      rank は収入の区画の中、furn・sets は区画の外の「家具とセットの一覧」（開いておく） -->
@@ -1412,9 +1412,18 @@ window.cafePut = function (key, val) {
     el('src-half').textContent = num(C.half.length);
     el('src-wf').textContent = String(C.wholeFloor.length);
     el('src-ww').textContent = String(C.wholeWall.length);
-    el('src-wfnm').textContent = '20×20 の 8 個は ' +
+    // **件数は手で書かない**（2026-11-16 まで「25 セット」「1,091 個」「26 個」と書いていて、10/28 の更新でずれた）
+    function fillN(cls, n) {
+      document.querySelectorAll('.' + cls).forEach(function (e) { e.textContent = num(n); });
+    }
+    fillN('n-sets', C.sets.length);
+    fillN('n-furn', C.furn.length);
+    fillN('n-tpl', C.tpl.length);
+    fillN('n-floor', C.furn.filter(function (f) { return f.sc === 'Floor'; }).length);
+    fillN('n-wallp', C.furn.filter(function (f) { return f.sc === 'Wallpaper'; }).length);
+    el('src-wfnm').textContent = '20×20 の ' + C.wholeFloor.length + ' 個は ' +
       C.wholeFloor.map(function (id) { return fby[id] ? fby[id].nm : id; }).join('・') +
-      '、20×7 の 2 個は ' +
+      '、20×7 の ' + C.wholeWall.length + ' 個は ' +
       C.wholeWall.map(function (id) { return fby[id] ? fby[id].nm : id; }).join('・') + ' です。';
     el('ver-l').textContent = C.fetched;
 

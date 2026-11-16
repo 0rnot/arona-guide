@@ -3230,6 +3230,11 @@ def build_matchup():
         "dJa": loc.get("DamageAttribute", {}),
         "stu": sorted(stu, key=lambda x: x["id"]),
         "checked": checked,
+        # 固有武器 3 凸で地形適性が上がる段数ごとの人数（説明の丸の i が読む）。
+        # 2026-11-16 まで説明文に「248 人・27 人」と手で書いていて、新しい生徒が増えるたびにずれていた
+        "wup": {str(k): v for k, v in sorted(collections.Counter(
+            (s_.get("Weapon") or {}).get("AdaptationValue") for s_ in students
+            if (s_.get("Weapon") or {}).get("AdaptationValue")).items())},
         "version": "SchaleDB config.json（TypeEffectiveness）／ electricgoat/ba-data jp（BulletArmorDamageFactor・TerrainAdaptationFactor）",
     }, header="/* scripts/build-tool-data.py が吐く。**手で直さない。** */\n")
 
@@ -3686,7 +3691,7 @@ def build_cafe():
         "sets": sets, "furn": fl, "period": period,
         "version": "electricgoat/ba-data jp（CafeProduction・CafeRank・CafeInfo・Recipe・"
                    "RecipeIngredient・FurnitureGroup・ConstCommon／DB の LocalizeEtc・Item）"
-                   "／ SchaleDB jp（家具 1091 個・セット名）",
+                   f"／ SchaleDB jp（家具 {len(fl)} 個・セット名）",
     }, header="/* scripts/build-tool-data.py が吐く。**手で直さない。** */\n")
 
 
@@ -6625,6 +6630,11 @@ def build_tl():
                 continue
             g = ground.get(r.get("GroundId")) or {}
             env = g.get("StageTopography")
+            # **2026-10-28 の更新から配列になった**（`["Street"]`。4,639 行すべて）。
+            # 文字列のまま足して TypeError で落ち、tool-data が 10/28〜11/15 の 19 日間
+            # 全ツールぶん止まっていた。地形が 2 つ以上入った行はまだ無いので先頭を使う
+            if isinstance(env, list):
+                env = env[0] if env else None
             # **枝の名前は「素の名前＋地形」に揃える。**総力戦の `Binah` と
             # 大決戦の `Binah_Outdoor` は同じ枝
             key = _grp_base(g0) + ("_" + env if env else "")
@@ -8873,8 +8883,20 @@ BUILDERS = {"bond": build_bond, "teacher-level": build_teacher_level,
 if __name__ == "__main__":
     want = sys.argv[1:] or list(BUILDERS)
     changed = False
+    # **1 本が落ちても残りは作る。** 2026-10-28〜11-15 の 19 日間、TL（開発停止中）の
+    # 1 か所の TypeError で後ろの lag・pvp-ladder・ui を含む全ツールの commit が止まっていた。
+    # 落ちたものは最後に並べて終了コード 1 を返す（workflow は commit してから赤くする）
+    import traceback
+    failed = []
     for w in want:
         if w not in BUILDERS:
             raise SystemExit(f"知らない対象: {w}（{', '.join(BUILDERS)}）")
-        changed |= bool(BUILDERS[w]())
+        try:
+            changed |= bool(BUILDERS[w]())
+        except Exception:
+            traceback.print_exc()
+            failed.append(w)
+            print(f"::error::build-tool-data: {w} が落ちました（他は続けます）", flush=True)
     print("変化あり" if changed else "変化なし")
+    if failed:
+        raise SystemExit(f"落ちたもの: {', '.join(failed)}")

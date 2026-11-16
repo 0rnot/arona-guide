@@ -66,9 +66,9 @@
   var MAIN_MAX = 6, SUP_MAX = 4;
 
   /** 固有武器 ★4 で、スペシャル 1 人につきコストの上限が ＋0.5。
-      **データにはまだ無い。**`CharacterWeaponExcelTable` の `Unlock` が
-      `[true, true, true, false, false]` のままで、★4 の枠に値が入っていない
-      （ba-data の jp・global どちらも 2026-08-30 時点でそう）。
+      **＋0.5 という値はデータに無い。**`DB/CharacterWeaponExcelTable` の `Unlock` は
+      2026-11-16 時点で 281 人全員 `[true, true, true, true, false]`（★4 は開放済み）だが、
+      4 段目の StatType は `EnhanceExplosionRate_Base` などで、コスト上限に当たる欄が無い。
       値は 2025 年 7 月 19 日の告知から取っている。 */
   var W4_CAP = 0.5;
 
