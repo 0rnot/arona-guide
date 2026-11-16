@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>AronaBotの使い方</title>
+<title>AronaBot｜ブルアカの Discord ボット（イベント自動登録・10連ガチャ）</title>
 <meta name="description" content="あなたのサーバーを、シッテムの箱に。ブルーアーカイブの公式 X を見張って、開催の予定を Discord のイベントに自動で登録します。更新の通知、総力戦の調べもの、リマインダーもできます。">
 <meta name="theme-color" content="#c8892e">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
@@ -19,7 +19,12 @@
 <!-- **ドメインを変えたらここも直すこと。** OGP の画像は絶対 URL でしか指定できず、クローラは JS を動かさないので、自動で追随させる手段が無い。 -->
 <meta property="og:image" content="https://arona-bot.com/images/hero-day.jpg">
 <meta name="twitter:card" content="summary_large_image">
-<link rel="stylesheet" href="style.css?v=25">
+<link rel="canonical" href="https://arona-bot.com/">
+<!-- 検索結果に「Discord のアプリ」として出すための構造化データ（2026-11-16）。値は本文と揃える -->
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"SoftwareApplication","name":"AronaBot","url":"https://arona-bot.com/","applicationCategory":"GameApplication","operatingSystem":"Discord","inLanguage":"ja","description":"ブルーアーカイブの公式 X を見張って、総力戦・大決戦・合同火力演習・ピックアップ募集の予定を Discord のサーバーイベントに自動で登録するボット。本物どおりの10連ガチャ、更新通知、総力戦のボーダーも。","offers":{"@type":"Offer","price":"0","priceCurrency":"JPY"}}
+</script>
+<link rel="stylesheet" href="style.css?v=26">
 </head>
 <body>
 
@@ -74,6 +79,8 @@
       <b data-stat="guildCount">—</b> サーバー・<b data-stat="memberTotal">—</b> 人が使っています
     </p>
     <a class="cta" href="https://api.arona-bot.com/i/top" target="_blank" rel="noopener">サーバーに招待する</a>
+    <!-- 管理者でない人の入口（ユーザーインストール、2026-11-16）。/g /st /h がどこでも使える -->
+    <p class="cta-alt"><a href="https://api.arona-bot.com/u/top" target="_blank" rel="noopener">管理者でなければ、自分のアカウントに追加</a></p>
     <nav class="toc">
       <!-- **上部バーと同じ並びにする。** 節の間に混ぜると「使い方の一節」に見えるし、バーとここで順番が違うのも落ち着かない（2026-08-30 の先生の指摘） -->
       <a class="toc-tools" href="tools/">
@@ -386,6 +393,7 @@
     <p class="invite-lead">アロナをあなたのサーバーにも</p>
     <a class="cta cta-lg" href="https://api.arona-bot.com/i/bottom" target="_blank" rel="noopener">サーバーに招待する</a>
     <p class="invite-sub">追加しただけでは何も投稿しません。設定はあとから <code>/settings</code> で。</p>
+    <p class="cta-alt"><a href="https://api.arona-bot.com/u/bottom" target="_blank" rel="noopener">管理者でなければ、自分のアカウントに追加</a></p>
   </section>
 
 </main>

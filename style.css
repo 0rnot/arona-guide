@@ -303,6 +303,10 @@ h1 {
 
 .cta-lg { padding: 1em 2.6em; font-size: 1.05rem; }
 
+/* 「サーバーに招待する」の下の控えめな入口（ユーザーインストール）。ボタンを 2 つ並べると主従が消えるので文字リンクにする */
+.cta-alt { margin: .9em 0 0; font-size: .9rem; color: var(--fg-mute); }
+.cta-alt a { color: var(--accent-tx); font-weight: 700; }
+
 .toc {
   display: flex;
   flex-wrap: wrap;
