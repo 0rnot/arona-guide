@@ -20,11 +20,6 @@ on:
 permissions:
   contents: write
 
-# 同じ workflow を 2 本同時に走らせない（後から来たほうは前のが終わるまで待つ）
-concurrency:
-  group: tool-data
-  cancel-in-progress: false
-
 concurrency:
   group: tool-data
   cancel-in-progress: false
