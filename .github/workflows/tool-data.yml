@@ -20,6 +20,11 @@ on:
 permissions:
   contents: write
 
+# 同じ workflow を 2 本同時に走らせない（後から来たほうは前のが終わるまで待つ）
+concurrency:
+  group: tool-data
+  cancel-in-progress: false
+
 concurrency:
   group: tool-data
   cancel-in-progress: false
@@ -60,6 +65,9 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add tools/
           git commit -m "tool-data: ゲームのデータを取り直した"
+          # stats.yml（6 時間おき）や手で回した同じ workflow と押し合うと push が弾かれる
+          # （2026-11-16 に push 契機と手動の 2 本が重なって片方が落ちた）。重ねてから push
+          git pull --rebase --quiet
           git push
 
       - name: 落ちたものがあれば失敗にする
