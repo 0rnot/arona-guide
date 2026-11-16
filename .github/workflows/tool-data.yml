@@ -50,6 +50,13 @@ jobs:
         continue-on-error: true
         run: python3 scripts/build-tool-data.py
 
+      # **データの形の見張り**（2026-11-16）。欄の増減・型の変化・列挙の値の増減を
+      # scripts/schema-changes.md に書き足す。クラウドの毎日の利用レポートがその先頭を読んで知らせる。
+      # 落ちても data.js の commit は止めない（見張りは見張りでしかない）
+      - name: データの形の見張り
+        continue-on-error: true
+        run: python3 scripts/schema-guard.py
+
       # Discord の Arona（Java）が読む JPEG 版。**ImageIO は WebP を読めない**ので
       # 同じ絵を 1 組だけ別形式で置いておく。理由は build-discord-icons.py の冒頭。
       - name: Discord 用アイコン（JPEG）
@@ -57,13 +64,14 @@ jobs:
 
       - name: 変わっていれば commit
         run: |
-          if git diff --quiet -- tools/ && [ -z "$(git status --porcelain tools/)" ]; then
+          if git diff --quiet -- tools/ scripts/schema.json scripts/schema-changes.md && [ -z "$(git status --porcelain tools/ scripts/schema.json scripts/schema-changes.md)" ]; then
             echo "変化なし"
             exit 0
           fi
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add tools/
+          git add tools/ scripts/schema.json
+          [ -f scripts/schema-changes.md ] && git add scripts/schema-changes.md
           git commit -m "tool-data: ゲームのデータを取り直した"
           # stats.yml（6 時間おき）や手で回した同じ workflow と押し合うと push が弾かれる
           # （2026-11-16 に push 契機と手動の 2 本が重なって片方が落ちた）。重ねてから push
