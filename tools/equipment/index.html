@@ -845,7 +845,7 @@
 
         <p><b>ステージとドロップは SchaleDB の本番データそのままです。</b>
           <code>stages.min.json</code> の <code>Category: "Campaign"</code> のうち、
-          任務（<code>Id</code> の 5 桁目が 1）だけを取っています。ノーマル <span id="src-normal">—</span> 本・
+          任務（<code>Id</code> の 5 桁目が 1）で、設計図が 1 枚でも出るステージだけを取っています。ノーマル <span id="src-normal">—</span> 本・
           ハードを合わせて <span id="src-stages">—</span> 本。
           1 周あたりの期待枚数は <code>Amount ×  Chance</code>（<code>AmountMin</code> /
           <code>AmountMax</code> があるときはその中間）で、
@@ -889,7 +889,7 @@
           確かめました。<b>ハードに出る 1 周あたりの期待枚数は 16 通りしかなく、
           その 16 通りは、ノーマルに出る 16 通りをちょうど 2 倍にしたものと過不足なく
           同じです</b>（万能設計図も 18 通り対 18 通りで同じ。AP も 10 → 20）。
-          たとえばネックレス T10 は、ノーマル 0.344 に対してハード 0.688 です（2026-08-30）。</p>
+          たとえばネックレス T10 は、ノーマル 29-1 の 0.258 に対してハード 29-2 の 0.516 です（2026-11-17）。</p>
 
         <p>出典 — <a href="https://schaledb.com/" target="_blank" rel="noopener">SchaleDB</a>、
           <a href="https://github.com/electricgoat/ba-data" target="_blank" rel="noopener">electricgoat/ba-data</a>、
@@ -1070,7 +1070,7 @@
 </footer>
 
 <script src="data.js"></script>
-<script src="equip.js?v=2"></script>
+<script src="equip.js?v=3"></script>
 <script src="data-level.js"></script>
 <script src="level.js"></script>
 <script src="data-stats.js"></script>

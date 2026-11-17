@@ -428,7 +428,7 @@
     el('stages').innerHTML =
       '<p class="lead">点数の高い順です。<button type="button" class="qm" data-hint="点数は「1周でどれだけ満足度が上がるか」で、APでは割っていません。APあたりで見たいときは右の列を見てください。"></button></p>' +
       (useHard ? '<div class="note-box" style="margin:0 0 12px"><b>ハードは点数だけで並べると上に来ます。</b>' +
-        '<button type="button" class="qm" data-hint="ハードはAPが2倍で、1日に入れる回数も決まっています（回数はゲームのデータに無いためここには書きません）。「1 APあたり」の列と見比べてください。"></button></div>' : '') +
+        '<button type="button" class="qm" data-hint="ハードはAPが2倍で、1日に入れる回数も決まっています（回数はこのツールが読んでいる表に無いためここには書きません）。「1 APあたり」の列と見比べてください。"></button></div>' : '') +
       '<div class="tscroll"><table class="dt"><thead><tr><th>ステージ</th><th>難易度</th>' +
       '<th>AP</th><th>点数</th><th>1 AP あたり</th><th>いちばんの目当て</th></tr></thead><tbody>' +
       list.slice(0, 12).map(function (r, i) {
