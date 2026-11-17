@@ -2839,6 +2839,18 @@ def build_raid_score():
         if not (IMG / f"{r['ic']}.webp").exists():
             raise SystemExit(f"ボスの絵が無い: {base}")
 
+    # **難易度の表示名は、行の `d` と同じ綴りの鍵で持つ。**SchaleDB の
+    # `RaidDifficulty` は `HardCore`、ba-data の行は `Hardcore` で大文字が割れていて、
+    # そのままだとページの `diffJa[r.d]` が外れて英字の素通しに落ちていた
+    # （値も英字なので見た目は同じだったが、日本語化されたら気づけない）。
+    # 大小を無視して引き当て、行に出る難易度だけを残す
+    loc_diff = {k.lower(): v for k, v in (loc.get("RaidDifficulty") or {}).items()}
+    diff_ja = {}
+    for d in sorted({r["d"] for r in rows_out}):
+        if d.lower() not in loc_diff:
+            raise SystemExit(f"難易度の表示名が引けない: {d}")
+        diff_ja[d] = loc_diff[d.lower()]
+
     print(f"  {len(all_rows)} 行（総力戦 {len(rows(stages, 'raid'))} ／ 大決戦 {len(rows(elim, 'elim'))}）、"
           f"時間ぶんが尽きるのは {span} 秒、絵 {n} 枚を追加")
 
@@ -2847,7 +2859,7 @@ def build_raid_score():
         # **地形と装甲はスコアに効かない**ので持たない。総力戦にも大決戦にも
         # 「ボス_地形_装甲」の行があるが、同じボス・同じ難易度なら中身は 1 種類だった
         "kinds": {"raid": "総力戦", "elim": "大決戦"},
-        "diffJa": loc.get("RaidDifficulty", {}),
+        "diffJa": diff_ja,
         "version": "electricgoat/ba-data jp（RaidStage・EliminateRaidStage）／ SchaleDB jp（ボスの名前と絵）",
     }, header="/* scripts/build-tool-data.py が吐く。**手で直さない。** */\n")
 
