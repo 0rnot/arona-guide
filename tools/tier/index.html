@@ -701,7 +701,16 @@
     el('held-name').textContent = S[held].n;
   }
 
-  function draw() { drawTiers(); drawPool(); drawHeld(); save(); }
+  /* **段は色の数（7 段、S〜F）までしか足せない。**8 段目からは色が尽きて灰色が並び、
+     上下が読めなくなる（27 段目では名前も `[` になっていた）。色を巡回させないのは、
+     赤 → 灰の並びで上下を読ませているから。前に共有された 8 段以上の表は
+     normState がそのまま読むので、上限は「足す」ボタンにだけ掛ける（2026-11-17） */
+  function drawAddRow() {
+    var full = rows.length >= COLORS.length;
+    el('add-row').disabled = full;
+    el('add-row').title = full ? '段は ' + COLORS.length + ' つまでです' : '';
+  }
+  function draw() { drawTiers(); drawPool(); drawHeld(); drawAddRow(); save(); }
 
   // ---- 置く・戻す
   function removeFrom(id) {
@@ -850,6 +859,7 @@
     // **既定は S・A・B・C・D の 5 段。**そこから足すなら E・F・G…と続くはずだが、
     // 69（'E'）+ rows.length − 4 だと最初の 1 回で 70（'F'）に飛び、E が出ない
     // まま欠番になっていた（2026-08-31 に実測して直した）。
+    if (rows.length >= COLORS.length) return;
     rows.push({ n: String.fromCharCode(64 + rows.length), ids: [] });
     draw();
   });
