@@ -682,8 +682,16 @@
 
   function pct(x) { return (x * 100).toFixed(x >= 0.995 ? 0 : 1).replace(/\.0$/, '') + '%'; }
 
+  /* **解き直すのは入力が変わったときだけ。**draw() はマスを指すたびにも
+     呼ばれる（届きうる範囲の枠を出すため）が、そのとき変わるのは枠だけで、
+     備品と印は同じ。毎回 solve() を回していたので、置き方の多い盤では
+     ポインタを滑らせるだけで重かった。狙いの印（want）は solve に渡らないので鍵に入れない */
+  var solvedKey = null;
   function draw() {
-    var res = T.solve(items.map(function (it) { return { w: it.w, h: it.h, count: it.count }; }), marks);
+    var spec = items.map(function (it) { return { w: it.w, h: it.h, count: it.count }; });
+    var key = JSON.stringify([spec, marks]);
+    var res = key === solvedKey ? last : T.solve(spec, marks);
+    solvedKey = key;
     last = res;
     var K = items.length;
     var bad = !res || res.total <= 0;
