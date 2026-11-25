@@ -32,6 +32,17 @@
    前向きの数え上げ g と後ろ向きの数え上げ f を両方作る。
    「備品 k をここに置く」という枝の重みは g[手前] × f[置いた後]。
    これをその備品が覆うマスすべてに足し、総数で割る。厳密な確率。
+
+   ## 「どれか 1 マスは見えている」という縛り（opt.need）
+
+   確定オープン（2026-11-25 のイベントから）は「未発見の宝物の中から小さいもの」を
+   開ける。だから確定で備品 k が出たなら、k より小さい備品はどれも、そのとき既に
+   1 マス以上見えていたことになる。**今見えているマスはそのときの上積みなので、
+   「今見えているマスのどれかを覆う」は、入力の順番を問わず必ず成り立つ。**
+
+   これは置き方 1 つ（備品 1 個）ごとの条件なので、枝を作るところで落とすだけで済む。
+   状態も DP も変わらない。need[k] は備品 k の各個が覆うべきマスの番号の配列
+   （空配列なら、その備品は 1 個も置けない）。null なら縛り無し。
    ------------------------------------------------------------ */
 (function (root) {
   'use strict';
@@ -50,9 +61,17 @@
   /**
    * @param items [{w,h,count}] 1〜3 種類
    * @param board 長さ 45 (col*H+row)。UNKNOWN / EMPTY / 0..K-1
+   * @param opt   省略可。{need: [K 個の (マス番号の配列 | null)]}
    * @returns {total, prob:Float64Array(N*K), empty:Float64Array(N), error}
    */
-  function solve(items, board) {
+  function solve(items, board, opt) {
+    var need = (opt && opt.need) || [];
+    var needSet = items.map(function (_, k) {
+      if (!need[k]) return null;
+      var m = new Uint8Array(N);
+      need[k].forEach(function (x) { m[x] = 1; });
+      return m;
+    });
     var K = items.length;
     if (!K) return { total: 0, error: '備品が 1 つも指定されていません。' };
 
@@ -98,6 +117,10 @@
               if (v !== UNKNOWN && v !== k) { ok = false; break; }
               cells.push(idx);
             }
+          }
+          if (ok && needSet[k]) {
+            ok = false;
+            for (var ni = 0; ni < cells.length; ni++) if (needSet[k][cells[ni]]) { ok = true; break; }
           }
           if (ok) list.push({ k: k, aw: aw, ah: ah, cells: cells, dp: ah });
         }

@@ -1644,7 +1644,7 @@ def build_treasure():
             out.append(rec)
         return out
     # 同じ EventContentId が何行も出るので、開催期間は 1 つに畳む
-    period, origin = {}, {}
+    period, origin, sname = {}, {}, {}
     for r in season:
         eid = r.get("EventContentId")
         if eid is not None and eid not in period:
@@ -1652,6 +1652,9 @@ def build_treasure():
                            r.get("ExtensionTime") or r.get("EventContentCloseTime", ""))
             # **復刻は元のイベント名で呼ぶ。**10847 → 847 のように親が入っている
             origin[eid] = r.get("OriginalEventContentId")
+            # `Event_Name_865` のような鍵。**SchaleDB の EventName は新イベントに数日遅れる**
+            # （2026-11-25 に 865 が「宝探し」という名前で出ていた）ので、ba-data の訳で埋める
+            sname[eid] = r.get("Name") or ""
 
     events = []
     for e in tre:
@@ -1683,15 +1686,24 @@ def build_treasure():
         if not nm:
             src = origin.get(eid)
             base = names.get(str(src)) or names.get(src) if src and src != eid else None
-            nm = (base + "（復刻）") if base else jp(e.get("TitleLocalize", ""), f"イベント {eid}")
-        events.append({
+            nm = (base + "（復刻）") if base else (
+                (sname.get(eid) and jp(sname[eid])) or
+                jp(e.get("TitleLocalize", ""), f"イベント {eid}"))
+        ev = {
             "id": eid,
             "n": nm,
             "open": op, "close": cl,
             "loop": e.get("LoopRound", len(out)),
             "w": size[0], "h": size[1],
             "rounds": out,
-        })
+        }
+        # **確定オープン**（865「踊らされし芸術」から。2026-11-25 に足した）。
+        # 公式のお知らせ（news 718）: 何もないマスをめくるたびに「確定オープン数」が 1 増え、
+        # 1 と印章を払うと「未発見の宝物の中から小さいもの」のマスが開く。盤を更新すると 0 に戻る。
+        # `CertainOpenChargeCount` は 1 回に払う数として読む（今は 1 しか無いのでどちらでも同じ）
+        if e.get("IsCertainOpen"):
+            ev["co"] = rs[0].get("CertainOpenChargeCount") or 1
+        events.append(ev)
     # **新しいものから並べる。**ページ側は「今開いているもの」を既定にする
     events.sort(key=lambda x: (x["open"], x["id"]), reverse=True)
     if not events:
