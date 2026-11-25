@@ -2,6 +2,22 @@
 
 新しいものが上。`scripts/schema-guard.py` が書く。**変化を見たら、その表を読む builder と画面を確かめる。**
 
+## 2026-11-25
+
+- **DB/EventContentSeasonExcelTable**
+  - 値が増えた `.DataList[].EventContentReleaseType`: PermanentMiniGame
+  - 値が増えた `.DataList[].OpenConditionContent`: None
+- **DB/EventContentTreasureExcelTable**
+  - 欄が増えた `.DataList[].IsCertainOpen`（bool）
+  - 値が増えた `.DataList[].UsePrefabName`: UIEventTreasureShop_865
+- **DB/EventContentTreasureRoundExcelTable**
+  - 欄が増えた `.DataList[].CertainOpenChargeCount`（int）
+  - 欄が増えた `.DataList[].CertainOpenGoodsId`（int）
+- **DB/GoodsExcelTable**
+  - 値が消えた `.DataList[].ConsumeGachaTicketType[]`: PackageThreeStar_R97_Explosion, PackageThreeStar_R97_Mystic, PackageThreeStar_R97_Pierce, PackageThreeStar_R97_Sonic
+- **DB/ShopRefreshExcelTable**
+  - 欄が増えた `.DataList[].DiscountRatio`（int）
+
 ## 2026-11-16（ba-data 10/21 版 → 11/11 版。見張りを入れた日に、10/28・11/11 の 2 回分をまとめて比べた）
 
 - **DB/EliminateRaidStageExcelTable**

@@ -3336,6 +3336,7 @@
 "None",
 "Permanent",
 "PermanentConquest",
+"PermanentMiniGame",
 "PermanentSpecialOperate"
 ],
 "t": [
@@ -3497,7 +3498,8 @@
 "MiniGameCCG",
 "MiniGameTank",
 "MinigameDreamMaker",
-"MinigameJanken"
+"MinigameJanken",
+"None"
 ],
 "t": [
 "str"
@@ -3596,6 +3598,12 @@
 "int"
 ]
 },
+".DataList[].IsCertainOpen": {
+"e": null,
+"t": [
+"bool"
+]
+},
 ".DataList[].LoopRound": {
 "e": null,
 "t": [
@@ -3623,7 +3631,8 @@
 "UIEventTreasureShop_840",
 "UIEventTreasureShop_842",
 "UIEventTreasureShop_847",
-"UIEventTreasureShop_861"
+"UIEventTreasureShop_861",
+"UIEventTreasureShop_865"
 ],
 "t": [
 "str"
@@ -3680,43 +3689,7 @@
 ]
 },
 ".DataList[].LocalizeCodeID": {
-"e": [
-"Event_Treasure_60000_02",
-"Event_Treasure_60000_03",
-"Event_Treasure_60000_04",
-"Event_Treasure_60000_05",
-"Event_Treasure_60000_06",
-"Event_Treasure_60000_07",
-"Event_Treasure_60000_08",
-"Event_Treasure_840_02",
-"Event_Treasure_840_03",
-"Event_Treasure_840_04",
-"Event_Treasure_840_05",
-"Event_Treasure_840_06",
-"Event_Treasure_840_07",
-"Event_Treasure_840_08",
-"Event_Treasure_842_01",
-"Event_Treasure_842_02",
-"Event_Treasure_842_03",
-"Event_Treasure_842_04",
-"Event_Treasure_842_05",
-"Event_Treasure_842_06",
-"Event_Treasure_842_07",
-"Event_Treasure_847_01",
-"Event_Treasure_847_02",
-"Event_Treasure_847_03",
-"Event_Treasure_847_04",
-"Event_Treasure_847_05",
-"Event_Treasure_847_06",
-"Event_Treasure_847_07",
-"Event_Treasure_861_01",
-"Event_Treasure_861_02",
-"Event_Treasure_861_03",
-"Event_Treasure_861_04",
-"Event_Treasure_861_05",
-"Event_Treasure_861_06",
-"Event_Treasure_861_07"
-],
+"e": null,
 "t": [
 "str"
 ]
@@ -3808,6 +3781,18 @@
 "e": null,
 "t": [
 "bool"
+]
+},
+".DataList[].CertainOpenChargeCount": {
+"e": null,
+"t": [
+"int"
+]
+},
+".DataList[].CertainOpenGoodsId": {
+"e": null,
+"t": [
+"int"
 ]
 },
 ".DataList[].EventContentId": {
@@ -4305,10 +4290,6 @@
 "Normal",
 "NormalOnce",
 "PackageThreeStar",
-"PackageThreeStar_R97_Explosion",
-"PackageThreeStar_R97_Mystic",
-"PackageThreeStar_R97_Pierce",
-"PackageThreeStar_R97_Sonic",
 "PackageUnownedThreeStar",
 "SelectPickupOnce",
 "ThreeStar"
@@ -6855,6 +6836,12 @@
 ],
 "t": [
 "str"
+]
+},
+".DataList[].DiscountRatio": {
+"e": null,
+"t": [
+"int"
 ]
 },
 ".DataList[].DisplayOrder": {
