@@ -9319,32 +9319,15 @@
 "int"
 ]
 },
-".Regions[].CurrentRaid[].season": {
-"e": null,
-"t": [
-"int"
-]
-},
 ".Regions[].CurrentRaid[].start": {
 "e": null,
 "t": [
 "int"
 ]
 },
-".Regions[].CurrentRaid[].terrain": {
-"e": [
-"Indoor",
-"Street"
-],
-"t": [
-"str"
-]
-},
 ".Regions[].CurrentRaid[].type": {
 "e": [
-"EliminateRaid",
 "MultiFloorRaid",
-"Raid",
 "TimeAttack"
 ],
 "t": [
@@ -53738,6 +53721,12 @@
 "str"
 ]
 },
+".Club.AssemblyOfArts": {
+"e": null,
+"t": [
+"str"
+]
+},
 ".Club.BlackTortoisePromenade": {
 "e": null,
 "t": [
@@ -74629,6 +74618,46 @@
 "str"
 ]
 },
+".RaidSkills.Perorozilla01LunaticEx03": {
+"e": null,
+"t": [
+"obj"
+]
+},
+".RaidSkills.Perorozilla01LunaticEx03.ATGCost": {
+"e": null,
+"t": [
+"int"
+]
+},
+".RaidSkills.Perorozilla01LunaticEx03.Desc": {
+"e": null,
+"t": [
+"str"
+]
+},
+".RaidSkills.Perorozilla01LunaticEx03.Icon": {
+"e": [
+"SKILLICON_PEROROZILLA_EXSKILL03"
+],
+"t": [
+"str"
+]
+},
+".RaidSkills.Perorozilla01LunaticEx03.Name": {
+"e": null,
+"t": [
+"str"
+]
+},
+".RaidSkills.Perorozilla01LunaticEx03.SkillType": {
+"e": [
+"Ex"
+],
+"t": [
+"str"
+]
+},
 ".RaidSkills.Perorozilla01LunaticEx09": {
 "e": null,
 "t": [
@@ -74742,6 +74771,46 @@
 ]
 },
 ".RaidSkills.Perorozilla01TormentEx01.SkillType": {
+"e": [
+"Ex"
+],
+"t": [
+"str"
+]
+},
+".RaidSkills.Perorozilla01TormentEx03": {
+"e": null,
+"t": [
+"obj"
+]
+},
+".RaidSkills.Perorozilla01TormentEx03.ATGCost": {
+"e": null,
+"t": [
+"int"
+]
+},
+".RaidSkills.Perorozilla01TormentEx03.Desc": {
+"e": null,
+"t": [
+"str"
+]
+},
+".RaidSkills.Perorozilla01TormentEx03.Icon": {
+"e": [
+"SKILLICON_PEROROZILLA_EXSKILL03"
+],
+"t": [
+"str"
+]
+},
+".RaidSkills.Perorozilla01TormentEx03.Name": {
+"e": null,
+"t": [
+"str"
+]
+},
+".RaidSkills.Perorozilla01TormentEx03.SkillType": {
 "e": [
 "Ex"
 ],

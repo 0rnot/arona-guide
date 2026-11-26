@@ -2,6 +2,28 @@
 
 新しいものが上。`scripts/schema-guard.py` が書く。**変化を見たら、その表を読む builder と画面を確かめる。**
 
+## 2026-11-26
+
+- **SchaleDB/localization**
+  - 欄が増えた `.Club.AssemblyOfArts`（str）
+- **SchaleDB/raids**
+  - 欄が増えた `.RaidSkills.Perorozilla01LunaticEx03`（obj）
+  - 欄が増えた `.RaidSkills.Perorozilla01LunaticEx03.ATGCost`（int）
+  - 欄が増えた `.RaidSkills.Perorozilla01LunaticEx03.Desc`（str）
+  - 欄が増えた `.RaidSkills.Perorozilla01LunaticEx03.Icon`（str）
+  - 欄が増えた `.RaidSkills.Perorozilla01LunaticEx03.Name`（str）
+  - 欄が増えた `.RaidSkills.Perorozilla01LunaticEx03.SkillType`（str）
+  - 欄が増えた `.RaidSkills.Perorozilla01TormentEx03`（obj）
+  - 欄が増えた `.RaidSkills.Perorozilla01TormentEx03.ATGCost`（int）
+  - 欄が増えた `.RaidSkills.Perorozilla01TormentEx03.Desc`（str）
+  - 欄が増えた `.RaidSkills.Perorozilla01TormentEx03.Icon`（str）
+  - 欄が増えた `.RaidSkills.Perorozilla01TormentEx03.Name`（str）
+  - 欄が増えた `.RaidSkills.Perorozilla01TormentEx03.SkillType`（str）
+- **SchaleDB/config**
+  - 欄が消えた `.Regions[].CurrentRaid[].season`
+  - 欄が消えた `.Regions[].CurrentRaid[].terrain`
+  - 値が消えた `.Regions[].CurrentRaid[].type`: EliminateRaid, Raid
+
 ## 2026-11-25
 
 - **DB/EventContentSeasonExcelTable**
